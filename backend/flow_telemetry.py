@@ -22,12 +22,13 @@ import time
 from typing import Any, Dict, Optional
 
 from core.logging import get_logger
+from core.profile_context import get_current_profile
 
 log = get_logger(__name__)
 
-# flow_id -> {"started_monotonic": float, "failed_emitted": bool,
-#               "completed_emitted": bool}
-_run_state: Dict[int, Dict[str, Any]] = {}
+# (profile_id, flow_id) -> {"started_monotonic": float,
+#                           "failed_emitted": bool, "completed_emitted": bool}
+_run_state: Dict[tuple[str, int], Dict[str, Any]] = {}
 
 # Statuses that count as "settled work" for the done check.
 _DONE_STATUSES = {"completed", "skipped"}
@@ -38,9 +39,13 @@ def _flow_hash(flow_id: int) -> str:
     return salted_hash(f"flow:{flow_id}")
 
 
+def _profile_flow_key(flow_id: int) -> tuple[str, int]:
+    return (get_current_profile(), flow_id)
+
+
 def note_started(flow_id: int) -> None:
     """Record a run start/resume — resets the once-per-run outcome flags."""
-    _run_state[flow_id] = {
+    _run_state[_profile_flow_key(flow_id)] = {
         "started_monotonic": time.monotonic(),
         "failed_emitted": False,
         "completed_emitted": False,
@@ -48,7 +53,7 @@ def note_started(flow_id: int) -> None:
 
 
 def note_stopped(flow_id: int) -> None:
-    _run_state.pop(flow_id, None)
+    _run_state.pop(_profile_flow_key(flow_id), None)
 
 
 def _counts_from_runtime(flow_id: int) -> Dict[str, int]:
@@ -114,7 +119,7 @@ def on_runtime_broadcast(event: str, payload: Dict[str, Any]) -> None:
         if event != "flow_equation_updated":
             return
 
-        state = _run_state.get(flow_id)
+        state = _run_state.get(_profile_flow_key(flow_id))
         if state is None:
             return  # not a run this process started/resumed — no outcome to attribute
 

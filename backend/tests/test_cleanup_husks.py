@@ -21,8 +21,14 @@ from database import (
     Flow,
     LLMTrace,
 )
-from flow_runtime.directory import create_flow_directory, get_empty_flow_program
+from flow_runtime.directory import (
+    create_flow_directory,
+    get_empty_flow_program,
+    is_empty_flow_program,
+)
 from flow_runtime.paths import get_flow_program_path
+from core.profile_context import ProfileScope
+import flow_registry
 from asset_service import create_asset_from_media
 from tests.helpers.media import create_test_media
 
@@ -233,6 +239,50 @@ class TestReapEmptyHusks:
             await CleanupService().cleanup_empty_unnamed_entities(session)
 
         assert not get_flow_program_path(flow_id).parent.exists()
+
+    async def test_reaping_same_id_is_isolated_by_profile(self, db_session):
+        """A husk in profile B cannot touch profile A's dir or live runtime."""
+        async with db_session() as session:
+            flow = Flow(name="", created_at=OLD, updated_at=OLD)
+            session.add(flow)
+            await session.flush()
+            flow_id = flow.id
+
+            with ProfileScope("profile-a"):
+                create_flow_directory(flow_id)
+                get_flow_program_path(flow_id).write_text("# profile A's live flow\n")
+
+            with ProfileScope("profile-b"):
+                create_flow_directory(flow_id)
+                assert is_empty_flow_program(get_flow_program_path(flow_id).read_text())
+            await session.commit()
+
+        class RuntimeStub:
+            stopped = False
+
+            async def stop(self):
+                self.stopped = True
+
+        runtime_a = RuntimeStub()
+        flow_registry.reset()
+        try:
+            with ProfileScope("profile-a"):
+                flow_registry.register(flow_id, runtime_a)
+
+            with ProfileScope("profile-b"):
+                async with db_session() as session:
+                    reaped = await CleanupService().cleanup_empty_unnamed_entities(session)
+
+            assert flow_id in reaped["flows"]
+            with ProfileScope("profile-b"):
+                assert not get_flow_program_path(flow_id).parent.exists()
+                assert flow_registry.get_runtime(flow_id) is None
+            with ProfileScope("profile-a"):
+                assert get_flow_program_path(flow_id).read_text() == "# profile A's live flow\n"
+                assert flow_registry.get_runtime(flow_id) is runtime_a
+            assert runtime_a.stopped is False
+        finally:
+            flow_registry.reset()
 
 
 async def _row_gone(db_session, model, row_id) -> bool:

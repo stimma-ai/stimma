@@ -1,73 +1,103 @@
-"""Legacy recipes/ -> flows/ on-disk data-dir migration.
-
-The recipe→flow rename moved the DB table (alembic) but not the on-disk flow
-data. ``flow_runtime.paths`` migrates ``<data_dir>/recipes`` to ``flows`` so
-existing flows find their ``program.py`` / ``state.db`` after the rename.
-"""
+"""Profile-scoped flow paths and legacy on-disk migration."""
 
 from __future__ import annotations
 
 import app_dirs
+from core.profile_context import ProfileScope
 from flow_runtime.paths import get_flows_root, migrate_legacy_flow_dirs
 
 
-def _seed_recipes(data_dir, *flow_ids):
-    recipes = data_dir / "recipes"
+def _seed_legacy_root(data_dir, name, *flow_ids):
+    root = data_dir / name
     for fid in flow_ids:
-        d = recipes / str(fid)
-        d.mkdir(parents=True)
-        (d / "program.py").write_text(f"# flow {fid}\n")
-    return recipes
+        flow_dir = root / str(fid)
+        flow_dir.mkdir(parents=True)
+        (flow_dir / "program.py").write_text(f"# flow {fid}\n")
+    return root
 
 
-def test_renames_recipes_to_flows_when_flows_absent(tmp_path, monkeypatch):
+def test_flow_roots_are_profile_scoped(tmp_path, monkeypatch):
     monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
-    _seed_recipes(tmp_path, 23, 25, 28)
 
-    migrate_legacy_flow_dirs()
+    with ProfileScope("alpha"):
+        alpha_root = get_flows_root()
+    with ProfileScope("beta"):
+        beta_root = get_flows_root()
 
-    assert not (tmp_path / "recipes").exists()
+    assert alpha_root == tmp_path / "alpha" / "flows"
+    assert beta_root == tmp_path / "beta" / "flows"
+    assert alpha_root != beta_root
+
+
+def test_moves_legacy_flows_into_selected_profile(tmp_path, monkeypatch):
+    monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
+    _seed_legacy_root(tmp_path, "flows", 23, 25, 28)
+
+    migrate_legacy_flow_dirs("asset-majority")
+
+    assert not (tmp_path / "flows").exists()
     for fid in (23, 25, 28):
-        assert (tmp_path / "flows" / str(fid) / "program.py").is_file()
+        assert (
+            tmp_path / "asset-majority" / "flows" / str(fid) / "program.py"
+        ).is_file()
 
 
-def test_get_flows_root_triggers_migration_lazily(tmp_path, monkeypatch):
+def test_moves_legacy_recipes_into_selected_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
-    _seed_recipes(tmp_path, 7)
+    _seed_legacy_root(tmp_path, "recipes", 7)
 
-    root = get_flows_root()
+    migrate_legacy_flow_dirs("primary")
 
-    assert root == tmp_path / "flows"
-    assert (tmp_path / "flows" / "7" / "program.py").is_file()
+    assert (tmp_path / "primary" / "flows" / "7" / "program.py").is_file()
     assert not (tmp_path / "recipes").exists()
 
 
-def test_merges_into_empty_flows_dir(tmp_path, monkeypatch):
+def test_merges_both_legacy_roots_without_overwriting(tmp_path, monkeypatch):
     monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
-    _seed_recipes(tmp_path, 1)
-    (tmp_path / "flows").mkdir()  # pre-existing but empty
+    target = tmp_path / "primary" / "flows"
+    (target / "1").mkdir(parents=True)
+    (target / "1" / "program.py").write_text("# profile copy\n")
+    _seed_legacy_root(tmp_path, "flows", 1, 2)
+    _seed_legacy_root(tmp_path, "recipes", 3)
 
-    migrate_legacy_flow_dirs()
+    migrate_legacy_flow_dirs("primary")
 
+    # The profile-owned collision wins and the legacy copy remains recoverable.
+    assert (target / "1" / "program.py").read_text() == "# profile copy\n"
     assert (tmp_path / "flows" / "1" / "program.py").is_file()
+    assert (target / "2" / "program.py").is_file()
+    assert (target / "3" / "program.py").is_file()
     assert not (tmp_path / "recipes").exists()
 
+    # Repeating the startup migration does not overwrite either copy.
+    migrate_legacy_flow_dirs("primary")
+    assert (target / "1" / "program.py").read_text() == "# profile copy\n"
+    assert (tmp_path / "flows" / "1" / "program.py").is_file()
 
-def test_idempotent_and_nondestructive_when_both_populated(tmp_path, monkeypatch):
+
+def test_conflict_retry_keeps_first_migration_owner(tmp_path, monkeypatch):
     monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
-    # Already-migrated flows present + a leftover recipes dir with other data:
-    # do not clobber flows, leave recipes untouched.
-    (tmp_path / "flows" / "1").mkdir(parents=True)
-    (tmp_path / "flows" / "1" / "program.py").write_text("# migrated\n")
-    _seed_recipes(tmp_path, 1)
+    first_target = tmp_path / "first-majority" / "flows"
+    (first_target / "1").mkdir(parents=True)
+    (first_target / "1" / "program.py").write_text("# existing\n")
+    _seed_legacy_root(tmp_path, "flows", 1)
 
-    migrate_legacy_flow_dirs()
+    assert migrate_legacy_flow_dirs("first-majority") == "first-majority"
+    assert (tmp_path / "flows" / "1").is_dir()
 
-    assert (tmp_path / "flows" / "1" / "program.py").read_text() == "# migrated\n"
-    assert (tmp_path / "recipes").exists()  # left as-is, no data loss
+    # Asset counts can change, but a partial retry must retain its first owner.
+    _seed_legacy_root(tmp_path, "flows", 2)
+    assert migrate_legacy_flow_dirs("new-majority") == "first-majority"
+    assert (first_target / "2" / "program.py").is_file()
+    assert not (tmp_path / "new-majority" / "flows").exists()
+    assert (tmp_path / "flow_dir_migration_owner").read_text().strip() == "first-majority"
 
-    # No recipes at all -> clean no-op.
-    import shutil
-    shutil.rmtree(tmp_path / "recipes")
-    migrate_legacy_flow_dirs()
-    assert not (tmp_path / "recipes").exists()
+    # Once the global leftovers are gone, an owner-scoped recipes retry still
+    # follows the marker rather than the newly requested majority profile.
+    (tmp_path / "flows" / "1" / "program.py").unlink()
+    (tmp_path / "flows" / "1").rmdir()
+    (tmp_path / "flows").rmdir()
+    _seed_legacy_root(tmp_path / "first-majority", "recipes", 3)
+    assert migrate_legacy_flow_dirs("new-majority") == "first-majority"
+    assert (first_target / "3" / "program.py").is_file()
+    assert not (tmp_path / "first-majority" / "recipes").exists()

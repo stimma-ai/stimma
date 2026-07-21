@@ -22,7 +22,7 @@ from utils.websocket import ws_manager
 from utils.background_tasks import monitor_media_changes, cleanup_expired_images, cleanup_ephemeral_media, cleanup_empty_unnamed_entities, monitor_processing_stats, monitor_system_warnings
 from utils.migrations import run_all_migrations, run_migrations_for_profile
 from tool_provider_identity import STIMMA_TOOL_PROVIDER_ID
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 log = get_logger(__name__)
 
@@ -1103,6 +1103,33 @@ async def lifespan(app: FastAPI):
                     await session.commit()
                     log.info("created default saved views", profile=profile.id, count=len(default_views))
 
+        # Pre-profile releases stored flows at <data_dir>/flows, where IDs from
+        # separate profile databases could collide. Adopt that legacy root into
+        # the profile with the most Assets before any flow recovery/path access.
+        from database import Asset
+        from flow_runtime.paths import migrate_legacy_flow_dirs
+
+        profile_asset_counts: dict[str, int] = {}
+        for profile in settings.profiles:
+            db = registry.get_database(profile.id)
+            async with db.async_session_maker() as session:
+                profile_asset_counts[profile.id] = int(
+                    await session.scalar(select(func.count(Asset.id))) or 0
+                )
+        if profile_asset_counts:
+            legacy_flow_profile_id = max(
+                profile_asset_counts,
+                key=profile_asset_counts.__getitem__,
+            )
+            migration_profile_id = migrate_legacy_flow_dirs(legacy_flow_profile_id)
+            log.info(
+                "legacy flow directory migration checked",
+                profile=migration_profile_id or legacy_flow_profile_id,
+                asset_count=profile_asset_counts.get(
+                    migration_profile_id or legacy_flow_profile_id
+                ),
+            )
+
         # Clean up stale generation jobs BEFORE accepting connections
         # This must run before yield so clients don't see phantom jobs from a previous session
         log.info("cleaning up stale generation jobs")
@@ -1132,15 +1159,10 @@ async def lifespan(app: FastAPI):
                 reconcile_pending_task_counts,
                 recover_running_flows,
             )
-            from flow_runtime.paths import migrate_legacy_flow_dirs
             for profile in settings.profiles:
                 db = registry.get_database(profile.id)
                 async with db.async_session_maker() as session:
                     with ProfileScope(profile.id):
-                        # Legacy recipes/ -> flows/ on-disk migration (the
-                        # recipe→flow rename moved the DB table but not the
-                        # flow data dir). Must run before flow recovery.
-                        migrate_legacy_flow_dirs()
                         reconciled = await reconcile_pending_task_counts(session)
                         recovered = await recover_running_flows(session)
                 if reconciled:

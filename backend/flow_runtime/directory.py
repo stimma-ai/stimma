@@ -2,7 +2,7 @@
 
 Layout per FLOWS_TECH.md §"On-Disk Storage":
 
-    <data_dir>/flows/<flow_id>/
+    <data_dir>/<profile_id>/flows/<flow_id>/
     ├── program.py
     ├── program_base.py        # only on forks
     ├── state.db

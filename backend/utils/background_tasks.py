@@ -295,7 +295,7 @@ async def cleanup_empty_unnamed_entities(ws_manager):
     ``CleanupService.cleanup_empty_unnamed_entities``.
     """
     from cleanup_service import CleanupService
-    from core.profile_context import set_current_profile
+    from core.profile_context import ProfileScope
 
     cleanup_service = CleanupService()
 
@@ -312,10 +312,10 @@ async def cleanup_empty_unnamed_entities(ws_manager):
             for profile in settings.profiles:
                 if not registry.has_profile(profile.id):
                     continue
-                set_current_profile(profile.id)
                 db = registry.get_database(profile.id)
-                async with db.async_session_maker() as session:
-                    reaped = await cleanup_service.cleanup_empty_unnamed_entities(session)
+                with ProfileScope(profile.id):
+                    async with db.async_session_maker() as session:
+                        reaped = await cleanup_service.cleanup_empty_unnamed_entities(session)
 
                 total = sum(len(ids) for ids in reaped.values())
                 if total:

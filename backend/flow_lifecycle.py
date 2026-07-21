@@ -57,16 +57,20 @@ log = get_logger(__name__)
 # just on the immediate flow_updated broadcast). Cleared on any successful
 # build. In-memory is fine — the error reconstructs deterministically from the
 # program file, so a backend restart just needs the next edit or GET to re-raise.
-_last_load_errors: dict[int, dict[str, Any]] = {}
+_last_load_errors: dict[tuple[str, int], dict[str, Any]] = {}
+
+
+def _profile_flow_key(flow_id: int) -> tuple[str, int]:
+    return (get_current_profile(), flow_id)
 
 
 def get_cached_load_error(flow_id: int) -> Optional[dict[str, Any]]:
     """Return the last cached program-load error for this flow, if any."""
-    return _last_load_errors.get(flow_id)
+    return _last_load_errors.get(_profile_flow_key(flow_id))
 
 
 def clear_cached_load_error(flow_id: int) -> None:
-    _last_load_errors.pop(flow_id, None)
+    _last_load_errors.pop(_profile_flow_key(flow_id), None)
 
 
 def _flow_inputs(flow: Flow) -> dict[str, Any]:
@@ -264,7 +268,7 @@ def get_or_create_runtime(flow: Flow) -> FlowRuntime:
     flow_registry.register(flow.id, runtime)
     # A successful build supersedes any stale error from an earlier
     # write-hook attempt that couldn't build (e.g. before inputs were set).
-    _last_load_errors.pop(flow.id, None)
+    _last_load_errors.pop(_profile_flow_key(flow.id), None)
     return runtime
 
 
@@ -386,9 +390,9 @@ async def apply_program_edit(
     # a browser reload with no websocket event in hand) still surfaces it.
     # Done after dry-run so a preflight failure participates in the cache.
     if load_error is not None:
-        _last_load_errors[flow_id] = load_error
+        _last_load_errors[_profile_flow_key(flow_id)] = load_error
     else:
-        _last_load_errors.pop(flow_id, None)
+        _last_load_errors.pop(_profile_flow_key(flow_id), None)
 
     # Auto-start the scheduler after a successful agent-authored edit. Flows
     # should run by default — requiring a manual "play" click every time the

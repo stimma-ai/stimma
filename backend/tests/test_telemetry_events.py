@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from core.profile_context import ProfileScope
+
 
 class _CapturingClient:
     def __init__(self):
@@ -166,6 +168,25 @@ def test_pipeline_preset_hash_present_when_launched_from_preset(capture, monkeyp
     props = capture.named("generation_pipeline_completed")[0]["properties"]
     assert props["presetHash"] == salted_hash("preset:42")
     assert "42" not in props["presetHash"] or len(props["presetHash"]) == 16
+
+
+def test_flow_run_state_is_profile_scoped():
+    import flow_telemetry
+
+    flow_telemetry._run_state.clear()
+    try:
+        with ProfileScope("profile-a"):
+            flow_telemetry.note_started(7)
+        with ProfileScope("profile-b"):
+            flow_telemetry.note_started(7)
+            flow_telemetry.note_stopped(7)
+
+        with ProfileScope("profile-a"):
+            assert flow_telemetry._profile_flow_key(7) in flow_telemetry._run_state
+        with ProfileScope("profile-b"):
+            assert flow_telemetry._profile_flow_key(7) not in flow_telemetry._run_state
+    finally:
+        flow_telemetry._run_state.clear()
 
 
 # ── closed errorType list + errorHash ───────────────────────────────────

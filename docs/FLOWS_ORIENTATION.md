@@ -203,7 +203,7 @@ Errors also surface as tasks with actions: `retry`, `skip` (only inside
 
 - **Main DB** (`stimma.db`): `flows` table — metadata, soft-delete, FK to
   project/chat, denormalized `pending_task_count`.
-- **Per-flow SQLite** (`<data_dir>/flows/<flow_id>/state.db`):
+- **Per-flow SQLite** (`<data_dir>/<profile_id>/flows/<flow_id>/state.db`):
   - `equations` — current graph: status, definition JSON (with `_dynamic`
     node refs), attempt counter.
   - `hitl_results` — durable human decisions, keyed by
@@ -212,7 +212,7 @@ Errors also surface as tasks with actions: `retry`, `skip` (only inside
 - **Equation store** (global, content-addressed):
   `equation_store_entries` table +
   `<data_dir>/equation_store/blobs/<hash_prefix>/<hash>` filesystem blobs.
-- **Program source** (`<data_dir>/flows/<flow_id>/program.py`) — the
+- **Program source** (`<data_dir>/<profile_id>/flows/<flow_id>/program.py`) — the
   editable flow file.
 
 ---

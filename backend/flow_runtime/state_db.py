@@ -1,6 +1,7 @@
 """Per-flow SQLite database (state.db).
 
-Each flow has its own SQLite database at <data_dir>/flows/<id>/state.db
+Each flow has its own SQLite database at
+<data_dir>/<profile_id>/flows/<id>/state.db
 containing equations, HITL tasks, and durable HITL results. This avoids
 polluting the main database with potentially millions of equation rows and
 makes forking efficient (the file can be copied — APFS clonefile when

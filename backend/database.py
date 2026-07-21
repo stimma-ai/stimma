@@ -981,7 +981,8 @@ class Flow(Base):
     """A flow: a repeatable parameterized process for producing assets.
 
     Heavy state (equations, tasks, HITL results) lives in a per-flow SQLite
-    database at <data_dir>/flows/<id>/state.db. This table stores metadata only.
+    database at <data_dir>/<profile_id>/flows/<id>/state.db. This table stores
+    metadata only.
     """
     __tablename__ = "flows"
 
