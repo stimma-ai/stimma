@@ -40,22 +40,67 @@
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
           <!-- Stimma Home -->
-          <button
-            @click="handleNavClick('home')"
-            @dragover="handleDragOver"
-            @dragenter="handleStimmaHomeDragEnter"
-            @dragleave="handleStimmaHomeDragLeave"
-            @drop="handleStimmaHomeDrop"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="[
-              activeTab === 'home' ? '!bg-overlay-hover !text-content' : '',
-              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
-            ]"
-            title="Stimma (drag media here to attach)"
-          >
-            <img src="/logo.png" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
-            <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
-          </button>
+          <div class="group relative">
+            <button
+              @click="handleNavClick('home')"
+              @dragover="handleDragOver"
+              @dragenter="handleStimmaHomeDragEnter"
+              @dragleave="handleStimmaHomeDragLeave"
+              @drop="handleStimmaHomeDrop"
+              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              :class="[
+                activeTab === 'home' ? '!bg-overlay-hover !text-content' : '',
+                dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
+              ]"
+              title="Stimma (drag media here to attach)"
+            >
+              <img src="/logo.png" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
+              <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
+            </button>
+            <Tooltip text="Create new" class="absolute right-1.5 top-1/2 -translate-y-1/2 transition-opacity" :class="createMenuOpen ? '' : 'opacity-0 group-hover:opacity-100'">
+              <button
+                @click.stop="createMenuOpen = !createMenuOpen"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </Tooltip>
+            <div
+              v-if="createMenuOpen"
+              class="absolute left-2 right-2 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg py-1 z-menu"
+            >
+              <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createNewCut">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0 1 18 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 0 1 6 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-2.25 0c.621 0 1.125-.504 1.125-1.125M6 16.5v-1.5c0-.621-.504-1.125-1.125-1.125m1.5 3.75C6 16.996 6.504 16.5 7.125 16.5" />
+                </svg>
+                <span>New cut</span>
+              </button>
+              <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createMenuOpen = false; createNewChat()">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                </svg>
+                <span>New chat</span>
+              </button>
+              <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createMenuOpen = false; createNewFlow()">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+                <span>New flow</span>
+              </button>
+              <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createMenuOpen = false; createNewBoard()">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
+                </svg>
+                <span>New board</span>
+              </button>
+              <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createMenuOpen = false; createNewProject()">
+                <ArchiveBoxIcon class="w-3.5 h-3.5" />
+                <span>New project</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Saved Views -->
           <button
@@ -1037,6 +1082,8 @@ import EntityIcon from './EntityIcon.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
 import Tooltip from './ui/Tooltip.vue'
+import { useAssetApi } from '../composables/useAssetApi'
+import { useSlideshow } from '../composables/useSlideshow'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'
@@ -1059,6 +1106,8 @@ const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
 
 // Navigation
 const router = useRouter()
+const { getAssetBrowserItem } = useAssetApi()
+const { enterSlideshow } = useSlideshow()
 const route = useRoute()
 const activeTab = computed(() => {
   if (String(route.name || '').startsWith('project-') || route.name === 'projects') {
@@ -2127,6 +2176,47 @@ async function createNewFlow() {
     if (props.isMobile) emit('close')
   } catch (err) {
     console.error('Failed to create flow:', err)
+  }
+}
+
+// ==================== Create menu (stimma row '+') ====================
+
+const createMenuOpen = ref(false)
+
+watch(createMenuOpen, (open) => {
+  if (open) {
+    setTimeout(() => document.addEventListener('click', closeCreateMenu, { once: true }), 0)
+  } else {
+    document.removeEventListener('click', closeCreateMenu)
+  }
+})
+
+function closeCreateMenu() {
+  createMenuOpen.value = false
+}
+
+async function createNewCut() {
+  createMenuOpen.value = false
+  try {
+    const response = await fetch('/api/timelines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+    if (!response.ok) throw new Error('Failed to create cut')
+    const created = await response.json()
+    const item = await getAssetBrowserItem(created.asset_id)
+    if (item) {
+      enterSlideshow({
+        totalCount: 1,
+        startIndex: 0,
+        pageProvider: async () => [item],
+      })
+    }
+    if (props.isMobile) emit('close')
+  } catch (error) {
+    console.error('Failed to create cut:', error)
+    addToast('Could not create the cut', 'error')
   }
 }
 
