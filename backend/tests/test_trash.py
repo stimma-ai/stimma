@@ -1653,6 +1653,21 @@ class TestSourceFileDeletes:
         assert counted.json()["count"] == 1
 
 
+@pytest.mark.asyncio
+async def test_delete_worker_stops_before_database_teardown():
+    """A subsequent app host must not inherit a live delete worker."""
+    import delete_operations
+
+    await delete_operations.ensure_delete_worker_started()
+    task = delete_operations._worker_task
+    assert task is not None
+
+    await delete_operations.stop_delete_worker()
+
+    assert delete_operations._worker_task is None
+    assert task.done()
+
+
 # Fixtures specific to this test module
 
 @pytest.fixture

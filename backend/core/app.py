@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from config import get_settings, reload_settings, detect_config_changes
 from database import Marker, SavedView, MediaItem
 from database_registry import get_database_registry
-from delete_operations import ensure_delete_worker_started
+from delete_operations import ensure_delete_worker_started, stop_delete_worker
 import json
 from core.profile_context import get_current_profile
 from core.middleware import ProfileMiddleware
@@ -1418,6 +1418,12 @@ async def lifespan(app: FastAPI):
             log.warning("generation workers stop timed out")
         except Exception as e:
             log.exception("error stopping generation workers")
+
+    # Stop durable deletion work before disposing its database engines.
+    try:
+        await stop_delete_worker()
+    except Exception as e:
+        log.exception("error stopping delete worker")
 
     # Cancel all background tasks
     for task in background_tasks:

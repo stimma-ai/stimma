@@ -307,6 +307,8 @@ async def test_app(temp_appdata_dir: Path):
         yield app
 
         # Cleanup
+        from delete_operations import stop_delete_worker
+        await stop_delete_worker()
         await registry.dispose_all()
 
 
@@ -569,6 +571,8 @@ async def generation_app(generation_temp_appdata_dir: Path):
         # Cleanup
         await provider_registry.unregister(test_provider.provider_id)
         await provider_registry.unregister(builtin_provider.provider_id)
+        from delete_operations import stop_delete_worker
+        await stop_delete_worker()
         await registry.dispose_all()
 
 

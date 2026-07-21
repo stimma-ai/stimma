@@ -480,6 +480,30 @@ async def ensure_delete_worker_started() -> None:
         _worker_task = asyncio.create_task(_delete_worker_loop())
 
 
+async def stop_delete_worker() -> None:
+    """Stop the background delete worker before its database registry closes."""
+    global _worker_task
+
+    async with _worker_lock:
+        task = _worker_task
+        _worker_task = None
+        if task is None or task.done():
+            return
+
+        task.cancel()
+        # Test hosts can replace event loops while the process remains alive.
+        # A task from the old loop cannot be awaited here, but clearing the
+        # singleton lets the next host start its own worker.
+        if task.get_loop() is not asyncio.get_running_loop():
+            return
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(task, return_exceptions=True), timeout=2.0
+            )
+        except asyncio.TimeoutError:
+            log.warning("DELETE OPS: worker did not stop before shutdown")
+
+
 async def _delete_worker_loop() -> None:
     log.info("DELETE OPS: worker started")
     try:
