@@ -42,6 +42,19 @@ CACHE_HEADERS = {
 THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmatimeline.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 
+def _content_disposition(disposition: str, filename: str) -> str:
+    """Header-safe Content-Disposition: ASCII fallback plus RFC 5987 filename*.
+
+    Headers are latin-1; filenames are not (macOS screenshots contain U+202F).
+    """
+    from urllib.parse import quote
+
+    ascii_name = filename.encode('ascii', 'replace').decode().replace('"', '').replace('\\', '')
+    if ascii_name == filename:
+        return f'{disposition}; filename="{ascii_name}"'
+    return f"{disposition}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+
+
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
     """Return a sharded path: cache_dir/ab/cd/cache_key.ext using the first 4 hex chars."""
     return cache_dir / cache_key[:2] / cache_key[2:4] / f"{cache_key}.{ext}"
@@ -1652,7 +1665,7 @@ async def get_media_file(
                 index_path,
                 media_type='text/html',
                 headers={
-                    'Content-Disposition': f'inline; filename="{file_path.name}.html"',
+                    'Content-Disposition': _content_disposition('inline', f'{file_path.name}.html'),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -1682,7 +1695,7 @@ async def get_media_file(
         file_path,
         media_type=media_type,
         headers={
-            'Content-Disposition': f'inline; filename="{filename}"',
+            'Content-Disposition': _content_disposition('inline', filename),
             'Access-Control-Allow-Origin': '*',
         }
     )
@@ -1930,7 +1943,7 @@ async def export_layout(
             io.BytesIO(inlined.encode('utf-8')),
             media_type='text/html',
             headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Disposition': _content_disposition('attachment', filename),
                 'Access-Control-Allow-Origin': '*',
             }
         )
@@ -1979,7 +1992,7 @@ async def export_layout(
                 io.BytesIO(pdf_bytes),
                 media_type='application/pdf',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Disposition': _content_disposition('attachment', filename),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -2013,7 +2026,7 @@ async def export_layout(
                 buf,
                 media_type='image/png',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Disposition': _content_disposition('attachment', filename),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -2830,7 +2843,7 @@ async def get_media_file_by_db_guid(
             return FileResponse(
                 index_path,
                 media_type='text/html',
-                headers={**CACHE_HEADERS, 'Content-Disposition': f'inline; filename="{file_path.name}.html"'}
+                headers={**CACHE_HEADERS, 'Content-Disposition': _content_disposition('inline', f'{file_path.name}.html')}
             )
         raise HTTPException(status_code=404, detail="Layout index.html not found")
 
@@ -2862,7 +2875,7 @@ async def get_media_file_by_db_guid(
     filename = file_path.name
     headers = {
         **CACHE_HEADERS,
-        'Content-Disposition': f'inline; filename="{filename}"'
+        'Content-Disposition': _content_disposition('inline', filename)
     }
     _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
@@ -2898,7 +2911,7 @@ async def get_file_by_media_id_and_db_guid(
             return FileResponse(
                 index_path,
                 media_type='text/html',
-                headers={**CACHE_HEADERS, 'Content-Disposition': f'inline; filename="{file_path.name}.html"'}
+                headers={**CACHE_HEADERS, 'Content-Disposition': _content_disposition('inline', f'{file_path.name}.html')}
             )
         raise HTTPException(status_code=404, detail="Layout index.html not found")
 
@@ -2930,7 +2943,7 @@ async def get_file_by_media_id_and_db_guid(
     filename = file_path.name
     headers = {
         **CACHE_HEADERS,
-        'Content-Disposition': f'inline; filename="{filename}"'
+        'Content-Disposition': _content_disposition('inline', filename)
     }
     _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
@@ -3202,7 +3215,7 @@ async def bulk_download_media(
             file_path,
             media_type=media_type,
             headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Disposition': _content_disposition('attachment', filename),
                 'Access-Control-Allow-Origin': '*',
             }
         )
@@ -3571,7 +3584,7 @@ async def export_media(
                     buf,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': _content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     }
                 )
@@ -3582,7 +3595,7 @@ async def export_media(
                     output_path,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': _content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
                     background=None  # cleanup handled below
@@ -3594,7 +3607,7 @@ async def export_media(
                     output_path,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': _content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
                     background=None
