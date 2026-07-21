@@ -1,5 +1,6 @@
 <template>
   <div
+    data-testid="media-info-panel"
     class="bg-surface-elevated backdrop-blur-[10px] overflow-y-auto overflow-x-visible z-chrome flex flex-col relative sidebar-scroll order-2 transition-all duration-300"
     :class="focusMode ? 'w-0 opacity-0 pointer-events-none border-l-0' : 'w-[384px] max-w-[90vw] border-l border-edge-subtle'"
   >

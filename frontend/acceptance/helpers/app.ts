@@ -175,7 +175,7 @@ export async function openMediaFromBrowse(page: Page, mediaId: number) {
   const gridItem = page.getByTestId(`media-grid-item-${mediaId}`);
   await expect(gridItem).toBeVisible({ timeout: 30000 });
   await gridItem.click();
-  await expect(page.getByText('Actions', { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('media-info-panel')).toBeVisible({ timeout: 10000 });
 }
 
 export async function apiJSON<T>(page: Page, path: string, init: RequestInit = {}): Promise<T> {
