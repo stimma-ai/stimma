@@ -134,6 +134,35 @@ def _install_media_link(destination: Path, compatibility_path: Path) -> None:
         compatibility_path.symlink_to(destination)
 
 
+def _install_editor_sidecar(source: Path, compatibility_path: Path) -> None:
+    """Atomically preserve a legacy editor sidecar beside managed Media.
+
+    Editor projects historically lived next to their payload.  The primary
+    object is content-addressed, but the mutable project belongs beside the
+    per-Media compatibility path and must be installed before the database
+    starts pointing there.
+    """
+    source_sidecar = Path(f"{source}.stimmaedit.json")
+    if not source_sidecar.is_file():
+        return
+    destination = Path(f"{compatibility_path}.stimmaedit.json")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    expected_hash = _hash_file(source_sidecar)
+    if destination.is_file() and _hash_file(destination) == expected_hash:
+        return
+    temp = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
+    try:
+        with source_sidecar.open("rb") as src, temp.open("xb") as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+            dst.flush()
+            os.fsync(dst.fileno())
+        if _hash_file(temp) != expected_hash:
+            raise StorageServiceError("Editor sidecar changed during managed-object ingest")
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
 async def stage_managed_media(
     session: AsyncSession,
     *,
@@ -228,6 +257,7 @@ async def stage_managed_media(
         profile_id, media.id, media.original_filename
     )
     await asyncio.to_thread(_install_media_link, destination, compatibility_path)
+    await asyncio.to_thread(_install_editor_sidecar, source, compatibility_path)
     media.storage_object_id = storage.id
     media.file_path = str(compatibility_path)
     if remove_source and source.resolve() not in {

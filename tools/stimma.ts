@@ -550,6 +550,11 @@ Commands:
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
+  migrate-to-managed-storage [--profile ID] [--legacy-generated-root PATH]
+                  [--legacy-uploads-root PATH] (root flags are repeatable)
+                  [--delete-untracked-legacy-files]
+                  Dry-run normalization of retained Stimma-created payloads;
+                  add --apply --yes after backing up and stopping Stimma
   rewrite prompts --replace OLD NEW [--replace OLD NEW ...]
                   Dry-run a literal prompt/history rewrite across every profile DB
                   and associated PNG/JPEG metadata; add --apply --yes to write
@@ -2020,6 +2025,36 @@ async function main(): Promise<void> {
           "--data-dir",
           getDataDir(bundleId, sandbox),
           ...rest,
+        ],
+        { cwd: join(repoRoot, "backend") },
+      );
+      break;
+    }
+
+    case "migrate-to-managed-storage": {
+      const applying = args.slice(1).includes("--apply");
+      if (applying) {
+        const ports = await getSandboxPorts(bundleId, sandbox);
+        for (const hostname of LOCALHOSTS) {
+          if (await isTcpPortOpen(hostname, ports.server, 200)) {
+            console.error(
+              `Refusing to migrate while the backend is listening on ${hostname}:${ports.server}. ` +
+                "Stop Stimma for this sandbox first.",
+            );
+            Deno.exit(1);
+          }
+        }
+      }
+      await run(
+        "uv",
+        [
+          "run",
+          "python",
+          "-m",
+          "managed_storage_migration",
+          "--data-dir",
+          getDataDir(bundleId, sandbox),
+          ...args.slice(1),
         ],
         { cwd: join(repoRoot, "backend") },
       );

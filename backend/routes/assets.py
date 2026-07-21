@@ -1033,7 +1033,7 @@ async def get_asset_filter_counts(
             session,
             facet("folders").where(
                 StorageObject.kind == "external",
-                MediaItem.file_path.startswith(prefix),
+                StorageObject.external_path.startswith(prefix),
             ),
         )
 
