@@ -24,6 +24,7 @@ from core.profile_context import get_current_profile, set_current_profile
 from database_registry import get_database_registry
 from config import get_settings
 from utils.macos_permissions import notify_macos_permission_denied
+from utils.http_headers import content_disposition
 import metadata_embed
 
 router = APIRouter(prefix="/api", tags=["media_files"])
@@ -1543,7 +1544,7 @@ async def get_media_file(
                 index_path,
                 media_type='text/html',
                 headers={
-                    'Content-Disposition': f'inline; filename="{file_path.name}.html"',
+                    'Content-Disposition': content_disposition('inline', f'{file_path.name}.html'),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -1573,7 +1574,7 @@ async def get_media_file(
         file_path,
         media_type=media_type,
         headers={
-            'Content-Disposition': f'inline; filename="{filename}"',
+            'Content-Disposition': content_disposition('inline', filename),
             'Access-Control-Allow-Origin': '*',
         }
     )
@@ -1821,7 +1822,7 @@ async def export_layout(
             io.BytesIO(inlined.encode('utf-8')),
             media_type='text/html',
             headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Disposition': content_disposition('attachment', filename),
                 'Access-Control-Allow-Origin': '*',
             }
         )
@@ -1870,7 +1871,7 @@ async def export_layout(
                 io.BytesIO(pdf_bytes),
                 media_type='application/pdf',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Disposition': content_disposition('attachment', filename),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -1904,7 +1905,7 @@ async def export_layout(
                 buf,
                 media_type='image/png',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Disposition': content_disposition('attachment', filename),
                     'Access-Control-Allow-Origin': '*',
                 }
             )
@@ -2721,7 +2722,7 @@ async def get_media_file_by_db_guid(
             return FileResponse(
                 index_path,
                 media_type='text/html',
-                headers={**CACHE_HEADERS, 'Content-Disposition': f'inline; filename="{file_path.name}.html"'}
+                headers={**CACHE_HEADERS, 'Content-Disposition': content_disposition('inline', f'{file_path.name}.html')}
             )
         raise HTTPException(status_code=404, detail="Layout index.html not found")
 
@@ -2753,7 +2754,7 @@ async def get_media_file_by_db_guid(
     filename = file_path.name
     headers = {
         **CACHE_HEADERS,
-        'Content-Disposition': f'inline; filename="{filename}"'
+        'Content-Disposition': content_disposition('inline', filename)
     }
     _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
@@ -2789,7 +2790,7 @@ async def get_file_by_media_id_and_db_guid(
             return FileResponse(
                 index_path,
                 media_type='text/html',
-                headers={**CACHE_HEADERS, 'Content-Disposition': f'inline; filename="{file_path.name}.html"'}
+                headers={**CACHE_HEADERS, 'Content-Disposition': content_disposition('inline', f'{file_path.name}.html')}
             )
         raise HTTPException(status_code=404, detail="Layout index.html not found")
 
@@ -2821,7 +2822,7 @@ async def get_file_by_media_id_and_db_guid(
     filename = file_path.name
     headers = {
         **CACHE_HEADERS,
-        'Content-Disposition': f'inline; filename="{filename}"'
+        'Content-Disposition': content_disposition('inline', filename)
     }
     _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
@@ -3068,7 +3069,7 @@ async def bulk_download_media(
                 io.BytesIO(zip_data),
                 media_type="application/zip",
                 headers={
-                    'Content-Disposition': f'attachment; filename="{file_path.name}.zip"',
+                    'Content-Disposition': content_disposition('attachment', f'{file_path.name}.zip'),
                     'Content-Length': str(len(zip_data)),
                     'Access-Control-Allow-Origin': '*',
                 }
@@ -3093,7 +3094,7 @@ async def bulk_download_media(
             file_path,
             media_type=media_type,
             headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Disposition': content_disposition('attachment', filename),
                 'Access-Control-Allow-Origin': '*',
             }
         )
@@ -3144,7 +3145,7 @@ async def bulk_download_media(
         io.BytesIO(zip_data),
         media_type="application/zip",
         headers={
-            'Content-Disposition': f'attachment; filename="{zip_filename}"',
+            'Content-Disposition': content_disposition('attachment', zip_filename),
             'Content-Length': str(len(zip_data))
         }
     )
@@ -3462,7 +3463,7 @@ async def export_media(
                     buf,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     }
                 )
@@ -3473,7 +3474,7 @@ async def export_media(
                     output_path,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
                     background=None  # cleanup handled below
@@ -3485,7 +3486,7 @@ async def export_media(
                     output_path,
                     media_type=media_type,
                     headers={
-                        'Content-Disposition': f'attachment; filename="{filename}"',
+                        'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
                     background=None
@@ -3558,7 +3559,7 @@ async def export_media(
             io.BytesIO(zip_data),
             media_type="application/zip",
             headers={
-                'Content-Disposition': f'attachment; filename="{zip_filename}"',
+                'Content-Disposition': content_disposition('attachment', zip_filename),
                 'Content-Length': str(len(zip_data))
             }
         )

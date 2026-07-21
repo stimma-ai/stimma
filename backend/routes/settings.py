@@ -38,6 +38,7 @@ from tool_provider_identity import (
     tool_provider_display_name,
 )
 from utils.websocket import ws_manager
+from utils.http_headers import content_disposition
 from config_writer import (
     patch_profile_section,
     patch_global_section,
@@ -2690,7 +2691,7 @@ async def download_stimpack_zip(name: str):
     return Response(
         content=zip_bytes,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'},
+        headers={"Content-Disposition": content_disposition('attachment', f'{name}.zip')},
     )
 
 
