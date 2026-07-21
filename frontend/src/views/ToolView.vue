@@ -1338,11 +1338,17 @@ function stageHasMarker(markerId: number): boolean {
   return ms.some((m: any) => m.id === markerId)
 }
 
-// Clicking a thumbnail in the stage strip pins a completed job onto the hero;
-// other statuses (e.g. failed) fall through to the normal click handler.
+// Clicking a thumbnail in the stage strip pins a completed job onto the hero.
+// Clicking the already-focused thumbnail again opens it in the slideshow, which
+// keeps the second click useful and matches Studio's thumbnail muscle memory.
+// Other statuses (e.g. failed) fall through to the normal click handler.
 function stagePinJob(job: any) {
   if (job?.status === 'completed' && job.result_media_id) {
-    stagePinnedMediaId.value = job.result_media_id
+    if (job.result_media_id === stageCurrentMediaId.value) {
+      handleJobClick(job)
+    } else {
+      stagePinnedMediaId.value = job.result_media_id
+    }
   } else {
     handleJobClick(job)
   }
