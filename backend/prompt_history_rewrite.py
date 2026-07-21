@@ -26,6 +26,7 @@ import sys
 import tempfile
 import zlib
 from collections import Counter, defaultdict, deque
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -446,7 +447,10 @@ def _rewrite_normalized_vocabularies(
 def scan_database(path: Path, plan: ReplacementPlan) -> ScanReport:
     report = ScanReport()
     uri = f"file:{path.as_posix()}?mode=ro"
-    with sqlite3.connect(uri, uri=True) as connection:
+    # closing() as well as the connection context manager: sqlite3's own
+    # __exit__ only commits, it never closes, and a leaked reader keeps the
+    # WAL sidecars alive for the rest of the process.
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
         connection.execute("PRAGMA query_only = ON")
         for table_name, column_name in _database_text_columns(connection):
             sql = (
@@ -570,6 +574,10 @@ def vacuum_database(path: Path) -> None:
     finally:
         connection.close()
 
+    # SQLite keeps the -wal/-shm sidecars on close here, so a privacy scrub has
+    # to remove them itself. This is only safe because every reader in this
+    # module is closed rather than merely committed: unlinking -shm out from
+    # under a live connection makes its next statement fail SQLITE_IOERR_VNODE.
     for suffix in ("-journal", "-wal", "-shm"):
         companion = Path(f"{path}{suffix}")
         if companion.exists():
@@ -601,7 +609,7 @@ def scan_database_connection(connection: sqlite3.Connection, plan: ReplacementPl
 def discover_media_references(databases: Iterable[Path]) -> list[MediaReference]:
     references: list[MediaReference] = []
     for database in databases:
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             tables = {
                 row[0] for row in connection.execute(
                     "SELECT name FROM sqlite_schema WHERE type='table'"
@@ -660,7 +668,7 @@ def assert_databases_writable(databases: Iterable[Path]) -> None:
     """Prove every DB can take an exclusive lock before changing any surface."""
     for database in databases:
         try:
-            with sqlite3.connect(database, timeout=1) as connection:
+            with closing(sqlite3.connect(database, timeout=1)) as connection:
                 connection.execute("PRAGMA busy_timeout = 1000")
                 connection.execute("BEGIN EXCLUSIVE")
                 connection.rollback()
@@ -1161,7 +1169,7 @@ def _update_media_identity(
         by_database[reference.database].append(reference)
 
     for database, db_references in by_database.items():
-        with sqlite3.connect(database, timeout=1) as connection:
+        with closing(sqlite3.connect(database, timeout=1)) as connection, connection:
             connection.execute("BEGIN EXCLUSIVE")
             for reference in db_references:
                 connection.execute(
@@ -1277,7 +1285,7 @@ def backup_databases(paths: Iterable[Path], *, data_dir: Path, backup_dir: Path)
     for source in sorted(set(paths)):
         destination = _backup_path(source, data_dir=data_dir, backup_dir=backup_dir)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(source) as source_connection, sqlite3.connect(destination) as target:
+        with closing(sqlite3.connect(source)) as source_connection, closing(sqlite3.connect(destination)) as target:
             source_connection.backup(target)
 
 

@@ -6,6 +6,7 @@ import sqlite3
 import threading
 import time
 from collections import Counter
+from contextlib import closing
 from pathlib import Path
 
 import piexif
@@ -95,7 +96,7 @@ def test_replacement_plan_rejects_reintroduced_search_term():
 
 def test_rewrite_database_updates_all_text_cells_and_vacuums(tmp_path):
     database = tmp_path / "state.db"
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         assert connection.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
         connection.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, prompt TEXT, payload TEXT, raw BLOB)")
         connection.execute(
@@ -117,7 +118,7 @@ def test_rewrite_database_updates_all_text_cells_and_vacuums(tmp_path):
     assert result.occurrences == 3
     assert not Path(f"{database}-wal").exists()
     assert not Path(f"{database}-shm").exists()
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         row = connection.execute("SELECT prompt, payload, raw FROM events").fetchone()
     assert row == ("clean prompt", '{"lineage":"clean ancestor"}', b"clean binary")
@@ -127,7 +128,7 @@ def test_rewrite_database_updates_all_text_cells_and_vacuums(tmp_path):
 
 def test_rewrite_database_merges_colliding_normalized_keywords(tmp_path):
     database = tmp_path / "stimma_v1.db"
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE keywords (
@@ -154,7 +155,7 @@ def test_rewrite_database_merges_colliding_normalized_keywords(tmp_path):
     )
 
     assert result.occurrences == 2
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         keywords = connection.execute(
             "SELECT id, keyword_text FROM keywords ORDER BY id"
         ).fetchall()
@@ -167,7 +168,7 @@ def test_rewrite_database_merges_colliding_normalized_keywords(tmp_path):
 
 def test_rewrite_database_merges_colliding_tags_and_markers(tmp_path):
     database = tmp_path / "stimma_v1.db"
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE tags (id INTEGER PRIMARY KEY, tag_text TEXT NOT NULL UNIQUE);
@@ -207,7 +208,7 @@ def test_rewrite_database_merges_colliding_tags_and_markers(tmp_path):
     )
 
     assert result.occurrences == 2
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         assert connection.execute("SELECT id, tag_text FROM tags").fetchall() == [
             (2, "clean tag")
         ]
@@ -348,7 +349,7 @@ def test_apply_rewrites_profile_db_flow_text_and_managed_png_identity(tmp_path):
     descendant_compatibility.parent.mkdir(parents=True)
     os.link(descendant_object, descendant_compatibility)
 
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE storage_objects (
@@ -419,7 +420,7 @@ def test_apply_rewrites_profile_db_flow_text_and_managed_png_identity(tmp_path):
     result = run_rewrite(data_dir, plan, apply=True, console=_quiet_console())
 
     assert result.occurrences == 9
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         media = connection.execute(
             "SELECT file_hash, file_size, raw_metadata, generation_metadata "
             "FROM media_items WHERE id=1"
@@ -479,7 +480,7 @@ def test_corrupt_png_is_reported_and_does_not_abort_other_media(tmp_path):
     corrupt_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x20tEXtbroken"
     corrupt.write_bytes(corrupt_bytes)
 
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         connection.execute(
             "CREATE TABLE media_items ("
             "id INTEGER PRIMARY KEY, file_path TEXT, file_hash TEXT, file_size INTEGER)"
@@ -516,7 +517,7 @@ def test_read_only_scan_uses_multiple_workers(tmp_path, monkeypatch):
     data_dir = tmp_path / "sandbox"
     profile_dir = data_dir / "profile"
     profile_dir.mkdir(parents=True)
-    with sqlite3.connect(profile_dir / "stimma_v1.db") as connection:
+    with closing(sqlite3.connect(profile_dir / "stimma_v1.db")) as connection, connection:
         connection.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)")
     for index in range(16):
         (profile_dir / f"note-{index}.txt").write_text(
@@ -581,7 +582,7 @@ def test_lineage_graph_propagates_deep_chain_without_repeated_global_scans(
         Image.new("RGB", (2, 2), (index, index, index)).save(path)
         unrelated.append(path)
 
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         connection.execute(
             "CREATE TABLE media_items ("
             "id INTEGER PRIMARY KEY, file_path TEXT, file_hash TEXT, "
@@ -641,7 +642,7 @@ def test_lineage_graph_propagates_deep_chain_without_repeated_global_scans(
         console=Console(file=output, force_terminal=False),
     )
 
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection, connection:
         rows = connection.execute(
             "SELECT file_hash, generation_metadata FROM media_items "
             "WHERE id IN (1, 2, 3) ORDER BY id"
