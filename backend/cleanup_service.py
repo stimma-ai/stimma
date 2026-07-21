@@ -3,7 +3,7 @@
 from core.logging import get_logger
 from datetime import datetime, timedelta
 from typing import Dict, Any
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
@@ -76,6 +76,225 @@ class CleanupService:
                 f"across {len(run_ids)} run(s) older than {older_than_minutes}m"
             )
         return total
+
+    async def cleanup_empty_unnamed_entities(
+        self, session: AsyncSession, older_than_hours: int = 12
+    ) -> Dict[str, list[int]]:
+        """Reap abandoned empty, unnamed boards/flows/chats past the cutoff.
+
+        These are the useless husks a misclick or an abandoned start leaves
+        behind: a board with no name and no assets, a flow with no name whose
+        program is still the untouched placeholder and whose agent chat has no
+        messages, or a standalone chat with an auto-generated name and no
+        messages. Anything the user actually touched — named it, added an
+        asset, edited the program, sent a message — is never eligible.
+
+        This is a hard evaporation, not a trip to the trash:
+          - boards: the row and its (empty) sections/items are hard-deleted.
+          - flows: the row is hard-deleted and the on-disk program/state dir
+            removed.
+          - chats: soft-deleted so the existing two-phase deletion pipeline
+            purges them; an empty chat has nothing to finalize, so it
+            evaporates on the next delete-worker pass.
+
+        Gated on ``created_at`` (stable) rather than ``updated_at`` (bumped by
+        incidental reconcile / default-section writes) so an actively-built
+        scaffold a user just opened is never reaped.
+
+        Returns ``{"boards": [...], "flows": [...], "chats": [...]}`` of the
+        ids that were reaped. Each entity is committed independently so one
+        failure never rolls back the rest.
+        """
+        from database import (
+            Board,
+            BoardSection,
+            BoardAssetItem,
+            BoardItem,
+            Flow,
+            Chat,
+            ChatItem,
+            UserTool,
+        )
+        from flow_runtime.directory import is_empty_flow_program, delete_flow_directory
+        from flow_runtime.paths import get_flow_program_path
+        from routes.chats import is_auto_generated_name
+        import flow_lifecycle
+
+        cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+        reaped: Dict[str, list[int]] = {"boards": [], "flows": [], "chats": []}
+
+        # --- Boards: blank name + zero live assets ---
+        boards = list(
+            await session.scalars(
+                select(Board).where(
+                    Board.deleted_at.is_(None),
+                    Board.created_at <= cutoff,
+                    func.trim(Board.name) == "",
+                )
+            )
+        )
+        for board in boards:
+            try:
+                # Fail-closed emptiness: reap only a board that has *never* held
+                # content. Any BoardAssetItem or legacy BoardItem row — even one
+                # that's soft-deleted or sits in a soft-deleted section — keeps
+                # the board alive, so a permanent delete can never take
+                # restorable curation (or the assets' "keep-forever" signal)
+                # with it. A misclick husk has zero rows either way.
+                asset_item_count = await session.scalar(
+                    select(func.count(BoardAssetItem.id))
+                    .join(
+                        BoardSection,
+                        BoardSection.id == BoardAssetItem.board_section_id,
+                    )
+                    .where(BoardSection.board_id == board.id)
+                )
+                legacy_item_count = await session.scalar(
+                    select(func.count())
+                    .select_from(BoardItem)
+                    .join(
+                        BoardSection,
+                        BoardSection.id == BoardItem.board_section_id,
+                    )
+                    .where(BoardSection.board_id == board.id)
+                )
+                if asset_item_count or legacy_item_count:
+                    continue
+                # Hard-delete children explicitly — don't rely on the SQLite FK
+                # pragma being enabled — then the board itself.
+                section_ids = list(
+                    await session.scalars(
+                        select(BoardSection.id).where(BoardSection.board_id == board.id)
+                    )
+                )
+                if section_ids:
+                    await session.execute(
+                        delete(BoardItem).where(
+                            BoardItem.board_section_id.in_(section_ids)
+                        )
+                    )
+                    await session.execute(
+                        delete(BoardAssetItem).where(
+                            BoardAssetItem.board_section_id.in_(section_ids)
+                        )
+                    )
+                    await session.execute(
+                        delete(BoardSection).where(BoardSection.id.in_(section_ids))
+                    )
+                await session.delete(board)
+                await session.commit()
+                reaped["boards"].append(board.id)
+            except Exception:
+                log.exception("HUSK CLEANUP: failed to reap empty board %s", board.id)
+                await session.rollback()
+
+        # --- Flows: blank name + untouched program + no chat messages ---
+        flows = list(
+            await session.scalars(
+                select(Flow).where(
+                    Flow.deleted_at.is_(None),
+                    Flow.created_at <= cutoff,
+                    func.trim(Flow.name) == "",
+                )
+            )
+        )
+        for flow in flows:
+            try:
+                # Program must still be the untouched new-flow placeholder. If
+                # the file is unreadable we can't prove it's untouched — skip.
+                try:
+                    program_text = get_flow_program_path(flow.id).read_text()
+                except OSError:
+                    continue
+                if not is_empty_flow_program(program_text):
+                    continue
+                # Its agent chat(s) must carry no messages.
+                flow_chat_ids = list(
+                    await session.scalars(
+                        select(Chat.id).where(
+                            Chat.flow_id == flow.id, Chat.deleted_at.is_(None)
+                        )
+                    )
+                )
+                has_message = False
+                for cid in flow_chat_ids:
+                    if await session.scalar(
+                        select(func.count(ChatItem.id)).where(ChatItem.chat_id == cid)
+                    ):
+                        has_message = True
+                        break
+                if has_message:
+                    continue
+                # Reap. Soft-delete the (empty) agent chats so the vetted
+                # two-phase pipeline tears them down — it handles LLMTrace /
+                # GenerationJob / media, which a hand-rolled DELETE would leave
+                # to trip a NOT NULL FK and get the whole flow stuck. Then drop
+                # editing/parent handles and hard-delete the flow row.
+                now = datetime.utcnow()
+                for cid in flow_chat_ids:
+                    await session.execute(
+                        update(Chat).where(Chat.id == cid).values(deleted_at=now)
+                    )
+                await session.execute(
+                    update(UserTool)
+                    .where(UserTool.flow_id == flow.id)
+                    .values(flow_id=None)
+                )
+                await session.execute(
+                    update(Flow)
+                    .where(Flow.parent_id == flow.id)
+                    .values(parent_id=None)
+                )
+                await session.delete(flow)
+                await session.commit()
+                # Row is gone — record it before best-effort teardown so a
+                # failure stopping the scheduler / removing the dir can't
+                # silently un-report the reap (and lose the WS broadcast).
+                reaped["flows"].append(flow.id)
+                try:
+                    await flow_lifecycle.stop_and_unregister(flow.id)
+                    delete_flow_directory(flow.id)
+                except Exception:
+                    log.exception(
+                        "HUSK CLEANUP: post-delete teardown failed for flow %s",
+                        flow.id,
+                    )
+            except Exception:
+                log.exception("HUSK CLEANUP: failed to reap empty flow %s", flow.id)
+                await session.rollback()
+
+        # --- Chats: auto-generated name + no messages + standalone ---
+        chats = list(
+            await session.scalars(
+                select(Chat).where(
+                    Chat.deleted_at.is_(None),
+                    Chat.flow_id.is_(None),
+                    Chat.created_at <= cutoff,
+                    or_(
+                        Chat.name == "",
+                        Chat.name == "Untitled",
+                        Chat.name.like("Untitled %"),
+                    ),
+                )
+            )
+        )
+        for chat in chats:
+            try:
+                if not is_auto_generated_name(chat.name):
+                    continue
+                if await session.scalar(
+                    select(func.count(ChatItem.id)).where(ChatItem.chat_id == chat.id)
+                ):
+                    continue
+                # Soft-delete; the existing two-phase pipeline hard-purges it.
+                chat.deleted_at = datetime.utcnow()
+                await session.commit()
+                reaped["chats"].append(chat.id)
+            except Exception:
+                log.exception("HUSK CLEANUP: failed to reap empty chat %s", chat.id)
+                await session.rollback()
+
+        return reaped
 
     async def cleanup_expired_images(
         self, db: AsyncSession, folder_configs: Dict[str, Any]

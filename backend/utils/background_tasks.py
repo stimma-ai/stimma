@@ -281,6 +281,84 @@ async def cleanup_ephemeral_media():
             await asyncio.sleep(600)
 
 
+async def cleanup_empty_unnamed_entities(ws_manager):
+    """Reap abandoned empty, unnamed boards/flows/chats older than 12 hours.
+
+    Covers both the ongoing case and the first-deploy backlog: it runs shortly
+    after startup and then hourly, so any husks already older than 12h are
+    swept on the very first pass — no special one-time migration needed.
+
+    An object is only reaped if the user never gave it identity or content: a
+    board with no name and no assets, a flow with no name whose program is the
+    untouched placeholder and whose chat has no messages, or a standalone chat
+    with an auto-generated name and no messages. See
+    ``CleanupService.cleanup_empty_unnamed_entities``.
+    """
+    from cleanup_service import CleanupService
+    from core.profile_context import set_current_profile
+
+    cleanup_service = CleanupService()
+
+    # Let startup (migrations, deferred init) settle before the first sweep.
+    await asyncio.sleep(30)
+
+    log.info("HUSK CLEANUP: sweeper started")
+
+    while True:
+        try:
+            settings = get_settings()
+            registry = get_database_registry()
+
+            for profile in settings.profiles:
+                if not registry.has_profile(profile.id):
+                    continue
+                set_current_profile(profile.id)
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    reaped = await cleanup_service.cleanup_empty_unnamed_entities(session)
+
+                total = sum(len(ids) for ids in reaped.values())
+                if total:
+                    log.info(
+                        "HUSK CLEANUP: reaped %d empty husk(s) for profile %s "
+                        "(boards=%d flows=%d chats=%d)",
+                        total, profile.id, len(reaped["boards"]),
+                        len(reaped["flows"]), len(reaped["chats"]),
+                    )
+                for board_id in reaped["boards"]:
+                    await ws_manager.broadcast(
+                        "board_deleted",
+                        {"board_id": board_id, "reason": "auto_delete_empty",
+                         "profile_id": profile.id},
+                        include_profile=False,
+                    )
+                for flow_id in reaped["flows"]:
+                    await ws_manager.broadcast(
+                        "flow_deleted",
+                        {"flow_id": flow_id, "reason": "auto_delete_empty",
+                         "profile_id": profile.id},
+                        include_profile=False,
+                    )
+                for chat_id in reaped["chats"]:
+                    await ws_manager.broadcast(
+                        "chat_deleted",
+                        {"chat_id": chat_id, "reason": "auto_delete_empty",
+                         "profile_id": profile.id},
+                        include_profile=False,
+                    )
+
+            # Empty husks accrue slowly; an hourly sweep is plenty and keeps the
+            # 12h cutoff to roughly ±1h granularity.
+            await asyncio.sleep(3600)
+
+        except asyncio.CancelledError:
+            log.info("HUSK CLEANUP: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"HUSK CLEANUP: Error during sweep: {e}", exc_info=True)
+            await asyncio.sleep(3600)
+
+
 async def monitor_processing_stats(ws_manager):
     """
     Background task to monitor processing stats and broadcast via WebSocket.

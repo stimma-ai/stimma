@@ -19,7 +19,7 @@ from core.session_middleware import SessionIdMiddleware
 from core.slowtrace import SlowtraceMiddleware
 from core.logging import get_logger
 from utils.websocket import ws_manager
-from utils.background_tasks import monitor_media_changes, cleanup_expired_images, cleanup_ephemeral_media, monitor_processing_stats, monitor_system_warnings
+from utils.background_tasks import monitor_media_changes, cleanup_expired_images, cleanup_ephemeral_media, cleanup_empty_unnamed_entities, monitor_processing_stats, monitor_system_warnings
 from utils.migrations import run_all_migrations, run_migrations_for_profile
 from tool_provider_identity import STIMMA_TOOL_PROVIDER_ID
 from sqlalchemy import select
@@ -1325,6 +1325,10 @@ async def lifespan(app: FastAPI):
         # Crash sweeper for orphaned one-shot flow-as-tool ephemeral media
         ephemeral_cleanup_task = asyncio.create_task(cleanup_ephemeral_media())
         background_tasks.append(ephemeral_cleanup_task)
+
+        # Reaper for abandoned empty, unnamed boards/flows/chats (>12h old)
+        husk_cleanup_task = asyncio.create_task(cleanup_empty_unnamed_entities(ws_manager))
+        background_tasks.append(husk_cleanup_task)
 
         system_warnings_task = asyncio.create_task(monitor_system_warnings(ws_manager))
         background_tasks.append(system_warnings_task)
