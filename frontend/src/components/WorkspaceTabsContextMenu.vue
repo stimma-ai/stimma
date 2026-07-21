@@ -202,6 +202,7 @@ function getActiveTabId(): string | null {
   if (route.name === 'chat') return `chat:${route.params.id}`
   if (route.name === 'board-detail') return `board:${route.params.id}`
   if (route.name === 'flow') return `flow:${route.params.id}`
+  if (route.name === 'cut') return `cut:${route.params.id}`
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   if (route.name === 'edit-image' || route.name === 'edit-image-empty') return `editor:${route.params.editorId}`
   return null
@@ -219,6 +220,7 @@ function goToTab(tab: import('../composables/useWorkspaceTabs').WorkspaceTab) {
     if (tab.editorMediaId) router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
     else router.push({ name: 'edit-image-empty', params: { editorId: tab.entityId } })
   }
+  else if (tab.type === 'cut') router.push({ name: 'cut', params: { id: tab.entityId } })
 }
 
 function navigateAfterClose(excludeIds: Set<string>) {

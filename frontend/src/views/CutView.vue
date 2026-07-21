@@ -15,6 +15,26 @@
         @loaded="onLoaded"
       />
     </div>
+
+    <!-- Agent dock -->
+    <div class="shrink-0 px-6 pb-4 pt-2">
+      <div class="flex items-end gap-2">
+        <textarea
+          v-model="agentDraft"
+          rows="1"
+          placeholder="Ask the agent to plan, fill, or rearrange this cut…"
+          class="flex-1 resize-none bg-overlay-subtle rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted border border-transparent focus:border-accent outline-none"
+          disabled
+        />
+        <button
+          class="bg-accent text-white rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
+          title="Agent not connected yet"
+        >
+          Send
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -25,6 +45,7 @@ import TimelineViewer from '../components/viewers/TimelineViewer.vue'
 
 const route = useRoute()
 const title = ref('')
+const agentDraft = ref('')
 
 const assetIdNumber = computed(() => {
   const id = parseInt(route.params.id, 10)

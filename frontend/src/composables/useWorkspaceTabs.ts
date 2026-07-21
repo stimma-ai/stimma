@@ -7,7 +7,7 @@ import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
 import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
 
-export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
+export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow' | 'cut'
 
 export interface WorkspaceTab {
   id: string              // 'tool:{fullToolId}[:project:{p}]:i:{K}', 'chat:{id}', 'board:{id}', 'editor:{editorId}'

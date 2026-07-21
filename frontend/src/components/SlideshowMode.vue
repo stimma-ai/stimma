@@ -417,13 +417,29 @@
           class="absolute inset-0"
         />
 
-        <!-- Timeline sequencer + preview -->
-        <TimelineViewer
+        <!-- Timeline: static preview of the saved state; editing lives in the cut editor -->
+        <div
           v-else-if="isTimeline"
           :key="`timeline-${displayItem?.id}-${refreshKey}`"
-          :media-id="mediaIdOf(displayItem)"
-          class="absolute inset-0"
-        />
+          class="absolute inset-0 flex flex-col items-center justify-center gap-4"
+        >
+          <MediaImage
+            :media-id="mediaIdOf(displayItem)"
+            :file-hash="displayItem.file_hash"
+            :file-format="displayItem.file_format"
+            thumbnail
+            :thumbnail-size="1024"
+            :draggable="false"
+            container-class="max-w-[60%] max-h-[60%]"
+            img-class="w-full h-full object-contain rounded-media"
+          />
+          <button
+            class="bg-accent hover:bg-accent/90 text-white rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150"
+            @click.stop="openCutEditor"
+          >
+            Open editor
+          </button>
+        </div>
 
         <!-- Video -->
         <!-- MSE presents repeated A/V fragments on one forward-moving timeline,
@@ -1224,7 +1240,7 @@ import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType } from '../utils/mediaTypes'
-import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, TimelineViewer } from './viewers'
+import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
@@ -4014,6 +4030,16 @@ function handleKeydown(event) {
       event.preventDefault()
       close()
       break
+  }
+}
+
+async function openCutEditor() {
+  try {
+    const { data } = await axios.get(`/api/timelines/by-media/${mediaIdOf(displayItem.value)}`)
+    close()
+    router.push({ name: 'cut', params: { id: String(data.asset_id) } })
+  } catch (error) {
+    console.error('[SlideshowMode] Failed to open cut editor:', error)
   }
 }
 

@@ -495,6 +495,7 @@ function getActiveTabId() {
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   if (route.name === 'edit-image' || route.name === 'edit-image-empty') return `editor:${route.params.editorId}`
   if (route.name === 'flow') return `flow:${route.params.id}`
+  if (route.name === 'cut') return `cut:${route.params.id}`
   return null
 }
 
@@ -510,6 +511,7 @@ function navigateToTab(tab) {
     else router.push({ name: 'edit-image-empty', params: { editorId: tab.entityId } })
   }
   else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
+  else if (tab.type === 'cut') router.push({ name: 'cut', params: { id: tab.entityId } })
 }
 
 async function toggleDeveloperMode() {

@@ -1586,6 +1586,11 @@ function getTabIcon(tab: WorkspaceTab) {
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' })
     ])
   }
+  if (tab.type === 'cut') {
+    return h('svg', { class: 'w-3.5 h-3.5 text-rose-400', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m14.625 1.125c.621 0 1.125-.504 1.125-1.125M6 18.375v-12.75m12 12.75v-12.75M6 5.625C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0c0-.621.504-1.125 1.125-1.125m18 1.125c0-.621-.504-1.125-1.125-1.125h-1.5c-.621 0-1.125.504-1.125 1.125' })
+    ])
+  }
   return h('span')
 }
 
@@ -1602,6 +1607,7 @@ function isTabActive(tab: WorkspaceTab): boolean {
   if (tab.type === 'editor') return (route.name === 'edit-image' || route.name === 'edit-image-empty') && String(route.params.editorId) === tab.entityId
   if (tab.type === 'lineage') return route.name === 'lineage' && String(route.params.mediaId) === tab.entityId
   if (tab.type === 'flow') return route.name === 'flow' && String(route.params.id) === tab.entityId
+  if (tab.type === 'cut') return route.name === 'cut' && String(route.params.id) === tab.entityId
   return false
 }
 
@@ -1629,6 +1635,7 @@ function navigateToTab(tab: WorkspaceTab) {
   }
   else if (tab.type === 'lineage') router.push({ name: 'lineage', params: { mediaId: tab.entityId } })
   else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
+  else if (tab.type === 'cut') router.push({ name: 'cut', params: { id: tab.entityId } })
 
   if (props.isMobile) emit('close')
 }
@@ -1737,7 +1744,7 @@ function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
     // but a diagonal pull toward the panel can clip a neighbor, so hide on
     // a grace timer (entering the panel cancels it) instead of instantly.
     if (flowDropTargets.value && flowDropTargets.value.tabId !== tab.id) scheduleFlowTargetsHide()
-    if (tab.type === 'lineage') return // No drag-drop onto lineage tabs
+    if (tab.type === 'lineage' || tab.type === 'cut') return // No drag-drop onto these tabs yet
     if (tab.type !== 'tool' || isToolCompatible(tab.entityId)) {
       dragHoverTabId.value = tab.id
     }
@@ -1775,8 +1782,8 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   const add = e.shiftKey || dragAddModifier.value
   dragAddModifier.value = false
 
-  // Lineage tabs don't accept media drops
-  if (tab.type === 'lineage') return
+  // Lineage and cut tabs don't accept media drops
+  if (tab.type === 'lineage' || tab.type === 'cut') return
 
   const mediaId = mediaIds[0]
 
@@ -2673,6 +2680,12 @@ watch(
       }
     } else if ((name === 'edit-image' || name === 'edit-image-empty') && params.editorId) {
       addEditorTab(String(params.editorId), params.mediaId ? String(params.mediaId) : undefined)
+    } else if (name === 'cut' && params.id) {
+      const cutId = String(params.id)
+      const tab = addTab('cut', cutId, 'Untitled')
+      fetch(`/api/timelines/${cutId}`).then(r => r.ok ? r.json() : null).then(data => {
+        if (data?.state?.title) updateTabName(tab.id, data.state.title)
+      }).catch(() => {})
     } else if (name === 'lineage' && params.mediaId) {
       addTab('lineage', String(params.mediaId), 'Lineage')
     } else if (name === 'flow' && params.id) {
