@@ -1082,8 +1082,6 @@ import EntityIcon from './EntityIcon.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
 import Tooltip from './ui/Tooltip.vue'
-import { useAssetApi } from '../composables/useAssetApi'
-import { useSlideshow } from '../composables/useSlideshow'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'
@@ -1106,8 +1104,6 @@ const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
 
 // Navigation
 const router = useRouter()
-const { getAssetBrowserItem } = useAssetApi()
-const { enterSlideshow } = useSlideshow()
 const route = useRoute()
 const activeTab = computed(() => {
   if (String(route.name || '').startsWith('project-') || route.name === 'projects') {
@@ -2205,14 +2201,7 @@ async function createNewCut() {
     })
     if (!response.ok) throw new Error('Failed to create cut')
     const created = await response.json()
-    const item = await getAssetBrowserItem(created.asset_id)
-    if (item) {
-      enterSlideshow({
-        totalCount: 1,
-        startIndex: 0,
-        pageProvider: async () => [item],
-      })
-    }
+    router.push({ name: 'browse', query: { slideshowAsset: String(created.asset_id) } })
     if (props.isMobile) emit('close')
   } catch (error) {
     console.error('Failed to create cut:', error)

@@ -1868,8 +1868,39 @@ watch(() => filters.sortBy, (newSort, oldSort) => {
   }
 })
 
+async function openSlideshowAssetFromQuery() {
+  const slideshowAssetId = route.query.slideshowAsset
+  if (!slideshowAssetId) return
+  // Clear the query param immediately
+  const newQuery = { ...route.query }
+  delete newQuery.slideshowAsset
+  router.replace({ query: newQuery })
+
+  // Open slideshow directly using findMediaIndex API (faster than waiting for full loadMedia)
+  const id = parseInt(slideshowAssetId, 10)
+  if (isNaN(id)) return
+  try {
+    const snapshotParams = buildFilterParams()
+    const result = await findMediaIndex(id, snapshotParams)
+    // Open slideshow with pageProvider (not mediaList, since it's not populated yet)
+    enterSlideshow({
+      totalCount: result.total,
+      startIndex: result.index,
+      pageProvider: fetchPageItems,
+      randomized: false,
+      randomSeed: null
+    })
+  } catch (error) {
+    console.error('Failed to open slideshow to media:', error)
+  }
+}
+
 watch(() => route.query, async (query) => {
   if (initializing.value || route.name !== 'browse' || useExternalFilters) return
+  if (query.slideshowAsset) {
+    await openSlideshowAssetFromQuery()
+    return
+  }
   await applyUrlFiltersFromQuery(query, { reload: true })
 }, { deep: true })
 
@@ -1922,32 +1953,7 @@ onMounted(async () => {
 
   // Handle slideshowMedia query param (e.g., after image editor save)
   // Do this BEFORE loadMedia to open slideshow instantly
-  const slideshowAssetId = route.query.slideshowAsset
-  if (slideshowAssetId) {
-    // Clear the query param immediately
-    const newQuery = { ...route.query }
-    delete newQuery.slideshowAsset
-    router.replace({ query: newQuery })
-
-    // Open slideshow directly using findMediaIndex API (faster than waiting for full loadMedia)
-    const id = parseInt(slideshowAssetId, 10)
-    if (!isNaN(id)) {
-      try {
-        const snapshotParams = buildFilterParams()
-        const result = await findMediaIndex(id, snapshotParams)
-        // Open slideshow with pageProvider (not mediaList, since it's not populated yet)
-        enterSlideshow({
-          totalCount: result.total,
-          startIndex: result.index,
-          pageProvider: fetchPageItems,
-          randomized: false,
-          randomSeed: null
-        })
-      } catch (error) {
-        console.error('Failed to open slideshow to media:', error)
-      }
-    }
-  }
+  await openSlideshowAssetFromQuery()
 
   // Load media with current global filter state
   // This will pick up any filters that were set before navigation
