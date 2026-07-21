@@ -125,3 +125,89 @@ class TestToolCallArgsSanitized:
         )
         msg = _item_to_message(item)
         assert json.loads(msg["tool_calls"][0]["function"]["arguments"]) == {"file_path": "x.html"}
+
+
+class TestSynthesizeMissingToolResults:
+    @staticmethod
+    def _assistant_batch(*call_ids):
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": cid, "type": "function", "function": {"name": "run_code", "arguments": "{}"}}
+                for cid in call_ids
+            ],
+        }
+
+    @staticmethod
+    def _tool_result(call_id):
+        return {"role": "tool", "tool_call_id": call_id, "content": "ok"}
+
+    def test_dangling_tool_use_gets_synthetic_result(self):
+        from agent.v2.conversation import (
+            INTERRUPTED_TOOL_RESULT,
+            _synthesize_missing_tool_results,
+        )
+
+        messages = [
+            {"role": "system", "content": "s"},
+            {"role": "user", "content": "go"},
+            self._assistant_batch("t1"),
+            {"role": "user", "content": "The user interrupted the current operation."},
+        ]
+        _synthesize_missing_tool_results(messages)
+
+        assert messages[3] == {
+            "role": "tool",
+            "tool_call_id": "t1",
+            "content": INTERRUPTED_TOOL_RESULT,
+        }
+        assert messages[4]["role"] == "user"
+
+    def test_partial_batch_fills_only_missing_ids(self):
+        from agent.v2.conversation import (
+            INTERRUPTED_TOOL_RESULT,
+            _synthesize_missing_tool_results,
+        )
+
+        messages = [
+            {"role": "system", "content": "s"},
+            {"role": "user", "content": "go"},
+            self._assistant_batch("t1", "t2", "t3"),
+            self._tool_result("t1"),
+            {"role": "user", "content": "next"},
+        ]
+        _synthesize_missing_tool_results(messages)
+
+        synthetic = [m for m in messages if m.get("content") == INTERRUPTED_TOOL_RESULT]
+        assert [m["tool_call_id"] for m in synthetic] == ["t2", "t3"]
+        # Inserted after the real result, before the next user message.
+        assert [m.get("role") for m in messages] == ["system", "user", "assistant", "tool", "tool", "tool", "user"]
+
+    def test_fully_answered_batch_untouched(self):
+        from agent.v2.conversation import _synthesize_missing_tool_results
+
+        messages = [
+            {"role": "system", "content": "s"},
+            {"role": "user", "content": "go"},
+            self._assistant_batch("t1"),
+            self._tool_result("t1"),
+            {"role": "assistant", "content": "done"},
+        ]
+        before = [dict(m) for m in messages]
+        _synthesize_missing_tool_results(messages)
+        assert messages == before
+
+    def test_dangling_batch_at_end_of_conversation(self):
+        from agent.v2.conversation import (
+            INTERRUPTED_TOOL_RESULT,
+            _synthesize_missing_tool_results,
+        )
+
+        messages = [
+            {"role": "system", "content": "s"},
+            {"role": "user", "content": "go"},
+            self._assistant_batch("t1"),
+        ]
+        _synthesize_missing_tool_results(messages)
+        assert messages[-1]["content"] == INTERRUPTED_TOOL_RESULT

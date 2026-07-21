@@ -122,6 +122,12 @@ async def build_messages(
     if len(messages) > 1 and messages[1].get("role") == "tool":
         messages.insert(1, {"role": "user", "content": "(continued)"})
 
+    # Safety net: an interrupt can kill a turn after the tool_call item was
+    # persisted but before its tool_result was. Providers reject the whole
+    # conversation when an assistant tool_use has no matching result, bricking
+    # every later turn, so synthesize results for the missing ids.
+    _synthesize_missing_tool_results(messages)
+
     # Token budget: drop middle messages if history exceeds budget.
     # Preserves first + last turns so the prefix stays anchored for caching.
     pre_tokens = _estimate_tokens(messages)
@@ -150,6 +156,44 @@ async def build_messages(
     _inject_last_user_context(messages, system_reminders or [])
 
     return messages, adjusted_total
+
+
+INTERRUPTED_TOOL_RESULT = (
+    "[Tool execution was interrupted before completing. No result was recorded.]"
+)
+
+
+def _synthesize_missing_tool_results(messages: List[Dict[str, Any]]) -> None:
+    """Insert synthetic tool results for assistant tool_calls with no result.
+
+    Mutates messages in place. For each assistant message carrying tool_calls,
+    the immediately following role=="tool" messages are matched by
+    tool_call_id; any unmatched ids get a synthetic interrupted-result inserted
+    after the real ones, preserving provider ordering requirements.
+    """
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        calls = msg.get("tool_calls") if msg.get("role") == "assistant" else None
+        if not calls:
+            i += 1
+            continue
+        j = i + 1
+        answered = set()
+        while j < len(messages) and messages[j].get("role") == "tool":
+            answered.add(messages[j].get("tool_call_id"))
+            j += 1
+        for call in calls:
+            call_id = call.get("id") or ""
+            if call_id in answered:
+                continue
+            messages.insert(j, {
+                "role": "tool",
+                "tool_call_id": call_id,
+                "content": INTERRUPTED_TOOL_RESULT,
+            })
+            j += 1
+        i = j
 
 
 def _inject_last_user_context(
