@@ -474,8 +474,9 @@ async def generation_app(generation_temp_appdata_dir: Path):
         from routes import (
             boards, media, markers, projects, tags, trash,
             saved_views, profiles, keywords, generation, tools,
-            postprocessing,
+            postprocessing, timeline,
         )
+        app.include_router(timeline.router)
         app.include_router(media.router)
         app.include_router(boards.router)
         app.include_router(projects.router)

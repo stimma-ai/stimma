@@ -149,6 +149,11 @@ def get_managed_staging_dir(
     return get_profile_dir(profile_id) / "staging" / category
 
 
+def get_timeline_projects_dir(profile_id: Optional[str] = None) -> Path:
+    """Return the root for timeline project directories (op logs + caches)."""
+    return get_profile_dir(profile_id) / "timeline_projects"
+
+
 def get_thumbnail_cache_dir() -> Path:
     """Return thumbnail cache directory."""
     return get_cache_dir() / "thumbnails"

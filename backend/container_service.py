@@ -177,8 +177,8 @@ async def create_container_asset_from_media(
     idempotency_key: str | None = None,
 ) -> Asset:
     """Create one container Asset; embedded cells remain Media, not Assets."""
-    if container_type not in {"set", "grid"}:
-        raise AssetServiceError("Container type must be set or grid")
+    if container_type not in {"set", "grid", "timeline"}:
+        raise AssetServiceError("Container type must be set, grid, or timeline")
     asset = await create_asset_from_media(
         session,
         media_id=media_id,
@@ -211,7 +211,7 @@ async def commit_container_revision(
 ) -> AssetRevision:
     """Commit an immutable structural snapshot and advance the container head."""
     asset = await session.get(Asset, asset_id)
-    if asset is None or asset.asset_type not in {"set", "grid"}:
+    if asset is None or asset.asset_type not in {"set", "grid", "timeline"}:
         raise AssetServiceError("Asset is not a container")
     revision = await commit_revision(
         session,

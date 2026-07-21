@@ -165,6 +165,7 @@ from routes import (
     stimpack_marketplace,
     tags,
     telemetry,
+    timeline,
     tools,
     trash,
     mask_assistant,
@@ -218,6 +219,7 @@ app.include_router(presets.router)
 app.include_router(share.router)
 app.include_router(stimpack_marketplace.router)
 app.include_router(telemetry.router)
+app.include_router(timeline.router)
 app.include_router(feedback.router)
 app.include_router(flags.router)
 

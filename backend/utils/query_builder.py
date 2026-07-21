@@ -38,16 +38,17 @@ TEXT_FORMATS = ['md']
 SET_FORMATS = ['stimmaset.json']
 GRID_FORMATS = ['stimmagrid.json']
 LAYOUT_FORMATS = ['stimmalayout']
+TIMELINE_FORMATS = ['stimmatimeline.json']
 
 # Composite media: containers that hold references to other media items
 # These are "grouping" operations that don't transform media
-COMPOSITE_FORMATS = SET_FORMATS + GRID_FORMATS
+COMPOSITE_FORMATS = SET_FORMATS + GRID_FORMATS + TIMELINE_FORMATS
 
 # Atomic media: standalone files that don't contain other media
 ATOMIC_FORMATS = VIDEO_FORMATS + IMAGE_FORMATS + AUDIO_FORMATS + TEXT_FORMATS
 
 # Structured = all non-binary formats (text + composite)
-STRUCTURED_FORMATS = TEXT_FORMATS + SET_FORMATS + GRID_FORMATS + LAYOUT_FORMATS
+STRUCTURED_FORMATS = TEXT_FORMATS + SET_FORMATS + GRID_FORMATS + LAYOUT_FORMATS + TIMELINE_FORMATS
 
 
 def is_composite_format(file_format: str) -> bool:
@@ -453,6 +454,8 @@ def build_filtered_query(
                     format_conditions.append(MediaItem.file_format.in_(GRID_FORMATS))
                 elif media_type_item == 'layouts':
                     format_conditions.append(MediaItem.file_format.in_(LAYOUT_FORMATS))
+                elif media_type_item == 'timelines':
+                    format_conditions.append(MediaItem.file_format.in_(TIMELINE_FORMATS))
                 elif media_type_item == 'structured':
                     format_conditions.append(MediaItem.file_format.in_(STRUCTURED_FORMATS))
             if format_conditions:
@@ -476,6 +479,8 @@ def build_filtered_query(
                     query = query.where(~MediaItem.file_format.in_(GRID_FORMATS))
                 elif media_type_item == 'layouts':
                     query = query.where(~MediaItem.file_format.in_(LAYOUT_FORMATS))
+                elif media_type_item == 'timelines':
+                    query = query.where(~MediaItem.file_format.in_(TIMELINE_FORMATS))
                 elif media_type_item == 'structured':
                     query = query.where(~MediaItem.file_format.in_(STRUCTURED_FORMATS))
 

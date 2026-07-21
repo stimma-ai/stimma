@@ -10,9 +10,10 @@ export const TEXT_FORMATS = ['md']
 export const SET_FORMATS = ['stimmaset.json']
 export const GRID_FORMATS = ['stimmagrid.json']
 export const LAYOUT_FORMATS = ['stimmalayout']
-export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...LAYOUT_FORMATS]
+export const TIMELINE_FORMATS = ['stimmatimeline.json']
+export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...LAYOUT_FORMATS, ...TIMELINE_FORMATS]
 
-export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'set' | 'grid' | 'layout'
+export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'set' | 'grid' | 'layout' | 'timeline'
 
 export interface MediaItem {
   file_format: string
@@ -29,6 +30,7 @@ export function getMediaType(item: MediaItem): MediaType {
   if (format === 'stimmaset.json') return 'set'
   if (format === 'stimmagrid.json') return 'grid'
   if (format === 'stimmalayout') return 'layout'
+  if (format === 'stimmatimeline.json') return 'timeline'
   if (AUDIO_FORMATS.includes(format)) return 'audio'
   if (VIDEO_FORMATS.includes(format)) return 'video'
   return 'image'
@@ -136,6 +138,14 @@ export function getBadgeConfig(item: MediaItem): BadgeConfig | null {
         bgColor: 'bg-emerald-500/15',
         borderColor: 'border-emerald-500/50',
         label: 'Layout'
+      }
+    case 'timeline':
+      return {
+        icon: 'film',
+        color: 'text-rose-400',
+        bgColor: 'bg-rose-500/15',
+        borderColor: 'border-rose-500/50',
+        label: 'Timeline'
       }
     default:
       return null // Images don't get a badge by default
