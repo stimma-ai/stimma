@@ -162,11 +162,10 @@ async def create_parameter_sweep(
         cell_data = {"row": row_idx, "col": col_idx}
         media_item = media_items_by_id.get(mid)
         if media_item:
-            media_path = Path(media_item.file_path)
-            try:
-                cell_data["path"] = os.path.relpath(media_path, grid_dir)
-            except ValueError:
-                cell_data["path"] = str(media_path)
+            # Absolute: the grid file is written into private staging and then
+            # MOVED into managed storage by stage_managed_media() while cells
+            # stay put, so a staging-relative path would dangle after the move.
+            cell_data["path"] = str(Path(media_item.file_path))
         grid_content["cells"].append(cell_data)
 
     # Write grid JSON file

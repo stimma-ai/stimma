@@ -108,17 +108,14 @@ async def assemble_set(
         set_file_path = output_folder / filename
         counter += 1
 
-    # Build set JSON with relative paths where possible
-    import os
+    # Build set JSON with absolute member paths. The set file is written into
+    # private staging and then MOVED into managed storage by
+    # stage_managed_media(), while members stay where they are — so any path
+    # relative to the staging dir would dangle after the move.
     set_items = []
     for mid in media_ids:
         media_item = media_items_by_id[mid]
-        item_path = Path(media_item.file_path)
-        try:
-            path_str = os.path.relpath(item_path, output_folder)
-        except ValueError:
-            path_str = str(item_path)
-        set_items.append({"path": path_str})
+        set_items.append({"path": str(Path(media_item.file_path))})
 
     set_data = {
         "version": 1,
