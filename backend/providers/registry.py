@@ -53,112 +53,128 @@ class ProviderRegistry:
 
     # --- Database Caching ---
 
-    async def _get_db_session(self):
-        """Get a database session for caching tools.
-
-        Uses the first available profile's database since cached tools are global.
-        """
+    async def _get_db_session_makers(self):
+        """Return every profile database that carries the global tool cache."""
         from database_registry import get_database_registry
 
         registry = get_database_registry()
-        profiles = registry.list_profiles()
-        if not profiles:
-            logger.warning("No profiles available for tool caching")
-            return None
-
-        db = registry.get_database(profiles[0]["id"])
-        return db.async_session_maker()
+        return [
+            registry.get_database(profile["id"]).async_session_maker
+            for profile in registry.list_profiles()
+        ]
 
     async def _cache_tools_to_db(self, provider: ToolProvider, tools: List[ToolDescriptor]) -> None:
         """Cache tools from provider to database for offline display.
 
-        This upserts all tools from the provider and deletes any cached tools
-        that were not in this registration (handles tools being removed).
+        This upserts all tools from the provider and retires cached tools that
+        were not in this registration.  Retired descriptors remain available
+        for historical Media-lineage display.
         """
         from database import CachedProviderTool
-        from sqlalchemy import select, delete
+        from sqlalchemy import select
 
-        session_maker = await self._get_db_session()
-        if not session_maker:
+        session_makers = await self._get_db_session_makers()
+        if not session_makers:
             return
 
-        async with session_maker as session:
-            try:
-                provider_id = provider.provider_id
-                provider_name = provider.provider_name  # Human-readable display name
-                now = datetime.utcnow()
+        for session_maker in session_makers:
+            async with session_maker() as session:
+                try:
+                    provider_id = provider.provider_id
+                    provider_name = provider.provider_name
+                    now = datetime.utcnow()
 
-                # Track which full_tool_ids we're registering
-                registered_ids = set()
+                    registered_ids = set()
 
-                for tool in tools:
-                    full_tool_id = f"{provider_id}:{tool.id}"
-                    registered_ids.add(full_tool_id)
+                    for tool in tools:
+                        full_tool_id = f"{provider_id}:{tool.id}"
+                        registered_ids.add(full_tool_id)
 
-                    # Check if tool exists
+                        result = await session.execute(
+                            select(CachedProviderTool).where(
+                                CachedProviderTool.full_tool_id == full_tool_id
+                            )
+                        )
+                        cached = result.scalar_one_or_none()
+
+                        task_types_json = (
+                            json.dumps(tool.task_types) if tool.task_types else None
+                        )
+
+                        if cached:
+                            cached.provider_name = provider_name
+                            cached.name = tool.name
+                            cached.task_type = tool.task_type
+                            cached.task_types = task_types_json
+                            cached.model_vendor = tool.model_vendor
+                            cached.model = tool.model
+                            cached.parameter_schema = (
+                                json.dumps(tool.parameter_schema)
+                                if tool.parameter_schema
+                                else None
+                            )
+                            cached.output_schema = (
+                                json.dumps(tool.output_schema)
+                                if tool.output_schema
+                                else None
+                            )
+                            cached.tool_metadata = (
+                                json.dumps(tool.metadata) if tool.metadata else None
+                            )
+                            cached.last_registered_at = now
+                            cached.deleted_at = None
+                        else:
+                            session.add(CachedProviderTool(
+                                full_tool_id=full_tool_id,
+                                provider_id=provider_id,
+                                provider_name=provider_name,
+                                tool_id=tool.id,
+                                name=tool.name,
+                                task_type=tool.task_type,
+                                task_types=task_types_json,
+                                model_vendor=tool.model_vendor,
+                                model=tool.model,
+                                parameter_schema=(
+                                    json.dumps(tool.parameter_schema)
+                                    if tool.parameter_schema
+                                    else None
+                                ),
+                                output_schema=(
+                                    json.dumps(tool.output_schema)
+                                    if tool.output_schema
+                                    else None
+                                ),
+                                tool_metadata=(
+                                    json.dumps(tool.metadata)
+                                    if tool.metadata
+                                    else None
+                                ),
+                                last_registered_at=now,
+                            ))
+
                     result = await session.execute(
                         select(CachedProviderTool).where(
-                            CachedProviderTool.full_tool_id == full_tool_id
+                            CachedProviderTool.provider_id == provider_id,
+                            CachedProviderTool.deleted_at.is_(None),
                         )
                     )
-                    cached = result.scalar_one_or_none()
+                    all_cached = result.scalars().all()
 
-                    # Get task_types list for storage
-                    task_types_json = json.dumps(tool.task_types) if tool.task_types else None
+                    for cached in all_cached:
+                        if cached.full_tool_id not in registered_ids:
+                            cached.deleted_at = now
 
-                    if cached:
-                        # Update existing record
-                        cached.provider_name = provider_name
-                        cached.name = tool.name
-                        cached.task_type = tool.task_type
-                        cached.task_types = task_types_json
-                        cached.model_vendor = tool.model_vendor
-                        cached.model = tool.model
-                        cached.parameter_schema = json.dumps(tool.parameter_schema) if tool.parameter_schema else None
-                        cached.output_schema = json.dumps(tool.output_schema) if tool.output_schema else None
-                        cached.tool_metadata = json.dumps(tool.metadata) if tool.metadata else None
-                        cached.last_registered_at = now
-                        cached.deleted_at = None  # Restore if was soft-deleted
-                    else:
-                        # Create new record
-                        cached = CachedProviderTool(
-                            full_tool_id=full_tool_id,
-                            provider_id=provider_id,
-                            provider_name=provider_name,
-                            tool_id=tool.id,
-                            name=tool.name,
-                            task_type=tool.task_type,
-                            task_types=task_types_json,
-                            model_vendor=tool.model_vendor,
-                            model=tool.model,
-                            parameter_schema=json.dumps(tool.parameter_schema) if tool.parameter_schema else None,
-                            output_schema=json.dumps(tool.output_schema) if tool.output_schema else None,
-                            tool_metadata=json.dumps(tool.metadata) if tool.metadata else None,
-                            last_registered_at=now,
-                        )
-                        session.add(cached)
+                    await session.commit()
 
-                # Delete cached tools from this provider that weren't in this registration
-                # This handles tools being removed from the provider
-                result = await session.execute(
-                    select(CachedProviderTool).where(
-                        CachedProviderTool.provider_id == provider_id,
-                        CachedProviderTool.deleted_at.is_(None),
+                except Exception as e:
+                    logger.error(
+                        f"Error caching tools for provider {provider.provider_id}: {e}"
                     )
-                )
-                all_cached = result.scalars().all()
-
-                for cached in all_cached:
-                    if cached.full_tool_id not in registered_ids:
-                        # Tool was removed from provider - hard delete it
-                        await session.delete(cached)
-
-                await session.commit()
-                logger.info(f"Cached {len(tools)} tools from provider {provider_id}")
-
-            except Exception as e:
-                logger.error(f"Error caching tools for provider {provider.provider_id}: {e}")
-                await session.rollback()
+                    await session.rollback()
+        logger.info(
+            f"Cached {len(tools)} tools from provider {provider.provider_id} "
+            f"across {len(session_makers)} profiles"
+        )
 
     async def _broadcast_provider_status(self, provider_id: str, status: str, tool_count: int = 0) -> None:
         """Broadcast provider status change via WebSocket."""
@@ -383,33 +399,40 @@ class ProviderRegistry:
         from database import CachedProviderTool
         from sqlalchemy import select
 
-        session_maker = await self._get_db_session()
-        if not session_maker:
+        session_makers = await self._get_db_session_makers()
+        if not session_makers:
             return
 
-        async with session_maker as session:
-            try:
-                now = datetime.utcnow()
-                result = await session.execute(
-                    select(CachedProviderTool).where(
-                        CachedProviderTool.provider_id == provider_id,
-                        CachedProviderTool.deleted_at.is_(None),
+        deleted_count = 0
+        for session_maker in session_makers:
+            async with session_maker() as session:
+                try:
+                    now = datetime.utcnow()
+                    result = await session.execute(
+                        select(CachedProviderTool).where(
+                            CachedProviderTool.provider_id == provider_id,
+                            CachedProviderTool.deleted_at.is_(None),
+                        )
                     )
-                )
-                cached_tools = result.scalars().all()
+                    cached_tools = result.scalars().all()
 
-                for tool in cached_tools:
-                    tool.deleted_at = now
+                    for tool in cached_tools:
+                        tool.deleted_at = now
 
-                await session.commit()
-                logger.info(f"Soft-deleted {len(cached_tools)} cached tools for unconfigured provider {provider_id}")
+                    await session.commit()
+                    deleted_count += len(cached_tools)
 
-                # Broadcast that provider was unconfigured
-                await self._broadcast_provider_status(provider_id, "unconfigured", 0)
+                except Exception as e:
+                    logger.error(
+                        f"Error soft-deleting tools for provider {provider_id}: {e}"
+                    )
+                    await session.rollback()
 
-            except Exception as e:
-                logger.error(f"Error soft-deleting tools for provider {provider_id}: {e}")
-                await session.rollback()
+        logger.info(
+            f"Soft-deleted {deleted_count} cached tools for unconfigured provider "
+            f"{provider_id} across {len(session_makers)} profiles"
+        )
+        await self._broadcast_provider_status(provider_id, "unconfigured", 0)
 
     # --- Tool Lookup ---
 

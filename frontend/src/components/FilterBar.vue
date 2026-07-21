@@ -189,12 +189,12 @@
         <!-- Tool Badges -->
         <div v-for="tool in allTools"
              :key="tool.full_tool_id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool.full_tool_id) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
-             @click="toggleExcludeTool(tool.full_tool_id)">
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
+             @click="toggleExcludeTool(tool)">
           <span class="leading-none">{{ getToolName(tool) }}</span>
           <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
           <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-overlay-medium">{{ getToolProvider(tool) }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool.full_tool_id)">
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool)">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -531,15 +531,15 @@
               <div
                 v-for="tool in visibleTools"
                 :key="tool.full_tool_id"
-                @click="toggleTool(tool.full_tool_id)"
-                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
+                @click="toggleTool(tool)"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isToolSelected(tool) }, isToolSelected(tool) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span class="flex items-center gap-1.5 min-w-0">
-                  <span :class="['text-[13px] truncate', isToolSelected(tool.full_tool_id) ? 'text-accent-hi font-medium' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
+                  <span :class="['text-[13px] truncate', isToolSelected(tool) ? 'text-accent-hi font-medium' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
                   <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full flex-shrink-0 text-content-muted bg-overlay-subtle">{{ getToolProvider(tool) }}</span>
                 </span>
-                <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
+                <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isToolSelected(tool) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
               </div>
               <a v-if="(filterCounts.tools || []).length > 5" @click="showToolModal = true" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 View more
@@ -1116,13 +1116,14 @@ const allTools = computed(() => {
   const selectedIds = selectedTools.value || []
   const excludedIds = excludedTools.value || []
   const allIds = [...new Set([...selectedIds, ...excludedIds])]
-  // Return tool objects from filterCounts.tools, with fallback for unresolved IDs
   const tools = filterCounts.value.tools || []
-  const resolved = tools.filter(t => allIds.includes(t.full_tool_id))
-  const resolvedIds = new Set(resolved.map(t => t.full_tool_id))
+  const resolved = tools.filter(tool => (
+    toolIdentityIds(tool).some(id => allIds.includes(id))
+  ))
+  const resolvedIds = new Set(resolved.flatMap(toolIdentityIds))
   const fallbacks = allIds
     .filter(id => !resolvedIds.has(id))
-    .map(id => ({ full_tool_id: id, tool_name: id.split(':').pop() || id }))
+    .map(id => ({ full_tool_id: id, name: id.split(':').pop() || id }))
   return [...resolved, ...fallbacks]
 })
 
@@ -1133,16 +1134,22 @@ const toolsLimited = computed(() => {
   const allSelectedIds = [...new Set([...selectedIds, ...excludedIds])]
   const tools = filterCounts.value.tools || []
 
-  // Start with all selected tools
-  const result = allSelectedIds.map(id => (
-    tools.find(t => t.full_tool_id === id) || { full_tool_id: id, name: id.split(':').pop() || id, count: 0 }
+  const selectedResolved = tools.filter(tool => (
+    toolIdentityIds(tool).some(id => allSelectedIds.includes(id))
   ))
+  const resolvedIds = new Set(selectedResolved.flatMap(toolIdentityIds))
+  const result = [
+    ...selectedResolved,
+    ...allSelectedIds
+      .filter(id => !resolvedIds.has(id))
+      .map(id => ({ full_tool_id: id, name: id.split(':').pop() || id, count: 0 })),
+  ]
 
   // Add more tools up to 5 total
   const remainingSlots = 5 - result.length
   if (remainingSlots > 0) {
     const moreTools = tools
-      .filter(t => !allSelectedIds.includes(t.full_tool_id))
+      .filter(tool => !result.some(item => item.full_tool_id === tool.full_tool_id))
       .slice(0, remainingSlots)
     result.push(...moreTools)
   }
@@ -1738,64 +1745,71 @@ function getToolDisplayName(tool) {
   return provider ? `${name} (${provider})` : name
 }
 
-function toggleTool(fullToolId) {
-  const index = selectedTools.value.indexOf(fullToolId)
-  if (index === -1) {
-    selectedTools.value.push(fullToolId)
-    // Remove from excluded if it was there
-    const excludedIndex = excludedTools.value.indexOf(fullToolId)
-    if (excludedIndex !== -1) {
-      excludedTools.value.splice(excludedIndex, 1)
-    }
-  } else {
-    selectedTools.value.splice(index, 1)
-    // Also remove from excluded
-    const excludedIndex = excludedTools.value.indexOf(fullToolId)
-    if (excludedIndex !== -1) {
-      excludedTools.value.splice(excludedIndex, 1)
-    }
+function toolIdentityIds(toolOrId) {
+  if (typeof toolOrId === 'object' && toolOrId) {
+    return [...new Set([
+      toolOrId.full_tool_id,
+      ...(toolOrId.lineage_tool_ids || []),
+    ].filter(Boolean))]
   }
+  const fullToolId = String(toolOrId)
+  const resolved = (filterCounts.value.tools || []).find(tool => (
+    tool.full_tool_id === fullToolId ||
+    (tool.lineage_tool_ids || []).includes(fullToolId)
+  ))
+  return resolved ? toolIdentityIds(resolved) : [fullToolId]
+}
+
+function canonicalToolId(toolOrId) {
+  if (typeof toolOrId === 'object' && toolOrId?.full_tool_id) {
+    return toolOrId.full_tool_id
+  }
+  const fullToolId = String(toolOrId)
+  const resolved = (filterCounts.value.tools || []).find(tool => (
+    tool.full_tool_id === fullToolId ||
+    (tool.lineage_tool_ids || []).includes(fullToolId)
+  ))
+  return resolved?.full_tool_id || fullToolId
+}
+
+function removeToolIdentity(list, toolOrId) {
+  const ids = new Set(toolIdentityIds(toolOrId))
+  list.value = list.value.filter(id => !ids.has(id))
+}
+
+function toggleTool(toolOrId) {
+  const wasSelected = toolIdentityIds(toolOrId).some(id => (
+    selectedTools.value.includes(id)
+  ))
+  removeToolIdentity(selectedTools, toolOrId)
+  removeToolIdentity(excludedTools, toolOrId)
+  if (!wasSelected) selectedTools.value.push(canonicalToolId(toolOrId))
   emitUpdate()
 }
 
-function isToolSelected(fullToolId) {
-  return selectedTools.value.includes(fullToolId) || excludedTools.value.includes(fullToolId)
+function isToolSelected(toolOrId) {
+  return toolIdentityIds(toolOrId).some(id => (
+    selectedTools.value.includes(id) || excludedTools.value.includes(id)
+  ))
 }
 
-function isToolExcluded(fullToolId) {
-  return excludedTools.value.includes(fullToolId)
+function isToolExcluded(toolOrId) {
+  return toolIdentityIds(toolOrId).some(id => excludedTools.value.includes(id))
 }
 
-function toggleExcludeTool(fullToolId) {
-  const index = excludedTools.value.indexOf(fullToolId)
-  if (index === -1) {
-    // Add to excluded
-    excludedTools.value.push(fullToolId)
-    // Remove from selected if it was there
-    const selectedIndex = selectedTools.value.indexOf(fullToolId)
-    if (selectedIndex !== -1) {
-      selectedTools.value.splice(selectedIndex, 1)
-    }
-  } else {
-    // Remove from excluded
-    excludedTools.value.splice(index, 1)
-    // Add back to selected
-    if (!selectedTools.value.includes(fullToolId)) {
-      selectedTools.value.push(fullToolId)
-    }
-  }
+function toggleExcludeTool(toolOrId) {
+  const wasExcluded = isToolExcluded(toolOrId)
+  removeToolIdentity(selectedTools, toolOrId)
+  removeToolIdentity(excludedTools, toolOrId)
+  const fullToolId = canonicalToolId(toolOrId)
+  if (wasExcluded) selectedTools.value.push(fullToolId)
+  else excludedTools.value.push(fullToolId)
   emitUpdate()
 }
 
-function removeTool(fullToolId) {
-  const index = selectedTools.value.indexOf(fullToolId)
-  if (index !== -1) {
-    selectedTools.value.splice(index, 1)
-  }
-  const excludedIndex = excludedTools.value.indexOf(fullToolId)
-  if (excludedIndex !== -1) {
-    excludedTools.value.splice(excludedIndex, 1)
-  }
+function removeTool(toolOrId) {
+  removeToolIdentity(selectedTools, toolOrId)
+  removeToolIdentity(excludedTools, toolOrId)
   emitUpdate()
 }
 

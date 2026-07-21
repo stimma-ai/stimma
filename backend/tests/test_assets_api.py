@@ -25,6 +25,7 @@ from database import (
     Chat,
     ChatItem,
     ContainerMember,
+    CachedProviderTool,
     DeleteOperation,
     DeleteOperationItem,
     Keyword,
@@ -34,6 +35,7 @@ from database import (
     MediaMarker,
     MediaTag,
     MediaThumbnailCache,
+    MediaToolLineage,
     Tag,
 )
 from container_service import create_container_asset_from_media
@@ -913,6 +915,87 @@ async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_
     assert keyword_counts["current-only"] == 1
     assert "old-revision-only" not in keyword_counts
     assert "intermediate-only" not in keyword_counts
+
+
+@pytest.mark.asyncio
+async def test_asset_tool_facets_resolve_builtins_history_and_legacy_aliases(
+    client, db_session
+):
+    canonical_id = "comfyui:facet-alias-proof"
+    legacy_id = "comfyui:text-to-image:facet-alias-proof"
+    editor_id = "builtin:stimma:image-editor"
+
+    async with db_session() as session:
+        current_media = await create_media_item(
+            session, file_path="/tmp/tool-facet-current.png"
+        )
+        legacy_media = await create_media_item(
+            session, file_path="/tmp/tool-facet-legacy.png"
+        )
+        editor_media = await create_media_item(
+            session, file_path="/tmp/tool-facet-editor.png"
+        )
+        current_asset = await create_asset_from_media(
+            session, media_id=current_media.id
+        )
+        legacy_asset = await create_asset_from_media(
+            session, media_id=legacy_media.id
+        )
+        await create_asset_from_media(session, media_id=editor_media.id)
+        session.add_all([
+            MediaToolLineage(
+                media_id=current_media.id,
+                full_tool_id=canonical_id,
+            ),
+            MediaToolLineage(
+                media_id=legacy_media.id,
+                full_tool_id=legacy_id,
+            ),
+            MediaToolLineage(
+                media_id=editor_media.id,
+                full_tool_id=editor_id,
+            ),
+            CachedProviderTool(
+                full_tool_id=canonical_id,
+                provider_id="comfyui",
+                provider_name="ComfyUI",
+                tool_id="facet-alias-proof",
+                name="Facet Alias Proof",
+                deleted_at=datetime.utcnow(),
+            ),
+        ])
+        await session.commit()
+
+    payload = (await client.get("/api/assets/filter-counts")).json()
+    alias_facet = next(
+        tool for tool in payload["tools"] if tool["full_tool_id"] == canonical_id
+    )
+    assert alias_facet == {
+        "full_tool_id": canonical_id,
+        "lineage_tool_ids": [canonical_id, legacy_id],
+        "name": "Facet Alias Proof",
+        "provider_name": "ComfyUI",
+        "provider_id": "comfyui",
+        "count": 2,
+    }
+    editor_facet = next(
+        tool for tool in payload["tools"] if tool["full_tool_id"] == editor_id
+    )
+    assert editor_facet["name"] == "Image Editor"
+    assert editor_facet["provider_name"] == "Stimma"
+
+    selected = await client.get(
+        "/api/assets/browse", params={"tool_ids": canonical_id}
+    )
+    selected_ids = {item["asset_id"] for item in selected.json()["items"]}
+    assert {current_asset.id, legacy_asset.id} <= selected_ids
+
+    excluded = await client.get(
+        "/api/assets/browse", params={"excluded_tool_ids": canonical_id}
+    )
+    excluded_ids = {item["asset_id"] for item in excluded.json()["items"]}
+    assert current_asset.id not in excluded_ids
+    assert legacy_asset.id not in excluded_ids
 
 
 @pytest.mark.asyncio

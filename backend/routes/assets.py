@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import Integer, func, literal, or_, select
+from sqlalchemy import Integer, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from asset_service import (
@@ -42,10 +42,10 @@ from database import (
     Keyword,
     MediaKeyword,
     MediaToolLineage,
-    CachedProviderTool,
     Project,
     ProjectAsset,
 )
+from tool_display import resolve_tool_display_metadata
 from core.dependencies import get_db_session
 from utils.query_builder import (
     AUDIO_FORMATS,
@@ -941,41 +941,37 @@ async def get_asset_filter_counts(
     tool_query = facet("tools").join(
         MediaToolLineage, MediaToolLineage.media_id == MediaItem.id
     )
-    tool_rows = (
-        await session.execute(
-            tool_query.with_only_columns(
-                MediaToolLineage.full_tool_id,
-                func.count(func.distinct(Asset.id)),
-            )
-            .group_by(MediaToolLineage.full_tool_id)
-            .order_by(func.count(func.distinct(Asset.id)).desc())
-            .limit(tool_limit)
-        )
-    ).all()
-    tool_metadata = {}
-    tool_ids_found = [full_tool_id for full_tool_id, _ in tool_rows]
+    tool_ids_found = list(await session.scalars(
+        tool_query.with_only_columns(MediaToolLineage.full_tool_id).distinct()
+    ))
+    tool_metadata = await resolve_tool_display_metadata(session, tool_ids_found)
+    aliases_by_canonical: dict[str, list[str]] = defaultdict(list)
+    for full_id in tool_ids_found:
+        aliases_by_canonical[
+            tool_metadata[full_id]["canonical_tool_id"]
+        ].append(full_id)
     if tool_ids_found:
-        metadata_rows = (
+        canonical_expression = case(
+            {
+                full_id: metadata["canonical_tool_id"]
+                for full_id, metadata in tool_metadata.items()
+            },
+            value=MediaToolLineage.full_tool_id,
+            else_=MediaToolLineage.full_tool_id,
+        )
+        tool_rows = (
             await session.execute(
-                select(
-                    CachedProviderTool.full_tool_id,
-                    CachedProviderTool.name,
-                    CachedProviderTool.provider_name,
-                    CachedProviderTool.provider_id,
-                ).where(
-                    CachedProviderTool.full_tool_id.in_(tool_ids_found),
-                    CachedProviderTool.deleted_at.is_(None),
+                tool_query.with_only_columns(
+                    canonical_expression.label("canonical_tool_id"),
+                    func.count(func.distinct(Asset.id)),
                 )
+                .group_by(canonical_expression)
+                .order_by(func.count(func.distinct(Asset.id)).desc())
+                .limit(tool_limit)
             )
         ).all()
-        tool_metadata = {
-            full_id: {
-                "name": name,
-                "provider_name": provider_name,
-                "provider_id": provider_id,
-            }
-            for full_id, name, provider_name, provider_id in metadata_rows
-        }
+    else:
+        tool_rows = []
 
     project_query = facet("projects").join(
         ProjectAsset,
@@ -1048,13 +1044,20 @@ async def get_asset_filter_counts(
         ],
         "tools": [
             {
-                "full_tool_id": full_id,
-                "name": tool_metadata.get(full_id, {}).get("name", full_id),
-                "provider_name": tool_metadata.get(full_id, {}).get("provider_name", ""),
-                "provider_id": tool_metadata.get(full_id, {}).get("provider_id", ""),
+                "full_tool_id": canonical_id,
+                "lineage_tool_ids": sorted(aliases_by_canonical[canonical_id]),
+                "name": tool_metadata[
+                    aliases_by_canonical[canonical_id][0]
+                ]["name"],
+                "provider_name": tool_metadata[
+                    aliases_by_canonical[canonical_id][0]
+                ]["provider_name"],
+                "provider_id": tool_metadata[
+                    aliases_by_canonical[canonical_id][0]
+                ]["provider_id"],
                 "count": count,
             }
-            for full_id, count in tool_rows
+            for canonical_id, count in tool_rows
         ],
         "projects": {str(project_id): count for project_id, count in project_rows},
         "project_membership": {

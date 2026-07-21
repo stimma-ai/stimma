@@ -11,7 +11,6 @@ from database import (
     Asset,
     AssetRevision,
     AssetTag,
-    CachedProviderTool,
     Keyword,
     MediaItem,
     MediaKeyword,
@@ -28,6 +27,7 @@ from config import get_settings
 from background_work_filters import media_eligible_for_background_work
 from utils.query_builder import build_filtered_query, VIDEO_FORMATS, IMAGE_FORMATS, RESOLUTION_MAP
 from utils.similarity import filter_media_query_by_face_similarity, parse_similarity_ids
+from tool_display import resolve_tool_display_metadata
 
 router = APIRouter(prefix="/api", tags=["processing"])
 log = get_logger(__name__)
@@ -1412,30 +1412,17 @@ async def get_filter_counts(
     result = await session.execute(tool_query)
     tool_results = result.all()
 
-    # Batch-fetch tool metadata from CachedProviderTool for display names
     tool_id_list = [row[0] for row in tool_results]
-    tool_metadata = {}
-    if tool_id_list:
-        cached_result = await session.execute(
-            select(CachedProviderTool.full_tool_id, CachedProviderTool.name, CachedProviderTool.provider_name, CachedProviderTool.provider_id)
-            .where(CachedProviderTool.full_tool_id.in_(tool_id_list))
-            .where(CachedProviderTool.deleted_at.is_(None))
-        )
-        for full_id, name, provider_name, provider_id in cached_result.all():
-            tool_metadata[full_id] = {"name": name, "provider_name": provider_name, "provider_id": provider_id}
-
-    # Built-in tools that don't have CachedProviderTool entries
-    BUILTIN_TOOL_NAMES = {
-        "builtin:stimma:image-editor": {"name": "Image Editor", "provider_name": "Stimma", "provider_id": "builtin:stimma"},
-    }
+    tool_metadata = await resolve_tool_display_metadata(session, tool_id_list)
 
     for full_tool_id, count in tool_results:
-        meta = tool_metadata.get(full_tool_id) or BUILTIN_TOOL_NAMES.get(full_tool_id, {})
+        meta = tool_metadata[full_tool_id]
         tool_counts_list.append({
             "full_tool_id": full_tool_id,
-            "name": meta.get("name", full_tool_id),
-            "provider_name": meta.get("provider_name", ""),
-            "provider_id": meta.get("provider_id", ""),
+            "lineage_tool_ids": [full_tool_id],
+            "name": meta["name"],
+            "provider_name": meta["provider_name"],
+            "provider_id": meta["provider_id"],
             "count": count
         })
 

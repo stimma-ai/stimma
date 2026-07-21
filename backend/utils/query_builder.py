@@ -22,6 +22,7 @@ from database import (
     Project,
     ProjectAsset,
 )
+from tool_display import expand_tool_id_aliases
 
 
 # =============================================================================
@@ -669,6 +670,7 @@ def build_filtered_query(
         if tool_ids:
             tool_id_list = [tid.strip() for tid in tool_ids.split(',') if tid.strip()]
             if tool_id_list:
+                tool_id_list = expand_tool_id_aliases(tool_id_list)
                 tool_subquery = select(MediaToolLineage.media_id).where(
                     MediaToolLineage.full_tool_id.in_(tool_id_list)
                 ).distinct()
@@ -677,6 +679,7 @@ def build_filtered_query(
         if excluded_tool_ids:
             excluded_tool_id_list = [tid.strip() for tid in excluded_tool_ids.split(',') if tid.strip()]
             if excluded_tool_id_list:
+                excluded_tool_id_list = expand_tool_id_aliases(excluded_tool_id_list)
                 excluded_tool_subquery = select(MediaToolLineage.media_id).where(
                     MediaToolLineage.full_tool_id.in_(excluded_tool_id_list)
                 ).distinct()

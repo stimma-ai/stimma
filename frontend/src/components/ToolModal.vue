@@ -28,24 +28,24 @@
         <div
           v-for="tool in filteredTools"
           :key="tool.full_tool_id"
-          @click="toggleTool(tool.full_tool_id)"
+          @click="toggleTool(tool)"
           :class="[
             'flex justify-between items-center gap-2 py-1.5 px-3 rounded-md cursor-pointer transition-colors',
-            isSelected(tool.full_tool_id) ? 'bg-accent/10' : 'hover:bg-overlay-subtle'
+            isSelected(tool) ? 'bg-accent/10' : 'hover:bg-overlay-subtle'
           ]"
         >
           <span class="flex items-center gap-2 min-w-0">
             <ToolIcon :tool="tool" size="sm" :ring="false" />
             <span :class="[
               'text-[13px] truncate',
-              isSelected(tool.full_tool_id) ? 'text-accent-hi font-medium' : 'text-content-secondary'
+              isSelected(tool) ? 'text-accent-hi font-medium' : 'text-content-secondary'
             ]">{{ tool.name || tool.full_tool_id }}</span>
             <span v-if="isStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
             <span v-else-if="tool.provider_name" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full text-content-muted bg-overlay-subtle">{{ tool.provider_name }}</span>
           </span>
           <span :class="[
             'text-xs font-mono tabular-nums flex-shrink-0',
-            isSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted'
+            isSelected(tool) ? 'text-content-tertiary' : 'text-content-muted'
           ]">({{ tool.count }})</span>
         </div>
 
@@ -94,20 +94,27 @@ const filteredTools = computed(() => {
   return props.tools.filter(t => {
     const name = (t.name || t.full_tool_id || '').toLowerCase()
     const provider = (t.provider_name || '').toLowerCase()
-    return name.includes(q) || provider.includes(q)
+    const identities = [t.full_tool_id, ...(t.lineage_tool_ids || [])]
+      .join(' ')
+      .toLowerCase()
+    return name.includes(q) || provider.includes(q) || identities.includes(q)
   })
 })
 
-function isSelected(fullToolId) {
-  return props.selectedTools.includes(fullToolId)
+function toolIdentityIds(tool) {
+  return [tool.full_tool_id, ...(tool.lineage_tool_ids || [])]
+}
+
+function isSelected(tool) {
+  return toolIdentityIds(tool).some(id => props.selectedTools.includes(id))
 }
 
 function isStimmaCloud(tool) {
   return tool.provider_id === STIMMA_CLOUD_PROVIDER_ID
 }
 
-function toggleTool(fullToolId) {
-  emit('toggle-tool', fullToolId)
+function toggleTool(tool) {
+  emit('toggle-tool', tool)
 }
 
 function close() {
