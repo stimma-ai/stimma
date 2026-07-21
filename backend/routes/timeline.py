@@ -94,6 +94,24 @@ async def create_timeline(
     return result
 
 
+@router.get("/by-media/{media_id}")
+async def get_timeline_by_media(
+    media_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from database import AssetRevision
+
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is None:
+        raise HTTPException(status_code=404, detail=f"No timeline for media {media_id}")
+    return await get_timeline(revision.asset_id, session)
+
+
 @router.get("/{asset_id}")
 async def get_timeline(
     asset_id: int,

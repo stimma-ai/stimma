@@ -161,6 +161,24 @@ def test_fill_move_trim_remove_roundtrip(project):
     assert restored["in"] == 1.0 and restored["out"] == 3.0
 
 
+def test_trim_slot_duration(project):
+    create(project)
+    result = project.append_batch(
+        [("add_slot", {"duration": 5, "brief": "hole"})], author="user"
+    )
+    slot_id = video_entries(result["state"])[0]["id"]
+    result = project.append_batch(
+        [("trim_clip", {"entry_id": slot_id, "duration": 2.5})], author="user"
+    )
+    assert video_entries(result["state"])[0]["duration"] == 2.5
+    with pytest.raises(TimelineOpError):
+        project.append_batch(
+            [("trim_clip", {"entry_id": slot_id, "in": 1})], author="user"
+        )
+    result = project.undo()
+    assert video_entries(result["state"])[0]["duration"] == 5
+
+
 def test_internal_ops_rejected(project):
     create(project)
     with pytest.raises(TimelineOpError):

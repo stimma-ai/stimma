@@ -182,8 +182,14 @@ def apply_op(state: Optional[dict], op: str, args: dict) -> dict:
     elif op == "trim_clip":
         track, index = _find_entry(state, args["entry_id"])
         entry = track["entries"][index]
-        if entry["kind"] != "clip":
-            raise TimelineOpError("trim_clip targets a clip; use set_entry_meta for slots")
+        if entry["kind"] == "slot":
+            if args.get("in") is not None or args.get("out") is not None:
+                raise TimelineOpError("Slots have no source trim; only duration applies")
+            duration = float(args.get("duration") or 0)
+            if duration <= 0:
+                raise TimelineOpError("Slot duration must be positive")
+            entry["duration"] = duration
+            return state
         merged = dict(entry)
         for key in ("in", "out", "duration"):
             if key in args:

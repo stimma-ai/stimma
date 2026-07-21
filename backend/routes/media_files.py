@@ -39,7 +39,7 @@ CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmatimeline.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -1251,7 +1251,7 @@ async def get_media_face_positions(
 
 async def _normalized_thumbnail_content(session, item: MediaItem) -> dict | None:
     """Resolve container members before thumbnail work leaves the DB thread."""
-    if item.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+    if item.file_format not in {"stimmaset.json", "stimmagrid.json", "stimmatimeline.json"}:
         return None
     from container_service import get_normalized_container_content
 
@@ -1303,7 +1303,7 @@ def _generate_thumbnail_sync(
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
-        if format_lower == 'stimmaset.json':
+        if format_lower in ('stimmaset.json', 'stimmatimeline.json'):
             img = _generate_set_preview(
                 file_path,
                 size,
@@ -1980,7 +1980,7 @@ async def get_thumbnail(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmatimeline.json', 'stimmalayout'):
         try:
             mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':
@@ -2568,7 +2568,7 @@ async def get_thumbnail_by_db_guid(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmatimeline.json', 'stimmalayout'):
         try:
             mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':
@@ -2894,7 +2894,7 @@ async def get_thumbnail_path_by_media_id(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmatimeline.json', 'stimmalayout'):
         try:
             mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':

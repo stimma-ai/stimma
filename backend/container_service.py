@@ -286,7 +286,7 @@ async def get_normalized_container_content(
     container_media: MediaItem,
 ) -> dict[str, Any] | None:
     """Project normalized membership into the legacy set/grid content shape."""
-    if container_media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+    if container_media.file_format not in {"stimmaset.json", "stimmagrid.json", "stimmatimeline.json"}:
         return None
     revision = await session.scalar(
         select(AssetRevision).where(
@@ -357,7 +357,7 @@ async def get_normalized_container_content(
 
     result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
     result.setdefault("version", 1)
-    if container_media.file_format == "stimmaset.json":
+    if container_media.file_format != "stimmagrid.json":
         result["items"] = [
             {
                 "path": media_by_id[entry["media_id"]].file_path

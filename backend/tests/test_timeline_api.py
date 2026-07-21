@@ -149,3 +149,11 @@ class TestTimelineLifecycle:
     async def test_get_missing_timeline_404s(self, generation_client):
         resp = await generation_client.get("/api/timelines/999999")
         assert resp.status_code == 404
+
+    async def test_lookup_by_media_id(self, generation_client):
+        created = await create_timeline(generation_client)
+        resp = await generation_client.get(
+            f"/api/timelines/by-media/{created['media_id']}"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["asset_id"] == created["asset_id"]

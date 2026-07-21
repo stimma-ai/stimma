@@ -417,6 +417,14 @@
           class="absolute inset-0"
         />
 
+        <!-- Timeline sequencer + preview -->
+        <TimelineViewer
+          v-else-if="isTimeline"
+          :key="`timeline-${displayItem?.id}-${refreshKey}`"
+          :media-id="mediaIdOf(displayItem)"
+          class="absolute inset-0"
+        />
+
         <!-- Video -->
         <!-- MSE presents repeated A/V fragments on one forward-moving timeline,
              so loop boundaries never trigger a media-element seek. -->
@@ -1216,7 +1224,7 @@ import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType } from '../utils/mediaTypes'
-import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer } from './viewers'
+import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, TimelineViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
@@ -1867,6 +1875,11 @@ const isGrid = computed(() => {
 const isLayout = computed(() => {
   if (!displayItem.value) return false
   return isLayoutType(displayItem.value)
+})
+
+const isTimeline = computed(() => {
+  if (!displayItem.value) return false
+  return displayItem.value.file_format?.toLowerCase() === 'stimmatimeline.json'
 })
 
 // Navigation availability (handles set view mode)
