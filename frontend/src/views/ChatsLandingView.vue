@@ -65,6 +65,7 @@
         <div
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
+          :data-testid="`chat-row-${chat.id}`"
           class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative"
           :class="isSelected(chat.id)
             ? 'bg-selection/15'
@@ -233,7 +234,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, onUnmounted, nextTick , watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, nextTick , watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAgentActivity } from '../composables/useAgentActivity'
@@ -491,8 +492,12 @@ async function performDelete(ids) {
 
 // Keyboard shortcuts
 function handleKeyDown(event) {
-  // Don't handle if we're in an input
-  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
+  // Don't handle shortcuts while the user is editing text.
+  if (
+    event.target?.tagName === 'INPUT' ||
+    event.target?.tagName === 'TEXTAREA' ||
+    event.target?.isContentEditable
+  ) return
 
   // Close empty context menu on Escape
   if (event.key === 'Escape') {
@@ -635,13 +640,20 @@ on('chat_restored', () => loadChats())
 onMounted(() => {
   loadChats()
   searchInputRef.value?.focus()
-  document.addEventListener('keydown', handleKeyDown)
-  document.addEventListener('click', handleEmptyMenuClickOutside)
 })
 
 onActivated(() => {
   loadChats()
   searchInputRef.value?.focus()
+  document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('click', handleEmptyMenuClickOutside)
+})
+
+onDeactivated(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('click', handleEmptyMenuClickOutside)
+  emptyContextMenuVisible.value = false
+  clearSelection()
 })
 
 onUnmounted(() => {

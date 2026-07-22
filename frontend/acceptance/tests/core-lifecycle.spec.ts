@@ -261,4 +261,87 @@ test.describe('core object lifecycle acceptance', () => {
     expect(restoredIds.has(first.id)).toBe(true);
     expect(restoredIds.has(second.id)).toBe(true);
   });
+
+  test('chat shortcuts are disarmed when the KeepAlive view is deactivated', async ({ page }) => {
+    const first = await createChat(page, 'Acceptance KeepAlive Chat A');
+    const second = await createChat(page, 'Acceptance KeepAlive Chat B');
+    const chatDeleteRequests: string[] = [];
+
+    // Abort the destructive request if the regression returns so a failing
+    // acceptance run cannot wipe the sandbox's other lifecycle fixtures.
+    await page.route('**/api/chats/batch/delete', async (route) => {
+      const request = route.request();
+      chatDeleteRequests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      await route.abort();
+    });
+
+    const readinessDismiss = page.getByTestId('readiness-dismiss');
+    if (await readinessDismiss.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await readinessDismiss.click();
+      await expect(page.getByTestId('readiness-panel')).toBeHidden();
+    }
+
+    await page.getByRole('button', { name: 'Chats', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/chats$/);
+    await expect(page.getByText(first.name, { exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(second.name, { exact: true })).toBeVisible({ timeout: 30000 });
+
+    // Arm a selection through the normal row interactions, then navigate
+    // through the app shell so KeepAlive deactivates Chats instead of
+    // unmounting it.
+    await page.getByTestId(`chat-row-${first.id}`).getByRole('button').click();
+    await page.getByTestId(`chat-row-${second.id}`).getByRole('button').click();
+    await expect(page.getByTitle('Delete selected')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTitle('Delete selected')).toBeHidden();
+
+    // Re-arm the selection that deactivation must clear.
+    await page.getByTestId(`chat-row-${first.id}`).getByRole('button').click();
+    await page.getByTestId(`chat-row-${second.id}`).getByRole('button').click();
+    await expect(page.getByTitle('Delete selected')).toBeVisible();
+    await page.getByRole('button', { name: 'Projects', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/projects$/);
+
+    // The inactive Chats view must neither retain the old selection nor
+    // respond to common shortcuts pressed on another screen.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await expect.poll(() => chatDeleteRequests).toEqual([]);
+
+    await page.getByRole('button', { name: 'Chats', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/chats$/);
+    await expect(page.getByTitle('Delete selected')).toBeHidden();
+
+    // Arm another selection so this specifically proves that Backspace in a
+    // rich-text editor cannot fall through to the batch-delete shortcut.
+    await page.getByTestId(`chat-row-${first.id}`).getByRole('button').click();
+    await page.getByTestId(`chat-row-${second.id}`).getByRole('button').click();
+    await expect(page.getByTitle('Delete selected')).toBeVisible();
+
+    // Rich-text editors in the active document own Cmd+A and Backspace.
+    await page.evaluate(() => {
+      const editor = document.createElement('div');
+      editor.contentEditable = 'true';
+      editor.dataset.testid = 'acceptance-contenteditable';
+      editor.textContent = 'editable text';
+      document.body.appendChild(editor);
+      editor.focus();
+    });
+    await page.keyboard.press('Backspace');
+    await expect.poll(() => chatDeleteRequests).toEqual([]);
+    await expect(page.getByTitle('Delete selected')).toBeVisible();
+    await page.getByTestId('acceptance-contenteditable').evaluate((editor) => editor.remove());
+
+    // Once selection is cleared, a bare Backspace remains harmless.
+    await page.keyboard.press('Escape');
+    await expect(page.getByTitle('Delete selected')).toBeHidden();
+    await page.keyboard.press('Backspace');
+    await expect.poll(() => chatDeleteRequests).toEqual([]);
+
+    const activeChats = await listChats(page);
+    const activeIds = new Set(activeChats.items.map((item) => item.id));
+    expect(activeIds.has(first.id)).toBe(true);
+    expect(activeIds.has(second.id)).toBe(true);
+  });
 });
