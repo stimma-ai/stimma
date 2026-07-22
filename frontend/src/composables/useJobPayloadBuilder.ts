@@ -344,6 +344,31 @@ export function getPreUploadTasks(
     })
   }
 
+  // Source-video metadata for tools that declare it (e.g. Topaz video tools
+  // size their output from input_width/input_height/input_fps/duration).
+  // Cloud-side param validation rejects undeclared keys, so only merge the
+  // fields present in this tool's schema.
+  const videoMetaKeys = ['input_width', 'input_height', 'input_fps', 'duration']
+    .filter(k => k in props)
+  const firstVideoPath = state.globalPrefs.inputVideos[0]?.path
+  if (videoMetaKeys.length > 0 && 'input_videos' in props && firstVideoPath) {
+    tasks.push(async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/generate/video-info`, {
+          params: { source_path: firstVideoPath },
+        })
+        const meta: Record<string, number> = {}
+        if (data.width > 0) meta.input_width = data.width
+        if (data.height > 0) meta.input_height = data.height
+        if (data.fps > 0) meta.input_fps = data.fps
+        if (data.duration > 0) meta.duration = data.duration
+        return Object.fromEntries(Object.entries(meta).filter(([k]) => videoMetaKeys.includes(k)))
+      } catch {
+        return {} // provider falls back to its own estimates
+      }
+    })
+  }
+
   // Upload paint layers for reference images that have been painted
   const images = allPickedImages(state)
   for (let i = 0; i < images.length; i++) {

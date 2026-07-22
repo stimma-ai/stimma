@@ -82,6 +82,35 @@ def probe_video_info(video_path: str | Path) -> Tuple[float, float]:
     return _probe(video_path)
 
 
+def probe_video_stream_info(video_path: str | Path) -> dict:
+    """Best-effort {duration, fps, width, height} for a video; values are 0 if unknown."""
+    import ffmpeg
+
+    duration, fps = _probe(video_path)
+    width = height = 0
+    try:
+        info = ffmpeg.probe(str(video_path))
+        for stream in info.get("streams", []):
+            if stream.get("codec_type") != "video":
+                continue
+            width = int(stream.get("width") or 0)
+            height = int(stream.get("height") or 0)
+            # Rotated videos display with swapped dimensions
+            rotation = 0
+            for sd in stream.get("side_data_list", []) or []:
+                if "rotation" in sd:
+                    try:
+                        rotation = int(abs(float(sd["rotation"])))
+                    except (TypeError, ValueError):
+                        pass
+            if rotation % 180 == 90:
+                width, height = height, width
+            break
+    except Exception as e:
+        log.debug(f"ffprobe stream info failed for {video_path}: {e}")
+    return {"duration": duration, "fps": fps, "width": width, "height": height}
+
+
 def _resolve_time(position: FramePosition, duration: float, time_seconds: float | None, fps: float = 0.0) -> float:
     """Map a position/time request to a concrete seek timestamp."""
     if position == "first":

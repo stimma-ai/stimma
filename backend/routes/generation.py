@@ -948,14 +948,14 @@ async def frame_strip(source_path: str, count: int = 12, w: int = 96):
 @router.get("/video-info")
 async def video_info(source_path: str):
     """
-    Duration + fps for a library video. Drives the slideshow transport readout
-    (frames mode needs the source frame rate, which media rows don't carry).
+    Duration + fps + dimensions for a library video. Drives the slideshow
+    transport readout (frames mode needs the source frame rate, which media
+    rows don't carry) and source-metadata params for cloud video tools.
     """
-    from utils.video_frames import probe_video_info
+    from utils.video_frames import probe_video_stream_info
 
     video_path = _validate_media_source_path(source_path)
-    duration, fps = await asyncio.to_thread(probe_video_info, video_path)
-    return {"duration": duration, "fps": fps}
+    return await asyncio.to_thread(probe_video_stream_info, video_path)
 
 
 class ReferencePreprocessRequest(BaseModel):

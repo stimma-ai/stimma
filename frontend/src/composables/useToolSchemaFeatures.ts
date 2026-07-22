@@ -444,6 +444,10 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
       // Skip special params with dedicated UI
       if (SPECIAL_PARAM_NAMES.has(name)) continue
 
+      // Skip params the tool declares as non-interactive (x-hidden) — filled
+      // programmatically (e.g. source-video metadata), never user-edited
+      if (s['x-hidden'] === true) continue
+
       // Skip params with upscale_resolution control (handled by UpscaleResolutionPicker)
       if (s['x-control'] === 'upscale_resolution') continue
 
