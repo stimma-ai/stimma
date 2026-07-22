@@ -369,6 +369,7 @@
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
+                  <EntityIcon v-else-if="tab.type === 'cut'" type="cut" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
@@ -425,6 +426,7 @@
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
+                  <EntityIcon v-else-if="tab.type === 'cut'" type="cut" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
@@ -699,6 +701,7 @@
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
+                  <EntityIcon v-else-if="tab.type === 'cut'" type="cut" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
@@ -755,6 +758,7 @@
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
+                  <EntityIcon v-else-if="tab.type === 'cut'" type="cut" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->

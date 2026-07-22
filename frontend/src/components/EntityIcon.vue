@@ -23,6 +23,8 @@
     <svg v-else-if="type === 'project'" :class="glyphClass" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
     </svg>
+    <!-- cut -->
+    <FilmIcon v-else-if="type === 'cut'" :class="glyphClass" />
     <!-- flow -->
     <svg v-else :class="glyphClass" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -32,10 +34,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { FilmIcon } from '@heroicons/vue/24/outline'
 
 const props = withDefaults(
   defineProps<{
-    type: 'chat' | 'board' | 'project' | 'flow'
+    type: 'chat' | 'board' | 'project' | 'flow' | 'cut'
     /** Tile size. sm = sidebar rows, md/lg = cards & landing screens. */
     size?: 'sm' | 'md' | 'lg'
     /** Tile shape. Defaults to a circle for chats and a rounded square for
