@@ -70,9 +70,32 @@ def test_schema_well_formed(tool):
             assert constraint["effect"] in ("hide", "disable")
 
 
+def test_override_style_manual_params_gated_on_custom_preset():
+    # Override-style stages (preset != Custom replaces the sliders at execute
+    # time) hide their manual params unless the preset enum is "Custom".
+    cases = [
+        (FILM_STOCK_TOOL, "halation_threshold", "halation_preset"),
+        (DEVELOP_TOOL, "nr_luminance_amount", "nr_preset"),
+        (DEVELOP_TOOL, "skin_hue_center", "skin_preset"),
+    ]
+    for tool, param, preset_param in cases:
+        props = tool.parameter_schema["properties"]
+        constraints = props[param]["x-constraints"]
+        gate = [
+            c for c in constraints
+            if c["when"].get("param") == preset_param
+            and c["when"]["op"] == "not_equals"
+            and c["when"]["value"] == "Custom"
+            and c["effect"] == "hide"
+        ]
+        assert gate, f"{tool.id}.{param} missing Custom-preset gate"
+        assert preset_param in props
+
+
 def test_all_tools_declare_attribution_description():
     for tool in DARKROOM_TOOLS:
         assert "Louvaert" in tool.description
+        assert tool.name.startswith("Darkroom: ")
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +325,7 @@ async def test_provider_registers_and_executes(tmp_path):
             descriptor = tools[tool.id]
             assert descriptor.task_type == "filter"
             assert descriptor.metadata["attribution"]["url"].startswith("https://")
+            assert "Louvaert" in descriptor.metadata["description"]
 
         src = tmp_path / "in.png"
         _test_image().save(src)

@@ -24,22 +24,22 @@ BUILTIN_TOOL_METADATA: dict[str, dict[str, str]] = {
         "provider_id": "builtin:stimma",
     },
     "builtin:darkroom-film-stock": {
-        "name": "Film Stock",
+        "name": "Darkroom: Film Stock",
         "provider_name": "Built-in Tools",
         "provider_id": "builtin",
     },
     "builtin:darkroom-develop": {
-        "name": "Develop",
+        "name": "Darkroom: Develop",
         "provider_name": "Built-in Tools",
         "provider_id": "builtin",
     },
     "builtin:darkroom-color-grade": {
-        "name": "Color Grade",
+        "name": "Darkroom: Color Grade",
         "provider_name": "Built-in Tools",
         "provider_id": "builtin",
     },
     "builtin:darkroom-lens": {
-        "name": "Lens & Optics",
+        "name": "Darkroom: Lens & Optics",
         "provider_name": "Built-in Tools",
         "provider_id": "builtin",
     },

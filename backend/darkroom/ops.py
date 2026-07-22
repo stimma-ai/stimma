@@ -34,6 +34,11 @@ class Stage:
     source: str = "vendor"    # "vendor" (darkroom.vendor.nodes) or "port" (darkroom.ports)
     exclude: Tuple[str, ...] = ()          # params not exposed in the schema
     fixed: Dict[str, Any] = field(default_factory=dict)  # forced param values
+    # Params hidden unless the stage's "preset" enum equals custom_value.
+    # For override-style nodes (preset != Custom REPLACES the manual sliders
+    # at execute time), so manual controls only show when they take effect.
+    custom_only: Tuple[str, ...] = ()
+    custom_value: str = "Custom"
     # Gating — exactly one of:
     toggle: bool = False      # expose an "<key>_enabled" boolean, off by default
     mode_value: Optional[str] = None       # active when the tool's mode == value
@@ -147,8 +152,20 @@ def build_tool_schema(
 
         for name, comfy_type, opts in _iter_input_params(stage):
             prop = _prop_from_comfy(comfy_type, opts, _label_from_name(name))
+            constraints = []
             if hide_when:
-                prop["x-constraints"] = [{"when": hide_when, "effect": "hide"}]
+                constraints.append({"when": hide_when, "effect": "hide"})
+            if name in stage.custom_only:
+                constraints.append({
+                    "when": {
+                        "param": f"{stage.key}_preset",
+                        "op": "not_equals",
+                        "value": stage.custom_value,
+                    },
+                    "effect": "hide",
+                })
+            if constraints:
+                prop["x-constraints"] = constraints
             properties[f"{stage.key}_{name}"] = prop
 
     return {

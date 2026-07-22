@@ -1,7 +1,8 @@
 """Built-in Darkroom tool definitions.
 
-Three image tools built from the vendored ComfyUI-Darkroom engine
-(see vendor/ATTRIBUTION.md): Film Stock, Develop, and Color Grade.
+The "Darkroom: *" image tools built from the vendored ComfyUI-Darkroom
+engine (see vendor/ATTRIBUTION.md): Film Stock, Develop, Color Grade, and
+Lens & Optics.
 Registered by the lightweight provider; task type "filter" so they are
 ordinary catalog tools usable from ToolView, the chat agent, flows, and
 post-processing chains.
@@ -44,7 +45,7 @@ class DarkroomToolDef:
 
 FILM_STOCK_TOOL = DarkroomToolDef(
     id="darkroom-film-stock",
-    name="Film Stock",
+    name="Darkroom: Film Stock",
     description=(
         "Give a digital image the look of real film: 161 film stocks with "
         "physics-based characteristic curves, plus optional cross-processing, "
@@ -76,7 +77,8 @@ FILM_STOCK_TOOL = DarkroomToolDef(
               cls="PrintStock", toggle=True),
         Stage(key="halation", label="Halation", module="halation",
               cls="Halation", toggle=True,
-              exclude=("tint_r", "tint_g", "tint_b", "blur_type")),
+              exclude=("tint_r", "tint_g", "tint_b", "blur_type"),
+              custom_only=("threshold", "radius")),
         Stage(key="vignette", label="Vignette", module="vignette",
               cls="Vignette", toggle=True,
               fixed={"lens": "Custom"},
@@ -92,7 +94,7 @@ FILM_STOCK_TOOL = DarkroomToolDef(
 
 DEVELOP_TOOL = DarkroomToolDef(
     id="darkroom-develop",
-    name="Develop",
+    name="Darkroom: Develop",
     description=(
         "Camera-raw style image development: white balance (manual Kelvin or "
         "auto), exposure and tonal controls, clarity/texture/dehaze, optional "
@@ -121,12 +123,16 @@ DEVELOP_TOOL = DarkroomToolDef(
               module="clarity_texture_dehaze", cls="ClarityTextureDehaze",
               exclude=("strength", "preset")),
         Stage(key="nr", label="Noise Reduction", module="noise_reduction",
-              cls="NoiseReduction", toggle=True, exclude=("strength",)),
+              cls="NoiseReduction", toggle=True, exclude=("strength",),
+              custom_only=("luminance_amount", "luminance_detail",
+                           "luminance_contrast", "color_amount", "color_detail")),
         Stage(key="sharpen", label="Sharpening", module="sharpening_pro",
               cls="SharpeningPro", toggle=True, exclude=("strength",)),
         Stage(key="skin", label="Skin Tone Uniformity", module="skin_tone_uniformity",
               cls="SkinToneUniformity", source="port", toggle=True,
-              exclude=("strength",)),
+              exclude=("strength",),
+              custom_only=("hue_center", "hue_width", "saturation_min",
+                           "saturation_max", "luminance_min", "luminance_max")),
         Stage(key="vibrance", label="Vibrance", module="vibrance",
               cls="Vibrance", exclude=("strength",)),
     ],
@@ -134,7 +140,7 @@ DEVELOP_TOOL = DarkroomToolDef(
 
 COLOR_GRADE_TOOL = DarkroomToolDef(
     id="darkroom-color-grade",
-    name="Color Grade",
+    name="Darkroom: Color Grade",
     description=(
         "Professional color grading, one corrector at a time: tone curves, "
         "lift/gamma/gain, log wheels, 3-way color balance, perceptual OkLab "
@@ -186,7 +192,7 @@ COLOR_GRADE_TOOL = DarkroomToolDef(
 
 LENS_TOOL = DarkroomToolDef(
     id="darkroom-lens",
-    name="Lens & Optics",
+    name="Darkroom: Lens & Optics",
     description=(
         "Simulate or correct real lens optics: 102 measured lens profiles "
         "(distortion + chromatic aberration + vignette in one pass), or "

@@ -502,10 +502,16 @@ const filteredTools = computed(() => {
     result = result.filter(t => activeProviderFilters.value.has(t.provider_id))
   }
 
-  // Filter by search query
+  // Filter by search query — name, provider, and description are all fair
+  // game (all three are visible on the card, and e.g. "darkroom" should find
+  // the Darkroom tools by either name or description).
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase().trim()
-    result = result.filter(t => t.name.toLowerCase().includes(query))
+    result = result.filter(t =>
+      t.name.toLowerCase().includes(query)
+      || (t.provider_name || '').toLowerCase().includes(query)
+      || String(t.metadata?.description || t.subtitle || '').toLowerCase().includes(query)
+    )
   }
 
   // Sort by name

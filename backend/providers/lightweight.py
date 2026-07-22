@@ -223,7 +223,13 @@ class LightweightProvider(ToolProvider):
                 parameter_schema=tool_def.parameter_schema,
                 output_schema=FILTER_OUTPUT_SCHEMA,
                 execute_fn=self._make_darkroom_executor(tool_def),
-                metadata={"attribution": dict(ATTRIBUTION)},
+                # description rides in metadata: ToolDescriptor has no
+                # description field, and the frontend reads
+                # tool.metadata.description (same convention as cloud tools).
+                metadata={
+                    "attribution": dict(ATTRIBUTION),
+                    "description": tool_def.description,
+                },
             ))
 
     def _make_darkroom_executor(self, tool_def) -> Callable:
