@@ -137,6 +137,11 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       const { _paintLayerDataUrl, ...rest } = img
       return rest
     })
+    state.inpaintRefImages = (globalPrefs.value.inpaintRefImages || []).map((img: any) => {
+      if (!img._paintLayerDataUrl) return img
+      const { _paintLayerDataUrl, ...rest } = img
+      return rest
+    })
     state.inputVideos = globalPrefs.value.inputVideos || []
     state.inputAudios = globalPrefs.value.inputAudios || []
     state.promptOptions = globalPrefs.value.promptOptions || {
@@ -177,6 +182,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     // Apply global prefs
     globalPrefs.value.prompt = state.prompt ?? ''
     globalPrefs.value.inputImages = state.inputImages ?? []
+    globalPrefs.value.inpaintRefImages = state.inpaintRefImages ?? []
     globalPrefs.value.inputVideos = state.inputVideos ?? []
     globalPrefs.value.inputAudios = state.inputAudios ?? []
     globalPrefs.value.promptOptions = state.promptOptions ?? {
@@ -267,7 +273,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
     for (const key of allKeys) {
       if (EPHEMERAL_STATE_KEYS.has(key)) continue
-      if (key === 'inputImages' || key === 'inputVideos' || key === 'inputAudios') continue
+      if (key === 'inputImages' || key === 'inpaintRefImages' || key === 'inputVideos' || key === 'inputAudios') continue
 
       // agentInstructions defaults to '' but older states omit the key entirely;
       // treat absent and empty as equal so loading a pre-feature preset doesn't
@@ -406,6 +412,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       prompt: '',
       negative_prompt: schemaDefaults.negativePrompt ?? '',
       inputImages: [],
+      inpaintRefImages: [],
       inputVideos: [],
       inputAudios: [],
       promptOptions: {

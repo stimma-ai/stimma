@@ -1,7 +1,11 @@
-"""Mask assistant routes for AI-powered mask editing."""
+"""Mask assistant routes for AI-powered mask editing.
+
+Segmentation only: natural-language mask commands are interpreted by the
+ToolView prompt agent (mask_subject / unmask_subject / expand_mask / ... in
+prompt_agent_tools.py), which calls /segment directly.
+"""
 import base64
 import io
-import json
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -9,8 +13,6 @@ from pydantic import BaseModel
 from PIL import Image
 
 from core.logging import get_logger
-from prompts import get_prompt
-from llm import llm_complete_text
 from sam3_service import get_sam3_service
 
 router = APIRouter(prefix="/api/mask", tags=["mask"])
@@ -18,40 +20,6 @@ log = get_logger(__name__)
 
 
 # --- Request/Response Models ---
-
-class Message(BaseModel):
-    role: str  # "user" or "assistant"
-    content: str
-
-
-class SAM3Command(BaseModel):
-    """Command to run SAM3 segmentation."""
-    prompt: str
-    confidence: float = 0.2
-    is_plural: bool = False  # True for plural requests like "the lights", "all windows"
-
-
-class PaddingCommand(BaseModel):
-    """Command to expand mask regions."""
-    percent: int  # 1-100
-
-
-class InterpretRequest(BaseModel):
-    user_input: str
-    image_path: str
-    has_existing_mask: bool
-    conversation_history: List[Message] = []
-    default_expand_percent: int = 15  # From UI dropdown
-
-
-class InterpretResponse(BaseModel):
-    operation: str  # "replace", "add", "clear", "pad", "contract", "unmask", "invert"
-    sam3_commands: List[SAM3Command] = []
-    padding: Optional[PaddingCommand] = None
-    explanation: str
-    llm_request: Optional[str] = None  # For debug panel
-    llm_response: Optional[str] = None  # For debug panel
-
 
 class SegmentRequest(BaseModel):
     image_path: str
@@ -68,120 +36,6 @@ class SegmentResponse(BaseModel):
     detections_count: int = 0
     best_confidence: float = 0.0
     error: Optional[str] = None
-
-
-# --- System Prompt ---
-
-def _get_mask_interpreter_prompt() -> str:
-    """Get the mask interpreter system prompt from prompts.yaml (hot-reloaded)."""
-    prompt = get_prompt("mask", "interpreter_system_prompt")
-    if not prompt:
-        raise ValueError("Missing mask.interpreter_system_prompt in prompts.yaml")
-    return prompt
-
-
-def _parse_interpret_response(raw_response: str) -> dict:
-    """Parse LLM response into structured format."""
-    # Try to extract JSON from response
-    try:
-        # Handle case where model wraps in markdown code blocks
-        response = raw_response.strip()
-        if response.startswith("```"):
-            lines = response.split("\n")
-            # Find the JSON content between ``` markers
-            json_lines = []
-            in_block = False
-            for line in lines:
-                if line.startswith("```") and not in_block:
-                    in_block = True
-                    continue
-                elif line.startswith("```") and in_block:
-                    break
-                elif in_block:
-                    json_lines.append(line)
-            response = "\n".join(json_lines)
-
-        parsed = json.loads(response)
-        return {
-            "operation": parsed.get("operation", "replace"),
-            "sam3_commands": [
-                SAM3Command(
-                    prompt=cmd.get("prompt", ""),
-                    confidence=cmd.get("confidence", 0.2),
-                    is_plural=cmd.get("is_plural", False)
-                )
-                for cmd in parsed.get("sam3_commands", [])
-            ],
-            "padding": PaddingCommand(percent=parsed["padding"]["percent"]) if parsed.get("padding") else None,
-            "explanation": parsed.get("explanation", ""),
-        }
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        log.warning(f"Failed to parse LLM response: {e}, raw: {raw_response}")
-        # Return a safe default
-        return {
-            "operation": "replace",
-            "sam3_commands": [],
-            "padding": None,
-            "explanation": f"Could not parse response: {raw_response[:200]}",
-        }
-
-
-@router.post("/interpret", response_model=InterpretResponse)
-async def interpret_mask_command(request: InterpretRequest):
-    """
-    Interpret a natural language mask editing command using the agent-fast LLM.
-    Returns structured commands for the frontend to execute.
-    """
-    from llm_resolver import LLMUnavailableError, get_effective_llm_config
-
-    try:
-        llm_config = await get_effective_llm_config('agent-fast')
-    except LLMUnavailableError as e:
-        raise HTTPException(
-            status_code=e.status_code,
-            detail={"code": e.code, "message": str(e)},
-        )
-
-    # Build messages
-    messages = [{"role": "system", "content": _get_mask_interpreter_prompt()}]
-
-    # Add conversation history
-    for msg in request.conversation_history:
-        messages.append({"role": msg.role, "content": msg.content})
-
-    # Build current user message
-    user_content = f"""User command: "{request.user_input}"
-Has existing mask: {request.has_existing_mask}
-default_expand_percent: {request.default_expand_percent}"""
-
-    messages.append({"role": "user", "content": user_content})
-
-    # Store for debug
-    llm_request = user_content
-
-    try:
-        response = await llm_complete_text(
-            config=llm_config,
-            messages=messages,
-            max_tokens=500,
-            temperature=0.3,
-        )
-
-        # Parse the response
-        parsed = _parse_interpret_response(response)
-
-        return InterpretResponse(
-            operation=parsed["operation"],
-            sam3_commands=parsed["sam3_commands"],
-            padding=parsed["padding"],
-            explanation=parsed["explanation"],
-            llm_request=llm_request,
-            llm_response=response,
-        )
-
-    except Exception as e:
-        log.error(f"LLM interpretation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 def _convert_grayscale_to_rgba(mask_data: bytes) -> bytes:

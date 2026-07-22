@@ -29,13 +29,6 @@
       />
     </div>
 
-    <!-- AI Mask Assistant -->
-    <div v-if="image?.path" class="px-4 pb-4 flex-shrink-0">
-      <AIMaskAssistant
-        :image-path="image.path"
-        :mask-editor-ref="maskEditorRef"
-      />
-    </div>
   </Modal>
 </template>
 
@@ -44,7 +37,6 @@ import { ref, watch } from 'vue'
 import Modal from '../ui/Modal.vue'
 import IconButton from '../ui/IconButton.vue'
 import MaskEditor from './MaskEditor.vue'
-import AIMaskAssistant from './AIMaskAssistant.vue'
 import type { MaskFormat } from '../../composables/useToolSchemaFeatures'
 
 interface ImageInfo {

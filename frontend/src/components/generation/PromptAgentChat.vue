@@ -339,129 +339,135 @@
       </button>
     </div>
 
-    <!-- Ideas container (BELOW input). Prompt-bound suggestions only show when a
-         prompt editor is wired in; a prompt-less tool gets a tools-only chat. -->
-    <div v-if="hasPrompt" class="mt-3 max-h-[300px] overflow-y-auto">
-      <!-- Empty prompt state -->
-      <div v-if="!prompt.trim()" class="py-4 flex items-center justify-center">
-        <p class="text-xs text-content-muted italic">Enter a prompt to get suggestions</p>
-      </div>
+    <!-- Ideas container (BELOW input). Stay out of the layout until there is
+         meaningful content, then use the screen's canonical card-grow motion. -->
+    <Transition name="flow-expand">
+      <div v-if="showIdeasPanel">
+        <div>
+          <div class="mt-3 max-h-[300px] overflow-y-auto">
+            <!-- The inline prompt helper keeps its guidance; Tool View opts out
+                 by hiding this entire region when there is no meaningful state. -->
+            <div v-if="!prompt.trim()" class="py-4 flex items-center justify-center">
+              <p class="text-xs text-content-muted italic">Enter a prompt to get suggestions</p>
+            </div>
 
-      <!-- Suggestion pills -->
-      <div
-        v-else-if="suggestions.length > 0 || isLoadingIdeas || isLoadingCategories"
-        class="flex flex-wrap gap-1.5 py-0.5 px-0.5"
-      >
-        <!-- Fixed suggestions (always shown at front) -->
-        <button
-          v-for="item in FIXED_SUGGESTIONS"
-          :key="'fixed-' + item.label"
-          @click="handleSuggestionClick(item, $event)"
-          :title="item.instruction"
-          class="px-2.5 py-1 rounded-full text-xs transition-all duration-200 bg-surface-raised text-content hover:bg-surface-hover hover:text-content"
-        >
-          {{ item.label }}
-        </button>
-        <!-- Line break between fixed and dynamic -->
-        <div class="w-full"></div>
-        <!-- Dynamic dropdown suggestions from LLM -->
-        <button
-          v-for="item in suggestions"
-          :key="item.label"
-          @click="handleSuggestionClick(item, $event)"
-          :disabled="loadingOptionsByCategory[item.category]"
-          :title="loadingOptionsByCategory[item.category] ? 'Loading options...' : (item.subitems && item.subitems.length > 0 ? `${item.label} (click for options)` : item.instruction)"
-          :class="[
-            'px-2.5 py-1 rounded-full text-xs transition-all duration-200',
-            loadingOptionsByCategory[item.category]
-              ? 'bg-surface-raised text-content-muted shimmer cursor-wait'
-              : activeSubmenu?.label === item.label
-                ? 'bg-blue-500/30 ring-1 ring-blue-500 text-blue-500 relative z-menu'
-                : getCategoryClass(item.category)
-          ]"
-        >
-          {{ item.label }}
-          <Spinner v-if="loadingOptionsByCategory[item.category]" size="sm" class="ml-0.5 inline" />
-          <ChevronDownIcon v-else-if="item.subitems && item.subitems.length > 0" class="w-3 h-3 ml-0.5 text-content-tertiary inline" />
-        </button>
-        <!-- Refresh pill at end — recomputes the sections AND their options. -->
-        <button
-          @click="refreshIdeasClick()"
-          :disabled="isLoadingIdeas"
-          class="px-2.5 py-1 rounded-full text-xs transition-colors bg-surface text-content-muted hover:text-content-muted hover:bg-surface-raised border border-surface-raised"
-          title="Refresh ideas"
-        >
-          <ArrowPathIcon :class="['w-3 h-3 inline', (isLoadingIdeas || isRefreshingIdeas) ? 'animate-spin' : '']" />
-        </button>
-      </div>
+            <!-- Suggestion pills -->
+            <div
+              v-else-if="suggestions.length > 0 || isLoadingIdeas || isLoadingCategories"
+              class="flex flex-wrap gap-1.5 py-0.5 px-0.5"
+            >
+              <!-- Fixed suggestions (always shown at front) -->
+              <button
+                v-for="item in FIXED_SUGGESTIONS"
+                :key="'fixed-' + item.label"
+                @click="handleSuggestionClick(item, $event)"
+                :title="item.instruction"
+                class="px-2.5 py-1 rounded-full text-xs transition-all duration-200 bg-surface-raised text-content hover:bg-surface-hover hover:text-content"
+              >
+                {{ item.label }}
+              </button>
+              <!-- Line break between fixed and dynamic -->
+              <div class="w-full"></div>
+              <!-- Dynamic dropdown suggestions from LLM -->
+              <button
+                v-for="item in suggestions"
+                :key="item.label"
+                @click="handleSuggestionClick(item, $event)"
+                :disabled="loadingOptionsByCategory[item.category]"
+                :title="loadingOptionsByCategory[item.category] ? 'Loading options...' : (item.subitems && item.subitems.length > 0 ? `${item.label} (click for options)` : item.instruction)"
+                :class="[
+                  'px-2.5 py-1 rounded-full text-xs transition-all duration-200',
+                  loadingOptionsByCategory[item.category]
+                    ? 'bg-surface-raised text-content-muted shimmer cursor-wait'
+                    : activeSubmenu?.label === item.label
+                      ? 'bg-blue-500/30 ring-1 ring-blue-500 text-blue-500 relative z-menu'
+                      : getCategoryClass(item.category)
+                ]"
+              >
+                {{ item.label }}
+                <Spinner v-if="loadingOptionsByCategory[item.category]" size="sm" class="ml-0.5 inline" />
+                <ChevronDownIcon v-else-if="item.subitems && item.subitems.length > 0" class="w-3 h-3 ml-0.5 text-content-tertiary inline" />
+              </button>
+              <!-- Refresh pill at end — recomputes the sections AND their options. -->
+              <button
+                @click="refreshIdeasClick()"
+                :disabled="isLoadingIdeas"
+                class="px-2.5 py-1 rounded-full text-xs transition-colors bg-surface text-content-muted hover:text-content-muted hover:bg-surface-raised border border-surface-raised"
+                title="Refresh ideas"
+              >
+                <ArrowPathIcon :class="['w-3 h-3 inline', (isLoadingIdeas || isRefreshingIdeas) ? 'animate-spin' : '']" />
+              </button>
+            </div>
 
-      <!-- Refusal message from LLM -->
-      <div v-else-if="refusalMessage" class="py-3 px-4 flex items-center gap-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-        <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <p class="text-xs text-amber-500 flex-1">{{ refusalMessage }}</p>
-        <!-- Dev mode: copy the refused request's full LLM trace for a bug report -->
-        <button
-          v-if="devModeRef && ideasDebugTrace"
-          @click="copyIdeasTrace"
-          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-        >
-          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-          <BugAntIcon v-else class="w-3.5 h-3.5" />
-        </button>
-      </div>
+            <!-- Refusal message from LLM -->
+            <div v-else-if="refusalMessage" class="py-3 px-4 flex items-center gap-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+              <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p class="text-xs text-amber-500 flex-1">{{ refusalMessage }}</p>
+              <!-- Dev mode: copy the refused request's full LLM trace for a bug report -->
+              <button
+                v-if="devModeRef && ideasDebugTrace"
+                @click="copyIdeasTrace"
+                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+              >
+                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+                <BugAntIcon v-else class="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-      <!-- Error state -->
-      <div v-else-if="ideasError" class="py-3 px-4 flex items-center gap-3 bg-red-500/10 rounded-lg border border-red-500/20">
-        <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <p class="text-xs text-red-500 flex-1">{{ ideasError }}</p>
-        <!-- Dev mode: copy the failed request's full LLM trace for a bug report -->
-        <button
-          v-if="devModeRef && ideasDebugTrace"
-          @click="copyIdeasTrace"
-          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-        >
-          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-          <BugAntIcon v-else class="w-3.5 h-3.5" />
-        </button>
-        <button
-          @click="refreshIdeasClick()"
-          :disabled="isLoadingIdeas"
-          class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
-        >
-          <span v-if="isLoadingIdeas" class="flex items-center gap-1.5">
-            <Spinner size="sm" />
-            Retrying...
-          </span>
-          <span v-else>Retry</span>
-        </button>
-      </div>
+            <!-- Error state -->
+            <div v-else-if="ideasError" class="py-3 px-4 flex items-center gap-3 bg-red-500/10 rounded-lg border border-red-500/20">
+              <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p class="text-xs text-red-500 flex-1">{{ ideasError }}</p>
+              <!-- Dev mode: copy the failed request's full LLM trace for a bug report -->
+              <button
+                v-if="devModeRef && ideasDebugTrace"
+                @click="copyIdeasTrace"
+                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+              >
+                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+                <BugAntIcon v-else class="w-3.5 h-3.5" />
+              </button>
+              <button
+                @click="refreshIdeasClick()"
+                :disabled="isLoadingIdeas"
+                class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
+              >
+                <span v-if="isLoadingIdeas" class="flex items-center gap-1.5">
+                  <Spinner size="sm" />
+                  Retrying...
+                </span>
+                <span v-else>Retry</span>
+              </button>
+            </div>
 
-      <!-- No ideas yet (also where an all-options refusal lands: empty subitems) -->
-      <div v-else class="py-4 flex items-center justify-center gap-2">
-        <button
-          @click="refreshIdeasClick()"
-          class="text-xs text-content-muted hover:text-purple-500 transition-colors"
-        >
-          Click to load ideas
-        </button>
-        <!-- Dev mode: copy the failed/refused request's full LLM trace for a bug report -->
-        <button
-          v-if="devModeRef && ideasDebugTrace"
-          @click="copyIdeasTrace"
-          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
-          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
-        >
-          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
-          <BugAntIcon v-else class="w-3.5 h-3.5" />
-        </button>
+            <div v-else class="py-4 flex items-center justify-center gap-2">
+              <button
+                @click="refreshIdeasClick()"
+                class="text-xs text-content-muted hover:text-purple-500 transition-colors"
+              >
+                Click to load ideas
+              </button>
+              <!-- Dev mode: copy the failed/refused request's full LLM trace for a bug report -->
+              <button
+                v-if="devModeRef && ideasDebugTrace"
+                @click="copyIdeasTrace"
+                class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+                :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+              >
+                <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+                <BugAntIcon v-else class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- Submenu for grouped items -->
     <SuggestionSubmenu
@@ -542,6 +548,8 @@ interface Props {
   prompt?: string
   /** Whether a prompt editor is wired in (shows pills/ideas, enables prompt edits). */
   hasPrompt?: boolean
+  /** Hide the ideas region until it has suggestions, loading, or failure feedback. */
+  hideEmptyIdeas?: boolean
   /** Placeholder for the feedback input. */
   placeholder?: string
   /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
@@ -554,6 +562,7 @@ const props = withDefaults(defineProps<Props>(), {
   editor: null,
   prompt: '',
   hasPrompt: false,
+  hideEmptyIdeas: false,
   placeholder: '',
   instructions: '',
   activeSkills: () => [],
@@ -848,6 +857,22 @@ const IDEAS_DEBOUNCE_MS = 500
 
 // Refusal message from LLM (e.g., content policy rejection)
 const refusalMessage = ref<string | null>(null)
+
+// Keep the dock compact when ideas have nothing useful to say. Loading and
+// failure/refusal states still reserve the region because they need feedback.
+const showIdeasPanel = computed(() => Boolean(
+  props.hasPrompt
+  && (!props.hideEmptyIdeas || (
+    props.prompt.trim()
+    && (
+      suggestions.value.length > 0
+      || isLoadingIdeas.value
+      || isLoadingCategories.value
+      || refusalMessage.value
+      || ideasError.value
+    )
+  ))
+))
 
 // ── Dev-mode bug-report traces ─────────────────────────────────────────────
 // When dev mode is on, suggestion requests send debug:true and the backend

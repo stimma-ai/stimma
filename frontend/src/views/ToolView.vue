@@ -384,6 +384,7 @@
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
+            hide-empty-ideas
             :active-skills="activeToolSkills"
             v-model:instructions="globalPrefs.agentInstructions"
           />
@@ -438,13 +439,22 @@
           @expand="maskEditorModalOpen = true"
         />
 
-        <!-- AI Mask Assistant (below MaskEditor when inpainting with an image) -->
-        <AIMaskAssistant
-          v-if="hasMask && inpaintSourceImage?.path"
-          :image-path="inpaintSourceImage.path"
-          :mask-editor-ref="maskEditorRef"
+        <!-- Inpaint reference images: extra refs beyond the inpaint target when
+             the schema allows them (input_images max-items > 1). Sent after the
+             target in input_images; the mask always applies to the target. -->
+        <MediaPicker
+          v-if="hasMask && inpaintRefConfig"
+          :model-value="inpaintRefItems"
+          @update:model-value="updateInpaintRefItems"
+          accept="image"
+          :min-items="inpaintRefConfig.min"
+          :max-items="inpaintRefConfig.max"
+          reorderable
+          :label="inpaintRefConfig.label"
+          :description="inpaintRefConfig.description"
+          @view-media="openSingleImageSlideshow"
+          @view-media-batch="openMediaBatchSlideshow"
         />
-
 
         <!-- Video Frame Images (for image-to-video). Same rich picker as ordinary
              reference images — prep, auto-resolution, drag-to-swap — but with named
@@ -657,10 +667,34 @@
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
         <!-- Empty state -->
-        <div v-if="!stageCurrentJob" class="flex-1 self-center flex flex-col items-center justify-center gap-3 text-content-muted">
-          <Spinner v-if="stageHasPending" size="lg" />
-          <span class="text-sm">{{ stageHasPending ? 'Generating…' : 'No images yet' }}</span>
+        <div v-if="!stageCurrentJob && stageHasPending" class="flex-1 self-center flex flex-col items-center justify-center gap-3 text-content-muted">
+          <Spinner size="lg" />
+          <span class="text-sm">Generating…</span>
         </div>
+        <!-- Never on screen during the layout width tween: it vanishes the
+             instant a stage→studio toggle starts, and on studio→stage it
+             waits for the space to finish expanding, then fades in
+             (stageHeroSettled). Mid-tween it would reflow in the moving
+             column. No leave transition — removal must be instant. -->
+        <template v-else-if="!stageCurrentJob">
+          <Transition
+            enter-active-class="transition-opacity duration-300"
+            enter-from-class="opacity-0"
+          >
+            <EmptyState
+              v-if="stageHeroSettled"
+              title="Make something wonderful"
+              :subtitle="canSubmit ? 'Your creations will appear here.' : 'Add the required inputs, then create something.'"
+            >
+              <template #icon>
+                <SparklesIcon class="w-6 h-6 text-content-muted" />
+              </template>
+              <template #action>
+                <Button :disabled="!canSubmit" @click="submitJob()">Create something</Button>
+              </template>
+            </EmptyState>
+          </Transition>
+        </template>
 
         <!-- Current generation (click → full slideshow at this image). No padding
              so the matte runs edge to edge. We bypass MediaImage's contain wrapper
@@ -806,6 +840,7 @@
       >
         <JobsGrid
           :jobs="allJobs"
+          empty-message=""
           :markers="jobsManager.availableMarkers.value"
           :media-hashes="jobsManager.mediaHashes.value"
           :media-has-alpha="jobsManager.mediaHasAlpha.value"
@@ -822,7 +857,6 @@
           :compact-overlays="layoutMode === 'stage'"
           :thumbnail-size="queueThumbnailSize"
           :slot-count="uiState.generateForeverMode ? (uiState.generateForeverConcurrency ?? 1) : null"
-          empty-message="No jobs yet"
           @job-click="handleQueueClick"
           @toggle-marker="handleToggleMarker"
           @dismiss-job="dismissJob"
@@ -836,7 +870,30 @@
           @show-job-info="showJobInfo"
           @trash-media="handleTrashMedia"
           @remix-media="handleRemixMedia"
-        />
+        >
+          <template #empty>
+            <!-- Stage already has the hero CTA; keep its narrow queue rail
+                 quiet. Mounts only after the stage→studio expansion settles,
+                 then fades in (see layoutSettled); removal is instant. -->
+            <Transition
+              enter-active-class="transition-opacity duration-300"
+              enter-from-class="opacity-0"
+            >
+              <EmptyState
+                v-if="studioRailSettled"
+                title="Make something wonderful"
+                :subtitle="canSubmit ? 'Your creations will appear here.' : 'Add the required inputs, then create something.'"
+              >
+                <template #icon>
+                  <SparklesIcon class="w-6 h-6 text-content-muted" />
+                </template>
+                <template #action>
+                  <Button :disabled="!canSubmit" @click="submitJob()">Create something</Button>
+                </template>
+              </EmptyState>
+            </Transition>
+          </template>
+        </JobsGrid>
       </div>
         </div>
 
@@ -934,7 +991,7 @@ const props = defineProps<{
 
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import { ArchiveBoxIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
@@ -955,6 +1012,8 @@ import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDurat
 import { usePromptWarmPool } from '../composables/usePromptWarmPool'
 import { useTabNavigation } from '../composables/useTabNavigation'
 import Spinner from '../components/ui/Spinner.vue'
+import Button from '../components/ui/Button.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -992,7 +1051,6 @@ import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
 import {
-  AIMaskAssistant,
   AIPromptEditor,
   ConstrainedResolutionPicker,
   GeminiResolutionPicker,
@@ -1807,7 +1865,7 @@ function updateFrameItems(items: MediaItem[]) {
 // Inpaint mask data URL
 const maskDataUrl = ref<string | null>(null)
 
-// Ref for MaskEditor (used by AI mask assistant)
+// Ref for MaskEditor (driven by the prompt agent's mask_* tools)
 const maskEditorRef = ref<InstanceType<typeof MaskEditor> | null>(null)
 
 // Mask editor modal state
@@ -2111,6 +2169,23 @@ watch(
   { immediate: true }
 )
 
+// Layout-settled gate for the two "Make something wonderful" placeholders
+// (stage hero + studio queue rail): a mode's placeholder disappears the
+// instant a toggle starts (no leave transition) and only mounts — with a
+// fade-in — once the width tween has settled in the new mode. Mid-tween the
+// text would reflow inside the moving column. 320ms slightly trails the
+// layout's duration-300. Lives below uiState's destructure because the
+// immediate run reads layoutMode → uiState.
+const layoutSettled = ref<'studio' | 'stage' | null>(null)
+const stageHeroSettled = computed(() => layoutSettled.value === 'stage')
+const studioRailSettled = computed(() => layoutSettled.value === 'studio')
+let layoutSettleTimer: ReturnType<typeof setTimeout> | null = null
+watch(layoutMode, (mode) => {
+  if (layoutSettleTimer) clearTimeout(layoutSettleTimer)
+  layoutSettled.value = null
+  layoutSettleTimer = setTimeout(() => { layoutSettled.value = mode }, 320)
+}, { immediate: true })
+
 // Mirror armed forever mode into the shared generation-status registry: the
 // sidebar spinner must run the entire time forever mode is on, including the
 // gaps where no job is queued (waiting for a slot, idle). Cleared on unmount
@@ -2276,14 +2351,56 @@ const inpaintSourceImage = computed(() => {
   return globalPrefs.value.inputImages[0] || null
 })
 
-// Handle image update from MaskEditor
-function handleInpaintImageUpdate(image: { path: string; filename?: string; hash?: string; mediaId?: number } | null) {
+// Handle image update from MaskEditor. The object may carry prep fields
+// (_flip/_crop/_scale/_extendPadding + _original*) from InpaintPrepRows —
+// they ride along in inputImages[0] like MediaPicker prep does.
+function handleInpaintImageUpdate(image: { path: string; filename?: string; hash?: string; mediaId?: number; [key: string]: any } | null) {
   if (image) {
     globalPrefs.value.inputImages = [image]
   } else {
     globalPrefs.value.inputImages = []
   }
 }
+
+// Inpaint reference images — extra refs the schema allows beyond the inpaint
+// target (input_images max-items > 1 on a mask tool, e.g. Klein multi-ref).
+// They live in their own prefs slot (inpaintRefImages) and are appended after
+// the target in the input_images payload by the payload builder.
+const inpaintRefConfig = computed(() => {
+  if (!hasMask.value || !mediaInputConfig.value) return null
+  if (mediaInputConfig.value.accept !== 'image') return null
+  const extra = (mediaInputConfig.value.max ?? 1) - 1
+  if (extra < 1) return null
+  return {
+    min: 0,
+    max: extra,
+    label: 'Reference images',
+    description: mediaInputConfig.value.description,
+  }
+})
+
+const inpaintRefItems = computed(() => globalPrefs.value.inpaintRefImages ?? [])
+
+function updateInpaintRefItems(items: any[]) {
+  globalPrefs.value.inpaintRefImages = items
+}
+
+// Every media entry path (drop, send-to-tool, restore, hop) writes into
+// inputImages. On a mask tool the editor only ever shows inputImages[0], so
+// overflow would ride along invisibly — move it into the refs slot instead
+// (capped at the slot's capacity, like every other picker).
+watch(() => globalPrefs.value.inputImages, (images) => {
+  if (!hasMask.value || !images || images.length <= 1) return
+  // Media-batch keeps its items in inputImages (one job per item) — leave it.
+  if (globalPrefs.value.batchMode) return
+  const overflow = images.slice(1)
+  globalPrefs.value.inputImages = images.slice(0, 1)
+  const cap = inpaintRefConfig.value?.max ?? 0
+  if (cap > 0) {
+    const existing = globalPrefs.value.inpaintRefImages ?? []
+    globalPrefs.value.inpaintRefImages = [...existing, ...overflow].slice(0, cap)
+  }
+})
 
 // Persist mask + paint-layer data URLs to IndexedDB (too large for localStorage).
 // Keys are tool-scoped + db_guid-scoped so they don't leak across profiles/reinstalls.
@@ -4028,8 +4145,11 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
     const currentMask = maskDataUrl.value
     const currentMaskFormat = maskFormat.value
 
-    // Collect input images: regular input images + video frames
-    const allInputImages: any[] = [...(globalPrefs.value.inputImages || [])]
+    // Collect input images: regular input images + inpaint refs + video frames
+    const allInputImages: any[] = [
+      ...(globalPrefs.value.inputImages || []),
+      ...(globalPrefs.value.inpaintRefImages || []),
+    ]
     if (videoImages.startImage) {
       allInputImages.push({ ...videoImages.startImage, role: 'start_image' })
     }
@@ -4684,6 +4804,7 @@ interface EditorSnapshot {
   prompt: string
   promptOptions: any
   inputImages: any[]
+  inpaintRefImages: any[]
   modelParams: Record<string, any>
   autoMarkerIds: number[]
   categories: any
@@ -4697,6 +4818,7 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     prompt: globalPrefs.value.prompt,
     promptOptions: JSON.parse(JSON.stringify(globalPrefs.value.promptOptions ?? null)),
     inputImages: JSON.parse(JSON.stringify(globalPrefs.value.inputImages ?? [])),
+    inpaintRefImages: JSON.parse(JSON.stringify(globalPrefs.value.inpaintRefImages ?? [])),
     modelParams: JSON.parse(JSON.stringify(modelParams.value ?? {})),
     autoMarkerIds: [...(globalPrefs.value.autoMarkerIds ?? [])],
     categories: promptAgentChatRef.value?.getCategoriesSnapshot
@@ -4709,6 +4831,7 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     aiPromptEditorRef.value?.setPromptText?.(snap.prompt)
     if (snap.promptOptions != null) globalPrefs.value.promptOptions = JSON.parse(JSON.stringify(snap.promptOptions))
     globalPrefs.value.inputImages = JSON.parse(JSON.stringify(snap.inputImages ?? []))
+    globalPrefs.value.inpaintRefImages = JSON.parse(JSON.stringify(snap.inpaintRefImages ?? []))
     modelParams.value = JSON.parse(JSON.stringify(snap.modelParams ?? {}))
     globalPrefs.value.autoMarkerIds = [...(snap.autoMarkerIds ?? [])]
     if (snap.categories && promptAgentChatRef.value?.setCategoriesSnapshot) {
@@ -5039,6 +5162,24 @@ function getStateContext(): Record<string, any> {
     }
   }
 
+  // Inpaint mask. Present only when the screen has a mask editor — its
+  // presence is what tells the agent the mask_* tools apply here.
+  if (hasMask.value) {
+    const me = maskEditorRef.value
+    const src = inpaintSourceImage.value
+    ctx.mask = {
+      source_image: src ? {
+        filename: (src as any).filename ?? null,
+        width: (src as any).width ?? null,
+        height: (src as any).height ?? null,
+      } : null,
+      has_mask: me?.hasMask?.() ?? false,
+      coverage_percent: me?.hasMask?.() ? Math.round((me?.maskCoveragePercent?.() ?? 0) * 10) / 10 : 0,
+      expand_contract_default_percent: unwrapMaybeRef((me as any)?.expandContractPercent, 15),
+      note: 'Masked areas are what generation REPLACES. mask_subject/unmask_subject segment by description; the prompt describes what fills the masked area.',
+    }
+  }
+
   // Resolution — a dedicated control, NOT a parameter_schema entry. Surface the
   // active mode + current value + allowed options so the agent can drive it.
   const res: Record<string, any> = {}
@@ -5159,6 +5300,14 @@ function getStateContext(): Record<string, any> {
 }
 
 // --- Command surface (runTool) ---------------------------------------------
+
+// defineExpose usually unwraps refs on the child instance, but be tolerant of
+// both shapes when reading numbers off component refs.
+function unwrapMaybeRef(v: any, fallback: number): number {
+  if (typeof v === 'number') return v
+  if (v && typeof v.value === 'number') return v.value
+  return fallback
+}
 
 async function runTool(name: string, args: any): Promise<string> {
   args = args || {}
@@ -5290,6 +5439,77 @@ async function runTool(name: string, args: any): Promise<string> {
       list.splice(to, 0, moved)
       globalPrefs.value.inputImages = list
       return `Moved image ${from} → ${to}.`
+    }
+
+    // ── Inpaint mask ──
+    case 'mask_subject':
+    case 'unmask_subject':
+    case 'expand_mask':
+    case 'contract_mask':
+    case 'invert_mask':
+    case 'clear_mask': {
+      if (!hasMask.value) return 'This tool has no mask editor.'
+      const me: any = maskEditorRef.value
+      if (!me) return 'Mask editor not available.'
+      const srcPath = inpaintSourceImage.value?.path
+      const coverage = () => `${Math.round((me.maskCoveragePercent?.() ?? 0) * 10) / 10}% of the image masked`
+
+      if (name === 'expand_mask' || name === 'contract_mask') {
+        if (!me.hasMask?.()) return 'No mask to adjust yet.'
+        const pRaw = Number(args.percent)
+        const percent = Number.isFinite(pRaw) && pRaw > 0
+          ? Math.min(100, pRaw)
+          : unwrapMaybeRef(me.expandContractPercent, 15)
+        if (name === 'expand_mask') me.expandMask?.(percent)
+        else me.contractMask?.(percent)
+        return `${name === 'expand_mask' ? 'Expanded' : 'Contracted'} mask by ${percent}% — ${coverage()}.`
+      }
+      if (name === 'invert_mask') {
+        me.invertMask?.()
+        return `Inverted mask — ${coverage()}.`
+      }
+      if (name === 'clear_mask') {
+        if (!me.hasMask?.()) return 'Mask is already empty.'
+        me.clearMask?.()
+        return 'Cleared mask.'
+      }
+
+      // mask_subject / unmask_subject — SAM3 segmentation, the same path the
+      // mask assistant input uses.
+      if (!srcPath) return 'No source image set — add one before masking.'
+      const subject = String(args.subject ?? '').trim()
+      if (!subject) return 'Error: subject is required.'
+      const isUnmask = name === 'unmask_subject'
+      if (isUnmask && !me.hasMask?.()) return 'No mask to remove from yet.'
+      const plural = !!args.plural
+      try {
+        const resp = await axios.post(`${API_BASE}/mask/segment`, {
+          image_path: srcPath,
+          prompt: subject,
+          return_all_above_threshold: plural,
+        })
+        const seg = resp.data
+        if (!seg.success) return `No regions found for "${subject}"${seg.error ? ` (${seg.error})` : ''}.`
+        const masks: string[] = plural && seg.mask_data_urls?.length
+          ? seg.mask_data_urls
+          : (seg.mask_data_url ? [seg.mask_data_url] : [])
+        if (!masks.length) return `No regions found for "${subject}".`
+        if (!isUnmask) me.saveToUndoStack?.()
+        let applied = 0
+        for (const maskUrl of masks) {
+          if (isUnmask) {
+            await me.subtractMaskFromDataUrl?.(maskUrl)
+          } else {
+            const mode = args.mode === 'add' || applied > 0 ? 'add' : 'replace'
+            await me.applyMaskFromDataUrl?.(maskUrl, mode)
+          }
+          applied++
+        }
+        return `${isUnmask ? 'Unmasked' : 'Masked'} "${subject}" (${applied} region${applied === 1 ? '' : 's'}) — ${coverage()}.`
+      } catch (err: any) {
+        const detail = err.response?.data?.detail
+        return `Segmentation failed: ${(typeof detail === 'string' ? detail : detail?.message) || err.message}`
+      }
     }
 
     // ── LoRAs ──

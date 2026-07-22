@@ -83,6 +83,10 @@ export interface GlobalPrefs {
   inputImages: any[]
   inputVideos: any[]
   inputAudios: any[]
+  // Inpaint tools only: extra reference images (input_images[1:]). The mask
+  // editor owns inputImages[0] (the inpaint target); refs live in their own
+  // slot so target-replacing entry paths (drop, send-to-tool) can't eat them.
+  inpaintRefImages: any[]
   promptOptions: PromptOptions
   autoMarkerIds: number[]
   // Per-tool agent note (rides the tool + any preset saved from it): standing
@@ -144,6 +148,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     inputImages: [],
     inputVideos: [],
     inputAudios: [],
+    inpaintRefImages: [],
     promptOptions: defaultPromptOptions(),
     autoMarkerIds: [],
     agentInstructions: '',
@@ -186,6 +191,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           inputImages: data.inputImages ?? [],
           inputVideos: data.inputVideos ?? [],
           inputAudios: data.inputAudios ?? [],
+          inpaintRefImages: data.inpaintRefImages ?? [],
           promptOptions: {
             // Default ON only when this profile has never stored the setting
             // (new state); an explicit stored value is preserved as-is. Audio
@@ -211,13 +217,15 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     try {
       // Strip large data URLs from inputImages before saving — paint layers
       // are persisted separately via dedicated storage in ToolView
+      const stripPaintLayer = (img: any) => {
+        if (!img._paintLayerDataUrl) return img
+        const { _paintLayerDataUrl, ...rest } = img
+        return rest
+      }
       const cleanedPrefs = {
         ...globalPrefs.value,
-        inputImages: globalPrefs.value.inputImages.map((img: any) => {
-          if (!img._paintLayerDataUrl) return img
-          const { _paintLayerDataUrl, ...rest } = img
-          return rest
-        })
+        inputImages: globalPrefs.value.inputImages.map(stripPaintLayer),
+        inpaintRefImages: (globalPrefs.value.inpaintRefImages ?? []).map(stripPaintLayer),
       }
       localStorage.setItem(getGlobalKey(taskType, toolId, fullToolId), JSON.stringify(cleanedPrefs))
     } catch (err) {
@@ -401,6 +409,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       inputImages: [],
       inputVideos: [],
       inputAudios: [],
+      inpaintRefImages: [],
       promptOptions: defaultPromptOptions(),
       autoMarkerIds: [],
       agentInstructions: '',

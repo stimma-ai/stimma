@@ -3,8 +3,14 @@
     <!-- Empty only when there's truly nothing to show: a job whose chain is
          running is hidden from `jobs` (the chain bar represents it), so the
          bar must keep the grid alive or the whole strip blinks out. -->
-    <div v-if="jobs.length === 0 && activeChainRuns.length === 0 && waitingSlotCount === 0" class="text-center py-12 px-4 text-content-muted">
-      <p>{{ emptyMessage }}</p>
+    <div v-if="jobs.length === 0 && activeChainRuns.length === 0 && waitingSlotCount === 0" class="flex-1 flex flex-col">
+      <slot name="empty">
+        <!-- An empty emptyMessage means "no placeholder at all" — needed
+             because a slot whose content v-if's away falls back here. -->
+        <div v-if="emptyMessage" class="text-center py-12 px-4 text-content-muted">
+          <p>{{ emptyMessage }}</p>
+        </div>
+      </slot>
     </div>
     <div v-else class="flex flex-col gap-0.5">
       <!-- In-flight progress: slim landscape bars docked at the top of the

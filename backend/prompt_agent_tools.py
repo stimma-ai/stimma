@@ -233,6 +233,49 @@ _IMAGE_TOOLS = [
     ),
 ]
 
+# --- D2. Inpaint mask -------------------------------------------------------
+# Only meaningful on inpaint tools — state_context.mask is present when the
+# screen has a mask editor. Segmentation-backed tools run SAM3 on the source
+# image; the rest are the mask editor's own operations.
+_MASK_TOOLS = [
+    _fn(
+        "mask_subject",
+        "Mask a subject in the inpaint source image by describing it (runs segmentation). "
+        "mode 'replace' starts a fresh mask; 'add' unions with the existing one. Set plural=true "
+        "for 'the lights' / 'all windows' style requests so every match is masked. "
+        "Only available when state_context.mask exists.",
+        {
+            "subject": {
+                "type": "string",
+                "description": "What to find, as 1-4 simple direct visual words the segmenter "
+                               "understands: 'hair', 'shoes', 'red car', 'person on left', "
+                               "'background'. Not referential phrases like 'the thing she's holding'.",
+            },
+            "mode": {"type": "string", "enum": ["replace", "add"], "description": "Default replace."},
+            "plural": {"type": "boolean", "description": "Mask every match, not just the best one."},
+        },
+        ["subject"],
+    ),
+    _fn(
+        "unmask_subject",
+        "Remove a described subject from the current mask (runs segmentation and subtracts it).",
+        {"subject": {"type": "string"}},
+        ["subject"],
+    ),
+    _fn(
+        "expand_mask",
+        "Grow the current mask outward by a percentage (default: the editor's current setting).",
+        {"percent": {"type": "number", "description": "1-100."}},
+    ),
+    _fn(
+        "contract_mask",
+        "Shrink the current mask inward by a percentage (default: the editor's current setting).",
+        {"percent": {"type": "number", "description": "1-100."}},
+    ),
+    _fn("invert_mask", "Invert the mask — masked areas become unmasked and vice versa.", {}),
+    _fn("clear_mask", "Clear the mask entirely (the source image stays).", {}),
+]
+
 # --- E. LoRAs ---------------------------------------------------------------
 _LORA_TOOLS = [
     _fn(
@@ -441,6 +484,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     *_PARAM_TOOLS,
     *_CATEGORY_TOOLS,
     *_IMAGE_TOOLS,
+    *_MASK_TOOLS,
     *_LORA_TOOLS,
     *_CHAIN_TOOLS,
     *_MARKER_TOOLS,

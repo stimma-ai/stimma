@@ -2,11 +2,12 @@
   <div :class="modalMode ? 'flex flex-col h-full' : 'space-y-2 mb-6 overflow-x-hidden'" data-drop-zone="mask-editor">
     <!-- Label row (hidden in modal mode) -->
     <div v-if="!modalMode">
-      <label class="text-xs font-semibold text-content-secondary">Source image</label>
+      <label class="text-xs font-semibold text-content-secondary">Image to inpaint</label>
     </div>
 
-    <!-- Toolbar (always visible, disabled when no image) -->
-    <div :class="['flex items-center gap-2 h-8 flex-shrink-0', modalMode ? 'mb-4' : '']">
+    <!-- Toolbar (always visible, disabled when no image). In modal mode the
+         rows center at a comfortable width instead of stretching edge-to-edge. -->
+    <div :class="['flex items-center gap-2 h-8 flex-shrink-0', modalMode ? 'mb-4 w-full max-w-2xl mx-auto' : '']">
       <!-- Undo/Redo buttons -->
       <div class="flex h-full bg-surface rounded-md">
         <button
@@ -68,9 +69,11 @@
         </button>
       </div>
 
-      <!-- Brush size slider -->
-      <div class="flex items-center gap-2 max-w-48 h-full">
-        <span :class="['text-xs tabular-nums w-10', hasImage ? 'text-content-muted' : 'text-content-muted']">{{ brushSize }}px</span>
+      <!-- Brush size slider (stretches — the toolbar holds only paint tools,
+           so it fits any column width; mask operations live in the strip
+           under the canvas) -->
+      <div class="flex items-center gap-2 flex-1 h-full">
+        <span class="text-xs tabular-nums w-10 text-content-muted">{{ brushSize }}px</span>
         <input v-no-autocorrect
           type="range"
           v-model.number="brushSize"
@@ -81,93 +84,6 @@
           :class="['flex-1 slider', hasImage ? 'cursor-pointer' : 'cursor-not-allowed opacity-50']"
         />
       </div>
-
-      <!-- Flexible spacer -->
-      <div class="flex-1"></div>
-
-      <!-- Contract mask button (separate) -->
-      <button
-        @click="contractMask(expandContractPercent)"
-        :disabled="!hasImage || !hasMask()"
-        :class="[
-          'h-full px-2 rounded-md bg-surface transition-colors flex items-center',
-          hasImage && hasMask() ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
-        ]"
-        :title="`Contract mask by ${expandContractPercent}%`"
-      >
-        <!-- Marquee with minus -->
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2" />
-          <path stroke-linecap="round" d="M9 12h6" />
-        </svg>
-      </button>
-
-      <!-- Expand mask button (separate) -->
-      <button
-        @click="expandMask(expandContractPercent)"
-        :disabled="!hasImage || !hasMask()"
-        :class="[
-          'h-full px-2 rounded-md bg-surface transition-colors flex items-center',
-          hasImage && hasMask() ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
-        ]"
-        :title="`Expand mask by ${expandContractPercent}%`"
-      >
-        <!-- Marquee with plus -->
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2" />
-          <path stroke-linecap="round" d="M12 9v6M9 12h6" />
-        </svg>
-      </button>
-
-      <!-- Percentage dropdown -->
-      <select
-        v-model.number="expandContractPercent"
-        :disabled="!hasImage || !hasMask()"
-        :class="[
-          'h-full bg-surface border border-edge-subtle rounded-md px-2 text-xs focus:outline-none focus:border-accent',
-          hasImage && hasMask() ? 'text-content-secondary' : 'text-content-muted cursor-not-allowed opacity-50'
-        ]"
-      >
-        <option :value="5">5%</option>
-        <option :value="10">10%</option>
-        <option :value="15">15%</option>
-        <option :value="20">20%</option>
-        <option :value="25">25%</option>
-        <option :value="30">30%</option>
-        <option :value="40">40%</option>
-        <option :value="50">50%</option>
-        <option :value="75">75%</option>
-        <option :value="100">100%</option>
-      </select>
-
-      <!-- Divider -->
-      <div class="w-px h-full bg-edge-subtle"></div>
-
-      <!-- Invert mask button -->
-      <button
-        @click="invertMask"
-        :disabled="!hasImage"
-        :class="[
-          'h-full px-3 rounded-md bg-surface transition-colors text-xs',
-          hasImage ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
-        ]"
-        title="Invert mask"
-      >
-        Invert
-      </button>
-
-      <!-- Clear mask button -->
-      <button
-        @click="clearMask"
-        :disabled="!hasImage"
-        :class="[
-          'h-full px-3 rounded-md bg-surface transition-colors text-xs',
-          hasImage ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
-        ]"
-        title="Clear mask"
-      >
-        Clear
-      </button>
 
       <!-- Divider and expand button (only in inline mode) -->
       <template v-if="!modalMode">
@@ -192,7 +108,7 @@
 
     <!-- Canvas container OR dropzone -->
     <div :class="modalMode ? 'flex justify-center items-center flex-1 min-h-0' : 'flex justify-center'">
-      <div v-if="hasImage" class="relative flex-shrink" :class="modalMode ? 'h-full w-full flex items-center justify-center' : ''">
+      <div v-if="hasImage" class="relative flex-shrink group" :class="modalMode ? 'h-full w-full flex items-center justify-center' : ''">
         <div
           ref="canvasContainer"
           class="relative bg-matte border border-edge-subtle rounded-media overflow-hidden cursor-crosshair flex-shrink"
@@ -237,13 +153,26 @@
             }"
           />
         </div>
+        <!-- Remove image (hover, inline mode) — same affordance as MediaPicker
+             tiles. Clears the image AND the mask, back to the drop-zone. -->
+        <button
+          v-if="!modalMode"
+          @mousedown.stop
+          @click.stop="removeImage"
+          class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Remove image"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
+        </button>
         <!-- Resize handle (only in inline mode) -->
         <div
           v-if="!modalMode"
-          class="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-center justify-center group"
+          class="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-center justify-center group/resize"
           @mousedown.stop="startResize"
         >
-          <svg class="w-3 h-3 text-content-muted group-hover:text-content-muted transition-colors" viewBox="0 0 10 10" fill="currentColor">
+          <svg class="w-3 h-3 text-content-muted group-hover/resize:text-content-muted transition-colors" viewBox="0 0 10 10" fill="currentColor">
             <path d="M9 1v8H1" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
           </svg>
         </div>
@@ -267,6 +196,70 @@
         <span class="text-sm text-content-muted">{{ isDragging ? 'Drop image here' : 'Click or drop image' }}</span>
       </div>
     </div>
+
+    <!-- Mask operations strip: these act on the MASK, not the brush, so they
+         live with the canvas (same segmented-strip grammar as MediaPicker's
+         frame strip). One layout at every column width. -->
+    <div v-if="hasImage" class="flex w-full h-[26px] rounded-md border border-edge-subtle overflow-hidden flex-shrink-0" :class="modalMode ? 'mt-4 max-w-2xl mx-auto' : ''">
+      <button
+        @click="contractMask(expandContractPercent)"
+        :disabled="!hasMask()"
+        class="flex-shrink-0 w-10 flex items-center justify-center border-r border-edge-subtle text-content-muted hover:bg-overlay-medium hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        :title="`Contract mask by ${expandContractPercent}%`"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2" />
+          <path stroke-linecap="round" d="M9 12h6" />
+        </svg>
+      </button>
+      <button
+        @click="expandMask(expandContractPercent)"
+        :disabled="!hasMask()"
+        class="flex-shrink-0 w-10 flex items-center justify-center border-r border-edge-subtle text-content-muted hover:bg-overlay-medium hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        :title="`Expand mask by ${expandContractPercent}%`"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 2" />
+          <path stroke-linecap="round" d="M12 9v6M9 12h6" />
+        </svg>
+      </button>
+      <select
+        v-model.number="expandContractPercent"
+        :disabled="!hasMask()"
+        class="flex-shrink-0 w-14 bg-transparent border-r border-edge-subtle px-1 text-[11px] text-center text-content-muted hover:bg-overlay-medium focus:outline-none disabled:opacity-30 cursor-pointer"
+        title="Expand / contract step"
+      >
+        <option :value="5">5%</option>
+        <option :value="10">10%</option>
+        <option :value="15">15%</option>
+        <option :value="20">20%</option>
+        <option :value="25">25%</option>
+        <option :value="30">30%</option>
+        <option :value="40">40%</option>
+        <option :value="50">50%</option>
+        <option :value="75">75%</option>
+        <option :value="100">100%</option>
+      </select>
+      <button
+        @click="invertMask"
+        class="flex-1 py-1 text-[11px] border-r border-edge-subtle text-content-muted hover:bg-overlay-medium hover:text-content transition-colors"
+        title="Invert mask"
+      >Invert</button>
+      <button
+        @click="clearMask"
+        :disabled="!hasMask()"
+        class="flex-1 py-1 text-[11px] text-content-muted hover:bg-overlay-medium hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        title="Clear mask"
+      >Clear</button>
+    </div>
+
+    <!-- Prep rows (inline mode): flip/crop/scale/extend the source image; the
+         mask is transformed alongside (see onPrepImageUpdate). -->
+    <InpaintPrepRows
+      v-if="!modalMode && hasImage"
+      :image="(props.image as any)"
+      @update:image="onPrepImageUpdate"
+    />
 
     <!-- Loading indicator -->
     <div v-if="isUploading" class="flex items-center gap-2 text-sm text-content-muted">
@@ -296,6 +289,8 @@ import { makeProfileKey } from '../../utils/storageKeys'
 import type { MaskFormat } from '../../composables/useToolSchemaFeatures'
 import PaintToolIcon from './PaintToolIcon.vue'
 import Spinner from '../ui/Spinner.vue'
+import InpaintPrepRows from './InpaintPrepRows.vue'
+import type { InpaintPrepImage } from './InpaintPrepRows.vue'
 
 const API_BASE = '/api'
 const { getMediaItem, getMediaFileUrl } = useMediaApi()
@@ -433,6 +428,11 @@ watch(() => props.modelValue, (newMask) => {
   }
 })
 
+// Set while a prep operation swaps the image path: the change is a bake of the
+// SAME picture, and the mask has already been transformed to match (it's queued
+// in pendingMaskToLoad), so the watcher below must not clear it.
+let prepImageSwap = false
+
 // Watch for image changes
 // Only clear mask when ACTUALLY changing from one image to another (not on initial load)
 watch(() => props.image?.path, (newPath, oldPath) => {
@@ -441,6 +441,11 @@ watch(() => props.image?.path, (newPath, oldPath) => {
   // Clear undo/redo stacks when image changes
   undoStack.value = []
   redoStack.value = []
+
+  if (prepImageSwap) {
+    prepImageSwap = false
+    return
+  }
 
   // Don't clear mask when going from null to a path (that's initial load, not a change)
   // Only clear when changing from one valid path to another valid path
@@ -707,10 +712,15 @@ function emitMask() {
     emit('update:modelValue', null)
     return
   }
+  emit('update:modelValue', displayCanvasToOutputDataUrl(maskCanvas.value))
+}
 
-  const canvas = maskCanvas.value
+// Convert a display-format canvas (red = inpaint area) to the output-format
+// data URL dictated by maskFormat. Returns null for an empty mask. Used by
+// emitMask (live canvas) and the prep-transform path (offscreen canvas).
+function displayCanvasToOutputDataUrl(canvas: HTMLCanvasElement): string | null {
   const ctx = canvas.getContext('2d')
-  if (!ctx) return
+  if (!ctx) return null
 
   // Check if mask is empty (all transparent)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -723,17 +733,14 @@ function emitMask() {
     }
   }
 
-  if (!hasPaint) {
-    emit('update:modelValue', null)
-    return
-  }
+  if (!hasPaint) return null
 
   // Create output based on maskFormat prop
   const outputCanvas = document.createElement('canvas')
   outputCanvas.width = canvas.width
   outputCanvas.height = canvas.height
   const outCtx = outputCanvas.getContext('2d')
-  if (!outCtx) return
+  if (!outCtx) return null
 
   const outputData = outCtx.createImageData(canvas.width, canvas.height)
   const format = props.maskFormat || 'alpha'
@@ -788,8 +795,7 @@ function emitMask() {
 
   outCtx.putImageData(outputData, 0, 0)
 
-  const dataUrl = outputCanvas.toDataURL('image/png')
-  emit('update:modelValue', dataUrl)
+  return outputCanvas.toDataURL('image/png')
 }
 
 // Image upload handling
@@ -1345,7 +1351,160 @@ async function subtractMaskFromDataUrl(dataUrl: string): Promise<void> {
   })
 }
 
-// Expose methods and state for AI mask assistant
+/**
+ * Fraction of the image currently masked, as a percentage (0-100).
+ */
+function maskCoveragePercent(): number {
+  if (!maskCanvas.value) return 0
+  const ctx = maskCanvas.value.getContext('2d')
+  if (!ctx) return 0
+  const { width, height } = maskCanvas.value
+  if (!width || !height) return 0
+  const data = ctx.getImageData(0, 0, width, height).data
+  let painted = 0
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] > 128) painted++
+  }
+  return (painted / (width * height)) * 100
+}
+
+// --- Prep-aware mask transform ----------------------------------------------
+// When InpaintPrepRows bakes a new derived image, the mask must move with the
+// picture instead of being cleared. Both the old and new prep states are
+// expressed as affine maps original→derived (mirroring the backend pipeline's
+// stage order and rounding: flip/rotate → crop → scale → extend); the mask is
+// redrawn through new ∘ old⁻¹.
+
+interface PrepGeometry { matrix: DOMMatrix; width: number; height: number }
+
+function prepGeometry(img: InpaintPrepImage): PrepGeometry | null {
+  const W0 = img._originalWidth ?? img.width
+  const H0 = img._originalHeight ?? img.height
+  if (!W0 || !H0) return null
+
+  let m = new DOMMatrix()
+  let w = W0
+  let h = H0
+
+  const f = img._flip
+  if (f) {
+    if (f.horizontal) m = new DOMMatrix([-1, 0, 0, 1, w, 0]).multiply(m)
+    if (f.vertical) m = new DOMMatrix([1, 0, 0, -1, 0, h]).multiply(m)
+    const rot = (((f.rotation ?? 0) % 360) + 360) % 360
+    if (rot === 90) {
+      m = new DOMMatrix([0, 1, -1, 0, h, 0]).multiply(m)
+      const t = w; w = h; h = t
+    } else if (rot === 180) {
+      m = new DOMMatrix([-1, 0, 0, -1, w, h]).multiply(m)
+    } else if (rot === 270) {
+      m = new DOMMatrix([0, -1, 1, 0, 0, w]).multiply(m)
+      const t = w; w = h; h = t
+    }
+  }
+
+  const c = img._crop
+  if (c && (c.rotation || c.x > 0 || c.y > 0 || c.width < 1 || c.height < 1)) {
+    const left = Math.max(0, Math.min(Math.round(w * c.x), w - 1))
+    const top = Math.max(0, Math.min(Math.round(h * c.y), h - 1))
+    const right = Math.max(left + 1, Math.min(Math.round(w * (c.x + c.width)), w))
+    const bottom = Math.max(top + 1, Math.min(Math.round(h * (c.y + c.height)), h))
+    const rot = c.rotation || 0
+    if (rot) {
+      // Backend rotates the image about the rect center by +rot CCW (PIL);
+      // in canvas y-down coordinates that is rotate(-rot).
+      const cx = (left + right) / 2
+      const cy = (top + bottom) / 2
+      m = new DOMMatrix().translate(cx, cy).rotate(-rot).translate(-cx, -cy).multiply(m)
+    }
+    m = new DOMMatrix().translate(-left, -top).multiply(m)
+    w = right - left
+    h = bottom - top
+  }
+
+  const s = img._scale
+  if (s && (s.mode === 'megapixels' || s.mode === 'manual' || (s.factor ?? 1) !== 1)) {
+    let factor = 1
+    if (s.mode === 'megapixels') {
+      const target = s.megapixels || 1
+      const current = (w * h) / 1_000_000
+      if (current > 0 && Math.abs(current - target) > 0.01) factor = Math.sqrt(target / current)
+    } else if (s.mode === 'manual') {
+      factor = (s.width || w) / w
+    } else {
+      factor = s.factor || 1
+    }
+    if (factor !== 1) {
+      const nw = Math.max(1, Math.round(w * factor))
+      const nh = Math.max(1, Math.round(h * factor))
+      m = new DOMMatrix([nw / w, 0, 0, nh / h, 0, 0]).multiply(m)
+      w = nw
+      h = nh
+    }
+  }
+
+  const p = img._extendPadding
+  if (p && (p.top > 0 || p.bottom > 0 || p.left > 0 || p.right > 0)) {
+    const topPx = Math.trunc(h * (p.top || 0) / 100)
+    const bottomPx = Math.trunc(h * (p.bottom || 0) / 100)
+    const leftPx = Math.trunc(w * (p.left || 0) / 100)
+    const rightPx = Math.trunc(w * (p.right || 0) / 100)
+    m = new DOMMatrix([1, 0, 0, 1, leftPx, topPx]).multiply(m)
+    w += leftPx + rightPx
+    h += topPx + bottomPx
+  }
+
+  return { matrix: m, width: w, height: h }
+}
+
+function transformMaskForPrep(oldImg: InpaintPrepImage, newImg: InpaintPrepImage): string | null {
+  const gOld = prepGeometry(oldImg)
+  const gNew = prepGeometry(newImg)
+  if (!gOld || !gNew || !maskCanvas.value) return null
+
+  const out = document.createElement('canvas')
+  out.width = gNew.width
+  out.height = gNew.height
+  const ctx = out.getContext('2d')
+  if (!ctx) return null
+
+  const rel = gNew.matrix.multiply(gOld.matrix.inverse())
+
+  // Canvas area created by GROWING the extension enters the mask as masked —
+  // extend-then-generate is outpainting without touching the brush.
+  const grew = (['top', 'bottom', 'left', 'right'] as const).some(
+    side => (newImg._extendPadding?.[side] ?? 0) > (oldImg._extendPadding?.[side] ?? 0)
+  )
+  if (grew) {
+    ctx.fillStyle = 'rgba(255, 0, 0, 1)'
+    ctx.fillRect(0, 0, out.width, out.height)
+    ctx.setTransform(rel)
+    // The old image's footprint keeps its own mask state.
+    ctx.clearRect(0, 0, gOld.width, gOld.height)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+  }
+
+  ctx.setTransform(rel)
+  ctx.drawImage(maskCanvas.value, 0, 0, gOld.width, gOld.height)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+  return displayCanvasToOutputDataUrl(out)
+}
+
+// A prep bake replaces the image path; carry the mask across the swap instead
+// of letting the image-change watcher clear it.
+function onPrepImageUpdate(newImg: InpaintPrepImage) {
+  const oldImg = props.image as InpaintPrepImage | null
+  if (oldImg && maskCanvas.value && canvasReady.value) {
+    const transformed = transformMaskForPrep(oldImg, newImg)
+    prepImageSwap = true
+    canvasReady.value = false
+    pendingMaskToLoad.value = transformed
+    emit('update:modelValue', transformed)
+  }
+  emit('update:image', newImg)
+}
+
+// Expose methods and state for AI mask assistant + the prompt agent
 defineExpose({
   applyMaskFromDataUrl,
   subtractMaskFromDataUrl,
@@ -1355,6 +1514,7 @@ defineExpose({
   contractMask,
   invertMask,
   hasMask,
+  maskCoveragePercent,
   imageWidth,
   imageHeight,
   expandContractPercent,

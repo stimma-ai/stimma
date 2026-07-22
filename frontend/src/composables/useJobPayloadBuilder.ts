@@ -16,6 +16,9 @@ export interface PayloadBuilderState {
     negative_prompt: string
     folder_path: string
     inputImages: Array<{ path: string; mediaId?: number; width?: number; height?: number; _originalPath?: string; _originalHash?: string; _preprocessor?: string | null; _flip?: any; _videoSource?: { mediaId?: number } | null }>
+    // Inpaint tools: extra reference images appended after inputImages in the
+    // input_images payload (target first, refs after). Empty on other tools.
+    inpaintRefImages?: Array<{ path: string; mediaId?: number }>
     inputVideos: Array<{ path: string; mediaId?: number }>
     inputAudios: Array<{ path: string; mediaId?: number }>
     promptOptions?: any
@@ -59,6 +62,12 @@ function lineageMediaId(i: { mediaId?: number; _videoSource?: { mediaId?: number
   return i.mediaId ?? i._videoSource?.mediaId ?? undefined
 }
 
+// All picked images in payload order: the primary input slot first, then any
+// inpaint reference images (target = input_images[0], refs after).
+function allPickedImages(s: PayloadBuilderState) {
+  return [...s.globalPrefs.inputImages, ...(s.globalPrefs.inpaintRefImages ?? [])]
+}
+
 // Parameter extractors - keyed by parameter_schema property name.
 // Unified table: well-known inputs (prompt, images, mask, dimensions, seed) and
 // tuning parameters (steps, cfg, sampler, etc.) all live here, keyed by field name.
@@ -76,7 +85,7 @@ const paramExtractors: Record<string, (s: PayloadBuilderState) => any> = {
       if (s.videoImages.endImage?.path) images.push(s.videoImages.endImage.path)
       return images
     }
-    return s.globalPrefs.inputImages.map(i => i.path)
+    return allPickedImages(s).map(i => i.path)
   },
   'input_media_ids': (s) => {
     if (s.videoImages.startImage) {
@@ -88,7 +97,7 @@ const paramExtractors: Record<string, (s: PayloadBuilderState) => any> = {
       const endId = lineageMediaId(s.videoImages.endImage) ?? null
       return startId == null && endId == null ? [] : [startId, endId]
     }
-    return s.globalPrefs.inputImages.map(lineageMediaId).filter(Boolean)
+    return allPickedImages(s).map(lineageMediaId).filter(Boolean)
   },
 
   // Video inputs (unified array)
@@ -269,9 +278,9 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
         if (startId != null || endId != null) ids = [startId, endId]
       }
       if (ids) params.input_media_ids = ids
-    } else if (state.globalPrefs.inputImages.some(i => lineageMediaId(i))) {
-      // ImagePicker mode — media IDs from inputImages
-      params.input_media_ids = state.globalPrefs.inputImages.map(lineageMediaId).filter(Boolean)
+    } else if (allPickedImages(state).some(i => lineageMediaId(i))) {
+      // ImagePicker mode — media IDs from inputImages (+ inpaint refs)
+      params.input_media_ids = allPickedImages(state).map(lineageMediaId).filter(Boolean)
     }
   }
 
@@ -280,8 +289,9 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
     params.input_audio_media_ids = state.globalPrefs.inputAudios.map(a => a.mediaId).filter(Boolean)
   }
 
-  // Reference image prep: send original paths + all preprocessing metadata for lineage
-  const images = state.globalPrefs.inputImages
+  // Reference image prep: send original paths + all preprocessing metadata for
+  // lineage. Positional over the full input_images payload (target + refs).
+  const images = allPickedImages(state)
   const hasPrep = images.some((i: any) => i._preprocessor || i._paintLayerPath || i._extendPadding || i._scale || i._flip || i._crop)
   if (hasPrep) {
     params._original_input_paths = images.map((i: any) => i._originalPath || i.path)
@@ -335,7 +345,7 @@ export function getPreUploadTasks(
   }
 
   // Upload paint layers for reference images that have been painted
-  const images = state.globalPrefs.inputImages
+  const images = allPickedImages(state)
   for (let i = 0; i < images.length; i++) {
     const img = images[i] as any
     if (img._paintLayerDataUrl && !img._paintLayerPath) {

@@ -1,5 +1,4 @@
 // Generation-related components
-export { default as AIMaskAssistant } from './AIMaskAssistant.vue'
 export { default as AIPromptEditor } from './AIPromptEditor.vue'
 export { default as AdvancedParams } from './AdvancedParams.vue'
 export { default as AutoMarkPicker } from './AutoMarkPicker.vue'

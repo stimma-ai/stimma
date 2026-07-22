@@ -43,14 +43,17 @@
       <div v-if="subtitle" class="text-content-muted text-sm">{{ subtitle }}</div>
     </div>
 
-    <!-- Optional action button -->
-    <button
-      v-if="actionLabel"
-      @click="$emit('action')"
-      class="mt-2 px-5 py-2 text-sm bg-overlay-light hover:bg-overlay-medium rounded-lg text-content-secondary hover:text-content transition-colors"
-    >
-      {{ actionLabel }}
-    </button>
+    <!-- Optional action. Consumers can provide the standard Button component;
+         the existing actionLabel API remains the fallback for older callers. -->
+    <slot name="action">
+      <button
+        v-if="actionLabel"
+        @click="$emit('action')"
+        class="mt-2 px-5 py-2 text-sm bg-overlay-light hover:bg-overlay-medium rounded-lg text-content-secondary hover:text-content transition-colors"
+      >
+        {{ actionLabel }}
+      </button>
+    </slot>
   </div>
 </template>
 
