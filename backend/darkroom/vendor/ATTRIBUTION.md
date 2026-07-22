@@ -25,17 +25,32 @@ are a re-copy + diff.
   clarity_texture_dehaze, vibrance, sharpening_pro, noise_reduction), the
   grading set (tone_curve, lift_gamma_gain, log_wheels,
   three_way_color_balance, oklab_color, hue_vs_hue, hue_vs_sat, lum_vs_sat,
-  sat_vs_sat), and vignette.
+  sat_vs_sat), vignette, and halftone (numpy-first upstream: its torch use is
+  a guarded CUDA fast-path with a complete numpy fallback, so it vendors
+  verbatim).
 - `utils/` — color, grading, grain, colorspace, raw, image.
 - `data/` — color_stocks, bw_stocks, print_stocks, cross_process_curves,
   grading_presets, ai_mitigation_presets, lens_profiles.
 
-## What was NOT vendored (and why)
+## Ported, not vendored (../ports/)
 
-- torch-only nodes (film_grain_pro, halftone, color_warper,
-  chromatic_aberration, lens_distortion, lens_profile, skin_tone_uniformity,
-  and utils/torch_ops.py, utils/grain_newson.py) — Stimma's backend is
-  ONNX-only, no PyTorch.
+Six upstream torch-only modules are re-implemented over numpy/scipy in
+`../ports/` (Stimma's backend has no PyTorch): color_warper,
+chromatic_aberration, lens_distortion, lens_profile, skin_tone_uniformity,
+film_grain_pro (+ its engine utils/grain_newson.py, ported line-for-line),
+plus `np_ops.py` mirroring the needed subset of utils/torch_ops.py
+(grid sampling goes through scipy map_coordinates order=3 — the approach
+upstream itself used before its torch rewrite). Each ported file mirrors the
+upstream file at the commit above; on upgrade, diff those upstream files
+against that commit and fold changes into the ports by hand. Known
+deviations: the skin_tone_uniformity port returns only (image,), dropping
+upstream's mask_preview output; the film_grain_pro port draws Monte-Carlo
+offsets from numpy's PCG64 instead of torch's generator (different but
+equally valid sample sets — the grain field itself is counter-hashed and
+matches upstream exactly) and lowers the monte_carlo_samples default from
+64 to 16 (CPU cost is ~10s per megapixel per 16 samples).
+
+## What was NOT vendored or ported (and why)
 - RAW pipeline (raw_load, raw_metadata_split, utils/raw_loader.py,
   utils/dcp.py, data dcp looks) — needs rawpy/exifread; out of scope.
 - CMYK print workflow, scopes (histogram/vectorscope), LUT bake/export

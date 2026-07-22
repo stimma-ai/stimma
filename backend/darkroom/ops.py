@@ -29,8 +29,9 @@ class Stage:
 
     key: str                  # param prefix and stage identity
     label: str                # UI label for the section toggle / mode option
-    module: str               # module name under darkroom.vendor.nodes
+    module: str               # module name under the source package
     cls: str                  # node class name
+    source: str = "vendor"    # "vendor" (darkroom.vendor.nodes) or "port" (darkroom.ports)
     exclude: Tuple[str, ...] = ()          # params not exposed in the schema
     fixed: Dict[str, Any] = field(default_factory=dict)  # forced param values
     # Gating — exactly one of:
@@ -39,8 +40,14 @@ class Stage:
     # (neither set: stage is always active)
 
 
+_SOURCE_PACKAGES = {
+    "vendor": "darkroom.vendor.nodes",
+    "port": "darkroom.ports",
+}
+
+
 def _node_class(stage: Stage):
-    mod = importlib.import_module(f"darkroom.vendor.nodes.{stage.module}")
+    mod = importlib.import_module(f"{_SOURCE_PACKAGES[stage.source]}.{stage.module}")
     return getattr(mod, stage.cls)
 
 
@@ -194,7 +201,7 @@ def run_pipeline(
                 value = params.get(f"{stage.key}_{name}", opts.get("default"))
                 if value is not None:
                     kwargs[name] = _coerce(comfy_type, value)
-        (batch,) = node.execute(image=batch, **kwargs)
+        batch = node.execute(image=batch, **kwargs)[0]
 
     out = np.clip(np.asarray(batch[0], dtype=np.float32), 0.0, 1.0)
     return Image.fromarray((out * 255.0 + 0.5).astype(np.uint8), mode="RGB")

@@ -79,6 +79,9 @@ select = ["E9", "F63", "F7", "F82"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "module"
 testpaths = ["tests", "agent/tests"]
+markers = [
+    "darkroom: built-in Darkroom tool tests — rarely-changing code, excluded from the CI quality gate (run with -m darkroom or by default locally)",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

@@ -62,7 +62,9 @@ jobs:
         run: tools/stimma lint backend
 
       - name: Run backend tests
-        run: tools/stimma test backend -vv -rA --maxfail=1
+        # -m "not darkroom": the Darkroom tool tests cover rarely-changing
+        # vendored code; run them locally or explicitly with -m darkroom.
+        run: tools/stimma test backend -vv -rA --maxfail=1 -m "not darkroom"
 
   acceptance-tests:
     name: Acceptance tests

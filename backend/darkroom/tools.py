@@ -83,6 +83,10 @@ FILM_STOCK_TOOL = DarkroomToolDef(
               exclude=("cos4_falloff", "tint_r", "tint_g", "tint_b")),
         Stage(key="grain", label="Film Grain", module="film_grain",
               cls="FilmGrain", toggle=True),
+        Stage(key="grainpro", label="Film Grain Pro (slow)", module="film_grain_pro",
+              cls="FilmGrainPro", source="port", toggle=True),
+        Stage(key="halftone", label="Halftone", module="halftone",
+              cls="Halftone", toggle=True),
     ],
 )
 
@@ -120,6 +124,9 @@ DEVELOP_TOOL = DarkroomToolDef(
               cls="NoiseReduction", toggle=True, exclude=("strength",)),
         Stage(key="sharpen", label="Sharpening", module="sharpening_pro",
               cls="SharpeningPro", toggle=True, exclude=("strength",)),
+        Stage(key="skin", label="Skin Tone Uniformity", module="skin_tone_uniformity",
+              cls="SkinToneUniformity", source="port", toggle=True,
+              exclude=("strength",)),
         Stage(key="vibrance", label="Vibrance", module="vibrance",
               cls="Vibrance", exclude=("strength",)),
     ],
@@ -148,6 +155,7 @@ COLOR_GRADE_TOOL = DarkroomToolDef(
             "hue_vs_sat": "Hue vs Sat",
             "lum_vs_sat": "Lum vs Sat",
             "sat_vs_sat": "Sat vs Sat",
+            "color_warper": "Color Warper",
         },
         "default": "tone_curve",
     },
@@ -171,6 +179,41 @@ COLOR_GRADE_TOOL = DarkroomToolDef(
               cls="LumVsSat", mode_value="lum_vs_sat"),
         Stage(key="ss", label="Sat vs Sat", module="sat_vs_sat",
               cls="SatVsSat", mode_value="sat_vs_sat"),
+        Stage(key="cw", label="Color Warper", module="color_warper",
+              cls="ColorWarper", source="port", mode_value="color_warper"),
+    ],
+)
+
+LENS_TOOL = DarkroomToolDef(
+    id="darkroom-lens",
+    name="Lens & Optics",
+    description=(
+        "Simulate or correct real lens optics: 102 measured lens profiles "
+        "(distortion + chromatic aberration + vignette in one pass), or "
+        "individual Brown-Conrady distortion, lateral chromatic aberration, "
+        "and optical vignette controls." + _CREDIT
+    ),
+    mode_param={
+        "name": "mode",
+        "label": "Optic",
+        "description": "Which optical effect to apply",
+        "options": {
+            "profile": "Lens Profile (all-in-one)",
+            "distortion": "Lens Distortion",
+            "ca": "Chromatic Aberration",
+            "vignette": "Vignette",
+        },
+        "default": "profile",
+    },
+    stages=[
+        Stage(key="profile", label="Lens Profile", module="lens_profile",
+              cls="LensProfile", source="port", mode_value="profile"),
+        Stage(key="distortion", label="Lens Distortion", module="lens_distortion",
+              cls="LensDistortion", source="port", mode_value="distortion"),
+        Stage(key="ca", label="Chromatic Aberration", module="chromatic_aberration",
+              cls="ChromaticAberration", source="port", mode_value="ca"),
+        Stage(key="vignette", label="Vignette", module="vignette",
+              cls="Vignette", mode_value="vignette"),
     ],
 )
 
@@ -178,4 +221,5 @@ DARKROOM_TOOLS: List[DarkroomToolDef] = [
     FILM_STOCK_TOOL,
     DEVELOP_TOOL,
     COLOR_GRADE_TOOL,
+    LENS_TOOL,
 ]

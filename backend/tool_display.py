@@ -38,6 +38,11 @@ BUILTIN_TOOL_METADATA: dict[str, dict[str, str]] = {
         "provider_name": "Built-in Tools",
         "provider_id": "builtin",
     },
+    "builtin:darkroom-lens": {
+        "name": "Lens & Optics",
+        "provider_name": "Built-in Tools",
+        "provider_id": "builtin",
+    },
 }
 
 _LEGACY_TASK_SEGMENTS = frozenset(
