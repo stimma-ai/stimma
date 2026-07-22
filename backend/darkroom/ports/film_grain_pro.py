@@ -1,9 +1,10 @@
-"""Film Grain Pro — Stimma numpy port of upstream nodes/film_grain_pro.py.
+"""Film Grain Pro — Stimma numpy/scipy port of upstream nodes/film_grain_pro.py.
 
 Physically-derived, resolution-independent film grain using the Newson et al.
 (IPOL 2017) stochastic Boolean-model renderer (see ./grain_newson.py). The
-quality tier alongside the fast heuristic Film Grain node. CPU-only here;
-Monte-Carlo cost is linear in monte_carlo_samples.
+quality tier alongside the heuristic Film Grain node. CPU-only here; periodic
+spatial queries run in scipy's native worker pool and Monte-Carlo cost remains
+linear in monte_carlo_samples.
 """
 
 import numpy as np
@@ -46,13 +47,13 @@ class FilmGrainPro:
             },
             "optional": {
                 "monte_carlo_samples": ("INT", {
-                    # Port deviation: upstream defaults to 64 (GPU). This CPU
-                    # render costs ~10s per megapixel per 16 samples, so the
-                    # default is lowered to keep typical images tolerable.
+                    # Port deviation: upstream defaults to 64 (GPU). Keep 16
+                    # on CPU: the spatial-query renderer is near 1s/MP at N=16
+                    # and remains linear in the number of samples.
                     "default": 16, "min": 8, "max": 256, "step": 8,
                     "tooltip": "Render quality. Higher = cleaner estimate (grain "
-                               "is preserved) but slower — cost is linear: "
-                               "roughly 10s per megapixel at 16 samples on CPU."
+                               "is preserved) but slower. The CPU renderer is "
+                               "roughly 1 second per megapixel at 16 samples."
                 }),
                 "filter_sigma": ("FLOAT", {
                     "default": 0.8, "min": 0.4, "max": 2.0, "step": 0.1,
@@ -68,13 +69,13 @@ class FilmGrainPro:
     CATEGORY = "AKURATE/Darkroom/Film"
 
     def execute(self, image, grain_size, strength, radius_variation, color_grain,
-                seed, monte_carlo_samples=64, filter_sigma=0.8):
+                seed, monte_carlo_samples=16, filter_sigma=0.8):
         if strength <= 0.0:
             return (image,)
 
         print(f"[Darkroom] Film Grain Pro (Newson): size={grain_size} "
               f"strength={strength} var={radius_variation} color={color_grain} "
-              f"N={monte_carlo_samples} on cpu/numpy")
+              f"N={monte_carlo_samples} on cpu/numpy+scipy")
 
         out = []
         for idx in range(image.shape[0]):

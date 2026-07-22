@@ -350,6 +350,41 @@ def test_film_grain_pro_port_preserves_tone():
     assert np.array_equal(out, again)
 
 
+@pytest.mark.parametrize("tone", [0.1, 0.5, 0.9])
+def test_film_grain_pro_preserves_constant_field_tones(tone):
+    from darkroom.ports.grain_newson import _render_channel
+
+    field = np.full((128, 160), tone, dtype=np.float32)
+    rendered = _render_channel(
+        field, mu_r=1.2, sigma_r=0.0, n_samples=32,
+        filter_sigma=0.8, seed=7,
+    )
+    assert abs(float(rendered.mean()) - tone) < 0.01
+
+
+def test_film_grain_pro_variable_radius_tracks_exact_reference():
+    from darkroom.ports.grain_newson import (
+        _render_channel,
+        _render_channel_reference,
+    )
+
+    # A bright gradient and maximum radius variation exercise the bounded
+    # nearest-center approximation rather than the exact uniform-radius path.
+    row = np.linspace(0.05, 0.95, 96, dtype=np.float32)
+    field = np.broadcast_to(row, (64, 96))
+    reference = _render_channel_reference(
+        field, mu_r=1.2, sigma_r=0.6, n_samples=8,
+        filter_sigma=0.8, seed=123,
+    )
+    rendered = _render_channel(
+        field, mu_r=1.2, sigma_r=0.6, n_samples=8,
+        filter_sigma=0.8, seed=123,
+    )
+
+    assert abs(float(rendered.mean() - reference.mean())) < 0.002
+    assert abs(float(rendered.std() / reference.std()) - 1.0) < 0.01
+
+
 # ---------------------------------------------------------------------------
 # Provider registration + execution
 # ---------------------------------------------------------------------------

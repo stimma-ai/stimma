@@ -47,8 +47,12 @@ deviations: the skin_tone_uniformity port returns only (image,), dropping
 upstream's mask_preview output; the film_grain_pro port draws Monte-Carlo
 offsets from numpy's PCG64 instead of torch's generator (different but
 equally valid sample sets — the grain field itself is counter-hashed and
-matches upstream exactly) and lowers the monte_carlo_samples default from
-64 to 16 (CPU cost is ~10s per megapixel per 16 samples).
+matches upstream exactly), uses periodic scipy cKDTree queries instead of
+dense per-neighbor tensor rolls, and lowers the monte_carlo_samples default
+from 64 to 16. Uniform-radius rendering is geometrically equivalent; variable
+radii test the nearest 4–16 centers (according to variation), a bounded
+approximation that keeps measured tone and grain power within one percent of
+the retained exact reference renderer while bounding query memory.
 
 ## What was NOT vendored or ported (and why)
 - RAW pipeline (raw_load, raw_metadata_split, utils/raw_loader.py,

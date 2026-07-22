@@ -1,16 +1,19 @@
-"""Newson stochastic film-grain engine — Stimma numpy port of upstream
+"""Newson stochastic film-grain engine — Stimma numpy/scipy port of upstream
 utils/grain_newson.py (ComfyUI-Darkroom).
 
 Filtered inhomogeneous Boolean model from Newson et al., "Realistic Film Grain
-Rendering", IPOL 2017. Line-for-line port of the vectorised torch original;
-tensors become float32/int64 numpy arrays, torch.roll becomes np.roll, and the
-Monte-Carlo offsets come from numpy's seeded Generator. Deterministic per seed
-(the grain field itself is counter-hashed, not RNG-stream dependent).
+Rendering", IPOL 2017. The original line-for-line numpy translation remains as
+_render_channel_reference for numerical validation. Production rendering asks
+the equivalent geometric coverage question through a periodic scipy cKDTree,
+without dense qmax volumes or per-neighbor rolls. Monte-Carlo offsets come from
+numpy's seeded Generator and the counter-hashed grain field remains
+deterministic per seed.
 """
 
 import math
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 EPS = 0.1 / 255.0          # paper's ε (≈ 0.1 gray-levels), keeps ũ < 1
 _Z999 = 3.090232           # 0.999 normal quantile, for the log-normal rm
@@ -53,15 +56,15 @@ def _hash_uniform(cx, cy, stream, seed):
 def _poisson_invcdf(mean, u, qmax):
     """
     Draw Poisson counts by inverse CDF from a uniform u in [0,1).
-    mean, u: (H, W) arrays. Returns int64 (H, W) counts in [0, qmax].
+    mean, u: (H, W) arrays. Returns uint8 (H, W) counts in [0, qmax].
     """
     cdf = np.exp(-mean)                 # P(X = 0)
     term = cdf.copy()
-    count = (u > cdf).astype(np.int64)
+    count = (u > cdf).astype(np.uint8)
     for k in range(1, qmax + 1):
         term = term * mean / k          # P(X = k)
         cdf = cdf + term
-        count = count + (u > cdf).astype(np.int64)
+        count = count + (u > cdf).astype(np.uint8)
     return count
 
 
@@ -69,7 +72,7 @@ def _poisson_invcdf(mean, u, qmax):
 # Single-channel render
 # ---------------------------------------------------------------------------
 
-def _render_channel(u, mu_r, sigma_r, n_samples, filter_sigma, seed):
+def _render_channel_reference(u, mu_r, sigma_r, n_samples, filter_sigma, seed):
     """
     Render the filtered Boolean model for one (H, W) field u in [0, 1].
     Returns v (H, W): the tone-preserving grainy render (E[v] = ũ).
@@ -148,6 +151,162 @@ def _render_channel(u, mu_r, sigma_r, n_samples, filter_sigma, seed):
         v += covered.astype(np.float32)
 
     return v / float(n_samples)
+
+
+# Keep query coordinates plus the cKDTree distance/index results bounded.  The
+# tree itself and the image arrays are additional to this budget.  At k=1 this
+# processes four samples at a time for a one-megapixel image and one sample at
+# a time at four megapixels.
+_QUERY_WORKING_SET_BYTES = 128 * 1024 * 1024
+_VARIABLE_RADIUS_CANDIDATES = 16
+_PARALLEL_QUERY_POINTS = 64 * 1024
+
+
+def _sparse_grain_field(u, mu_r, sigma_r, seed_i):
+    """Generate just the grains which exist, rather than dense qmax volumes."""
+    H, W = u.shape
+    u_tilde = np.clip(u / (1.0 + EPS), 0.0, 1.0 - 1e-6)
+    inv_area = 1.0 / (math.pi * (mu_r * mu_r + sigma_r * sigma_r))
+    lam = inv_area * np.log(1.0 / (1.0 - u_tilde))
+
+    if sigma_r <= 0.0:
+        rm = mu_r
+        s_log = 0.0
+        m_log = math.log(mu_r)
+    else:
+        s_log = math.sqrt(math.log(1.0 + (sigma_r * sigma_r) / (mu_r * mu_r)))
+        m_log = math.log(mu_r * mu_r / math.sqrt(mu_r * mu_r + sigma_r * sigma_r))
+        rm = min(math.exp(m_log + s_log * _Z999), 5.0 * mu_r)
+
+    m_max = float(lam.max())
+    qmax = int(min(24, max(2, math.ceil(m_max + 4.0 * math.sqrt(m_max) + 2.0))))
+
+    # Open coordinate grids broadcast for the count hash but consume only
+    # O(H + W) storage.  np.nonzero then gives coordinates only for grains
+    # that actually exist (normally far fewer than H*W*qmax).
+    cols = np.arange(W, dtype=np.int64).reshape(1, W)
+    rows = np.arange(H, dtype=np.int64).reshape(H, 1)
+    q_grid = _poisson_invcdf(
+        lam, _hash_uniform(cols, rows, 0, seed_i), qmax,
+    )
+
+    center_parts = []
+    radius_parts = []
+    for grain_idx in range(qmax):
+        ys, xs = np.nonzero(q_grid > grain_idx)
+        if xs.size == 0:
+            continue
+        ux = _hash_uniform(xs, ys, 1 + 4 * grain_idx, seed_i)
+        uy = _hash_uniform(xs, ys, 2 + 4 * grain_idx, seed_i)
+        center_parts.append(np.column_stack((xs + ux, ys + uy)))
+        if sigma_r > 0.0:
+            ur = _hash_uniform(xs, ys, 3 + 4 * grain_idx, seed_i)
+            radii = np.minimum(
+                np.exp(m_log + s_log * _norm_invcdf(ur)), rm,
+            )
+            radius_parts.append(radii)
+
+    if not center_parts:
+        return np.empty((0, 2), dtype=np.float64), None, rm
+
+    # cKDTree stores coordinates as float64, so converting once here avoids a
+    # second hidden copy inside its constructor.
+    centers = np.concatenate(center_parts).astype(np.float64, copy=False)
+    # The float32 uniform can round its largest 32-bit hash values to exactly
+    # 1.0.  That is valid on the torus but cKDTree requires 0 <= x < boxsize.
+    centers[:, 0] %= W
+    centers[:, 1] %= H
+    radii = (
+        np.concatenate(radius_parts).astype(np.float64, copy=False)
+        if radius_parts else None
+    )
+    return centers, radii, rm
+
+
+def _render_channel(u, mu_r, sigma_r, n_samples, filter_sigma, seed):
+    """Render one channel using sparse periodic nearest-grain queries.
+
+    A Monte-Carlo sample evaluates the same fixed Boolean grain field at a
+    globally shifted pixel lattice.  The old vectorized port rebuilt that
+    answer with a full-frame roll for every neighboring cell and retained a
+    dense qmax axis.  A periodic cKDTree asks the equivalent geometric
+    question directly: is the sample point inside any grain?
+
+    Uniform radii (the default) need only the nearest grain and are exact apart
+    from insignificant floating-point boundary ties.  For log-normal radii we
+    test the nearest 16 centers.  This is a bounded approximation because a
+    farther, unusually large grain can theoretically cover a point after 16
+    nearer small grains miss it; comparisons with the exact implementation
+    keep the resulting mean and standard deviation well below one percent.
+    """
+    H, W = u.shape
+    u = u.astype(np.float32, copy=False)
+    seed_i = int(seed) & 0x7FFFFFFF
+    centers, radii, rm = _sparse_grain_field(u, mu_r, sigma_r, seed_i)
+    if centers.size == 0:
+        return np.zeros((H, W), dtype=np.float32)
+
+    tree = cKDTree(centers, boxsize=(W, H))
+
+    gen = np.random.Generator(np.random.PCG64(seed_i))
+    offsets = gen.standard_normal((n_samples, 2)) * filter_sigma
+
+    pixel_count = H * W
+    base = np.empty((pixel_count, 2), dtype=np.float64)
+    base[:, 0] = np.tile(np.arange(W, dtype=np.float64), H) + _HALF
+    base[:, 1] = np.repeat(np.arange(H, dtype=np.float64), W) + _HALF
+
+    if radii is None:
+        k = 1
+    else:
+        relative_variation = sigma_r / mu_r
+        candidate_limit = 4 if relative_variation <= 0.1 else (
+            8 if relative_variation <= 0.25 else _VARIABLE_RADIUS_CANDIDATES
+        )
+        k = min(candidate_limit, len(centers))
+    # Per query point: two float64 coordinates, plus k float64 distances and
+    # k intp indices returned by scipy.  Large images simply use smaller
+    # sample batches, keeping peak memory essentially independent of N.
+    bytes_per_point = 16 + 16 * k
+    max_query_points = max(1, _QUERY_WORKING_SET_BYTES // bytes_per_point)
+    samples_per_batch = max(1, min(n_samples, max_query_points // pixel_count))
+
+    v = np.zeros(pixel_count, dtype=np.float32)
+    if radii is not None:
+        # Missing neighbors use index len(centers).  A zero-radius sentinel
+        # lets the comparison remain vectorized without clipping that index.
+        radii = np.concatenate((radii, np.zeros(1, dtype=radii.dtype)))
+
+    for start in range(0, n_samples, samples_per_batch):
+        stop = min(n_samples, start + samples_per_batch)
+        batch_size = stop - start
+        pixels_per_query = max(1, max_query_points // batch_size)
+        for pixel_start in range(0, pixel_count, pixels_per_query):
+            pixel_stop = min(pixel_count, pixel_start + pixels_per_query)
+            points = (
+                base[np.newaxis, pixel_start:pixel_stop, :]
+                + offsets[start:stop, np.newaxis, :]
+            )
+            points[..., 0] %= W
+            points[..., 1] %= H
+            flat_points = points.reshape(-1, 2)
+            distances, indices = tree.query(
+                flat_points,
+                k=k,
+                distance_upper_bound=rm,
+                workers=-1 if len(flat_points) >= _PARALLEL_QUERY_POINTS else 1,
+            )
+            if radii is None:
+                covered = distances < rm
+            elif k == 1:
+                covered = distances < radii[indices]
+            else:
+                covered = (distances < radii[indices]).any(axis=-1)
+            v[pixel_start:pixel_stop] += covered.reshape(
+                batch_size, pixel_stop - pixel_start,
+            ).sum(axis=0)
+
+    return (v / float(n_samples)).reshape(H, W)
 
 
 def _norm_invcdf(u):
