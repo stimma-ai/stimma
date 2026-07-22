@@ -86,7 +86,7 @@
               Save
             </Button>
             <Button variant="secondary" :disabled="saving || !hasChanges" @click="handleSave(true)">
-              Save as new item
+              Save as New Asset
             </Button>
           </div>
         </template>
@@ -842,6 +842,16 @@ async function handleSave(saveAsNew = false) {
     const newMediaId = response.data.media_id
     const savedAssetId = response.data.asset_id
     console.log('[ImageEditor] Navigating to new media:', newMediaId)
+
+    // Adopt our own new revision so the asset_current_revision_changed
+    // broadcast from this save isn't misread as an external save.
+    if (savedAssetId && Number(savedAssetId) === Number(targetAssetId.value)) {
+      const savedRevisionId = response.data.revision_id
+      baseRevisionId.value = savedRevisionId
+      latestRevisionId.value = savedRevisionId
+      headRevisionAtOpen.value = savedRevisionId
+    }
+    newerVersionArrived.value = false
 
     // Apply auto-markers to the new media item
     if (editorAutoMarkerIds.value.length > 0) {

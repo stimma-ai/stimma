@@ -539,7 +539,7 @@ defineExpose({
             <!-- Sliders -->
             <div v-if="activeTab === 'sliders'" class="stimma-color-modal__sliders">
               <div class="stimma-color-modal__slider-group">
-                <label class="stimma-color-modal__slider-label">RED</label>
+                <label class="stimma-color-modal__slider-label">Red</label>
                 <div class="stimma-color-modal__slider-row">
                   <div
                     ref="redSliderRef"
@@ -557,7 +557,7 @@ defineExpose({
               </div>
 
               <div class="stimma-color-modal__slider-group">
-                <label class="stimma-color-modal__slider-label">GREEN</label>
+                <label class="stimma-color-modal__slider-label">Green</label>
                 <div class="stimma-color-modal__slider-row">
                   <div
                     ref="greenSliderRef"
@@ -575,7 +575,7 @@ defineExpose({
               </div>
 
               <div class="stimma-color-modal__slider-group">
-                <label class="stimma-color-modal__slider-label">BLUE</label>
+                <label class="stimma-color-modal__slider-label">Blue</label>
                 <div class="stimma-color-modal__slider-row">
                   <div
                     ref="blueSliderRef"
@@ -607,7 +607,7 @@ defineExpose({
 
           <!-- Opacity -->
           <div class="stimma-color-modal__opacity-section">
-            <label class="stimma-color-modal__slider-label">OPACITY</label>
+            <label class="stimma-color-modal__slider-label">Opacity</label>
             <div class="stimma-color-modal__slider-row">
               <div
                 ref="opacityRef"
@@ -701,7 +701,7 @@ defineExpose({
 
 .stimma-color-picker__swatch--active {
   transform: scale(1.1);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 0 2px rgb(var(--stimma-color-primary)), 0 0 0 4px rgba(var(--stimma-color-primary), 0.3);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 0 2px rgb(var(--stimma-color-primary)), 0 0 0 4px rgb(var(--stimma-color-primary) / 0.3);
 }
 
 .stimma-color-picker__swatch--none {
@@ -755,14 +755,14 @@ defineExpose({
   justify-content: center;
   border: none;
   background: transparent;
-  color: rgba(var(--stimma-color-foreground), 0.7);
+  color: rgb(var(--stimma-color-foreground) / 0.7);
   cursor: pointer;
   border-radius: var(--stimma-border-radius);
 }
 
 .stimma-color-modal__eyedropper:hover,
 .stimma-color-modal__close:hover {
-  background: rgba(var(--stimma-color-foreground), 0.1);
+  background: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-color-modal__title {
@@ -773,7 +773,7 @@ defineExpose({
 /* Tabs */
 .stimma-color-modal__tabs {
   display: flex;
-  background: rgba(var(--stimma-color-foreground), 0.08);
+  background: rgb(var(--stimma-color-foreground) / 0.08);
   border-radius: var(--stimma-border-radius-lg);
   padding: 3px;
   margin-bottom: 12px;
@@ -787,7 +787,7 @@ defineExpose({
   border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -875,9 +875,7 @@ defineExpose({
 .stimma-color-modal__slider-label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(var(--stimma-color-foreground), 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: rgb(var(--stimma-color-foreground) / 0.5);
 }
 
 .stimma-color-modal__slider-row {
@@ -896,8 +894,8 @@ defineExpose({
 
 .stimma-color-modal__slider-track--opacity {
   background: repeating-conic-gradient(
-    rgba(var(--stimma-color-foreground), 0.15) 0% 25%,
-    rgba(var(--stimma-color-foreground), 0.05) 0% 50%
+    rgb(var(--stimma-color-foreground) / 0.15) 0% 25%,
+    rgb(var(--stimma-color-foreground) / 0.05) 0% 50%
   ) 50% / 12px 12px;
 }
 
@@ -923,7 +921,7 @@ defineExpose({
 .stimma-color-modal__slider-value {
   min-width: 48px;
   padding: 6px 10px;
-  background: rgba(var(--stimma-color-foreground), 0.1);
+  background: rgb(var(--stimma-color-foreground) / 0.1);
   border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
@@ -941,20 +939,19 @@ defineExpose({
 
 .stimma-color-modal__hex-label {
   font-size: 13px;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
 }
 
 .stimma-color-modal__hex-input {
   width: 80px;
   padding: 6px 10px;
-  background: rgba(var(--stimma-color-foreground), 0.1);
+  background: rgb(var(--stimma-color-foreground) / 0.1);
   border: none;
   border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
   font-family: monospace;
   text-align: center;
-  text-transform: uppercase;
   color: rgb(var(--stimma-color-foreground));
 }
 
@@ -966,7 +963,7 @@ defineExpose({
 /* Opacity section */
 .stimma-color-modal__opacity-section {
   padding-top: 16px;
-  border-top: 1px solid rgba(var(--stimma-color-foreground), 0.1);
+  border-top: 1px solid rgb(var(--stimma-color-foreground) / 0.1);
   margin-bottom: 16px;
 }
 
@@ -976,14 +973,14 @@ defineExpose({
   align-items: center;
   gap: 8px;
   padding-top: 16px;
-  border-top: 1px solid rgba(var(--stimma-color-foreground), 0.1);
+  border-top: 1px solid rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-color-modal__preview {
   width: 48px;
   height: 48px;
   border-radius: var(--stimma-border-radius-lg);
-  border: 2px solid rgba(var(--stimma-color-foreground), 0.15);
+  border: 2px solid rgb(var(--stimma-color-foreground) / 0.15);
 }
 
 .stimma-color-modal__preset {

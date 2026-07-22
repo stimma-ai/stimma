@@ -42,20 +42,20 @@
 }
 
 .stimma-toolbar__button:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-toolbar__button:active:not(:disabled) {
-  background-color: rgba(var(--stimma-color-foreground), 0.15);
+  background-color: rgb(var(--stimma-color-foreground) / 0.15);
 }
 
 .stimma-toolbar__button--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   color: rgb(var(--stimma-color-primary));
 }
 
 .stimma-toolbar__button--active:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-primary), 0.2);
+  background-color: rgb(var(--stimma-color-primary) / 0.2);
 }
 
 .stimma-toolbar__button--primary {
@@ -67,7 +67,7 @@
 }
 
 .stimma-toolbar__button--primary:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-primary), 0.9);
+  background-color: rgb(var(--stimma-color-primary) / 0.9);
 }
 
 .stimma-toolbar__icon {
@@ -98,14 +98,14 @@
   width: 36px;
   height: 36px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-primary), 0.1);
+  background-color: rgb(var(--stimma-color-primary) / 0.1);
   color: rgb(var(--stimma-color-primary));
   cursor: pointer;
   transition: all var(--stimma-transition-duration) var(--stimma-transition-timing);
 }
 
 .stimma-toolbar__layer-toggle:hover {
-  background-color: rgba(var(--stimma-color-primary), 0.18);
+  background-color: rgb(var(--stimma-color-primary) / 0.18);
 }
 
 .stimma-toolbar__layer-icon {
@@ -123,20 +123,20 @@
   height: 16px;
   border-radius: 50%;
   background-color: rgb(var(--stimma-color-background));
-  box-shadow: 0 0 0 1px rgba(var(--stimma-color-primary), 0.3);
+  box-shadow: 0 0 0 1px rgb(var(--stimma-color-primary) / 0.3);
 }
 
 .stimma-toolbar__layer-toggle--hidden {
   background-color: transparent;
-  color: rgba(var(--stimma-color-foreground), 0.4);
+  color: rgb(var(--stimma-color-foreground) / 0.4);
 }
 
 .stimma-toolbar__layer-toggle--hidden:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.08);
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  background-color: rgb(var(--stimma-color-foreground) / 0.08);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
 }
 
 .stimma-toolbar__layer-toggle--hidden .stimma-toolbar__layer-eye {
-  box-shadow: 0 0 0 1px rgba(var(--stimma-color-foreground), 0.2);
+  box-shadow: 0 0 0 1px rgb(var(--stimma-color-foreground) / 0.2);
 }
 

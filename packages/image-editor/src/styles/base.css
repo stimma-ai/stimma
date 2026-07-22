@@ -6,7 +6,9 @@
   box-sizing: border-box;
 }
 
-.stimma-editor button {
+/* Zero-specificity reset so utility classes on slotted app buttons
+   (e.g. the toolbar Save buttons) are not overridden. */
+:where(.stimma-editor button) {
   font-family: inherit;
   font-size: inherit;
   border: none;
@@ -17,7 +19,7 @@
   color: inherit;
 }
 
-.stimma-editor button:disabled {
+:where(.stimma-editor button:disabled) {
   cursor: not-allowed;
   opacity: 0.5;
 }

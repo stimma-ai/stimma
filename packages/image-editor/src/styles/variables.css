@@ -1,20 +1,20 @@
 :root {
-  /* Colors (RGB values without rgb()) */
-  --stimma-color-background: 255, 255, 255;
-  --stimma-color-foreground: 30, 30, 30;
-  --stimma-color-primary: 59, 130, 246;
-  --stimma-color-secondary: 107, 114, 128;
-  --stimma-color-surface: 245, 245, 245;
-  --stimma-color-focus: 59, 130, 246;
-  --stimma-color-error: 239, 68, 68;
-  --stimma-color-success: 34, 197, 94;
+  /* Colors: space-separated RGB channels, consumed as rgb(var(--x)) or
+     rgb(var(--x) / alpha). Inside the Stimma app these alias the Atelier
+     semantic tokens (which follow the active theme); the fallbacks cover
+     standalone use of the package. */
+  --stimma-color-background: var(--color-surface-rgb, 244 244 245);
+  --stimma-color-foreground: var(--color-text-primary-rgb, 24 24 27);
+  --stimma-color-primary: var(--color-accent-rgb, 13 148 136);
+  --stimma-color-secondary: var(--color-text-secondary-rgb, 82 82 91);
+  --stimma-color-focus: var(--color-accent-rgb, 13 148 136);
 
   /* Borders */
   --stimma-border-radius: var(--radius-md, 6px);
   --stimma-border-radius-sm: var(--radius-sm, 4px);
   --stimma-border-radius-lg: var(--radius-lg, 8px);
   --stimma-border-radius-round: var(--radius-full, 9999px);
-  --stimma-border-color: rgba(0, 0, 0, 0.1);
+  --stimma-border-color: var(--color-border-subtle, rgba(0, 0, 0, 0.08));
 
   /* Typography */
   --stimma-font-family: system-ui, -apple-system, sans-serif;
@@ -39,17 +39,19 @@
   --stimma-panel-width: 280px;
   --stimma-mask-opacity: 0.5;
 
-  /* Canvas colors */
-  --stimma-canvas-background: 220, 220, 220;
+  /* Canvas sits on the media matte */
+  --stimma-canvas-background: var(--color-matte-rgb, 241 239 235);
 }
 
-/* Dark theme - matches stimma app palette */
+/* Dark theme fallbacks for standalone use; inside the app the aliased
+   tokens above already follow the active theme. */
 [data-stimma-theme="dark"],
 .stimma-editor--dark {
-  --stimma-color-background: 30, 30, 30;
-  --stimma-color-foreground: 255, 255, 255;
-  --stimma-color-secondary: 156, 163, 175;
-  --stimma-color-surface: 38, 38, 38;
-  --stimma-border-color: rgba(156, 163, 175, 0.2);
-  --stimma-canvas-background: 18, 18, 18;
+  --stimma-color-background: var(--color-surface-rgb, 19 23 32);
+  --stimma-color-foreground: var(--color-text-primary-rgb, 232 234 240);
+  --stimma-color-primary: var(--color-accent-rgb, 18 166 150);
+  --stimma-color-secondary: var(--color-text-secondary-rgb, 154 163 180);
+  --stimma-color-focus: var(--color-accent-rgb, 18 166 150);
+  --stimma-border-color: var(--color-border-subtle, rgba(148, 163, 184, 0.12));
+  --stimma-canvas-background: var(--color-matte-rgb, 8 9 12);
 }

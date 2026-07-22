@@ -16,11 +16,10 @@
   margin-bottom: var(--stimma-spacing-lg);
 }
 
+/* Section micro-label: sentence case, no uppercase/tracking (DESIGN §1.5) */
 .stimma-panel__section-title {
   font-size: var(--stimma-font-size-sm);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 600;
   color: rgb(var(--stimma-color-secondary));
   margin-bottom: var(--stimma-spacing-sm);
 }

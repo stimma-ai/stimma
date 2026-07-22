@@ -224,12 +224,12 @@ function handleReset() {
   padding: var(--stimma-spacing-xs) var(--stimma-spacing-sm);
   border-radius: var(--stimma-border-radius-sm);
   font-size: var(--stimma-font-size-sm);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-crop-controls__ratio-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-crop-controls__ratio-btn--active {
@@ -249,16 +249,16 @@ function handleReset() {
   width: 40px;
   height: 40px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-crop-controls__transform-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-crop-controls__transform-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.2);
+  background-color: rgb(var(--stimma-color-primary) / 0.2);
   color: rgb(var(--stimma-color-primary));
 }
 

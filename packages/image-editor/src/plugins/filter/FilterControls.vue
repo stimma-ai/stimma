@@ -246,9 +246,7 @@ watch(() => props.editor.getImageElement(), () => {
 .stimma-filter-controls__category-title {
   font-size: var(--stimma-font-size-xs);
   font-weight: 600;
-  color: rgba(var(--stimma-color-foreground), 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: rgb(var(--stimma-color-foreground) / 0.5);
   margin-bottom: var(--stimma-spacing-xs);
   padding: 0 var(--stimma-spacing-xs);
 }
@@ -273,12 +271,12 @@ watch(() => props.editor.getImageElement(), () => {
 }
 
 .stimma-filter-controls__item:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
 }
 
 .stimma-filter-controls__item--active {
   border-color: rgb(var(--stimma-color-primary));
-  background-color: rgba(var(--stimma-color-primary), 0.1);
+  background-color: rgb(var(--stimma-color-primary) / 0.1);
 }
 
 .stimma-filter-controls__thumb {
@@ -286,7 +284,7 @@ watch(() => props.editor.getImageElement(), () => {
   height: 60px;
   border-radius: var(--stimma-border-radius-sm);
   overflow: hidden;
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-filter-controls__thumb img {
@@ -299,8 +297,8 @@ watch(() => props.editor.getImageElement(), () => {
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg,
-    rgba(var(--stimma-color-foreground), 0.1) 0%,
-    rgba(var(--stimma-color-foreground), 0.05) 100%
+    rgb(var(--stimma-color-foreground) / 0.1) 0%,
+    rgb(var(--stimma-color-foreground) / 0.05) 100%
   );
 }
 
@@ -319,6 +317,6 @@ watch(() => props.editor.getImageElement(), () => {
 .stimma-filter-controls__settings {
   margin-top: var(--stimma-spacing-sm);
   padding-top: var(--stimma-spacing-sm);
-  border-top: 1px solid rgba(var(--stimma-color-foreground), 0.1);
+  border-top: 1px solid rgb(var(--stimma-color-foreground) / 0.1);
 }
 </style>

@@ -2224,18 +2224,18 @@ initialize();
   width: 40px;
   height: 40px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-annotate-controls__tool:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__tool--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2254,7 +2254,7 @@ initialize();
   gap: 2px;
   padding: 6px 8px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -2262,11 +2262,11 @@ initialize();
 }
 
 .stimma-annotate-controls__pen:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__pen--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2286,7 +2286,7 @@ initialize();
 .stimma-annotate-controls__bg-style {
   padding: 4px 10px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -2295,11 +2295,11 @@ initialize();
 }
 
 .stimma-annotate-controls__bg-style:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__bg-style--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2308,8 +2308,8 @@ initialize();
   width: 100%;
   padding: var(--stimma-spacing-xs) var(--stimma-spacing-sm);
   border-radius: var(--stimma-border-radius);
-  border: 1px solid rgba(var(--stimma-color-foreground), 0.2);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  border: 1px solid rgb(var(--stimma-color-foreground) / 0.2);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   color: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -2328,9 +2328,7 @@ initialize();
   font-size: 11px;
   font-weight: 600;
   font-style: normal;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(var(--stimma-color-foreground), 0.5);
+  color: rgb(var(--stimma-color-foreground) / 0.5);
 }
 
 .stimma-annotate-controls__font-select option {
@@ -2358,7 +2356,7 @@ initialize();
   width: 36px;
   height: 36px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -2366,12 +2364,12 @@ initialize();
 
 .stimma-annotate-controls__style-btn:hover,
 .stimma-annotate-controls__align-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__style-btn--active,
 .stimma-annotate-controls__align-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2407,18 +2405,18 @@ initialize();
   gap: 1px;
   padding: 4px 2px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-annotate-controls__effect-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__effect-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2431,8 +2429,6 @@ initialize();
 .stimma-annotate-controls__effect-label {
   font-size: 9px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
 }
 
 /* Gradient presets */
@@ -2457,7 +2453,7 @@ initialize();
 
 .stimma-annotate-controls__gradient-btn--active {
   border-color: rgb(var(--stimma-color-primary));
-  box-shadow: 0 0 0 2px rgba(var(--stimma-color-primary), 0.3);
+  box-shadow: 0 0 0 2px rgb(var(--stimma-color-primary) / 0.3);
 }
 
 /* Gradient directions */
@@ -2473,7 +2469,7 @@ initialize();
   width: 36px;
   height: 36px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -2481,11 +2477,11 @@ initialize();
 }
 
 .stimma-annotate-controls__direction-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-annotate-controls__direction-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -2507,7 +2503,7 @@ initialize();
 .stimma-annotate-controls__divider {
   width: 1px;
   height: 20px;
-  background-color: rgba(var(--stimma-color-foreground), 0.2);
+  background-color: rgb(var(--stimma-color-foreground) / 0.2);
   margin: 0 4px;
 }
 
@@ -2542,7 +2538,7 @@ initialize();
 
 .stimma-annotate-controls__bg-label {
   font-size: 11px;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   width: 40px;
   flex-shrink: 0;
 }
@@ -2585,12 +2581,12 @@ initialize();
 
 .stimma-annotate-controls__gradient-stop--active {
   border-color: rgb(var(--stimma-color-primary));
-  box-shadow: 0 0 0 2px rgba(var(--stimma-color-primary), 0.3);
+  box-shadow: 0 0 0 2px rgb(var(--stimma-color-primary) / 0.3);
 }
 
 .stimma-annotate-controls__gradient-stop--add {
-  background: rgba(var(--stimma-color-foreground), 0.1);
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  background: rgb(var(--stimma-color-foreground) / 0.1);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   font-size: 18px;
   font-weight: 300;
   display: flex;
@@ -2600,14 +2596,14 @@ initialize();
 }
 
 .stimma-annotate-controls__gradient-stop--add:hover {
-  background: rgba(var(--stimma-color-foreground), 0.15);
+  background: rgb(var(--stimma-color-foreground) / 0.15);
   color: rgb(var(--stimma-color-foreground));
 }
 
 .stimma-annotate-controls__gradient-stop-editor {
   margin-bottom: 12px;
   padding: 8px;
-  background: rgba(var(--stimma-color-foreground), 0.05);
+  background: rgb(var(--stimma-color-foreground) / 0.05);
   border-radius: var(--stimma-border-radius-lg);
 }
 
@@ -2618,7 +2614,7 @@ initialize();
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(var(--stimma-color-foreground), 0.7);
+  color: rgb(var(--stimma-color-foreground) / 0.7);
 }
 
 .stimma-annotate-controls__gradient-stop-remove {
@@ -2626,8 +2622,8 @@ initialize();
   height: 20px;
   border-radius: var(--stimma-border-radius-sm);
   border: none;
-  background: rgba(var(--stimma-color-foreground), 0.1);
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  background: rgb(var(--stimma-color-foreground) / 0.1);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   font-size: 14px;
   cursor: pointer;
   display: flex;

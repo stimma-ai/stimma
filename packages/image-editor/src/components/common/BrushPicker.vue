@@ -536,7 +536,7 @@ defineExpose({ isEraser });
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: rgba(var(--stimma-color-foreground), 0.05);
+  background: rgb(var(--stimma-color-foreground) / 0.05);
   border-radius: var(--stimma-border-radius);
   padding: 4px;
 }
@@ -568,7 +568,7 @@ defineExpose({ isEraser });
 }
 
 .stimma-brush-picker__preset:hover {
-  border-color: rgba(var(--stimma-color-foreground), 0.4);
+  border-color: rgb(var(--stimma-color-foreground) / 0.4);
 }
 
 .stimma-brush-picker__preset--active {
@@ -598,13 +598,13 @@ defineExpose({ isEraser });
 .stimma-brush-picker__slider-label {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(var(--stimma-color-foreground), 0.8);
+  color: rgb(var(--stimma-color-foreground) / 0.8);
 }
 
 .stimma-brush-picker__slider-value {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   min-width: 36px;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -612,7 +612,7 @@ defineExpose({ isEraser });
 
 .stimma-brush-picker__slider-track {
   height: 6px;
-  background: rgba(var(--stimma-color-foreground), 0.15);
+  background: rgb(var(--stimma-color-foreground) / 0.15);
   border-radius: var(--stimma-border-radius-round);
   position: relative;
   cursor: pointer;

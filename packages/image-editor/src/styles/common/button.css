@@ -14,12 +14,12 @@
 }
 
 .stimma-button--default {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
   color: rgb(var(--stimma-color-foreground));
 }
 
 .stimma-button--default:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-foreground), 0.15);
+  background-color: rgb(var(--stimma-color-foreground) / 0.15);
 }
 
 .stimma-button--primary {
@@ -28,7 +28,7 @@
 }
 
 .stimma-button--primary:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-primary), 0.9);
+  background-color: rgb(var(--stimma-color-primary) / 0.9);
 }
 
 .stimma-button--ghost {
@@ -37,7 +37,7 @@
 }
 
 .stimma-button--ghost:hover:not(:disabled) {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-button--sm {

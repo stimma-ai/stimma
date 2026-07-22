@@ -602,18 +602,18 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
   gap: 4px;
   padding: 8px 4px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-retouch-controls__tool-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-retouch-controls__tool-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
@@ -644,25 +644,25 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
   width: 40px;
   height: 40px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-retouch-controls__tool:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-retouch-controls__tool--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }
 
 .stimma-retouch-controls__help {
   font-size: 12px;
-  color: rgba(var(--stimma-color-foreground), 0.7);
+  color: rgb(var(--stimma-color-foreground) / 0.7);
   line-height: 1.4;
 }
 
@@ -673,7 +673,7 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
 /* Segmented control */
 .stimma-segmented {
   display: flex;
-  background-color: rgba(var(--stimma-color-foreground), 0.08);
+  background-color: rgb(var(--stimma-color-foreground) / 0.08);
   border-radius: var(--stimma-border-radius);
   padding: 2px;
 }
@@ -685,18 +685,18 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
   font-weight: 500;
   border: none;
   background: transparent;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
   cursor: pointer;
   border-radius: var(--stimma-border-radius-sm);
   transition: all var(--stimma-transition-duration);
 }
 
 .stimma-segmented__btn:hover {
-  color: rgba(var(--stimma-color-foreground), 0.9);
+  color: rgb(var(--stimma-color-foreground) / 0.9);
 }
 
 .stimma-segmented__btn--active {
-  background-color: rgba(var(--stimma-color-foreground), 0.12);
+  background-color: rgb(var(--stimma-color-foreground) / 0.12);
   color: rgb(var(--stimma-color-foreground));
 }
 
@@ -725,20 +725,20 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
   width: 32px;
   height: 32px;
   border-radius: var(--stimma-border-radius);
-  background-color: rgba(var(--stimma-color-foreground), 0.08);
+  background-color: rgb(var(--stimma-color-foreground) / 0.08);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
-  color: rgba(var(--stimma-color-foreground), 0.7);
+  color: rgb(var(--stimma-color-foreground) / 0.7);
 }
 
 .stimma-retouch-controls__combine-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.15);
-  color: rgba(var(--stimma-color-foreground), 0.9);
+  background-color: rgb(var(--stimma-color-foreground) / 0.15);
+  color: rgb(var(--stimma-color-foreground) / 0.9);
 }
 
 .stimma-retouch-controls__combine-btn--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }

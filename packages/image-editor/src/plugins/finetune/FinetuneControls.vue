@@ -257,7 +257,7 @@ function handleReset() {
   padding: var(--stimma-spacing-xs) var(--stimma-spacing-sm);
   border-radius: var(--stimma-border-radius-sm);
   font-size: var(--stimma-font-size-sm);
-  background-color: rgba(var(--stimma-color-foreground), 0.05);
+  background-color: rgb(var(--stimma-color-foreground) / 0.05);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -265,11 +265,11 @@ function handleReset() {
 }
 
 .stimma-finetune-controls__action-btn:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.1);
-  border-color: rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.1);
+  border-color: rgb(var(--stimma-color-foreground) / 0.1);
 }
 
 .stimma-finetune-controls__action-btn:active {
-  background-color: rgba(var(--stimma-color-primary), 0.2);
+  background-color: rgb(var(--stimma-color-primary) / 0.2);
 }
 </style>

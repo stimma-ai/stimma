@@ -196,8 +196,8 @@ const showRetouchTools = computed(() => props.activePlugin === 'retouch');
   align-items: center;
   gap: var(--stimma-spacing-md);
   padding: var(--stimma-spacing-xs) var(--stimma-spacing-sm);
-  background-color: rgba(var(--stimma-color-foreground), 0.02);
-  border-bottom: 1px solid rgba(var(--stimma-color-foreground), 0.1);
+  background-color: rgb(var(--stimma-color-foreground) / 0.02);
+  border-bottom: 1px solid rgb(var(--stimma-color-foreground) / 0.1);
   flex-shrink: 0;
 
   /* Enable container queries */
@@ -219,9 +219,7 @@ const showRetouchTools = computed(() => props.activePlugin === 'retouch');
 .stimma-tool-sidebar__section-title {
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(var(--stimma-color-foreground), 0.5);
+  color: rgb(var(--stimma-color-foreground) / 0.5);
   padding: 0 4px;
   white-space: nowrap;
 }
@@ -243,7 +241,7 @@ const showRetouchTools = computed(() => props.activePlugin === 'retouch');
 .stimma-tool-sidebar__separator {
   width: 1px;
   height: 32px;
-  background-color: rgba(var(--stimma-color-foreground), 0.15);
+  background-color: rgb(var(--stimma-color-foreground) / 0.15);
   flex-shrink: 0;
 }
 
@@ -263,11 +261,11 @@ const showRetouchTools = computed(() => props.activePlugin === 'retouch');
 }
 
 .stimma-tool-sidebar__tool:hover {
-  background-color: rgba(var(--stimma-color-foreground), 0.08);
+  background-color: rgb(var(--stimma-color-foreground) / 0.08);
 }
 
 .stimma-tool-sidebar__tool--active {
-  background-color: rgba(var(--stimma-color-primary), 0.15);
+  background-color: rgb(var(--stimma-color-primary) / 0.15);
   border-color: rgb(var(--stimma-color-primary));
   color: rgb(var(--stimma-color-primary));
 }

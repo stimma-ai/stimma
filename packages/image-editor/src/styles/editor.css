@@ -66,14 +66,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(var(--stimma-color-background), 0.8);
+  background-color: rgb(var(--stimma-color-background) / 0.8);
   z-index: 100;
 }
 
 .stimma-editor__spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(var(--stimma-color-primary), 0.2);
+  border: 3px solid rgb(var(--stimma-color-primary) / 0.2);
   border-top-color: rgb(var(--stimma-color-primary));
   border-radius: 50%;
   animation: stimma-spin 0.8s linear infinite;

@@ -69,7 +69,7 @@ function handleInput(event: Event) {
 .stimma-slider__track {
   flex: 1;
   height: 6px;
-  background: rgba(var(--stimma-color-foreground), 0.15);
+  background: rgb(var(--stimma-color-foreground) / 0.15);
   border-radius: var(--stimma-border-radius-round);
   position: relative;
 }
@@ -125,6 +125,6 @@ function handleInput(event: Event) {
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: rgba(var(--stimma-color-foreground), 0.6);
+  color: rgb(var(--stimma-color-foreground) / 0.6);
 }
 </style>
