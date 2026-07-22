@@ -983,7 +983,7 @@ async def test_http_resolve_running_flow_inflates_missing_runtime(
     monkeypatch.setattr(
         flow_lifecycle,
         "build_production_registry",
-        lambda: _mock_evaluators(code_value="continued"),
+        lambda **_: _mock_evaluators(code_value="continued"),
     )
 
     rr = (await client.post("/api/flows", json={"name": "x-inflate-running"})).json()
