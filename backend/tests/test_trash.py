@@ -11,11 +11,12 @@ Tests cover:
 
 import asyncio
 import json
+import time
 from datetime import datetime
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from unittest.mock import patch
 
 from asset_service import create_asset_from_media
@@ -1666,6 +1667,33 @@ async def test_delete_worker_stops_before_database_teardown():
 
     assert delete_operations._worker_task is None
     assert task.done()
+
+
+@pytest.mark.asyncio
+async def test_privacy_wal_checkpoint_retries_without_waiting_for_reader(test_app):
+    """A short-lived reader must not consume the delete operation's deadline."""
+    from database_registry import get_database_registry
+    from delete_operations import _truncate_privacy_wal
+
+    db = get_database_registry().get_database("default")
+    async with db.async_engine.connect() as reader:
+        reader = await reader.execution_options(isolation_level="AUTOCOMMIT")
+        # Establish a snapshot before adding a WAL frame. The open snapshot
+        # prevents a truncating checkpoint from completing.
+        await reader.exec_driver_sql("BEGIN")
+        await reader.exec_driver_sql("SELECT id FROM markers LIMIT 1")
+        async with db.async_session_maker() as writer:
+            await writer.execute(
+                text("UPDATE markers SET color = '#010101' WHERE id = 1")
+            )
+            await writer.commit()
+
+        started = time.monotonic()
+        try:
+            assert not await _truncate_privacy_wal(db)
+            assert time.monotonic() - started < 1.0
+        finally:
+            await reader.exec_driver_sql("ROLLBACK")
 
 
 # Fixtures specific to this test module

@@ -537,6 +537,13 @@ async def _truncate_privacy_wal(db) -> bool:
             connection = await connection.execution_options(
                 isolation_level="AUTOCOMMIT"
             )
+            # A TRUNCATE checkpoint needs an exclusive lock. Normal database
+            # connections deliberately wait up to 30 seconds for writers, but
+            # carrying that timeout into this background worker can stall an
+            # otherwise-finished delete operation behind a short-lived reader.
+            # Return busy immediately instead; the worker retries on its next
+            # pass and still does not report completion until truncation wins.
+            await connection.exec_driver_sql("PRAGMA busy_timeout = 0")
             result = await connection.exec_driver_sql(
                 "PRAGMA wal_checkpoint(TRUNCATE)"
             )
