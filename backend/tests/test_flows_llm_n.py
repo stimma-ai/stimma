@@ -432,3 +432,101 @@ async def test_foreach_over_llm_n_iterates_per_slot(isolated_store_and_db):
     ]
     assert len(changed_tools) == 1, (before_tool_results, after_tool_results)
     assert len(unchanged_tools) == 1
+
+
+# =============================================================================
+# Batch timeout scaling (llm(n=N) is one call whose output grows with N)
+# =============================================================================
+
+
+from flow_runtime.production_evaluators import (  # noqa: E402
+    LLM_BATCH_TIMEOUT_MAX_SECONDS,
+    LLM_CALL_TIMEOUT_SECONDS,
+    llm_batch_timeout_seconds,
+)
+
+
+def test_batch_timeout_scales_with_n():
+    # n=1 is a single item — no more time than a plain llm() call.
+    assert llm_batch_timeout_seconds(1) == LLM_CALL_TIMEOUT_SECONDS
+    # A 50-item batch (the case that hung at 0/50) gets substantially more.
+    assert llm_batch_timeout_seconds(50) > LLM_CALL_TIMEOUT_SECONDS
+    assert llm_batch_timeout_seconds(10) < llm_batch_timeout_seconds(50)
+    # But never more than the hard ceiling, so a runaway batch still fails
+    # in bounded time.
+    assert llm_batch_timeout_seconds(100_000) == LLM_BATCH_TIMEOUT_MAX_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_batch_call_passes_scaled_timeout(monkeypatch):
+    """The batch evaluator wraps its LLM call in the N-scaled timeout, not
+    the flat 60s cap that made llm(n=50) time out every attempt."""
+    import json
+
+    captured: dict[str, Any] = {}
+    real_wait_for = asyncio.wait_for
+
+    async def spy_wait_for(aw, timeout):
+        captured["timeout"] = timeout
+        return await real_wait_for(aw, timeout)
+
+    monkeypatch.setattr(
+        "flow_runtime.production_evaluators.asyncio.wait_for", spy_wait_for
+    )
+
+    async def completion(config, messages, **kwargs):
+        return _Resp(json.dumps([{"prompt": f"p{i}"} for i in range(50)]))
+
+    ev = LLMBatchEvaluator(completion=completion, resolve_config=_resolve_config)
+    req = EvaluationRequest(
+        equation_key="r/llm$0",
+        equation_type="llm_batch",
+        attempt=1,
+        definition={
+            "n": 50,
+            "prompt_template": "give 50",
+            "response_format": {"schema": {"prompt": "str"}},
+        },
+        resolved_inputs={},
+    )
+
+    await ev(req)
+
+    assert captured["timeout"] == llm_batch_timeout_seconds(50)
+    assert captured["timeout"] > LLM_CALL_TIMEOUT_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_batch_timeout_is_single_retry_not_transient(monkeypatch):
+    """A size-driven batch timeout surfaces as LLM_ERROR (one retry), not
+    TRANSIENT (three) — re-running the identical oversized call won't help."""
+    from flow_runtime.evaluators import EvaluatorError, LLM_ERROR
+
+    # Shrink the budget so the test doesn't actually wait.
+    monkeypatch.setattr(
+        "flow_runtime.production_evaluators.LLM_CALL_TIMEOUT_SECONDS", 0.05
+    )
+    monkeypatch.setattr(
+        "flow_runtime.production_evaluators.LLM_BATCH_TIMEOUT_PER_ITEM_SECONDS", 0.0
+    )
+
+    async def slow_completion(config, messages, **kwargs):
+        await asyncio.sleep(5.0)
+        return _Resp("[]")
+
+    ev = LLMBatchEvaluator(
+        completion=slow_completion, resolve_config=_resolve_config
+    )
+    req = EvaluationRequest(
+        equation_key="r/llm$0",
+        equation_type="llm_batch",
+        attempt=1,
+        definition={"n": 3, "prompt_template": "x", "response_format": None},
+        resolved_inputs={},
+    )
+
+    with pytest.raises(EvaluatorError) as excinfo:
+        await ev(req)
+
+    assert excinfo.value.category == LLM_ERROR
+    assert "timed out" in str(excinfo.value)

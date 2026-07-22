@@ -155,8 +155,22 @@
             <path d="M7 17L17 7M9 7h8v8" />
           </svg>
         </button>
+        <button
+          @click="attributionOpen = true"
+          class="w-full flex items-center gap-3 px-2 -mx-2 py-2.5 text-left rounded-md hover:bg-overlay-subtle transition-colors duration-150"
+        >
+          <svg class="w-4 h-4 text-content-tertiary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 6l-2 12" />
+          </svg>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13px] text-content">Open source attribution</div>
+            <div class="text-xs text-content-muted mt-0.5">Third-party software Stimma is built on</div>
+          </div>
+        </button>
       </div>
     </div>
+
+    <AttributionModal :show="attributionOpen" @close="attributionOpen = false" />
 
     <!-- Footer -->
     <div class="mt-auto pt-7 flex items-center justify-between text-xs text-content-muted">
@@ -177,6 +191,7 @@ import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { COMMIT_HASH } from '../../../distribution'
 import StatusDot from '../../ui/StatusDot.vue'
 import Button from '../../ui/Button.vue'
+import AttributionModal from '../../AttributionModal.vue'
 
 const {
   channel,
@@ -254,6 +269,7 @@ const resourceLinks = [
 
 const appVersion = ref('unknown')
 const copied = ref(false)
+const attributionOpen = ref(false)
 const commitHash = COMMIT_HASH
 const copyrightYear = new Date().getFullYear()
 

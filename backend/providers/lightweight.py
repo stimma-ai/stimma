@@ -179,6 +179,7 @@ class LightweightProvider(ToolProvider):
         ))
 
         self._register_filter_tools()
+        self._register_darkroom_tools()
 
     def _register_filter_tools(self) -> None:
         """Register the built-in image filters (task type "filter").
@@ -202,6 +203,68 @@ class LightweightProvider(ToolProvider):
                 output_schema=FILTER_OUTPUT_SCHEMA,
                 execute_fn=self._make_filter_executor(filter_def["id"]),
             ))
+
+    def _register_darkroom_tools(self) -> None:
+        """Register the Darkroom film emulation / grading tools.
+
+        Built on the vendored ComfyUI-Darkroom engine (MIT, Jérémie Louvaert)
+        — see darkroom/vendor/ATTRIBUTION.md. Same shape as the built-in
+        filters: task type "filter", image in → image out.
+        """
+        from darkroom.tools import ATTRIBUTION, DARKROOM_TOOLS
+        from filters.schemas import FILTER_OUTPUT_SCHEMA
+
+        for tool_def in DARKROOM_TOOLS:
+            self._register_tool(LightweightTool(
+                id=tool_def.id,
+                name=tool_def.name,
+                description=tool_def.description,
+                task_type="filter",
+                parameter_schema=tool_def.parameter_schema,
+                output_schema=FILTER_OUTPUT_SCHEMA,
+                execute_fn=self._make_darkroom_executor(tool_def),
+                metadata={"attribution": dict(ATTRIBUTION)},
+            ))
+
+    def _make_darkroom_executor(self, tool_def) -> Callable:
+        async def _execute(
+            parameters: Dict[str, Any],
+            job_id: str,
+            progress_callback: Optional[Callable] = None,
+        ) -> ExecutionResult:
+            return await self._execute_darkroom(tool_def, parameters)
+        return _execute
+
+    async def _execute_darkroom(self, tool_def, parameters: Dict[str, Any]) -> ExecutionResult:
+        """Run one Darkroom tool's stage pipeline over the input image."""
+        import tempfile
+        import time
+
+        input_images = parameters.get("input_images", [])
+        image_path = input_images[0] if input_images else None
+        if not image_path or not Path(str(image_path)).exists():
+            return ExecutionResult(success=False, error="No input media provided")
+
+        started = time.perf_counter()
+
+        def _apply() -> str:
+            import os
+
+            from utils.image_ops import open_oriented
+            with open_oriented(image_path) as img:
+                out = tool_def.run(parameters, img)
+                fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"{tool_def.id}_")
+                os.close(fd)
+                out.save(tmp_path, format="PNG")
+                return tmp_path
+
+        tmp_path = await asyncio.to_thread(_apply)
+
+        return ExecutionResult(
+            success=True,
+            generation_time=time.perf_counter() - started,
+            metadata={"output_path": tmp_path, "filter_id": tool_def.id},
+        )
 
     def _make_filter_executor(self, filter_id: str) -> Callable:
         async def _execute(

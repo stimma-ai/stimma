@@ -158,6 +158,15 @@
               <span>·</span>
               <span>{{ taskTypesDisplay }}</span>
             </template>
+            <template v-if="toolAttribution">
+              <span>·</span>
+              <button
+                type="button"
+                class="text-content-muted underline decoration-edge-subtle underline-offset-2 transition-colors hover:text-content-secondary"
+                :title="toolAttribution.url"
+                @click="openAttributionUrl"
+              >{{ toolAttribution.label }}</button>
+            </template>
             <template v-if="projectScopeId">
               <span>·</span>
               <span class="inline-flex items-center gap-1.5">
@@ -1573,6 +1582,28 @@ async function copyToolJson() {
 const toolAvailability = computed(() => tool.value?.availability || 'available')
 const providerDisplayName = computed(() => tool.value?.provider_name || tool.value?.provider_id || 'Provider')
 const toolDisplayName = computed(() => tool.value?.name || 'this tool')
+
+// Upstream credit for tools built on third-party work (e.g. the Darkroom
+// tools). Rendered as a link in the subtitle line; opens the system browser.
+const toolAttribution = computed(() => {
+  const a = (tool.value?.metadata as any)?.attribution
+  return a && typeof a.label === 'string' && typeof a.url === 'string' ? a : null
+})
+
+async function openAttributionUrl() {
+  if (!toolAttribution.value) return
+  const url = toolAttribution.value.url
+  if (isTauri()) {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      await open(url)
+      return
+    } catch {
+      // fall through to window.open
+    }
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 const isStimmaCloudTool = computed(() => isStimmaCloud(tool.value))
 
 // True when the selected tool is Ideogram 4 — gates the prompt editor's JSON

@@ -191,3 +191,47 @@ def test_approve_each_nested_singleton_approve_transposes_across_foreach_items()
     assert [s["aggregate"]["total"] for s in steps[:2]] == [2, 2]
     assert steps[1]["cellMode"] == "hitl-approve"
     assert steps[2]["eq"]["equation_key"] == "r/downstream"
+
+
+def test_llm_batch_computing_surfaces_on_rollup():
+    # llm(n=2) mid-generation: the single batch call is in flight, slots still
+    # pending. The rolled-up row must read as computing (spinner), not idle.
+    rows = [
+        row("r/llm$0", "llm_batch", status="computing", display="LLM"),
+        row("r/llm$0/slot:0", "llm_slot", status="pending", deps=["r/llm$0"]),
+        row("r/llm$0/slot:1", "llm_slot", status="pending", deps=["r/llm$0"]),
+    ]
+    steps = build_phase_steps(rows)[("Phase",)]
+    assert len(steps) == 1
+    agg = steps[0]["aggregate"]
+    assert agg["computing"] == 2
+    assert agg["pending"] == 0
+
+
+def test_llm_batch_failure_surfaces_on_rollup():
+    # The batch call errored (e.g. LLM timeout). Surface it on the row instead
+    # of leaving it stuck on pending placeholders forever.
+    rows = [
+        row("r/llm$0", "llm_batch", status="failed"),
+        row("r/llm$0/slot:0", "llm_slot", status="pending", deps=["r/llm$0"]),
+        row("r/llm$0/slot:1", "llm_slot", status="pending", deps=["r/llm$0"]),
+    ]
+    steps = build_phase_steps(rows)[("Phase",)]
+    agg = steps[0]["aggregate"]
+    assert agg["failed"] == 2
+    assert agg["pending"] == 0
+
+
+def test_llm_batch_resolved_slots_win_over_batch_status():
+    # Once a slot resolves, per-slot truth takes over — the batch-status fold
+    # must not clobber a completed slot.
+    rows = [
+        row("r/llm$0", "llm_batch", status="computing"),
+        row("r/llm$0/slot:0", "llm_slot", status="completed", deps=["r/llm$0"]),
+        row("r/llm$0/slot:1", "llm_slot", status="pending", deps=["r/llm$0"]),
+    ]
+    steps = build_phase_steps(rows)[("Phase",)]
+    agg = steps[0]["aggregate"]
+    assert agg["completed"] == 1
+    assert agg["computing"] == 0
+    assert agg["pending"] == 1

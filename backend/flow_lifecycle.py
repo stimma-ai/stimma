@@ -44,7 +44,10 @@ from flow_runtime import (
     get_flow_state_db_path,
     graph_db,
 )
-from flow_runtime.production_evaluators import build_production_registry
+from flow_runtime.production_evaluators import (
+    build_production_registry,
+    make_flow_llm_resolve_config,
+)
 from utils.websocket import ws_manager
 
 
@@ -223,7 +226,13 @@ def _build_runtime(flow: Flow) -> FlowRuntime:
         state_db_path,
         program_path=program_path,
         inputs=_flow_inputs(flow),
-        evaluators=build_production_registry(),
+        evaluators=build_production_registry(
+            # `agent` LLM steps run on the flow's chat model; `agent-fast`
+            # runs on the Settings "quick tasks" model.
+            llm_resolve_config=make_flow_llm_resolve_config(
+                flow.id, flow.project_id
+            ),
+        ),
         store=get_equation_store(),
         broadcast=_broadcast,
         project_id=flow.project_id,

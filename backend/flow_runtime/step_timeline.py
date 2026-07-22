@@ -278,15 +278,35 @@ def _build_leaf_batch_step(
     represented_keys = [slot["equation_key"] for slot in slots]
     represented_keys.append(primitive["equation_key"])
     group_key = f"{primitive['equation_key']}/slot"
+    aggregate = {
+        **_aggregate_iterations(iterations),
+        "queued": sum(1 for i in iterations if i.get("isQueued")),
+    }
+    # A single llm(n=N) batch is ONE upstream call that fills every slot at
+    # once. While that call is in flight the slots all sit "pending", so the
+    # rolled-up "LLM ×N" row would read as idle (a grid of clock glyphs) even
+    # though work is actively happening — the "flow says Running but shows no
+    # feedback" report. Fold the batch equation's own status into the rollup
+    # so the row shows a spinner while generating, and surfaces the failure if
+    # the batch call errors out (e.g. an LLM timeout). Only applies before any
+    # slot has reached a terminal state — once slots resolve, their own
+    # statuses are the truth.
+    batch_status = primitive.get("status")
+    if aggregate["completed"] == 0 and aggregate["failed"] == 0:
+        unstarted = aggregate["total"] - aggregate["computing"]
+        if batch_status == "computing" and aggregate["computing"] == 0 and unstarted > 0:
+            aggregate["computing"] = unstarted
+            aggregate["pending"] = 0
+        elif batch_status == "failed" and unstarted > 0:
+            aggregate["failed"] = unstarted
+            aggregate["computing"] = 0
+            aggregate["pending"] = 0
     return [{
         "kind": "group",
         "groupKey": group_key,
         "foreach": primitive,
         "iterations": iterations,
-        "aggregate": {
-            **_aggregate_iterations(iterations),
-            "queued": sum(1 for i in iterations if i.get("isQueued")),
-        },
+        "aggregate": aggregate,
         "totalDurationMs": _aggregate_duration(slots),
         "displayName": primitive.get("display_name") or "LLM",
         "cellMode": "tile",

@@ -178,6 +178,82 @@ def _open_session():
     return db.async_session_maker()
 
 
+async def _resolve_flow_chat_model_slug(
+    flow_id: int,
+    project_id: Optional[int],
+) -> str:
+    """Resolve the model slug the flow's chat uses (chat → project → global).
+
+    Mirrors the agent's own resolution (agent/v2/service.py): the per-chat
+    ``model_slug`` override wins, else the project default, else the global
+    ``default_model``. Best-effort — any DB hiccup falls back to the global
+    default so an LLM step never hard-fails on model lookup.
+    """
+    from config import get_settings
+    from database import Chat, Project
+    from llm_resolver import resolve_chat_model_slug
+    from sqlalchemy import select
+
+    chat_slug: Optional[str] = None
+    project_slug: Optional[str] = None
+    try:
+        async with _open_session() as session:
+            chat_slug = (
+                await session.execute(
+                    select(Chat.model_slug)
+                    .where(Chat.flow_id == flow_id, Chat.deleted_at.is_(None))
+                    .order_by(Chat.updated_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if project_id is not None:
+                project_slug = (
+                    await session.execute(
+                        select(Project.default_model_slug).where(
+                            Project.id == project_id
+                        )
+                    )
+                ).scalar_one_or_none()
+    except Exception:  # noqa: BLE001 — never fail a flow on model lookup
+        log.debug(
+            "flow %s: chat model lookup failed; using global default",
+            flow_id,
+            exc_info=True,
+        )
+    return resolve_chat_model_slug(
+        chat_slug, project_slug, get_settings().default_model
+    )
+
+
+def make_flow_llm_resolve_config(
+    flow_id: int,
+    project_id: Optional[int],
+) -> Callable[[str], Awaitable[Any]]:
+    """Build the ``resolve_config`` a flow's LLM evaluators use to pick a model.
+
+    A flow's ``llm()`` steps carry a Stimma *role*, not a concrete model:
+
+    - ``agent``      → the model selected for the flow's associated chat,
+      resolved chat → project → global exactly like the agent
+      (``get_chat_llm_config``). Without this, ``agent`` would resolve to the
+      global default rather than the model the user picked for this flow.
+    - ``agent-fast`` → the Settings "quick tasks" model
+      (``get_effective_llm_config('agent-fast')``).
+
+    Resolved lazily per call, so changing the chat's model mid-run takes
+    effect on the next LLM step.
+    """
+    async def _resolve(role: str) -> Any:
+        from llm_resolver import get_chat_llm_config, get_effective_llm_config
+
+        if role == "agent-fast":
+            return await get_effective_llm_config("agent-fast")
+        slug = await _resolve_flow_chat_model_slug(flow_id, project_id)
+        return await get_chat_llm_config(slug, role="agent")
+
+    return _resolve
+
+
 # =============================================================================
 # Tool-call evaluator
 # =============================================================================
@@ -722,6 +798,25 @@ _LLM_VALID_ROLES = ("agent", "agent-fast")
 # user-tolerable window.
 LLM_CALL_TIMEOUT_SECONDS = 60.0
 
+# A batch call for llm(n=N) asks the model for all N items in a single
+# response, so its output size — and thus generation time — scales with N.
+# A flat 60s cap makes llm(n=50) time out on every attempt (the model can't
+# emit 50 rich items that fast), which surfaces to the user as a flow that
+# says "Running" but sits at 0/N forever. Scale the batch budget with N,
+# floored at the single-call timeout and capped so a genuinely oversized
+# batch still fails in a bounded, user-tolerable window.
+LLM_BATCH_TIMEOUT_PER_ITEM_SECONDS = 6.0
+LLM_BATCH_TIMEOUT_MAX_SECONDS = 420.0
+
+
+def llm_batch_timeout_seconds(n: int) -> float:
+    """Per-N timeout for a single batched llm(n=N) call."""
+    return min(
+        LLM_CALL_TIMEOUT_SECONDS
+        + max(0, n - 1) * LLM_BATCH_TIMEOUT_PER_ITEM_SECONDS,
+        LLM_BATCH_TIMEOUT_MAX_SECONDS,
+    )
+
 
 class LLMEvaluator:
     """Call the configured LLM for a DSL ``llm()`` equation.
@@ -1153,6 +1248,7 @@ class LLMBatchEvaluator(LLMEvaluator):
 
         content = await self._run_llm(
             role, think, messages, completion_kwargs, request.equation_key,
+            timeout=llm_batch_timeout_seconds(n),
         )
         items = _parse_batch_response(content, response_format, n)
         return EvaluationResult(value=items)
@@ -1164,6 +1260,7 @@ class LLMBatchEvaluator(LLMEvaluator):
         messages: list[dict[str, Any]],
         completion_kwargs: dict[str, Any],
         equation_key: str,
+        timeout: float = LLM_CALL_TIMEOUT_SECONDS,
     ) -> str:
         try:
             config = await self._get_config(role)
@@ -1174,16 +1271,21 @@ class LLMBatchEvaluator(LLMEvaluator):
             )
             resp = await asyncio.wait_for(
                 completion(config, messages, **completion_kwargs),
-                timeout=LLM_CALL_TIMEOUT_SECONDS,
+                timeout=timeout,
             )
             log.info(
                 "flow llm_batch[%s] role=%s think=%s done",
                 equation_key, role, think,
             )
         except asyncio.TimeoutError as exc:
+            # A batch timeout is size-driven, not a transient blip: re-running
+            # the identical (too-large) request will just time out again.
+            # Classify as LLM_ERROR (single retry) rather than TRANSIENT
+            # (three) so the failure surfaces to the user promptly instead of
+            # burning 3× the — now much larger — batch budget.
             raise EvaluatorError(
-                f"LLM batch timed out after {LLM_CALL_TIMEOUT_SECONDS:.0f}s",
-                category=TRANSIENT,
+                f"LLM batch timed out after {timeout:.0f}s",
+                category=LLM_ERROR,
             ) from exc
         except EvaluatorError:
             raise
@@ -3407,18 +3509,32 @@ def build_production_registry(
     web_search_evaluator: Optional[Evaluator] = None,
     fetch_media_evaluator: Optional[Evaluator] = None,
     graph_getter: Optional[Callable[[], Any]] = None,
+    llm_resolve_config: Optional[Callable[[str], Awaitable[Any]]] = None,
 ) -> EvaluatorRegistry:
     """Return a registry wired for production use.
 
     Kwargs let callers (tests, specialised callers) override any evaluator
     without rebuilding the registry by hand — the common case is "I need the
     two production ones plus a stub third".
+
+    ``llm_resolve_config`` maps the ``agent`` / ``agent-fast`` roles onto
+    concrete models for the three LLM evaluators (see
+    ``make_flow_llm_resolve_config``). When ``None`` they fall back to the
+    plain role resolver (global default for ``agent``).
     """
     reg = EvaluatorRegistry()
     reg.register("tool_call", tool_evaluator or ToolCallEvaluator())
-    reg.register("llm_call", llm_evaluator or LLMEvaluator())
-    reg.register("llm_batch", LLMBatchEvaluator())
-    reg.register("llm_slot", LLMSlotEvaluator(graph_getter=graph_getter))
+    reg.register(
+        "llm_call",
+        llm_evaluator or LLMEvaluator(resolve_config=llm_resolve_config),
+    )
+    reg.register("llm_batch", LLMBatchEvaluator(resolve_config=llm_resolve_config))
+    reg.register(
+        "llm_slot",
+        LLMSlotEvaluator(
+            resolve_config=llm_resolve_config, graph_getter=graph_getter
+        ),
+    )
     reg.register("code", code_evaluator or CodeEvaluator())
     reg.register("info", info_evaluator or InfoEvaluator())
     reg.register("create_set", create_set_evaluator or CreateSetEvaluator())

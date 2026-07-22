@@ -23,6 +23,21 @@ BUILTIN_TOOL_METADATA: dict[str, dict[str, str]] = {
         "provider_name": "Stimma",
         "provider_id": "builtin:stimma",
     },
+    "builtin:darkroom-film-stock": {
+        "name": "Film Stock",
+        "provider_name": "Built-in Tools",
+        "provider_id": "builtin",
+    },
+    "builtin:darkroom-develop": {
+        "name": "Develop",
+        "provider_name": "Built-in Tools",
+        "provider_id": "builtin",
+    },
+    "builtin:darkroom-color-grade": {
+        "name": "Color Grade",
+        "provider_name": "Built-in Tools",
+        "provider_id": "builtin",
+    },
 }
 
 _LEGACY_TASK_SEGMENTS = frozenset(
