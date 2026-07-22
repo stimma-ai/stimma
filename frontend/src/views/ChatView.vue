@@ -2981,6 +2981,31 @@ async function loadItems(beforeId = null) {
   }
 }
 
+// Reconcile the transcript with server truth after a gap in WebSocket
+// coverage (KeepAlive deactivation, socket reconnect). Broadcasts from the
+// gap never arrive retroactively; without a resync the transcript stays
+// stale — an active ask_user question stays invisible while the last
+// activity group keeps spinning, and range deletions computed from the
+// stale list orphan the unseen items.
+async function resyncItems() {
+  if (!chatId.value || loading.value || sending.value) return
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/items?visible_limit=500`)
+    if (!response.ok) return
+    const data = await response.json()
+    const fresh = data.items.reverse()
+    const unchanged = fresh.length === items.value.length
+      && fresh.every((item, i) => item.id === items.value[i].id)
+    if (unchanged) return
+    items.value = fresh
+    hasMore.value = data.has_more
+    await nextTick()
+    scrollToBottom()
+  } catch (error) {
+    console.error('Error resyncing chat items:', error)
+  }
+}
+
 // Load more messages
 let loadingMore = false
 async function loadMore() {
@@ -4091,20 +4116,17 @@ async function deleteFromHere(itemId) {
   const index = items.value.findIndex(item => item.id === itemId)
   if (index === -1) return
 
-  const itemsToDelete = items.value.slice(index)
-
   // Optimistically remove from local items list immediately to avoid race
   // conditions where WebSocket events (e.g. chat_item_created from a running
   // agent) push new items during the await, causing the old items to remain visible.
   items.value = items.value.slice(0, index)
 
-  // Delete all items on the backend in parallel
-  const deletePromises = itemsToDelete.map(item =>
-    fetch(`/api/chats/items/${item.id}`, { method: 'DELETE' })
-  )
-
+  // The backend computes the range: it must also cover items this client
+  // never received (broadcast while the view was deactivated). Deleting a
+  // client-computed id list can leave an orphaned tool_call row that makes
+  // providers reject the conversation on replay.
   try {
-    await Promise.all(deletePromises)
+    await fetch(`/api/chats/${chatId.value}/items/${itemId}/delete-from-here`, { method: 'POST' })
   } catch (error) {
     console.error('Error deleting items:', error)
   }
@@ -5274,6 +5296,14 @@ function setupWebSocketSubscriptions() {
   wsUnsubscribes.push(onWsEvent('llm_usage', (data) => {
     llmUsage.value = data
   }))
+
+  // Socket dropped and came back: broadcasts from the gap are gone for good,
+  // so reconcile the transcript and agent state with the backend. (Also fires
+  // on first connect, where resyncItems no-ops behind the loading guard.)
+  wsUnsubscribes.push(onWsEvent('websocket_reconnected', () => {
+    resyncItems()
+    syncAgentStatus()
+  }))
 }
 
 // Clean up WebSocket subscriptions
@@ -5357,6 +5387,10 @@ onMounted(() => {
 onActivated(async () => {
   // Re-subscribe to WebSocket events when component becomes active again
   setupWebSocketSubscriptions()
+  // Events broadcast while this view was cached were never received —
+  // reconcile the transcript and agent state with the backend.
+  resyncItems()
+  syncAgentStatus()
   // Wait for route to be fully updated before checking for pending media
   // onActivated can fire before Vue Router finishes updating the route object
   await nextTick()

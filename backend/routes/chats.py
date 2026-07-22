@@ -1727,6 +1727,76 @@ async def delete_chat_item(
     return {"success": True}
 
 
+@router.post("/{chat_id}/items/{item_id}/delete-from-here")
+async def delete_items_from_here(
+    chat_id: int,
+    item_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Delete a chat item and every later item in the chat.
+
+    The range is computed server-side so it includes items the client never
+    received (e.g. broadcast while the chat view was deactivated). Deleting a
+    client-computed id list can miss such rows, leaving an orphaned tool_call
+    that makes providers reject the whole conversation on replay.
+    """
+    chat_result = await session.execute(select(Chat).where(Chat.id == chat_id))
+    chat = chat_result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    items_result = await session.execute(
+        select(ChatItem)
+        .where(ChatItem.chat_id == chat_id, ChatItem.id >= item_id)
+        .order_by(ChatItem.id.asc())
+    )
+    doomed = list(items_result.scalars().all())
+    if not doomed:
+        return {"success": True, "deleted_ids": []}
+
+    settings = {}
+    if chat.generation_settings:
+        try:
+            settings = json.loads(chat.generation_settings)
+        except json.JSONDecodeError:
+            settings = {}
+    settings_changed = False
+
+    deleted_ids = []
+    deleted_call_ids = set()
+    for item in doomed:
+        if item.tool_call_id:
+            deleted_call_ids.add(item.tool_call_id)
+        # Deleting a plan item invalidates the stored active plan (same rule
+        # as single-item deletion above).
+        if item.item_type == "system" and item.message_text == "Plan" and "active_plan" in settings:
+            del settings["active_plan"]
+            settings_changed = True
+        deleted_ids.append(item.id)
+        await session.delete(item)
+
+    # Pending HITL state pointing at a deleted tool_call must go too, or the
+    # next turn tries to resume a question that no longer exists.
+    for key in ("_v2_ask_pending", "_v2_pending"):
+        pending = settings.get(key)
+        if isinstance(pending, dict) and pending.get("tool_call_id") in deleted_call_ids:
+            del settings[key]
+            settings_changed = True
+
+    if settings_changed:
+        chat.generation_settings = json.dumps(settings)
+
+    await session.commit()
+
+    for deleted_id in deleted_ids:
+        await ws_manager.broadcast("chat_item_deleted", {
+            "chat_id": chat_id,
+            "item_id": deleted_id,
+        })
+
+    return {"success": True, "deleted_ids": deleted_ids}
+
+
 @router.get("/by-item/{chat_item_id}", response_model=ChatResponse)
 async def get_chat_by_item(
     chat_item_id: int,
