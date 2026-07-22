@@ -79,6 +79,7 @@
                 v-if="row.tab.projectName"
                 class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
               >{{ row.tab.projectName }}</span>
+              <ToolProviderLabel :cloud="isStimmaCloudTool(row.tool)" :provider-name="row.tool.provider_name" class="pl-2" />
               <span class="flex-shrink-0 rounded-full bg-accent/15 text-accent-hi px-1.5 py-0.5 text-[9px] font-semibold leading-none">Open</span>
             </button>
             <div v-if="Object.keys(groupedTools).length > 0" class="border-t border-edge-subtle my-1"></div>
@@ -104,7 +105,8 @@
               <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
                 <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
               </div>
-              <span class="truncate flex-1">{{ tool.name }}</span>
+              <span class="truncate flex-1 min-w-0">{{ tool.name }}</span>
+              <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
             </button>
           </template>
         </template>
@@ -121,6 +123,7 @@ import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspace
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import ToolIcon from './tools/ToolIcon.vue'
+import ToolProviderLabel from './tools/ToolProviderLabel.vue'
 import {
   formatTaskTypeLabel,
   TASK_TYPE_ORDER
