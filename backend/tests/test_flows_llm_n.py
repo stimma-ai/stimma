@@ -1,16 +1,20 @@
-"""Integration tests for llm(n=N) — batched diverse LLM generation with
-per-slot invalidation.
+"""Integration tests for llm(n=N) — seed-planned diverse LLM generation with
+per-slot expansion and invalidation.
 
 Covers:
 
 - Build-time shape: one LLM_BATCH equation + N LLM_SLOT equations keyed
-  `{batch.key}/slot:{i}` with positional iteration keys.
-- First-run: batch evaluator fires once, slots copy from the batch list.
-  Exactly one LLM call is issued for N slots.
+  `{batch.key}/slot:{i}` with positional iteration keys, plus one hidden
+  llm_gather control equation assembling the final list.
+- First-run: the batch evaluator makes one fast seed-planning call; each
+  slot then expands its seed with its own LLM call (N+1 calls total),
+  completing incrementally and failing in isolation.
+- Seed miscounts never fail the batch: short lists pad with None and the
+  seedless slots still expand.
 - Per-slot invalidation: slot attempt > 1 triggers peer-aware solo-gen.
   Only the invalidated slot re-rolls; peers unchanged.
-- Batch invalidation: cascade resets slot attempts to 1 so slots re-copy
-  from the fresh batch.
+- Batch invalidation: cascade resets slot attempts to 1 so slots re-expand
+  from the fresh seeds.
 - Foreach over llm(n=N) iterates per-slot: each iteration depends on its
   specific slot equation (via early-expansion), so invalidating one slot
   only re-fires that iteration's downstream.
@@ -69,43 +73,67 @@ def isolated_store_and_db():
 class MockLLMCompletion:
     """A callable mock that tracks every call and returns scripted responses.
 
-    Supports two modes per call, decided by prompt contents:
+    Three call kinds, decided by prompt contents:
 
-    - Batch: if "already exist" is NOT in the prompt, returns a JSON array
-      of ``batch_values`` items. Each call can return a different list so
-      tests can verify fresh batches after invalidation.
-    - Solo-gen: if "already exist" IS in the prompt, returns a 1-item JSON
-      array of the next ``solo_values``.
+    - Seed-planning (batch): prompt contains "numbered list" from the seed
+      instruction. Returns the next ``seed_lists`` entry as a numbered list.
+    - Expansion (slot attempt 1): prompt contains "You are producing item".
+      Slots run in parallel with nondeterministic order, so the response is
+      derived from the seed named in the prompt — ``{"prompt": "X-<seed>"}``
+      where the batch number ``X`` counts seed calls so far (so re-expanded
+      slots after a batch re-roll are distinguishable). Seedless expansions
+      (padded None seeds) derive from the slot index line instead.
+    - Solo-gen (slot attempt > 1): prompt contains "already exist". Returns
+      a 1-item JSON array of the next ``solo_values``.
     """
 
     def __init__(
         self,
-        batch_lists: list[list[Any]],
-        solo_values: list[Any],
+        seed_lists: list[list[str]],
+        solo_values: list[Any] | None = None,
+        fail_expansion_seeds: set[str] | None = None,
     ) -> None:
-        self.batch_lists = list(batch_lists)
-        self.solo_values = list(solo_values)
+        self.seed_lists = list(seed_lists)
+        self.solo_values = list(solo_values or [])
+        self.fail_expansion_seeds = set(fail_expansion_seeds or ())
+        self.seed_calls = 0
         self.calls: list[dict[str, Any]] = []
 
     async def __call__(self, config, messages, **kwargs):
+        import json
+        import re as _re
+
         user = messages[-1]["content"]
         if isinstance(user, list):
             text = user[0]["text"]
         else:
             text = user
         self.calls.append({"text": text, "messages": list(messages)})
-        is_solo = "already exist" in text
-        if is_solo:
+
+        if "already exist" in text:
             if not self.solo_values:
                 raise AssertionError("mock ran out of solo_values")
             val = self.solo_values.pop(0)
-            import json
             return _Resp(json.dumps([val]))
-        if not self.batch_lists:
-            raise AssertionError("mock ran out of batch_lists")
-        items = self.batch_lists.pop(0)
-        import json
-        return _Resp(json.dumps(items))
+
+        if "You are producing item" in text:
+            m = _re.search(r"direction for your item: (\S+)", text, _re.IGNORECASE)
+            if m:
+                seed = m.group(1)
+            else:
+                # Seedless (padded) expansion — key off the item index.
+                idx = _re.search(r"item (\d+) of", text).group(1)
+                seed = f"noseed{idx}"
+            if seed in self.fail_expansion_seeds:
+                raise RuntimeError(f"scripted expansion failure for {seed}")
+            return _Resp(json.dumps([{"prompt": f"{self.seed_calls}-{seed}"}]))
+
+        # Seed-planning call.
+        if not self.seed_lists:
+            raise AssertionError("mock ran out of seed_lists")
+        seeds = self.seed_lists.pop(0)
+        self.seed_calls += 1
+        return _Resp("\n".join(f"{i + 1}. {s}" for i, s in enumerate(seeds)))
 
 
 class _Resp:
@@ -167,8 +195,13 @@ def test_llm_n_builds_batch_plus_slot_equations(isolated_store_and_db):
         eq for eq in rt.graph.all_equations()
         if eq.equation_type == EquationType.LLM_SLOT
     ]
+    gathers = [
+        eq for eq in rt.graph.all_equations()
+        if eq.definition.get("control_kind") == "llm_gather"
+    ]
     assert len(batches) == 1, f"expected 1 batch, got {len(batches)}"
     assert len(slots) == 3, f"expected 3 slots, got {len(slots)}"
+    assert len(gathers) == 1, f"expected 1 gather, got {len(gathers)}"
 
     batch = batches[0]
     assert batch.definition["n"] == 3
@@ -182,6 +215,11 @@ def test_llm_n_builds_batch_plus_slot_equations(isolated_store_and_db):
         # Slot key format: {batch.key}/slot:{i}
         assert slot.key == f"{batch.key}/slot:{slot.definition['slot_index']}"
 
+    gather = gathers[0]
+    assert gather.key == f"{batch.key}/gather"
+    assert sorted(gather.dependencies) == sorted(s.key for s in slots)
+    assert getattr(gather, "_iteration_keys_cache", None) == ["0", "1", "2"]
+
 
 # =============================================================================
 # First-run end-to-end
@@ -189,11 +227,105 @@ def test_llm_n_builds_batch_plus_slot_equations(isolated_store_and_db):
 
 
 @pytest.mark.asyncio
-async def test_first_run_one_llm_call_fills_all_slots(isolated_store_and_db):
+async def test_first_run_seed_call_plus_per_slot_expansions(isolated_store_and_db):
+    db_path, store = isolated_store_and_db
+    mock = MockLLMCompletion(seed_lists=[["A", "B", "C"]])
+
+    @flow(name="r")
+    def r():
+        with phase("Generate"):
+            prompts = llm(
+                "Give 3 items.",
+                n=3,
+                response_format={"schema": {"prompt": "str"}},
+            )
+        return prompts
+
+    rt = FlowRuntime(
+        1, db_path, flow_callable=r,
+        evaluators=_make_n_evaluators(mock), store=store,
+    )
+    rt.build_initial_graph()
+    await rt.start()
+    await rt.wait_quiescent(timeout=5.0)
+    await rt.stop()
+
+    # 1 seed-planning call + 3 per-slot expansion calls, no solo-gens.
+    assert len(mock.calls) == 4
+    assert all("already exist" not in c["text"] for c in mock.calls)
+    expansions = [c for c in mock.calls if "You are producing item" in c["text"]]
+    assert len(expansions) == 3
+
+    # Batch + all slots + gather COMPLETED.
+    by_type: dict[EquationType, list] = {}
+    for eq in rt.graph.all_equations():
+        by_type.setdefault(eq.equation_type, []).append(eq)
+        assert eq.status == EquationStatus.COMPLETED, (eq.key, eq.status)
+
+    slots = sorted(
+        by_type[EquationType.LLM_SLOT], key=lambda e: e.definition["slot_index"]
+    )
+    assert slots[0].result == {"prompt": "1-A"}
+    assert slots[1].result == {"prompt": "1-B"}
+    assert slots[2].result == {"prompt": "1-C"}
+
+    # The hidden gather assembled the slots' values in order.
+    gather = next(
+        eq for eq in rt.graph.all_equations()
+        if eq.definition.get("control_kind") == "llm_gather"
+    )
+    assert gather.result == [
+        {"prompt": "1-A"}, {"prompt": "1-B"}, {"prompt": "1-C"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_seed_shortfall_pads_and_still_completes(isolated_store_and_db):
+    """A miscounted seed list (2 of 3) must not fail the batch — the
+    seedless slot expands without a direction and the run completes."""
+    db_path, store = isolated_store_and_db
+    mock = MockLLMCompletion(seed_lists=[["A", "B"]])
+
+    @flow(name="r")
+    def r():
+        with phase("Generate"):
+            prompts = llm(
+                "Give 3 items.",
+                n=3,
+                response_format={"schema": {"prompt": "str"}},
+            )
+        return prompts
+
+    rt = FlowRuntime(
+        1, db_path, flow_callable=r,
+        evaluators=_make_n_evaluators(mock), store=store,
+    )
+    rt.build_initial_graph()
+    await rt.start()
+    await rt.wait_quiescent(timeout=5.0)
+    await rt.stop()
+
+    for eq in rt.graph.all_equations():
+        assert eq.status == EquationStatus.COMPLETED, (eq.key, eq.status)
+
+    by_index = {
+        eq.definition["slot_index"]: eq
+        for eq in rt.graph.all_equations()
+        if eq.equation_type == EquationType.LLM_SLOT
+    }
+    assert by_index[0].result == {"prompt": "1-A"}
+    assert by_index[1].result == {"prompt": "1-B"}
+    # Slot 2 had no seed (padded None) but still produced an item.
+    assert by_index[2].result == {"prompt": "1-noseed3"}
+
+
+@pytest.mark.asyncio
+async def test_expansion_failure_is_isolated_to_its_slot(isolated_store_and_db):
+    """One slot's expansion call failing must not take down its peers."""
     db_path, store = isolated_store_and_db
     mock = MockLLMCompletion(
-        batch_lists=[[{"prompt": "A"}, {"prompt": "B"}, {"prompt": "C"}]],
-        solo_values=[],
+        seed_lists=[["A", "B", "C"]],
+        fail_expansion_seeds={"B"},
     )
 
     @flow(name="r")
@@ -215,22 +347,16 @@ async def test_first_run_one_llm_call_fills_all_slots(isolated_store_and_db):
     await rt.wait_quiescent(timeout=5.0)
     await rt.stop()
 
-    # Exactly one LLM call was made (batch-only — no solo-gens on first run).
-    assert len(mock.calls) == 1
-    assert "already exist" not in mock.calls[0]["text"]
-
-    # Batch + all slots COMPLETED.
-    by_type: dict[EquationType, list] = {}
-    for eq in rt.graph.all_equations():
-        by_type.setdefault(eq.equation_type, []).append(eq)
-        assert eq.status == EquationStatus.COMPLETED, (eq.key, eq.status)
-
-    slots = sorted(
-        by_type[EquationType.LLM_SLOT], key=lambda e: e.definition["slot_index"]
-    )
-    assert slots[0].result == {"prompt": "A"}
-    assert slots[1].result == {"prompt": "B"}
-    assert slots[2].result == {"prompt": "C"}
+    by_index = {
+        eq.definition["slot_index"]: eq
+        for eq in rt.graph.all_equations()
+        if eq.equation_type == EquationType.LLM_SLOT
+    }
+    assert by_index[0].status == EquationStatus.COMPLETED
+    assert by_index[0].result == {"prompt": "1-A"}
+    assert by_index[1].status == EquationStatus.FAILED
+    assert by_index[2].status == EquationStatus.COMPLETED
+    assert by_index[2].result == {"prompt": "1-C"}
 
 
 # =============================================================================
@@ -242,7 +368,7 @@ async def test_first_run_one_llm_call_fills_all_slots(isolated_store_and_db):
 async def test_slot_invalidation_solo_gens_only_that_slot(isolated_store_and_db):
     db_path, store = isolated_store_and_db
     mock = MockLLMCompletion(
-        batch_lists=[[{"prompt": "A"}, {"prompt": "B"}, {"prompt": "C"}]],
+        seed_lists=[["A", "B", "C"]],
         solo_values=[{"prompt": "B-NEW"}],
     )
 
@@ -274,12 +400,12 @@ async def test_slot_invalidation_solo_gens_only_that_slot(isolated_store_and_db)
     await rt.wait_quiescent(timeout=5.0)
     await rt.stop()
 
-    # 2 calls total: 1 batch + 1 solo-gen.
-    assert len(mock.calls) == 2
-    assert "already exist" in mock.calls[1]["text"]
-    # Peer context in the solo-gen prompt references peers A and C.
-    assert "A" in mock.calls[1]["text"]
-    assert "C" in mock.calls[1]["text"]
+    # 5 calls total: 1 seed + 3 expansions + 1 solo-gen.
+    assert len(mock.calls) == 5
+    assert "already exist" in mock.calls[4]["text"]
+    # Peer context in the solo-gen prompt references peers' current values.
+    assert "1-A" in mock.calls[4]["text"]
+    assert "1-C" in mock.calls[4]["text"]
 
     # Slot 0 and 2 unchanged; slot 1 has the new value.
     by_index = {
@@ -287,9 +413,18 @@ async def test_slot_invalidation_solo_gens_only_that_slot(isolated_store_and_db)
         for eq in rt.graph.all_equations()
         if eq.equation_type == EquationType.LLM_SLOT
     }
-    assert by_index[0].result == {"prompt": "A"}
+    assert by_index[0].result == {"prompt": "1-A"}
     assert by_index[1].result == {"prompt": "B-NEW"}
-    assert by_index[2].result == {"prompt": "C"}
+    assert by_index[2].result == {"prompt": "1-C"}
+
+    # The gather reflects the re-rolled slot, so direct consumers see it.
+    gather = next(
+        eq for eq in rt.graph.all_equations()
+        if eq.definition.get("control_kind") == "llm_gather"
+    )
+    assert gather.result == [
+        {"prompt": "1-A"}, {"prompt": "B-NEW"}, {"prompt": "1-C"},
+    ]
 
 
 # =============================================================================
@@ -301,11 +436,7 @@ async def test_slot_invalidation_solo_gens_only_that_slot(isolated_store_and_db)
 async def test_batch_invalidation_rerolls_all_slots(isolated_store_and_db):
     db_path, store = isolated_store_and_db
     mock = MockLLMCompletion(
-        batch_lists=[
-            [{"prompt": "A1"}, {"prompt": "B1"}, {"prompt": "C1"}],
-            [{"prompt": "A2"}, {"prompt": "B2"}, {"prompt": "C2"}],
-        ],
-        solo_values=[],
+        seed_lists=[["A", "B", "C"], ["A", "B", "C"]],
     )
 
     @flow(name="r")
@@ -334,9 +465,10 @@ async def test_batch_invalidation_rerolls_all_slots(isolated_store_and_db):
     await rt.wait_quiescent(timeout=5.0)
     await rt.stop()
 
-    # Exactly 2 batch LLM calls, no solo-gens — because cascade-reset put
-    # slot attempts back at 1 so they take from the fresh batch.
-    assert len(mock.calls) == 2
+    # 8 calls: (1 seed + 3 expansions) × 2, no solo-gens — because
+    # cascade-reset put slot attempts back at 1 so they re-expand from the
+    # fresh seeds.
+    assert len(mock.calls) == 8
     assert all("already exist" not in c["text"] for c in mock.calls)
 
     by_index = {
@@ -344,9 +476,10 @@ async def test_batch_invalidation_rerolls_all_slots(isolated_store_and_db):
         for eq in rt.graph.all_equations()
         if eq.equation_type == EquationType.LLM_SLOT
     }
-    assert by_index[0].result == {"prompt": "A2"}
-    assert by_index[1].result == {"prompt": "B2"}
-    assert by_index[2].result == {"prompt": "C2"}
+    # "2-" prefix = expanded after the second seed call.
+    assert by_index[0].result == {"prompt": "2-A"}
+    assert by_index[1].result == {"prompt": "2-B"}
+    assert by_index[2].result == {"prompt": "2-C"}
     # All slot attempts should be back at 1.
     for eq in by_index.values():
         assert eq.attempt == 1, (eq.key, eq.attempt)
@@ -361,7 +494,7 @@ async def test_batch_invalidation_rerolls_all_slots(isolated_store_and_db):
 async def test_foreach_over_llm_n_iterates_per_slot(isolated_store_and_db):
     db_path, store = isolated_store_and_db
     mock = MockLLMCompletion(
-        batch_lists=[[{"prompt": "P0"}, {"prompt": "P1"}]],
+        seed_lists=[["P0", "P1"]],
         solo_values=[{"prompt": "P0-NEW"}],
     )
 

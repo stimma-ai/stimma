@@ -106,7 +106,12 @@ def early_expansion_items(
     wrapper. The upstream's iteration-key cache defines order.
     """
     upstream_iter_keys = list(input_eq._iteration_keys_cache)
-    prefix = f"{input_eq.key}/"
+    # llm_gather's iteration children (the slots) live under its batch
+    # equation, not under the gather itself — it declares that root.
+    children_root = input_eq.definition.get(
+        "iteration_children_root", input_eq.key,
+    )
+    prefix = f"{children_root}/"
     upstream_children: dict[str, str] = {}
     for k in graph.keys():
         if not k.startswith(prefix):
@@ -249,7 +254,8 @@ def find_eager_expansion(
     if (
         deferred.kind == "foreach"
         and (
-            input_eq.definition.get("control_kind") in ("foreach", "approve")
+            input_eq.definition.get("control_kind")
+            in ("foreach", "approve", "llm_gather")
             or input_eq.equation_type == EquationType.LLM_BATCH
         )
         and getattr(input_eq, "_iteration_keys_cache", None) is not None

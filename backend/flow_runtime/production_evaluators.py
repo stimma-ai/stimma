@@ -824,14 +824,12 @@ _LLM_VALID_ROLES = ("agent", "agent-fast")
 # user-tolerable window.
 LLM_CALL_TIMEOUT_SECONDS = 60.0
 
-# A batch call for llm(n=N) asks the model for all N items in a single
-# response, so its output size — and thus generation time — scales with N.
-# A flat 60s cap makes llm(n=50) time out on every attempt (the model can't
-# emit 50 rich items that fast), which surfaces to the user as a flow that
-# says "Running" but sits at 0/N forever. Scale the batch budget with N,
-# floored at the single-call timeout and capped so a genuinely oversized
-# batch still fails in a bounded, user-tolerable window.
-LLM_BATCH_TIMEOUT_PER_ITEM_SECONDS = 6.0
+# The batch call for llm(n=N) plans N one-line seed directions in a single
+# response, so its output still scales with N — but at ~a dozen tokens per
+# line, not a full item. Scale the budget with N, floored at the single-call
+# timeout and capped so a genuinely oversized batch still fails in a
+# bounded, user-tolerable window.
+LLM_BATCH_TIMEOUT_PER_ITEM_SECONDS = 2.0
 LLM_BATCH_TIMEOUT_MAX_SECONDS = 420.0
 
 
@@ -1062,26 +1060,55 @@ def _media_ids_from_code_value(value: Any, output_type: str) -> list[int]:
 # =============================================================================
 #
 # For llm(n=N), the DSL builds one LLM_BATCH equation plus N LLM_SLOT
-# equations depending on it. The batch runs a single LLM call asking for
-# all N items (high diversity, one round-trip). Each slot's first evaluation
-# just reads batch.result[slot_index] — no extra LLM call. When a slot is
-# invalidated directly (attempt > 1), its evaluator runs a "solo-gen" LLM
-# call that sees the peer slots' current values and asks for one more item
-# meaningfully distinct from them. When the batch itself is invalidated,
-# the engine resets all slot attempts to 1 so they re-read from the fresh
-# batch result (see FlowRun._invalidate_equation).
+# equations depending on it, plus a hidden llm_gather control equation that
+# assembles the final list from the slots. The batch runs one FAST call that
+# plans N short one-line "directions" (seeds) — cheap to produce, so it
+# completes in seconds and its item count is parsed tolerantly (extra seeds
+# truncated, missing ones padded with None). Each slot then makes its own
+# LLM call expanding its seed into one full item, so the N items run in
+# parallel under the engine's concurrency cap, complete incrementally in the
+# UI, and fail/retry in isolation. When a slot is invalidated directly
+# (attempt > 1), its evaluator runs a "solo-gen" call that sees the peer
+# slots' current values and asks for one more item meaningfully distinct
+# from them. When the batch itself is invalidated, the engine resets all
+# slot attempts to 1 so they re-expand from the fresh seeds (see
+# FlowRun._invalidate_equation).
 
 
-_BATCH_INSTRUCTION_JSON = (
-    "\n\nReturn a JSON array of exactly {n} items. Each item should match "
-    "the schema described below. The array must have exactly {n} elements, "
-    "each meaningfully different from the others. Return ONLY valid JSON: "
-    "no markdown fences, prose, or commentary.\nSchema for each item:\n{schema}"
+_SEED_INSTRUCTION = (
+    "\n\nDo NOT produce the items themselves yet. Instead, plan {n} distinct "
+    "directions for the task above: return a numbered list of exactly {n} "
+    "lines, prefixed like \"1. \", \"2. \", etc. Each line is one short "
+    "direction (at most ~15 words) naming the angle, subject, or variation "
+    "that one item will take. Make every direction meaningfully different "
+    "from the others. Return only the numbered list — no preamble or "
+    "commentary."
 )
-_BATCH_INSTRUCTION_TEXT = (
-    "\n\nReturn exactly {n} numbered items, one per line, prefixed like "
-    "\"1. \", \"2. \", etc. Each item should be meaningfully different from "
-    "the others."
+_EXPAND_INSTRUCTION_JSON = (
+    "\n\nYou are producing item {index} of {n}. Follow this direction for "
+    "your item: {seed}\n"
+    "Produce exactly ONE item. Return a JSON array containing only that one "
+    "item. Return ONLY valid JSON: no markdown fences, prose, or "
+    "commentary.\nSchema for the item:\n{schema}"
+)
+_EXPAND_INSTRUCTION_TEXT = (
+    "\n\nYou are producing item {index} of {n}. Follow this direction for "
+    "your item: {seed}\n"
+    "Produce exactly ONE item. Return only the item, with no numbering or "
+    "preamble."
+)
+_EXPAND_NO_SEED_JSON = (
+    "\n\nYou are producing item {index} of {n}; peers cover other angles, so "
+    "pick a specific, non-obvious angle for yours.\n"
+    "Produce exactly ONE item. Return a JSON array containing only that one "
+    "item. Return ONLY valid JSON: no markdown fences, prose, or "
+    "commentary.\nSchema for the item:\n{schema}"
+)
+_EXPAND_NO_SEED_TEXT = (
+    "\n\nYou are producing item {index} of {n}; peers cover other angles, so "
+    "pick a specific, non-obvious angle for yours.\n"
+    "Produce exactly ONE item. Return only the item, with no numbering or "
+    "preamble."
 )
 _SOLO_INSTRUCTION_JSON = (
     "\n\nThe following items already exist:\n{peers}\n\n"
@@ -1098,14 +1125,23 @@ _SOLO_INSTRUCTION_TEXT = (
 )
 
 
-def _llm_batch_prompt_suffix(n: int, response_format: Any) -> str:
-    tmpl = _BATCH_INSTRUCTION_JSON if response_format else _BATCH_INSTRUCTION_TEXT
+def _llm_seed_prompt_suffix(n: int) -> str:
+    return _SEED_INSTRUCTION.format(n=n)
+
+
+def _llm_expand_prompt_suffix(
+    seed: Any, index: int, n: int, response_format: Any,
+) -> str:
     schema = json.dumps(
         _response_format_schema_for_prompt(response_format),
         ensure_ascii=False,
         indent=2,
     )
-    return tmpl.format(n=n, schema=schema)
+    if seed is None:
+        tmpl = _EXPAND_NO_SEED_JSON if response_format else _EXPAND_NO_SEED_TEXT
+        return tmpl.format(index=index + 1, n=n, schema=schema)
+    tmpl = _EXPAND_INSTRUCTION_JSON if response_format else _EXPAND_INSTRUCTION_TEXT
+    return tmpl.format(index=index + 1, n=n, seed=seed, schema=schema)
 
 
 def _llm_solo_prompt_suffix(peers: list[Any], response_format: Any) -> str:
@@ -1122,38 +1158,40 @@ def _llm_solo_prompt_suffix(peers: list[Any], response_format: Any) -> str:
     return tmpl.format(peers=rendered, schema=schema)
 
 
-def _parse_batch_response(content: str, response_format: Any, n: int) -> list[Any]:
-    """Parse a batch LLM response into exactly N items."""
+def _parse_seed_response(content: str, n: int) -> list[Any]:
+    """Parse the seed-planning response into exactly N entries, tolerantly.
+
+    A miscounted list must never fail the whole batch: extra seeds are
+    truncated, missing ones padded with None (the slot then expands without
+    a direction). Only a fully empty response is an error.
+    """
     text = (content or "").strip()
     if not text:
         raise EvaluatorError("LLM batch returned empty content", category=LLM_ERROR)
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.DOTALL).strip()
 
-    if response_format:
+    items: list[Any]
+    if text.lstrip().startswith("["):
+        # Some models answer the numbered-list ask with a JSON array anyway.
         try:
             parsed = json.loads(text)
-        except ValueError as exc:
-            raise EvaluatorError(
-                f"LLM batch response is not valid JSON: {exc}",
-                category=LLM_ERROR,
-            ) from exc
-        if not isinstance(parsed, list):
-            raise EvaluatorError(
-                f"LLM batch response must be a JSON array; got "
-                f"{type(parsed).__name__}",
-                category=LLM_ERROR,
-            )
-        items = parsed
+            items = list(parsed) if isinstance(parsed, list) else []
+        except ValueError:
+            items = _parse_numbered_list(text)
     else:
         items = _parse_numbered_list(text)
 
-    if len(items) != n:
+    if not items:
         raise EvaluatorError(
-            f"LLM batch returned {len(items)} items; expected {n}",
-            category=LLM_ERROR,
+            "LLM batch returned no parseable seed lines", category=LLM_ERROR,
         )
-    return items
+    seeds: list[Any] = [
+        item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)
+        for item in items[:n]
+    ]
+    seeds.extend([None] * (n - len(seeds)))
+    return seeds
 
 
 def _parse_numbered_list(text: str) -> list[str]:
@@ -1218,13 +1256,14 @@ def _parse_solo_response(content: str, response_format: Any) -> Any:
 
 
 class LLMBatchEvaluator(LLMEvaluator):
-    """Single LLM call that produces N items for llm(n=N).
+    """Single fast LLM call that plans N seed directions for llm(n=N).
 
     Inherits image/system/prompt plumbing from ``LLMEvaluator``; overrides
-    ``__call__`` to append batch-generation instructions to the user prompt
-    and parse N items out of the response. Returns a list as
-    ``EvaluationResult.value`` so downstream slot evaluators can index into
-    it.
+    ``__call__`` to append seed-planning instructions to the user prompt and
+    parse N short directions out of the response (tolerantly — a miscounted
+    list truncates/pads instead of failing). Returns the seed list as
+    ``EvaluationResult.value``; each slot evaluator expands its seed into
+    the actual item with its own LLM call.
     """
 
     async def __call__(self, request: EvaluationRequest) -> EvaluationResult:
@@ -1234,10 +1273,9 @@ class LLMBatchEvaluator(LLMEvaluator):
                 f"llm_batch equation {request.equation_key!r} has invalid n={n}",
                 category=LLM_ERROR,
             )
-        response_format = request.definition.get("response_format")
 
         prompt_tmpl = (request.definition.get("prompt_template") or "") + (
-            _llm_batch_prompt_suffix(n, response_format)
+            _llm_seed_prompt_suffix(n)
         )
         system_tmpl = request.definition.get("system_template") or ""
         prompt_bindings = request.resolved_inputs.get("prompt") or {}
@@ -1276,8 +1314,12 @@ class LLMBatchEvaluator(LLMEvaluator):
             role, think, messages, completion_kwargs, request.equation_key,
             timeout=llm_batch_timeout_seconds(n),
         )
-        items = _parse_batch_response(content, response_format, n)
-        return EvaluationResult(value=items)
+        seeds = _parse_seed_response(content, n)
+        # The batch attempt rides along so each slot's inputs_hash changes on
+        # a batch re-roll even when the fresh seed text happens to repeat —
+        # otherwise the slots cache-hit in the global store and "re-roll all"
+        # visibly does nothing.
+        return EvaluationResult(value={"attempt": request.attempt, "seeds": seeds})
 
     async def _run_llm(
         self,
@@ -1331,7 +1373,10 @@ class LLMSlotEvaluator(LLMEvaluator):
 
     Two paths:
 
-    - ``attempt == 1`` — copy ``batch.result[slot_index]``. No LLM call.
+    - ``attempt == 1`` — expand: make one LLM call turning the batch's seed
+      direction at ``slot_index`` into the actual item. Slots run in
+      parallel under the engine's concurrency cap, so items complete
+      incrementally and a bad response fails only its own slot.
     - ``attempt > 1`` — solo-gen: read sibling slot results via the injected
       ``graph_getter`` and call the LLM for one new item distinct from those
       peers. Sibling reads are not declared graph dependencies (that would
@@ -1379,33 +1424,27 @@ class LLMSlotEvaluator(LLMEvaluator):
             )
 
         batch_value = request.resolved_inputs.get("batch")
-        if not isinstance(batch_value, list):
+        if isinstance(batch_value, dict) and "seeds" in batch_value:
+            seeds = batch_value["seeds"]
+        elif isinstance(batch_value, list):
+            seeds = batch_value
+        else:
             raise EvaluatorError(
                 f"llm_slot equation {request.equation_key!r}: batch upstream did not "
-                f"produce a list (got {type(batch_value).__name__})",
+                f"produce a seed list (got {type(batch_value).__name__})",
                 category=LLM_ERROR,
             )
-        if slot_index >= len(batch_value):
+        if slot_index >= len(seeds):
             raise EvaluatorError(
                 f"llm_slot equation {request.equation_key!r}: slot_index={slot_index} "
-                f"out of range for batch of size {len(batch_value)}",
+                f"out of range for batch of size {len(seeds)}",
                 category=LLM_ERROR,
             )
-
-        if request.attempt <= 1:
-            return EvaluationResult(value=batch_value[slot_index])
-
-        # attempt > 1: solo-gen with peer context.
-        peer_values = self._read_peer_slot_values(
-            batch_key=str(batch_key),
-            batch_value=batch_value,
-            my_slot_index=slot_index,
-        )
 
         response_format = request.definition.get("response_format")
         if self._graph_getter is None:
             raise EvaluatorError(
-                "llm_slot solo-gen requires graph_getter; evaluator misconfigured",
+                "llm_slot requires graph_getter; evaluator misconfigured",
                 category=LLM_ERROR,
             )
         graph = self._graph_getter()
@@ -1417,9 +1456,22 @@ class LLMSlotEvaluator(LLMEvaluator):
                 category=LLM_ERROR,
             )
 
-        prompt_tmpl = (batch_eq.definition.get("prompt_template") or "") + (
-            _llm_solo_prompt_suffix(peer_values, response_format)
-        )
+        if request.attempt <= 1:
+            # Expand this slot's seed direction into the actual item.
+            n = int(batch_eq.definition.get("n") or len(seeds))
+            suffix = _llm_expand_prompt_suffix(
+                seeds[slot_index], slot_index, n, response_format,
+            )
+        else:
+            # Solo-gen with peer context.
+            peer_values = self._read_peer_slot_values(
+                batch_key=str(batch_key),
+                batch_value=seeds,
+                my_slot_index=slot_index,
+            )
+            suffix = _llm_solo_prompt_suffix(peer_values, response_format)
+
+        prompt_tmpl = (batch_eq.definition.get("prompt_template") or "") + suffix
         system_tmpl = batch_eq.definition.get("system_template") or ""
         # Slot carries the same prompt/system/images bindings as its batch
         # (see llm(n=N) in primitives.py) so rendering works without going
@@ -1460,8 +1512,10 @@ class LLMSlotEvaluator(LLMEvaluator):
             config = await self._get_config(role)
             completion = await self._get_completion()
             log.info(
-                "flow llm_slot[%s] solo-gen role=%s attempt=%s",
-                request.equation_key, role, request.attempt,
+                "flow llm_slot[%s] %s role=%s attempt=%s",
+                request.equation_key,
+                "expand" if request.attempt <= 1 else "solo-gen",
+                role, request.attempt,
             )
             resp = await asyncio.wait_for(
                 completion(config, messages, **completion_kwargs),
@@ -1469,7 +1523,7 @@ class LLMSlotEvaluator(LLMEvaluator):
             )
         except asyncio.TimeoutError as exc:
             raise EvaluatorError(
-                f"LLM slot solo-gen timed out after {LLM_CALL_TIMEOUT_SECONDS:.0f}s",
+                f"LLM slot call timed out after {LLM_CALL_TIMEOUT_SECONDS:.0f}s",
                 category=TRANSIENT,
             ) from exc
         except EvaluatorError:

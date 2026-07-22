@@ -724,9 +724,11 @@ def llm(
             f"llm(n={n!r}): n must be a positive integer",
             suggestion=(
                 "Omit n= (default 1) for a single call. Pass n=N for N diverse "
-                "outputs produced by a single batched LLM call; each slot is "
-                "independently invalidatable and solo-regenerated with peer "
-                "context. Use n=N only when you want slot-level re-roll."
+                "outputs: one fast call plans N distinct directions, then each "
+                "slot expands its direction with its own parallel LLM call. "
+                "Each slot is independently invalidatable and solo-regenerated "
+                "with peer context. Use n=N only when you want slot-level "
+                "re-roll."
             ),
         )
 
@@ -770,16 +772,18 @@ def llm(
         )
 
     # n > 1: batched generation with per-slot invalidation.
-    # Register 1 LLM_BATCH equation (runs once, produces N items) and N
-    # LLM_SLOT equations (one per index, depend on batch, carry the user-
-    # visible value). The returned NodeRef points at the batch and is
-    # marked collection=True with positional iteration keys "0".."N-1"
-    # so foreach() over it iterates in slot order, with each iteration
-    # depending on its specific slot equation (via foreach early-expansion
-    # in engine._early_expansion_items). That path is what makes per-slot
-    # invalidation cascade to the downstream items a user actually cares
-    # about — e.g. re-rolling one prompt re-fires only the image group
-    # that prompt feeds into, not all N.
+    # Register 1 LLM_BATCH equation (one fast call planning N seed
+    # directions), N LLM_SLOT equations (one per index, depend on batch,
+    # each expanding its seed into the actual item with its own parallel
+    # LLM call), and 1 hidden llm_gather control equation assembling the
+    # final list from the slots. The returned NodeRef points at the gather
+    # and is marked collection=True with positional iteration keys
+    # "0".."N-1" so foreach() over it iterates in slot order, with each
+    # iteration depending on its specific slot equation (via foreach
+    # early-expansion). That path is what makes per-slot invalidation
+    # cascade to the downstream items a user actually cares about — e.g.
+    # re-rolling one prompt re-fires only the image group that prompt feeds
+    # into, not all N.
     batch_definition = {
         "model": model,
         "think": think,
@@ -850,8 +854,45 @@ def llm(
             (tuple(ctx.current_frame.phase_stack), slot_key)
         )
 
-    batch_node.known_iteration_keys = [str(i) for i in range(n)]
-    return batch_node
+    # Hidden gather: assembles the final list from the slots so direct
+    # (non-foreach) consumers — `return prompts`, code() bindings — see the
+    # slots' actual values, including post-re-roll ones, instead of the
+    # batch's seed list. Keyed under the batch so timeline grouping and
+    # subtree operations treat it as part of the llm(n=N) unit; foreach over
+    # the returned NodeRef still early-expands against the slot children via
+    # iteration_children_root.
+    gather_key = f"{batch_key}/gather"
+    gather_eq = Equation(
+        key=gather_key,
+        equation_type=EquationType.CONTROL,
+        definition={
+            "control_kind": "llm_gather",
+            "batch_key": batch_key,
+            "n": n,
+            "iteration_children_root": batch_key,
+        },
+        dependencies=[
+            make_nested_foreach_iteration_key(batch_key, "slot", str(i))
+            for i in range(n)
+        ],
+        phase_path=list(ctx.current_frame.phase_stack),
+    )
+    ctx.graph.add_equation(gather_eq)
+    ctx.current_frame.registered_equations.append(
+        (tuple(ctx.current_frame.phase_stack), gather_key)
+    )
+    setattr(gather_eq, "_iteration_keys_cache", [str(i) for i in range(n)])
+
+    gather_node = NodeRef(
+        equation_key=gather_key,
+        collection=True,
+        iteration_key_source=IterationKeySource(
+            IterationKeySource.POSITIONAL, "llm_slot"
+        ),
+        shape=ListShape(element=slot_shape),
+    )
+    gather_node.known_iteration_keys = [str(i) for i in range(n)]
+    return gather_node
 
 
 def _validate_llm_images(images: Any) -> Any:

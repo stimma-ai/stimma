@@ -111,7 +111,9 @@ def definition_hash_for_llm_batch(
     """definition_hash for an llm_batch equation (llm() with n>1).
 
     Distinct from llm_call: n participates so 5-item and 10-item batches of
-    otherwise-identical templates don't collide in the store.
+    otherwise-identical templates don't collide in the store. "stage" marks
+    the seed-planning semantics — before it, a batch produced the N full
+    items, and those cached results must not replay as seed lists.
     """
     payload = {
         "model": model,
@@ -120,6 +122,7 @@ def definition_hash_for_llm_batch(
         "system_template": system_template,
         "response_format": response_format,
         "n": n,
+        "stage": "seeds",
     }
     return canonical_json_hash(payload)
 

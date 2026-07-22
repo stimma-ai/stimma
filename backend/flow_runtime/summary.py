@@ -22,6 +22,7 @@ SCAFFOLDING_CONTROL_KINDS = {
     "foreach_iteration",
     "zip_nodes",
     "literal_list",
+    "llm_gather",
 }
 
 

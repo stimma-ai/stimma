@@ -1976,6 +1976,16 @@ class FlowRun:
                 else:
                     eq.result = results
                 eq.result_media_ids = self._collect_foreach_media_ids(eq)
+            elif kind == "llm_gather":
+                # Assemble the llm(n=N) list from the slot equations, in
+                # slot order. Runs only once every slot dependency is
+                # COMPLETED, so results are always present.
+                batch_key = eq.definition["batch_key"]
+                n = int(eq.definition.get("n") or 0)
+                eq.result = [
+                    self.graph.get(f"{batch_key}/slot:{i}").result
+                    for i in range(n)
+                ]
             elif kind == "zip_nodes":
                 eq.result = self._collect_zip_result(eq)
                 eq.result_media_ids = list(dict.fromkeys(
@@ -2186,7 +2196,7 @@ class FlowRun:
                 and not deferred.early_blocked
                 and (
                     input_eq.definition.get("control_kind")
-                    in ("foreach", "approve")
+                    in ("foreach", "approve", "llm_gather")
                     or input_eq.equation_type == EquationType.LLM_BATCH
                 )
                 and getattr(input_eq, "_iteration_keys_cache", None) is not None
