@@ -49,7 +49,7 @@ license:
 | [Parakeet TDT 0.6B v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) (int8 ONNX via [sherpa-onnx](https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8)) | NVIDIA NeMo | Voice input | CC-BY-4.0 |
 | [SAM 3](https://github.com/facebookresearch/sam3) (ONNX export via [wkentaro/sam3-onnx-models](https://huggingface.co/wkentaro/sam3-onnx-models)) | Meta AI | Segmentation / masking | SAM License (Meta; commercial use permitted, acceptable-use restrictions apply — full text distributed with the model) |
 | [AuraFace v1](https://huggingface.co/fal/AuraFace-v1) | fal.ai | Face detection and embedding | Apache-2.0 |
-| [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) | HKU / TikTok | Depth estimation for guided generation | Apache-2.0 (Small); CC-BY-NC-4.0 (Base/Large/Giant) |
+| [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) | HKU / TikTok | Depth estimation for guided generation | See upstream repository |
 | [CLIP ViT-B/32](https://github.com/openai/CLIP) (ONNX via [onnx_clip](https://github.com/lakeraai/onnx_clip)) | OpenAI | Visual similarity indexing and search | MIT |
 | [RTMPose / DWPose](https://github.com/open-mmlab/mmpose) | OpenMMLab | Pose estimation for guided generation | Apache-2.0 |
 | Lineart preprocessors ([informative-drawings](https://github.com/carolineec/informative-drawings), [Anime2Sketch](https://github.com/Mukosame/Anime2Sketch) lineages used by ControlNet preprocessing) | Various | Line-art extraction for guided generation | See upstream repositories |
@@ -533,7 +533,7 @@ license:
 | idna | 1.1.0 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |  |
 | idna_adapter | 1.2.1 | Apache-2.0 OR MIT | https://github.com/hsivonen/idna_adapter |  |
 | image | 0.25.9 | MIT OR Apache-2.0 | https://github.com/image-rs/image |  |
-| indexmap | 1.9.3, 2.12.1 | Apache-2.0 OR MIT | https://github.com/bluss/indexmap |  |
+| indexmap | 1.9.3, 2.12.1 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/indexmap |  |
 | infer | 0.19.0 | MIT | https://github.com/bojand/infer |  |
 | ipnet | 2.11.0 | MIT OR Apache-2.0 | https://github.com/krisprice/ipnet |  |
 | iri-string | 0.7.9 | MIT OR Apache-2.0 | https://github.com/lo48576/iri-string |  |
@@ -627,10 +627,10 @@ license:
 | pathdiff | 0.2.3 | MIT OR Apache-2.0 | https://github.com/Manishearth/pathdiff |  |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |  |
 | petgraph | 0.8.3 | MIT OR Apache-2.0 | https://github.com/petgraph/petgraph |  |
-| phf | 0.10.1, 0.11.3, 0.8.0 | MIT | https://github.com/rust-phf/rust-phf |  |
-| phf_codegen | 0.11.3, 0.8.0 | MIT | https://github.com/rust-phf/rust-phf | build-time only |
+| phf | 0.10.1, 0.11.3, 0.8.0 | MIT | https://github.com/sfackler/rust-phf |  |
+| phf_codegen | 0.11.3, 0.8.0 | MIT | https://github.com/sfackler/rust-phf | build-time only |
 | phf_generator | 0.10.0, 0.11.3, 0.8.0 | MIT | https://github.com/sfackler/rust-phf |  |
-| phf_macros | 0.10.0, 0.11.3 | MIT | https://github.com/sfackler/rust-phf |  |
+| phf_macros | 0.10.0, 0.11.3 | MIT | https://github.com/rust-phf/rust-phf |  |
 | phf_shared | 0.10.0, 0.11.3, 0.8.0 | MIT | https://github.com/sfackler/rust-phf |  |
 | pin-project-lite | 0.2.16 | Apache-2.0 OR MIT | https://github.com/taiki-e/pin-project-lite |  |
 | pin-utils | 0.1.0 | MIT OR Apache-2.0 | https://github.com/rust-lang-nursery/pin-utils |  |
@@ -680,7 +680,7 @@ license:
 | rkyv | 0.7.45 | MIT | https://github.com/rkyv/rkyv |  |
 | rkyv_derive | 0.7.45 | MIT | https://github.com/rkyv/rkyv |  |
 | rust_decimal | 1.39.0 | MIT | https://github.com/paupino/rust-decimal |  |
-| rustc-hash | 1.1.0, 2.1.2 | Apache-2.0 OR MIT | https://github.com/rust-lang-nursery/rustc-hash |  |
+| rustc-hash | 1.1.0, 2.1.2 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |  |
 | rustc_version | 0.4.1 | MIT OR Apache-2.0 | https://github.com/djc/rustc-version-rs | build-time only |
 | rustix | 0.38.44, 1.1.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/rustix |  |
 | rustls | 0.23.36 | Apache-2.0 OR ISC OR MIT | https://github.com/rustls/rustls |  |

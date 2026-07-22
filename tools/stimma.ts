@@ -567,6 +567,8 @@ Commands:
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
+  oss             Regenerate ATTRIBUTION.md dependency tables from the current
+                  lockfiles (run after dependency changes; review + commit the diff)
   migrate-to-managed-storage [--profile ID] [--legacy-generated-root PATH]
                   [--legacy-uploads-root PATH] (root flags are repeatable)
                   [--delete-untracked-legacy-files]
@@ -2041,6 +2043,17 @@ async function main(): Promise<void> {
 
     case "dir": {
       console.log(getDataDir(bundleId, sandbox));
+      break;
+    }
+
+    case "oss":
+    case "attribution": {
+      // Regenerate the generated dependency tables in ATTRIBUTION.md from the
+      // real lockfiles/metadata. Warnings mean a package's license couldn't be
+      // resolved automatically — verify it upstream and add an override in the
+      // script before shipping.
+      await run("python3", [join(repoRoot, "scripts", "generate-attribution.py")], { cwd: repoRoot });
+      await run("git", ["--no-pager", "diff", "--stat", "ATTRIBUTION.md"], { cwd: repoRoot });
       break;
     }
 

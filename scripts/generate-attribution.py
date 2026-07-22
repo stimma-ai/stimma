@@ -286,7 +286,9 @@ def cargo_rows(manifest_dir: Path) -> list[tuple[str, ...]]:
     runtime = reach({None})
 
     by_name: dict[str, dict] = defaultdict(lambda: {"versions": [], "build_only": True})
-    for pid in shipped:
+    # Sort so that for multi-version crates the license/repo strings come
+    # deterministically from the highest version, not iteration order.
+    for pid in sorted(shipped, key=lambda p: (packages[p]["name"], packages[p]["version"])):
         if pid in workspace:
             continue
         pkg = packages[pid]
