@@ -39,6 +39,9 @@ class Stage:
     # at execute time), so manual controls only show when they take effect.
     custom_only: Tuple[str, ...] = ()
     custom_value: str = "Custom"
+    # Checkbox label for toggled stages: a short description of the effect,
+    # so the row informs rather than repeating "Enable" down the column.
+    toggle_label: Optional[str] = None
     # Gating — exactly one of:
     toggle: bool = False      # expose an "<key>_enabled" boolean, off by default
     mode_value: Optional[str] = None       # active when the tool's mode == value
@@ -139,8 +142,11 @@ def build_tool_schema(
             properties[toggle_name] = {
                 "type": "boolean",
                 "default": False,
-                "x-label": stage.label,
-                "description": f"Enable the {stage.label} stage",
+                # The toggle renders inside the stage's own layout section,
+                # which already carries the stage name; the label describes
+                # the effect (most useful while the stage is off).
+                "x-label": stage.toggle_label or "Enable",
+                "description": f"Enable {stage.label}",
             }
             hide_when = {"param": toggle_name, "op": "falsy"}
         elif stage.mode_value is not None:
@@ -173,6 +179,64 @@ def build_tool_schema(
         "properties": properties,
         "required": ["input_images"],
     }
+
+
+def _stage_hidden_when(stage: Stage, mode_param: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """ConstraintExpr hiding a stage's UI when the stage is inactive."""
+    if stage.toggle:
+        return {"param": f"{stage.key}_enabled", "op": "falsy"}
+    if stage.mode_value is not None:
+        return {
+            "param": mode_param["name"],
+            "op": "not_equals",
+            "value": stage.mode_value,
+        }
+    return None
+
+
+def build_tool_layout(
+    stages: List[Stage],
+    mode_param: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build the STP layout for a pipeline of stages.
+
+    A "Settings" section carries the mode selector; each stage then gets its
+    own section. Toggled stages' sections are always visible and lead with
+    their Enable checkbox — ticking it reveals the stage's params in place
+    (per-param x-constraints), instead of a separate section appearing
+    elsewhere in the list. Mode-gated stages' sections show only while the
+    mode selects them (section-level hidden_when).
+    """
+    layout: List[Dict[str, Any]] = []
+    if mode_param:
+        layout.append({
+            "label": "Settings",
+            "params": [{"name": mode_param["name"]}],
+        })
+
+    for stage in stages:
+        params = [
+            {"name": f"{stage.key}_{name}"}
+            for name, _comfy_type, _opts in _iter_input_params(stage)
+        ]
+        if stage.toggle:
+            params.insert(0, {"name": f"{stage.key}_enabled"})
+        if not params:
+            continue
+        section: Dict[str, Any] = {
+            # "Film Grain Pro (slow)" → "Film Grain Pro"
+            "label": stage.label.split(" (")[0],
+            "params": params,
+        }
+        if not stage.toggle:
+            # Toggled sections stay visible (the Enable checkbox lives in
+            # them); only mode-gated sections hide wholesale.
+            hidden_when = _stage_hidden_when(stage, mode_param)
+            if hidden_when:
+                section["hidden_when"] = hidden_when
+        layout.append(section)
+
+    return layout
 
 
 def _stage_active(stage: Stage, params: Dict[str, Any], mode_name: Optional[str]) -> bool:

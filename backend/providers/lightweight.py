@@ -38,6 +38,7 @@ class LightweightTool:
     output_schema: Dict[str, Any]
     execute_fn: Callable  # async function to execute the tool
     metadata: Dict[str, Any] = None  # Optional tool-specific metadata
+    layout: Optional[List[Dict[str, Any]]] = None  # Optional STP layout sections
 
 
 class LightweightProvider(ToolProvider):
@@ -223,6 +224,7 @@ class LightweightProvider(ToolProvider):
                 parameter_schema=tool_def.parameter_schema,
                 output_schema=FILTER_OUTPUT_SCHEMA,
                 execute_fn=self._make_darkroom_executor(tool_def),
+                layout=tool_def.layout,
                 # description rides in metadata: ToolDescriptor has no
                 # description field, and the frontend reads
                 # tool.metadata.description (same convention as cloud tools).
@@ -295,6 +297,7 @@ class LightweightProvider(ToolProvider):
             parameter_schema=tool.parameter_schema,
             output_schema=tool.output_schema,
             metadata=metadata,
+            layout=tool.layout,
         )
 
     async def list_tools(self) -> List[ToolDescriptor]:

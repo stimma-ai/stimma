@@ -74,22 +74,65 @@ def test_override_style_manual_params_gated_on_custom_preset():
     # Override-style stages (preset != Custom replaces the sliders at execute
     # time) hide their manual params unless the preset enum is "Custom".
     cases = [
-        (FILM_STOCK_TOOL, "halation_threshold", "halation_preset"),
-        (DEVELOP_TOOL, "nr_luminance_amount", "nr_preset"),
-        (DEVELOP_TOOL, "skin_hue_center", "skin_preset"),
+        (FILM_STOCK_TOOL, "halation_threshold", "halation_preset", "Custom"),
+        (DEVELOP_TOOL, "nr_luminance_amount", "nr_preset", "Custom"),
+        (DEVELOP_TOOL, "skin_hue_center", "skin_preset", "Custom"),
+        (COLOR_GRADE_TOOL, "tc_shadows", "tc_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "lw_shadow_hue", "lw_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "cb_shadow_hue", "cb_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "hh_red_shift", "hh_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "hs_red_saturation", "hs_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "ls_blacks_saturation", "ls_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "ss_low_sat_adjust", "ss_preset", "Custom (manual)"),
+        (COLOR_GRADE_TOOL, "cw_hue_shift", "cw_preset", "Custom (manual)"),
     ]
-    for tool, param, preset_param in cases:
+    for tool, param, preset_param, custom in cases:
         props = tool.parameter_schema["properties"]
         constraints = props[param]["x-constraints"]
         gate = [
             c for c in constraints
             if c["when"].get("param") == preset_param
             and c["when"]["op"] == "not_equals"
-            and c["when"]["value"] == "Custom"
+            and c["when"]["value"] == custom
             and c["effect"] == "hide"
         ]
         assert gate, f"{tool.id}.{param} missing Custom-preset gate"
         assert preset_param in props
+        # the gate value must actually be one of the enum's options
+        assert custom in props[preset_param]["enum"]
+
+
+@pytest.mark.parametrize("tool", DARKROOM_TOOLS, ids=lambda t: t.id)
+def test_layout_sections(tool):
+    layout = tool.layout
+    props = tool.parameter_schema["properties"]
+
+    assert layout[0]["label"] == "Settings"
+    assert "hidden_when" not in layout[0]
+    assert layout[0]["params"] == [{"name": tool.mode_param["name"]}]
+
+    laid_out = set()
+    for section in layout:
+        for p in section["params"]:
+            assert p["name"] in props, f"{tool.id}: layout references {p['name']}"
+            laid_out.add(p["name"])
+
+    # every param except the media input appears in some section
+    assert set(props) - laid_out == {"input_images"}
+
+    for section in layout[1:]:
+        first = section["params"][0]["name"]
+        stage_key = first.split("_")[0]
+        stage = next(s for s in tool.stages if s.key == stage_key)
+        if stage.toggle:
+            # Toggled stages: section always visible, Enable checkbox leads,
+            # the stage's params reveal in place via per-param constraints.
+            assert first == f"{stage.key}_enabled"
+            assert "hidden_when" not in section
+        elif stage.mode_value is not None:
+            assert "hidden_when" in section, f"{tool.id}: {section['label']}"
+        else:
+            assert "hidden_when" not in section
 
 
 def test_all_tools_declare_attribution_description():
