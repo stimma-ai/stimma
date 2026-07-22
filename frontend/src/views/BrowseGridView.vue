@@ -1643,7 +1643,23 @@ async function openSlideshow(clickData) {
   const gridIndex = clickData.index
 
   try {
-    let startIndex = 0
+    // A click belongs to the exact cache snapshot currently painted by the grid.
+    // Prefer that snapshot over a fresh ordered-ID request: the live list may
+    // gain, lose, or reorder assets between paint and click, and an index from
+    // that newer snapshot would point at a neighboring item in this cache.
+    const cachedIndex = mediaList?.findIndex(itemId) ?? -1
+    if (cachedIndex >= 0) {
+      enterSlideshow({
+        totalCount: totalCount.value,
+        startIndex: cachedIndex,
+        mediaList: mediaList,
+        randomized: false,
+        randomSeed: null
+      })
+      return
+    }
+
+    let startIndex = gridIndex ?? 0
 
     // Use cache-based lookup whenever similarity sort or filters are active,
     // since the findMediaIndex API doesn't support similarity search
@@ -1654,13 +1670,9 @@ async function openSlideshow(clickData) {
         (filters.similarToText && filters.similarToText.trim())
 
     if (isSimilarityMode) {
-      // For similarity search, use the grid index directly since both grid and
-      // slideshow share the same mediaList cache. Verify by looking up the item
-      // by ID as a sanity check.
-      const foundIndex = mediaList?.findIndex(itemId) ?? -1
-      if (foundIndex >= 0) {
-        startIndex = foundIndex
-      } else if (gridIndex != null) {
+      // Similarity search has no ordered-ID fallback, so use the index emitted
+      // by the painted grid if the cache lookup above unexpectedly missed.
+      if (gridIndex != null) {
         startIndex = gridIndex
       } else {
         startIndex = 0

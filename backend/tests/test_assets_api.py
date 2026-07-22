@@ -44,6 +44,38 @@ from tests.helpers.media import create_media_item
 
 
 @pytest.mark.asyncio
+async def test_asset_browse_ids_preserve_seeded_random_order(client, db_session):
+    caption = f"random-order-parity-{time.time_ns()}"
+    random_values = [0.55, 0.10, 0.85, 0.30]
+    async with db_session() as session:
+        for index, random_value in enumerate(random_values):
+            media = await create_media_item(
+                session,
+                vlm_caption=caption,
+                created_date=datetime(2025, 1, 1) + timedelta(days=index),
+            )
+            await create_asset_from_media(session, media_id=media.id)
+            media.random_sort_value = random_value
+        await session.commit()
+
+    params = {
+        "caption_query": caption,
+        "sort_by": "random",
+        "random_seed": 1,
+    }
+    browse_response = await client.get(
+        "/api/assets/browse",
+        params={**params, "page_size": len(random_values)},
+    )
+    ids_response = await client.get("/api/assets/browse/ids", params=params)
+
+    assert browse_response.status_code == 200, browse_response.text
+    assert ids_response.status_code == 200, ids_response.text
+    browse_ids = [item["asset_id"] for item in browse_response.json()["items"]]
+    assert ids_response.json()["ids"] == browse_ids
+
+
+@pytest.mark.asyncio
 async def test_media_compatibility_reads_project_only_canonical_asset_state(
     client, db_session
 ):

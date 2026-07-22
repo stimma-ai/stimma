@@ -229,6 +229,27 @@ def _apply_asset_filters(query, **filters):
         asset_id_column=Asset.id,
         expiration_column=Asset.expires_at,
     )
+
+
+def _apply_asset_browser_sort(query, sort_by: str, random_seed: int | None):
+    """Apply the canonical ordering shared by browse pages and ordered IDs."""
+    if sort_by == "created_asc":
+        return query.order_by(MediaItem.created_date.asc().nulls_last(), Asset.id.asc())
+    if sort_by == "indexed_desc":
+        return query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
+    if sort_by == "indexed_asc":
+        return query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
+    if sort_by == "deleted_desc":
+        return query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
+    if sort_by == "deleted_asc":
+        return query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
+    if sort_by == "random":
+        multiplier = literal((random_seed if random_seed is not None else 42) | 1)
+        product = MediaItem.random_sort_value * multiplier
+        return query.order_by(product - func.cast(product, Integer), Asset.id)
+    return query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
+
+
 @router.get("")
 async def list_assets(
     limit: int = Query(100, ge=1, le=500),
@@ -468,22 +489,7 @@ async def browse_assets(
         }
 
     total = await session.scalar(select(func.count()).select_from(query.subquery())) or 0
-    if sort_by == "created_asc":
-        query = query.order_by(MediaItem.created_date.asc().nulls_last(), Asset.id.asc())
-    elif sort_by == "indexed_desc":
-        query = query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
-    elif sort_by == "indexed_asc":
-        query = query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
-    elif sort_by == "deleted_desc":
-        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
-    elif sort_by == "deleted_asc":
-        query = query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
-    elif sort_by == "random":
-        multiplier = literal((random_seed if random_seed is not None else 42) | 1)
-        product = MediaItem.random_sort_value * multiplier
-        query = query.order_by(product - func.cast(product, Integer), Asset.id)
-    else:
-        query = query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
+    query = _apply_asset_browser_sort(query, sort_by, random_seed)
 
     rows = (
         await session.execute(query.offset((page - 1) * page_size).limit(page_size))
@@ -623,23 +629,14 @@ async def browse_asset_ids(
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
         is_unused=is_unused,
+        min_mp=min_mp,
+        max_mp=max_mp,
         state=state,
     )
     if folders:
         query = query.where(StorageObject.kind == "external")
     query = query.with_only_columns(Asset.id)
-    if sort_by == "created_asc":
-        query = query.order_by(MediaItem.created_date.asc().nulls_last(), Asset.id.asc())
-    elif sort_by == "indexed_desc":
-        query = query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
-    elif sort_by == "indexed_asc":
-        query = query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
-    elif sort_by == "deleted_desc":
-        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
-    elif sort_by == "deleted_asc":
-        query = query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
-    else:
-        query = query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
+    query = _apply_asset_browser_sort(query, sort_by, random_seed)
     return {"ids": list(await session.scalars(query))}
 
 
