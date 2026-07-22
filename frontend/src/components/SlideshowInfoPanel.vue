@@ -19,10 +19,10 @@
             'inline-flex items-center justify-center w-7 h-7 rounded-md cursor-pointer border-none bg-transparent transition-colors duration-150',
             isMarkerActive(marker.id) ? '' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content-secondary'
           ]"
-          :style="isMarkerActive(marker.id) ? { backgroundColor: marker.color + '22', color: marker.color } : {}"
+          :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
           :title="marker.name"
         >
-          <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex-shrink-0 icon-container"></span>
+          <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container"></span>
         </button>
         <div class="flex-1"></div>
         <Tooltip text="Export">
