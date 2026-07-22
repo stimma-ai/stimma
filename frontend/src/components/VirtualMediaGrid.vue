@@ -135,6 +135,12 @@
                   <svg v-else-if="getMediaType(rowItem) === 'layout'" class="w-4 h-4 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
                   </svg>
+                  <!-- Timeline icon (film) -->
+                  <FilmIcon v-else-if="getMediaType(rowItem) === 'timeline'" class="w-4 h-4 flex-shrink-0 text-rose-400" />
+                  <!-- Count for timeline -->
+                  <span v-if="getMediaType(rowItem) === 'timeline' && rowItem.member_count" class="text-xs font-semibold text-white leading-none whitespace-nowrap">
+                    {{ rowItem.member_count }}
+                  </span>
                   <!-- Count for set/grid -->
                   <span v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.member_count" class="text-xs font-semibold text-white leading-none whitespace-nowrap">
                     {{ rowItem.member_count }}
@@ -173,7 +179,7 @@
 
               <!-- Set/Grid name pill (hover only) -->
               <div
-                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.title"
+                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'timeline') && rowItem.title"
                 class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 <span class="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">
@@ -218,6 +224,7 @@ import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useExpirationClock } from '../composables/useExpirationClock'
 import { noteFastScroll } from '../composables/useThumbnailQueue'
 import { createDragPreview, preloadDragPreview, handleDragEnd as dragPreviewHandleDragEnd } from '../composables/useDragPreview'
+import { FilmIcon } from '@heroicons/vue/24/outline'
 import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDuration as formatMediaDuration } from '../utils/mediaTypes'
 import { makeProfileKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'

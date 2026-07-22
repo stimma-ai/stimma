@@ -137,19 +137,6 @@
             <div class="w-px h-4 bg-edge-subtle" />
           </template>
 
-          <IconButton title="Undo" :disabled="!canUndo" @click="doUndo">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-            </svg>
-          </IconButton>
-          <IconButton title="Redo" :disabled="!canRedo" @click="doRedo">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m15 15 6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
-            </svg>
-          </IconButton>
-          <Button size="sm" variant="secondary" :disabled="saving" @click="save">
-            {{ saving ? 'Saving…' : 'Save version' }}
-          </Button>
         </div>
 
         <!-- Video strip -->
@@ -263,7 +250,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { MediaImage } from '../media'
-import Button from '../ui/Button.vue'
 import IconButton from '../ui/IconButton.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useWebSocket } from '../../composables/useWebSocket'
@@ -628,7 +614,10 @@ function audioLabel(entry) {
 // --- API -------------------------------------------------------------------
 
 function adoptResult(data) {
-  if (data.state) state.value = data.state
+  if (data.state) {
+    state.value = data.state
+    emit('loaded', { title: data.state.title })
+  }
   if (data.media) mediaMap.value = { ...mediaMap.value, ...data.media }
   if (data.cursor != null) cursor.value = data.cursor
   if (data.can_undo != null) canUndo.value = data.can_undo
@@ -724,6 +713,12 @@ onMounted(async () => {
     }
   })
 })
+
+async function setTitle(title) {
+  await postOps([{ op: 'set_timeline_meta', args: { title } }], 'Rename')
+}
+
+defineExpose({ doUndo, doRedo, save, setTitle, canUndo, canRedo, saving })
 
 onBeforeUnmount(() => {
   if (rafId) cancelAnimationFrame(rafId)

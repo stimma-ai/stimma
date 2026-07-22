@@ -72,9 +72,7 @@
               class="absolute left-2 right-2 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg py-1 z-menu"
             >
               <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createNewCut">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0 1 18 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 0 1 6 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-2.25 0c.621 0 1.125-.504 1.125-1.125M6 16.5v-1.5c0-.621-.504-1.125-1.125-1.125m1.5 3.75C6 16.996 6.504 16.5 7.125 16.5" />
-                </svg>
+                <FilmIcon class="w-3.5 h-3.5" />
                 <span>New cut</span>
               </button>
               <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content" @click="createMenuOpen = false; createNewChat()">
@@ -549,6 +547,20 @@
                     />
                   </div>
 
+                  <!-- Cut name -->
+                  <div v-else-if="tab.type === 'cut'" class="flex-1 min-w-0 flex flex-col">
+                    <span v-if="tab.displayName" class="truncate text-[13px] text-content">
+                      {{ tab.displayName }}
+                    </span>
+                    <span
+                      v-else
+                      @click.stop="startInlineRename(tab)"
+                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                    >
+                      Name this cut...
+                    </span>
+                  </div>
+
                   <!-- Non-tool/chat/board/flow items -->
                   <span
                     v-else-if="tab.displayName"
@@ -865,6 +877,20 @@
                     />
                   </div>
 
+                  <!-- Cut name -->
+                  <div v-else-if="tab.type === 'cut'" class="flex-1 min-w-0 flex flex-col">
+                    <span v-if="tab.displayName" class="truncate text-[13px] text-content">
+                      {{ tab.displayName }}
+                    </span>
+                    <span
+                      v-else
+                      @click.stop="startInlineRename(tab)"
+                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                    >
+                      Name this cut...
+                    </span>
+                  </div>
+
                   <!-- Non-tool/chat/board/flow items -->
                   <span
                     v-else-if="tab.displayName"
@@ -1047,7 +1073,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, FilmIcon } from '@heroicons/vue/24/outline'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
@@ -1056,6 +1082,7 @@ import { hideAccountRef } from '../appConfig'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
+import { getMediaType } from '../utils/mediaTypes'
 import { createTaskTypeIconComponent } from '../utils/taskTypeIcons'
 import { planToolHandoff } from '../utils/toolHandoff'
 import { addToast } from '../composables/useToasts'
@@ -1587,9 +1614,7 @@ function getTabIcon(tab: WorkspaceTab) {
     ])
   }
   if (tab.type === 'cut') {
-    return h('svg', { class: 'w-3.5 h-3.5 text-rose-400', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
-      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m14.625 1.125c.621 0 1.125-.504 1.125-1.125M6 18.375v-12.75m12 12.75v-12.75M6 5.625C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0c0-.621.504-1.125 1.125-1.125m18 1.125c0-.621-.504-1.125-1.125-1.125h-1.5c-.621 0-1.125.504-1.125 1.125' })
-    ])
+    return FilmIcon
   }
   return h('span')
 }
@@ -1744,7 +1769,7 @@ function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
     // but a diagonal pull toward the panel can clip a neighbor, so hide on
     // a grace timer (entering the panel cancels it) instead of instantly.
     if (flowDropTargets.value && flowDropTargets.value.tabId !== tab.id) scheduleFlowTargetsHide()
-    if (tab.type === 'lineage' || tab.type === 'cut') return // No drag-drop onto these tabs yet
+    if (tab.type === 'lineage') return // No drag-drop onto lineage tabs
     if (tab.type !== 'tool' || isToolCompatible(tab.entityId)) {
       dragHoverTabId.value = tab.id
     }
@@ -1782,8 +1807,33 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   const add = e.shiftKey || dragAddModifier.value
   dragAddModifier.value = false
 
-  // Lineage and cut tabs don't accept media drops
-  if (tab.type === 'lineage' || tab.type === 'cut') return
+  // Lineage tabs don't accept media drops
+  if (tab.type === 'lineage') return
+
+  if (tab.type === 'cut') {
+    const infos = draggedMediaItems.value
+    const ops = mediaIds.map(id => {
+      const info: any = infos.find((i: any) => i.id === id) || {}
+      const isAudio = Boolean(info.is_audio)
+      const isVideo = Boolean(info.is_video) || getMediaType({ file_format: info.file_format || '' }) === 'video'
+      const args: Record<string, unknown> = { track: isAudio ? 'audio' : 'video', media_id: id }
+      if (!isAudio && !isVideo) args.duration = 3
+      return { op: 'add_clip', args }
+    })
+    try {
+      const resp = await fetch(`/api/timelines/${tab.entityId}/ops`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ops, label: ops.length > 1 ? 'Add media' : 'Add clip' })
+      })
+      if (!resp.ok) throw new Error(await resp.text())
+      addToast(`Added ${ops.length > 1 ? ops.length + ' items' : '1 item'} to ${tab.displayName || 'the cut'}`, 'success')
+    } catch (err) {
+      console.error('Failed to add media to cut:', err)
+      addToast('Could not add media to the cut', 'error')
+    }
+    return
+  }
 
   const mediaId = mediaIds[0]
 
@@ -2331,6 +2381,12 @@ async function saveRename() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
+    } else if (tabType === 'cut') {
+      await fetch(`/api/timelines/${entityId}/ops`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ops: [{ op: 'set_timeline_meta', args: { title: newName } }], label: 'Rename' })
+      })
     }
     updateTabName(tabId, newName)
   } catch (err) {
@@ -2682,7 +2738,7 @@ watch(
       addEditorTab(String(params.editorId), params.mediaId ? String(params.mediaId) : undefined)
     } else if (name === 'cut' && params.id) {
       const cutId = String(params.id)
-      const tab = addTab('cut', cutId, 'Untitled')
+      const tab = addTab('cut', cutId, '')
       fetch(`/api/timelines/${cutId}`).then(r => r.ok ? r.json() : null).then(data => {
         if (data?.state?.title) updateTabName(tab.id, data.state.title)
       }).catch(() => {})
