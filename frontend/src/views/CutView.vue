@@ -77,9 +77,18 @@
         />
       </div>
 
-      <!-- Agent dock: the standard chat input (voice, attachments), send
-           disabled until the cut agent is connected. -->
+      <!-- Agent dock: the standard chat input (voice, attachments, skills,
+           model picker, wrench), send disabled until the cut agent is connected. -->
       <div class="flex-none mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4">
+        <div v-if="showAgentSettings" class="mb-3">
+          <label class="block text-xs font-semibold text-content-secondary mb-1.5">Instructions</label>
+          <textarea
+            v-model="agentInstructions"
+            rows="3"
+            placeholder="Standing guidance for this cut's agent..."
+            class="w-full resize-y bg-overlay-subtle rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted border border-transparent focus:border-accent outline-none"
+          />
+        </div>
         <ChatInputBox
           v-model="agentDraft"
           :attachments="agentAttachments"
@@ -87,6 +96,26 @@
           voice-surface="main_chat"
           @update:attachments="agentAttachments = $event"
         >
+          <template #toolbar-extra>
+            <SkillsMenuButton
+              :skills="eligibleSkills"
+              mode="view"
+            />
+            <button
+              class="p-1.5 rounded-md text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors"
+              :class="showAgentSettings ? '!text-accent-hi' : ''"
+              title="Agent settings"
+              @click="showAgentSettings = !showAgentSettings"
+            >
+              <WrenchIcon class="w-4 h-4" />
+            </button>
+          </template>
+          <template #model-picker>
+            <ChatModelPicker
+              :model-slug="agentModelSlug"
+              @update:model-slug="agentModelSlug = $event"
+            />
+          </template>
           <template #actions>
             <button
               class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
@@ -105,17 +134,21 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, FilmIcon } from '@heroicons/vue/24/outline'
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, FilmIcon, WrenchIcon } from '@heroicons/vue/24/outline'
 import TimelineViewer from '../components/viewers/TimelineViewer.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
+import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import IconButton from '../components/ui/IconButton.vue'
 import { makeTabId, useWorkspaceTabs } from '../composables/useWorkspaceTabs'
+import { useStimpacksApi } from '../composables/useStimpacksApi'
 
 const route = useRoute()
 const router = useRouter()
 const { updateTabName } = useWorkspaceTabs()
+const { listSkills } = useStimpacksApi()
 
 const viewerRef = ref(null)
 const titleInputRef = ref(null)
@@ -124,6 +157,19 @@ const committedTitle = ref('')
 const menuOpen = ref(false)
 const agentDraft = ref('')
 const agentAttachments = ref([])
+const agentModelSlug = ref(null)
+const agentInstructions = ref('')
+const showAgentSettings = ref(false)
+const eligibleSkills = ref([])
+
+onMounted(async () => {
+  try {
+    const all = await listSkills()
+    eligibleSkills.value = all.filter((s) => s.environments?.chat)
+  } catch (err) {
+    console.error('Failed to load skills:', err)
+  }
+})
 
 const assetIdNumber = computed(() => {
   const id = parseInt(route.params.id, 10)

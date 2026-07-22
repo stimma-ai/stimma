@@ -66,6 +66,25 @@
         <audio ref="audioElement" preload="auto" />
       </div>
 
+      <!-- Entry context menu -->
+      <template v-if="entryMenu">
+        <div class="fixed inset-0 z-menu" @click="entryMenu = null" @contextmenu.prevent="entryMenu = null"></div>
+        <div
+          class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg py-1 min-w-[170px] z-menu"
+          :style="{ left: `${entryMenu.x}px`, top: `${entryMenu.y}px` }"
+        >
+          <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content text-left" @click="menuPlayFromHere">
+            Play from here
+          </button>
+          <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content text-left" @click="menuEditTiming">
+            Edit timing
+          </button>
+          <button class="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 text-left" @click="menuRemove">
+            {{ entryMenu.placement.entry.kind === 'slot' ? 'Remove hole' : 'Remove from cut' }}
+          </button>
+        </div>
+      </template>
+
       <!-- Timeline controls card: scrubber, transport, strips -->
       <div class="shrink-0 mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-4 pb-3 pt-1 space-y-2" @pointerdown.stop>
         <!-- Scrubber -->
@@ -148,7 +167,7 @@
           <div
             v-for="placement in videoPlacements"
             :key="placement.entry.id"
-            class="relative shrink-0 h-24 rounded-media overflow-hidden bg-matte cursor-pointer group"
+            class="relative shrink-0 h-16 rounded-media overflow-hidden bg-matte cursor-pointer group"
             :class="[
               selectedId === placement.entry.id ? 'ring-2 ring-selection ring-inset' : '',
               dropTargetId === placement.entry.id ? 'ring-1 ring-accent/50 bg-accent/10' : '',
@@ -156,19 +175,28 @@
             :style="{ width: `${tileWidth(placement)}px` }"
             draggable="true"
             @click="selectEntry(placement)"
+            @contextmenu.prevent.stop="openEntryMenu($event, placement)"
             @dragstart="onTileDragStart($event, placement, 'video')"
             @dragend="onTileDragEnd"
             @dragover.prevent="onTileDragOver($event, placement, 'video')"
             @drop.prevent.stop="onTileDrop($event, placement, 'video')"
           >
             <template v-if="placement.entry.kind === 'clip'">
+              <img
+                v-if="isVideoMedia(placement.entry) && stripUrl(placement)"
+                :src="stripUrl(placement)"
+                class="w-full h-full object-fill pointer-events-none"
+                draggable="false"
+              />
               <MediaImage
+                v-else
                 :media-id="placement.entry.media.media_id"
                 :file-hash="mediaOf(placement.entry)?.file_hash"
                 :file-format="mediaOf(placement.entry)?.file_format"
                 thumbnail
                 :thumbnail-size="256"
                 :draggable="false"
+                :enable-context-menu="false"
                 container-class="w-full h-full"
                 img-class="w-full h-full object-cover"
               />
@@ -198,7 +226,7 @@
 
           <div
             v-if="videoPlacements.length === 0"
-            class="h-24 flex-1 border border-dashed border-edge rounded-media flex items-center justify-center text-xs text-content-muted"
+            class="h-16 flex-1 border border-dashed border-edge rounded-media flex items-center justify-center text-xs text-content-muted"
           >
             Drop video or images here
           </div>
@@ -220,6 +248,7 @@
             ]"
             :style="{ width: `${tileWidth(placement)}px` }"
             @click="selectEntry(placement)"
+            @contextmenu.prevent.stop="openEntryMenu($event, placement)"
             @dragover.prevent="onTileDragOver($event, placement, 'audio')"
             @drop.prevent.stop="onTileDrop($event, placement, 'audio')"
           >
@@ -252,6 +281,9 @@ import axios from 'axios'
 import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { getApiBase } from '../../apiConfig'
+import { getCachedPin } from '../../composables/usePinLock'
+import { getCurrentProfileId } from '../../composables/useProfile'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { addToast } from '../../composables/useToasts'
 import { draggedMediaInfo, draggedMediaType } from '../../stores/dragStore'
@@ -375,13 +407,31 @@ let lastTick = null
 
 function tick(now) {
   if (playing.value) {
-    if (lastTick != null) {
-      playhead.value = Math.min(totalDuration.value, playhead.value + (now - lastTick) / 1000)
-      if (playhead.value >= totalDuration.value) {
-        playing.value = false
+    const current = videoEval.value
+    const el =
+      current && current.entry.kind === 'clip' && isVideoMedia(current.entry)
+        ? videoRefs.get(current.entry.id)
+        : null
+    if (el && el.readyState >= 2 && !el.paused && !el.seeking) {
+      // A playing video clip IS the clock — deriving the playhead from the
+      // element instead of wall time means we never fight it with seeks.
+      const entryEnd = current.start + current.duration
+      const t = current.start + (el.currentTime - (current.entry.in || 0))
+      if (t >= entryEnd) {
+        playhead.value = Math.min(totalDuration.value, entryEnd + 0.001)
+      } else if (t > playhead.value) {
+        playhead.value = t
       }
+      lastTick = now
+    } else if (lastTick != null) {
+      playhead.value = Math.min(totalDuration.value, playhead.value + (now - lastTick) / 1000)
+      lastTick = now
+    } else {
+      lastTick = now
     }
-    lastTick = now
+    if (playhead.value >= totalDuration.value) {
+      playing.value = false
+    }
   } else {
     lastTick = null
   }
@@ -389,7 +439,9 @@ function tick(now) {
   rafId = requestAnimationFrame(tick)
 }
 
-const DRIFT_TOLERANCE = 0.15
+// Loose while playing (the video is the clock; corrections mean stutter),
+// applied only when genuinely out of place: scrubs and entry changes.
+const DRIFT_TOLERANCE = 0.35
 
 function syncMedia() {
   const current = videoEval.value
@@ -397,7 +449,7 @@ function syncMedia() {
     const isCurrent = current && current.entry.id === entryId && current.entry.kind === 'clip'
     if (isCurrent) {
       const desired = current.sourceTime
-      if (Math.abs(el.currentTime - desired) > DRIFT_TOLERANCE) {
+      if (!el.seeking && Math.abs(el.currentTime - desired) > DRIFT_TOLERANCE) {
         el.currentTime = desired
       }
       if (playing.value && el.paused) el.play().catch(() => {})
@@ -421,7 +473,7 @@ function syncMedia() {
     if (audio && audio.entry.kind === 'clip') {
       const url = fileUrl(audio.entry)
       if (url && !audioEl.src.endsWith(url)) audioEl.src = url
-      if (Math.abs(audioEl.currentTime - audio.sourceTime) > DRIFT_TOLERANCE) {
+      if (!audioEl.seeking && Math.abs(audioEl.currentTime - audio.sourceTime) > DRIFT_TOLERANCE) {
         audioEl.currentTime = audio.sourceTime
       }
       if (playing.value && audioEl.paused) audioEl.play().catch(() => {})
@@ -602,7 +654,53 @@ function fillSlotArgs(slot, info) {
 // --- strip sizing --------------------------------------------------------
 
 function tileWidth(placement) {
-  return Math.max(72, Math.min(280, placement.duration * 28))
+  return Math.max(96, Math.min(420, placement.duration * 36))
+}
+
+function stripUrl(placement) {
+  const media = mediaOf(placement.entry)
+  if (!media?.file_path) return ''
+  const count = Math.max(4, Math.min(16, Math.round(tileWidth(placement) / 56)))
+  const profileId = getCurrentProfileId()
+  const pin = getCachedPin(profileId)
+  let url = `${getApiBase()}/generate/frame-strip?source_path=${encodeURIComponent(media.file_path)}&count=${count}&w=64&profile=${encodeURIComponent(profileId)}`
+  if (pin) url += `&pin=${encodeURIComponent(pin)}`
+  return url
+}
+
+// --- entry context menu (cut-specific, not the library media menu) ---------
+
+const entryMenu = ref(null)
+
+function openEntryMenu(event, placement) {
+  selectedId.value = placement.entry.id
+  entryMenu.value = {
+    x: Math.min(event.clientX, window.innerWidth - 200),
+    y: Math.min(event.clientY, window.innerHeight - 140),
+    placement,
+  }
+}
+
+function menuPlayFromHere() {
+  const placement = entryMenu.value?.placement
+  entryMenu.value = null
+  if (!placement) return
+  playhead.value = placement.start + 0.001
+  playing.value = true
+}
+
+function menuEditTiming() {
+  const placement = entryMenu.value?.placement
+  entryMenu.value = null
+  if (placement) selectEntry(placement)
+}
+
+async function menuRemove() {
+  const placement = entryMenu.value?.placement
+  entryMenu.value = null
+  if (!placement) return
+  await postOps([{ op: 'remove_entry', args: { entry_id: placement.entry.id } }], 'Remove entry')
+  if (selectedId.value === placement.entry.id) selectedId.value = null
 }
 
 function audioLabel(entry) {

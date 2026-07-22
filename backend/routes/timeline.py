@@ -64,6 +64,7 @@ async def _media_summaries(session: AsyncSession, state: Optional[dict]) -> dict
             "id": item.id,
             "file_hash": item.file_hash,
             "file_format": item.file_format,
+            "file_path": item.file_path,
             "width": item.width,
             "height": item.height,
             "duration": item.duration,
