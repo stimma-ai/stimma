@@ -63,10 +63,10 @@
       </div>
     </div>
 
-    <!-- Workspace: sequencer card floats on base, chat dock card below —
-         same two-card composition as ToolView's columns + agent dock. -->
+    <!-- Workspace: media naked on the matte; the timeline strip and the agent
+         dock are the cards (ToolView rule: media on matte, controls in cards). -->
     <div class="flex-1 min-h-0 flex flex-col">
-      <div class="flex-1 min-h-0 m-3 rounded-lg border border-edge-subtle bg-surface overflow-hidden relative">
+      <div class="flex-1 min-h-0 relative">
         <TimelineViewer
           v-if="assetIdNumber"
           ref="viewerRef"

@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full bg-slideshow-matt flex flex-col overflow-hidden" @click.stop>
+  <div class="w-full h-full flex flex-col overflow-hidden" @click.stop>
     <div v-if="loading" class="flex-1 flex items-center justify-center text-content-tertiary">
       Loading timeline...
     </div>
@@ -8,9 +8,9 @@
     </div>
 
     <template v-else-if="state">
-      <!-- Stage: what's on screen at the playhead -->
-      <div class="flex-1 min-h-0 relative flex items-center justify-center pt-14 px-6">
-        <div class="relative rounded-media overflow-hidden bg-matte w-full h-full">
+      <!-- Stage: media sits naked on the matte, no card chrome (ToolView hero rule) -->
+      <div class="flex-1 min-h-0 relative bg-slideshow-matt">
+        <div class="absolute inset-0">
           <!-- Clip videos: current + preloaded next, keyed by entry id so the
                preloaded element is reused across the cut (gapless leapfrog) -->
           <video
@@ -66,8 +66,8 @@
         <audio ref="audioElement" preload="auto" />
       </div>
 
-      <!-- Transport + strips -->
-      <div class="shrink-0 px-6 pb-4 pt-2 space-y-2" @pointerdown.stop>
+      <!-- Timeline controls card: scrubber, transport, strips -->
+      <div class="shrink-0 mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-4 pb-3 pt-1 space-y-2" @pointerdown.stop>
         <!-- Scrubber -->
         <div
           ref="scrubberRef"

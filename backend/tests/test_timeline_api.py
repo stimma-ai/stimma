@@ -150,6 +150,21 @@ class TestTimelineLifecycle:
         resp = await generation_client.get("/api/timelines/999999")
         assert resp.status_code == 404
 
+    async def test_add_clip_defaults_to_media_duration(
+        self, generation_client, generation_db_session
+    ):
+        created = await create_timeline(generation_client)
+        async with generation_db_session() as session:
+            clip_media = await create_media_item(session, file_format="mp4", duration=7.5)
+
+        resp = await generation_client.post(
+            f"/api/timelines/{created['asset_id']}/ops",
+            json={"ops": [{"op": "add_clip", "args": {"media_id": clip_media.id}}]},
+        )
+        assert resp.status_code == 200, resp.text
+        clip = video_entries(resp.json()["state"])[0]
+        assert clip["out"] == 7.5
+
     async def test_lookup_by_media_id(self, generation_client):
         created = await create_timeline(generation_client)
         resp = await generation_client.get(

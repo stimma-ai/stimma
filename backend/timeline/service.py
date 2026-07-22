@@ -85,12 +85,26 @@ async def apply_ops(
     label: Optional[str] = None,
 ) -> dict:
     doc, project = await get_project_for_asset(session, asset_id)
+    await _fill_default_timing(session, ops)
     result = await run_store(project.append_batch, ops, author=author, label=label)
     result.update(await run_store(project.status))
     await _touch_working_document(session, doc)
     await session.commit()
     await _broadcast_changed(asset_id, result)
     return result
+
+
+async def _fill_default_timing(session: AsyncSession, ops: list) -> None:
+    """add_clip without trims defaults to the media's full length, so no
+    client has to know durations (matches the agent tool's behavior)."""
+    for op, args in ops:
+        if op != "add_clip" or not isinstance(args, dict):
+            continue
+        if args.get("out") is not None or args.get("duration") is not None:
+            continue
+        media = await session.get(MediaItem, int(args.get("media_id") or 0))
+        if media is not None and media.duration:
+            args["out"] = float(media.duration)
 
 
 async def undo(session: AsyncSession, *, asset_id: int) -> dict:
