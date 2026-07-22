@@ -78,9 +78,9 @@
         <!-- Plain page header (PageHeader grammar): no card — the content cards
              below float on base; one hairline separates header from workspace. -->
         <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle"></div>
-        <!-- Transient run context (remix, resolution auto-change) lands here as
-             its own card so the header card stays fixed-height. Hidden when the
-             teleport delivers nothing. -->
+        <!-- Transient run context (remix banners) lands here as its own card
+             so the header card stays fixed-height. Hidden when the teleport
+             delivers nothing. -->
         <!-- Top gap lives INSIDE the teleported card's animated wrapper so it
              eases open/closed with the card instead of snapping. -->
         <div id="tool-context-slot" class="flex-none mx-3 empty:hidden"></div>
@@ -99,6 +99,34 @@
         ]"
         :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
       >
+       <!-- Resolution auto-change notice: a minor card matching the params
+            card's width and background, easing open above it (flow-expand)
+            so the params card gets nudged down for a moment. -->
+       <Transition name="flow-expand">
+       <div v-if="resAutoChange" class="flex-none">
+       <div>
+       <div class="mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
+         <span class="text-content-secondary flex-1">
+           Size changed to <span class="font-medium text-content">{{ resAutoChange.newWidth }}×{{ resAutoChange.newHeight }}</span>
+         </span>
+         <button
+           @click="resAutoChangeKeepArea"
+           class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
+         >Keep {{ resAutoChangeOldAreaLabel }} area</button>
+         <button
+           @click="resAutoChangeRevert"
+           class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
+         >Restore previous size</button>
+         <button
+           @click="resAutoChange = null"
+           class="text-content-muted hover:text-content-secondary"
+         >
+           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+         </button>
+       </div>
+       </div>
+       </div>
+       </Transition>
        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
@@ -231,14 +259,14 @@
         </Teleport>
 
         <!-- Transient run context (teleported to #tool-context-slot below the
-             header): remix banners + resolution auto-change in their own card. -->
+             header): remix banners in their own card. -->
         <Teleport defer to="#tool-context-slot">
         <!-- flow-expand (grid 0fr→1fr) so the card's height eases open/closed
              instead of reflowing the whole column in one frame. The extra
              wrapper is the overflow-hidden child the pattern requires; the
              card carries its own mt-3 so the gap animates with it. -->
         <Transition name="flow-expand">
-        <div v-if="remixSource || dismissedRemix || resAutoChange">
+        <div v-if="remixSource || dismissedRemix">
         <div>
         <div class="mt-3 rounded-lg border border-edge-subtle bg-surface px-3 pt-3">
         <!-- Inspiration Banner (active remix) -->
@@ -270,29 +298,6 @@
           @expired="handleRemixDismissedExpired"
         />
 
-        <!-- Resolution auto-change notification -->
-        <div
-          v-if="resAutoChange"
-          class="flex items-center gap-3 mb-2 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/5 text-[11px]"
-        >
-          <span class="text-content-secondary flex-1">
-            Size changed to <span class="font-medium text-content">{{ resAutoChange.newWidth }}×{{ resAutoChange.newHeight }}</span>
-          </span>
-          <button
-            @click="resAutoChangeKeepArea"
-            class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
-          >Keep {{ resAutoChangeOldAreaLabel }} area</button>
-          <button
-            @click="resAutoChangeRevert"
-            class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
-          >Restore previous size</button>
-          <button
-            @click="resAutoChange = null"
-            class="text-content-muted hover:text-content-secondary"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
         </div>
         </div>
         </div>
