@@ -40,7 +40,11 @@ from .engine import FlowRun, FlowRunConfig
 from .ephemeral import ephemeral_run, new_ephemeral_run_id, purge_ephemeral_run
 from .equation_store import EquationStore
 from .graph import Equation, EquationGraph, EquationStatus
-from .production_evaluators import _open_session, build_production_registry
+from .production_evaluators import (
+    _open_session,
+    build_production_registry,
+    make_frozen_flow_llm_resolve_config,
+)
 from .state_db import create_flow_state_db
 
 log = logging.getLogger(__name__)
@@ -105,6 +109,7 @@ async def run_flow_once(
     flow_callable: Optional[Callable[..., Any]] = None,
     project_id: Optional[int] = None,
     hitl_resolver: Optional[HitlResolver] = None,
+    model_slug: Optional[str] = None,
     timeout_seconds: float = 180.0,
 ) -> OneShotResult:
     """Run a flow to completion once and return its declared outputs (bytes).
@@ -115,6 +120,10 @@ async def run_flow_once(
     ``program.py`` and run from there, so a frozen tool runs even after its
     source flow is deleted. Any media produced internally is hard-deleted before
     this returns — the library is left untouched.
+
+    ``model_slug`` is the model captured when the flow was frozen; the flow's
+    ``agent`` LLM steps run on it (``agent-fast`` always uses the Settings quick
+    tasks model). ``None`` falls back to the global default.
     """
     sources = [program_path is not None, program_text is not None, flow_callable is not None]
     if sum(sources) != 1:
@@ -154,7 +163,11 @@ async def run_flow_once(
                     broadcast=None,                 # no websocket from a tool run
                     hitl_auto_resolve=resolver,
                 ),
-                evaluators=build_production_registry(),
+                evaluators=build_production_registry(
+                    llm_resolve_config=make_frozen_flow_llm_resolve_config(
+                        model_slug
+                    ),
+                ),
                 store=store,
             )
 

@@ -254,6 +254,32 @@ def make_flow_llm_resolve_config(
     return _resolve
 
 
+def make_frozen_flow_llm_resolve_config(
+    model_slug: Optional[str],
+) -> Optional[Callable[[str], Awaitable[Any]]]:
+    """``resolve_config`` for a frozen flow run as a tool (oneshot).
+
+    A frozen flow has no live chat, so ``agent`` runs on the model captured at
+    freeze time (``UserTool.model_slug``). ``agent-fast`` uses the Settings
+    "quick tasks" model.
+
+    Returns ``None`` when nothing was captured — the caller then omits the
+    resolver so the evaluators use the plain role resolver (global default),
+    which is exactly the intended fallback.
+    """
+    if not model_slug:
+        return None
+
+    async def _resolve(role: str) -> Any:
+        from llm_resolver import get_chat_llm_config, get_effective_llm_config
+
+        if role == "agent-fast":
+            return await get_effective_llm_config("agent-fast")
+        return await get_chat_llm_config(model_slug, role="agent")
+
+    return _resolve
+
+
 # =============================================================================
 # Tool-call evaluator
 # =============================================================================

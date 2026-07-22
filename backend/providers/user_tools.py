@@ -243,6 +243,7 @@ class UserToolsProvider(ToolProvider):
                 inputs=flow_inputs,
                 program_text=row["program_text"],
                 hitl_resolver=resolver,
+                model_slug=row.get("model_slug"),
             )
 
             # Resolve the task's required output (e.g. "assets" / "detections")

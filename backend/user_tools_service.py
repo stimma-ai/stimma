@@ -202,6 +202,16 @@ async def freeze_flow_to_tool(
     await _validate_output_map(session, flow_id, output_map)
     output_schema = build_output_schema(task_types)
 
+    # Capture the LLM the flow's chat is using (chat -> project -> global) so
+    # the frozen tool's `agent` steps run on that model rather than whatever
+    # the global default happens to be at run time. NULL = fall back to global.
+    from flow_runtime.production_evaluators import _resolve_flow_chat_model_slug
+
+    project_id = (
+        await session.execute(select(Flow.project_id).where(Flow.id == flow_id))
+    ).scalar_one_or_none()
+    model_slug = await _resolve_flow_chat_model_slug(flow_id, project_id)
+
     # Validation gate: the derived interface must satisfy every task type.
     errors: List[str] = []
     for task_type in task_types:
@@ -221,6 +231,7 @@ async def freeze_flow_to_tool(
         output_schema=json.dumps(output_schema),
         hitl_policies=json.dumps(hitl_policies or {}),
         output_map=json.dumps(output_map or {}),
+        model_slug=model_slug,
     )
     session.add(tool)
     await session.commit()

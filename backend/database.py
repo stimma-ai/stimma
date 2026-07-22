@@ -1066,6 +1066,12 @@ class UserTool(Base):
     hitl_policies = Column(Text, nullable=True)       # JSON: {equation_key: {"policy": "first"|...}}
     output_map = Column(Text, nullable=True)          # JSON: {task_output: flow_output_name}
 
+    # LLM model captured at freeze time: the model the source flow's chat was
+    # using, resolved chat -> project -> global. A frozen flow has no live chat,
+    # so its `agent` LLM steps run on this snapshot (NULL = fall back to the
+    # global default at run time).
+    model_slug = Column(String, nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True, index=True)
@@ -1085,6 +1091,7 @@ class UserTool(Base):
             "output_schema": json.loads(self.output_schema) if self.output_schema else {},
             "hitl_policies": json.loads(self.hitl_policies) if self.hitl_policies else {},
             "output_map": json.loads(self.output_map) if self.output_map else {},
+            "model_slug": self.model_slug,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,

@@ -473,3 +473,37 @@ def test_infer_freeze_defaults_text_to_image():
     defaults = infer_freeze_defaults(flow_dict)
     assert defaults["task_types"] == ["text-to-image"]
     assert defaults["output_map"] == {"assets": "output"}
+
+
+@pytest.mark.asyncio
+async def test_freeze_captures_flow_chat_model(db_session):
+    """The frozen tool snapshots the model the flow's chat was using, so its
+    `agent` LLM steps run on that model rather than the global default."""
+    from database import Chat
+
+    with ProfileScope("default"):
+        async with db_session() as session:
+            flow = await _make_flow_with_program(
+                session,
+                input_schema={"prompt": {"type": "str", "lines": 2}},
+                output_schema={"output": {"type": "image"}},
+            )
+            session.add(Chat(name="editor", flow_id=flow.id, model_slug="opus"))
+            await session.commit()
+
+        async with db_session() as session:
+            tool = await freeze_flow_to_tool(
+                session,
+                flow_id=flow.id,
+                name="Captures Model",
+                task_types=["text-to-image"],
+                output_map={"assets": "output"},
+                hitl_policies={},
+            )
+            tool_id = tool.id
+
+        async with db_session() as session:
+            row = (
+                await session.execute(select(UserTool).where(UserTool.id == tool_id))
+            ).scalar_one()
+            assert row.model_slug == "opus"
