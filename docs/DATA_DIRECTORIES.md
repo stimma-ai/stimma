@@ -34,13 +34,18 @@ Sandboxes exist to support **git worktrees** and parallel testing. Each sandbox 
 ### Creating sandboxes
 
 ```bash
-stimma fork create my-feature     # copies default/ → my-feature/
+stimma fork create my-feature     # snapshots default/ → my-feature/
 stimma --sandbox=my-feature dev backend
 stimma --sandbox=my-feature dev frontend
 stimma fork destroy my-feature    # deletes my-feature/ data + cache
 ```
 
-The fork is a full copy of the default sandbox — database, settings, auth tokens — so no re-login is needed.
+The fork is a complete snapshot of the default sandbox — database, settings,
+auth tokens — so no re-login is needed. Stop the default sandbox's backend
+before creating it. On macOS/APFS the snapshot uses copy-on-write clones, so it
+is fast and initially consumes space only for filesystem metadata; subsequent
+writes allocate private blocks in the sandbox that changed. Linux filesystems
+use reflinks when available and otherwise fall back to an archive copy.
 
 ### Port allocation
 
@@ -142,6 +147,21 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
 - `staging/` is private and transient. Durable managed identity is the content-addressed object under `objects/sha256/`.
 - Logs rotate on startup: `server.jsonl` → `server.01.jsonl` → ... → `server.20.jsonl` (oldest deleted).
 
+## Local snapshots
+
+`stimma backup` creates a timestamped snapshot beside the selected sandbox.
+Stop that sandbox's backend first so its SQLite databases and WAL files cannot
+change during the snapshot. On macOS/APFS, regular files are copy-on-write
+clones; Linux uses reflinks when the filesystem supports them. The command
+falls back to a full byte copy when cloning is unavailable.
+
+The completed snapshot is first assembled under a temporary name and then
+renamed into place, so an interrupted copy is not presented as a completed
+snapshot. These same-volume snapshots are useful for local rollback and
+development, but they are not off-machine disaster-recovery backups. Tools
+such as `du` may count shared clone extents more than once; filesystem free
+space is the better measure of their incremental physical cost.
+
 ## Environment Variable Overrides
 
 Environment variables take highest precedence, overriding all path derivation:
@@ -194,7 +214,7 @@ stimma dev backend                        # ai.stimma.stimma.debug/default/
 stimma --sandbox=test dev backend         # ai.stimma.stimma.debug/test/
 
 # Fork workflow (for git worktrees)
-stimma fork create my-feature             # copy default → my-feature, assign ports
+stimma fork create my-feature             # snapshot default → my-feature, assign ports
 stimma --sandbox=my-feature dev backend   # run backend against the fork
 stimma --sandbox=my-feature dev frontend  # run frontend against the fork
 stimma fork destroy my-feature            # clean up

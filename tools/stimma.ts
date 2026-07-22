@@ -491,6 +491,23 @@ async function getSandboxPorts(bundleId: string, sandbox: string): Promise<{ ser
   return ports;
 }
 
+async function requireSandboxBackendStopped(
+  bundleId: string,
+  sandbox: string,
+  operation: string,
+): Promise<void> {
+  const ports = await getSandboxPorts(bundleId, sandbox);
+  for (const hostname of LOCALHOSTS) {
+    if (await isTcpPortOpen(hostname, ports.server, 200)) {
+      console.error(
+        `Refusing to ${operation} while the backend is listening on ${hostname}:${ports.server}. ` +
+          `Stop Stimma for sandbox '${sandbox}' first so its SQLite databases are consistent.`,
+      );
+      Deno.exit(1);
+    }
+  }
+}
+
 function sandboxIdentifier(baseBundleId: string, sandbox: string): string {
   if (sandbox === "default") return baseBundleId;
   return `${baseBundleId}.${sandboxSafeSegment(sandbox)}`;
@@ -540,7 +557,7 @@ Commands:
   stimpacks dev --off    Clear the dev stimpacks override
   stimpacks validate PATH...  Validate stimpack directories with the real loader
                       (skills, environments, lib modules; non-zero exit on errors)
-  backup          Create timestamped backup of data directory
+  backup          Create timestamped local snapshot (source backend must be stopped)
   lint backend    Run ruff over the backend (undefined names, syntax errors)
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
@@ -565,7 +582,7 @@ Commands:
                       [--yes] skip the confirmation prompt
   dir               Print data directory path
   fork              List all sandboxes with sizes and ports
-  fork create NAME  Copy default sandbox to a new named sandbox
+  fork create NAME  Snapshot default sandbox to a new named sandbox
   fork create NAME --empty  Create a FRESH first-run sandbox (empty except
                       .fork.json with assigned ports) — backend boots it
                       as a new install: config auto-init, consent undetermined
@@ -866,33 +883,48 @@ async function copyDir(src: string, dest: string): Promise<void> {
   }
 }
 
-async function copyDataDirBackup(src: string, dest: string): Promise<void> {
+async function copyDataDirSnapshot(src: string, dest: string): Promise<void> {
   if (await pathExists(dest)) {
-    throw new Error(`Backup destination already exists: ${dest}`);
+    throw new Error(`Snapshot destination already exists: ${dest}`);
   }
 
+  const partialDest = `${dest}.partial-${crypto.randomUUID()}`;
+  let copyCode: number;
   if (Deno.build.os === "darwin") {
-    // ditto preserves file hard links as well as macOS-specific metadata that
-    // Deno.copyFile cannot represent (resource forks, xattrs, and ACLs).
-    await run("ditto", [
+    // APFS clones have independent inodes while sharing unchanged data blocks.
+    // ditto also preserves the source tree's own hard-link topology, symlinks,
+    // resource forks, xattrs, and ACLs. It falls back to a byte copy when the
+    // source and destination are not on clone-capable filesystems.
+    copyCode = await run("ditto", [
+      "--clone",
       "--rsrc",
       "--extattr",
       "--acl",
       "--qtn",
       "--preserveHFSCompression",
       src,
-      dest,
-    ]);
-    return;
+      partialDest,
+    ], { check: false });
+  } else if (Deno.build.os === "linux") {
+    // GNU cp preserves hard links and uses filesystem reflinks when available,
+    // falling back to an ordinary archive copy otherwise.
+    copyCode = await run(
+      "cp",
+      ["--archive", "--reflink=auto", "--", src, partialDest],
+      { check: false },
+    );
+  } else {
+    throw new Error(`Copy-on-write snapshots are not supported on ${Deno.build.os} yet.`);
   }
 
-  if (Deno.build.os === "linux") {
-    // GNU cp --archive includes --preserve=links and full recursive metadata.
-    await run("cp", ["--archive", "--", src, dest]);
-    return;
+  if (copyCode !== 0) {
+    await Deno.remove(partialDest, { recursive: true }).catch(() => {});
+    console.error(`Snapshot copy failed with exit code ${copyCode}; partial output was removed.`);
+    Deno.exit(copyCode);
   }
 
-  throw new Error(`Hard-link-preserving backups are not supported on ${Deno.build.os} yet.`);
+  // Only a fully copied tree receives the user-visible destination name.
+  await Deno.rename(partialDest, dest);
 }
 
 async function copyDirFiltered(src: string, dest: string, shouldExclude: (relativePath: string, entry: Deno.DirEntry) => boolean, prefix = ""): Promise<void> {
@@ -1974,11 +2006,12 @@ async function main(): Promise<void> {
         console.error(`Error: Data directory not found: ${dataDir}`);
         Deno.exit(1);
       }
+      await requireSandboxBackendStopped(bundleId, sandbox, "snapshot");
       const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
       const backupDir = `${dataDir}-backup-${stamp}`;
-      console.log(`Backing up ${dataDir} → ${backupDir}...`);
-      await copyDataDirBackup(dataDir, backupDir);
-      console.log(`Backup complete: ${backupDir}`);
+      console.log(`Snapshotting ${dataDir} → ${backupDir}...`);
+      await copyDataDirSnapshot(dataDir, backupDir);
+      console.log(`Snapshot complete: ${backupDir}`);
       break;
     }
 
@@ -2151,8 +2184,9 @@ async function main(): Promise<void> {
             console.error(`Default sandbox not found at: ${srcData}`);
             Deno.exit(1);
           }
-          console.log(`Copying ${srcData} → ${dstData}...`);
-          await copyDir(srcData, dstData);
+          await requireSandboxBackendStopped(bundleId, "default", "fork");
+          console.log(`Snapshotting ${srcData} → ${dstData}...`);
+          await copyDataDirSnapshot(srcData, dstData);
         }
         await Deno.mkdir(dstCache, { recursive: true });
         const ports = await nextSandboxPorts(bundleId);
