@@ -475,6 +475,7 @@ import axios from 'axios'
 import { useDeleteOperations } from '../composables/useDeleteOperations'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useProfile } from '../composables/useProfile'
+import { getSavedRouteForProfile } from '../composables/useRouteRestore'
 import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
 import { makeGlobalKey } from '../utils/storageKeys'
@@ -666,9 +667,13 @@ function selectProfile(profileId) {
 
   trackTelemetry('profile_switched', {}, 'settings')
 
+  // Land on the target profile's last location (its own per-profile route),
+  // not the current profile's URL — which points at objects that don't exist
+  // in the profile we're switching to. This reloads to refresh profile-scoped
+  // data; the lock screen still shows if the target profile requires a PIN.
+  const targetRoute = getSavedRouteForProfile(profileId)
   setCurrentProfileId(profileId)
-  // Reload page - lock screen will show if profile requires PIN
-  window.location.reload()
+  window.location.href = targetRoute
 }
 
 function openProfilesSettings() {

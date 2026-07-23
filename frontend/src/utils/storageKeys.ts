@@ -53,8 +53,17 @@ export function makeStorageKey(...parts: (string | number)[]): string {
  * @returns Namespaced key like 'stimma_myprofile_slideshow_settings'
  */
 export function makeProfileKey(...parts: (string | number)[]): string {
+  return makeProfileKeyFor(getCurrentProfileId(), ...parts)
+}
+
+/**
+ * Create a profile-scoped key for an explicit profile ID (not the current one).
+ *
+ * Use when you need to read/write another profile's scoped state — e.g. to
+ * restore a profile's saved route while a different profile is still current.
+ */
+export function makeProfileKeyFor(profileId: string | null, ...parts: (string | number)[]): string {
   const prefix = getBasePrefix()
-  const profileId = getCurrentProfileId()
   return `${prefix}_${profileId}_${parts.join('_')}`
 }
 

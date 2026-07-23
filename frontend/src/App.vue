@@ -27,41 +27,40 @@
     <!-- Profile switcher in top-right corner -->
     <div class="absolute top-4 right-4">
       <div class="relative lock-screen-profile-dropdown">
+        <!-- Ghost trigger matching the main app top bar's profile switcher. -->
         <button
           @click="toggleLockScreenProfileDropdown"
-          class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle border border-edge-subtle rounded-lg text-sm text-content-secondary cursor-pointer transition-all hover:bg-overlay-hover hover:border-edge"
+          class="flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
+          title="Switch profile"
         >
-          <svg class="w-4 h-4 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-          </svg>
-          <span class="max-w-[100px] truncate">{{ lockedProfileName }}</span>
-          <svg class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': lockScreenProfileDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          <span class="max-w-[140px] truncate">{{ lockedProfileName }}</span>
+          <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
 
         <transition name="menu">
           <div
             v-if="lockScreenProfileDropdownOpen"
-            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu min-w-[200px] overflow-hidden"
+            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu min-w-[220px] overflow-hidden"
           >
             <div class="py-1">
-              <button
+              <div
                 v-for="profile in profiles"
                 :key="profile.id"
-                class="w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2"
-                :class="profile.id === currentProfileId ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
+                class="w-full px-3 py-2 text-left text-xs transition-colors flex items-center gap-2 cursor-pointer"
+                :class="profile.id === currentProfileId ? 'bg-accent/10 text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
                 @click="switchToProfileFromLockScreen(profile)"
               >
-                <svg v-if="profile.id === currentProfileId" class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <svg v-if="profile.id === currentProfileId" class="w-4 h-4 text-accent-hi flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                 </svg>
                 <span v-else class="w-4 h-4 flex-shrink-0"></span>
                 <span class="truncate flex-1">{{ profile.name }}</span>
-                <svg v-if="profile.has_pin" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg v-if="profile.has_pin" class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
-              </button>
+              </div>
             </div>
           </div>
         </transition>
@@ -222,7 +221,7 @@ import { useUnseenActivity } from './composables/useUnseenActivity'
 import { runStartupCleanup } from './utils/storageCleanup'
 import { setCloudBaseUrl, fetchCloudAccount } from './composables/useCloudAccount'
 import { refreshAvailableModels } from './composables/useAvailableModels'
-import { useRouteRestore } from './composables/useRouteRestore'
+import { useRouteRestore, getSavedRouteForProfile } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
 import { useMediaApi } from './composables/useMediaApi'
@@ -674,6 +673,10 @@ async function submitLockScreenPin() {
 
 const { track: trackTelemetry } = useTelemetry()
 
+// Route to land on once a lock-screen profile switch is unlocked. Set when
+// switching to a PIN-locked profile; consumed by the isLocked watcher.
+let pendingSwitchRoute = null
+
 async function switchToProfileFromLockScreen(profile) {
   // Close dropdown
   lockScreenProfileDropdownOpen.value = false
@@ -684,9 +687,16 @@ async function switchToProfileFromLockScreen(profile) {
 
   trackTelemetry('profile_switched', {}, 'settings')
 
-  // If target profile has PIN and we don't have it cached, show lock for that profile
+  // The target profile's own last location — we land here after switching,
+  // instead of the current profile's URL (which references objects absent from
+  // the target profile).
+  const targetRoute = getSavedRouteForProfile(profile.id)
+
+  // If target profile has PIN and we don't have it cached, show lock for that
+  // profile. Remember where to land so the route restores on unlock.
   if (profile.has_pin && !hasCachedPin(profile.id)) {
     setCurrentProfileId(profile.id)
+    pendingSwitchRoute = targetRoute
     lockScreenPin.value = ''
     lockScreenError.value = ''
     await nextTick()
@@ -694,13 +704,10 @@ async function switchToProfileFromLockScreen(profile) {
     return
   }
 
-  // Otherwise switch and unlock (or stay unlocked if no PIN)
+  // Otherwise switch and reload onto the target profile's route to refresh
+  // profile-scoped data.
   setCurrentProfileId(profile.id)
-  isLocked.value = profile.has_pin && !hasCachedPin(profile.id)
-  if (!isLocked.value) {
-    // Reload to refresh data for new profile
-    window.location.reload()
-  }
+  window.location.href = targetRoute
 }
 
 // Check if current profile requires PIN on startup
@@ -804,8 +811,15 @@ watch(isLocked, async (locked, wasLocked) => {
     await nextTick()
     lockScreenPinInput.value?.focus()
   } else if (wasLocked) {
-    // Restore saved route after unlocking
-    restoreRoute()
+    // If we unlocked into a profile switch, land on that profile's route.
+    // Otherwise restore this profile's saved route (only acts at the app root).
+    if (pendingSwitchRoute) {
+      const target = pendingSwitchRoute
+      pendingSwitchRoute = null
+      if (target !== route.fullPath) router.replace(target)
+    } else {
+      restoreRoute()
+    }
     void checkStartupReadiness()
   }
 })
