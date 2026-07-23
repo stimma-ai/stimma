@@ -374,44 +374,63 @@ watch(searchQuery, (query) => {
   if (isOpen.value) scheduleRemoteSearch(query)
 })
 
+// Cap how wide the menu is allowed to grow to fit its content. Wide enough to
+// spell out long option labels (film stocks, voices) without truncating, but
+// not so wide it sprawls across a large window.
+const MENU_MAX_CONTENT_WIDTH = 560
+
 function positionDropdown() {
   if (!container.value || !dropdown.value) return
 
   const rect = container.value.getBoundingClientRect()
   const viewportHeight = window.innerHeight
-  const menuWidth = Math.min(
+  const viewportWidth = window.innerWidth
+
+  // Menu is at least as wide as the trigger (or an explicit menuWidth), and is
+  // allowed to grow up to the cap / viewport to fit long labels.
+  const minWidth = Math.min(
     props.menuWidth || Math.max(rect.width, props.compact ? 176 : 208),
-    window.innerWidth - 16,
+    viewportWidth - 16,
   )
-  const menuHeight = dropdown.value.offsetHeight
+  const maxWidth = Math.min(viewportWidth - 16, Math.max(minWidth, MENU_MAX_CONTENT_WIDTH))
+
+  // Measure the menu's natural (shrink-to-fit) width within [minWidth, maxWidth]
+  // so it expands to fit content instead of pinning to the trigger's width.
+  // Reset width to auto first so re-positioning (e.g. while filtering) re-measures
+  // instead of locking to the previously applied width.
+  const el = dropdown.value
+  el.style.width = 'auto'
+  el.style.minWidth = `${minWidth}px`
+  el.style.maxWidth = `${maxWidth}px`
+  const menuWidth = Math.min(Math.max(el.offsetWidth, minWidth), maxWidth)
+  const menuHeight = el.offsetHeight
 
   // Right-aligned to the button, but keep the left edge on-screen
-  const right = Math.max(8, Math.min(window.innerWidth - rect.right, window.innerWidth - menuWidth - 8))
+  const right = Math.max(8, Math.min(viewportWidth - rect.right, viewportWidth - menuWidth - 8))
 
   const spaceBelow = viewportHeight - rect.bottom - 12
   const spaceAbove = rect.top - 12
 
+  const base = {
+    right: `${right}px`,
+    width: `${menuWidth}px`,
+    minWidth: `${minWidth}px`,
+    maxWidth: `${maxWidth}px`,
+  }
+
   if (menuHeight <= spaceBelow) {
     // Show below
-    dropdownStyle.value = {
-      top: `${rect.bottom + 4}px`,
-      right: `${right}px`,
-      width: `${menuWidth}px`,
-    }
+    dropdownStyle.value = { ...base, top: `${rect.bottom + 4}px` }
   } else if (menuHeight <= spaceAbove) {
     // Show above
-    dropdownStyle.value = {
-      bottom: `${viewportHeight - rect.top + 4}px`,
-      right: `${right}px`,
-      width: `${menuWidth}px`,
-    }
+    dropdownStyle.value = { ...base, bottom: `${viewportHeight - rect.top + 4}px` }
   } else {
     // Doesn't fit either side — open on the roomier side and cap height
     const below = spaceBelow >= spaceAbove
     const space = Math.max(Math.floor(below ? spaceBelow : spaceAbove), 40)
     dropdownStyle.value = below
-      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, width: `${menuWidth}px`, maxHeight: `${space}px` }
-      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, width: `${menuWidth}px`, maxHeight: `${space}px` }
+      ? { ...base, top: `${rect.bottom + 4}px`, maxHeight: `${space}px` }
+      : { ...base, bottom: `${viewportHeight - rect.top + 4}px`, maxHeight: `${space}px` }
   }
 }
 
