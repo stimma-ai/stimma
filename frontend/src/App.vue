@@ -194,7 +194,7 @@ import FirstRunTour from './components/FirstRunTour.vue'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
-import { useProfile } from './composables/useProfile'
+import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
@@ -228,7 +228,7 @@ import { useMediaApi } from './composables/useMediaApi'
 import { useWorkspaceTabs, toolTabRoute, toolRouteTabId } from './composables/useWorkspaceTabs'
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
-import { useAppUpdater } from './composables/useAppUpdater'
+import { useAppUpdater, markUpdaterOwner } from './composables/useAppUpdater'
 import { useReleaseNotes } from './composables/useReleaseNotes'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
@@ -580,9 +580,9 @@ function handleKeydown(e) {
   }
 
   // Cmd/Ctrl+Shift+W: Close the window (same as clicking the red close button).
-  // Fires the same CloseRequested event the X does; the Rust handler intercepts
-  // it and hides the window to keep the backend warm rather than quitting.
-  // On Windows/Linux this hides to the tray identically.
+  // Fires the same CloseRequested event the X does; the Rust handler closes
+  // this window if others are open, or hides the last one to keep the
+  // backend warm rather than quitting (to the tray on Windows/Linux).
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'w' || e.key === 'W') && isTauri()) {
     e.preventDefault()
     void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
@@ -687,6 +687,11 @@ async function switchToProfileFromLockScreen(profile) {
 
   trackTelemetry('profile_switched', {}, 'settings')
 
+  // Desktop app: each profile lives in its own window. This window stays on
+  // its (locked) profile; the target profile opens or focuses its own window
+  // and shows its own lock screen there if it needs a PIN.
+  if (await openProfileWindow(profile.id)) return
+
   // The target profile's own last location — we land here after switching,
   // instead of the current profile's URL (which references objects absent from
   // the target profile).
@@ -758,10 +763,18 @@ async function loadAppSettings() {
 
 async function checkStartupPin() {
   try {
+    // In the desktop app each window is pinned to one profile; resolve it
+    // before anything profile-scoped runs.
+    await initWindowProfile()
+
     // Fire-and-forget auth init (login is optional, not blocking)
     initAuth()
 
     await loadProfiles()
+
+    // Record where this window landed so the window registry can restore it
+    // on relaunch (covers the bootstrap window, which has no pinned profile).
+    void reportWindowProfile(currentProfileId.value)
 
     // Load settings to get bundle_id/sandbox for localStorage key namespacing.
     // If the current profile is PIN-locked this is rejected ("PIN required");
@@ -829,6 +842,20 @@ watch(currentProfileId, (profileId, previousProfileId) => {
     void syncMarketplaceStimpacks(profileId)
   }
 })
+
+// Window title carries the profile name so windows are tellable apart in
+// Mission Control / the Window menu / alt-tab.
+watch([currentProfileId, profiles], async ([profileId]) => {
+  if (!isTauri()) return
+  const name = profiles.value.find(p => p.id === profileId)?.name
+  if (!name) return
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window')
+    await getCurrentWindow().setTitle(`Stimma — ${name}`)
+  } catch {
+    // Title is cosmetic; ignore failures.
+  }
+}, { immediate: true })
 
 watch(
   () => [route.name, route.params.id, route.query.project_id],
@@ -931,12 +958,30 @@ async function startUpdaterLoop(privacyLockdownActive) {
   if (privacyLockdownActive) return
   if (updaterLoopStarted) return
 
+  // With several profile windows open, only one may run the update loop —
+  // concurrent automatic downloads would collide. The Web Lock is held for
+  // as long as the loop runs; if the owning window closes, a waiting window
+  // acquires it and takes over.
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    void navigator.locks.request('stimma-updater-loop', async () => {
+      if (await runUpdaterLoop()) {
+        return new Promise(() => {})
+      }
+    })
+  } else {
+    void runUpdaterLoop()
+  }
+}
+
+// Returns true when the scheduled check loop actually started.
+async function runUpdaterLoop() {
   await loadUpdatePreferences()
   // Manual mode: no scheduled checks. Leave the loop unstarted so that
   // switching to automatic/notify later can start it without a restart.
-  if (updatePolicy.value === 'manual') return
+  if (updatePolicy.value === 'manual') return false
 
   updaterLoopStarted = true
+  markUpdaterOwner()
   await checkForUpdates('auto')
 
   if (updateIntervalId) {
@@ -945,6 +990,7 @@ async function startUpdaterLoop(privacyLockdownActive) {
   updateIntervalId = window.setInterval(() => {
     checkForUpdates('auto')
   }, updateCheckIntervalMs(updateChannel.value))
+  return true
 }
 
 function handleOpenSettings(e) {

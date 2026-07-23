@@ -474,7 +474,7 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { useDeleteOperations } from '../composables/useDeleteOperations'
 import { useWebSocket } from '../composables/useWebSocket'
-import { useProfile } from '../composables/useProfile'
+import { useProfile, openProfileWindow } from '../composables/useProfile'
 import { getSavedRouteForProfile } from '../composables/useRouteRestore'
 import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
@@ -660,12 +660,17 @@ function handleProfileClickOutside(event) {
 
 const { track: trackTelemetry } = useTelemetry()
 
-function selectProfile(profileId) {
+async function selectProfile(profileId) {
   closeProfileMenu()
 
   if (profileId === currentProfileId.value) return
 
   trackTelemetry('profile_switched', {}, 'settings')
+
+  // Desktop app: browser-style switching — each profile lives in its own
+  // window, so open (or focus) the target profile's window and leave this
+  // window on its current profile.
+  if (await openProfileWindow(profileId)) return
 
   // Land on the target profile's last location (its own per-profile route),
   // not the current profile's URL — which points at objects that don't exist

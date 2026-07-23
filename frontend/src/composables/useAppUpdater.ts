@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri, getApiBase } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
@@ -54,7 +54,7 @@ const LAST_CHECK_PREF_KEY = 'app_updates_last_checked_at'
 const policy = ref<UpdatePolicy>('automatic')
 const loadedPrefs = ref(false)
 const isChecking = ref(false)
-const isDownloading = ref(false)
+const downloading = ref(false)
 const lastCheckedAt = ref<string | null>(null)
 const availableUpdate = shallowRef<TauriUpdate | null>(null)
 const downloadedVersion = ref<string | null>(null)
@@ -65,6 +65,81 @@ const stagedVersion = ref<string | null>(null)
 const pendingApply = ref<ApplyAction | null>(null)
 const currentVersion = ref('0.0.0')
 let recheckAfterCurrentInstall = false
+
+// Cross-window mirroring. Only one window runs the update loop (the Web Lock
+// owner in App.vue) and holds the live Tauri update resource; it broadcasts
+// display state so every profile window shows the update pill, and executes
+// download/apply actions forwarded from the other windows.
+interface MirroredUpdateState {
+  hasUpdate: boolean
+  availableVersion: string | null
+  stagedVersion: string | null
+  pendingApply: ApplyAction | null
+  isDownloading: boolean
+  isChecking: boolean
+  lastCheckedAt: string | null
+}
+const remoteState = ref<MirroredUpdateState | null>(null)
+let isUpdaterOwner = false
+// True once another window has identified itself as the owner; updater
+// actions are forwarded there instead of duplicating work (and Rust-side
+// update resources) locally.
+let remoteOwnerSeen = false
+const updaterChannel =
+  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('stimma-updater') : null
+
+function publishUpdaterState(): void {
+  if (!isUpdaterOwner || !updaterChannel) return
+  updaterChannel.postMessage({
+    type: 'state',
+    state: {
+      hasUpdate: availableUpdate.value !== null,
+      availableVersion: availableUpdate.value?.version ?? null,
+      stagedVersion: stagedVersion.value,
+      pendingApply: pendingApply.value,
+      isDownloading: downloading.value,
+      isChecking: isChecking.value,
+      lastCheckedAt: lastCheckedAt.value,
+    },
+  })
+}
+
+/**
+ * Called by the window that acquired the updater loop lock. Ownership can
+ * move to another window when the previous owner closes.
+ */
+export function markUpdaterOwner(): void {
+  isUpdaterOwner = true
+  remoteState.value = null
+  publishUpdaterState()
+}
+
+if (updaterChannel) {
+  updaterChannel.onmessage = (event: MessageEvent) => {
+    const message = event.data
+    if (!message?.type) return
+    if (message.type === 'state' && !isUpdaterOwner) {
+      remoteOwnerSeen = true
+      remoteState.value = message.state
+    } else if (message.type === 'request-state') {
+      publishUpdaterState()
+    } else if (message.type === 'download' && isUpdaterOwner) {
+      void downloadAndInstallUpdate()
+    } else if (message.type === 'apply' && isUpdaterOwner) {
+      void restartToApply()
+    } else if (message.type === 'check' && isUpdaterOwner) {
+      void checkForUpdates(message.trigger ?? 'manual')
+    } else if (message.type === 'policy') {
+      // Keep every window's in-memory policy in step with a change made in
+      // any of them (the preference itself is stored once, backend-side).
+      if (UPDATE_POLICIES.includes(message.mode)) {
+        policy.value = message.mode
+      }
+    }
+  }
+  // A window created after the owner last broadcast needs the current state.
+  updaterChannel.postMessage({ type: 'request-state' })
+}
 
 async function getPreference<T>(key: string): Promise<T | null> {
   try {
@@ -123,6 +198,7 @@ async function loadPreferences(): Promise<void> {
 async function setUpdatePolicy(nextPolicy: UpdatePolicy): Promise<void> {
   const previous = policy.value
   policy.value = nextPolicy
+  updaterChannel?.postMessage({ type: 'policy', mode: nextPolicy })
   await setPreference(POLICY_PREF_KEY, { mode: nextPolicy })
 
   // Switching into a checking mode should take effect immediately rather than
@@ -140,12 +216,19 @@ async function saveLastCheckedAt(): Promise<void> {
 
 async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<void> {
   if (!isTauri() || isPrivacyLockdownActive()) return
+  // Non-owner window: run the check in the owner window, which holds the
+  // update resources and broadcasts the outcome back. Running it locally
+  // would duplicate the resource and, in automatic mode, the download.
+  if (!isUpdaterOwner && remoteOwnerSeen && updaterChannel) {
+    updaterChannel.postMessage({ type: 'check', trigger })
+    return
+  }
   await loadPreferences()
   if (isPrivacyLockdownActive() || isChecking.value) return
   // A canary package can still be downloading when the next scheduled check
   // fires. Do not race two updater resources against the app bundle; check
   // again as soon as the current background install finishes instead.
-  if (isDownloading.value) {
+  if (downloading.value) {
     if (policy.value === 'automatic' && !isWindowsPlatform()) {
       recheckAfterCurrentInstall = true
     }
@@ -216,7 +299,7 @@ async function stageUpdate(): Promise<void> {
   if (
     isPrivacyLockdownActive()
     || !availableUpdate.value
-    || isDownloading.value
+    || downloading.value
     || stagedVersion.value
   ) return
 
@@ -232,7 +315,7 @@ async function stageUpdate(): Promise<void> {
     return
   }
 
-  isDownloading.value = true
+  downloading.value = true
   try {
     await update.download()
     await update.install()
@@ -245,7 +328,7 @@ async function stageUpdate(): Promise<void> {
   } catch (error) {
     console.error('[updater] Background staging failed:', error)
   } finally {
-    isDownloading.value = false
+    downloading.value = false
     if (recheckAfterCurrentInstall) {
       recheckAfterCurrentInstall = false
       void checkForUpdates('auto')
@@ -264,17 +347,23 @@ async function resetStaged(): Promise<void> {
 }
 
 async function downloadAndInstallUpdate(): Promise<void> {
-  if (isPrivacyLockdownActive() || !availableUpdate.value || isDownloading.value) return
+  // Non-owner window: the live update resource lives in the owner window —
+  // forward the action there.
+  if (!availableUpdate.value && remoteState.value?.hasUpdate && updaterChannel) {
+    updaterChannel.postMessage({ type: 'download' })
+    return
+  }
+  if (isPrivacyLockdownActive() || !availableUpdate.value || downloading.value) return
 
   const version = availableUpdate.value.version
-  isDownloading.value = true
+  downloading.value = true
   try {
     await availableUpdate.value.downloadAndInstall()
     track('update_installed', { version, mode: 'prompt' })
     await relaunchApp()
   } catch (error) {
     console.error('[updater] Download/install failed:', error)
-    isDownloading.value = false
+    downloading.value = false
   }
 }
 
@@ -283,19 +372,25 @@ async function downloadAndInstallUpdate(): Promise<void> {
 // app closes, and the passive installer swaps files and relaunches. On mac/linux
 // the package is already installed, so we just relaunch into it.
 async function restartToApply(): Promise<void> {
-  if (!stagedVersion.value || isDownloading.value) return
+  // Non-owner window: the staged update lives in the owner window — forward
+  // the action there (the resulting relaunch restarts every window).
+  if (!stagedVersion.value && remoteState.value?.stagedVersion && updaterChannel) {
+    updaterChannel.postMessage({ type: 'apply' })
+    return
+  }
+  if (!stagedVersion.value || downloading.value) return
 
   if (pendingApply.value === 'install' && availableUpdate.value) {
     if (isPrivacyLockdownActive()) return
     const version = stagedVersion.value
-    isDownloading.value = true
+    downloading.value = true
     try {
       await availableUpdate.value.downloadAndInstall()
       track('update_installed', { version, mode: 'automatic' })
     } catch (error) {
       // Leave the staged state intact so the button stays actionable.
       console.error('[updater] Download/install failed:', error)
-      isDownloading.value = false
+      downloading.value = false
       return
     }
     // The passive installer relaunches; relaunch() is a fallback for the rare
@@ -324,8 +419,38 @@ const updatesEnabled = computed(() => isTauri() && Boolean(updateEndpoint.value)
 // builds). Keep this independent of updatesEnabled so the UI can affirm the
 // privacy guarantee instead of falling through to the build-availability copy.
 const updatesBlockedByPrivacyLockdown = computed(() => privacyLockdownActive.value)
-const hasUpdate = computed(() => availableUpdate.value !== null)
-const pendingRestart = computed(() => stagedVersion.value !== null)
+// Display state folds in the owner window's broadcast so the update pill
+// shows in every window, not just the one running the update loop.
+const hasUpdate = computed(
+  () => availableUpdate.value !== null || (remoteState.value?.hasUpdate ?? false)
+)
+const pendingRestart = computed(
+  () => stagedVersion.value !== null || remoteState.value?.stagedVersion != null
+)
+const isDownloading = computed(
+  () => downloading.value || (remoteState.value?.isDownloading ?? false)
+)
+const checkingDisplay = computed(
+  () => isChecking.value || (remoteState.value?.isChecking ?? false)
+)
+const availableVersion = computed(
+  () => availableUpdate.value?.version ?? remoteState.value?.availableVersion ?? null
+)
+const stagedVersionDisplay = computed(
+  () => stagedVersion.value ?? remoteState.value?.stagedVersion ?? null
+)
+const pendingApplyDisplay = computed(
+  () => pendingApply.value ?? remoteState.value?.pendingApply ?? null
+)
+// The owner's timestamp is fresher than this window's boot-time preference read.
+const lastCheckedAtDisplay = computed(
+  () => remoteState.value?.lastCheckedAt ?? lastCheckedAt.value
+)
+
+watch(
+  [availableUpdate, stagedVersion, pendingApply, downloading, isChecking, lastCheckedAt],
+  publishUpdaterState
+)
 
 export function useAppUpdater() {
   return {
@@ -335,15 +460,16 @@ export function useAppUpdater() {
     updatesEnabled,
     updatesBlockedByPrivacyLockdown,
     loadedPrefs,
-    isChecking,
+    isChecking: checkingDisplay,
     isDownloading,
     currentVersion,
-    lastCheckedAt,
+    lastCheckedAt: lastCheckedAtDisplay,
     availableUpdate,
+    availableVersion,
     hasUpdate,
-    stagedVersion,
+    stagedVersion: stagedVersionDisplay,
     pendingRestart,
-    pendingApply,
+    pendingApply: pendingApplyDisplay,
     loadPreferences,
     setUpdatePolicy,
     checkForUpdates,

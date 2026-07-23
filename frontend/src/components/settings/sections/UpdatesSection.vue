@@ -81,10 +81,10 @@
           </Button>
         </template>
 
-        <template v-else-if="availableUpdate">
+        <template v-else-if="hasUpdate">
           <StatusDot bucket="running" />
           <div class="flex-1 min-w-0">
-            <div class="text-sm text-content">Version {{ availableUpdate.version }} is available</div>
+            <div class="text-sm text-content">Version {{ availableVersion }} is available</div>
             <div v-if="lastCheckedAt" class="text-xs text-content-muted mt-0.5">
               Checked {{ formatRelativeTime(lastCheckedAt) }}
             </div>
@@ -201,7 +201,8 @@ const {
   isChecking,
   isDownloading,
   lastCheckedAt,
-  availableUpdate,
+  availableVersion,
+  hasUpdate,
   stagedVersion,
   pendingRestart,
   pendingApply,

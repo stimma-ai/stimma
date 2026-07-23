@@ -189,7 +189,7 @@ import { useTelemetry } from '../../composables/useTelemetry'
 import { useSettingsApi } from '../../composables/useSettingsApi'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { setDevMode, devModeRef } from '../../appConfig'
-import { useProfile } from '../../composables/useProfile'
+import { useProfile, openProfileWindow } from '../../composables/useProfile'
 import { usePinLock } from '../../composables/usePinLock'
 import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
@@ -663,10 +663,14 @@ async function handleProfileDelete(profileId) {
 const { track: trackTelemetry } = useTelemetry()
 
 async function handleProfileSwitch(profileId) {
+  // Desktop app: browser-style switching — the target profile opens (or
+  // focuses) its own window and handles its own PIN there.
+  trackTelemetry('profile_switched', {}, 'settings')
+  if (await openProfileWindow(profileId)) return
+
   try {
     // Ensure PIN is available for the target profile before switching
     await ensurePinForProfile(profileId)
-    trackTelemetry('profile_switched', {}, 'settings')
     // Update the profile ID (this dispatches profile-changed event)
     setCurrentProfileId(profileId)
     // Wait for Vue to process the change

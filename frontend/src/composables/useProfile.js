@@ -6,11 +6,72 @@
  */
 import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
-import { getApiBase, rewriteUrl } from '../apiConfig'
+import { getApiBase, rewriteUrl, isTauri } from '../apiConfig'
 import { getCachedPin } from './usePinLock'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
+
+// In the desktop app each window is pinned to one profile (browser-style
+// multi-window). The pinned profile comes from the Rust window registry and
+// overrides the localStorage seed above, which only decides the profile for
+// the bootstrap window of a fresh install (and for plain web dev).
+let windowProfileInitPromise = null
+
+/**
+ * Resolve this window's pinned profile from the Rust window registry.
+ * Must be awaited before profile-scoped startup work.
+ */
+export function initWindowProfile() {
+  if (!windowProfileInitPromise) {
+    windowProfileInitPromise = (async () => {
+      if (!isTauri()) return null
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const profileId = await invoke('get_window_profile')
+        if (profileId) {
+          currentProfileId.value = profileId
+        }
+        return profileId || null
+      } catch (error) {
+        console.warn('[Profile] Failed to resolve window profile:', error)
+        return null
+      }
+    })()
+  }
+  return windowProfileInitPromise
+}
+
+/**
+ * Record which profile this window ended up on, so the window registry can
+ * restore it on relaunch and focus it on profile switches.
+ */
+export async function reportWindowProfile(profileId) {
+  if (!isTauri() || !profileId) return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('report_window_profile', { profileId })
+  } catch (error) {
+    console.warn('[Profile] Failed to report window profile:', error)
+  }
+}
+
+/**
+ * Browser-style profile switch: open (or focus) the profile's own window.
+ * Returns false outside the desktop app or on failure — callers fall back
+ * to the legacy in-place switch.
+ */
+export async function openProfileWindow(profileId) {
+  if (!isTauri() || !profileId) return false
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('open_profile_window', { profileId })
+    return true
+  } catch (error) {
+    console.warn('[Profile] Failed to open profile window:', error)
+    return false
+  }
+}
 const profiles = ref([])
 const isLoadingProfiles = ref(false)
 
@@ -52,6 +113,7 @@ export function setCurrentProfileId(profileId) {
   // Now update the profile ID
   currentProfileId.value = profileId
   localStorage.setItem('profileId', profileId)
+  void reportWindowProfile(profileId)
 
   // Dispatch 'profile-changed' AFTER changing the profile ID
   // This triggers composables to reload from the NEW profile's storage
@@ -71,6 +133,22 @@ export async function apiFetch(url, options = {}) {
 }
 
 /**
+ * This window's profile no longer exists — close the window (browser-style).
+ * Returns false when it is the last window (or outside the desktop app); the
+ * caller then falls back to another profile in place.
+ */
+async function closeWindowForDeletedProfile() {
+  if (!isTauri()) return false
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return await invoke('close_deleted_profile_window')
+  } catch (error) {
+    console.warn('[Profile] Failed to close window for deleted profile:', error)
+    return false
+  }
+}
+
+/**
  * Load available profiles from the API.
  */
 export async function loadProfiles() {
@@ -85,9 +163,16 @@ export async function loadProfiles() {
       // set it to the first profile's ID
       const currentId = currentProfileId.value
       const exists = profiles.value.some(p => p.id === currentId)
+      // A pinned profile that vanished means it was deleted: this window
+      // closes rather than silently becoming another profile's window. The
+      // last window can't close, so it falls through to the fallback below.
+      if (currentId && !exists && profiles.value.length > 0) {
+        if (await closeWindowForDeletedProfile()) return
+      }
       if ((!currentId || !exists) && profiles.value.length > 0) {
         currentProfileId.value = profiles.value[0].id
         localStorage.setItem('profileId', profiles.value[0].id)
+        void reportWindowProfile(profiles.value[0].id)
       }
     }
   } catch (error) {

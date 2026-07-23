@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 
 mod embed;
 mod voice;
+mod windows;
 
 /// Set to true only when the app is genuinely quitting (Cmd-Q on macOS, the
 /// tray "Quit" item on Windows/Linux). Closing the main window leaves this
@@ -24,14 +25,6 @@ const STIMMA_DISTRIBUTION: &str = match option_env!("STIMMA_DISTRIBUTION") {
     Some(v) => v,
     None => "dev",
 };
-
-fn show_main_window(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
-}
 
 // Shared state for the backend port
 struct BackendState {
@@ -304,6 +297,14 @@ pub fn run() {
     let browser_data_store_id = get_or_create_webview_data_store_id(&browser_data_dir)
         .expect("failed to initialize sandbox browser profile");
 
+    let window_registry = Arc::new(windows::WindowRegistry::load(&app_data_dir));
+    let window_factory = Arc::new(windows::WindowFactory {
+        config: main_window_config,
+        browser_data_dir: browser_data_dir.clone(),
+        #[cfg(target_os = "macos")]
+        data_store_id: browser_data_store_id,
+    });
+
     tauri::Builder::default()
         // Must be the first plugin registered. If the user relaunches Stimma
         // while the window is hidden (taskbar/launcher click, or when a Linux
@@ -311,7 +312,7 @@ pub fn run() {
         // spawning a second Tauri process — which would start a second watchdog
         // and backend, colliding on ports and paying the startup cost twice.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main_window(app);
+            windows::show_all_windows(app);
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(
@@ -342,11 +343,17 @@ pub fn run() {
         )
         .manage(backend_state.clone())
         .manage(Arc::new(voice::VoiceState::new()))
+        .manage(window_registry.clone())
+        .manage(window_factory.clone())
         .invoke_handler(tauri::generate_handler![
             get_backend_port,
             print_webview,
             log_from_webview,
             shift_key_down,
+            windows::get_window_profile,
+            windows::report_window_profile,
+            windows::open_profile_window,
+            windows::close_deleted_profile_window,
             embed::embed_metadata,
             voice::voice_model_status,
             voice::voice_download_model,
@@ -356,25 +363,43 @@ pub fn run() {
             voice::voice_keepalive
         ])
         .on_window_event(|window, event| {
-            // Closing the main window hides it rather than quitting, so the
-            // backend stays warm. A genuine quit sets QUITTING first.
+            // Browser-style close semantics: closing one of several profile
+            // windows destroys it and drops it from the restore set. Closing
+            // the last window hides it rather than quitting, so the backend
+            // stays warm. A genuine quit sets QUITTING first and leaves the
+            // registry intact so all windows come back on relaunch.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" && !QUITTING.load(Ordering::SeqCst) {
+                if QUITTING.load(Ordering::SeqCst) {
+                    return;
+                }
+                let app = window.app_handle();
+                if app.webview_windows().len() > 1 {
+                    let registry = app.state::<Arc<windows::WindowRegistry>>();
+                    registry.remove(window.label());
+                } else {
                     api.prevent_close();
                     let _ = window.hide();
                 }
             }
         })
         .setup(move |app| {
-            let main_window_builder =
-                tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_config)?
-                    .data_directory(browser_data_dir.clone());
-
-            #[cfg(target_os = "macos")]
-            let main_window_builder =
-                main_window_builder.data_store_identifier(browser_data_store_id);
-
-            main_window_builder.build()?;
+            // Recreate the windows that were open when the app last quit
+            // (browser-style session restore). First launch — or a registry
+            // that went missing — falls back to the single bootstrap "main"
+            // window, whose profile the frontend resolves and reports back.
+            let mut window_entries = window_registry.snapshot();
+            if window_entries.is_empty() {
+                window_entries = vec![windows::WindowEntry {
+                    label: "main".to_string(),
+                    profile_id: None,
+                }];
+                window_registry.replace(window_entries.clone());
+            }
+            for entry in &window_entries {
+                if app.get_webview_window(&entry.label).is_none() {
+                    window_factory.create_window(app.handle(), &entry.label)?;
+                }
+            }
 
             log::info!("[stimma] Browser data dir: {:?}", browser_data_dir);
 
@@ -397,7 +422,7 @@ pub fn run() {
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
-                        "show" => show_main_window(app),
+                        "show" => windows::show_all_windows(app),
                         "quit" => {
                             QUITTING.store(true, Ordering::SeqCst);
                             app.exit(0);
@@ -411,7 +436,7 @@ pub fn run() {
                             ..
                         } = event
                         {
-                            show_main_window(tray.app_handle());
+                            windows::show_all_windows(tray.app_handle());
                         }
                     })
                     .build(app)?;
@@ -546,11 +571,11 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|_app, _event| {
             // Clicking the Dock icon with no visible windows re-shows the
-            // hidden main window (macOS only). The watchdog still detects our
+            // hidden windows (macOS only). The watchdog still detects our
             // death via getppid() when the process actually exits.
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = _event {
-                show_main_window(_app);
+                windows::show_all_windows(_app);
             }
         });
 }

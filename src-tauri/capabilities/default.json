@@ -3,13 +3,15 @@
   "identifier": "default",
   "description": "Default permissions for Stimma",
   "windows": [
-    "main"
+    "main",
+    "profile-*"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:allow-close",
     "core:window:allow-set-size",
+    "core:window:allow-set-title",
     "drag:default",
     "dialog:default",
     "updater:default",
