@@ -12,6 +12,7 @@
       @delete="confirmDelete"
       @clone="cloneChat"
       @clear="clearChat"
+      @copy-raw-messages="copyAllRawMessages"
       @rename="renameChatFromStrip"
     />
 
@@ -4304,6 +4305,13 @@ async function copyJsonFromHere(itemId) {
   } else {
     addToast('Failed to copy to clipboard', 'error', 3000)
   }
+}
+
+// Copy all raw messages to clipboard (shortcut for "copy from here" on the first item)
+async function copyAllRawMessages() {
+  const firstItemId = items.value[0]?.id
+  if (firstItemId === undefined) return
+  await copyJsonFromHere(firstItemId)
 }
 
 // Copy subagent child items to clipboard
