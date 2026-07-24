@@ -4274,6 +4274,9 @@ type ForeverSubmitOptions = {
   foreverBackendName?: string
   foreverSessionId?: number
   foreverReserved?: boolean
+  // One-off count for THIS run only (the agent's generate(count)). Overrides the
+  // persistent batchSize for this submit without mutating it. Ignored in forever mode.
+  countOverride?: number
 }
 
 type SubmitJobResult = {
@@ -4311,7 +4314,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
 
   const count = options.foreverBackendName
     ? 1
-    : Math.min(8, Math.max(1, uiState.value.batchSize || 1))
+    : Math.min(8, Math.max(1, options.countOverride ?? uiState.value.batchSize ?? 1))
   let submitted = false
   let declineReservation = true
   for (let i = 0; i < count; i++) {
@@ -5783,8 +5786,13 @@ async function runTool(name: string, args: any): Promise<string> {
     // ── Actions (Tier 2) ──
     case 'generate': {
       if (!canSubmit.value) return 'Cannot generate: required inputs are missing.'
-      await submitJob()
-      return 'Generation submitted.'
+      // Optional one-off count — queues N for this run only, without touching the
+      // persistent batch size. Absent/invalid falls back to the current batchSize.
+      const rawCount = args.count != null ? Math.round(Number(args.count)) : NaN
+      const countOverride = Number.isNaN(rawCount) ? undefined : Math.min(8, Math.max(1, rawCount))
+      await submitJob(countOverride != null ? { countOverride } : {})
+      const n = countOverride ?? Math.min(8, Math.max(1, uiState.value.batchSize ?? 1))
+      return n === 1 ? 'Generation submitted.' : `Submitted ${n} generations.`
     }
     case 'start_forever_mode': {
       const concurrency = args.concurrency != null

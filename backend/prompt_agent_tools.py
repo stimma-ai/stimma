@@ -87,9 +87,12 @@ _PARAM_TOOLS = [
     ),
     _fn(
         "set_batch_size",
-        "Set the batch size — how many images one click of Run queues (same as the Run "
-        "button's batch dropdown). 1 means a single generation. Each image is queued "
-        "separately with its own seed, exactly like pressing Run that many times.",
+        "Set the PERSISTENT batch size — the new default for how many images one click of Run "
+        "queues (same as the Run button's batch dropdown), and it stays that way across runs. Use "
+        "this only when the user wants the default to change ('always make 4', 'set batch to 4'). "
+        "For a one-off 'generate 4 images', use generate with count=4 instead — do not change this. "
+        "1 means a single generation. Each image is queued separately with its own seed, exactly "
+        "like pressing Run that many times.",
         {"size": {"type": "integer", "description": "Images per run, 1-8.", "minimum": 1, "maximum": 8}},
         ["size"],
     ),
@@ -428,8 +431,17 @@ _NOTES_TOOLS = [
 
 # --- H. Actions with side effects (Tier 2) ----------------------------------
 _ACTION_TOOLS = [
-    _fn("generate", "Run generation once with the current settings (same as clicking Run). Only do "
-                    "this on explicit user intent, never as a side effect of an edit.", {}),
+    _fn(
+        "generate",
+        "Run generation with the current settings (same as clicking Run). Only do this on explicit "
+        "user intent, never as a side effect of an edit. Pass count to queue several images for "
+        "THIS run only — 'generate 4 images' is count=4. count is a one-off: it does NOT change the "
+        "persistent batch size, so the Run button's batch dropdown is left untouched. Only use "
+        "set_batch_size when the user wants a new DEFAULT that persists across runs.",
+        {"count": {"type": "integer", "description": "Images to queue for this run only, 1-8. "
+                                                     "Default 1. Does not change batch size.",
+                   "minimum": 1, "maximum": 8}},
+    ),
     _fn(
         "start_forever_mode",
         "Start generate-forever mode. Only on explicit user intent.",

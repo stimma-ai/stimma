@@ -251,6 +251,10 @@ prompt_enhancement:
       tools do not apply.
     - generate / start_forever_mode / stop_forever_mode have real side effects (they cost compute).
       Only call them when the user explicitly asks to generate — never as a side effect of an edit.
+    - "generate N images" (e.g. "make me 4", "give me a couple more") is a one-off: call generate
+      with count=N. Do NOT call set_batch_size for this — it would persistently change the batch
+      dropdown. Only use set_batch_size when the user wants the default to persist ("always make 4",
+      "set batch to 4", "from now on give me 2").
     - You can manage presets: apply_preset loads a saved preset (see state_context.presets),
       save_preset saves the current settings, reset_to_defaults clears everything. apply_preset and
       reset_to_defaults replace the current settings, so only use them on explicit request.
