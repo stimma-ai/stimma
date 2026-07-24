@@ -1272,8 +1272,12 @@ class AgentStepRequest(BaseModel):
     conversation_history: List[dict] = []
     # Live snapshot of the editor screen, refreshed every step.
     state_context: dict = {}
-    # Per-request thinking toggle (the lightbulb) — unique to this use case.
-    thinking: bool = True
+    # Per-request thinking toggle. Off by default: this is a fast, tool-driven
+    # editor agent, and on a think-by-default endpoint (e.g. a Qwen3 reasoner)
+    # leaving it on makes every trivial step spend seconds on scratchpad and can
+    # blow the token budget on reasoning alone — returning empty content, a
+    # silent no-op. Callers opt in explicitly when they want the model to reason.
+    thinking: bool = False
     # Stable id for the whole editor conversation, for caching + trace grouping.
     session_id: Optional[str] = None
     # Dev-mode diagnostic: when true, the response carries a `debug` trace
@@ -1364,7 +1368,15 @@ async def agent_step(request: AgentStepRequest):
     # the shared compactor. Shallow-copy history dicts so the in-place reminder
     # injection never mutates the request payload.
     max_ctx = int(getattr(llm_config, "max_context_tokens", 128_000) or 128_000)
-    max_tokens = response_reserve(max_ctx)
+    # Output reserve. The shared helper caps at 8k, which is ample when thinking
+    # is off. But a model that refuses to stop reasoning (ignores the
+    # enable_thinking:false lever) can burn the whole budget on scratchpad and
+    # return empty content — the silent-failure mode. Give this agent extra
+    # headroom (floor 16k) so a stubborn reasoner still has room to emit an
+    # answer/tool call after it thinks, but never claim more than a quarter of
+    # the window so small local models keep room for history.
+    _reserve = response_reserve(max_ctx)
+    max_tokens = min(max(_reserve, 16_384), max(_reserve, max_ctx // 4))
     overhead = _estimate_tokens([
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "\n\n".join(reminders)},

@@ -312,7 +312,9 @@
           class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
           :title="feedbackBusy() ? 'Working…' : 'Send'"
         >
-          <Spinner v-if="feedbackBusy()" size="md" hue="border-t-surface" />
+          <svg v-if="feedbackBusy()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
+            <rect x="6" y="6" width="12" height="12" rx="1" />
+          </svg>
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
             <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
           </svg>
