@@ -279,6 +279,17 @@ class ThumbnailRequestAbandoned(Exception):
     """Raised when every client waiting on a generation has disconnected."""
 
 
+class ContainerMembersPending(Exception):
+    """Raised when a set/grid has image members whose files aren't on disk yet.
+
+    The stacked/mosaic preview can't be built until member payloads finish
+    staging/ingestion. Caching the placeholder fallback here would make it
+    stick forever (the container-json mtime doesn't change when members later
+    land), so we signal the route to serve a retryable 503 instead — the same
+    self-healing contract as a transient layout thumbnail.
+    """
+
+
 async def _generate_thumbnail_in_pool(
     request: Request,
     cache_key: str,
@@ -648,11 +659,16 @@ def _generate_set_preview(
         items = (normalized_content or data).get('items', [])
         base_path = PathLib(file_path).parent
 
-        # Collect valid image paths (up to 3 for stacked cards)
+        # Collect valid image paths (up to 3 for stacked cards). Track whether
+        # any image member is referenced but not yet on disk — a member payload
+        # still staging/ingesting — so a transient miss doesn't get cached as a
+        # permanent placeholder.
         image_paths = []
+        members_pending = False
         for item in items[:3]:
             resolved = item.get('resolved') or {}
-            ref_path = resolved.get('file_path') or item.get('path')
+            resolved_path = resolved.get('file_path')
+            ref_path = resolved_path or item.get('path')
             if not ref_path:
                 continue
 
@@ -663,17 +679,29 @@ def _generate_set_preview(
             else:
                 full_path = (base_path / ref).resolve()
 
+            is_image_ref = full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
             # Check if it's an image file that exists
-            if full_path.exists() and full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}:
+            if is_image_ref and full_path.exists():
                 image_paths.append(str(full_path))
+            elif is_image_ref and resolved_path:
+                # A live, resolved member whose payload hasn't landed on disk
+                # yet (still staging/ingesting). Unavailable/old-style entries
+                # (no resolved path) are treated as a stable placeholder below.
+                members_pending = True
 
         if not image_paths:
-            # Fall back to placeholder if no valid images
+            if members_pending:
+                # Image members exist but their files haven't landed yet —
+                # retryable, do not cache the placeholder.
+                raise ContainerMembersPending(file_path)
+            # Genuinely no image members: a stable, cacheable placeholder.
             return _generate_placeholder_thumbnail(size, 'set', palette=palette)
 
         # Create stacked cards preview
         return _create_stacked_cards(image_paths, size, palette=palette)
 
+    except ContainerMembersPending:
+        raise
     except Exception as e:
         log.warning(f"Failed to generate set preview for {file_path}: {e}")
         return _generate_placeholder_thumbnail(size, 'set', palette=palette)
@@ -723,13 +751,19 @@ def _generate_grid_preview(
         show_cols = full_cols + (1 if has_more_cols else 0)
         show_rows = full_rows + (1 if has_more_rows else 0)
 
+        # Track whether any image cell is referenced but not yet on disk — a
+        # member payload still staging/ingesting — so a transient miss doesn't
+        # get cached as a permanent placeholder.
+        cell_pending = {"any": False}
+
         def resolve_cell_path(row, col):
             """Resolve a cell's image path, return None if not found."""
             cell = cell_lookup.get((row, col))
             if not cell:
                 return None
             resolved = cell.get('resolved') or {}
-            ref_path = resolved.get('file_path') or cell.get('path')
+            resolved_path = resolved.get('file_path')
+            ref_path = resolved_path or cell.get('path')
             if not ref_path:
                 return None
             ref = PathLib(ref_path)
@@ -737,8 +771,12 @@ def _generate_grid_preview(
                 full_path = ref
             else:
                 full_path = (base_path / ref).resolve()
-            if full_path.exists() and full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}:
+            is_image_ref = full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+            if is_image_ref and full_path.exists():
                 return str(full_path)
+            if is_image_ref and resolved_path:
+                # Live, resolved member whose payload hasn't landed on disk yet.
+                cell_pending["any"] = True
             return None
 
         # Collect image paths in grid order (including partial row/col)
@@ -748,7 +786,11 @@ def _generate_grid_preview(
                 image_paths.append(resolve_cell_path(row, col))
 
         if not any(image_paths):
-            # Fall back to placeholder if no valid images
+            if cell_pending["any"]:
+                # Image members exist but their files haven't landed yet —
+                # retryable, do not cache the placeholder.
+                raise ContainerMembersPending(file_path)
+            # Genuinely no image members: a stable, cacheable placeholder.
             return _generate_placeholder_thumbnail(size, 'grid', palette=palette)
 
         # Create grid preview with actual dimensions
@@ -761,6 +803,8 @@ def _generate_grid_preview(
             palette=palette,
         )
 
+    except ContainerMembersPending:
+        raise
     except Exception as e:
         log.warning(f"Failed to generate grid preview for {file_path}: {e}")
         return _generate_placeholder_thumbnail(size, 'grid', palette=palette)
@@ -1407,6 +1451,10 @@ def _generate_thumbnail_sync(
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
         return True
 
+    except ContainerMembersPending:
+        # Retryable: set/grid member files not on disk yet. Propagate so the
+        # route serves a 503 instead of caching a stale placeholder.
+        raise
     except (FileNotFoundError, NotADirectoryError) as e:
         log.debug(f"Thumbnail source disappeared before generation for {file_path}: {e}")
         return False
@@ -2051,6 +2099,17 @@ async def get_thumbnail(
                 detail="Thumbnail request abandoned",
                 headers={"Retry-After": "1"},
             )
+        except ContainerMembersPending:
+            # Set/grid member files aren't on disk yet (still staging or
+            # ingesting). Serve a retryable 503 rather than caching the
+            # placeholder — otherwise the stale placeholder would stick even
+            # after the members land, since the container-json mtime (the only
+            # freshness signal in the cache key) never changes.
+            raise HTTPException(
+                status_code=503,
+                detail="Container members not ready yet",
+                headers={"Retry-After": "1"},
+            )
 
     if not success:
         await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
@@ -2634,6 +2693,17 @@ async def get_thumbnail_by_db_guid(
                 detail="Thumbnail request abandoned",
                 headers={"Retry-After": "1"},
             )
+        except ContainerMembersPending:
+            # Set/grid member files aren't on disk yet (still staging or
+            # ingesting). Serve a retryable 503 rather than caching the
+            # placeholder — otherwise the stale placeholder would stick even
+            # after the members land, since the container-json mtime (the only
+            # freshness signal in the cache key) never changes.
+            raise HTTPException(
+                status_code=503,
+                detail="Container members not ready yet",
+                headers={"Retry-After": "1"},
+            )
 
     if not success:
         await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
@@ -2958,6 +3028,17 @@ async def get_thumbnail_path_by_media_id(
             raise HTTPException(
                 status_code=503,
                 detail="Thumbnail request abandoned",
+                headers={"Retry-After": "1"},
+            )
+        except ContainerMembersPending:
+            # Set/grid member files aren't on disk yet (still staging or
+            # ingesting). Serve a retryable 503 rather than caching the
+            # placeholder — otherwise the stale placeholder would stick even
+            # after the members land, since the container-json mtime (the only
+            # freshness signal in the cache key) never changes.
+            raise HTTPException(
+                status_code=503,
+                detail="Container members not ready yet",
                 headers={"Retry-After": "1"},
             )
 
