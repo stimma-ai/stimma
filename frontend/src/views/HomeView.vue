@@ -278,7 +278,7 @@
       @move-to-project="handleContextMenuMoveToProject"
     />
 
-    <MediaContextMenu />
+    <MediaContextMenu @refresh="loadRecentMedia" />
   </div>
 </template>
 
