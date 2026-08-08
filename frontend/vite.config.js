@@ -67,7 +67,14 @@ export default defineConfig(() => ({
     __STIMMA_COMMIT__: JSON.stringify(commitHash),
   },
   resolve: {
-    alias: distributionAliases
+    alias: [
+      // vue-resize uses an <object>-based detector that can crash WebKitGTK.
+      {
+        find: /^vue-resize$/,
+        replacement: resolve(__dirname, 'src/vendor/vueResize.js')
+      },
+      ...distributionAliases
+    ]
   },
   server: {
     port: frontendPort,
