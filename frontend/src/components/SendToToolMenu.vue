@@ -65,7 +65,7 @@ const emit = defineEmits<{
   (e: 'sent'): void
 }>()
 
-const { listAllTools } = useProvidersApi()
+const { listAvailableTools } = useProvidersApi()
 const { sendToTool } = useSendToTool()
 
 const showMenu = ref(false)
@@ -105,7 +105,7 @@ async function toggleMenu() {
   if (tools.value.length === 0) {
     loading.value = true
     try {
-      tools.value = await listAllTools()
+      tools.value = await listAvailableTools()
     } catch (err) {
       console.error('Failed to load tools:', err)
     } finally {

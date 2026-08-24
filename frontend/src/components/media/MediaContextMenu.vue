@@ -937,7 +937,7 @@ const {
   permanentlyDeleteMany: permanentlyDeleteAssets,
   promoteContextualMedia,
 } = useAssetApi()
-const { listAllTools } = useProvidersApi()
+const { listAvailableTools } = useProvidersApi()
 const { sendToTool: sendToToolComposable } = useSendToTool()
 const flowsApi = useFlowsApi()
 
@@ -1424,7 +1424,7 @@ async function loadTools() {
   if (tools.value.length > 0 || loadingTools.value) return
   loadingTools.value = true
   try {
-    tools.value = await listAllTools()
+    tools.value = await listAvailableTools()
   } catch (err) {
     console.error('Failed to load tools:', err)
   } finally {

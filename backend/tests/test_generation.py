@@ -927,6 +927,30 @@ class TestGenerateMore:
         assert original["full_tool_id"] == "test:text-to-image:test-model"
         assert original["original_generator_instance_id"] is None
 
+    async def test_remix_tools_exclude_disconnected_providers(
+        self,
+        generation_app,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+    ):
+        """Remix is an action menu, so cached tools must not be offered."""
+        from providers.base import ProviderStatus
+
+        async with generation_db_session() as session:
+            media = await create_media_with_generation_metadata(session)
+            await session.commit()
+            media_id = media.id
+
+        provider = generation_app.state.test_provider
+        provider._status = ProviderStatus.DISCONNECTED
+        try:
+            response = await generation_client.get(f"/api/tools/remix-tools/{media_id}")
+        finally:
+            provider._status = ProviderStatus.CONNECTED
+
+        assert response.status_code == 200
+        assert all(tool["provider_id"] != provider.provider_id for tool in response.json())
+
 
 # =============================================================================
 # Config From Media Tests

@@ -163,6 +163,20 @@ export function useProvidersApi() {
   }
 
   /**
+   * List tools that can be invoked right now.
+   *
+   * Menu/picker surfaces must use this rather than the catalog-oriented
+   * listAllTools(), which intentionally includes cached descriptors from
+   * disconnected providers for history and settings UI.
+   */
+  async function listAvailableTools(): Promise<ProviderTool[]> {
+    const response = await axios.get(`${getToolsAPIBase()}/providers/tools`, {
+      params: { include_unavailable: false },
+    })
+    return response.data.map(normalizeProvider)
+  }
+
+  /**
    * Fetch providers and tools together, with caching
    */
   async function fetchProvidersAndTools(forceRefresh = false): Promise<{
@@ -485,6 +499,7 @@ export function useProvidersApi() {
     listProviders,
     getProvider,
     listAllTools,
+    listAvailableTools,
     fetchProvidersAndTools,
     getToolsGroupedByProvider,
     getToolsByTaskType,

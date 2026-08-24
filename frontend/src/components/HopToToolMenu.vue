@@ -146,7 +146,7 @@ const emit = defineEmits<{
   (e: 'rename', name: string | null): void
 }>()
 
-const { fetchProvidersAndTools } = useProvidersApi()
+const { listAvailableTools } = useProvidersApi()
 
 const showMenu = ref(false)
 const loadingTools = ref(false)
@@ -217,9 +217,7 @@ async function toggleMenu() {
   loadingTools.value = true
 
   try {
-    // Fetch all tools
-    const { tools: allTools } = await fetchProvidersAndTools()
-    tools.value = allTools
+    tools.value = await listAvailableTools()
   } catch (err) {
     console.error('Failed to load tools:', err)
   } finally {

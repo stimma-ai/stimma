@@ -1325,6 +1325,7 @@ async def get_generate_more_tools(
     marked with is_original=True, followed by others alphabetically.
     """
     from providers import ProviderRegistry
+    from providers.base import ProviderStatus
 
     registry = ProviderRegistry.get_instance()
 
@@ -1401,7 +1402,10 @@ async def get_generate_more_tools(
 
     # Get tools matching the source task type (check task_types list for multi-task tools)
     all_tools = []
+    enabled_provider_ids = registry.get_enabled_provider_ids()
     for pid, provider in registry._providers.items():
+        if pid not in enabled_provider_ids or provider.status != ProviderStatus.CONNECTED:
+            continue
         provider_tools = await provider.list_tools()
         for tool in provider_tools:
             tool_types = getattr(tool, 'task_types', []) or ([tool.task_type] if tool.task_type else [])
@@ -1425,6 +1429,8 @@ async def get_generate_more_tools(
     # If no tools found for source task type, fall back to text-to-image
     if not all_tools and source_task_type != "text-to-image":
         for pid, provider in registry._providers.items():
+            if pid not in enabled_provider_ids or provider.status != ProviderStatus.CONNECTED:
+                continue
             provider_tools = await provider.list_tools()
             for tool in provider_tools:
                 fallback_types = getattr(tool, 'task_types', []) or ([tool.task_type] if tool.task_type else [])
