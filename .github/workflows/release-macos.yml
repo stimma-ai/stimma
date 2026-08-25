@@ -61,8 +61,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          # The self-hosted signer must not fail an otherwise published release
+          # in setup-node's post-job cache upload. npm install is fast here and
+          # the GitHub cache service is not part of the release critical path.
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
