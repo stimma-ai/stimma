@@ -1122,7 +1122,8 @@ onMounted(() => {
         type: data.type,
         title: data.title || 'System Warning',
         message: data.message || '',
-        action_url: data.action_url || ''
+        action_url: data.action_url || '',
+        action_label: data.action_label || ''
       })
     }
   })

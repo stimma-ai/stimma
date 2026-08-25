@@ -1573,16 +1573,9 @@ async def get_system_warnings():
 
     # Check FFmpeg availability
     checker = get_ffmpeg_checker()
-    ffmpeg_available, ffprobe_available = checker.check_availability()
-
-    if not ffmpeg_available or not ffprobe_available:
-        warnings.append({
-            "type": "ffmpeg_missing",
-            "title": "Video tools unavailable",
-            "message": "A required video component isn't installed, so video import and export won't work.",
-            "action_url": "https://stimma.ai/link/ffmpeg",
-            "action_label": "Install"
-        })
+    warning = checker.warning_for_health(checker.check_health())
+    if warning:
+        warnings.append(warning)
 
     return {"warnings": warnings}
 
@@ -1601,30 +1594,25 @@ async def recheck_ffmpeg():
     checker.clear_cache()
 
     # Perform fresh check
-    ffmpeg_available, ffprobe_available = checker.check_availability(use_cache=False)
+    health = checker.check_health(use_cache=False)
+    ffmpeg_available = health.ffmpeg.value == "available"
+    ffprobe_available = health.ffprobe.value == "available"
+    warning = checker.warning_for_health(health)
 
-    if not ffmpeg_available or not ffprobe_available:
-        # FFmpeg is missing - broadcast warning
-        missing_tools = []
-        if not ffmpeg_available:
-            missing_tools.append("ffmpeg")
-        if not ffprobe_available:
-            missing_tools.append("ffprobe")
-
-        log.info(f"FFmpeg recheck: Missing {', '.join(missing_tools)}")
-
-        await ws_manager.broadcast('system_warning', {
-            'type': 'ffmpeg_missing',
-            'title': 'Video tools unavailable',
-            'message': "A required video component isn't installed, so video import and export won't work.",
-            'action_url': 'https://stimma.ai/link/ffmpeg'
-        }, include_profile=False)
+    if warning:
+        log.info("FFmpeg recheck found an unhealthy installation", health=health)
+        other_warning = "ffmpeg_missing" if warning["type"] == "ffmpeg_broken" else "ffmpeg_broken"
+        await ws_manager.broadcast(
+            'system_warning_cleared', {'type': other_warning}, include_profile=False
+        )
+        await ws_manager.broadcast('system_warning', warning, include_profile=False)
 
         return {
             "status": "warning",
             "ffmpeg_available": ffmpeg_available,
             "ffprobe_available": ffprobe_available,
-            "message": f"FFmpeg components missing: {', '.join(missing_tools)}"
+            "health": {"ffmpeg": health.ffmpeg.value, "ffprobe": health.ffprobe.value},
+            "message": warning["message"],
         }
     else:
         # FFmpeg is available - broadcast cleared event
@@ -1632,6 +1620,9 @@ async def recheck_ffmpeg():
 
         await ws_manager.broadcast('system_warning_cleared', {
             'type': 'ffmpeg_missing'
+        }, include_profile=False)
+        await ws_manager.broadcast('system_warning_cleared', {
+            'type': 'ffmpeg_broken'
         }, include_profile=False)
 
         return {
@@ -1651,7 +1642,7 @@ async def mark_system_warning_shown(request: MarkWarningShownRequest):
     """Mark a system warning as dismissed so it isn't re-shown unprompted."""
     from ffmpeg_checker import get_ffmpeg_checker
 
-    if request.warning_type == "ffmpeg_missing":
+    if request.warning_type in ("ffmpeg_missing", "ffmpeg_broken"):
         get_ffmpeg_checker().mark_warning_shown()
 
     return {"status": "success"}

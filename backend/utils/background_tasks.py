@@ -527,48 +527,28 @@ async def monitor_system_warnings(ws_manager):
     from ffmpeg_checker import get_ffmpeg_checker
 
     # Track active warnings to detect state changes
-    active_warnings = set()
+    active_warning = None
 
     while True:
         try:
             await asyncio.sleep(300)  # Check every 5 minutes
 
             checker = get_ffmpeg_checker()
-            ffmpeg_available, ffprobe_available = checker.check_availability()
+            health = checker.check_health()
+            warning = checker.warning_for_health(health)
+            next_warning = warning["type"] if warning else None
 
-            warning_key = "ffmpeg_missing"
-
-            # Check if FFmpeg is missing
-            if not ffmpeg_available or not ffprobe_available:
-                # FFmpeg is missing
-                if warning_key not in active_warnings:
-                    # New warning - broadcast it
-                    active_warnings.add(warning_key)
-
-                    missing_tools = []
-                    if not ffmpeg_available:
-                        missing_tools.append("ffmpeg")
-                    if not ffprobe_available:
-                        missing_tools.append("ffprobe")
-
-                    log.warning(f"SYSTEM WARNING: FFmpeg components missing: {', '.join(missing_tools)}")
-
-                    await ws_manager.broadcast('system_warning', {
-                        'type': 'ffmpeg_missing',
-                        'title': 'FFmpeg Required',
-                        'message': f'FFmpeg is not installed on your system. Missing: {", ".join(missing_tools)}',
-                        'action_url': 'https://stimma.ai/link/ffmpeg'
-                    }, include_profile=False)
-            else:
-                # FFmpeg is available
-                if warning_key in active_warnings:
-                    # Warning cleared - broadcast cleared event
-                    active_warnings.remove(warning_key)
+            if active_warning != next_warning:
+                if active_warning:
+                    await ws_manager.broadcast(
+                        'system_warning_cleared', {'type': active_warning}, include_profile=False
+                    )
+                if warning:
+                    log.warning("SYSTEM WARNING: FFmpeg installation unhealthy", health=health)
+                    await ws_manager.broadcast('system_warning', warning, include_profile=False)
+                else:
                     log.info("SYSTEM WARNING: FFmpeg is now available")
-
-                    await ws_manager.broadcast('system_warning_cleared', {
-                        'type': 'ffmpeg_missing'
-                    }, include_profile=False)
+                active_warning = next_warning
 
         except asyncio.CancelledError:
             log.info("SYSTEM WARNINGS MONITOR: Shutting down")

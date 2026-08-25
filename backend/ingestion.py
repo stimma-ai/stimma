@@ -2099,12 +2099,14 @@ class MediaIngestion:
 
         # Check FFmpeg availability before attempting to use it
         checker = get_ffmpeg_checker()
-        ffmpeg_available, ffprobe_available = checker.check_availability()
+        health = checker.check_health()
+        ffmpeg_available = health.ffmpeg.value == "available"
+        ffprobe_available = health.ffprobe.value == "available"
 
         if not ffmpeg_available or not ffprobe_available:
             # Log warning and set flag for first-time detection
             if not checker.is_warning_shown():
-                log.warning("ffmpeg not found in PATH - video frame extraction will fail")
+                log.warning("FFmpeg installation is unhealthy; video frame extraction will fail", health=health)
                 checker.mark_warning_shown()
 
                 # Store flag in database for API to detect and broadcast
@@ -2129,7 +2131,12 @@ class MediaIngestion:
                     log.error(f"Failed to store ffmpeg_missing_warning flag: {e}")
 
             # Raise exception to fail gracefully (existing try/except in caller handles it)
-            raise RuntimeError(f"FFmpeg is not available on this system. Missing: ffmpeg={not ffmpeg_available}, ffprobe={not ffprobe_available}")
+            if health.warning_type == "ffmpeg_broken":
+                raise RuntimeError("FFmpeg is installed but cannot run. Repair or reinstall FFmpeg and try again.")
+            raise RuntimeError(
+                f"FFmpeg is not installed on this system. Missing: "
+                f"ffmpeg={not ffmpeg_available}, ffprobe={not ffprobe_available}"
+            )
 
         try:
             out, _ = (

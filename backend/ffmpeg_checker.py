@@ -6,7 +6,10 @@ platform-specific installation instructions, and one-time warning flags.
 """
 import platform
 import shutil
+import subprocess
 import time
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Tuple
 from core.logging import get_logger
@@ -15,6 +18,30 @@ from app_dirs import get_cache_dir
 from config import get_settings
 
 log = get_logger(__name__)
+
+
+class ExecutableStatus(str, Enum):
+    AVAILABLE = "available"
+    MISSING = "missing"
+    BROKEN = "broken"
+
+
+@dataclass(frozen=True)
+class FFmpegHealth:
+    ffmpeg: ExecutableStatus
+    ffprobe: ExecutableStatus
+
+    @property
+    def available(self) -> bool:
+        return self.ffmpeg == ExecutableStatus.AVAILABLE and self.ffprobe == ExecutableStatus.AVAILABLE
+
+    @property
+    def warning_type(self) -> Optional[str]:
+        if ExecutableStatus.BROKEN in (self.ffmpeg, self.ffprobe):
+            return "ffmpeg_broken"
+        if ExecutableStatus.MISSING in (self.ffmpeg, self.ffprobe):
+            return "ffmpeg_missing"
+        return None
 
 
 class FFmpegChecker:
@@ -35,8 +62,7 @@ class FFmpegChecker:
 
         self._initialized = True
         self._last_check_time: float = 0
-        self._cached_ffmpeg_available: bool = False
-        self._cached_ffprobe_available: bool = False
+        self._cached_health = FFmpegHealth(ExecutableStatus.MISSING, ExecutableStatus.MISSING)
 
         log.debug("FFmpegChecker initialized")
 
@@ -50,32 +76,87 @@ class FFmpegChecker:
         Returns:
             Tuple of (ffmpeg_available, ffprobe_available)
         """
+        health = self.check_health(use_cache=use_cache)
+        return (
+            health.ffmpeg == ExecutableStatus.AVAILABLE,
+            health.ffprobe == ExecutableStatus.AVAILABLE,
+        )
+
+    def check_health(self, use_cache: bool = True) -> FFmpegHealth:
+        """Return whether each executable is available, missing, or broken."""
         current_time = time.time()
 
         # Dev-only override to simulate a missing FFmpeg install (e.g. for screenshots)
         if get_settings().debug_force_ffmpeg_missing:
             self._last_check_time = current_time
-            self._cached_ffmpeg_available = False
-            self._cached_ffprobe_available = False
+            self._cached_health = FFmpegHealth(ExecutableStatus.MISSING, ExecutableStatus.MISSING)
             log.debug("FFmpeg availability forced to missing via debug_force_ffmpeg_missing")
-            return False, False
+            return self._cached_health
 
         # Return cached result if within TTL
         if use_cache and (current_time - self._last_check_time) < self._cache_ttl:
-            log.debug(f"FFmpeg availability from cache: ffmpeg={self._cached_ffmpeg_available}, ffprobe={self._cached_ffprobe_available}")
-            return self._cached_ffmpeg_available, self._cached_ffprobe_available
+            log.debug("FFmpeg health from cache", health=self._cached_health)
+            return self._cached_health
 
-        # Perform actual check
-        ffmpeg_available = shutil.which("ffmpeg") is not None
-        ffprobe_available = shutil.which("ffprobe") is not None
+        health = FFmpegHealth(self._check_executable("ffmpeg"), self._check_executable("ffprobe"))
 
         # Update cache
         self._last_check_time = current_time
-        self._cached_ffmpeg_available = ffmpeg_available
-        self._cached_ffprobe_available = ffprobe_available
+        self._cached_health = health
 
-        log.info(f"FFmpeg availability checked: ffmpeg={ffmpeg_available}, ffprobe={ffprobe_available}")
-        return ffmpeg_available, ffprobe_available
+        log.info("FFmpeg health checked", ffmpeg=health.ffmpeg.value, ffprobe=health.ffprobe.value)
+        return health
+
+    @staticmethod
+    def _check_executable(name: str) -> ExecutableStatus:
+        """Find an executable and prove its loader/runtime can start it."""
+        executable = shutil.which(name)
+        if executable is None:
+            return ExecutableStatus.MISSING
+
+        try:
+            result = subprocess.run(
+                [executable, "-version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            log.warning("Video tool failed its health check", executable=name, error=str(exc))
+            return ExecutableStatus.BROKEN
+
+        if result.returncode != 0:
+            detail = result.stderr.decode(errors="replace")[:500] if result.stderr else ""
+            log.warning(
+                "Video tool failed its health check",
+                executable=name,
+                returncode=result.returncode,
+                detail=detail,
+            )
+            return ExecutableStatus.BROKEN
+        return ExecutableStatus.AVAILABLE
+
+    @staticmethod
+    def warning_for_health(health: FFmpegHealth) -> Optional[dict]:
+        """Build the user-facing warning for a non-healthy installation."""
+        if health.warning_type == "ffmpeg_broken":
+            return {
+                "type": "ffmpeg_broken",
+                "title": "Video tools are broken",
+                "message": "FFmpeg is installed but can't run, so video import and export won't work.",
+                "action_url": "https://stimma.ai/link/ffmpeg",
+                "action_label": "Fix FFmpeg",
+            }
+        if health.warning_type == "ffmpeg_missing":
+            return {
+                "type": "ffmpeg_missing",
+                "title": "Video tools unavailable",
+                "message": "A required video component isn't installed, so video import and export won't work.",
+                "action_url": "https://stimma.ai/link/ffmpeg",
+                "action_label": "Install",
+            }
+        return None
 
     def get_install_instructions(self, platform_name: Optional[str] = None) -> str:
         """
