@@ -11,10 +11,11 @@
  */
 import { ref } from 'vue'
 import { makeProfileKey } from '../utils/storageKeys'
+import { clampLoraWeight } from '../utils/loraWeights'
 
 export interface LoraPoolItem {
   lora: string       // Path for backend (unique key) — also the opaque server id for cloud LoRAs
-  weight: number     // 0-10, default 1.0
+  weight: number     // -10 to 10, default 1.0
   enabled: boolean   // Toggle state
   /**
    * Display name override. Set when the `lora` key isn't human-readable
@@ -374,7 +375,7 @@ function toggleEnabled(toolId: string, loraPath: string): void {
 function updateWeight(toolId: string, loraPath: string, weight: number): void {
   if (!toolId || !loraPath) return
 
-  const clampedWeight = Math.max(0, Math.min(10, weight))
+  const clampedWeight = clampLoraWeight(weight)
   const roundedWeight = Math.round(clampedWeight * 100) / 100
 
   const base = baseToolId(toolId)

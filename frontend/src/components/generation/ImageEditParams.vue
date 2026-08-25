@@ -152,6 +152,7 @@ import MediaPicker from './MediaPicker.vue'
 import AdvancedParams from './AdvancedParams.vue'
 import AIPromptEditor from './AIPromptEditor.vue'
 import IconButton from '../ui/IconButton.vue'
+import { clampLoraWeight, LORA_WEIGHT_MAX, LORA_WEIGHT_MIN } from '../../utils/loraWeights'
 
 interface ReferenceImage {
   path: string
@@ -388,7 +389,7 @@ function updateWeight(index: number, value: string) {
   if (row) {
     const parsed = parseFloat(value)
     if (!isNaN(parsed)) {
-      row.weight = Math.max(0, Math.min(2, parsed))
+      row.weight = clampLoraWeight(parsed)
     }
   }
 }
@@ -404,14 +405,14 @@ function formatWeightOnBlur(index: number) {
 function incrementWeight(index: number) {
   const row = (localParams as any).selected_loras[index]
   if (row) {
-    row.weight = Math.min(2, row.weight + 0.05)
+    row.weight = Math.min(LORA_WEIGHT_MAX, row.weight + 0.05)
   }
 }
 
 function decrementWeight(index: number) {
   const row = (localParams as any).selected_loras[index]
   if (row) {
-    row.weight = Math.max(0, row.weight - 0.05)
+    row.weight = Math.max(LORA_WEIGHT_MIN, row.weight - 0.05)
   }
 }
 </script>

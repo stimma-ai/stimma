@@ -82,6 +82,7 @@ import { computed } from 'vue'
 import type { LoraPoolItem } from '../../composables/useLoraPool'
 import { getDirectoryPath } from '../../composables/useLoraDisplayNames'
 import type { LoraDisplayName } from '../../composables/useLoraDisplayNames'
+import { clampLoraWeight, LORA_WEIGHT_MAX, LORA_WEIGHT_MIN } from '../../utils/loraWeights'
 
 interface Props {
   item: LoraPoolItem
@@ -115,12 +116,12 @@ const formattedWeight = computed(() => {
 })
 
 function incrementWeight() {
-  const newWeight = Math.min(10, props.item.weight + 0.05)
+  const newWeight = Math.min(LORA_WEIGHT_MAX, props.item.weight + 0.05)
   emit('update-weight', Math.round(newWeight * 100) / 100)
 }
 
 function decrementWeight() {
-  const newWeight = Math.max(0, props.item.weight - 0.05)
+  const newWeight = Math.max(LORA_WEIGHT_MIN, props.item.weight - 0.05)
   emit('update-weight', Math.round(newWeight * 100) / 100)
 }
 
@@ -134,7 +135,7 @@ function onWeightBlur(event: Event) {
   const input = event.target as HTMLInputElement
   const value = parseFloat(pendingValue || input.value)
   if (!isNaN(value)) {
-    const clamped = Math.max(0, Math.min(10, value))
+    const clamped = clampLoraWeight(value)
     emit('update-weight', Math.round(clamped * 100) / 100)
   }
   input.value = formattedWeight.value

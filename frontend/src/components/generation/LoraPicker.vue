@@ -146,6 +146,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import Spinner from '../ui/Spinner.vue'
+import { clampLoraWeight, LORA_WEIGHT_MAX, LORA_WEIGHT_MIN } from '../../utils/loraWeights'
 
 export interface LoraOption {
   name: string
@@ -396,7 +397,7 @@ function formatWeight(weight: number): string {
 function updateWeight(index: number, value: string) {
   const num = parseFloat(value)
   if (!isNaN(num)) {
-    updateRow(index, { weight: Math.max(0, Math.min(10, num)) })
+    updateRow(index, { weight: clampLoraWeight(num) })
   }
 }
 
@@ -406,20 +407,20 @@ function formatWeightOnBlur(index: number) {
   if (isNaN(num)) {
     updateRow(index, { weight: 1.0 })
   } else {
-    updateRow(index, { weight: Math.max(0, Math.min(10, parseFloat(num.toFixed(2)))) })
+    updateRow(index, { weight: clampLoraWeight(parseFloat(num.toFixed(2))) })
   }
 }
 
 function incrementWeight(index: number) {
   const loraRow = props.modelValue[index]
   const newWeight = parseFloat((loraRow.weight + 0.05).toFixed(2))
-  updateRow(index, { weight: Math.min(10, newWeight) })
+  updateRow(index, { weight: Math.min(LORA_WEIGHT_MAX, newWeight) })
 }
 
 function decrementWeight(index: number) {
   const loraRow = props.modelValue[index]
   const newWeight = parseFloat((loraRow.weight - 0.05).toFixed(2))
-  updateRow(index, { weight: Math.max(0, newWeight) })
+  updateRow(index, { weight: Math.max(LORA_WEIGHT_MIN, newWeight) })
 }
 
 // Handle window resize to reposition dropdown

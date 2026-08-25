@@ -104,7 +104,7 @@ _LORAS_SCHEMA = {
                     "detail/crisp-detail-xl.safetensors",
                 ],
             },
-            "weight": {"type": "number", "default": 1.0, "minimum": -2.0, "maximum": 2.0},
+            "weight": {"type": "number", "default": 1.0, "minimum": -10.0, "maximum": 10.0},
         },
     },
     "x-control": "lora_picker",
