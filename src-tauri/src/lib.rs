@@ -559,7 +559,18 @@ pub fn run() {
                 let app_version = app.package_info().version.to_string();
 
                 let mut cmd = std::process::Command::new(&watchdog_path);
-                cmd.args(["--parent-pid", &parent_pid, "stimma-backend", "--port", "0"])
+                // --bundle-id must be forwarded: without it the backend falls
+                // back to the debug bundle id and reports branch "dev" in its
+                // User-Agent even in official builds.
+                cmd.args([
+                    "--parent-pid",
+                    &parent_pid,
+                    "stimma-backend",
+                    "--port",
+                    "0",
+                    "--bundle-id",
+                    &bundle_id,
+                ])
                     .env("STIMMA_DATA_DIR", &data_dir)
                     .env("STIMMA_CACHE_DIR", &cache_dir)
                     // Build distribution (compile-time constant) and app

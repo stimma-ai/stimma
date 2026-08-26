@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional, Protocol, TypedDict
 
 import app_dirs
-from app_context import get_bundle_id, get_sandbox
+from app_context import BUNDLE_ID_DEBUG, get_bundle_id, get_sandbox
 from core.logging import get_logger
 
 log = get_logger(__name__)
@@ -79,7 +79,10 @@ class MacOSKeychainRefreshTokenStore:
 
     @property
     def _account(self) -> str:
-        return f"{get_bundle_id()}:{get_sandbox()}:stimma-cloud-refresh-token"
+        return self._account_for(get_bundle_id())
+
+    def _account_for(self, bundle_id: str) -> str:
+        return f"{bundle_id}:{get_sandbox()}:stimma-cloud-refresh-token"
 
     def _run(self, args: list[str]) -> subprocess.CompletedProcess[str]:
         if not self._security_bin:
@@ -108,10 +111,16 @@ class MacOSKeychainRefreshTokenStore:
         return [self._default_keychain] if self._default_keychain else []
 
     def get_refresh_token(self) -> Optional[str]:
+        return self._get_for_account(self._account)
+
+    def get_legacy_refresh_token(self) -> Optional[str]:
+        return self._get_for_account(self._account_for(BUNDLE_ID_DEBUG))
+
+    def _get_for_account(self, account: str) -> Optional[str]:
         result = self._run([
             "find-generic-password",
             "-s", KEYCHAIN_SERVICE,
-            "-a", self._account,
+            "-a", account,
             "-w",
             *self._keychain_args(),
         ])
@@ -139,10 +148,16 @@ class MacOSKeychainRefreshTokenStore:
             raise SecureTokenStorageUnavailable(message or "keychain write failed")
 
     def clear_refresh_token(self) -> None:
+        self._clear_for_account(self._account)
+
+    def clear_legacy_refresh_token(self) -> None:
+        self._clear_for_account(self._account_for(BUNDLE_ID_DEBUG))
+
+    def _clear_for_account(self, account: str) -> None:
         result = self._run([
             "delete-generic-password",
             "-s", KEYCHAIN_SERVICE,
-            "-a", self._account,
+            "-a", account,
             *self._keychain_args(),
         ])
         if result.returncode in (0, 44):
@@ -232,16 +247,25 @@ class WindowsCredentialManagerRefreshTokenStore:
 
     @property
     def _target_name(self) -> str:
-        return f"Stimma Cloud:{get_bundle_id()}:{get_sandbox()}:refresh-token"
+        return self._target_for(get_bundle_id())
+
+    def _target_for(self, bundle_id: str) -> str:
+        return f"Stimma Cloud:{bundle_id}:{get_sandbox()}:refresh-token"
 
     def _raise_last_error(self, operation: str) -> None:
         error_code = self._ctypes.get_last_error()
         raise SecureTokenStorageUnavailable(f"{operation} failed with Windows error {error_code}")
 
     def get_refresh_token(self) -> Optional[str]:
+        return self._get_for_target(self._target_name)
+
+    def get_legacy_refresh_token(self) -> Optional[str]:
+        return self._get_for_target(self._target_for(BUNDLE_ID_DEBUG))
+
+    def _get_for_target(self, target_name: str) -> Optional[str]:
         credential_ptr = self._PCREDENTIAL()
         ok = self._advapi32.CredReadW(
-            self._target_name,
+            target_name,
             self.CRED_TYPE_GENERIC,
             0,
             self._ctypes.byref(credential_ptr),
@@ -295,8 +319,14 @@ class WindowsCredentialManagerRefreshTokenStore:
             self._raise_last_error("Credential Manager write")
 
     def clear_refresh_token(self) -> None:
+        self._clear_for_target(self._target_name)
+
+    def clear_legacy_refresh_token(self) -> None:
+        self._clear_for_target(self._target_for(BUNDLE_ID_DEBUG))
+
+    def _clear_for_target(self, target_name: str) -> None:
         ok = self._advapi32.CredDeleteW(
-            self._target_name,
+            target_name,
             self.CRED_TYPE_GENERIC,
             0,
         )
@@ -317,10 +347,13 @@ class LinuxSecretServiceRefreshTokenStore:
 
     @property
     def _attributes(self) -> dict[str, str]:
+        return self._attributes_for(get_bundle_id())
+
+    def _attributes_for(self, bundle_id: str) -> dict[str, str]:
         return {
             "application": "Stimma",
             "kind": "stimma-cloud-refresh-token",
-            "bundle_id": get_bundle_id(),
+            "bundle_id": bundle_id,
             "sandbox": get_sandbox(),
         }
 
@@ -346,13 +379,19 @@ class LinuxSecretServiceRefreshTokenStore:
         except Exception as e:
             raise SecureTokenStorageUnavailable(str(e)) from e
 
-    def _iter_items(self):
+    def _iter_items(self, attributes: Optional[dict[str, str]] = None):
         collection = self._get_collection()
-        return list(collection.search_items(self._attributes))
+        return list(collection.search_items(attributes or self._attributes))
 
     def get_refresh_token(self) -> Optional[str]:
+        return self._get_for_attributes(self._attributes)
+
+    def get_legacy_refresh_token(self) -> Optional[str]:
+        return self._get_for_attributes(self._attributes_for(BUNDLE_ID_DEBUG))
+
+    def _get_for_attributes(self, attributes: dict[str, str]) -> Optional[str]:
         try:
-            for item in self._iter_items():
+            for item in self._iter_items(attributes):
                 if item.is_locked() and not item.unlock(timeout=5.0):
                     continue
                 secret = item.get_secret()
@@ -375,8 +414,14 @@ class LinuxSecretServiceRefreshTokenStore:
             raise SecureTokenStorageUnavailable(str(e)) from e
 
     def clear_refresh_token(self) -> None:
+        self._clear_for_attributes(self._attributes)
+
+    def clear_legacy_refresh_token(self) -> None:
+        self._clear_for_attributes(self._attributes_for(BUNDLE_ID_DEBUG))
+
+    def _clear_for_attributes(self, attributes: dict[str, str]) -> None:
         try:
-            for item in self._iter_items():
+            for item in self._iter_items(attributes):
                 item.delete()
         except Exception as e:
             raise SecureTokenStorageUnavailable(str(e)) from e
@@ -506,6 +551,35 @@ def _log_store_failure_for_fallback(store: RefreshTokenStore, reason: str) -> No
         _log_memory_fallback(reason)
 
 
+def _migrate_legacy_refresh_token(store: RefreshTokenStore) -> Optional[str]:
+    """One-time migration from the debug-bundle-scoped credential key.
+
+    Before the bundle id was forwarded to the backend, official builds stored
+    their refresh token under the debug bundle id. On the first launch of a
+    fixed build the current-key lookup misses; recover the token from the
+    legacy key, re-save it under the current key, and delete the legacy entry.
+    """
+    if get_bundle_id() == BUNDLE_ID_DEBUG:
+        return None
+    getter = getattr(store, "get_legacy_refresh_token", None)
+    if getter is None:
+        return None
+    try:
+        token = getter()
+        if not token:
+            return None
+        store.set_refresh_token(token)
+        try:
+            store.clear_legacy_refresh_token()
+        except SecureTokenStorageUnavailable:
+            pass
+        log.info("migrated cloud refresh token from legacy credential key", backend=store.backend_name)
+        return token
+    except SecureTokenStorageUnavailable as e:
+        _log_store_failure_for_fallback(store, str(e))
+        return None
+
+
 def _get_refresh_token() -> Optional[str]:
     """Load refresh token from secure storage, fallback file, or memory."""
     store = _get_token_store()
@@ -516,6 +590,10 @@ def _get_refresh_token() -> Optional[str]:
                 return token
         except SecureTokenStorageUnavailable as e:
             _log_store_failure_for_fallback(store, str(e))
+        else:
+            token = _migrate_legacy_refresh_token(store)
+            if token:
+                return token
 
     fallback = _get_file_fallback_store()
     if fallback is not None:
@@ -565,6 +643,11 @@ def _clear_refresh_token() -> None:
     if store is not None:
         try:
             store.clear_refresh_token()
+            # Also clear the legacy debug-scoped key so a later launch cannot
+            # resurrect a signed-out session via the migration path.
+            clear_legacy = getattr(store, "clear_legacy_refresh_token", None)
+            if clear_legacy is not None and get_bundle_id() != BUNDLE_ID_DEBUG:
+                clear_legacy()
             log.debug("cleared cloud refresh token", backend=store.backend_name)
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
