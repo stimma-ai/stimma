@@ -174,7 +174,7 @@
 
     <!-- Footer -->
     <div class="mt-auto pt-7 flex items-center justify-between text-xs text-content-muted">
-      <span>© {{ copyrightYear }} Stimma AI</span>
+      <span>© 2026 B1 Research LLC</span>
       <div class="flex gap-4">
         <button @click="openExternal('/link/terms')" class="text-content-tertiary hover:text-content-secondary transition-colors">Terms</button>
         <button @click="openExternal('/link/privacy')" class="text-content-tertiary hover:text-content-secondary transition-colors">Privacy Policy</button>
@@ -272,7 +272,6 @@ const appVersion = ref('unknown')
 const copied = ref(false)
 const attributionOpen = ref(false)
 const commitHash = COMMIT_HASH
-const copyrightYear = new Date().getFullYear()
 
 const channelBadge = computed(() => {
   const value = channel.value
