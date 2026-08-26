@@ -22,6 +22,7 @@
     "test:update-schedule": "node --test --experimental-strip-types src/utils/updateCheckSchedule.test.ts",
     "test:editor-shelf": "node --test --experimental-strip-types src/utils/editorShelf.test.ts",
     "test:database-cleanup": "node --test tests/databaseCleanupState.test.mjs",
+    "test:storage-migration": "node --test --experimental-strip-types src/utils/debugPrefixMigration.test.ts",
     "test:image-stack": "node --test --experimental-strip-types src/imageEditor/stack/*.test.ts"
   },
   "dependencies": {

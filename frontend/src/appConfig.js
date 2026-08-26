@@ -6,6 +6,7 @@
  */
 
 import { ref } from 'vue'
+import { migrateDebugScopedStorage } from './utils/debugPrefixMigration'
 
 let bundleId = localStorage.getItem('stimma_bundle_id') || ''
 let sandbox = localStorage.getItem('stimma_sandbox') || ''
@@ -52,6 +53,9 @@ const telemetryEnabledRef = ref(null)
 export function setBundleId(id, sandboxName = '') {
   bundleId = id || ''
   sandbox = sandboxName || 'default'
+  // Recover state written under the debug bundle id before the shell
+  // forwarded --bundle-id (must run before anything reads namespaced keys).
+  migrateDebugScopedStorage(bundleId, sandbox)
   localStorage.setItem('stimma_bundle_id', bundleId)
   localStorage.setItem('stimma_sandbox', sandbox)
   settingsLoaded = true
