@@ -449,6 +449,7 @@
           @dragstart="handleDragStart"
           @dragend="handleDragEnd"
           @loadedmetadata="handleMediaLoad"
+          @ended="handleNativeVideoEnded"
         >
         </video>
 
@@ -1648,8 +1649,15 @@ watch(
       },
       onError: (error) => {
         if (msePlayback !== playback) return
-        console.error('[SlideshowMode] Seamless video playback failed:', error)
-        addToast('Could not prepare this video for seamless playback', 'error')
+        // Seamless looping is progressive enhancement. The original file is
+        // still a valid playback source when ffmpeg is unavailable, a codec is
+        // unsupported by MSE, or preparation otherwise fails.
+        console.warn('[SlideshowMode] Seamless video playback failed, using native playback:', error)
+        playback.destroy()
+        msePlayback = null
+        element.src = getMediaFileUrl(fileHash)
+        element.loop = false
+        if (slideshowViewActive) void element.play().catch(() => {})
       },
       onMaintenanceError: (error) => {
         if (msePlayback === playback) {
@@ -5290,6 +5298,21 @@ function onVideoEnded() {
     }
     scheduleAdvance()
   }
+}
+
+// Native fallback has real media ends instead of MSE logical boundaries.
+// Keep looping while no slideshow advance is armed; once armed, the same end
+// becomes the handoff point to the next item.
+function handleNativeVideoEnded() {
+  if (msePlayback) return
+  if (videoAdvanceArmed.value) {
+    onVideoEnded()
+    return
+  }
+  const el = videoElement.value
+  if (!el) return
+  el.currentTime = 0
+  void el.play().catch(() => {})
 }
 
 // --- advance actions --------------------------------------------------------

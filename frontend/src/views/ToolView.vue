@@ -1278,11 +1278,15 @@ function stopStageAudition() {
 function startStageAudition() {
   const el = stageVideoRef.value
   const playback = stageMsePlayback
-  if (!el || !playback || !(playback.duration > 0) || !stageHasAudio.value) return
+  const duration = playback?.duration > 0
+    ? playback.duration
+    : (stageNativePlayback && Number.isFinite(el?.duration) ? el!.duration : 0)
+  if (!el || !(duration > 0) || !stageHasAudio.value) return
   if (!stageVideoIsForeground()) return
   stopStageAudition()
   // Audio joined mid-loop is useless for judging the clip — always restart.
-  playback.seekLogical(0)
+  if (playback) playback.seekLogical(0)
+  else el.currentTime = 0
   el.volume = auditionVolume()
   el.muted = false
   stageAuditionActive.value = true
@@ -1295,15 +1299,15 @@ function startStageAudition() {
       stopStageAudition()
       return
     }
-    const logical = playback.logicalCurrentTime
+    const logical = playback?.logicalCurrentTime ?? el.currentTime
     if (logical < lastLogical - 0.05) {
       // Wrapped past the loop boundary: the pass is over.
       stopStageAudition()
       return
     }
     lastLogical = Math.max(lastLogical, logical)
-    stageAuditionProgress.value = Math.min(1, logical / playback.duration)
-    const remaining = playback.duration - logical
+    stageAuditionProgress.value = Math.min(1, logical / duration)
+    const remaining = duration - logical
     if (remaining < AUDITION_FADE_S) {
       el.volume = auditionVolume() * Math.max(0, remaining / AUDITION_FADE_S)
     }
@@ -1506,6 +1510,8 @@ function onHeroDragStart(event: DragEvent) {
 // element's src; if preparation fails (unsupported codec, fetch error), fall
 // back to plain src playback with the element's native loop.
 let stageMsePlayback: MseLoopPlayback | null = null
+let stageNativePlayback = false
+let clearStageNativeListeners: (() => void) | null = null
 function stageVideoIsForeground(): boolean {
   return shouldPlayStageVideo({
     viewActive: stageViewActive.value,
@@ -1536,6 +1542,9 @@ function updateStageWindowFocus() {
 }
 
 function destroyStageMsePlayback() {
+  clearStageNativeListeners?.()
+  clearStageNativeListeners = null
+  stageNativePlayback = false
   stageMsePlayback?.destroy()
   stageMsePlayback = null
 }
@@ -1546,7 +1555,10 @@ onMounted(() => {
   watch([stageVideoRef, stageCurrentHash], ([element, fileHash]) => {
     destroyStageMsePlayback()
     stopStageAudition()
-    stageHasAudio.value = false
+    const media = stageCurrentMediaId.value != null
+      ? jobsManager?.mediaData.value?.[stageCurrentMediaId.value]
+      : null
+    stageHasAudio.value = Boolean(media?.audio_channels || media?.audio_codec)
     // A pending free pass is only honored by the clip it was requested for.
     if (pendingAuditionMediaId != null && pendingAuditionMediaId !== stageCurrentMediaId.value) {
       pendingAuditionMediaId = null
@@ -1567,6 +1579,23 @@ onMounted(() => {
       onError: (error: unknown) => {
         if (stageMsePlayback !== playback) return
         console.warn('[ToolView] Seamless video playback failed, falling back to native loop:', error)
+        playback.destroy()
+        stageMsePlayback = null
+        stageNativePlayback = true
+        // Generation metadata also depends on ffprobe, so the same failure can
+        // leave audio_channels/audio_codec empty. The original video may still
+        // have sound (for example provider-generated H.264/AAC); keep the
+        // audition control available in the degraded native path.
+        stageHasAudio.value = true
+        const onLoadedMetadata = () => {
+          if (!stageNativePlayback || stageVideoRef.value !== element) return
+          if (pendingAuditionMediaId != null && pendingAuditionMediaId === stageCurrentMediaId.value) {
+            pendingAuditionMediaId = null
+            startStageAudition()
+          }
+        }
+        element.addEventListener('loadedmetadata', onLoadedMetadata)
+        clearStageNativeListeners = () => element.removeEventListener('loadedmetadata', onLoadedMetadata)
         element.src = getMediaFileUrl(fileHash)
         element.loop = true
         syncStageVideoPlayback()

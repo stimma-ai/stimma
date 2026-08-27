@@ -43,7 +43,7 @@
         muted
         playsinline
         preload="none"
-        @error="$emit('media-load-error', job.result_media_id)"
+        @error="handleVideoError"
       />
     </div>
     <!-- Image display. Fit mode shows the original full-resolution file — this is
@@ -241,7 +241,7 @@ const emit = defineEmits<{
   (e: 'remix-media', mediaId: number): void
 }>()
 
-const { getThumbnailUrl, getMseLoopUrls } = useMediaApi()
+const { getMediaFileUrl, getThumbnailUrl, getMseLoopUrls } = useMediaApi()
 const { formatRemainingTime } = useExpirationClock()
 const contextMenu = useMediaContextMenu()
 
@@ -256,6 +256,7 @@ const videoEl = ref<HTMLVideoElement | null>(null)
 const videoActive = ref(false)
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 let msePlayback: MseLoopPlayback | null = null
+let nativeFallbackActive = false
 
 async function activateVideo() {
   if (hoverTimer) clearTimeout(hoverTimer)
@@ -273,7 +274,20 @@ async function activateVideo() {
       appendLoops: 2,
       bufferAheadLoops: 1,
       retainBehindLoops: 1,
-      onError: () => emit('media-load-error', props.job.result_media_id!),
+      onError: (error: unknown) => {
+        // MSE preparation is an enhancement, not proof that the underlying
+        // media disappeared. Falling through to media-load-error here removes
+        // the job's hash from ToolView and makes the tile evaporate on hover.
+        // Use the original file as a normal looping preview instead.
+        if (!videoActive.value || videoEl.value !== v) return
+        console.warn('[JobTile] Seamless hover preview failed, using native playback:', error)
+        msePlayback?.destroy()
+        msePlayback = null
+        nativeFallbackActive = true
+        v.src = getMediaFileUrl(hash)
+        v.loop = true
+        void v.play().catch(() => {})
+      },
     })
     void msePlayback.start().catch(() => {})
   }, 150)
@@ -283,7 +297,15 @@ function releaseVideo() {
   if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null }
   msePlayback?.destroy()
   msePlayback = null
+  nativeFallbackActive = false
   videoActive.value = false             // unmount the <video>
+}
+
+function handleVideoError() {
+  // MSE can report a media-element error before its controller invokes
+  // onError. Only a failure of the original-file fallback means this media is
+  // genuinely unavailable and should be removed from the display state.
+  if (nativeFallbackActive) emit('media-load-error', props.job.result_media_id!)
 }
 
 onBeforeUnmount(releaseVideo)
