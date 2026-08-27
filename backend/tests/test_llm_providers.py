@@ -702,6 +702,59 @@ def test_local_profile_updates_tools_vision_and_reasoning_contract():
     assert model.reasoning.wire_levels == {"off": False, "high": True}
 
 
+def test_local_profile_preserves_detected_reasoning_effort_levels():
+    passed = SimpleNamespace(passed=True)
+    model = LLMProviderModelConfig(id="local:m", model_id="m", name="M")
+    models_route._apply_local_profile(
+        model,
+        {"tools": passed, "vision": passed},
+        SimpleNamespace(
+            reasoning_method="reasoning_effort",
+            reasoning_mode="toggleable",
+            reasoning_levels=["low", "medium", "xhigh"],
+        ),
+    )
+    assert model.reasoning.levels == ["off", "low", "medium", "xhigh"]
+    assert model.reasoning.default == "xhigh"
+    assert model.reasoning.wire_levels == {
+        "off": "none", "low": "low", "medium": "medium", "xhigh": "xhigh",
+    }
+
+
+@pytest.mark.asyncio
+async def test_profile_retries_provider_advertised_effort_when_high_is_unsupported(monkeypatch):
+    import llm
+
+    calls = []
+
+    async def completion(*_args, **kwargs):
+        extra = kwargs.get("extra_body") or {}
+        calls.append(extra)
+        if extra.get("reasoning_effort") == "high":
+            request = httpx.Request("POST", "http://studio.local/v1/chat/completions")
+            response = httpx.Response(400, request=request, json={
+                "error": {"message": "Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low."}
+            })
+            raise httpx.HTTPStatusError("rejected", request=request, response=response)
+        thinking = "worked it out" if extra.get("reasoning_effort") == "xhigh" else None
+        tool_calls = [SimpleNamespace(name="get_weather")] if kwargs.get("tools") else []
+        return SimpleNamespace(
+            content="answer", thinking=thinking, tool_calls=tool_calls,
+            _raw=None, usage=SimpleNamespace(prompt_tokens=10),
+        )
+
+    monkeypatch.setattr(llm, "llm_completion", completion)
+    scenarios, detected = await settings_route._profile_endpoint(
+        LLMEndpointConfig(url="http://studio.local/v1", model="m", max_context_tokens=1024)
+    )
+
+    assert scenarios["thinking"].passed is True
+    assert detected.reasoning_method == "reasoning_effort"
+    assert detected.reasoning_levels == ["low", "medium", "xhigh"]
+    assert {"reasoning_effort": "xhigh"} in calls
+    assert {"reasoning_effort": "none"} in calls
+
+
 @pytest.mark.parametrize(
     ("kind", "model_id", "expected"),
     [

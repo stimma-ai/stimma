@@ -392,6 +392,7 @@ def _apply_local_profile(
     model.input_modalities = ["text", "image"] if vision and vision.passed else ["text"]
     method = getattr(detected, "reasoning_method", None) if detected else None
     mode = getattr(detected, "reasoning_mode", None) if detected else None
+    detected_levels = getattr(detected, "reasoning_levels", None) if detected else None
     model.detected_runtime = getattr(detected, "runtime", None) if detected else None
     model.reasoning_output = getattr(detected, "reasoning_output", None) if detected else None
     control = {
@@ -411,6 +412,15 @@ def _apply_local_profile(
             control=control, wire_levels={"high": True if control in {"enable_thinking", "think"} else "high"},
         )
     elif mode == "toggleable":
+        if control == "openai_effort" and detected_levels:
+            levels = ["off", *detected_levels]
+            default = detected_levels[-1]
+            model.reasoning = LLMReasoningConfig(
+                mode="optional", levels=levels, default=default, quick_task="off",
+                control=control,
+                wire_levels={level: ("none" if level == "off" else level) for level in levels},
+            )
+            return
         model.reasoning = LLMReasoningConfig(
             mode="optional", levels=["off", "high"], default="high", quick_task="off",
             control=control,

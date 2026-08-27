@@ -261,6 +261,7 @@ class LLMDetected(BaseModel):
     reasoning_method: Optional[str] = None  # how thinking is toggled
     reasoning_mode: Optional[str] = None    # 'always' | 'toggleable' | 'none'
     reasoning_output: Optional[str] = None  # 'field' | 'tags'
+    reasoning_levels: Optional[List[str]] = None  # accepted reasoning_effort values
 
 
 class LLMTestResponse(BaseModel):
@@ -1930,13 +1931,52 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         return await llm_completion(config, messages=THINK_Q, max_tokens=2048,
                                     temperature=0.3, extra_body=extra, apply_endpoint_extras=False)
 
+    def _advertised_reasoning_efforts(exc: Exception) -> list[str]:
+        """Extract an OpenAI-compatible server's rejected-effort hint.
+
+        vLLM exposes model-specific effort enums in its 400 response.  In
+        particular, some models support xhigh but not the profiler's historic
+        choice of high, so treating that rejection as "no reasoning" loses a
+        capability the endpoint explicitly advertised.
+        """
+        response = getattr(exc, "response", None)
+        message = ""
+        if response is not None:
+            try:
+                payload = response.json()
+                error = payload.get("error", {}) if isinstance(payload, dict) else {}
+                message = str(error.get("message") or "") if isinstance(error, dict) else ""
+            except Exception:
+                pass
+        if not message:
+            message = str(exc)
+        lower = message.lower()
+        if "reasoning effort" not in lower or "supported" not in lower:
+            return []
+        lower = lower.split("supported", 1)[1]
+        order = ["minimal", "low", "medium", "high", "xhigh", "max"]
+        return [level for level in order if re.search(rf"\b{level}\b", lower)]
+
+    detected_reasoning_levels: list[str] = []
     t0 = time.time()
     try:
-        on = await _think_probe({"reasoning_effort": "high"})
+        requested_effort = "high"
+        try:
+            on = await _think_probe({"reasoning_effort": requested_effort})
+        except Exception as first_error:
+            detected_reasoning_levels = _advertised_reasoning_efforts(first_error)
+            if not detected_reasoning_levels:
+                raise
+            requested_effort = next(
+                level for level in reversed(detected_reasoning_levels)
+            )
+            on = await _think_probe({"reasoning_effort": requested_effort})
         runtime = _detect_runtime(on) or runtime
         reasoning_on = bool(on.thinking)
         if reasoning_on:
             reasoning_method = "reasoning_effort"
+            if not detected_reasoning_levels:
+                detected_reasoning_levels = [requested_effort]
         elif on.content and is_fireworks:
             # Fireworks' current multimodal agent models may emit the reasoning
             # trace in ordinary content instead of reasoning_content. A
@@ -1977,11 +2017,18 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
     # suppresses reasoning on a reasoning-eliciting prompt, prefer it.
     if reasoning_on and reasoning_method == "reasoning_effort" and is_local and not is_openrouter:
         try:
-            off_check = await _think_probe({"chat_template_kwargs": {"enable_thinking": False}})
-            if not off_check.thinking:
-                reasoning_method = "enable_thinking"
+            effort_off_check = await _think_probe({"reasoning_effort": "none"})
+            effort_has_off = not effort_off_check.thinking
         except Exception:
-            pass
+            effort_has_off = False
+        if not effort_has_off:
+            try:
+                off_check = await _think_probe({"chat_template_kwargs": {"enable_thinking": False}})
+                if not off_check.thinking:
+                    reasoning_method = "enable_thinking"
+                    detected_reasoning_levels = []
+            except Exception:
+                pass
 
     # --- Classify reasoning mode (method was set above by whichever probe reasoned) ---
     reasoning_mode: Optional[str] = None
@@ -2125,6 +2172,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
             reasoning_method=reasoning_method,
             reasoning_mode=reasoning_mode,
             reasoning_output=reasoning_output,
+            reasoning_levels=detected_reasoning_levels or None,
         )
     return scenarios, detected
 
