@@ -24,9 +24,13 @@ on:
         required: false
         default: x86_64
         type: string
+      # Defaults to the self-hosted x64 Linux builder; the arm64 callers
+      # override this with the spark labels. Keeping Linux builds on our own
+      # hardware keeps canary — which fires on every push to main — off the
+      # GitHub Actions minute budget.
       runs_on:
         required: false
-        default: '["ubuntu-22.04"]'
+        default: '["self-hosted","linux","x64"]'
         type: string
 
 permissions:

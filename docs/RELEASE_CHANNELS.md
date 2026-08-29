@@ -102,6 +102,26 @@ full cross-platform release, so Windows and Linux arm64 are skipped. Beta and
 production releases fan out to macOS, Windows, and both Linux AppImage
 architectures.
 
+### Build runners
+
+Every platform build runs on our own hardware; only the quality gate uses
+GitHub-hosted runners. This keeps canary — which fires on every push to
+`main` — off the Actions minute budget.
+
+| Build | Runner labels | Machine |
+|-------|---------------|---------|
+| Quality gate | `ubuntu-latest` | GitHub-hosted |
+| macOS | `self-hosted, macOS, ARM64` | Mac signer |
+| Windows | `self-hosted, Windows, X64` | Windows signer |
+| Linux AppImage x64 | `self-hosted, linux, x64` | x64 Linux builder (default `runs_on` in `linux-appimage.yml`) |
+| Linux AppImage arm64 | `self-hosted, linux, arm64, spark` | spark (explicit `runs_on` override) |
+
+The x64 Linux builder is a container (`stimma-github-runner:jammy-tauri`,
+compose + Dockerfile in `~/actions-runner/` on the box) built on Ubuntu 22.04
+/ glibc 2.35 — the same base the GitHub-hosted `ubuntu-22.04` image used, so
+AppImage portability is unchanged. If a Linux x64 build queues forever, check
+that the `actions-runner` container is up on that host.
+
 ## Channel & version derivation
 
 ### On a release tag
