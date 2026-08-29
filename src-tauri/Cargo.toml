@@ -44,5 +44,10 @@ objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSEvent"] }
 block2 = "0.6"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Pin our own font hinting; see the gtk-xft-hintstyle block in lib.rs.
+# Version tracks the gtk Tauri already links, so this adds no new build.
+gtk = "0.18"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

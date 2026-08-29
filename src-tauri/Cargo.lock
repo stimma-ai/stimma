@@ -4519,6 +4519,7 @@ dependencies = [
  "cpal",
  "crc32fast",
  "futures-util",
+ "gtk",
  "libc",
  "log",
  "objc2",

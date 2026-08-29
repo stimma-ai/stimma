@@ -381,6 +381,48 @@ pub fn run() {
         data_store_id: browser_data_store_id,
     });
 
+    // WebKitGTK grid-fits glyph advances according to GTK's font hinting
+    // style, and at hintmedium/hintfull our brand face's advances collapse at
+    // small sizes: word spaces disappear and letters crowd together. The
+    // onboarding screen is the visible casualty, since it is the one screen
+    // set entirely in the brand face; 16px and up survive, which is why the
+    // rest of the app looks fine.
+    //
+    // GTK only learns the desktop's hinting preference from an XSETTINGS
+    // daemon. We force GDK_BACKEND=x11 (WebKitGTK crashes under the Wayland
+    // backend, tauri-apps/tauri#8541), and bare Wayland compositors such as
+    // Hyprland and sway run no XSETTINGS daemon, so under XWayland GTK ignores
+    // the user's gsettings and falls back to its built-in default of
+    // hintmedium - the broken case.
+    //
+    // Pin slight hinting for our own process, leaving the user's desktop
+    // configuration untouched. Must run before the first WebView exists:
+    // tauri.conf.json declares a window, so Tauri creates it before setup().
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::object::ObjectExt;
+        // Idempotent; Tauri initializes GTK again when it runs.
+        if gtk::init().is_ok() {
+            if let Some(settings) = gtk::Settings::default() {
+                let current = settings
+                    .property::<Option<gtk::glib::GString>>("gtk-xft-hintstyle")
+                    .map(|s| s.to_string());
+                // Only hintnone and hintslight render the brand face
+                // correctly; anything else (or an unset value) needs pinning.
+                let already_good =
+                    matches!(current.as_deref(), Some("hintnone") | Some("hintslight"));
+                if !already_good {
+                    settings.set_property("gtk-xft-hinting", 1i32);
+                    settings.set_property("gtk-xft-hintstyle", "hintslight");
+                    log::info!(
+                        "[stimma] GTK font hinting was {:?}; pinned to hintslight for this process",
+                        current
+                    );
+                }
+            }
+        }
+    }
+
     tauri::Builder::default()
         // Must be the first plugin registered. If the user relaunches Stimma
         // while the window is hidden (taskbar/launcher click, or when a Linux
