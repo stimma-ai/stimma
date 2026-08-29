@@ -38,8 +38,9 @@ bypass, see below).
 1. **Push to `main` (canary — automatic).** Every push to `main` triggers
    `.github/workflows/canary.yml`. It computes a synthetic version
    (`<next-patch>-canary.<commit-count>`), runs the quality gate, then builds
-   and publishes a macOS build to the canary updater feed. This is the
-   fastest signal for "does `main` still work" and requires no manual step.
+   and publishes macOS and Linux x64 AppImage builds to the canary updater
+   feed. This is the fastest signal for "does `main` still work" and requires
+   no manual step.
 
 2. **`stimma tag beta [X.Y.Z]` (the real release path).** Tags the current
    commit as the next beta of the upcoming production version — pushing a
@@ -95,10 +96,11 @@ on:
       publish_github_release: { required: false, type: boolean }
 ```
 
-Canary builds only run the macOS reusable workflow (`publish_github_release:
-false`) — canary is meant for fast macOS-only signal, not a full
-cross-platform release. Beta and production releases fan out to macOS,
-Windows, and both Linux AppImage architectures.
+Canary builds run the macOS and Linux x64 AppImage reusable workflows
+(`publish_github_release: false`) — canary is meant for fast signal, not a
+full cross-platform release, so Windows and Linux arm64 are skipped. Beta and
+production releases fan out to macOS, Windows, and both Linux AppImage
+architectures.
 
 ## Channel & version derivation
 
@@ -257,7 +259,7 @@ a hand-rolled build to R2.
 | `tools/stimma` (`stimma tag beta` / `stimma promote production`) | The only supported way to cut beta and production releases |
 | `.github/workflows/ci.yml` | PR/main CI entrypoint |
 | `.github/workflows/quality-gate.yml` | Reusable backend + acceptance test gate |
-| `.github/workflows/canary.yml` | Push-to-`main` canary build (macOS only, auto-triggered) |
+| `.github/workflows/canary.yml` | Push-to-`main` canary build (macOS + Linux x64, auto-triggered) |
 | `.github/workflows/release.yml` | Tag-triggered release orchestrator (beta/production); runs the quality gate before fan-out |
 | `.github/workflows/build-desktop.yml` | On-demand dispatcher; runs the quality gate before fan-out |
 | `.github/workflows/release-macos.yml` | macOS build/sign/publish reusable |
