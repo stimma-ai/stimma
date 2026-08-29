@@ -249,6 +249,95 @@ jobs:
           RUST_LOG: tauri_bundler=trace
         run: tools/stimma app build
 
+      # linuxdeploy bundles the BUILD host's libwayland-* into the AppDir, but
+      # the AppImage resolves Mesa from the RUNNING host. On any host with a
+      # newer Mesa than the Ubuntu 22.04 builder (Arch, Fedora, recent Ubuntu)
+      # that mismatch makes WebKit's EGL init fail with
+      #   Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+      # the web view process SIGABRTs, and the app opens as an empty window.
+      # These libraries are on AppImage's standard excludelist precisely because
+      # they must come from the host, so strip them and repack.
+      #
+      # Tauri exposes no linuxdeploy exclude hook, hence the post-build repack.
+      # The original image's runtime is reused verbatim so the repacked AppImage
+      # behaves exactly like what Tauri produces today - in particular it keeps
+      # the fuse3-compatible static runtime, so hosts without libfuse2 (Arch)
+      # can still run it.
+      - name: Strip host-provided Wayland libs and repack AppImage
+        env:
+          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bundle_dir="src-tauri/target/release/bundle/appimage"
+          appdir="$(find "$bundle_dir" -maxdepth 1 -name '*.AppDir' -print -quit)"
+          appimage="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage' -print -quit)"
+          if [ -z "$appdir" ] || [ -z "$appimage" ]; then
+            echo "Expected both an .AppDir and an .AppImage in $bundle_dir."
+            exit 1
+          fi
+
+          removed=0
+          for lib in libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 libwayland-server.so.0; do
+            if [ -e "$appdir/usr/lib/$lib" ]; then
+              rm -f "$appdir/usr/lib/$lib"
+              echo "removed bundled $lib"
+              removed=$((removed + 1))
+            fi
+          done
+
+          # Tauri derives StartupWMClass from the binary name ("stimma"), but the
+          # window's WM_CLASS class is "Stimma", so launchers that match on the
+          # class half never associate the window with this .desktop entry.
+          desktop="$(find "$appdir" -maxdepth 1 -name '*.desktop' -print -quit)"
+          if [ -n "$desktop" ] && grep -q '^StartupWMClass=stimma$' "$desktop"; then
+            sed -i 's/^StartupWMClass=stimma$/StartupWMClass=Stimma/' "$desktop"
+            echo "corrected StartupWMClass in $(basename "$desktop")"
+            removed=$((removed + 1))
+          fi
+
+          if [ "$removed" -eq 0 ]; then
+            echo "Nothing to change; leaving the AppImage exactly as built."
+            exit 0
+          fi
+
+          work="$RUNNER_TEMP/appimage-repack"
+          rm -rf "$work"
+          mkdir -p "$work"
+
+          curl -fsSL -o "$work/appimagetool" "$APPIMAGETOOL_URL"
+          echo "${APPIMAGETOOL_SHA256}  $work/appimagetool" | sha256sum -c -
+          chmod +x "$work/appimagetool"
+
+          # Reuse the runtime already embedded in the Tauri-built AppImage.
+          offset="$("$appimage" --appimage-offset)"
+          head -c "$offset" "$appimage" >"$work/runtime"
+
+          ARCH="$LINUX_ARCH" APPIMAGE_EXTRACT_AND_RUN=1 "$work/appimagetool" \
+            --runtime-file "$work/runtime" --comp zstd \
+            "$appdir" "$work/repacked.AppImage"
+          mv "$work/repacked.AppImage" "$appimage"
+          chmod +x "$appimage"
+
+          # The updater tarball wraps the AppImage by basename; rebuild it and
+          # re-sign, because the prior signatures no longer match these bytes.
+          archive="${appimage}.tar.gz"
+          rm -f "$archive" "$archive.sig" "${appimage}.sig"
+          tar -czf "$archive" -C "$(dirname "$appimage")" "$(basename "$appimage")"
+
+          # TAURI_SIGNING_PRIVATE_KEY may hold the key itself or a path to it.
+          if [ -f "$TAURI_PRIVATE_KEY" ]; then
+            key_args=(-f "$TAURI_PRIVATE_KEY")
+          else
+            key_args=(-k "$TAURI_PRIVATE_KEY")
+          fi
+          frontend/node_modules/.bin/tauri signer sign \
+            "${key_args[@]}" -p "$TAURI_PRIVATE_KEY_PASSWORD" "$archive"
+          test -s "$archive.sig"
+          echo "repacked $(basename "$appimage") and re-signed the updater tarball"
+
       - name: Print Linux payload stats
         if: always()
         run: |
