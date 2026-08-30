@@ -315,13 +315,16 @@ jobs:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
           # electron-builder signing: identity from the imported keychain.
-          CSC_NAME: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # (CSC_NAME must not carry the "Developer ID Application:" prefix.)
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           CSC_KEYCHAIN: ${{ env.STIMMA_SIGNING_KEYCHAIN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -o pipefail
+          CSC_NAME="${APPLE_SIGNING_IDENTITY#Developer ID Application: }"
+          export CSC_NAME
           tools/stimma --channel="$CHANNEL" app build --release 2>&1 | tee macos-build.log
 
       - name: Build macOS app (Apple signing disabled)
