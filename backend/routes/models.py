@@ -141,6 +141,9 @@ def _canonical_model_id(kind: str, model_id: str) -> str:
         "accounts/fireworks/models/kimi-k2p6": "moonshot:kimi-k2.6",
         "accounts/fireworks/models/glm-5p1": "zai:glm-5.1",
         "accounts/fireworks/models/glm-5p2": "zai:glm-5.2",
+        "accounts/fireworks/models/glm-5p3-flash": "zai:glm-5.3-flash",
+        "accounts/fireworks/models/qwen3p8-flash-next-fp8": "qwen:qwen-3.8-flash-next",
+        "accounts/fireworks/models/qwen3p8-flash-next-nvfp4": "qwen:qwen-3.8-flash-next",
         "accounts/fireworks/models/gpt-oss-120b": "openai:gpt-oss-120b",
         "accounts/fireworks/models/deepseek-v4-pro": "deepseek:deepseek-v4-pro",
     }

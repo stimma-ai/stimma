@@ -768,6 +768,17 @@ async def test_profile_retries_provider_advertised_effort_when_high_is_unsupport
         ("together", "MiniMaxAI/MiniMax-M3", "minimax:minimax-m3"),
         ("together", "Qwen/Qwen3.7-Plus", "qwen:qwen-3.7-plus"),
         ("fireworks", "accounts/fireworks/models/glm-5p2", "zai:glm-5.2"),
+        ("fireworks", "accounts/fireworks/models/glm-5p3-flash", "zai:glm-5.3-flash"),
+        (
+            "fireworks",
+            "accounts/fireworks/models/qwen3p8-flash-next-fp8",
+            "qwen:qwen-3.8-flash-next",
+        ),
+        (
+            "fireworks",
+            "accounts/fireworks/models/qwen3p8-flash-next-nvfp4",
+            "qwen:qwen-3.8-flash-next",
+        ),
     ],
 )
 def test_duplicate_routes_share_canonical_identity(kind, model_id, expected):
