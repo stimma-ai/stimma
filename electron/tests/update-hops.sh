@@ -72,9 +72,14 @@ fi
 echo "update staged ($staged); quitting app to apply..."
 kill "$APP_PID" 2>/dev/null || true
 wait "$APP_PID" 2>/dev/null || true
-sleep 8
 
-ON_DISK="$(defaults read "$APP_BUNDLE/Contents/Info.plist" CFBundleShortVersionString)"
+# Squirrel's ShipIt swaps the bundle asynchronously after quit; poll for it.
+APPLY_DEADLINE=$(( $(date +%s) + 180 ))
+while [ "$(date +%s)" -lt "$APPLY_DEADLINE" ]; do
+  ON_DISK="$(defaults read "$APP_BUNDLE/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo unknown)"
+  [ "$ON_DISK" = "$EXPECT_VERSION" ] && break
+  sleep 5
+done
 if [ "$ON_DISK" != "$EXPECT_VERSION" ]; then
   echo "Bundle version after quit is $ON_DISK, expected $EXPECT_VERSION"; exit 1
 fi

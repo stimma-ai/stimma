@@ -70,6 +70,12 @@ if (!app.requestSingleInstanceLock()) {
     shutdownHelper()
   })
 
+  // Terminal signals become a genuine quit so quit hooks run — including
+  // electron-updater's apply-on-quit (a raw exit would strand a staged
+  // update) and the helper shutdown above.
+  process.on('SIGTERM', () => app.quit())
+  process.on('SIGINT', () => app.quit())
+
   if (pkg.productName) setWindowTitlePrefix(pkg.productName)
 
   void app.whenReady().then(() => {
