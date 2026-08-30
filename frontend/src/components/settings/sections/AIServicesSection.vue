@@ -908,8 +908,8 @@ async function openChatGPTVerification() {
   const url = chatgptLogin.value?.verification_url
   if (!url) return
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('open_external_url', { url })
+    const { desktop } = await import('../../../desktop')
+    await desktop.openAuthUrl(url)
   } catch {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
