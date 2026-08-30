@@ -80,6 +80,9 @@ if [ "$ON_DISK" != "$EXPECT_VERSION" ]; then
 fi
 echo "ok - bundle updated to $EXPECT_VERSION"
 
+# The executable name changes across the Tauri→Electron swap; recompute.
+BIN="$APP_BUNDLE/Contents/MacOS/$(defaults read "$APP_BUNDLE/Contents/Info.plist" CFBundleExecutable)"
+
 # Relaunch and prove the updated app boots (backend handshake in shell log for
 # Electron; process liveness for either shell).
 env -u ELECTRON_RUN_AS_NODE -u STIMMA_DEV \
