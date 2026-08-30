@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "electron": "43.4.1",
+    "electron-builder": "^26.15.3",
     "esbuild": "0.25.9",
     "typescript": "5.9.2"
   }

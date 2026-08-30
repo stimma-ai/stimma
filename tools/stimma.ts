@@ -1315,15 +1315,128 @@ async function channelIconConfig(channel: string): Promise<Record<string, unknow
   };
 }
 
+function channelAppIdentity(channel: string): { bundleId: string; productName: string } {
+  // Mirrors the release-workflow identity mapping; local debug builds keep
+  // the plain "Stimma" name (matches the historical local Tauri build).
+  switch (channel) {
+    case "production":
+      return { bundleId: "ai.stimma.stimma", productName: "Stimma" };
+    case "beta":
+      return { bundleId: "ai.stimma.stimma.beta", productName: "Stimma Beta" };
+    case "canary":
+      return { bundleId: "ai.stimma.stimma.canary", productName: "Stimma Canary" };
+    default:
+      return { bundleId: "ai.stimma.stimma.debug", productName: "Stimma" };
+  }
+}
+
+async function buildStimmaNative(): Promise<string> {
+  const dir = join(repoRoot, "native", "stimma-native");
+  await run("cargo", ["build", "--release"], { cwd: dir });
+  const ext = Deno.build.os === "windows" ? ".exe" : "";
+  return join(dir, "target", "release", `stimma-native${ext}`);
+}
+
+async function appBuildElectron(polishedInstaller: boolean, channel: string): Promise<void> {
+  const target = await detectTargetTriple();
+  const ext = Deno.build.os === "windows" ? ".exe" : "";
+
+  console.log("Building portable backend");
+  await buildPortableBackend(target);
+  await buildWatchdog(target);
+  const nativeHelper = await buildStimmaNative();
+
+  console.log("Building frontend");
+  await run("npm", ["run", "build"], { cwd: join(repoRoot, "frontend") });
+
+  console.log("Building Electron shell");
+  await ensureElectronDeps();
+  const electronDir = join(repoRoot, "electron");
+  await run("npm", ["run", "build"], { cwd: electronDir });
+
+  const { bundleId, productName } = channelAppIdentity(channel);
+  const tauriCfg = JSON.parse(await Deno.readTextFile(join(repoRoot, "src-tauri", "tauri.conf.json")));
+  const version = Deno.env.get("STIMMA_APP_VERSION") || tauriCfg.version || "0.1.0";
+
+  const macTargets = polishedInstaller
+    ? [{ target: "dmg", arch: ["arm64"] }, { target: "zip", arch: ["arm64"] }]
+    : [{ target: "dir", arch: ["arm64"] }];
+
+  const builderConfig: Record<string, unknown> = {
+    appId: bundleId,
+    productName,
+    directories: { app: ".", output: "out", buildResources: "build" },
+    asar: true,
+    files: ["dist/**/*", "package.json"],
+    npmRebuild: false,
+    extraMetadata: {
+      version,
+      productName,
+      stimmaBundleId: bundleId,
+      // Update feed base for electron-updater's generic provider. Only baked
+      // when release CI provides a base URL; dev/local builds stay updater-off.
+      ...(Deno.env.get("STIMMA_UPDATE_BASE_URL")
+        ? {
+          stimmaUpdateUrl: `${Deno.env.get("STIMMA_UPDATE_BASE_URL")}/stimma/${channel}/${
+            Deno.build.os === "darwin" ? "darwin-aarch64" : Deno.build.os === "windows" ? "windows-x86_64" : `linux-${Deno.build.arch === "aarch64" ? "aarch64" : "x86_64"}`
+          }`,
+        }
+        : {}),
+    },
+    extraResources: [
+      { from: "../frontend/dist", to: "frontend" },
+      { from: `../src-tauri/binaries/stimma-backend-${target}`, to: "stimma-backend" },
+      { from: `../src-tauri/binaries/stimma-watchdog-${target}${ext}`, to: `stimma-watchdog${ext}` },
+      { from: nativeHelper, to: `stimma-native${ext}` },
+    ],
+    mac: {
+      target: macTargets,
+      icon: "../src-tauri/icons/icon.icns",
+      minimumSystemVersion: "15.0",
+      hardenedRuntime: true,
+      entitlements: "build/entitlements.mac.plist",
+      entitlementsInherit: "build/entitlements.mac.plist",
+      extraResources: [
+        // macOS 26+ Liquid Glass icon; older macOS falls back to icon.icns.
+        { from: "../src-tauri/icons/Assets.car", to: "Assets.car" },
+      ],
+      extendInfo: {
+        NSMicrophoneUsageDescription: "Stimma uses the microphone for voice input in chat.",
+        CFBundleIconName: "Stimma",
+      },
+    },
+  };
+
+  const configPath = join(electronDir, ".generated-builder.json");
+  await Deno.writeTextFile(configPath, JSON.stringify(builderConfig, null, 2) + "\n");
+
+  const builderBin = join(electronDir, "node_modules", ".bin", Deno.build.os === "windows" ? "electron-builder.cmd" : "electron-builder");
+  // Scrub ELECTRON_RUN_AS_NODE (agent/editor shells export it; it turns any
+  // Electron the builder spawns into plain Node).
+  Deno.env.delete("ELECTRON_RUN_AS_NODE");
+  await run(builderBin, ["--config", configPath], { cwd: electronDir });
+
+  console.log("");
+  console.log(`Electron build complete: ${join(electronDir, "out")}`);
+}
+
 async function appBuild(args: string[], channel: string): Promise<void> {
   let polishedDmg = false;
+  let shell: DesktopShell = "electron";
 
   for (const arg of args) {
     if (arg === "--release") polishedDmg = true;
+    else if (arg === "--shell=tauri") shell = "tauri";
+    else if (arg === "--shell=electron") shell = "electron";
     else {
       console.error(`Unknown flag for app build: ${arg}`);
       Deno.exit(1);
     }
+  }
+
+  if (shell === "electron") {
+    await appBuildElectron(polishedDmg, channel);
+    return;
   }
 
   const target = await detectTargetTriple();

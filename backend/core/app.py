@@ -1576,6 +1576,7 @@ def create_app() -> FastAPI:
             "tauri://localhost",           # Tauri v2 production (macOS/Linux)
             "https://tauri.localhost",     # Tauri v2 production (Windows)
             "http://tauri.localhost",      # Tauri v2 fallback
+            "app://stimma",                # Electron production (app:// scheme)
             "http://localhost:9192",       # Vite dev server
             "http://127.0.0.1:9192",       # Vite dev server (alt)
         ],

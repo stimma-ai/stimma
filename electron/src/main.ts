@@ -9,6 +9,7 @@
 
 import { app } from 'electron'
 import path from 'node:path'
+import { APP_ORIGIN, installAppProtocolHandler, registerAppScheme } from './appProtocol'
 import { startBackend } from './backend'
 import { initHelper, shutdownHelper } from './helper'
 import { resolveIdentity } from './identity'
@@ -22,11 +23,15 @@ import {
   restoreWindows,
   setWindowEnvironment,
   setWindowRegistry,
+  setWindowTitlePrefix,
   showAllWindows,
 } from './windows'
 
-// Packaged bundle id is stamped by the build; dev falls back to debug.
-const PACKAGED_BUNDLE_ID = 'ai.stimma.stimma.debug'
+// Packaged bundle id is stamped into package.json by the build (electron-
+// builder extraMetadata); dev falls back to the debug channel.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg = require('../package.json') as { stimmaBundleId?: string; productName?: string }
+const PACKAGED_BUNDLE_ID = pkg.stimmaBundleId || 'ai.stimma.stimma.debug'
 
 const identity = resolveIdentity(PACKAGED_BUNDLE_ID)
 
@@ -51,9 +56,10 @@ if (!app.requestSingleInstanceLock()) {
     identity.dev
       // 127.0.0.1 (not localhost): the backend's CORS allowlist admits
       // http://127.0.0.1:<any port> for dev sandboxes.
-      ? { devUrl: `http://127.0.0.1:${identity.devFrontendPort}`, frontendDist: null }
-      : { devUrl: null, frontendDist: path.join(process.resourcesPath, 'frontend') },
+      ? { devUrl: `http://127.0.0.1:${identity.devFrontendPort}`, appOrigin: null }
+      : { devUrl: null, appOrigin: APP_ORIGIN },
   )
+  if (!identity.dev) registerAppScheme()
 
   setWindowRegistry(new WindowRegistry(identity.dataDir))
   installAppLifecycle()
@@ -65,7 +71,12 @@ if (!app.requestSingleInstanceLock()) {
     shutdownHelper()
   })
 
+  if (pkg.productName) setWindowTitlePrefix(pkg.productName)
+
   void app.whenReady().then(() => {
+    if (!identity.dev) {
+      installAppProtocolHandler(path.join(process.resourcesPath, 'frontend'))
+    }
     installApplicationMenu(identity.dev)
     initWindowState(identity.dataDir)
     restoreWindows()

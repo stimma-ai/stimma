@@ -16,6 +16,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { waitForBackendPort } from './backend'
 import {
+  relaunchApp,
+  updaterCheck,
+  updaterClose,
+  updaterDownload,
+  updaterDownloadAndInstall,
+  updaterInstall,
+} from './updater'
+import {
   helperCall,
   helperRequest,
   removeEventListener,
@@ -111,8 +119,7 @@ export function registerIpcHandlers(): void {
   handle('stimma:get-app-version', () => app.getVersion())
 
   handle('stimma:relaunch', () => {
-    app.relaunch()
-    app.exit(0)
+    relaunchApp()
   })
 
   handle('stimma:log', (_event, level: unknown, message: unknown) => {
@@ -292,18 +299,12 @@ export function registerIpcHandlers(): void {
 
   handle('stimma:voice-keepalive', () => helperRequest('voice_keepalive'))
 
-  // ---- updater (electron-updater lands in Phase 6) -------------------------
-  handle('stimma:updater-check', () => null)
-  handle('stimma:updater-download', () => {
-    throw new Error('Updater not wired yet')
-  })
-  handle('stimma:updater-install', () => {
-    throw new Error('Updater not wired yet')
-  })
-  handle('stimma:updater-download-and-install', () => {
-    throw new Error('Updater not wired yet')
-  })
-  handle('stimma:updater-close', () => {})
+  // ---- updater -------------------------------------------------------------
+  handle('stimma:updater-check', () => updaterCheck())
+  handle('stimma:updater-download', () => updaterDownload())
+  handle('stimma:updater-install', () => updaterInstall())
+  handle('stimma:updater-download-and-install', () => updaterDownloadAndInstall())
+  handle('stimma:updater-close', () => updaterClose())
 
   // Second-instance / tray helpers reuse this too.
   void showAllWindows

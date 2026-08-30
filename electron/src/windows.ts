@@ -27,10 +27,11 @@ export function isQuitting(): boolean {
 
 export interface WindowEnvironment {
   devUrl: string | null
-  frontendDist: string | null
+  /** Packaged mode: app:// origin served by the main-process protocol handler. */
+  appOrigin: string | null
 }
 
-let environment: WindowEnvironment = { devUrl: null, frontendDist: null }
+let environment: WindowEnvironment = { devUrl: null, appOrigin: null }
 let registry: WindowRegistry | null = null
 
 export function setWindowEnvironment(env: WindowEnvironment): void {
@@ -62,10 +63,16 @@ export function windowForLabel(label: string): BrowserWindow | null {
   )
 }
 
+let windowTitle = 'Stimma'
+
+export function setWindowTitlePrefix(title: string): void {
+  windowTitle = title
+}
+
 export function createAppWindow(label: string): BrowserWindow {
   const stored = storedBoundsFor(label)
   const win = new BrowserWindow({
-    title: 'Stimma',
+    title: windowTitle,
     width: stored?.width ?? 1200,
     height: stored?.height ?? 800,
     ...(stored ? { x: stored.x, y: stored.y } : {}),
@@ -120,12 +127,38 @@ export function createAppWindow(label: string): BrowserWindow {
     }
   })
 
+  // Renderer failure diagnostics — these are the only signals a packaged
+  // build has when the page never comes up.
+  win.webContents.on('did-fail-load', (_e, code, description, url) => {
+    log.error('stimma', `Renderer failed to load ${url}: ${description} (${code})`)
+  })
+  win.webContents.on('preload-error', (_e, preloadPathValue, error) => {
+    log.error('stimma', `Preload error in ${preloadPathValue}: ${error}`)
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    log.error('stimma', `Renderer gone: ${details.reason} (exit ${details.exitCode})`)
+  })
+  // Raw renderer console (Chromium-level). The console bridge forwards app
+  // logs once it initializes; this catches everything before/without it.
+  win.webContents.on('console-message', (event: any, ...legacy: any[]) => {
+    const message = event?.message ?? legacy[1]
+    const source = event?.sourceId ?? legacy[3]
+    const line = event?.lineNumber ?? legacy[2]
+    const level = event?.level ?? legacy[0]
+    if (level === 'error' || level === 'warning' || (typeof level === 'number' && level >= 2)) {
+      log.warn('renderer', `${message} (${source}:${line})`)
+    }
+  })
+  win.webContents.on('did-finish-load', () => {
+    log.info('stimma', `Renderer finished loading ${win.webContents.getURL()}`)
+  })
+
   if (environment.devUrl) {
     void win.loadURL(environment.devUrl)
-  } else if (environment.frontendDist) {
-    void win.loadFile(path.join(environment.frontendDist, 'index.html'))
+  } else if (environment.appOrigin) {
+    void win.loadURL(environment.appOrigin + '/')
   } else {
-    log.error('stimma', 'No frontend source configured (devUrl or frontendDist)')
+    log.error('stimma', 'No frontend source configured (devUrl or appOrigin)')
   }
 
   return win
@@ -209,7 +242,7 @@ export function closeDeletedProfileWindow(win: BrowserWindow): boolean {
 
 export function isAppUrl(url: string): boolean {
   if (environment.devUrl && url.startsWith(environment.devUrl)) return true
-  if (url.startsWith('file://')) return true
+  if (environment.appOrigin && url.startsWith(environment.appOrigin)) return true
   return false
 }
 

@@ -170,6 +170,8 @@ src-tauri/icons/.generated/
 # Electron shell
 electron/node_modules/
 electron/dist/
+electron/out/
+electron/.generated-builder.json
 
 # Native helper
 native/stimma-native/target/
