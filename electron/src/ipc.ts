@@ -15,6 +15,11 @@ import {
 import fs from 'node:fs'
 import path from 'node:path'
 import { waitForBackendPort } from './backend'
+import {
+  helperCall,
+  helperRequest,
+  removeEventListener,
+} from './helper'
 import { log } from './log'
 import {
   closeDeletedProfileWindow,
@@ -224,25 +229,68 @@ export function registerIpcHandlers(): void {
     )
   })
 
-  handle('stimma:embed-metadata', () => {
-    // Metadata embedding moves to the stimma-native helper in Phase 4; until
-    // then drags fall back to the raw file (frontend handles null).
-    return null
+  handle('stimma:embed-metadata', async (_event, req: unknown) => {
+    if (req === null || typeof req !== 'object') throw new Error('Invalid embed request')
+    const result = await helperRequest('embed_metadata', req)
+    return typeof result === 'string' && result.length > 0 ? result : null
   })
 
   handle('stimma:is-shift-key-down', () => false)
 
-  // ---- voice (stimma-native helper lands in Phase 4) -----------------------
-  handle('stimma:voice-model-status', () => false)
-  handle('stimma:voice-download-model', () => {
-    throw new Error('Voice input is not available in the Electron shell yet')
+  // ---- voice (stimma-native helper) ----------------------------------------
+  handle('stimma:voice-model-status', () => helperRequest('voice_model_status'))
+
+  handle('stimma:voice-download-model', (event) => {
+    const target = event.sender
+    return helperRequest('voice_download_model', {}, (payload) => {
+      if (!target.isDestroyed()) target.send('stimma:voice-download-event', payload)
+    })
   })
-  handle('stimma:voice-start', () => {
-    throw new Error('Voice input is not available in the Electron shell yet')
+
+  // One live dictation session; owned by the window that started it. The
+  // transcript stream outlives the voice_start response and is torn down on
+  // stop/cancel, owner destruction, or (helper-side) lease expiry.
+  let voiceSession: { requestId: number; ownerDestroyed: () => void } | null = null
+  const endVoiceSession = () => {
+    if (!voiceSession) return
+    removeEventListener(voiceSession.requestId)
+    voiceSession = null
+  }
+
+  handle('stimma:voice-start', async (event) => {
+    endVoiceSession()
+    const target = event.sender
+    const call = helperCall(
+      'voice_start',
+      {},
+      (payload) => {
+        if (!target.isDestroyed()) target.send('stimma:voice-transcript-event', payload)
+      },
+      'explicit',
+    )
+    const ownerDestroyed = () => {
+      // Renderer went away mid-capture: cancel immediately rather than
+      // waiting for the helper's keepalive lease to expire.
+      void helperRequest('voice_cancel').catch(() => {})
+      endVoiceSession()
+    }
+    target.once('destroyed', ownerDestroyed)
+    voiceSession = { requestId: call.id, ownerDestroyed }
+    await call.result
   })
-  handle('stimma:voice-stop', () => '')
-  handle('stimma:voice-cancel', () => {})
-  handle('stimma:voice-keepalive', () => {})
+
+  handle('stimma:voice-stop', async () => {
+    const text = await helperRequest('voice_stop')
+    endVoiceSession()
+    return text
+  })
+
+  handle('stimma:voice-cancel', async () => {
+    await helperRequest('voice_cancel')
+    endVoiceSession()
+  })
+
+  handle('stimma:voice-keepalive', () => helperRequest('voice_keepalive'))
 
   // ---- updater (electron-updater lands in Phase 6) -------------------------
   handle('stimma:updater-check', () => null)

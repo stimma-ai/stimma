@@ -10,6 +10,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import { startBackend } from './backend'
+import { initHelper, shutdownHelper } from './helper'
 import { resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
 import { initLog, log } from './log'
@@ -56,8 +57,13 @@ if (!app.requestSingleInstanceLock()) {
 
   setWindowRegistry(new WindowRegistry(identity.dataDir))
   installAppLifecycle()
+  initHelper(identity)
   registerIpcHandlers()
   startBackend(identity, app.getVersion())
+
+  app.on('will-quit', () => {
+    shutdownHelper()
+  })
 
   void app.whenReady().then(() => {
     installApplicationMenu(identity.dev)

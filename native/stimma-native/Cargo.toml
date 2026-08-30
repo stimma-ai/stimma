@@ -1,0 +1,21 @@
+[package]
+name = "stimma-native"
+version = "0.1.0"
+edition = "2021"
+description = "Stimma native helper: on-device dictation + drag-out metadata embedding over stdio JSON lines"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+cpal = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+futures-util = "0.3"
+crc32fast = "1.4"
+sherpa-onnx = "1.13.3"
+
+[profile.release]
+strip = true
+lto = true
