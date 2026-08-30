@@ -84,13 +84,22 @@ export const test = base.extend<{
       }, seed);
     }
 
-    // Electron pages have no context baseURL; make relative goto work like
-    // the browser project.
+    // Electron pages have no context baseURL; make relative goto and
+    // request.fetch work like the browser project.
     const originalGoto = page.goto.bind(page);
     page.goto = ((url: string, options?: Parameters<Page['goto']>[1]) => {
       const resolved = /^[a-z]+:/i.test(url) ? url : new URL(url, baseURL).toString();
       return originalGoto(resolved, options);
     }) as Page['goto'];
+
+    const request = page.request;
+    const originalFetch = request.fetch.bind(request);
+    request.fetch = ((urlOrRequest: unknown, options?: unknown) => {
+      if (typeof urlOrRequest === 'string' && !/^[a-z]+:/i.test(urlOrRequest)) {
+        return originalFetch(new URL(urlOrRequest, baseURL).toString(), options as never);
+      }
+      return originalFetch(urlOrRequest as never, options as never);
+    }) as typeof request.fetch;
 
     await page.goto('/browse');
     await use(page);
