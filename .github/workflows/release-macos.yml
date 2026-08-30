@@ -20,6 +20,38 @@ on:
         required: false
         default: false
         type: boolean
+  # Manual mac-only runs (e.g. staging builds from a work branch without
+  # kicking off the Windows/Linux legs of Build / Desktop).
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build
+        required: true
+        default: main
+      channel:
+        description: Release channel
+        required: true
+        default: sandbox
+        type: choice
+        options:
+          - sandbox
+          - canary
+          - beta
+          - production
+      version:
+        description: App version to embed (semver)
+        required: false
+        default: ""
+      publish_updates:
+        description: Publish updater artifacts to Cloudflare R2
+        required: true
+        default: false
+        type: boolean
+      publish_github_release:
+        description: Publish GitHub release assets
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -71,7 +103,9 @@ jobs:
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            native/stimma-native
           save-if: false
 
       - name: Setup uv
@@ -272,90 +306,83 @@ jobs:
               hdiutil detach "$volume" || diskutil unmount force "$volume" || true
             done
 
-      - name: Build signed and notarized macOS app
+      - name: Build signed and notarized macOS app (Electron)
         if: vars.ENABLE_APPLE_SIGNING == 'true'
-        timeout-minutes: 25
+        timeout-minutes: 30
         env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # electron-builder signing: identity from the imported keychain.
+          CSC_NAME: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          CSC_KEYCHAIN: ${{ env.STIMMA_SIGNING_KEYCHAIN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -o pipefail
-          tools/stimma app build 2>&1 | tee macos-build.log
+          tools/stimma --channel="$CHANNEL" app build --release 2>&1 | tee macos-build.log
 
       - name: Build macOS app (Apple signing disabled)
         if: vars.ENABLE_APPLE_SIGNING != 'true'
-        timeout-minutes: 20
+        timeout-minutes: 25
         env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
+        run: |
+          set -o pipefail
+          tools/stimma --channel="$CHANNEL" app build --release 2>&1 | tee macos-build.log
+
+      - name: Create Tauri-compatible updater artifact (handoff)
+        env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          set -o pipefail
-          tools/stimma app build 2>&1 | tee macos-build.log
-
-      - name: Create macOS DMG
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
           set -euo pipefail
-          APP_BUNDLE="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          # Fielded Tauri clients update by fetching latest.json and applying a
+          # minisign-signed .app.tar.gz — produce one from the Electron bundle
+          # so hop 1 of the migration works without a transitional release.
+          APP_BUNDLE="$(find electron/out/mac-arm64 -maxdepth 1 -name '*.app' -print -quit)"
           if [ -z "$APP_BUNDLE" ]; then
-            echo "Expected macOS .app bundle was not generated."
+            echo "Electron .app bundle not found."
             exit 1
           fi
-
-          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_BUNDLE/Contents/Info.plist")"
           PRODUCT_NAME="$(basename "$APP_BUNDLE" .app)"
-          DMG_DIR="src-tauri/target/release/bundle/dmg"
-          STAGING_DIR="$RUNNER_TEMP/stimma-dmg-staging"
-          DMG_FILE="${DMG_DIR}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
-          RAW_DMG_FILE="${DMG_DIR}/${PRODUCT_NAME}_${VERSION}_aarch64.raw.dmg"
-
-          rm -rf "$STAGING_DIR"
-          mkdir -p "$STAGING_DIR" "$DMG_DIR"
-          ditto --noextattr --noqtn "$APP_BUNDLE" "$STAGING_DIR/$(basename "$APP_BUNDLE")"
-          xattr -cr "$STAGING_DIR/$(basename "$APP_BUNDLE")" || true
-          ln -s /Applications "$STAGING_DIR/Applications"
-          rm -f "$DMG_FILE" "$RAW_DMG_FILE"
-
-          hdiutil makehybrid \
-            -hfs \
-            -hfs-volume-name "$PRODUCT_NAME" \
-            -o "$RAW_DMG_FILE" \
-            "$STAGING_DIR"
-          hdiutil convert "$RAW_DMG_FILE" -format UDZO -o "$DMG_FILE"
-          rm -f "$RAW_DMG_FILE"
-
-          if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
-            codesign --force --sign "$APPLE_SIGNING_IDENTITY" "$DMG_FILE"
-            codesign --verify --verbose=2 "$DMG_FILE"
+          APP_TAR="electron/out/${PRODUCT_NAME}.app.tar.gz"
+          tar -czf "$APP_TAR" -C "$(dirname "$APP_BUNDLE")" "$(basename "$APP_BUNDLE")"
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            frontend/node_modules/.bin/tauri signer sign "$APP_TAR"
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY missing; handoff artifact left unsigned (staging only)."
           fi
 
       - name: Collect build artifacts
         id: collect
         run: |
           set -euo pipefail
-          DMG_FILE="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' | head -n 1)"
-          APP_TAR="$(find src-tauri/target/release/bundle/macos -name '*.app.tar.gz' | head -n 1)"
+          DMG_FILE="$(find electron/out -maxdepth 1 -name '*.dmg' | head -n 1)"
+          MAC_ZIP="$(find electron/out -maxdepth 1 -name '*.zip' | head -n 1)"
+          LATEST_MAC_YML="electron/out/latest-mac.yml"
+          APP_TAR="$(find electron/out -maxdepth 1 -name '*.app.tar.gz' | head -n 1)"
           APP_SIG="${APP_TAR}.sig"
-          APP_BUNDLE="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)"
+          APP_BUNDLE="$(find electron/out/mac-arm64 -maxdepth 1 -name '*.app' | head -n 1)"
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_BUNDLE/Contents/Info.plist")"
 
-          if [ -z "$DMG_FILE" ] || [ -z "$APP_TAR" ] || [ -z "$APP_BUNDLE" ] || [ ! -f "$APP_SIG" ]; then
-            echo "Expected DMG and updater artifacts were not generated."
+          if [ -z "$DMG_FILE" ] || [ -z "$MAC_ZIP" ] || [ ! -f "$LATEST_MAC_YML" ] || [ -z "$APP_TAR" ] || [ -z "$APP_BUNDLE" ]; then
+            echo "Expected Electron release artifacts were not generated."
             exit 1
+          fi
+          if [ ! -f "$APP_SIG" ]; then
+            echo "WARNING: Tauri handoff artifact is unsigned (no .sig); publish will fail unless staging."
+            APP_SIG=""
           fi
 
           echo "dmg_file=$DMG_FILE" >> "$GITHUB_OUTPUT"
+          echo "mac_zip=$MAC_ZIP" >> "$GITHUB_OUTPUT"
+          echo "latest_mac_yml=$LATEST_MAC_YML" >> "$GITHUB_OUTPUT"
           echo "app_tar=$APP_TAR" >> "$GITHUB_OUTPUT"
           echo "app_sig=$APP_SIG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -368,6 +395,8 @@ jobs:
           retention-days: 1
           path: |
             ${{ steps.collect.outputs.dmg_file }}
+            ${{ steps.collect.outputs.mac_zip }}
+            ${{ steps.collect.outputs.latest_mac_yml }}
             ${{ steps.collect.outputs.app_tar }}
             ${{ steps.collect.outputs.app_sig }}
 
@@ -380,6 +409,7 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ steps.collect.outputs.dmg_file }}
+            ${{ steps.collect.outputs.mac_zip }}
             ${{ steps.collect.outputs.app_tar }}
             ${{ steps.collect.outputs.app_sig }}
 
@@ -389,6 +419,8 @@ jobs:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VERSION: ${{ steps.version.outputs.version }}
           DMG_FILE: ${{ steps.collect.outputs.dmg_file }}
+          MAC_ZIP: ${{ steps.collect.outputs.mac_zip }}
+          LATEST_MAC_YML: ${{ steps.collect.outputs.latest_mac_yml }}
           APP_TAR: ${{ steps.collect.outputs.app_tar }}
           APP_SIG: ${{ steps.collect.outputs.app_sig }}
           BUCKET: ${{ env.R2_BUCKET }}
@@ -414,9 +446,16 @@ jobs:
           AWS_SECRET_ACCESS_KEY="$(printf '%s' "$AWS_SECRET_ACCESS_KEY" | tr -d '[:space:]')"
           export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
+          if [ -z "${APP_SIG:-}" ] || [ ! -f "$APP_SIG" ]; then
+            echo "Refusing to publish updates without a signed Tauri handoff artifact."
+            exit 1
+          fi
+
           VERSIONED_PREFIX="stimma/${CHANNEL}/darwin-aarch64/${VERSION}"
+          PLATFORM_PREFIX="stimma/${CHANNEL}/darwin-aarch64"
           BASENAME="$(basename "$APP_TAR")"
           DMG_BASENAME="$(basename "$DMG_FILE")"
+          ZIP_BASENAME="$(basename "$MAC_ZIP")"
           BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$BASENAME")"
           DMG_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$DMG_BASENAME")"
           SIG_VALUE="$(tr -d '\n' < "$APP_SIG")"
@@ -425,9 +464,19 @@ jobs:
           DOWNLOAD_SIZE="$(stat -f%z "$DMG_FILE")"
           DOWNLOAD_SHA256="$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')"
 
+          # Versioned prefix: website download (dmg) + Tauri handoff artifact.
           aws s3 cp "$DMG_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${DMG_BASENAME}" --content-type application/x-apple-diskimage --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
           aws s3 cp "$APP_TAR" "s3://${BUCKET}/${VERSIONED_PREFIX}/${BASENAME}" --content-type application/gzip --endpoint-url "$R2_S3_ENDPOINT"
           aws s3 cp "$APP_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${BASENAME}.sig" --content-type text/plain --endpoint-url "$R2_S3_ENDPOINT"
+
+          # Platform root: electron-updater artifacts. latest-mac.yml references
+          # these by bare filename, resolved against the feed directory. Names
+          # embed the version, so immutable caching is safe.
+          aws s3 cp "$MAC_ZIP" "s3://${BUCKET}/${PLATFORM_PREFIX}/${ZIP_BASENAME}" --content-type application/zip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          aws s3 cp "$DMG_FILE" "s3://${BUCKET}/${PLATFORM_PREFIX}/${DMG_BASENAME}" --content-type application/x-apple-diskimage --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          if [ -f "${DMG_FILE}.blockmap" ]; then
+            aws s3 cp "${DMG_FILE}.blockmap" "s3://${BUCKET}/${PLATFORM_PREFIX}/${DMG_BASENAME}.blockmap" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          fi
 
           cat > latest.json <<JSON
           {
@@ -491,6 +540,9 @@ jobs:
           fi
 
           aws s3 cp latest.json "s3://${BUCKET}/stimma/${CHANNEL}/darwin-aarch64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          # Same guard outcome covers the electron-updater manifest: both
+          # manifests always describe the same candidate version.
+          aws s3 cp "$LATEST_MAC_YML" "s3://${BUCKET}/${PLATFORM_PREFIX}/latest-mac.yml" --content-type text/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
           cat > download.json <<JSON
           {
@@ -522,10 +574,11 @@ jobs:
 
           MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/latest.json"
           DOWNLOAD_MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/download.json"
+          ELECTRON_MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/latest-mac.yml"
           curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data "{\"files\":[\"${MANIFEST_URL}\",\"${DOWNLOAD_MANIFEST_URL}\"]}"
+            --data "{\"files\":[\"${MANIFEST_URL}\",\"${DOWNLOAD_MANIFEST_URL}\",\"${ELECTRON_MANIFEST_URL}\"]}"
 
       - name: Clean up signing keychain
         if: always() && vars.ENABLE_APPLE_SIGNING == 'true'

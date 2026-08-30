@@ -1362,6 +1362,22 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
     ? [{ target: "dmg", arch: ["arm64"] }, { target: "zip", arch: ["arm64"] }]
     : [{ target: "dir", arch: ["arm64"] }];
 
+  const updateBase = Deno.env.get("STIMMA_UPDATE_BASE_URL");
+  const platformDir = Deno.build.os === "darwin"
+    ? "darwin-aarch64"
+    : Deno.build.os === "windows"
+    ? "windows-x86_64"
+    : `linux-${Deno.build.arch === "aarch64" ? "aarch64" : "x86_64"}`;
+  const updateFeedUrl = updateBase ? `${updateBase}/stimma/${channel}/${platformDir}` : null;
+  // Notarize only when release CI provides Apple notary credentials.
+  const notarize = Deno.build.os === "darwin" && !!Deno.env.get("APPLE_ID") &&
+    !!(Deno.env.get("APPLE_APP_SPECIFIC_PASSWORD") || Deno.env.get("APPLE_PASSWORD")) &&
+    !!Deno.env.get("APPLE_TEAM_ID");
+  if (notarize && !Deno.env.get("APPLE_APP_SPECIFIC_PASSWORD")) {
+    // electron-builder reads APPLE_APP_SPECIFIC_PASSWORD; our CI secret is APPLE_PASSWORD.
+    Deno.env.set("APPLE_APP_SPECIFIC_PASSWORD", Deno.env.get("APPLE_PASSWORD")!);
+  }
+
   const builderConfig: Record<string, unknown> = {
     appId: bundleId,
     productName,
@@ -1404,7 +1420,12 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
         NSMicrophoneUsageDescription: "Stimma uses the microphone for voice input in chat.",
         CFBundleIconName: "Stimma",
       },
+      notarize,
     },
+    // Configuring the publish provider makes electron-builder emit
+    // latest-mac.yml/latest.yml next to the artifacts; actual uploading is
+    // done by the release workflow (R2), never by the builder.
+    ...(updateFeedUrl ? { publish: { provider: "generic", url: updateFeedUrl } } : {}),
   };
 
   const configPath = join(electronDir, ".generated-builder.json");
@@ -1414,7 +1435,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   // Scrub ELECTRON_RUN_AS_NODE (agent/editor shells export it; it turns any
   // Electron the builder spawns into plain Node).
   Deno.env.delete("ELECTRON_RUN_AS_NODE");
-  await run(builderBin, ["--config", configPath], { cwd: electronDir });
+  await run(builderBin, ["--config", configPath, "--publish", "never"], { cwd: electronDir });
 
   console.log("");
   console.log(`Electron build complete: ${join(electronDir, "out")}`);
