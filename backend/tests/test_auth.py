@@ -219,6 +219,9 @@ class TestAuthStorage:
         class FakeWindowsStore:
             backend_name = "windows-credential-manager"
 
+            def __init__(self, key=None):
+                self.key = key
+
         monkeypatch.setattr(auth_storage.platform, "system", lambda: "Windows")
         monkeypatch.setattr(auth_storage, "_token_store_override", None)
         monkeypatch.setattr(auth_storage, "WindowsCredentialManagerRefreshTokenStore", FakeWindowsStore)
@@ -234,6 +237,9 @@ class TestAuthStorage:
 
         class FakeLinuxStore:
             backend_name = "linux-secret-service"
+
+            def __init__(self, key=None):
+                self.key = key
 
         monkeypatch.setattr(auth_storage.platform, "system", lambda: "Linux")
         monkeypatch.setattr(auth_storage, "_token_store_override", None)
@@ -253,7 +259,7 @@ class TestAuthStorage:
         import auth_storage
 
         class UnavailableLinuxStore:
-            def __init__(self):
+            def __init__(self, key=None):
                 raise auth_storage.SecureTokenStorageUnavailable("no secret service")
 
         monkeypatch.setattr(auth_storage.app_dirs, "get_data_dir", lambda: temp_appdata_dir)
@@ -301,7 +307,7 @@ class TestAuthStorage:
         import auth_storage
 
         class UnavailableLinuxStore:
-            def __init__(self):
+            def __init__(self, key=None):
                 raise auth_storage.SecureTokenStorageUnavailable("no secret service")
 
         monkeypatch.setattr(auth_storage.app_dirs, "get_data_dir", lambda: temp_appdata_dir)

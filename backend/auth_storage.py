@@ -11,6 +11,7 @@ import platform
 import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Protocol, TypedDict
 
@@ -25,6 +26,44 @@ AUTH_STATE_FILENAME = "cloud_auth.json"
 AUTH_TOKEN_FALLBACK_FILENAME = "cloud_auth_tokens.json"
 KEYCHAIN_SERVICE = "Stimma Cloud Auth"
 CREDENTIAL_LABEL = "Stimma Cloud refresh token"
+
+
+
+@dataclass(frozen=True)
+class CredentialKey:
+    """Names one logical secret across every platform credential backend.
+
+    Each backend keys entries differently, so the whole naming surface is
+    grouped here rather than hard-coded per store. ``CLOUD_CREDENTIAL_KEY``
+    reproduces the original Stimma Cloud names byte for byte — changing any
+    of them would orphan credentials already written by shipped builds.
+    """
+
+    keychain_service: str      # macOS: -s argument
+    account_kind: str          # macOS account suffix / Secret Service "kind"
+    windows_target: str        # Windows target, {bundle}/{sandbox} templated
+    label: str                 # Secret Service human-readable label
+    fallback_filename: str     # Linux 0600 file fallback
+
+
+CLOUD_CREDENTIAL_KEY = CredentialKey(
+    keychain_service=KEYCHAIN_SERVICE,
+    account_kind="stimma-cloud-refresh-token",
+    windows_target="Stimma Cloud:{bundle}:{sandbox}:refresh-token",
+    label=CREDENTIAL_LABEL,
+    fallback_filename=AUTH_TOKEN_FALLBACK_FILENAME,
+)
+
+# ChatGPT-plan OAuth. Deliberately a distinct credential so signing out of
+# ChatGPT never touches the Stimma Cloud session, and vice versa.
+CHATGPT_CREDENTIAL_KEY = CredentialKey(
+    keychain_service="Stimma ChatGPT Auth",
+    account_kind="stimma-chatgpt-refresh-token",
+    windows_target="Stimma ChatGPT:{bundle}:{sandbox}:refresh-token",
+    label="Stimma ChatGPT refresh token",
+    fallback_filename="chatgpt_auth_tokens.json",
+)
+
 
 _SECRET_KEYS = {"refresh_token", "id_token"}
 _cached_id_token: Optional[str] = None
@@ -71,10 +110,11 @@ class MacOSKeychainRefreshTokenStore:
 
     backend_name = "macos-keychain"
 
-    def __init__(self) -> None:
+    def __init__(self, key: CredentialKey = CLOUD_CREDENTIAL_KEY) -> None:
         self._security_bin = shutil.which("security")
         if not self._security_bin:
             raise SecureTokenStorageUnavailable("security command not found")
+        self._key = key
         self._default_keychain = self._resolve_default_keychain()
 
     @property
@@ -82,7 +122,7 @@ class MacOSKeychainRefreshTokenStore:
         return self._account_for(get_bundle_id())
 
     def _account_for(self, bundle_id: str) -> str:
-        return f"{bundle_id}:{get_sandbox()}:stimma-cloud-refresh-token"
+        return f"{bundle_id}:{get_sandbox()}:{self._key.account_kind}"
 
     def _run(self, args: list[str]) -> subprocess.CompletedProcess[str]:
         if not self._security_bin:
@@ -119,7 +159,7 @@ class MacOSKeychainRefreshTokenStore:
     def _get_for_account(self, account: str) -> Optional[str]:
         result = self._run([
             "find-generic-password",
-            "-s", KEYCHAIN_SERVICE,
+            "-s", self._key.keychain_service,
             "-a", account,
             "-w",
             *self._keychain_args(),
@@ -138,7 +178,7 @@ class MacOSKeychainRefreshTokenStore:
         result = self._run([
             "add-generic-password",
             "-U",
-            "-s", KEYCHAIN_SERVICE,
+            "-s", self._key.keychain_service,
             "-a", self._account,
             "-w", token,
             *self._keychain_args(),
@@ -156,7 +196,7 @@ class MacOSKeychainRefreshTokenStore:
     def _clear_for_account(self, account: str) -> None:
         result = self._run([
             "delete-generic-password",
-            "-s", KEYCHAIN_SERVICE,
+            "-s", self._key.keychain_service,
             "-a", account,
             *self._keychain_args(),
         ])
@@ -177,7 +217,8 @@ class WindowsCredentialManagerRefreshTokenStore:
     CRED_PERSIST_LOCAL_MACHINE = 2
     ERROR_NOT_FOUND = 1168
 
-    def __init__(self) -> None:
+    def __init__(self, key: CredentialKey = CLOUD_CREDENTIAL_KEY) -> None:
+        self._key = key
         try:
             import ctypes
             from ctypes import wintypes
@@ -250,7 +291,9 @@ class WindowsCredentialManagerRefreshTokenStore:
         return self._target_for(get_bundle_id())
 
     def _target_for(self, bundle_id: str) -> str:
-        return f"Stimma Cloud:{bundle_id}:{get_sandbox()}:refresh-token"
+        return self._key.windows_target.format(
+            bundle=bundle_id, sandbox=get_sandbox()
+        )
 
     def _raise_last_error(self, operation: str) -> None:
         error_code = self._ctypes.get_last_error()
@@ -345,6 +388,9 @@ class LinuxSecretServiceRefreshTokenStore:
 
     backend_name = "linux-secret-service"
 
+    def __init__(self, key: CredentialKey = CLOUD_CREDENTIAL_KEY) -> None:
+        self._key = key
+
     @property
     def _attributes(self) -> dict[str, str]:
         return self._attributes_for(get_bundle_id())
@@ -352,14 +398,14 @@ class LinuxSecretServiceRefreshTokenStore:
     def _attributes_for(self, bundle_id: str) -> dict[str, str]:
         return {
             "application": "Stimma",
-            "kind": "stimma-cloud-refresh-token",
+            "kind": self._key.account_kind,
             "bundle_id": bundle_id,
             "sandbox": get_sandbox(),
         }
 
     @property
     def _label(self) -> str:
-        return f"{CREDENTIAL_LABEL} ({get_bundle_id()}/{get_sandbox()})"
+        return f"{self._key.label} ({get_bundle_id()}/{get_sandbox()})"
 
     def _get_collection(self):
         try:
@@ -432,13 +478,14 @@ class FileRefreshTokenStore:
 
     backend_name = "linux-file-fallback"
 
-    def __init__(self) -> None:
+    def __init__(self, key: CredentialKey = CLOUD_CREDENTIAL_KEY) -> None:
         if platform.system() != "Linux":
             raise SecureTokenStorageUnavailable("file fallback is only enabled for Linux")
+        self._key = key
 
     @property
     def _path(self) -> Path:
-        return app_dirs.get_data_dir() / AUTH_TOKEN_FALLBACK_FILENAME
+        return app_dirs.get_data_dir() / self._key.fallback_filename
 
     def get_refresh_token(self) -> Optional[str]:
         path = self._path
@@ -477,43 +524,47 @@ def _get_auth_state_path() -> Path:
     return app_dirs.get_data_dir() / AUTH_STATE_FILENAME
 
 
-def _get_file_fallback_store() -> Optional[RefreshTokenStore]:
+def _get_file_fallback_store(
+    key: CredentialKey = CLOUD_CREDENTIAL_KEY,
+) -> Optional[RefreshTokenStore]:
     """Return a persistent Linux fallback store if it is allowed."""
     if platform.system() != "Linux":
         return None
     try:
-        return FileRefreshTokenStore()
+        return FileRefreshTokenStore(key)
     except SecureTokenStorageUnavailable as e:
         _log_memory_fallback(str(e))
         return None
 
 
-def _get_token_store() -> Optional[RefreshTokenStore]:
+def _get_token_store(
+    key: CredentialKey = CLOUD_CREDENTIAL_KEY,
+) -> Optional[RefreshTokenStore]:
     """Return the best available secure refresh-token store."""
-    if _token_store_override is not None:
+    if _token_store_override is not None and key is CLOUD_CREDENTIAL_KEY:
         return _token_store_override
 
     system = platform.system()
     if system == "Darwin":
         try:
-            return MacOSKeychainRefreshTokenStore()
+            return MacOSKeychainRefreshTokenStore(key)
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
             return None
 
     if system == "Windows":
         try:
-            return WindowsCredentialManagerRefreshTokenStore()
+            return WindowsCredentialManagerRefreshTokenStore(key)
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
             return None
 
     if system == "Linux":
         try:
-            return LinuxSecretServiceRefreshTokenStore()
+            return LinuxSecretServiceRefreshTokenStore(key)
         except SecureTokenStorageUnavailable as e:
             _log_file_fallback(str(e))
-            return _get_file_fallback_store()
+            return _get_file_fallback_store(key)
 
     _log_memory_fallback(f"no OS credential storage backend for {system}")
     return None
@@ -811,3 +862,122 @@ def is_token_expired(state: AuthState) -> bool:
     # Consider expired if within 5 minutes of expiry
     buffer_seconds = 300
     return time.time() >= (expiry - buffer_seconds)
+
+
+class SecretTokenStore:
+    """Generic single-secret store over the platform credential backends.
+
+    Same cascade the Stimma Cloud helpers use — OS credential store, then a
+    0600 file on Linux, then process memory — but keyed by an arbitrary
+    ``CredentialKey`` and without the cloud-specific legacy migration. Used
+    for the ChatGPT-plan OAuth refresh token.
+    """
+
+    def __init__(self, key: CredentialKey, *, description: str) -> None:
+        self._key = key
+        self._description = description
+        self._memory_token: Optional[str] = None
+        self._override: Optional[RefreshTokenStore] = None
+
+    def set_override(self, store: Optional[RefreshTokenStore]) -> None:
+        """Inject a store for tests."""
+        self._override = store
+        self._memory_token = None
+
+    def _store(self) -> Optional[RefreshTokenStore]:
+        if self._override is not None:
+            return self._override
+        return _get_token_store(self._key)
+
+    def _fallback(self) -> Optional[RefreshTokenStore]:
+        if self._override is not None:
+            return None
+        return _get_file_fallback_store(self._key)
+
+    def get(self) -> Optional[str]:
+        store = self._store()
+        if store is not None:
+            try:
+                token = store.get_refresh_token()
+                if token:
+                    return token
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "secure storage read failed", secret=self._description, reason=str(e)
+                )
+
+        fallback = self._fallback()
+        if fallback is not None and (store is None or fallback.backend_name != store.backend_name):
+            try:
+                token = fallback.get_refresh_token()
+                if token:
+                    return token
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "fallback storage read failed", secret=self._description, reason=str(e)
+                )
+        return self._memory_token
+
+    def set(self, token: str) -> None:
+        store = self._store()
+        if store is not None:
+            try:
+                store.set_refresh_token(token)
+                fallback = self._fallback()
+                if fallback is not None and fallback.backend_name != store.backend_name:
+                    try:
+                        fallback.clear_refresh_token()
+                    except SecureTokenStorageUnavailable:
+                        pass
+                self._memory_token = None
+                log.debug("saved secret", secret=self._description, backend=store.backend_name)
+                return
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "secure storage write failed", secret=self._description, reason=str(e)
+                )
+
+        fallback = self._fallback()
+        if fallback is not None:
+            try:
+                fallback.set_refresh_token(token)
+                self._memory_token = None
+                log.warning(
+                    "saved secret using fallback file",
+                    secret=self._description,
+                    backend=fallback.backend_name,
+                )
+                return
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "fallback storage write failed", secret=self._description, reason=str(e)
+                )
+
+        # Memory-only: the sign-in still works for this run, but will not
+        # survive a restart. Callers surface this as "sign in again".
+        self._memory_token = token
+        log.warning("keeping secret in process memory only", secret=self._description)
+
+    def clear(self) -> None:
+        store = self._store()
+        if store is not None:
+            try:
+                store.clear_refresh_token()
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "secure storage clear failed", secret=self._description, reason=str(e)
+                )
+        fallback = self._fallback()
+        if fallback is not None:
+            try:
+                fallback.clear_refresh_token()
+            except SecureTokenStorageUnavailable as e:
+                log.warning(
+                    "fallback storage clear failed", secret=self._description, reason=str(e)
+                )
+        self._memory_token = None
+
+    @property
+    def is_memory_only(self) -> bool:
+        """True when the last write could only be kept in memory."""
+        return self._memory_token is not None

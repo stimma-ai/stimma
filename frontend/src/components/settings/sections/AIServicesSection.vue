@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <template v-if="!addOpen && !managerOpen && !legacyOpen">
+    <template v-if="!addOpen && !managerOpen && !legacyOpen && !chatgptOpen">
     <section>
       <div v-if="!wizard" class="mb-3">
         <div class="flex items-center gap-3">
@@ -52,7 +52,7 @@
           v-for="provider in visibleRemoteProviderRows"
           :key="provider.id || provider.kind"
           type="button"
-          @click="openProvider(provider)"
+          @click="openProviderRow(provider)"
           class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
@@ -60,10 +60,14 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ kindDescription(provider.kind) }}</div>
-            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
+            <div class="mt-0.5 truncate text-xs" :class="chatgptRow(provider)?.subtone || 'text-content-tertiary'">{{ chatgptRow(provider)?.sub || kindDescription(provider.kind) }}</div>
+            <div v-if="provider.last_error && !chatgptRow(provider)" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
           </div>
-          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs" :class="provider._unconfigured ? 'text-accent-hi' : 'text-content-tertiary'">
+          <div v-if="chatgptRow(provider)" class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+            <span v-if="chatgptRow(provider).dot" class="h-2 w-2 shrink-0 rounded-full" :class="chatgptRow(provider).dot"></span>
+            {{ chatgptRow(provider).label }}
+          </div>
+          <div v-else class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs" :class="provider._unconfigured ? 'text-accent-hi' : 'text-content-tertiary'">
             <span v-if="!provider._unconfigured && provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ provider._unconfigured ? 'Configure' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
           </div>
@@ -397,6 +401,124 @@
           </div>
     </div>
 
+
+    <!-- ChatGPT plan: OAuth sign-in instead of an API key. -->
+    <div v-else-if="chatgptOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeChatGPT">
+      <div class="flex items-center gap-3 px-6 pb-2 pt-4">
+        <button type="button" @click="closeChatGPT" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
+          <ProviderBrandIcon provider="chatgpt" size="md" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <h4 class="truncate text-[16px] font-semibold text-content">ChatGPT</h4>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <!-- Signing in: the code and URL stay on screen, so this also works
+             when no browser can be launched (SSH, headless, locked-down box). -->
+        <template v-if="chatgptLogin">
+          <section class="max-w-2xl">
+            <h5 class="text-[13px] text-content">Sign in with your ChatGPT account</h5>
+          </section>
+
+          <ol class="mt-5 max-w-2xl space-y-5">
+            <li class="flex gap-3">
+              <span class="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-overlay-light text-[11px] font-medium text-content-secondary">1</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] text-content">Open this page in your browser</div>
+                <div class="mt-1 break-all font-mono text-xs text-content-secondary">{{ chatgptLogin.verification_url }}</div>
+                <div class="mt-2.5 flex items-center gap-2">
+                  <Button variant="secondary" size="sm" @click="openChatGPTVerification">Open browser ↗</Button>
+                  <Button variant="ghost" size="sm" @click="copyChatGPTUrl">{{ chatgptUrlCopied ? 'Copied' : 'Copy link' }}</Button>
+                </div>
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <span class="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-overlay-light text-[11px] font-medium text-content-secondary">2</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] text-content">Enter this code</div>
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="rounded-md bg-surface-raised px-3.5 py-2 font-mono text-[19px] font-medium tracking-[0.16em] tabular-nums text-accent-hi">{{ chatgptLogin.user_code }}</span>
+                  <Button variant="ghost" size="sm" @click="copyChatGPTCode">{{ chatgptCodeCopied ? 'Copied' : 'Copy' }}</Button>
+                </div>
+                <div v-if="chatgptExpiresIn > 0" class="mt-2 text-[11px] text-content-tertiary">Code expires in <span class="font-mono tabular-nums">{{ formatCountdown(chatgptExpiresIn) }}</span></div>
+              </div>
+            </li>
+          </ol>
+
+          <div class="mt-6 flex items-center gap-2.5 text-xs text-content-tertiary">
+            <Spinner size="sm" />
+            Waiting for approval…
+          </div>
+          <div class="mt-4">
+            <Button variant="ghost" size="sm" @click="cancelChatGPTLogin">Cancel</Button>
+          </div>
+        </template>
+
+        <!-- Connected -->
+        <template v-else-if="chatgptStatus.signed_in">
+          <section class="max-w-2xl">
+            <h5 class="text-[13px] text-content">Account</h5>
+            <KeyValueList class="mt-2" :rows="chatgptAccountRows" />
+          </section>
+
+          <section v-if="chatgptUsageWindows.length" class="mt-8 max-w-2xl">
+            <h5 class="text-[13px] text-content">Plan usage</h5>
+            <div class="mt-3 space-y-3">
+              <div v-for="window in chatgptUsageWindows" :key="window.window">
+                <div class="mb-1.5 flex items-baseline justify-between gap-4 text-[11px]">
+                  <span class="text-content-secondary">{{ window.title }}</span>
+                  <span class="font-mono tabular-nums text-content-muted">{{ window.detail }}</span>
+                </div>
+                <ProgressBar :value="window.percent" :hue="window.hue" />
+              </div>
+            </div>
+          </section>
+
+          <section class="mt-8 max-w-2xl">
+            <h5 class="text-[13px] text-content">Models</h5>
+            <div v-if="chatgptStatus.models.length" class="mt-3 space-y-0.5">
+              <div v-for="model in chatgptStatus.models" :key="model.id" class="flex items-center gap-3 px-1 py-3">
+                <ProviderBrandIcon provider="chatgpt" size="md" />
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-sm text-content">{{ model.name }}</div>
+                  <div class="mt-0.5 truncate font-mono text-[11px] text-content-muted">{{ model.model_id }}<span v-if="model.reasoning_levels?.length"> · {{ model.reasoning_levels.join(' / ') }}</span></div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="py-8 text-center text-sm text-content-muted">No models available on this plan.</p>
+            <div class="mt-2">
+              <Button variant="ghost" size="sm" :loading="chatgptBusy" @click="refreshChatGPTModels">Refresh model list</Button>
+            </div>
+          </section>
+
+          <p v-if="chatgptError" class="mt-3 max-w-2xl text-xs text-red-400">{{ chatgptError }}</p>
+
+          <div class="mt-6">
+            <Button variant="danger-ghost" size="sm" :disabled="chatgptBusy" @click="chatgptSignOut">Sign out of ChatGPT</Button>
+          </div>
+        </template>
+
+        <!-- Signed out -->
+        <template v-else>
+          <section class="max-w-2xl">
+            <h5 class="text-[13px] text-content">Sign in with your ChatGPT account</h5>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
+              Use the models included with your ChatGPT subscription instead of paying per token with an API key.
+            </p>
+            <div class="mt-4">
+              <Button size="sm" :loading="chatgptBusy" @click="startChatGPTLogin">Sign in</Button>
+            </div>
+            <p v-if="chatgptError" class="mt-3 text-xs text-red-400">{{ chatgptError }}</p>
+            <p class="mt-6 text-xs text-content-tertiary">Usage counts toward your ChatGPT plan limits.</p>
+          </section>
+        </template>
+      </div>
+    </div>
+
     <!-- Existing local endpoint: preserve the proven endpoint workflow. -->
     <div v-else-if="legacyOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeLegacyProvider">
           <div class="flex items-center gap-3 px-6 pb-2 pt-4">
@@ -496,7 +618,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, nextTick, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
@@ -506,6 +628,10 @@ import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
 import ProviderBrandIcon from '../../models/ProviderBrandIcon.vue'
 import ProviderModelSetup from '../ProviderModelSetup.vue'
+import Button from '../../ui/Button.vue'
+import KeyValueList from '../../ui/KeyValueList.vue'
+import ProgressBar from '../../ui/ProgressBar.vue'
+import Spinner from '../../ui/Spinner.vue'
 import { getModelVendorInfo, MODEL_VENDOR_OPTIONS, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
 
 const ChevronIcon = defineComponent({
@@ -525,6 +651,10 @@ defineEmits(['navigate'])
 
 const providerKinds = [
   { id: 'openai', name: 'OpenAI', description: 'Ensuring artificial general intelligence benefits all of humanity.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
+  // Signs in with a ChatGPT subscription instead of an API key. Kept beside
+  // the API-key row rather than merged into it: different billing, different
+  // model availability, and both can be connected at once.
+  { id: 'chatgpt', name: 'ChatGPT', description: 'Use models included with your ChatGPT subscription.' },
   { id: 'anthropic', name: 'Anthropic', description: 'Making AI systems you can rely on.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
   { id: 'google', name: 'Google', description: 'Gemini models from Google.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
   { id: 'xai', name: 'xAI', description: 'Accelerating human scientific discovery.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
@@ -583,6 +713,250 @@ async function handleCloudConnect() {
     cloudConnecting.value = false
   }
 }
+// --- ChatGPT plan (OAuth) ---
+const chatgptOpen = ref(false)
+const chatgptStatus = ref({ signed_in: false, account: null, models: [], usage: null, error: null })
+const chatgptLogin = ref(null)
+const chatgptBusy = ref(false)
+const chatgptError = ref('')
+const chatgptExpiresIn = ref(0)
+const chatgptCodeCopied = ref(false)
+const chatgptUrlCopied = ref(false)
+let chatgptPollTimer = null
+let chatgptCountdownTimer = null
+
+const CHATGPT_PLAN_LABELS = { free: 'ChatGPT Free', plus: 'ChatGPT Plus', pro: 'ChatGPT Pro', prolite: 'ChatGPT Pro Lite', team: 'ChatGPT Team', business: 'ChatGPT Business', enterprise: 'ChatGPT Enterprise', edu: 'ChatGPT Edu' }
+const chatgptPlanLabel = computed(() => {
+  const plan = chatgptStatus.value.account?.plan
+  if (!plan) return ''
+  const key = String(plan).toLowerCase()
+  // Unknown plan ids arrive lowercase; title-case rather than printing
+  // "ChatGPT prolite" verbatim when OpenAI adds a tier we don't know yet.
+  return CHATGPT_PLAN_LABELS[key] || `ChatGPT ${key.charAt(0).toUpperCase()}${key.slice(1)}`
+})
+
+const chatgptUsageWindows = computed(() => (chatgptStatus.value.usage?.windows || []).map(window => {
+  const used = typeof window.used_percent === 'number' ? Math.max(0, Math.min(100, window.used_percent)) : 0
+  return {
+    window: window.window,
+    title: window.label || (window.window === 'primary' ? 'Current window' : 'Weekly window'),
+    detail: [
+      `${Math.round(used)}% used`,
+      window.resets_in_seconds ? `resets in ${formatCountdown(window.resets_in_seconds)}` : null,
+    ].filter(Boolean).join(' · '),
+    percent: used,
+    // Warning/exhausted read as trouble, not as a running job.
+    hue: used >= 95 ? 'bg-red-500' : used >= 70 ? 'bg-amber-500' : 'bg-accent',
+  }
+}))
+
+const chatgptAccountRows = computed(() => {
+  const rows = [{ key: 'email', label: 'Signed in as', value: chatgptStatus.value.account?.email || 'ChatGPT account', mono: false }]
+  if (chatgptPlanLabel.value) {
+    rows.push({ key: 'plan', label: 'Plan', value: chatgptPlanLabel.value, mono: false })
+  }
+  const error = chatgptStatus.value.error
+  rows.push({
+    key: 'status',
+    label: 'Status',
+    value: error ? error.message : 'Ready',
+    mono: false,
+    valueClass: error ? (error.relogin_required ? 'text-red-400' : 'text-amber-500') : 'text-green-500',
+  })
+  return rows
+})
+
+function formatCountdown(seconds) {
+  const total = Math.max(0, Math.round(seconds))
+  if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+}
+
+/**
+ * Row summary for the ChatGPT connection, or null for every other provider.
+ *
+ * Its states are plan-shaped rather than key-shaped: a reached plan limit is
+ * not a broken connection, and must not read as one.
+ */
+function chatgptRow(provider) {
+  if (provider?.kind !== 'chatgpt') return null
+  if (!chatgptStatus.value.signed_in) {
+    return { label: 'Sign in', dot: '', sub: null, subtone: null }
+  }
+  const error = chatgptStatus.value.error
+  if (error?.relogin_required) {
+    return { label: 'Sign in', dot: '', sub: 'Session expired — sign in again', subtone: 'text-red-400' }
+  }
+  if (error?.code === 'chatgpt_rate_limited') {
+    return {
+      label: 'Limited', dot: 'bg-amber-500',
+      sub: error.retry_after ? `Plan limit reached · retry in ${formatCountdown(error.retry_after)}` : 'Plan limit reached',
+      subtone: 'text-amber-500',
+    }
+  }
+  if (error) {
+    return { label: 'Unavailable', dot: 'bg-red-500', sub: error.message, subtone: 'text-red-400' }
+  }
+  const count = chatgptStatus.value.models.length
+  return {
+    label: `Ready · ${count} model${count === 1 ? '' : 's'}`,
+    dot: 'bg-green-500',
+    sub: [chatgptPlanLabel.value, chatgptStatus.value.account?.email].filter(Boolean).join(' · ') || null,
+    subtone: 'text-content-tertiary',
+  }
+}
+
+async function loadChatGPTStatus() {
+  try {
+    const response = await axios.get(`${getApiBase()}/models/chatgpt/status`)
+    chatgptStatus.value = {
+      signed_in: false, account: null, models: [], usage: null, error: null,
+      ...response.data,
+      models: response.data.models || [],
+    }
+  } catch {
+    // Status is advisory; a failure here must not break the settings list.
+  }
+}
+
+function openChatGPT() {
+  chatgptError.value = ''
+  chatgptOpen.value = true
+  void loadChatGPTStatus()
+}
+
+function closeChatGPT() {
+  stopChatGPTPolling()
+  if (chatgptLogin.value) void cancelChatGPTLogin()
+  chatgptOpen.value = false
+}
+
+/** Route a provider row to the panel that matches how it authenticates. */
+function openProviderRow(provider) {
+  if (provider?.kind === 'chatgpt') {
+    openChatGPT()
+    return
+  }
+  openProvider(provider)
+}
+
+function stopChatGPTPolling() {
+  if (chatgptPollTimer) { clearInterval(chatgptPollTimer); chatgptPollTimer = null }
+  if (chatgptCountdownTimer) { clearInterval(chatgptCountdownTimer); chatgptCountdownTimer = null }
+}
+
+async function startChatGPTLogin() {
+  if (chatgptBusy.value) return
+  chatgptBusy.value = true
+  chatgptError.value = ''
+  chatgptCodeCopied.value = false
+  chatgptUrlCopied.value = false
+  try {
+    const response = await axios.post(`${getApiBase()}/models/chatgpt/login`)
+    chatgptLogin.value = response.data
+    chatgptExpiresIn.value = response.data.expires_in || 0
+    chatgptCountdownTimer = setInterval(() => {
+      chatgptExpiresIn.value = Math.max(0, chatgptExpiresIn.value - 1)
+    }, 1000)
+    chatgptPollTimer = setInterval(pollChatGPTLogin, 2000)
+    // Opening the browser is a convenience; the code and URL are on screen
+    // either way, which is what makes this work over SSH or on a headless box.
+    void openChatGPTVerification()
+  } catch (error) {
+    chatgptError.value = error.response?.data?.detail || 'Could not start sign-in.'
+  } finally {
+    chatgptBusy.value = false
+  }
+}
+
+async function pollChatGPTLogin() {
+  const login = chatgptLogin.value
+  if (!login) return
+  let data
+  try {
+    const response = await axios.get(`${getApiBase()}/models/chatgpt/login/${login.login_id}`)
+    data = response.data
+  } catch {
+    return  // transient; the device code is valid until it expires
+  }
+  if (typeof data.expires_in === 'number') chatgptExpiresIn.value = data.expires_in
+  if (!data.completed) return
+
+  stopChatGPTPolling()
+  chatgptLogin.value = null
+  if (data.error) {
+    chatgptError.value = data.error.message || 'Sign-in failed.'
+    return
+  }
+  if (data.cancelled) return
+  await refreshAll()
+}
+
+async function cancelChatGPTLogin() {
+  const login = chatgptLogin.value
+  stopChatGPTPolling()
+  chatgptLogin.value = null
+  if (!login) return
+  try {
+    await axios.post(`${getApiBase()}/models/chatgpt/login/${login.login_id}/cancel`)
+  } catch {
+    // The session times out on its own; nothing to recover here.
+  }
+}
+
+async function openChatGPTVerification() {
+  const url = chatgptLogin.value?.verification_url
+  if (!url) return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('open_external_url', { url })
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
+async function copyChatGPTCode() {
+  try {
+    await navigator.clipboard.writeText(chatgptLogin.value?.user_code || '')
+    chatgptCodeCopied.value = true
+    setTimeout(() => { chatgptCodeCopied.value = false }, 2000)
+  } catch { /* clipboard unavailable; the code is on screen */ }
+}
+
+async function copyChatGPTUrl() {
+  try {
+    await navigator.clipboard.writeText(chatgptLogin.value?.verification_url || '')
+    chatgptUrlCopied.value = true
+    setTimeout(() => { chatgptUrlCopied.value = false }, 2000)
+  } catch { /* clipboard unavailable; the URL is on screen */ }
+}
+
+async function refreshChatGPTModels() {
+  chatgptBusy.value = true
+  chatgptError.value = ''
+  try {
+    await axios.post(`${getApiBase()}/models/chatgpt/refresh-models`)
+    await refreshAll()
+  } catch (error) {
+    chatgptError.value = error.response?.data?.detail || 'Could not refresh the model list.'
+  } finally {
+    chatgptBusy.value = false
+  }
+}
+
+async function chatgptSignOut() {
+  chatgptBusy.value = true
+  chatgptError.value = ''
+  try {
+    await axios.post(`${getApiBase()}/models/chatgpt/logout`)
+    await refreshAll()
+  } catch (error) {
+    chatgptError.value = error.response?.data?.detail || 'Could not sign out.'
+  } finally {
+    chatgptBusy.value = false
+  }
+}
+
 const providers = ref([])
 const modelPrompts = ref({})
 
@@ -601,7 +975,7 @@ const remoteProviderRows = computed(() => providerKinds
   }))
 // Wizard variant: lead with the primary providers; the rest sit behind
 // "See all". Configured providers always show regardless of tier.
-const WIZARD_PRIMARY_KINDS = new Set(['openai', 'anthropic', 'openrouter'])
+const WIZARD_PRIMARY_KINDS = new Set(['openai', 'chatgpt', 'anthropic', 'openrouter'])
 const showAllProviders = ref(false)
 const visibleRemoteProviderRows = computed(() => {
   if (!props.wizard || showAllProviders.value) return remoteProviderRows.value
@@ -654,7 +1028,7 @@ async function loadPromptSettings() {
 async function refreshAll() {
   invalidateCache()
   if (isAuthenticated.value) fetchCloudAccount().catch(() => {})
-  await Promise.all([fetchModels(null, true), loadProviders(), loadPromptSettings()])
+  await Promise.all([fetchModels(null, true), loadProviders(), loadPromptSettings(), loadChatGPTStatus()])
 }
 // Local model flow
 const addOpen = ref(false)
@@ -1252,4 +1626,6 @@ function setLegacyReasoningSource(source) {
 }
 
 onMounted(refreshAll)
+// A login poll must not outlive the panel.
+onBeforeUnmount(stopChatGPTPolling)
 </script>

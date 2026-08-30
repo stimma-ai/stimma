@@ -32,5 +32,9 @@ export function modelSourceLine(model?: FundingModel | null): string {
   if (model.provider_kind === 'local' || model.source === 'endpoint') {
     return model.provider_name || endpointHost(model.endpoint_url) || 'Local endpoint'
   }
+  // A ChatGPT subscription is not a balance that draws down per token — it is
+  // a plan with usage windows. Saying "balance" would imply the wrong thing
+  // about what running out looks like.
+  if (model.provider_kind === 'chatgpt') return 'Uses your ChatGPT plan'
   return model.provider_name ? `Uses your ${model.provider_name} balance` : ''
 }

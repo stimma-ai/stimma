@@ -30,6 +30,9 @@ const props = withDefaults(defineProps<{
 
 const modelVendor = computed<ModelVendorId | null>(() => {
   if (props.provider === 'openai' || props.provider === 'anthropic' || props.provider === 'xai') return props.provider
+  // ChatGPT-plan is the same vendor as the API-key OpenAI connection; only
+  // the funding source differs, so it keeps the OpenAI mark.
+  if (props.provider === 'chatgpt') return 'openai'
   return null
 })
 const providerSvg = computed(() => ({
@@ -40,6 +43,7 @@ const providerSvg = computed(() => ({
 }[props.provider || ''] || ''))
 const safeProviderSvg = computed(() => sanitizeSvg(providerSvg.value))
 const label = computed(() => ({
+  chatgpt: 'ChatGPT',
   google: 'Google',
   together: 'Together AI',
   fireworks: 'Fireworks AI',

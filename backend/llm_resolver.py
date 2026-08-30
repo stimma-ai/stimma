@@ -95,7 +95,7 @@ class LLMInsufficientBalanceError(LLMUnavailableError):
     code = "llm_insufficient_balance"
 
 
-async def get_effective_llm_config(
+async def _get_effective_llm_config_inner(
     role: str,
     project_id: Optional[int] = None,
 ) -> LLMEffectiveConfig:
@@ -819,7 +819,7 @@ def _fallback_provider_model_config(
     return None
 
 
-async def get_chat_llm_config(
+async def _get_chat_llm_config_inner(
     model_slug: Optional[str],
     role: str = 'agent',
     effort: Optional[str] = None,
@@ -860,7 +860,7 @@ async def get_chat_llm_config(
         # available model for this role, tier-matched against what's installed.
         auto_slug = await resolve_auto_slug(role)
         if auto_slug and auto_slug != 'auto':
-            return await get_chat_llm_config(auto_slug, role=role, effort=effort)
+            return await _get_chat_llm_config_inner(auto_slug, role=role, effort=effort)
         role_config = _wire_role_config(role)
         if role_config and role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
@@ -891,6 +891,57 @@ async def get_chat_llm_config(
         return cloud_config
 
     await _raise_cloud_llm_error(model_slug=model_slug)
+
+
+async def _apply_runtime_credentials(
+    config: LLMEffectiveConfig,
+) -> LLMEffectiveConfig:
+    """Attach a freshly minted access token to ChatGPT-plan routes.
+
+    Every other provider carries a static API key in its config. ChatGPT-plan
+    routes deliberately store no key at all: the access token is short-lived
+    and minted here per resolution, and the rotating refresh token behind it
+    never leaves the OS credential store.
+    """
+    if getattr(config, "provider_kind", None) != "chatgpt":
+        return config
+
+    import chatgpt_auth
+
+    try:
+        config.api_key = await chatgpt_auth.get_access_token()
+    except chatgpt_auth.ChatGPTAuthError as e:
+        # Surface the typed reason. Collapsing "plan limit reached" into a
+        # generic auth failure would tell the user to sign in again when
+        # re-authenticating cannot possibly help.
+        raise LLMUnavailableError(e.message, code=e.code) from e
+    return config
+
+
+async def get_effective_llm_config(
+    role: str,
+    project_id: Optional[int] = None,
+) -> LLMEffectiveConfig:
+    """Get the effective LLM config for a settings role.
+
+    This is the main entry point for the surfaces that have no per-chat model
+    selection to honor: background work, the ToolView assistant, flow bodies
+    with no captured model.
+    """
+    return await _apply_runtime_credentials(
+        await _get_effective_llm_config_inner(role, project_id)
+    )
+
+
+async def get_chat_llm_config(
+    model_slug: Optional[str],
+    role: str = 'agent',
+    effort: Optional[str] = None,
+) -> LLMEffectiveConfig:
+    """Get LLM config for a chat message, respecting per-chat model selection."""
+    return await _apply_runtime_credentials(
+        await _get_chat_llm_config_inner(model_slug, role=role, effort=effort)
+    )
 
 
 def account_ever_had_credits(auth_state: Optional[dict]) -> bool:

@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -165,6 +166,23 @@ class LLMConnectionError(Exception):
         self.is_cloud = is_cloud
 
 
+class LLMStreamError(Exception):
+    """Raised when a streamed response ends early or reports its own failure.
+
+    Distinct from LLMConnectionError: the endpoint was reachable and answered,
+    but the turn did not complete, so "could not reach this service" would be
+    the wrong thing to tell the user.
+    """
+
+
+def _is_chatgpt_backend_url(url: str) -> bool:
+    """True for OpenAI's ChatGPT-plan backend, not for api.openai.com."""
+    try:
+        return (urlparse(url).hostname or "").lower() == "chatgpt.com"
+    except ValueError:
+        return False
+
+
 def classify_provider_http_error(exc: Exception) -> tuple[str, str] | None:
     """Turn common BYO-provider failures into short, actionable UI copy."""
     if isinstance(exc, LLMConnectionError):
@@ -187,6 +205,17 @@ def classify_provider_http_error(exc: Exception) -> tuple[str, str] | None:
         detail = (response.text or "").lower()
     except Exception:
         detail = str(exc).lower()
+
+    # The ChatGPT-plan route has no API key and no per-token billing, so the
+    # generic key/quota copy below would name things the user cannot act on.
+    if _is_chatgpt_backend_url(str(getattr(response.request, "url", ""))):
+        if status == 401:
+            return "chatgpt_not_signed_in", "ChatGPT sign-in expired. Sign in again in Settings."
+        if status in {402, 403}:
+            return "chatgpt_plan_denied", "ChatGPT plan does not allow this request."
+        if status == 429:
+            return "chatgpt_rate_limited", "ChatGPT plan limit reached."
+
     if status == 401:
         return "provider_invalid_key", "The provider rejected this API key."
     if status == 402 or (
@@ -244,7 +273,15 @@ _RESPONSES_TOOL_CALL_PREFIX = "sr_"
 
 
 def _encode_responses_tool_call_id(response_id: str, call_id: str) -> str:
-    """Carry the Responses continuation id through Stimma's persisted tool id."""
+    """Carry the Responses continuation id through Stimma's persisted tool id.
+
+    With no response id to carry (the ChatGPT-plan backend does not store
+    responses) the plain call id is kept: encoding a zero-length id produces a
+    value ``_decode_responses_tool_call_id`` rejects, which would send the
+    encoded string back as the call id and break tool pairing.
+    """
+    if not response_id:
+        return call_id
     return f"{_RESPONSES_TOOL_CALL_PREFIX}{len(response_id)}_{response_id}{call_id}"
 
 
@@ -348,8 +385,17 @@ def _responses_continuation(messages: list[dict]) -> tuple[str, int] | None:
     return response_id, min(matching_indexes)
 
 
-def _to_responses_request(model: str, messages: list[dict], kwargs: dict) -> dict:
-    continuation = _responses_continuation(messages)
+def _to_responses_request(
+    model: str,
+    messages: list[dict],
+    kwargs: dict,
+    *,
+    store: bool = True,
+) -> dict:
+    # ``previous_response_id`` continuation only exists for stored responses.
+    # The ChatGPT-plan backend does not store them, so that route replays the
+    # full conversation each turn instead.
+    continuation = _responses_continuation(messages) if store else None
     source = messages[continuation[1]:] if continuation else messages
     if continuation:
         # Responses requires every outstanding function_call_output before
@@ -393,7 +439,7 @@ def _to_responses_request(model: str, messages: list[dict], kwargs: dict) -> dic
             "content": _responses_input_content(message.get("content"), assistant=role == "assistant"),
         })
 
-    body: dict = {"model": model, "input": input_items, "store": True}
+    body: dict = {"model": model, "input": input_items, "store": store}
     instructions = "\n\n".join(
         _message_text(message.get("content"))
         for message in messages
@@ -471,15 +517,164 @@ def _responses_to_chat(data: dict, requested_model: str) -> _Obj:
     })
 
 
-async def _acompletion_openai_responses(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
+async def _acompletion_openai_responses(
+    *, model, messages, api_key, api_base,
+    store: bool = True,
+    extra_headers: dict | None = None,
+    provider_label: str = "OpenAI",
+    **kwargs,
+) -> _Obj:
     url = f"{api_base.rstrip('/')}/responses"
-    body = _to_responses_request(model, messages, kwargs)
+    body = _to_responses_request(model, messages, kwargs, store=store)
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    if extra_headers:
+        headers.update(extra_headers)
     async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:
-        raise _provider_http_error(resp, provider="OpenAI")
+        raise _provider_http_error(resp, provider=provider_label)
     return _responses_to_chat(resp.json(), model)
+
+
+# Terminal Responses stream events. Each carries the complete Response
+# object, so the non-streaming normalizer can be reused as-is.
+_RESPONSES_TERMINAL_EVENTS = {
+    "response.completed",
+    "response.incomplete",
+    "response.failed",
+}
+
+
+def _responses_stream_error(payload: dict) -> str:
+    """Human-readable reason from a failed/error stream event."""
+    error = payload.get("error") or (payload.get("response") or {}).get("error")
+    if isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+    return "The provider ended the response with an error."
+
+
+async def _acompletion_chatgpt(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
+    """Responses call against the ChatGPT-plan Codex backend.
+
+    Differs from the API-key Responses path in three ways:
+
+    * the backend does not store responses, so there is no
+      ``previous_response_id`` continuation and history is replayed each turn;
+    * it rejects non-streaming requests outright ("Stream must be set to
+      true"), so the reply arrives as SSE and is reassembled here;
+    * it wants the caller identified and the ChatGPT account named.
+
+    The terminal stream event carries the whole Response object, so the
+    reassembly hands off to the same ``_responses_to_chat`` normalizer the
+    non-streaming path uses rather than rebuilding tool calls from deltas.
+    """
+    import chatgpt_auth
+
+    url = f"{(api_base or chatgpt_auth.BACKEND_BASE_URL).rstrip('/')}/responses"
+    body = _to_responses_request(model, messages, kwargs, store=False)
+    body["stream"] = True
+    # This backend exposes a narrower Responses surface than api.openai.com and
+    # rejects the request outright — not silently — for anything extra. Output
+    # length is governed by the plan, not by the caller.
+    for unsupported in ("max_output_tokens", "temperature", "top_p"):
+        body.pop(unsupported, None)
+
+    async def _call(token: str) -> _Obj:
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            **chatgpt_auth.request_headers(token),
+        }
+        timeout = httpx.Timeout(300.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream("POST", url, json=body, headers=headers) as resp:
+                if resp.status_code >= 400:
+                    # The body has not been read yet on a streamed response.
+                    await resp.aread()
+                    raise _provider_http_error(resp, provider="ChatGPT")
+
+                final: dict | None = None
+                # Output items are collected as they complete. The terminal
+                # event carries the response envelope (id, usage, status) but
+                # is not guaranteed to repeat the full output array, so the
+                # items are the authoritative content and the envelope only
+                # supplies the wrapper.
+                items: list[dict] = []
+                text_deltas: list[str] = []
+                seen_types: list[str] = []
+
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[len("data:"):].strip()
+                    if not data or data == "[DONE]":
+                        continue
+                    try:
+                        payload = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(payload, dict):
+                        continue
+
+                    event_type = payload.get("type")
+                    if isinstance(event_type, str) and event_type not in seen_types:
+                        seen_types.append(event_type)
+
+                    if event_type == "error":
+                        raise LLMStreamError(_responses_stream_error(payload))
+                    if event_type == "response.failed":
+                        raise LLMStreamError(_responses_stream_error(payload))
+                    if event_type == "response.output_item.done":
+                        item = payload.get("item")
+                        if isinstance(item, dict):
+                            items.append(item)
+                        continue
+                    if event_type == "response.output_text.delta":
+                        delta = payload.get("delta")
+                        if isinstance(delta, str):
+                            text_deltas.append(delta)
+                        continue
+                    if event_type in _RESPONSES_TERMINAL_EVENTS:
+                        response = payload.get("response")
+                        if isinstance(response, dict):
+                            final = response
+
+        if final is None:
+            # Ending without a terminal event means a truncated turn. Failing
+            # loudly beats returning a silently empty assistant message.
+            raise LLMStreamError(
+                "The provider ended the response before it completed."
+            )
+
+        if not final.get("output"):
+            final = {**final, "output": items}
+        if not final.get("output") and text_deltas:
+            # Last resort: the stream carried text but never a completed item.
+            final = {**final, "output": [{
+                "type": "message",
+                "content": [{"type": "output_text", "text": "".join(text_deltas)}],
+            }]}
+        if not final.get("output"):
+            log.warning(
+                "ChatGPT stream produced no output items",
+                event_types=seen_types,
+            )
+        return _responses_to_chat(final, model)
+
+    try:
+        return await _call(api_key)
+    except httpx.HTTPStatusError as e:
+        if e.response is None or e.response.status_code != 401:
+            raise
+        # The token was resolved moments ago but the backend rejected it —
+        # mint a fresh one and retry once before telling the user to sign in.
+        try:
+            refreshed = await chatgpt_auth.get_access_token(force_refresh=True)
+        except chatgpt_auth.ChatGPTAuthError:
+            raise e
+        return await _call(refreshed)
 
 
 def _anthropic_content_blocks(content) -> list[dict]:
@@ -629,6 +824,11 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     """
     if provider_kind == "openai":
         return await _acompletion_openai_responses(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+    if provider_kind == "chatgpt":
+        return await _acompletion_chatgpt(
             model=model, messages=messages, api_key=api_key, api_base=api_base,
             thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
         )

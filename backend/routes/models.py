@@ -39,6 +39,7 @@ from llm_resolver import (
 from privacy_lockdown import is_privacy_lockdown_enabled
 from llm_provider_catalog import (
     FIXED_MODEL_PROVIDERS,
+    OAUTH_MODEL_PROVIDERS,
     PROFILED_MODEL_PROVIDERS,
     PROVIDER_DEFAULTS,
     branded_models,
@@ -492,6 +493,16 @@ async def _fetch_fireworks_catalog(
 
 
 async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
+    if provider.kind in OAUTH_MODEL_PROVIDERS:
+        # Account-scoped catalog behind an OAuth session, not a bearer key on
+        # a public /models route.
+        import chatgpt_auth
+
+        try:
+            access_token = await chatgpt_auth.get_access_token()
+            return await chatgpt_auth.fetch_models(access_token)
+        except chatgpt_auth.ChatGPTAuthError as exc:
+            raise HTTPException(status_code=400, detail=exc.message) from exc
     try:
         async with httpx.AsyncClient() as client:
             if provider.kind == "fireworks":
@@ -650,6 +661,13 @@ async def preview_llm_provider_models(request: ProviderCreateRequest):
 async def create_llm_provider(request: ProviderCreateRequest):
     if request.kind not in PROVIDER_DEFAULTS:
         raise HTTPException(status_code=400, detail="Unsupported provider type.")
+    if request.kind in OAUTH_MODEL_PROVIDERS:
+        # There is no key to supply — this connection is created by completing
+        # the sign-in flow at /api/models/chatgpt/login.
+        raise HTTPException(
+            status_code=400,
+            detail="ChatGPT connects by signing in, not with an API key.",
+        )
     defaults = PROVIDER_DEFAULTS[request.kind]
     provider_id = f"{request.kind}-{uuid4().hex[:10]}"
     provider = LLMProviderConfig(
@@ -733,6 +751,12 @@ def _find_provider(provider_id: str) -> tuple[list[LLMProviderConfig], LLMProvid
 @router.get("/providers/{provider_id}/models")
 async def discover_llm_provider_models(provider_id: str):
     _, provider = _find_provider(provider_id)
+    if provider.kind in OAUTH_MODEL_PROVIDERS:
+        # Its catalog is account-scoped and comes from the signed-in session.
+        raise HTTPException(
+            status_code=400,
+            detail="Use /api/models/chatgpt/refresh-models for this connection.",
+        )
     rows = await _discover_provider_models(provider)
     rows = _selectable_provider_rows(provider, rows)
     selected = {model.model_id for model in provider.models if model.enabled}
@@ -1283,3 +1307,232 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         "cloud_message": cloud_message,
         "llm_configured": llm_configured,
     }
+
+
+# --- ChatGPT plan (OAuth) ---------------------------------------------------
+#
+# A second way to reach OpenAI models: signed in with a ChatGPT subscription
+# instead of an API key. Kept as its own provider so both can be configured at
+# once and the funding source stays visible everywhere a model is chosen.
+
+
+def _chatgpt_provider() -> Optional[LLMProviderConfig]:
+    return next(
+        (provider for provider in _active_providers() if provider.kind == "chatgpt"),
+        None,
+    )
+
+
+def _chatgpt_status_response(
+    *,
+    usage: Optional[dict] = None,
+    error: Optional[dict] = None,
+) -> dict:
+    import chatgpt_auth
+
+    account = chatgpt_auth.load_account()
+    provider = _chatgpt_provider()
+    signed_in = chatgpt_auth.is_signed_in()
+    return {
+        "signed_in": signed_in,
+        "account": (
+            {
+                "email": account.email,
+                "plan": account.plan,
+                "connected_at": account.connected_at,
+            }
+            if signed_in and account
+            else None
+        ),
+        "provider": _provider_response(provider) if provider else None,
+        "models": [_model_response(model) for model in provider.models] if provider else [],
+        "usage": usage,
+        "error": error,
+    }
+
+
+def _model_response(model: LLMProviderModelConfig) -> dict:
+    return {
+        "id": model.id,
+        "model_id": model.model_id,
+        "name": model.name,
+        "enabled": model.enabled,
+        "max_context_tokens": model.max_context_tokens,
+        "reasoning_levels": model.reasoning.levels,
+        "reasoning_default": model.reasoning.default,
+    }
+
+
+async def _sync_chatgpt_provider(access_token: str) -> LLMProviderConfig:
+    """Rebuild the ChatGPT provider entry from the account's live catalog.
+
+    The live list is authoritative — OpenAI adds and retires slugs on this
+    backend often, and a stale entry surfaces models that fail on selection.
+    Per-model user settings (enabled, prompt overrides) survive by id.
+    """
+    import chatgpt_auth
+    from llm_provider_catalog import (
+        PROVIDER_DEFAULTS,
+        chatgpt_model,
+        is_supported_chatgpt_model,
+    )
+
+    entries = [
+        entry for entry in await chatgpt_auth.fetch_models(access_token)
+        if is_supported_chatgpt_model(entry["id"])
+    ]
+    if not entries:
+        raise HTTPException(
+            status_code=400,
+            detail="This plan includes no models Stimma can use.",
+        )
+
+    providers = list(get_settings().llm_providers)
+    provider = next(
+        (p for p in providers if p.kind == "chatgpt" and not p.deleted_at), None
+    )
+    if provider is None:
+        provider = LLMProviderConfig(
+            id=f"chatgpt-{uuid4().hex[:10]}",
+            kind="chatgpt",
+            name=PROVIDER_DEFAULTS["chatgpt"]["name"],
+            base_url=PROVIDER_DEFAULTS["chatgpt"]["base_url"],
+            # No api_key: the access token is minted per request by the
+            # resolver and the refresh token stays in OS credential storage.
+            api_key=None,
+        )
+        providers.append(provider)
+
+    previous = {model.id: model for model in provider.models}
+    refreshed = []
+    for entry in entries:
+        model = chatgpt_model(provider.id, entry)
+        prior = previous.get(model.id)
+        if prior is not None:
+            model.enabled = prior.enabled
+            model.content_policy_enabled = prior.content_policy_enabled
+            model.extra_system_prompt = prior.extra_system_prompt
+        refreshed.append(model)
+    provider.models = refreshed
+
+    now = datetime.now(timezone.utc).isoformat()
+    provider.last_tested_at = now
+    provider.last_test_passed = True
+    provider.last_error = None
+    provider.credentials_validated_at = now
+    provider.deleted_at = None
+    _save_providers(providers)
+    return provider
+
+
+@router.get("/chatgpt/status")
+async def chatgpt_status():
+    """Current ChatGPT-plan connection state. Never returns a token."""
+    import chatgpt_auth
+
+    if not chatgpt_auth.is_signed_in():
+        return _chatgpt_status_response()
+
+    usage = None
+    try:
+        access_token = await chatgpt_auth.get_access_token()
+        usage = await chatgpt_auth.fetch_usage(access_token)
+    except chatgpt_auth.ChatGPTAuthError as e:
+        return _chatgpt_status_response(
+            error={
+                "code": e.code,
+                "message": e.message,
+                "relogin_required": e.relogin_required,
+                "retry_after": e.retry_after,
+            }
+        )
+    return _chatgpt_status_response(usage=usage)
+
+
+@router.post("/chatgpt/login")
+async def chatgpt_login_start():
+    """Begin the device-code flow and return the code the user must enter."""
+    import chatgpt_auth
+
+    try:
+        session = await chatgpt_auth.start_device_login()
+    except chatgpt_auth.ChatGPTAuthError as e:
+        raise HTTPException(status_code=502, detail=e.message) from e
+    return session.public_state()
+
+
+@router.get("/chatgpt/login/{login_id}")
+async def chatgpt_login_poll(login_id: str):
+    """Poll one login. On success, sync the account's model catalog."""
+    import chatgpt_auth
+
+    session = chatgpt_auth.get_login_session(login_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Sign-in session not found.")
+
+    state = session.public_state()
+    if not session.completed or session.error_code or session.cancelled:
+        return state
+
+    # Completed successfully — make the account's models selectable.
+    try:
+        access_token = await chatgpt_auth.get_access_token()
+        provider = await _sync_chatgpt_provider(access_token)
+    except HTTPException as e:
+        state["error"] = {"code": "chatgpt_no_models", "message": e.detail}
+        return state
+    except chatgpt_auth.ChatGPTAuthError as e:
+        state["error"] = {
+            "code": e.code,
+            "message": e.message,
+            "relogin_required": e.relogin_required,
+        }
+        return state
+
+    state["provider"] = _provider_response(provider)
+    state["models"] = [_model_response(model) for model in provider.models]
+    return state
+
+
+@router.post("/chatgpt/login/{login_id}/cancel")
+async def chatgpt_login_cancel(login_id: str):
+    import chatgpt_auth
+
+    if not chatgpt_auth.cancel_login(login_id):
+        raise HTTPException(status_code=404, detail="Sign-in session not found.")
+    return {"cancelled": True}
+
+
+@router.post("/chatgpt/refresh-models")
+async def chatgpt_refresh_models():
+    """Re-read the account's model catalog."""
+    import chatgpt_auth
+
+    if not chatgpt_auth.is_signed_in():
+        raise HTTPException(status_code=400, detail="Not signed in to ChatGPT.")
+    try:
+        access_token = await chatgpt_auth.get_access_token()
+    except chatgpt_auth.ChatGPTAuthError as e:
+        raise HTTPException(status_code=400, detail=e.message) from e
+    provider = await _sync_chatgpt_provider(access_token)
+    return _provider_response(provider)
+
+
+@router.post("/chatgpt/logout")
+async def chatgpt_logout():
+    """Sign out of ChatGPT and remove its models from the picker.
+
+    Scoped to Stimma only: the user's Codex CLI and IDE sessions are a
+    separate credential domain that Stimma never had access to.
+    """
+    import chatgpt_auth
+
+    chatgpt_auth.sign_out()
+
+    providers = list(get_settings().llm_providers)
+    now = datetime.now(timezone.utc).isoformat()
+    for provider in providers:
+        if provider.kind == "chatgpt" and not provider.deleted_at:
+            provider.deleted_at = now
+    _save_providers(providers)
+    return {"signed_out": True}
