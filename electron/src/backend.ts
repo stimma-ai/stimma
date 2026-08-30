@@ -1,0 +1,118 @@
+/**
+ * Backend supervision.
+ *
+ * Packaged mode: spawn stimma-watchdog with the exact contract the Tauri
+ * shell used — same args, same env, same STIMMA_BACKEND_PORT= stdout/stderr
+ * parse. Dev mode: the developer runs the backend; the port comes from env.
+ */
+
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import readline from 'node:readline'
+import type { AppIdentity } from './identity'
+import { log } from './log'
+
+let backendPort: number | null = null
+
+export function getBackendPortSync(): number | null {
+  return backendPort
+}
+
+/** Resolve the backend port, waiting up to ~30s (mirrors the Tauri command). */
+export async function waitForBackendPort(): Promise<number> {
+  for (let i = 0; i < 300; i++) {
+    if (backendPort !== null) return backendPort
+    if (i % 20 === 0) log.info('backend', `Waiting for port... attempt ${i}/300`)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error('Backend port not available after timeout')
+}
+
+export function parseBackendPort(line: string): number | null {
+  const idx = line.indexOf('STIMMA_BACKEND_PORT=')
+  if (idx === -1) return null
+  const after = line.slice(idx + 'STIMMA_BACKEND_PORT='.length)
+  const match = after.match(/^\d+/)
+  if (!match) return null
+  const port = Number.parseInt(match[0], 10)
+  return Number.isInteger(port) && port > 0 && port < 65536 ? port : null
+}
+
+/**
+ * Locate the watchdog binary next to the packaged resources. Resources live
+ * outside ASAR under process.resourcesPath; dev never calls this.
+ */
+function watchdogPath(): string {
+  const base = path.join(process.resourcesPath, 'stimma-watchdog')
+  if (fs.existsSync(base)) return base
+  return base + '.exe'
+}
+
+export function startBackend(identity: AppIdentity, appVersion: string): void {
+  if (identity.dev) {
+    backendPort = identity.devBackendPort
+    log.info('stimma', `Dev mode: using external backend on port ${backendPort}`)
+    return
+  }
+
+  fs.mkdirSync(identity.dataDir, { recursive: true })
+  fs.mkdirSync(identity.cacheDir, { recursive: true })
+
+  const watchdog = watchdogPath()
+  log.info('stimma', `Bundle ID: ${identity.bundleId}`)
+  log.info('stimma', `Data dir: ${identity.dataDir}`)
+  log.info('stimma', `Cache dir: ${identity.cacheDir}`)
+  log.info('stimma', `Spawning watchdog from: ${watchdog}`)
+
+  const child = spawn(
+    watchdog,
+    [
+      '--parent-pid',
+      String(process.pid),
+      'stimma-backend',
+      '--port',
+      '0',
+      // --bundle-id must be forwarded: without it the backend falls back to
+      // the debug bundle id and reports branch "dev" even in official builds.
+      '--bundle-id',
+      identity.bundleId,
+    ],
+    {
+      env: {
+        ...process.env,
+        STIMMA_DATA_DIR: identity.dataDir,
+        STIMMA_CACHE_DIR: identity.cacheDir,
+        STIMMA_DISTRIBUTION: identity.distribution,
+        STIMMA_APP_VERSION: appVersion,
+        // Prevent the bundled Python from writing .pyc files into the
+        // (code-signed) app bundle at runtime, which invalidates the macOS
+        // signature seal and triggers "app is damaged".
+        PYTHONDONTWRITEBYTECODE: '1',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    },
+  )
+
+  log.info('stimma', `Watchdog spawned with pid: ${child.pid}`)
+
+  const attach = (stream: NodeJS.ReadableStream, level: 'info' | 'warn') => {
+    const rl = readline.createInterface({ input: stream })
+    rl.on('line', (line) => {
+      const port = parseBackendPort(line)
+      if (port !== null) {
+        log.info('backend', `Detected port: ${port}`)
+        backendPort = port
+      }
+      log[level]('backend', line)
+    })
+  }
+  attach(child.stdout!, 'info')
+  attach(child.stderr!, 'warn')
+
+  child.on('exit', (code, signal) => {
+    log.error('stimma', `Watchdog exited (code=${code}, signal=${signal})`)
+  })
+  child.unref()
+}

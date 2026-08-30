@@ -540,8 +540,9 @@ Commands:
   dev frontend    Run Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
   dev backend2    Run Rust backend (default port 9191)
-  dev app         Run Tauri in dev mode
-  dev all         Run backend + frontend + Tauri together with merged logs
+  dev app         Run desktop app in dev mode (Electron; --shell=tauri for the
+                      legacy shell during the migration)
+  dev all         Run backend + frontend + app together with merged logs
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
   run app         Run Tauri app (release, no watching)
@@ -1736,6 +1737,47 @@ function tauriTargetDir(sandbox: string): string | undefined {
   return join(repoRoot, "target-tauri", sandboxSafeSegment(sandbox));
 }
 
+// Which desktop shell `dev app` / `dev all` launch. Electron is the default;
+// `--shell=tauri` remains available for comparison during the migration and
+// is removed with the Tauri code once the port ships.
+type DesktopShell = "electron" | "tauri";
+
+function parseShellFlag(rest: string[]): { shell: DesktopShell; rest: string[] } {
+  let shell: DesktopShell = "electron";
+  const remaining: string[] = [];
+  for (const arg of rest) {
+    if (arg === "--shell=tauri") shell = "tauri";
+    else if (arg === "--shell=electron") shell = "electron";
+    else remaining.push(arg);
+  }
+  return { shell, rest: remaining };
+}
+
+async function ensureElectronDeps(): Promise<void> {
+  const electronDir = join(repoRoot, "electron");
+  if (!(await pathExists(join(electronDir, "node_modules")))) {
+    console.log("[electron] Installing shell dependencies (first run)...");
+    const code = await run("npm", ["install"], { cwd: electronDir });
+    if (code !== 0) {
+      console.error("[electron] npm install failed.");
+      Deno.exit(1);
+    }
+  }
+}
+
+function electronDevEnv(bundleId: string, ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
+  return {
+    ...runtimeEnv,
+    STIMMA_DEV: "1",
+    STIMMA_BUNDLE_ID: sandboxIdentifier(bundleId, sandbox),
+    STIMMA_BACKEND_PORT: String(ports.server),
+    STIMMA_FRONTEND_PORT: String(ports.frontend),
+    STIMMA_SANDBOX: sandbox,
+    STIMMA_DATA_DIR: getDataDir(bundleId, sandbox),
+    STIMMA_CACHE_DIR: getCacheDir(bundleId, sandbox),
+  };
+}
+
 function tauriDevEnv(bundleId: string, ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
   const targetDir = tauriTargetDir(sandbox);
   const env: Record<string, string> = {
@@ -1783,7 +1825,7 @@ function tauriDevConfig(
   return JSON.stringify(config);
 }
 
-async function commandDevAll(bundleId: string, sandbox: string, channel: string, runtimeEnv: Record<string, string>): Promise<void> {
+async function commandDevAll(bundleId: string, sandbox: string, channel: string, runtimeEnv: Record<string, string>, shell: DesktopShell = "electron"): Promise<void> {
   const ports = await getSandboxPorts(bundleId, sandbox);
   const backendDir = join(repoRoot, "backend");
   const frontendDir = join(repoRoot, "frontend");
@@ -1849,11 +1891,20 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
       waitForTcpPort(ports.frontend, "frontend", 60000, [DEV_HOST]),
     ]).then(() => undefined));
 
-    console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
-    processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
-      cwd: repoRoot,
-      env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
-    }));
+    if (shell === "electron") {
+      console.log("[dev all] Backend and frontend are ready; launching Electron app.");
+      await ensureElectronDeps();
+      processes.push(spawnDevProcess("app", "node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
+        cwd: join(repoRoot, "electron"),
+        env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
+      }));
+    } else {
+      console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
+      processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
+        cwd: repoRoot,
+        env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
+      }));
+    }
     console.log("[dev all] App process started. Press Ctrl-C to stop the full stack.");
 
     const firstExit = await Promise.race(processes.map(async (proc) => ({ proc, status: await proc.status })));
@@ -1984,13 +2035,23 @@ async function main(): Promise<void> {
         if (official) {
           console.log(`Note: 'dev app' uses the externally running backend on :${ports.server} — start it with 'stimma dev backend --official' for backend surfaces.`);
         }
-        const devIcons = await channelIconConfig(channel);
-        await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports, devIcons)], {
-          cwd: repoRoot,
-          env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
-        });
+        const { shell } = parseShellFlag(rest);
+        if (shell === "electron") {
+          await ensureElectronDeps();
+          await run("node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
+            cwd: join(repoRoot, "electron"),
+            env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
+          });
+        } else {
+          const devIcons = await channelIconConfig(channel);
+          await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports, devIcons)], {
+            cwd: repoRoot,
+            env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
+          });
+        }
       } else if (sub === "all") {
-        await commandDevAll(bundleId, sandbox, channel, runtimeEnv);
+        const { shell } = parseShellFlag(rest);
+        await commandDevAll(bundleId, sandbox, channel, runtimeEnv, shell);
       } else {
         printUsage();
       }
