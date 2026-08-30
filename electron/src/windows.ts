@@ -1,15 +1,19 @@
 /**
- * Window management: creation, close semantics, and (in Phase 3) the
+ * Window management: creation, browser-style close semantics, and the
  * profile-window registry ported from src-tauri/src/windows.rs.
  *
- * Phase 2 scope: a single "main" window with the browser-style lifecycle —
- * closing the last window hides it (backend stays warm), Cmd-Q genuinely
- * quits, Dock reactivation re-shows.
+ * Semantics: each open window is pinned to one profile; switching profiles
+ * focuses (or opens) that profile's window; the set of open windows persists
+ * so relaunch restores them. Closing one of several windows destroys it and
+ * drops it from the restore set; closing the last hides it so the backend
+ * stays warm; a genuine quit leaves the registry intact.
  */
 
 import { BrowserWindow, app } from 'electron'
 import path from 'node:path'
 import { log } from './log'
+import { WindowRegistry, profileWindowLabel } from './registry'
+import { storedBoundsFor, trackWindowState } from './windowState'
 
 let quitting = false
 
@@ -27,20 +31,44 @@ export interface WindowEnvironment {
 }
 
 let environment: WindowEnvironment = { devUrl: null, frontendDist: null }
+let registry: WindowRegistry | null = null
 
 export function setWindowEnvironment(env: WindowEnvironment): void {
   environment = env
+}
+
+export function setWindowRegistry(reg: WindowRegistry): void {
+  registry = reg
+}
+
+export function getWindowRegistry(): WindowRegistry {
+  if (!registry) throw new Error('Window registry not initialized')
+  return registry
 }
 
 function preloadPath(): string {
   return path.join(__dirname, 'preload.cjs')
 }
 
+export function labelOf(win: BrowserWindow): string {
+  return (win as any).stimmaLabel ?? 'main'
+}
+
+export function windowForLabel(label: string): BrowserWindow | null {
+  return (
+    BrowserWindow.getAllWindows().find(
+      (win) => !win.isDestroyed() && labelOf(win) === label,
+    ) ?? null
+  )
+}
+
 export function createAppWindow(label: string): BrowserWindow {
+  const stored = storedBoundsFor(label)
   const win = new BrowserWindow({
     title: 'Stimma',
-    width: 1200,
-    height: 800,
+    width: stored?.width ?? 1200,
+    height: stored?.height ?? 800,
+    ...(stored ? { x: stored.x, y: stored.y } : {}),
     minWidth: 1024,
     minHeight: 640,
     show: true,
@@ -59,14 +87,21 @@ export function createAppWindow(label: string): BrowserWindow {
   })
 
   ;(win as any).stimmaLabel = label
+  if (stored?.maximized) win.maximize()
+  if (stored?.fullscreen) win.setFullScreen(true)
+  trackWindowState(label, win)
 
-  // Browser-style close semantics: closing one of several windows destroys
-  // it; closing the last window hides it so the backend stays warm. A real
-  // quit (Cmd-Q / explicit quit) bypasses the hide.
+  // Browser-style close semantics (mirrors the Tauri on_window_event
+  // handler): closing one of several profile windows destroys it and drops
+  // it from the restore set; closing the last hides it instead so the
+  // backend stays warm. A genuine quit bypasses both and leaves the
+  // registry intact for session restore.
   win.on('close', (event) => {
     if (quitting) return
     const openWindows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
-    if (openWindows.length <= 1) {
+    if (openWindows.length > 1) {
+      registry?.remove(label)
+    } else {
       event.preventDefault()
       win.hide()
     }
@@ -94,6 +129,82 @@ export function createAppWindow(label: string): BrowserWindow {
   }
 
   return win
+}
+
+/**
+ * Recreate the windows that were open when the app last quit (browser-style
+ * session restore). First launch — or a missing registry — falls back to the
+ * single bootstrap "main" window, whose profile the frontend resolves and
+ * reports back.
+ */
+export function restoreWindows(): void {
+  const reg = getWindowRegistry()
+  let entries = reg.snapshot()
+  if (entries.length === 0) {
+    entries = [{ label: 'main', profile_id: null }]
+    reg.replace(entries)
+  }
+  for (const entry of entries) {
+    if (!windowForLabel(entry.label)) {
+      createAppWindow(entry.label)
+    }
+  }
+}
+
+function focusWindow(win: BrowserWindow): void {
+  win.show()
+  if (win.isMinimized()) win.restore()
+  win.focus()
+}
+
+/**
+ * Browser-style profile switch: focus the profile's window if one is open,
+ * otherwise open a new window pinned to it. (Port of open_profile_window.)
+ */
+export function openProfileWindow(profileId: string): void {
+  const reg = getWindowRegistry()
+
+  const existingLabel = reg.labelForProfile(profileId)
+  if (existingLabel) {
+    const existing = windowForLabel(existingLabel)
+    if (existing) {
+      focusWindow(existing)
+      return
+    }
+    reg.remove(existingLabel)
+  }
+
+  const label = profileWindowLabel(profileId)
+  const open = windowForLabel(label)
+  if (open) {
+    reg.setProfile(label, profileId)
+    focusWindow(open)
+    return
+  }
+
+  reg.setProfile(label, profileId)
+  try {
+    createAppWindow(label)
+  } catch (error) {
+    reg.remove(label)
+    throw error
+  }
+}
+
+/**
+ * Close a window because its profile no longer exists. Returns false when it
+ * is the last window — the caller falls back to another profile in place.
+ */
+export function closeDeletedProfileWindow(win: BrowserWindow): boolean {
+  const openWindows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
+  if (openWindows.length <= 1) return false
+  getWindowRegistry().remove(labelOf(win))
+  // Defer the destroy one tick so the IPC response reaches the caller before
+  // its renderer dies.
+  setImmediate(() => {
+    if (!win.isDestroyed()) win.destroy()
+  })
+  return true
 }
 
 export function isAppUrl(url: string): boolean {

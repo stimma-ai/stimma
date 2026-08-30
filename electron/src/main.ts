@@ -13,10 +13,14 @@ import { startBackend } from './backend'
 import { resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
 import { initLog, log } from './log'
+import { installApplicationMenu } from './menu'
+import { WindowRegistry } from './registry'
+import { initWindowState } from './windowState'
 import {
-  createAppWindow,
   installAppLifecycle,
+  restoreWindows,
   setWindowEnvironment,
+  setWindowRegistry,
   showAllWindows,
 } from './windows'
 
@@ -50,12 +54,15 @@ if (!app.requestSingleInstanceLock()) {
       : { devUrl: null, frontendDist: path.join(process.resourcesPath, 'frontend') },
   )
 
+  setWindowRegistry(new WindowRegistry(identity.dataDir))
   installAppLifecycle()
   registerIpcHandlers()
   startBackend(identity, app.getVersion())
 
   void app.whenReady().then(() => {
-    createAppWindow('main')
-    log.info('stimma', 'First window created')
+    installApplicationMenu(identity.dev)
+    initWindowState(identity.dataDir)
+    restoreWindows()
+    log.info('stimma', 'Windows restored')
   })
 }

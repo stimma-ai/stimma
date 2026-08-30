@@ -7,7 +7,9 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test --experimental-strip-types tests/*.test.ts"
+    "test": "npm run build && npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:e2e": "node tests/smoke.test.mjs && node tests/windows.e2e.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

@@ -702,3 +702,15 @@ select option {
   opacity: 0;
   transform: scale(0.96);
 }
+
+/* Window drag regions. The Tauri shell implements data-tauri-drag-region in
+   native code (mousedown on the exact element only); Chromium-based shells
+   honor -webkit-app-region instead. Children are explicitly no-drag to mirror
+   Tauri's element-only semantics, so controls inside a drag bar stay
+   interactive while blank bar space moves the window. */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region] * {
+  -webkit-app-region: no-drag;
+}

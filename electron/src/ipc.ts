@@ -16,7 +16,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { waitForBackendPort } from './backend'
 import { log } from './log'
-import { isAppUrl, showAllWindows } from './windows'
+import {
+  closeDeletedProfileWindow,
+  getWindowRegistry,
+  isAppUrl,
+  labelOf,
+  openProfileWindow,
+  showAllWindows,
+} from './windows'
 
 function senderWindow(event: IpcMainInvokeEvent): BrowserWindow {
   const win = BrowserWindow.fromWebContents(event.sender)
@@ -112,18 +119,25 @@ export function registerIpcHandlers(): void {
     else log.info('web', msg)
   })
 
-  // ---- windows / profiles (full registry lands in Phase 3) -----------------
-  handle('stimma:get-window-profile', () => null)
+  // ---- windows / profiles --------------------------------------------------
+  handle('stimma:get-window-profile', (event) =>
+    getWindowRegistry().profileFor(labelOf(senderWindow(event))),
+  )
 
-  handle('stimma:report-window-profile', (_event, profileId: unknown) => {
-    requireString(profileId, 'profile id')
+  handle('stimma:report-window-profile', (event, profileId: unknown) => {
+    getWindowRegistry().setProfile(
+      labelOf(senderWindow(event)),
+      requireString(profileId, 'profile id'),
+    )
   })
 
-  handle('stimma:open-profile-window', () => {
-    throw new Error('Profile windows are not implemented in the Electron shell yet')
+  handle('stimma:open-profile-window', (_event, profileId: unknown) => {
+    openProfileWindow(requireString(profileId, 'profile id'))
   })
 
-  handle('stimma:close-deleted-profile-window', () => false)
+  handle('stimma:close-deleted-profile-window', (event) =>
+    closeDeletedProfileWindow(senderWindow(event)),
+  )
 
   handle('stimma:close-current-window', (event) => {
     senderWindow(event).close()
