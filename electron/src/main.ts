@@ -12,6 +12,7 @@ import path from 'node:path'
 import { APP_ORIGIN, installAppProtocolHandler, registerAppScheme } from './appProtocol'
 import { startBackend } from './backend'
 import { initHelper, shutdownHelper } from './helper'
+import { prepareLegacyStorageImport } from './legacyStorage'
 import { readPackagedMetadata, resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
 import { initLog, log } from './log'
@@ -78,12 +79,19 @@ if (!app.requestSingleInstanceLock()) {
 
   if (pkg.productName) setWindowTitlePrefix(pkg.productName)
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     if (!identity.dev) {
       installAppProtocolHandler(path.join(process.resourcesPath, 'frontend'))
     }
     installApplicationMenu(identity.dev)
     initWindowState(identity.dataDir)
+    // WKWebView localStorage import must be resolved before the first window
+    // loads: its preload injects the dump ahead of any page script.
+    try {
+      await prepareLegacyStorageImport(identity)
+    } catch (e) {
+      log.warn('legacy-storage', `Import preparation failed: ${e}`)
+    }
     restoreWindows()
     log.info('stimma', 'Windows restored')
   })

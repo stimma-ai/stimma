@@ -58,6 +58,9 @@ export const test = base.extend<{
       args: [electronRoot],
       env: {
         ...env,
+        // Voice model downloads must fail fast (no network) so voice specs
+        // can assert the attempt without fetching a 650MB model.
+        STIMMA_PRIVACY_LOCKDOWN: '1',
         STIMMA_DEV: '1',
         STIMMA_SANDBOX: 'tier-b',
         STIMMA_DATA_DIR: path.join(sandboxDir, 'data'),

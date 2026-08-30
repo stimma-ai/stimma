@@ -9,6 +9,30 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
+// ---- WKWebView localStorage import (Tauri→Electron migration) --------------
+// Preload runs before any page script, so keys written here are visible to
+// module-init reads (profileId, stimma_bundle_id). Only absent keys are
+// written; the main process gates the dump behind a one-shot marker.
+try {
+  const legacyDump = ipcRenderer.sendSync('stimma:legacy-storage-dump') as
+    | Record<string, string>
+    | null
+  if (legacyDump) {
+    let written = 0
+    for (const [key, value] of Object.entries(legacyDump)) {
+      if (window.localStorage.getItem(key) === null) {
+        window.localStorage.setItem(key, value)
+        written++
+      }
+    }
+    ipcRenderer.send('stimma:legacy-storage-imported', written)
+  }
+} catch (e) {
+  // Never block app boot on the import; the marker stays unset so the next
+  // launch retries.
+  console.error('[legacy-storage] import failed in preload:', e)
+}
+
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return ipcRenderer.invoke(channel, ...args) as Promise<T>
 }

@@ -15,6 +15,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 futures-util = "0.3"
 crc32fast = "1.4"
 sherpa-onnx = "1.13.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [profile.release]
 strip = true

@@ -28,6 +28,7 @@ import {
   helperRequest,
   removeEventListener,
 } from './helper'
+import { getLegacyStorageDump, markLegacyStorageImported } from './legacyStorage'
 import { log } from './log'
 import {
   closeDeletedProfileWindow,
@@ -113,6 +114,15 @@ async function uniqueDownloadPath(filename: string): Promise<string> {
 }
 
 export function registerIpcHandlers(): void {
+  // ---- legacy storage import (sync: preload blocks on this pre-page-load) --
+  // Not part of the contextBridge surface; the preload consumes it directly.
+  ipcMain.on('stimma:legacy-storage-dump', (event) => {
+    event.returnValue = getLegacyStorageDump()
+  })
+  ipcMain.on('stimma:legacy-storage-imported', (_event, keysWritten: unknown) => {
+    markLegacyStorageImported(typeof keysWritten === 'number' ? keysWritten : 0)
+  })
+
   // ---- app / backend -------------------------------------------------------
   handle('stimma:get-backend-port', () => waitForBackendPort())
 

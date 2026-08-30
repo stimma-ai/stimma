@@ -9,6 +9,7 @@
 mod embed;
 mod protocol;
 mod voice;
+mod webkit_storage;
 
 use std::io::BufRead;
 use std::path::PathBuf;
@@ -113,6 +114,16 @@ fn handle_request(
                     Err(e) => writer.respond_err(id, &e),
                 },
                 Err(e) => writer.respond_err(id, &format!("invalid embed request: {e}")),
+            }
+        }
+
+        "read_webkit_local_storage" => {
+            match serde_json::from_value::<webkit_storage::ReadRequest>(params) {
+                Ok(req) => match webkit_storage::read_local_storage(req) {
+                    Ok(items) => writer.respond_ok(id, serde_json::json!({ "items": items })),
+                    Err(e) => writer.respond_err(id, &e),
+                },
+                Err(e) => writer.respond_err(id, &format!("invalid request: {e}")),
             }
         }
 
