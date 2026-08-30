@@ -34,6 +34,7 @@ import textwrap
 import urllib
 import urllib.parse
 import urllib.request
+import zipfile as _zipfile_mod
 
 import aiohttp
 from collections import Counter, defaultdict, deque
@@ -115,6 +116,7 @@ ALLOWED_MODULES: dict[str, Any] = {
     "urllib": urllib,
     "urllib.parse": urllib.parse,
     "urllib.request": urllib.request,
+    "zipfile": _zipfile_mod,
     "aiohttp": aiohttp,
 }
 
@@ -132,7 +134,7 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
     "ImageDraw, ImageFilter, ImageFont, ImageOps, ImageEnhance), random, re, "
     "statistics, string, struct, textwrap, urllib / urllib.parse / "
-    "urllib.request, aiohttp. "
+    "urllib.request, zipfile, aiohttp. "
     "tqdm is also importable (sandbox-patched for progress display). "
     "For video/audio processing (concat, trim, remux, probe) use "
     "`await stimma.ffmpeg(...)` / `await stimma.ffprobe(...)` — workspace-jailed, "
