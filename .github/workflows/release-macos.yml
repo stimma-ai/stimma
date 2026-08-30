@@ -357,7 +357,10 @@ jobs:
           APP_TAR="electron/out/${PRODUCT_NAME}.app.tar.gz"
           tar -czf "$APP_TAR" -C "$(dirname "$APP_BUNDLE")" "$(basename "$APP_BUNDLE")"
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-            frontend/node_modules/.bin/tauri signer sign "$APP_TAR"
+            frontend/node_modules/.bin/tauri signer sign \
+              --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
+              --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" \
+              "$APP_TAR"
           else
             echo "TAURI_SIGNING_PRIVATE_KEY missing; handoff artifact left unsigned (staging only)."
           fi
