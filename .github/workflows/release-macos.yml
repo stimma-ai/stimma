@@ -365,6 +365,46 @@ jobs:
             echo "TAURI_SIGNING_PRIVATE_KEY missing; handoff artifact left unsigned (staging only)."
           fi
 
+      - name: Generate electron-updater manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # electron-builder only writes latest-mac.yml when it publishes;
+          # we publish from this workflow instead, so generate the manifest.
+          python3 - <<'PY'
+          import base64, datetime, glob, hashlib, os
+
+          def entry(path):
+              digest = hashlib.sha512()
+              with open(path, 'rb') as fh:
+                  for chunk in iter(lambda: fh.read(1 << 20), b''):
+                      digest.update(chunk)
+              return {
+                  'url': os.path.basename(path),
+                  'sha512': base64.b64encode(digest.digest()).decode(),
+                  'size': os.path.getsize(path),
+              }
+
+          zips = sorted(glob.glob('electron/out/*.zip'))
+          dmgs = sorted(glob.glob('electron/out/*.dmg'))
+          assert zips and dmgs, 'zip/dmg artifacts missing'
+          files = [entry(p) for p in zips + dmgs]
+          primary = entry(zips[0])
+          lines = ['version: ' + os.environ['VERSION'], 'files:']
+          for f in files:
+              lines.append('  - url: ' + f['url'])
+              lines.append('    sha512: ' + f['sha512'])
+              lines.append('    size: ' + str(f['size']))
+          lines.append('path: ' + primary['url'])
+          lines.append('sha512: ' + primary['sha512'])
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+          lines.append("releaseDate: '" + stamp + "'")
+          with open('electron/out/latest-mac.yml', 'w') as fh:
+              fh.write('\n'.join(lines) + '\n')
+          print(open('electron/out/latest-mac.yml').read())
+          PY
+
       - name: Collect build artifacts
         id: collect
         run: |
