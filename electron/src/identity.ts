@@ -7,8 +7,30 @@
  * backend dirs, logs) flows from this one module.
  */
 
+import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+/**
+ * Build-stamped metadata (electron-builder extraMetadata) read from the
+ * packaged package.json at RUNTIME. Never `require('../package.json')` in
+ * bundled code — esbuild inlines it at build time, before the builder stamps
+ * version/bundle id/feed URL.
+ */
+export interface PackagedMetadata {
+  version?: string
+  productName?: string
+  stimmaBundleId?: string
+  stimmaUpdateUrl?: string
+}
+
+export function readPackagedMetadata(appPath: string): PackagedMetadata {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(appPath, 'package.json'), 'utf8'))
+  } catch {
+    return {}
+  }
+}
 
 export interface AppIdentity {
   bundleId: string

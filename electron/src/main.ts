@@ -12,7 +12,7 @@ import path from 'node:path'
 import { APP_ORIGIN, installAppProtocolHandler, registerAppScheme } from './appProtocol'
 import { startBackend } from './backend'
 import { initHelper, shutdownHelper } from './helper'
-import { resolveIdentity } from './identity'
+import { readPackagedMetadata, resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
@@ -28,9 +28,8 @@ import {
 } from './windows'
 
 // Packaged bundle id is stamped into package.json by the build (electron-
-// builder extraMetadata); dev falls back to the debug channel.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pkg = require('../package.json') as { stimmaBundleId?: string; productName?: string }
+// builder extraMetadata) and must be read at runtime (see readPackagedMetadata).
+const pkg = readPackagedMetadata(app.getAppPath())
 const PACKAGED_BUNDLE_ID = pkg.stimmaBundleId || 'ai.stimma.stimma.debug'
 
 const identity = resolveIdentity(PACKAGED_BUNDLE_ID)

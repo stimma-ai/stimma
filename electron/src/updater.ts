@@ -20,6 +20,7 @@
  */
 
 import { app } from 'electron'
+import { readPackagedMetadata } from './identity'
 import { log } from './log'
 
 interface UpdaterState {
@@ -32,9 +33,7 @@ const state: UpdaterState = { available: null, downloaded: false }
 let autoUpdaterModule: typeof import('electron-updater') | null = null
 
 function feedUrl(): string | null {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pkg = require('../package.json') as { stimmaUpdateUrl?: string }
-  return pkg.stimmaUpdateUrl || null
+  return readPackagedMetadata(app.getAppPath()).stimmaUpdateUrl || null
 }
 
 function getAutoUpdater() {
