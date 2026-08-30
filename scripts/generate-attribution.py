@@ -217,11 +217,22 @@ def npm_rows() -> list[tuple[str, ...]]:
                 return None
             cur = cur.parent
 
+    electron_dir = REPO_ROOT / "electron"
     root_pkg = read_pkg(frontend)
     queue: list[tuple[str, Path]] = [
         (dep, frontend) for dep, spec in (root_pkg.get("dependencies") or {}).items()
         if not str(spec).startswith("file:")
     ]
+    # Electron shell: runtime dependencies ship inside the packaged app's
+    # asar; Electron itself (a devDependency) ships as the app runtime and is
+    # queued explicitly. Chromium's own third-party licenses are bundled by
+    # electron-builder as LICENSES.chromium.html inside the app.
+    electron_pkg = read_pkg(electron_dir)
+    if electron_pkg:
+        for dep in (electron_pkg.get("dependencies") or {}):
+            queue.append((dep, electron_dir))
+        if "electron" in (electron_pkg.get("devDependencies") or {}):
+            queue.append(("electron", electron_dir))
     seen: dict[str, dict] = {}
     while queue:
         name, from_dir = queue.pop()
@@ -340,8 +351,9 @@ def main() -> None:
 
     rust_main = cargo_rows(REPO_ROOT / "src-tauri")
     rust_wd = cargo_rows(REPO_ROOT / "src-tauri" / "watchdog")
+    rust_native = cargo_rows(REPO_ROOT / "native" / "stimma-native")
     merged: dict[str, tuple[str, ...]] = {r[0]: r for r in rust_main}
-    for r in rust_wd:
+    for r in rust_wd + rust_native:
         if r[0] not in merged:
             merged[r[0]] = r
     rust = [merged[n] for n in sorted(merged)]
