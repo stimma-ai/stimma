@@ -203,6 +203,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
 
     state.value = 'recording'
     recordingStartedAt = Date.now()
+    console.debug('[voice] start: beginning capture')
     try {
       await desktop.voiceStart(onEvent)
       startKeepalive()
@@ -217,6 +218,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   /** End push-to-talk and commit the final transcript. */
   async function stop(): Promise<void> {
     if (state.value !== 'recording') return
+    console.debug(`[voice] stop after ${Date.now() - recordingStartedAt}ms`)
     stopKeepalive()
     trackUse('committed')
     state.value = 'finalizing'
@@ -242,16 +244,43 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // space type natively (so normal typing is untouched) and just suppress OS
   // key-repeat during the hold — the lone space becomes the word separator,
   // and an all-whitespace field is normalized away in start().
+  //
+  // Remoted keyboards (Deskflow and similar KVMs) deliver a physical hold as
+  // rapid full press+release pairs (~25ms apart) instead of down…repeat…up,
+  // so a keyup doesn't immediately end the gesture: release is finalized only
+  // after SPACE_CHAIN_GAP_MS with no re-press. A keydown inside that grace
+  // window continues the original hold (and is suppressed so the chain
+  // doesn't type a run of spaces). Real keyboards are unaffected apart from
+  // the imperceptible grace delay on release — a deliberate human double-tap
+  // has a much larger up-to-down gap than the chain window.
   const SPACE_HOLD_MS = 250
+  const SPACE_CHAIN_GAP_MS = 80
   let spacePending = false
   let spaceDictating = false
   let spaceTimer: ReturnType<typeof setTimeout> | null = null
+  let spaceChainGraceTimer: ReturnType<typeof setTimeout> | null = null
 
   function clearSpaceTimer() {
     if (spaceTimer != null) {
       clearTimeout(spaceTimer)
       spaceTimer = null
     }
+  }
+
+  function clearSpaceChainGrace() {
+    if (spaceChainGraceTimer != null) {
+      clearTimeout(spaceChainGraceTimer)
+      spaceChainGraceTimer = null
+    }
+  }
+
+  function finalizeSpaceRelease() {
+    console.debug(`[voice] space release (dictating=${spaceDictating})`)
+    clearSpaceTimer()
+    const wasDictating = spaceDictating
+    spacePending = false
+    spaceDictating = false
+    if (wasDictating) void stop()
   }
 
   function handleInputKeydown(e: KeyboardEvent) {
@@ -262,6 +291,15 @@ export function useVoiceInput(opts: VoiceInputOptions) {
       if (spacePending || spaceDictating) e.preventDefault()
       return
     }
+    if (spaceChainGraceTimer != null) {
+      // Re-press within the grace window: the previous keyup was a synthetic
+      // repeat, not a release — the original hold (and its timer) continues.
+      clearSpaceChainGrace()
+      if (spacePending || spaceDictating) {
+        e.preventDefault()
+        return
+      }
+    }
     if (state.value !== 'idle') return
     spacePending = true
     spaceDictating = false
@@ -269,6 +307,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     spaceTimer = setTimeout(() => {
       spaceTimer = null
       if (spacePending && state.value === 'idle') {
+        console.debug('[voice] space-hold threshold reached; starting dictation')
         spaceDictating = true
         void start()
       }
@@ -278,17 +317,21 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   function handleInputKeyup(e: KeyboardEvent) {
     if (e.code !== 'Space' && e.key !== ' ') return
     if (!spacePending && !spaceDictating) return
-    clearSpaceTimer()
-    const wasDictating = spaceDictating
-    spacePending = false
-    spaceDictating = false
-    if (wasDictating) void stop()
+    clearSpaceChainGrace()
+    spaceChainGraceTimer = setTimeout(() => {
+      spaceChainGraceTimer = null
+      finalizeSpaceRelease()
+    }, SPACE_CHAIN_GAP_MS)
   }
 
   /** Abort without committing (best effort). */
-  async function cancel(): Promise<void> {
+  async function cancel(reason = 'explicit'): Promise<void> {
+    if (state.value === 'recording' || spacePending || spaceDictating) {
+      console.debug(`[voice] cancel (${reason}) state=${state.value}`)
+    }
     stopKeepalive()
     clearSpaceTimer()
+    clearSpaceChainGrace()
     spacePending = false
     spaceDictating = false
     if (state.value === 'recording') {
@@ -306,13 +349,13 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // these don't fire, the Rust lease still catches it; this just makes it
   // immediate.)
   function onWindowBlur() {
-    if (state.value === 'recording') void cancel()
+    if (state.value === 'recording') void cancel('window-blur')
   }
   function onVisibilityChange() {
-    if (document.hidden && state.value === 'recording') void cancel()
+    if (document.hidden && state.value === 'recording') void cancel('visibility-hidden')
   }
   function onPageHide() {
-    if (state.value === 'recording') void cancel()
+    if (state.value === 'recording') void cancel('page-hide')
   }
 
   onMounted(() => {
@@ -326,7 +369,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     window.removeEventListener('pagehide', onPageHide)
     // The component owning this dictation is gone (route change, HMR); don't
     // leave the mic capturing.
-    void cancel()
+    void cancel('unmount')
   })
 
   return {
