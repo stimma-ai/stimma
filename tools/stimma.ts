@@ -1326,7 +1326,9 @@ function channelAppIdentity(channel: string): { bundleId: string; productName: s
     case "canary":
       return { bundleId: "ai.stimma.stimma.canary", productName: "Stimma Canary" };
     default:
-      return { bundleId: "ai.stimma.stimma.debug", productName: "Stimma" };
+      // Matches the release-workflow mapping (sandbox/debug builds are
+      // "Stimma Debug"); update continuity depends on identical bundle names.
+      return { bundleId: "ai.stimma.stimma.debug", productName: "Stimma Debug" };
   }
 }
 
