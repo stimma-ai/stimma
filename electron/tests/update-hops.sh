@@ -17,7 +17,9 @@ START_DMG_URL="${1:?start dmg url}"
 EXPECT_VERSION="${2:?expected updated version}"
 RESUME_DIR="${4:-}"
 
-WORK="$(mktemp -d /tmp/stimma-update-hop.XXXXXX)"
+# NOT under /tmp: the Tauri updater refuses app paths that traverse a
+# symlink (/tmp -> /private/tmp) with "StartingBinary ... symlink".
+WORK="$(mktemp -d "$HOME/.stimma-update-hop.XXXXXX")"
 echo "workdir: $WORK"
 DATA="$WORK/data"; CACHE="$WORK/cache"
 mkdir -p "$DATA" "$CACHE"
@@ -54,8 +56,9 @@ staged=""
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   ON_DISK="$(defaults read "$APP_BUNDLE/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo unknown)"
   if [ "$ON_DISK" = "$EXPECT_VERSION" ]; then staged="bundle-swapped"; break; fi
-  # electron-updater staging marker (downloaded, pending apply-on-quit)
-  if find "$DATA/chromium" -name '*.zip' -path '*pending*' 2>/dev/null | grep -q .; then
+  # electron-updater staging marker: our updater module logs download
+  # completion into the shell log.
+  if grep -qiE "\[updater\].*(downloaded|update-downloaded)" "$DATA/Logs/Stimma-shell.log" 2>/dev/null; then
     staged="electron-pending"; break
   fi
   if ! kill -0 "$APP_PID" 2>/dev/null; then
