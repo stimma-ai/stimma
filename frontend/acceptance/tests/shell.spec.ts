@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../helpers/testbed';
 import { waitForShell } from '../helpers/app';
 
 test.describe('app shell acceptance', () => {
