@@ -84,11 +84,11 @@ echo "ok - bundle updated to $EXPECT_VERSION"
 # Electron; process liveness for either shell).
 env -u ELECTRON_RUN_AS_NODE -u STIMMA_DEV \
   STIMMA_SANDBOX=update-hop STIMMA_DATA_DIR="$DATA" STIMMA_CACHE_DIR="$CACHE" \
-  "$BIN" >/dev/null 2>&1 &
+  "$BIN" >"$WORK/relaunch.log" 2>&1 &
 NEW_PID=$!
-sleep 30
+sleep 60
 if ! kill -0 "$NEW_PID" 2>/dev/null; then
-  echo "Updated app did not stay running."; exit 1
+  echo "Updated app did not stay running. Output:"; tail -20 "$WORK/relaunch.log"; exit 1
 fi
 if [ -f "$DATA/Logs/Stimma-shell.log" ]; then
   echo "ok - Electron shell log present after update"
