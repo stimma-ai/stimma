@@ -24,8 +24,18 @@ const baseURL = `http://127.0.0.1:${frontendPort}`;
 
 const repoRoot = path.resolve(moduleDir, '..', '..', '..');
 const electronRoot = path.join(repoRoot, 'electron');
-const electronRequire = createRequire(path.join(electronRoot, 'package.json'));
-const electronBinary: string = electronRequire('electron');
+
+// Resolved lazily: the browser lane imports this module transitively (via
+// helpers/testbed) in environments where electron/node_modules doesn't exist
+// (CI quality gate). Only the electron lane may touch the electron package.
+let electronBinary: string | null = null;
+function resolveElectronBinary(): string {
+  if (!electronBinary) {
+    const electronRequire = createRequire(path.join(electronRoot, 'package.json'));
+    electronBinary = electronRequire('electron') as string;
+  }
+  return electronBinary;
+}
 
 interface StorageStateOrigin {
   origin: string;
@@ -54,7 +64,7 @@ export const test = base.extend<{
     const env: Record<string, string> = { ...process.env } as Record<string, string>;
     delete env.ELECTRON_RUN_AS_NODE;
     const app = await _electron.launch({
-      executablePath: electronBinary,
+      executablePath: resolveElectronBinary(),
       args: [electronRoot],
       env: {
         ...env,
