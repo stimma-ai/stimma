@@ -1757,13 +1757,30 @@ function tauriDevConfig(
   ports: { frontend: number },
   iconConfig: Record<string, unknown> | null = null,
 ): string {
-  return JSON.stringify({
+  const config: Record<string, unknown> = {
     identifier: sandboxIdentifier(bundleId, sandbox),
     build: {
       devUrl: `http://${DEV_HOST}:${ports.frontend}`,
     },
     ...(iconConfig ?? {}),
-  });
+  };
+
+  // Drop the bundled resources for dev runs off macOS.
+  //
+  // The tracked tauri.conf.json carries the macOS resource mapping (the
+  // portable backend for darwin plus Assets.car); packaged builds on the other
+  // platforms rewrite it via ensurePlatformResourceMapping(). Dev never bundles
+  // a backend at all — it runs from source next to the app — but tauri-build
+  // still validates every resource path at compile time and fails the build
+  // when the darwin payload is absent. An empty list replaces the map outright;
+  // an empty object would deep-merge and keep the stale keys.
+  if (Deno.build.os !== "darwin") {
+    const bundle = { ...(config.bundle as Record<string, unknown> | undefined ?? {}) };
+    bundle.resources = [];
+    config.bundle = bundle;
+  }
+
+  return JSON.stringify(config);
 }
 
 async function commandDevAll(bundleId: string, sandbox: string, channel: string, runtimeEnv: Record<string, string>): Promise<void> {
