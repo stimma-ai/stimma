@@ -11,6 +11,7 @@
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
+import { desktop } from '../desktop'
 import { useTelemetry } from './useTelemetry'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 import { addToast } from './useToasts'
@@ -26,8 +27,6 @@ localStorage.removeItem('stimma.voiceModel')
 // ---- Tauri bridge (lazy, shared) ------------------------------------------
 
 export const supported = ref(false)
-let invokeFn: any = null
-let ChannelCtor: any = null
 let initPromise: Promise<void> | null = null
 
 async function initTauri(): Promise<void> {
@@ -35,16 +34,9 @@ async function initTauri(): Promise<void> {
   initPromise = (async () => {
     try {
       await initApiConfig()
-      if (!checkIsTauri()) {
-        supported.value = false
-        return
-      }
-      const { invoke, Channel } = await import('@tauri-apps/api/core')
-      invokeFn = invoke
-      ChannelCtor = Channel
-      supported.value = true
+      supported.value = checkIsTauri()
     } catch (e) {
-      console.warn('[useVoiceInput] Tauri init failed:', e)
+      console.warn('[useVoiceInput] Desktop init failed:', e)
       supported.value = false
     }
   })()
@@ -57,7 +49,7 @@ initTauri()
 async function isModelReady(): Promise<boolean> {
   await initTauri()
   if (!supported.value) return false
-  return await invokeFn('voice_model_status')
+  return await desktop.voiceModelStatus()
 }
 
 // ---- Composable -----------------------------------------------------------
@@ -126,8 +118,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     downloaded.value = 0
     downloadTotal.value = null
 
-    const chan = new ChannelCtor()
-    chan.onmessage = (ev: any) => {
+    const onEvent = (ev: any) => {
       if (ev.type === 'progress') {
         downloaded.value = ev.downloaded
         downloadTotal.value = ev.total ?? null
@@ -140,7 +131,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     }
 
     try {
-      await invokeFn('voice_download_model', { onEvent: chan })
+      await desktop.voiceDownloadModel(onEvent)
       if (state.value === 'downloading') state.value = 'idle'
       track('voice_model_downloaded', { model: 'parakeet-tdt-0.6b-v3' }, 'feature')
     } catch (e) {
@@ -161,7 +152,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   function startKeepalive() {
     stopKeepalive()
     keepaliveTimer = setInterval(() => {
-      void invokeFn?.('voice_keepalive').catch(() => { /* session gone; ignore */ })
+      void desktop.voiceKeepalive().catch(() => { /* session gone; ignore */ })
     }, KEEPALIVE_INTERVAL_MS)
   }
 
@@ -200,8 +191,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     if (baseText.trim().length === 0) baseText = ''
     interim = ''
 
-    const chan = new ChannelCtor()
-    chan.onmessage = (ev: any) => {
+    const onEvent = (ev: any) => {
       if (ev.type === 'partial') {
         interim = ev.text
         applyText()
@@ -214,7 +204,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     state.value = 'recording'
     recordingStartedAt = Date.now()
     try {
-      await invokeFn('voice_start', { onEvent: chan })
+      await desktop.voiceStart(onEvent)
       startKeepalive()
       return true
     } catch (e) {
@@ -231,7 +221,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     trackUse('committed')
     state.value = 'finalizing'
     try {
-      const finalText: string = await invokeFn('voice_stop')
+      const finalText: string = await desktop.voiceStop()
       interim = finalText ?? ''
       applyText()
     } catch (e) {
@@ -303,7 +293,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     spaceDictating = false
     if (state.value === 'recording') {
       trackUse('cancelled')
-      try { await invokeFn('voice_cancel') } catch { /* ignore */ }
+      try { await desktop.voiceCancel() } catch { /* ignore */ }
     }
     interim = ''
     if (state.value !== 'error') state.value = 'idle'

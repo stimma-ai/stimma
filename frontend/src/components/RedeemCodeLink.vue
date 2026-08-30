@@ -23,8 +23,8 @@ async function openRedeem() {
   const url = `${cloudBaseUrl.value}/link/redeem`
   if (isTauri()) {
     try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      await open(url)
+      const { desktop } = await import('../desktop')
+      await desktop.openExternal(url)
       return
     } catch {
       // fall through to window.open

@@ -1182,8 +1182,8 @@ async function copyFilePath() {
 async function revealFileInFinder() {
   if (!props.currentItem?.file_path || !isTauriMode) return
   try {
-    const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
-    await revealItemInDir(props.currentItem.file_path)
+    const { desktop } = await import('../desktop')
+    await desktop.revealItemInDir(props.currentItem.file_path)
   } catch (error) {
     console.error('Failed to reveal in Finder:', error)
     addToast('Could not show file in Finder', 'error')

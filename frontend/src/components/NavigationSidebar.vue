@@ -1046,6 +1046,7 @@ import FlowStatusPill from './flow/FlowStatusPill.vue'
 import { useDragStore } from '../stores/dragStore'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { isTauri } from '../apiConfig'
+import { desktop } from '../desktop'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
@@ -1667,17 +1668,16 @@ function handleDragOver(e: DragEvent) {
 }
 
 // WKWebView does not populate modifier keys on DOM drag events (click events
-// are fine — that's why shift-click in menus works). In Tauri, poll the OS
-// shift state through the shift_key_down command during drag-over; browser
-// builds use the drag event's own shiftKey.
-const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+// are fine — that's why shift-click in menus works). In the Tauri shell, poll
+// the OS shift state through the bridge during drag-over; browser builds (and
+// Chromium-based shells) use the drag event's own shiftKey.
+const IS_TAURI = desktop.kind === 'tauri'
 let lastShiftPoll = 0
 function pollNativeShift() {
   const now = performance.now()
   if (now - lastShiftPoll < 100) return
   lastShiftPoll = now
-  import('@tauri-apps/api/core')
-    .then(({ invoke }) => invoke<boolean>('shift_key_down'))
+  desktop.isShiftKeyDown()
     .then((down) => { dragAddModifier.value = down })
     .catch(() => {})
 }

@@ -4555,8 +4555,8 @@ function toggleSettingsPanel() {
 async function openCloudDashboard() {
   const url = cloudBaseUrl.value + '/link/dashboard'
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } else {
     window.open(url, '_blank')
   }
@@ -4586,8 +4586,8 @@ watch(isAuthenticated, async (authed) => {
 async function openAddBalance() {
   const url = cloudBaseUrl.value + '/link/addcredits'
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } else {
     window.open(url, '_blank')
   }
@@ -5353,7 +5353,7 @@ function handleLinkClick(e) {
   if (!href || href.startsWith('#') || href.startsWith('/')) return
   e.preventDefault()
   if (isTauri()) {
-    import('@tauri-apps/plugin-shell').then(({ open }) => open(href))
+    import('../desktop').then(({ desktop }) => desktop.openExternal(href))
   } else {
     window.open(href, '_blank')
   }

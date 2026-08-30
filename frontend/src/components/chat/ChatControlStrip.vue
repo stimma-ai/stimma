@@ -180,8 +180,8 @@ async function openWorkspace() {
     const response = await fetch(`/api/chats/${props.chatId}/workspace-path`)
     if (!response.ok) return
     const { path } = await response.json()
-    const { openPath } = await import('@tauri-apps/plugin-opener')
-    await openPath(path)
+    const { desktop } = await import('../../desktop')
+    await desktop.openPath(path)
   } catch (err) {
     console.error('Failed to open workspace:', err)
   }

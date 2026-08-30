@@ -1,6 +1,8 @@
 /**
- * Forward browser console output to the Tauri app log.
+ * Forward browser console output to the native app log.
  */
+
+import { desktop, isDesktop } from './desktop'
 
 const levels = ['log', 'info', 'warn', 'error', 'debug']
 
@@ -13,10 +15,6 @@ const originalConsole = {
 }
 
 let initialized = false
-
-function isTauri() {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
 
 function formatArg(arg) {
   if (arg === null) return 'null'
@@ -40,8 +38,7 @@ function formatArgs(args) {
 
 async function sendToTauri(level, message) {
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('log_from_webview', { level, message })
+    await desktop.log(level, message)
   } catch {
     // Logging must never break the app.
   }
@@ -50,14 +47,14 @@ async function sendToTauri(level, message) {
 function createInterceptor(level) {
   return (...args) => {
     originalConsole[level](...args)
-    if (isTauri()) {
+    if (isDesktop()) {
       void sendToTauri(level, formatArgs(args))
     }
   }
 }
 
 export function initConsoleBridge() {
-  if (initialized || !isTauri()) return
+  if (initialized || !isDesktop()) return
   initialized = true
 
   for (const level of levels) {
@@ -79,7 +76,7 @@ export function initConsoleBridge() {
 }
 
 export function installVueConsoleHandlers(app) {
-  if (!isTauri()) return
+  if (!isDesktop()) return
 
   const previousErrorHandler = app.config.errorHandler
   const previousWarnHandler = app.config.warnHandler

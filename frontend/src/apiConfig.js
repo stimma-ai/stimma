@@ -5,6 +5,7 @@
  * In Tauri production: Uses dynamic port from sidecar
  */
 import axios from 'axios'
+import { desktop, isDesktop } from './desktop'
 import { getStartupWaitMessage, waitForBackendHealth } from './utils/backendStartup'
 
 let apiBaseUrl = '/api'
@@ -107,10 +108,11 @@ export function setStartupStatusCallback(callback) {
 }
 
 /**
- * Check if running in Tauri environment
+ * Check if running inside the native desktop shell.
+ * (Historically named for Tauri; delegates to the shell-neutral bridge.)
  */
 export function isTauri() {
-  return typeof window !== 'undefined' && window.__TAURI_INTERNALS__ !== undefined
+  return isDesktop()
 }
 
 /**
@@ -122,19 +124,17 @@ export async function initApiConfig() {
   if (initPromise) return initPromise
 
   initPromise = (async () => {
-    if (isTauri()) {
-      console.log('[apiConfig] Tauri detected, getting port...')
-      const tauriCore = await import('@tauri-apps/api/core')
-      const { invoke } = tauriCore
+    if (isDesktop()) {
+      console.log('[apiConfig] Desktop shell detected, getting port...')
 
-      // Step 1: Get the port from Tauri (retry up to 30 seconds)
+      // Step 1: Get the port from the native shell (retry up to 30 seconds)
       const maxAttempts = 60
       const delayMs = 500
       let port = null
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          port = await invoke('get_backend_port')
+          port = await desktop.getBackendPort()
           console.log('[apiConfig] Got port:', port)
           break
         } catch (error) {

@@ -1055,8 +1055,8 @@ function dismissSystemWarning(type) {
 async function openSystemWarningAction(url) {
   if (!url) return
   try {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } catch (error) {
     console.error('Failed to open system warning action:', error)
     window.open(url, '_blank', 'noopener,noreferrer')

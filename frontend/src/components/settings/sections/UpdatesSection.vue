@@ -185,7 +185,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getVersion } from '@tauri-apps/api/app'
+import { desktop } from '../../../desktop'
 import { useAppUpdater } from '../../../composables/useAppUpdater'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { COMMIT_HASH } from '../../../distribution'
@@ -301,8 +301,8 @@ async function openExternal(path: string) {
   const base = await ensureCloudBaseUrl()
   const url = `${base.replace(/\/$/, '')}${path}`
   try {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../../../desktop')
+    await desktop.openExternal(url)
   } catch {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
@@ -326,7 +326,7 @@ function formatRelativeTime(value: string): string {
 onMounted(async () => {
   await loadPreferences()
   try {
-    appVersion.value = await getVersion()
+    appVersion.value = await desktop.getAppVersion()
   } catch {
     appVersion.value = 'unknown'
   }

@@ -4235,9 +4235,9 @@ async function openInSystemViewer() {
 
   if (isTauri.value) {
     try {
-      const { openPath } = await import('@tauri-apps/plugin-opener')
+      const { desktop } = await import('../desktop')
       console.log('[Slideshow] Opening in system viewer:', currentItem.value.file_path)
-      await openPath(currentItem.value.file_path)
+      await desktop.openPath(currentItem.value.file_path)
     } catch (e) {
       console.error('Failed to open in system viewer:', e)
     }
@@ -4251,8 +4251,8 @@ async function revealInFinder() {
 
   if (isTauri.value) {
     try {
-      const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
-      await revealItemInDir(currentItem.value.file_path)
+      const { desktop } = await import('../desktop')
+      await desktop.revealItemInDir(currentItem.value.file_path)
     } catch (e) {
       console.error('Failed to reveal in Finder:', e)
     }

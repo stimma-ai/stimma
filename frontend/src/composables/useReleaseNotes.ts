@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { computed, ref } from 'vue'
-import { getVersion } from '@tauri-apps/api/app'
+import { desktop } from '../desktop'
 import { isTauri, getApiBase } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
 
@@ -70,7 +70,7 @@ async function initReleaseNotes(privacyLockdownActive: boolean): Promise<void> {
   if (!isTauri() || privacyLockdownActive || !notesBase.value) return
 
   try {
-    const version = coreVersion(await getVersion())
+    const version = coreVersion(await desktop.getAppVersion())
     const seen = await getSeenVersion()
     if (seen === version) return
 

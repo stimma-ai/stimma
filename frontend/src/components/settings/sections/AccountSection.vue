@@ -234,8 +234,8 @@ async function handleConnect() {
 async function openDashboard() {
   const dashboardUrl = cloudBaseUrl.value + '/link/dashboard'
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(dashboardUrl)
+    const { desktop } = await import('../../../desktop')
+    await desktop.openExternal(dashboardUrl)
   } else {
     window.open(dashboardUrl, '_blank')
   }
@@ -245,8 +245,8 @@ async function addBalance() {
   const addBalanceUrl = cloudBaseUrl.value + '/link/addcredits'
 
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(addBalanceUrl)
+    const { desktop } = await import('../../../desktop')
+    await desktop.openExternal(addBalanceUrl)
   } else {
     window.open(addBalanceUrl, '_blank')
   }

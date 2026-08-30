@@ -22,7 +22,7 @@
  * the input as a mouse.
  */
 import { isTauri } from '../apiConfig'
-import { listen } from '@tauri-apps/api/event'
+import { desktop } from '../desktop'
 import {
   claimTabletWheelGesture,
   createTabletWheelGestureState,
@@ -120,7 +120,8 @@ function ensureListening(): void {
   started = true
   if (!isTauri()) return
   const generation = ++listeningGeneration
-  listen<TabletInputPayload>('tablet-input', ({ payload }) => {
+  desktop.onTabletInput((rawPayload) => {
+    const payload = rawPayload as TabletInputPayload
     if (payload.kind === 'point') {
       const now = performance.now()
       native.pressure = Math.max(0, Math.min(1, payload.pressure))
@@ -156,7 +157,7 @@ function ensureListening(): void {
       handleMiddlePan(payload)
     }
   }).then((unlisten) => {
-    // HMR can dispose this module before Tauri resolves the asynchronous
+    // HMR can dispose this module before the shell resolves the asynchronous
     // subscription. Never leave that stale native listener attached.
     if (generation !== listeningGeneration) unlisten()
     else stopNativeListening = unlisten

@@ -269,8 +269,8 @@ export function useWebSocket() {
           label: 'Open Settings',
           onClick: async () => {
             try {
-              const { open } = await import('@tauri-apps/plugin-shell')
-              await open('x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders')
+              const { desktop } = await import('../desktop')
+              await desktop.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders')
             } catch (error) {
               console.error('[WebSocket] Failed to open System Settings:', error)
             }

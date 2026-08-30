@@ -320,8 +320,8 @@ function toggleHideAccount() {
 }
 
 async function setWindowSize1440x900() {
-  const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
-  await getCurrentWindow().setSize(new LogicalSize(1440, 900))
+  const { desktop } = await import('../../../desktop')
+  await desktop.setWindowSize(1440, 900)
 }
 
 const router = useRouter()

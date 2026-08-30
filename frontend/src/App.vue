@@ -583,8 +583,8 @@ function handleKeydown(e) {
   // backend warm rather than quitting (to the tray on Windows/Linux).
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'w' || e.key === 'W') && isTauri()) {
     e.preventDefault()
-    void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-      void getCurrentWindow().close()
+    void import('./desktop').then(({ desktop }) => {
+      void desktop.closeCurrentWindow()
     })
     return
   }
@@ -852,8 +852,8 @@ watch([currentProfileId, profiles], async ([profileId]) => {
   const name = profiles.value.find(p => p.id === profileId)?.name
   if (!name) return
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
-    await getCurrentWindow().setTitle(`Stimma — ${name}`)
+    const { desktop } = await import('./desktop')
+    await desktop.setWindowTitle(`Stimma — ${name}`)
   } catch {
     // Title is cosmetic; ignore failures.
   }

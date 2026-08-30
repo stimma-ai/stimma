@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { computed, ref, shallowRef, watch } from 'vue'
-import { getVersion } from '@tauri-apps/api/app'
 import { isTauri, getApiBase } from '../apiConfig'
+import { desktop } from '../desktop'
+import type { DesktopUpdate } from '../desktop'
 import { useTelemetry } from './useTelemetry'
 import { isPrivacyLockdownActive, usePrivacyLockdown } from './usePrivacyLockdown'
 
@@ -22,16 +23,6 @@ interface StoredPolicy {
 
 interface StoredSkipVersion {
   version?: string
-}
-
-interface TauriUpdate {
-  version: string
-  body?: string
-  date?: string
-  download: (onEvent?: (progress: any) => void) => Promise<void>
-  install: () => Promise<void>
-  downloadAndInstall: (onEvent?: (progress: any) => void) => Promise<void>
-  close: () => Promise<void>
 }
 
 // How a staged update is applied. On macOS / Linux-AppImage the package is
@@ -56,7 +47,7 @@ const loadedPrefs = ref(false)
 const isChecking = ref(false)
 const downloading = ref(false)
 const lastCheckedAt = ref<string | null>(null)
-const availableUpdate = shallowRef<TauriUpdate | null>(null)
+const availableUpdate = shallowRef<DesktopUpdate | null>(null)
 const downloadedVersion = ref<string | null>(null)
 // Set once an update has been downloaded in the background (automatic mode) and
 // is waiting to be applied. On mac/linux it is already installed and only needs
@@ -158,7 +149,7 @@ async function setPreference(key: string, value: Record<string, any>): Promise<v
 async function loadPreferences(): Promise<void> {
   if (!isTauri() || loadedPrefs.value) return
   try {
-    currentVersion.value = await getVersion()
+    currentVersion.value = await desktop.getAppVersion()
   } catch {
     currentVersion.value = '0.0.0'
   }
@@ -237,8 +228,7 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
 
   isChecking.value = true
   try {
-    const updater = await import('@tauri-apps/plugin-updater')
-    const update = (await updater.check()) as TauriUpdate | null
+    const update = await desktop.checkForUpdate()
     await saveLastCheckedAt()
 
     track('update_checked', { trigger })
@@ -404,8 +394,7 @@ async function restartToApply(): Promise<void> {
 
 async function relaunchApp(): Promise<void> {
   try {
-    const { relaunch } = await import('@tauri-apps/plugin-process')
-    await relaunch()
+    await desktop.relaunch()
   } catch (error) {
     console.error('[updater] Failed to relaunch app:', error)
   }

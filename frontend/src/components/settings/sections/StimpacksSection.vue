@@ -371,8 +371,8 @@ const canOpenFolder = isTauri()
 async function openStimpacksFolder() {
   try {
     const path = await getStimpacksDir()
-    const { openPath } = await import('@tauri-apps/plugin-opener')
-    await openPath(path)
+    const { desktop } = await import('../../../desktop')
+    await desktop.openPath(path)
   } catch (err) {
     console.error('Failed to open stimpacks folder:', err)
     addToast('Failed to open the stimpacks folder.', 'error')

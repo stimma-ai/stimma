@@ -8,12 +8,11 @@
 import { ref } from 'vue'
 import { useMediaApi } from './useMediaApi'
 import { getApiBase, isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
+import { desktop } from '../desktop'
 import { getCurrentDbGuid } from './useProfile'
 
 // Module-level state
 const isTauri = ref(false)
-let tauriInvoke: any = null
-let TauriChannel: any = null
 let initPromise: Promise<void> | null = null
 let initComplete = false
 
@@ -32,20 +31,16 @@ async function initTauri(): Promise<void> {
 
       // Use the reliable sync check from apiConfig
       if (!checkIsTauri()) {
-        console.log('[useTauriDrag] Not in Tauri environment')
+        console.log('[useTauriDrag] Not in desktop environment')
         isTauri.value = false
         initComplete = true
         return
       }
 
-      // We're in Tauri - load the APIs
-      const { invoke, Channel } = await import('@tauri-apps/api/core')
-      tauriInvoke = invoke
-      TauriChannel = Channel
       isTauri.value = true
-      console.log('[useTauriDrag] Tauri drag initialized successfully')
+      console.log('[useTauriDrag] Desktop drag initialized successfully')
     } catch (e) {
-      console.log('[useTauriDrag] Tauri init failed:', e)
+      console.log('[useTauriDrag] Desktop drag init failed:', e)
       isTauri.value = false
     } finally {
       initComplete = true
@@ -78,21 +73,12 @@ async function getThumbnailPath(mediaId: number): Promise<string | null> {
  * Start a native drag operation with file paths
  */
 async function startNativeDrag(items: string[], previewPath?: string): Promise<void> {
-  if (!tauriInvoke || !TauriChannel) {
-    throw new Error('Tauri not initialized')
+  if (!isTauri.value) {
+    throw new Error('Desktop bridge not initialized')
   }
 
   console.log('[useTauriDrag] Starting drag with items:', items, 'preview:', previewPath)
-  const onEventChannel = new TauriChannel()
-  onEventChannel.onmessage = (event: any) => {
-    console.log('[useTauriDrag] Drag event:', event)
-  }
-
-  await tauriInvoke('plugin:drag|start_drag', {
-    item: items,
-    image: previewPath || items[0],
-    onEvent: onEventChannel,
-  })
+  await desktop.startNativeDrag(items, previewPath)
 }
 
 // Initialize on module load (non-blocking)
@@ -124,7 +110,7 @@ const snapshotPathCache = new Map<number, string>()
  */
 async function getExportableSnapshotPath(mediaId: number): Promise<string | null> {
   if (snapshotPathCache.has(mediaId)) return snapshotPathCache.get(mediaId)!
-  if (!tauriInvoke) return null
+  if (!isTauri.value) return null
   try {
     const dbGuid = getCurrentDbGuid()
     if (!dbGuid) return null
@@ -140,8 +126,8 @@ async function getExportableSnapshotPath(mediaId: number): Promise<string | null
       snapshotPathCache.set(mediaId, payload.source_path)
       return payload.source_path
     }
-    const path = await tauriInvoke('embed_metadata', { req: payload })
-    if (typeof path === 'string' && path.length > 0) {
+    const path = await desktop.embedMetadata(payload)
+    if (path) {
       snapshotPathCache.set(mediaId, path)
       return path
     }
@@ -194,8 +180,8 @@ export function useTauriDrag() {
 
     // If in Tauri with file path available, use native file drag exclusively
     // This must happen synchronously before any await to properly prevent browser drag
-    console.log('[useTauriDrag] handleDragStart called:', { isTauri: isTauri.value, hasTauriInvoke: !!tauriInvoke, filePath })
-    if (isTauri.value && tauriInvoke && filePath) {
+    console.log('[useTauriDrag] handleDragStart called:', { isTauri: isTauri.value, filePath })
+    if (isTauri.value && filePath) {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
@@ -237,7 +223,7 @@ export function useTauriDrag() {
     console.log('[useTauriDrag] Falling back to browser drag')
 
     // If in Tauri but no file path, try to get it (async - browser drag may start)
-    if (isTauri.value && tauriInvoke && !filePath) {
+    if (isTauri.value && !filePath) {
       // Set internal data for in-app drag-drop as fallback
       event.dataTransfer?.setData('application/x-media-id', String(mediaId))
       if (event.dataTransfer) {
@@ -276,7 +262,7 @@ export function useTauriDrag() {
     await initTauri()
 
     // If in Tauri with file paths available, use native file drag exclusively
-    if (isTauri.value && tauriInvoke && filePaths && filePaths.length > 0) {
+    if (isTauri.value && filePaths && filePaths.length > 0) {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
@@ -311,7 +297,7 @@ export function useTauriDrag() {
     }
 
     // In Tauri without paths, try to get them async (browser drag already started)
-    if (isTauri.value && tauriInvoke && !filePaths) {
+    if (isTauri.value && !filePaths) {
       try {
         const pathPromises = mediaIds.map(id => getFilePath(id))
         const results = await Promise.all(pathPromises)
@@ -342,7 +328,7 @@ export function useTauriDrag() {
    */
   async function prewarmDragSnapshot(mediaId: number): Promise<void> {
     await initTauri()
-    if (!isTauri.value || !tauriInvoke) return
+    if (!isTauri.value) return
     if (!snapshotPathCache.has(mediaId)) {
       getExportableSnapshotPath(mediaId).catch(() => {})
     }

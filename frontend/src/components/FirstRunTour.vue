@@ -175,8 +175,8 @@ async function openCommunityLink(path) {
   const base = await useCloudAccount().ensureCloudBaseUrl()
   const url = `${base.replace(/\/$/, '')}${path}`
   try {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } catch {
     window.open(url, '_blank', 'noopener,noreferrer')
   }

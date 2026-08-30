@@ -389,10 +389,8 @@ async function addFolder() {
   // Try Tauri dialog first
   if (isTauri()) {
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog')
-      const selected = await open({
-        directory: true,
-        multiple: false,
+      const { desktop } = await import('../../../desktop')
+      const selected = await desktop.pickDirectory({
         title: 'Select Folder'
       })
       if (selected) {

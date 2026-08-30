@@ -154,10 +154,8 @@ function toggleMarker(markerName) {
 
 async function browsePath() {
   try {
-    const { open } = await import('@tauri-apps/plugin-dialog')
-    const selected = await open({
-      directory: true,
-      multiple: false,
+    const { desktop } = await import('../../desktop')
+    const selected = await desktop.pickDirectory({
       title: 'Select Folder',
       defaultPath: localPath.value || undefined
     })

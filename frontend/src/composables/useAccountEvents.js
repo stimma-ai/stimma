@@ -44,11 +44,8 @@ export function initAccountEvents() {
 async function foregroundAppWindow() {
   if (!isTauri()) return
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
-    const win = getCurrentWindow()
-    await win.show()
-    await win.unminimize()
-    await win.setFocus()
+    const { desktop } = await import('../desktop')
+    await desktop.focusCurrentWindow()
   } catch (e) {
     console.warn('[useAccountEvents] failed to foreground window:', e)
   }

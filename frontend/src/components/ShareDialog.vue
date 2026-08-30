@@ -496,8 +496,8 @@ async function doCopy() {
 async function openInBrowser() {
   if (!shareResult.value?.url) return
   try {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(shareResult.value.url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(shareResult.value.url)
   } catch {
     // Fallback for non-Tauri environments
     window.open(shareResult.value.url, '_blank')

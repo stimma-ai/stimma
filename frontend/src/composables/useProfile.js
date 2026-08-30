@@ -7,6 +7,7 @@
 import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
 import { getApiBase, rewriteUrl, isTauri } from '../apiConfig'
+import { desktop } from '../desktop'
 import { getCachedPin } from './usePinLock'
 
 // Global reactive state (shared across all components)
@@ -27,8 +28,7 @@ export function initWindowProfile() {
     windowProfileInitPromise = (async () => {
       if (!isTauri()) return null
       try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        const profileId = await invoke('get_window_profile')
+        const profileId = await desktop.getWindowProfile()
         if (profileId) {
           currentProfileId.value = profileId
         }
@@ -49,8 +49,7 @@ export function initWindowProfile() {
 export async function reportWindowProfile(profileId) {
   if (!isTauri() || !profileId) return
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('report_window_profile', { profileId })
+    await desktop.reportWindowProfile(profileId)
   } catch (error) {
     console.warn('[Profile] Failed to report window profile:', error)
   }
@@ -64,8 +63,7 @@ export async function reportWindowProfile(profileId) {
 export async function openProfileWindow(profileId) {
   if (!isTauri() || !profileId) return false
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('open_profile_window', { profileId })
+    await desktop.openProfileWindow(profileId)
     return true
   } catch (error) {
     console.warn('[Profile] Failed to open profile window:', error)
@@ -140,8 +138,7 @@ export async function apiFetch(url, options = {}) {
 async function closeWindowForDeletedProfile() {
   if (!isTauri()) return false
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    return await invoke('close_deleted_profile_window')
+    return await desktop.closeDeletedProfileWindow()
   } catch (error) {
     console.warn('[Profile] Failed to close window for deleted profile:', error)
     return false

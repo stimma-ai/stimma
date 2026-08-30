@@ -799,8 +799,8 @@ const showDebug = ref(false)
 const cloudConnecting = ref(false)
 async function openCloudUrl(url: string) {
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../../desktop')
+    await desktop.openExternal(url)
   } else {
     window.open(url, '_blank')
   }

@@ -1813,8 +1813,8 @@ function classifySubmissionError(err: any): string {
 const submissionCloudConnecting = ref(false)
 async function openCloudAccountUrl(url: string) {
   if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } else {
     window.open(url, '_blank')
   }
@@ -1898,8 +1898,8 @@ async function openAttributionUrl() {
   const url = toolAttribution.value.url
   if (isTauri()) {
     try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      await open(url)
+      const { desktop } = await import('../desktop')
+      await desktop.openExternal(url)
       return
     } catch {
       // fall through to window.open

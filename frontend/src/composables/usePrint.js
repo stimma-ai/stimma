@@ -66,8 +66,8 @@ async function printWithOverlay(contentHtml) {
 
   // Trigger print
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('print_webview')
+    const { desktop } = await import('../desktop')
+    await desktop.print()
   } catch {
     // Fallback for browser mode
     window.print()

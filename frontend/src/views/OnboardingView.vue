@@ -137,8 +137,8 @@ const learnMoreUrl = computed(() => `${cloudBaseUrl.value}/link/telemetry`)
 
 async function openUrl(url) {
   try {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+    const { desktop } = await import('../desktop')
+    await desktop.openExternal(url)
   } catch {
     window.open(url, '_blank')
   }
