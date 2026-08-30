@@ -1731,8 +1731,10 @@ async function testAcceptance(args: string[]): Promise<void> {
     backend = backendCmd.spawn();
 
     console.log(`Starting acceptance frontend on :${frontendPort}...`);
+    // The Electron lane loads http://127.0.0.1:<port> (the backend CORS
+    // allowlist admits that host); make vite listen on IPv4 explicitly.
     const frontendCmd = new Deno.Command("npx", {
-      args: ["vite"],
+      args: electronShell ? ["vite", "--host", "127.0.0.1"] : ["vite"],
       cwd: join(repoRoot, "frontend"),
       env: { ...Deno.env.toObject(), ...env },
       stdin: "null",

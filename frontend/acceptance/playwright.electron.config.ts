@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   globalSetup: './helpers/global-setup.ts',
   use: {
-    baseURL: `http://localhost:${frontendPort}`,
+    baseURL: `http://127.0.0.1:${frontendPort}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

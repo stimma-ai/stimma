@@ -91,6 +91,9 @@ export async function updaterCheck(): Promise<{
 export async function updaterDownload(): Promise<void> {
   if (!state.available) throw new Error('No update available')
   await getAutoUpdater().downloadUpdate()
+  // Belt to the update-downloaded event's suspenders: the promise resolving
+  // means the package is staged.
+  state.downloaded = true
 }
 
 export async function updaterInstall(): Promise<void> {
@@ -106,10 +109,10 @@ export async function updaterDownloadAndInstall(): Promise<void> {
 }
 
 export function updaterClose(): void {
-  // The Tauri resource-lifecycle close has no electron-updater equivalent;
-  // dropping our references is enough.
+  // The Tauri resource-lifecycle close has no electron-updater equivalent.
+  // Deliberately do NOT clear `downloaded`: the renderer closes its handle
+  // after staging, and a staged package must still apply on relaunch.
   state.available = null
-  state.downloaded = false
 }
 
 /**
