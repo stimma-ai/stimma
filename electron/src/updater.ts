@@ -23,13 +23,9 @@
 import { app } from 'electron'
 import { readPackagedMetadata } from './identity'
 import { log } from './log'
+import { UpdaterState } from './updaterState'
 
-interface UpdaterState {
-  available: { version: string; body?: string; date?: string } | null
-  downloaded: boolean
-}
-
-const state: UpdaterState = { available: null, downloaded: false }
+const state = new UpdaterState()
 
 let autoUpdaterModule: typeof import('electron-updater') | null = null
 
@@ -55,8 +51,9 @@ function getAutoUpdater() {
     if (url) {
       autoUpdater.setFeedURL({ provider: 'generic', url })
     }
-    autoUpdater.on('update-downloaded', () => {
-      state.downloaded = true
+    autoUpdater.on('update-downloaded', (info) => {
+      const version = info.version || state.available?.version
+      if (version) state.markDownloaded(version)
     })
   }
   return autoUpdaterModule.autoUpdater
@@ -76,35 +73,39 @@ export async function updaterCheck(): Promise<{
   const result = await autoUpdater.checkForUpdates()
   const info = result?.updateInfo
   if (!info || !result?.isUpdateAvailable) {
-    state.available = null
+    state.recordCheck(null)
     return null
   }
-  state.available = {
+  state.recordCheck({
     version: info.version,
     body: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
     date: info.releaseDate,
-  }
-  state.downloaded = false
+  })
   return state.available
 }
 
 export async function updaterDownload(): Promise<void> {
   if (!state.available) throw new Error('No update available')
+  const version = state.available.version
   await getAutoUpdater().downloadUpdate()
   // Belt to the update-downloaded event's suspenders: the promise resolving
   // means the package is staged.
-  state.downloaded = true
+  state.markDownloaded(version)
 }
 
 export async function updaterInstall(): Promise<void> {
   // macOS/Linux: the downloaded package is applied at quit (or via
   // quitAndInstall from relaunch). Nothing to do beyond validating state.
-  if (!state.downloaded) throw new Error('Update not downloaded')
+  if (!state.hasDownloadedAvailableUpdate()) throw new Error('Update not downloaded')
 }
 
 export async function updaterDownloadAndInstall(): Promise<void> {
   if (!state.available) throw new Error('No update available')
-  if (!state.downloaded) await getAutoUpdater().downloadUpdate()
+  if (!state.hasDownloadedAvailableUpdate()) {
+    const version = state.available.version
+    await getAutoUpdater().downloadUpdate()
+    state.markDownloaded(version)
+  }
   getAutoUpdater().quitAndInstall(false, true)
 }
 
@@ -112,7 +113,7 @@ export function updaterClose(): void {
   // The Tauri resource-lifecycle close has no electron-updater equivalent.
   // Deliberately do NOT clear `downloaded`: the renderer closes its handle
   // after staging, and a staged package must still apply on relaunch.
-  state.available = null
+  state.closeAvailableHandle()
 }
 
 /**
@@ -121,7 +122,7 @@ export function updaterClose(): void {
  * relaunch the old bundle out from under Squirrel.
  */
 export function relaunchApp(): void {
-  if (state.downloaded) {
+  if (state.hasDownloadedUpdate()) {
     getAutoUpdater().quitAndInstall(false, true)
     return
   }

@@ -13,6 +13,7 @@ import {
   makeSandbox,
   repoRoot,
   startFrontendServer,
+  waitForFrontendWindow,
 } from './harness.mjs'
 
 assertPrereqs()
@@ -63,7 +64,7 @@ const app = await launchShell({ sandbox, frontendPort: port })
 
 try {
   const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
+  await waitForFrontendWindow(page, port)
 
   const embedded = await page.evaluate(
     (source) =>

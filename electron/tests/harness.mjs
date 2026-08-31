@@ -53,6 +53,16 @@ export async function startFrontendServer() {
   return { server, port: server.address().port }
 }
 
+export async function waitForFrontendWindow(page, frontendPort) {
+  await page.waitForURL(
+    (url) =>
+      url.protocol === 'http:'
+      && url.hostname === '127.0.0.1'
+      && url.port === String(frontendPort),
+    { waitUntil: 'domcontentloaded' },
+  )
+}
+
 export function makeSandbox() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-electron-test-'))
   return {

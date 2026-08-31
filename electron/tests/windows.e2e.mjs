@@ -11,6 +11,7 @@ import {
   launchShell,
   makeSandbox,
   startFrontendServer,
+  waitForFrontendWindow,
 } from './harness.mjs'
 
 assertPrereqs()
@@ -56,7 +57,7 @@ const registryOnDisk = () =>
 
 try {
   const first = await app.firstWindow()
-  await first.waitForLoadState('domcontentloaded')
+  await waitForFrontendWindow(first, port)
 
   // -- session restore -------------------------------------------------------
   check(`restores both registry windows (got ${await windowCount()})`, (await windowCount()) === 2)
@@ -65,7 +66,7 @@ try {
   const windows = app.windows()
   const profiles = []
   for (const page of windows) {
-    await page.waitForLoadState('domcontentloaded')
+    await waitForFrontendWindow(page, port)
     profiles.push(await page.evaluate(() => window.stimmaDesktop.getWindowProfile()))
   }
   check(
@@ -91,7 +92,7 @@ try {
   const newWindowPromise = app.waitForEvent('window')
   await mainPage.evaluate(() => window.stimmaDesktop.openProfileWindow('three'))
   const thirdPage = await newWindowPromise
-  await thirdPage.waitForLoadState('domcontentloaded')
+  await waitForFrontendWindow(thirdPage, port)
   check('new profile opens a third window', (await windowCount()) === 3)
   check(
     'third window is pinned to its profile',

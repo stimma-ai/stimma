@@ -14,6 +14,7 @@ import {
   launchShell,
   makeSandbox,
   startFrontendServer,
+  waitForFrontendWindow,
 } from './harness.mjs'
 
 assertPrereqs()
@@ -67,7 +68,7 @@ if (process.platform !== 'linux') process.env.STIMMA_LEGACY_STORAGE_DB = fixture
 const app = await launch()
 try {
   const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
+  await waitForFrontendWindow(page, port)
 
   const values = await page.evaluate((keys) => {
     const out = {}
@@ -106,7 +107,7 @@ execFileSync('sqlite3', [
 const app2 = await launch()
 try {
   const page = await app2.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
+  await waitForFrontendWindow(page, port)
   const theme = await page.evaluate(() => localStorage.getItem('stimma_global_theme'))
   check('second launch does not re-import (marker gate)', theme === 'dark')
 } finally {
