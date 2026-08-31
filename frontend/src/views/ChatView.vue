@@ -1055,7 +1055,7 @@
                 />
               </div>
               <!-- Completed ask_user: compact question/answer summary -->
-              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
+              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle min-w-[420px]">
                 <AskUserPrompt
                   :action="parseHITLAction(item)"
                   :completed="true"
