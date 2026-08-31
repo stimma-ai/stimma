@@ -326,7 +326,12 @@
     </div>
 
     <!-- Close button -->
-    <button class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60" :style="{ right: (showSidebar && !focusMode) ? '400px' : '16px' }" @click="handleCloseClick" title="Close slideshow">✕</button>
+    <button
+      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60"
+      :style="{ right: (showSidebar && !focusMode) ? '400px' : '16px', WebkitAppRegion: 'no-drag' }"
+      @click="handleCloseClick"
+      title="Close slideshow"
+    >✕</button>
 
     <!-- Caption (bottom) -->
     <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-chrome">
