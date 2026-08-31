@@ -210,7 +210,7 @@ function restoreFixedMain() {
   fs.writeFileSync(mainMap, fixedMap)
 }
 
-function appEnv() {
+function appEnv(sandbox) {
   const env = { ...process.env }
   for (const key of ['ELECTRON_RUN_AS_NODE', 'APPIMAGE', 'APPDIR', 'OWD']) delete env[key]
   return {
@@ -221,14 +221,14 @@ function appEnv() {
     XDG_CONFIG_HOME: path.join(homeDir, '.config'),
     STIMMA_DATA_DIR: dataDir,
     STIMMA_CACHE_DIR: cacheDir,
-    STIMMA_SANDBOX: 'update-test',
+    STIMMA_SANDBOX: sandbox,
     STIMMA_UPDATE_TEST_ID: marker,
     APPIMAGE_SILENT_INSTALL: 'true',
   }
 }
 
-async function launch(executable) {
-  const app = await _electron.launch({ executablePath: executable, args: [], env: appEnv() })
+async function launch(executable, sandbox) {
+  const app = await _electron.launch({ executablePath: executable, args: [], env: appEnv(sandbox) })
   const page = await app.firstWindow()
   await page.waitForURL('app://stimma/**', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => window.stimmaDesktop?.kind === 'electron')
@@ -288,7 +288,7 @@ try {
   publish(fixed)
 
   console.log('exercising buggy -> fixed with forced recheck...')
-  activeApp = await launch(installed)
+  activeApp = await launch(installed, 'update-test-bridge')
   await stageRecheckAndRelaunch(activeApp, versions.fixed)
   activeApp = null
   await waitFor(() => sha512(installed) === sha512(fixed.appImage), 'fixed AppImage replacement')
@@ -303,7 +303,7 @@ try {
   await stopMarkedProcesses()
 
   console.log('recovering by launching the installed fixed AppImage...')
-  activeApp = await launch(installed)
+  activeApp = await launch(installed, 'update-test-fixed')
   assert.equal(
     await activeApp.page.evaluate(() => window.stimmaDesktop.getAppVersion()),
     versions.fixed,
