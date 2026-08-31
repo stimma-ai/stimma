@@ -264,6 +264,11 @@ jobs:
           env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 xvfb-run -a \
             node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
+      - name: Test packaged AppImage update cycle
+        timeout-minutes: 10
+        working-directory: electron
+        run: npm run test:update-linux
+
       - name: Collect build artifacts
         id: collect
         run: |
