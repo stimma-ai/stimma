@@ -46,9 +46,11 @@ env.STIMMA_SANDBOX = 'packaged-smoke'
 env.STIMMA_DATA_DIR = dataDir
 env.STIMMA_CACHE_DIR = cacheDir
 
-const appBundleForCount = path.resolve(binary, '..', '..', '..')
+const packagedPayload = process.platform === 'darwin'
+  ? path.resolve(binary, '..', '..', '..')
+  : binary
 const pycBefore = Number(
-  execSync(`find "${appBundleForCount}" -name "*.pyc" | wc -l`, { encoding: 'utf8' }).trim(),
+  execSync(`find "${packagedPayload}" -name "*.pyc" | wc -l`, { encoding: 'utf8' }).trim(),
 )
 
 const child = spawn(binary, [], { env, stdio: ['ignore', 'ignore', 'ignore'] })
@@ -135,11 +137,10 @@ try {
   // Bundle must not be mutated by first launch (signature-seal invariant):
   // no NEW .pyc files may appear inside the app bundle (some ship pre-built
   // from pip install at packaging time).
-  const appBundle = path.resolve(binary, '..', '..', '..')
   const countPyc = () => {
     try {
       return Number(
-        execSync(`find "${appBundle}" -name "*.pyc" | wc -l`, { encoding: 'utf8' }).trim(),
+        execSync(`find "${packagedPayload}" -name "*.pyc" | wc -l`, { encoding: 'utf8' }).trim(),
       )
     } catch {
       return -1

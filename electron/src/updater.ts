@@ -13,8 +13,9 @@
  *
  * Feed: generic provider at
  *   <STIMMA_UPDATE_BASE_URL>/stimma/<channel>/<platform>/
- * publishing latest-mac.yml / latest.yml / latest-linux.yml next to the
- * Tauri-era latest.json. The endpoint is baked in at build time via
+ * publishing the platform's `latest` Electron manifest next to the Tauri-era
+ * latest.json. (Each release channel has its own feed directory.) The endpoint
+ * is baked in at build time via
  * package.json extraMetadata (stimmaUpdateUrl), mirroring how the Tauri
  * conf embedded its endpoint; dev builds have none and the updater is off.
  */

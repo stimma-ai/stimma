@@ -24,13 +24,12 @@ on:
         required: false
         default: x86_64
         type: string
-      # Defaults to the self-hosted x64 Linux builder; the arm64 callers
-      # override this with the spark labels. Keeping Linux builds on our own
-      # hardware keeps canary — which fires on every push to main — off the
-      # GitHub Actions minute budget.
+      # The preflight below enforces Ubuntu 22.04 as the glibc compatibility
+      # floor. The AppImage runtime is static, avoiding a host libfuse2
+      # dependency on current distributions (the kernel FUSE device remains).
       runs_on:
         required: false
-        default: '["self-hosted","linux","x64"]'
+        default: '"ubuntu-22.04"'
         type: string
 
 permissions:
@@ -43,9 +42,6 @@ jobs:
     timeout-minutes: 35
 
     env:
-      RUST_BACKTRACE: 1
-      # Official build marker: gates telemetry/consent/update-check in all
-      # three app layers. Release CI is the ONLY place this is set.
       STIMMA_DISTRIBUTION: official
       STIMMA_RELEASE_CHANNEL: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && (contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
       STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
@@ -63,7 +59,7 @@ jobs:
         with:
           ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
 
-      - name: Install Linux build dependencies
+      - name: Install Linux build and smoke-test dependencies
         run: |
           set -euo pipefail
           if command -v sudo >/dev/null 2>&1; then
@@ -79,31 +75,32 @@ jobs:
             build-essential \
             curl \
             file \
-            libayatana-appindicator3-dev \
             libasound2-dev \
-            libfuse2 \
-            libgtk-3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
+            libgbm1 \
+            libgtk-3-0 \
+            libnss3 \
+            libxss1 \
             patchelf \
             pkg-config \
-            xdg-utils
+            xdg-utils \
+            xvfb
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            electron/package-lock.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust Cache
+      - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: native/stimma-native
           save-if: false
 
       - name: Setup uv
@@ -121,6 +118,11 @@ jobs:
           rustc --version
           cargo --version
           uv --version
+          . /etc/os-release
+          if [ "$ID" != "ubuntu" ] || [ "$VERSION_ID" != "22.04" ]; then
+            echo "Linux release artifacts must be built on Ubuntu 22.04; got $ID $VERSION_ID."
+            exit 1
+          fi
           echo "Linux platform: $LINUX_PLATFORM"
           echo "Expected Rust target: $LINUX_TARGET_TRIPLE"
           host_target="$(rustc -Vv | awk '/^host:/ {print $2}')"
@@ -131,8 +133,6 @@ jobs:
           command -v file
           command -v patchelf
           command -v xdg-open
-          pkg-config --modversion webkit2gtk-4.1
-          pkg-config --modversion javascriptcoregtk-4.1
 
       - name: Setup Python via uv
         run: |
@@ -140,16 +140,11 @@ jobs:
           uv python install --force 3.11
           uv run --python 3.11 python --version
 
+      # Frontend dependencies also provide the Tauri signer needed only for
+      # the one-time Tauri -> Electron updater handoff artifact.
       - name: Install frontend deps
         working-directory: frontend
         run: npm install
-
-      - name: Build frontend
-        working-directory: frontend
-        env:
-          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest.json
-        run: npm run build
 
       - name: Install backend deps
         working-directory: backend
@@ -177,250 +172,132 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Set Linux AppImage build config
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          LINUX_PLATFORM: ${{ env.LINUX_PLATFORM }}
-          UPDATER_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
-        run: |
-          set -euo pipefail
-          uv run --python 3.11 python - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          version = os.environ["VERSION"]
-          channel = os.environ["CHANNEL"]
-          platform = os.environ["LINUX_PLATFORM"]
-          updater_pubkey = os.environ.get("UPDATER_PUBKEY", "")
-          if not updater_pubkey:
-              raise SystemExit("TAURI_SIGNING_PUBLIC_KEY is required for updater-enabled builds.")
-          bundle_ids = {
-              "production": "ai.stimma.stimma",
-              "beta": "ai.stimma.stimma.beta",
-              "canary": "ai.stimma.stimma.canary",
-          }
-          product_names = {
-              "production": "Stimma",
-              "beta": "Stimma Beta",
-              "canary": "Stimma Canary",
-          }
-
-          tauri = Path("src-tauri/tauri.conf.json")
-          cfg = json.loads(tauri.read_text(encoding="utf-8"))
-          cfg["version"] = version
-          cfg["identifier"] = bundle_ids.get(channel, "ai.stimma.stimma.debug")
-          cfg["productName"] = product_names.get(channel, "Stimma Debug")
-          for window in cfg.get("app", {}).get("windows", []):
-              window["title"] = cfg["productName"]
-          cfg.setdefault("build", {}).pop("beforeBuildCommand", None)
-          # macOS 26 Liquid Glass icon; nothing on Linux reads it.
-          cfg.setdefault("bundle", {}).setdefault("resources", {}).pop("icons/Assets.car", None)
-          cfg.setdefault("bundle", {})["targets"] = ["appimage"]
-          cfg["bundle"]["createUpdaterArtifacts"] = "v1Compatible"
-          cfg.setdefault("plugins", {}).setdefault("updater", {})["active"] = True
-          cfg["plugins"]["updater"]["endpoints"] = [
-              f"{os.environ.get('STIMMA_UPDATE_BASE_URL', 'https://updates.stimma.ai')}/stimma/{channel}/{platform}/latest.json"
-          ]
-          cfg["plugins"]["updater"]["pubkey"] = updater_pubkey
-          tauri.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-
-          cargo = Path("src-tauri/Cargo.toml")
-          text = cargo.read_text(encoding="utf-8")
-          text = re.sub(r'^version\s*=\s*"[^"]+"', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
-          cargo.write_text(text, encoding="utf-8")
-          PY
-
       - name: Generate channel icons
         env:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
         working-directory: backend
         run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$CHANNEL"
 
-      - name: Build Linux AppImage
-        timeout-minutes: 20
+      - name: Build Electron AppImage
+        timeout-minutes: 25
         env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest.json
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest-linux.yml
+        run: tools/stimma --channel="$CHANNEL" app build
+
+      - name: Create Tauri-compatible updater artifact (handoff)
+        env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          RUST_LOG: tauri_bundler=trace
-        # Linux stays on the Tauri shell until the Electron port's Phase 7.
-        run: tools/stimma app build --shell=tauri
-
-      # linuxdeploy bundles the BUILD host's libwayland-* into the AppDir, but
-      # the AppImage resolves Mesa from the RUNNING host. On any host with a
-      # newer Mesa than the Ubuntu 22.04 builder (Arch, Fedora, recent Ubuntu)
-      # that mismatch makes WebKit's EGL init fail with
-      #   Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
-      # the web view process SIGABRTs, and the app opens as an empty window.
-      # These libraries are on AppImage's standard excludelist precisely because
-      # they must come from the host, so strip them and repack.
-      #
-      # Tauri exposes no linuxdeploy exclude hook, hence the post-build repack.
-      # The original image's runtime is reused verbatim so the repacked AppImage
-      # behaves exactly like what Tauri produces today - in particular it keeps
-      # the fuse3-compatible static runtime, so hosts without libfuse2 (Arch)
-      # can still run it.
-      - name: Strip host-provided Wayland libs and repack AppImage
-        env:
-          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
-          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          bundle_dir="src-tauri/target/release/bundle/appimage"
-          appdir="$(find "$bundle_dir" -maxdepth 1 -name '*.AppDir' -print -quit)"
-          appimage="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage' -print -quit)"
-          if [ -z "$appdir" ] || [ -z "$appimage" ]; then
-            echo "Expected both an .AppDir and an .AppImage in $bundle_dir."
+          APPIMAGE="$(find electron/out -maxdepth 1 -name '*.AppImage' -print -quit)"
+          if [ -z "$APPIMAGE" ]; then
+            echo "Electron AppImage not found."
             exit 1
           fi
-
-          removed=0
-          for lib in libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 libwayland-server.so.0; do
-            if [ -e "$appdir/usr/lib/$lib" ]; then
-              rm -f "$appdir/usr/lib/$lib"
-              echo "removed bundled $lib"
-              removed=$((removed + 1))
-            fi
-          done
-
-          # Tauri derives StartupWMClass from the binary name ("stimma"), but the
-          # window's WM_CLASS class is "Stimma", so launchers that match on the
-          # class half never associate the window with this .desktop entry.
-          desktop="$(find "$appdir" -maxdepth 1 -name '*.desktop' -print -quit)"
-          if [ -n "$desktop" ] && grep -q '^StartupWMClass=stimma$' "$desktop"; then
-            sed -i 's/^StartupWMClass=stimma$/StartupWMClass=Stimma/' "$desktop"
-            echo "corrected StartupWMClass in $(basename "$desktop")"
-            removed=$((removed + 1))
-          fi
-
-          if [ "$removed" -eq 0 ]; then
-            echo "Nothing to change; leaving the AppImage exactly as built."
-            exit 0
-          fi
-
-          work="$RUNNER_TEMP/appimage-repack"
-          rm -rf "$work"
-          mkdir -p "$work"
-
-          curl -fsSL -o "$work/appimagetool" "$APPIMAGETOOL_URL"
-          echo "${APPIMAGETOOL_SHA256}  $work/appimagetool" | sha256sum -c -
-          chmod +x "$work/appimagetool"
-
-          # Reuse the runtime already embedded in the Tauri-built AppImage.
-          offset="$("$appimage" --appimage-offset)"
-          head -c "$offset" "$appimage" >"$work/runtime"
-
-          ARCH="$LINUX_ARCH" APPIMAGE_EXTRACT_AND_RUN=1 "$work/appimagetool" \
-            --runtime-file "$work/runtime" --comp zstd \
-            "$appdir" "$work/repacked.AppImage"
-          mv "$work/repacked.AppImage" "$appimage"
-          chmod +x "$appimage"
-
-          # The updater tarball wraps the AppImage by basename; rebuild it and
-          # re-sign, because the prior signatures no longer match these bytes.
-          archive="${appimage}.tar.gz"
-          rm -f "$archive" "$archive.sig" "${appimage}.sig"
-          tar -czf "$archive" -C "$(dirname "$appimage")" "$(basename "$appimage")"
-
-          # TAURI_SIGNING_PRIVATE_KEY may hold the key itself or a path to it.
-          if [ -f "$TAURI_PRIVATE_KEY" ]; then
-            key_args=(-f "$TAURI_PRIVATE_KEY")
+          ARCHIVE="${APPIMAGE}.tar.gz"
+          tar -czf "$ARCHIVE" -C "$(dirname "$APPIMAGE")" "$(basename "$APPIMAGE")"
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            frontend/node_modules/.bin/tauri signer sign \
+              --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
+              --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" \
+              "$ARCHIVE"
           else
-            key_args=(-k "$TAURI_PRIVATE_KEY")
-          fi
-          frontend/node_modules/.bin/tauri signer sign \
-            "${key_args[@]}" -p "$TAURI_PRIVATE_KEY_PASSWORD" "$archive"
-          test -s "$archive.sig"
-          echo "repacked $(basename "$appimage") and re-signed the updater tarball"
-
-      - name: Print Linux payload stats
-        if: always()
-        run: |
-          set -euo pipefail
-          root="src-tauri/binaries/stimma-backend-${LINUX_TARGET_TRIPLE}"
-          if [ -d "$root" ]; then
-            find "$root" -type f | wc -l
-            du -sh "$root"
-          else
-            echo "Linux backend payload root not found: $root"
+            echo "TAURI_SIGNING_PRIVATE_KEY missing; handoff artifact left unsigned (staging only)."
           fi
 
-      - name: Smoke-check bundled backend launcher
-        timeout-minutes: 2
+      - name: Make electron-updater manifest immutable
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          root="src-tauri/binaries/stimma-backend-${LINUX_TARGET_TRIPLE}"
-          test -x "$root/run.sh"
-          env PYTHONHOME=/tmp/stimma-bad-pythonhome PYTHONPATH=/tmp/stimma-bad-pythonpath "$root/run.sh" --help >/tmp/stimma-backend-help.txt
-          head -40 /tmp/stimma-backend-help.txt
+          # electron-builder names prerelease manifests after the semver
+          # prerelease channel (for example canary-linux.yml). Each Stimma
+          # channel already has its own feed directory, and electron-updater's
+          # generic provider therefore requests latest-linux.yml in all of
+          # them. Normalize the single generated manifest before publishing.
+          mapfile -t GENERATED_MANIFESTS < <(find electron/out -maxdepth 1 -name '*-linux.yml' -print)
+          if [ "${#GENERATED_MANIFESTS[@]}" -ne 1 ]; then
+            echo "Expected exactly one electron-updater Linux manifest; found ${#GENERATED_MANIFESTS[@]}."
+            printf '%s\n' "${GENERATED_MANIFESTS[@]}"
+            exit 1
+          fi
+          MANIFEST="electron/out/latest-linux.yml"
+          if [ "${GENERATED_MANIFESTS[0]}" != "$MANIFEST" ]; then
+            mv "${GENERATED_MANIFESTS[0]}" "$MANIFEST"
+          fi
+          test -s "$MANIFEST"
+          VERSION="$VERSION" python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-      - name: Smoke-check AppImage backend launcher
-        timeout-minutes: 2
+          path = Path("electron/out/latest-linux.yml")
+          version = os.environ["VERSION"]
+          lines = []
+          for line in path.read_text(encoding="utf-8").splitlines():
+              stripped = line.lstrip()
+              indent = line[:len(line) - len(stripped)]
+              if stripped.startswith("- url: "):
+                  line = indent + "- url: " + version + "/" + stripped[len("- url: "):]
+              elif stripped.startswith("path: "):
+                  line = indent + "path: " + version + "/" + stripped[len("path: "):]
+              lines.append(line)
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(path.read_text(encoding="utf-8"))
+          PY
+
+      - name: Smoke-check portable AppImage
+        timeout-minutes: 5
         run: |
           set -euo pipefail
-          appdir="$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppDir' -print -quit)"
-          test -n "$appdir"
-          backend="$(find "$appdir/usr/lib" -path '*/stimma-backend/run.sh' -print -quit)"
-          test -n "$backend"
-          test -x "$backend"
-          env PYTHONHOME="$appdir/usr" PYTHONPATH="$appdir/usr/share/pyshared:" "$backend" --help >/tmp/stimma-appdir-backend-help.txt
-          head -40 /tmp/stimma-appdir-backend-help.txt
-
-      - name: Dump bundle diagnostics on failure
-        if: failure()
-        run: |
-          find src-tauri/target/release/bundle -maxdepth 4 -type f -print 2>/dev/null || true
+          APPIMAGE="$(find electron/out -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$APPIMAGE"
+          test -x "$APPIMAGE"
+          if readelf -d "$APPIMAGE" 2>&1 | grep -q '(NEEDED)'; then
+            echo "AppImage runtime is dynamically linked; current distributions without libfuse2 would fail."
+            exit 1
+          fi
+          "$APPIMAGE" --appimage-offset
+          env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 xvfb-run -a \
+            node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
       - name: Collect build artifacts
         id: collect
         run: |
           set -euo pipefail
-          bundle_dir="src-tauri/target/release/bundle/appimage"
-          appimage="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage' -print -quit)"
-          updater_archive="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage.tar.gz' -print -quit)"
-          updater_sig="${updater_archive}.sig"
-
-          if [ -z "$appimage" ]; then
-            echo "AppImage was not generated."
-            exit 1
+          APPIMAGE="$(find electron/out -maxdepth 1 -name '*.AppImage' -print -quit)"
+          LATEST_LINUX_YML="electron/out/latest-linux.yml"
+          UPDATER_ARCHIVE="${APPIMAGE}.tar.gz"
+          UPDATER_SIG="${UPDATER_ARCHIVE}.sig"
+          test -n "$APPIMAGE"
+          test -s "$LATEST_LINUX_YML"
+          test -s "$UPDATER_ARCHIVE"
+          if [ ! -s "$UPDATER_SIG" ]; then
+            echo "WARNING: Tauri handoff artifact is unsigned; publishing updates will fail."
+            UPDATER_SIG=""
           fi
+          echo "appimage_file=$APPIMAGE" >> "$GITHUB_OUTPUT"
+          echo "latest_linux_yml=$LATEST_LINUX_YML" >> "$GITHUB_OUTPUT"
+          echo "updater_archive=$UPDATER_ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "updater_sig=$UPDATER_SIG" >> "$GITHUB_OUTPUT"
 
-          echo "appimage_file=$appimage" >> "$GITHUB_OUTPUT"
-          if [ -n "$updater_archive" ] && [ -f "$updater_sig" ]; then
-            echo "updater_archive=$updater_archive" >> "$GITHUB_OUTPUT"
-            echo "updater_sig=$updater_sig" >> "$GITHUB_OUTPUT"
-          else
-            echo "updater_archive=" >> "$GITHUB_OUTPUT"
-            echo "updater_sig=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload AppImage artifact
+      - name: Upload workflow artifacts
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: stimma-${{ env.LINUX_PLATFORM }}-appimage-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 1
-          path: ${{ steps.collect.outputs.appimage_file }}
-
-      - name: Upload updater artifacts
-        if: steps.collect.outputs.updater_archive != ''
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: stimma-${{ env.LINUX_PLATFORM }}-updater-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          name: stimma-${{ env.LINUX_PLATFORM }}-electron-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
           retention-days: 1
           path: |
+            ${{ steps.collect.outputs.appimage_file }}
+            ${{ steps.collect.outputs.latest_linux_yml }}
             ${{ steps.collect.outputs.updater_archive }}
             ${{ steps.collect.outputs.updater_sig }}
 
       - name: Publish GitHub release assets
-        if: inputs.publish_github_release == true && steps.collect.outputs.updater_archive != ''
+        if: inputs.publish_github_release == true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
@@ -432,30 +309,29 @@ jobs:
             ${{ steps.collect.outputs.updater_sig }}
 
       - name: Publish Linux artifacts to Cloudflare R2
-        if: inputs.publish_updates == true && steps.collect.outputs.updater_archive != ''
+        if: inputs.publish_updates == true
         env:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VERSION: ${{ steps.version.outputs.version }}
           APPIMAGE_FILE: ${{ steps.collect.outputs.appimage_file }}
+          LATEST_LINUX_YML: ${{ steps.collect.outputs.latest_linux_yml }}
           UPDATER_ARCHIVE: ${{ steps.collect.outputs.updater_archive }}
           UPDATER_SIG: ${{ steps.collect.outputs.updater_sig }}
-          LINUX_PLATFORM: ${{ env.LINUX_PLATFORM }}
           BUCKET: ${{ env.R2_BUCKET }}
-          R2_S3_ENDPOINT: ${{ env.R2_S3_ENDPOINT }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${BUCKET:-}" ]; then
-            echo "R2_BUCKET repo variable is required."
-            exit 1
-          fi
-          if [ -z "${R2_S3_ENDPOINT:-}" ]; then
-            echo "R2_S3_ENDPOINT repo variable is required."
+          if [ -z "${BUCKET:-}" ] || [ -z "${R2_S3_ENDPOINT:-}" ]; then
+            echo "R2_BUCKET and R2_S3_ENDPOINT repo variables are required."
             exit 1
           fi
           if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-            echo "R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY secrets are required."
+            echo "R2 credentials are required."
+            exit 1
+          fi
+          if [ -z "${UPDATER_SIG:-}" ] || [ ! -s "$UPDATER_SIG" ]; then
+            echo "A signed Tauri handoff artifact is required while Tauri clients remain fielded."
             exit 1
           fi
           R2_S3_ENDPOINT="$(printf '%s' "$R2_S3_ENDPOINT" | tr -d '[:space:]')"
@@ -463,116 +339,119 @@ jobs:
           AWS_SECRET_ACCESS_KEY="$(printf '%s' "$AWS_SECRET_ACCESS_KEY" | tr -d '[:space:]')"
           export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
-          VERSIONED_PREFIX="stimma/${CHANNEL}/${LINUX_PLATFORM}/${VERSION}"
+          PREFIX="stimma/${CHANNEL}/${LINUX_PLATFORM}"
+          VERSIONED_PREFIX="${PREFIX}/${VERSION}"
           APPIMAGE_BASENAME="$(basename "$APPIMAGE_FILE")"
           UPDATER_BASENAME="$(basename "$UPDATER_ARCHIVE")"
-          APPIMAGE_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$APPIMAGE_BASENAME")"
-          UPDATER_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$UPDATER_BASENAME")"
+          APPIMAGE_URL_NAME="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$APPIMAGE_BASENAME")"
+          UPDATER_URL_NAME="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$UPDATER_BASENAME")"
           SIG_VALUE="$(tr -d '\n' < "$UPDATER_SIG")"
-          UPDATER_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${UPDATER_BASENAME_URL}"
-          DOWNLOAD_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME_URL}"
+          UPDATER_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${UPDATER_URL_NAME}"
+          DOWNLOAD_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${APPIMAGE_URL_NAME}"
           DOWNLOAD_SIZE="$(stat -c%s "$APPIMAGE_FILE")"
           DOWNLOAD_SHA256="$(sha256sum "$APPIMAGE_FILE" | awk '{print $1}')"
+          export APPIMAGE_BASENAME DOWNLOAD_URL DOWNLOAD_SIZE DOWNLOAD_SHA256 SIG_VALUE UPDATER_URL
 
           uvx --python 3.11 --from awscli aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
 
-          cat > latest.json <<JSON
-          {
-            "version": "${VERSION}",
-            "notes": "Manual CI build",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "platforms": {
-              "${LINUX_PLATFORM}": {
-                "signature": "${SIG_VALUE}",
-                "url": "${UPDATER_URL}"
-              }
-            }
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+
+          manifest = {
+              "version": os.environ["VERSION"],
+              "notes": "Stimma desktop update",
+              "pub_date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "platforms": {
+                  os.environ["LINUX_PLATFORM"]: {
+                      "signature": os.environ["SIG_VALUE"],
+                      "url": os.environ["UPDATER_URL"],
+                  }
+              },
           }
-          JSON
+          with open("latest.json", "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          PY
 
-          EXISTING_LATEST="existing-latest.json"
+          EXISTING_LATEST="${RUNNER_TEMP}/existing-latest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          rm -f "$EXISTING_LATEST"
           set +e
-          uvx --python 3.11 --from awscli aws s3 cp "s3://${BUCKET}/stimma/${CHANNEL}/${LINUX_PLATFORM}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "s3://${BUCKET}/${PREFIX}/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
           existing_fetch_code=$?
           set -e
           if [ "$existing_fetch_code" -ne 0 ]; then
-            echo "No existing ${LINUX_PLATFORM} latest.json found in release bucket."
-            rm -f "$EXISTING_LATEST"
+            echo "No existing latest.json found in release bucket."
           fi
 
           set +e
-          CANDIDATE_VERSION="$VERSION" EXISTING_MANIFEST="$EXISTING_LATEST" CHANNEL="$CHANNEL" python3 - <<'PY'
-          import json
-          import os
-          import re
-          import sys
+          CANDIDATE_VERSION="$VERSION" EXISTING_MANIFEST="$EXISTING_LATEST" python3 - <<'PY'
+          import json, os, re, sys
 
-          def key(version: str):
-              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(canary|beta)\.)?(\d+))?$", version)
-              if not m:
+          def key(version):
+              match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(sandbox|canary|beta)\.)?(\d+))?$", version)
+              if not match:
                   raise SystemExit(f"Unparseable version: {version}")
-              core = tuple(int(m.group(i)) for i in range(1, 4))
-              channel = m.group(4) or os.environ["CHANNEL"]
-              n = int(m.group(5) or 0)
-              rank = {"canary": 1, "beta": 2, "production": 3}.get(channel, 0)
-              return (*core, rank, n)
+              core = tuple(int(match.group(i)) for i in range(1, 4))
+              rank = {"sandbox": 0, "canary": 1, "beta": 2, "production": 3}.get(match.group(4) or os.environ["CHANNEL"], 0)
+              return (*core, rank, int(match.group(5) or 0))
 
-          candidate = os.environ["CANDIDATE_VERSION"]
-          existing_path = os.environ["EXISTING_MANIFEST"]
           existing = None
-          if os.path.exists(existing_path):
-              with open(existing_path, encoding="utf-8") as manifest:
-                  existing = json.load(manifest).get("version")
+          if os.path.exists(os.environ["EXISTING_MANIFEST"]):
+              with open(os.environ["EXISTING_MANIFEST"], encoding="utf-8") as fh:
+                  existing = json.load(fh).get("version")
+          candidate = os.environ["CANDIDATE_VERSION"]
           if existing and key(candidate) < key(existing):
-              print(f"Refusing to move latest.json backward from {existing} to {candidate}.")
+              print(f"Refusing to move updater manifests backward from {existing} to {candidate}.")
               sys.exit(42)
-          print(f"Publishing latest manifest for {candidate}; existing={existing or 'none'}.")
           PY
           guard_code=$?
           set -e
           if [ "$guard_code" -eq 42 ]; then
-            echo "Skipping latest.json and download.json publish because a newer manifest already exists."
             exit 0
           elif [ "$guard_code" -ne 0 ]; then
             exit "$guard_code"
           fi
 
-          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/stimma/${CHANNEL}/${LINUX_PLATFORM}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest-linux.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
-          cat > download.json <<JSON
-          {
-            "version": "${VERSION}",
-            "channel": "${CHANNEL}",
-            "platform": "${LINUX_PLATFORM}",
-            "filename": "${APPIMAGE_BASENAME}",
-            "url": "${DOWNLOAD_URL}",
-            "size": ${DOWNLOAD_SIZE},
-            "sha256": "${DOWNLOAD_SHA256}",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+
+          manifest = {
+              "version": os.environ["VERSION"],
+              "channel": os.environ["CHANNEL"],
+              "platform": os.environ["LINUX_PLATFORM"],
+              "filename": os.environ["APPIMAGE_BASENAME"],
+              "url": os.environ["DOWNLOAD_URL"],
+              "size": int(os.environ["DOWNLOAD_SIZE"]),
+              "sha256": os.environ["DOWNLOAD_SHA256"],
+              "pub_date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
           }
-          JSON
-
-          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://${BUCKET}/stimma/${CHANNEL}/${LINUX_PLATFORM}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          with open("download.json", "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          PY
+          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://${BUCKET}/${PREFIX}/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
       - name: Purge Cloudflare cache for Linux manifests
-        if: inputs.publish_updates == true && steps.collect.outputs.updater_archive != ''
+        if: inputs.publish_updates == true
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          LINUX_PLATFORM: ${{ env.LINUX_PLATFORM }}
         run: |
           set -euo pipefail
           if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
             echo "CF_API_TOKEN and CF_ZONE_ID secrets are required."
             exit 1
           fi
-
-          MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/${LINUX_PLATFORM}/latest.json"
-          DOWNLOAD_MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/${LINUX_PLATFORM}/download.json"
+          PREFIX="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/${LINUX_PLATFORM}"
           curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data "{\"files\":[\"${MANIFEST_URL}\",\"${DOWNLOAD_MANIFEST_URL}\"]}"
+            --data "{\"files\":[\"${PREFIX}/latest.json\",\"${PREFIX}/latest-linux.yml\",\"${PREFIX}/download.json\"]}"

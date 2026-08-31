@@ -10,6 +10,15 @@ import { Menu, MenuItemConstructorOptions, app } from 'electron'
 export function installApplicationMenu(dev: boolean): void {
   const isMac = process.platform === 'darwin'
 
+  app.setName('Stimma')
+
+  // Stimma uses its own in-app controls. On Linux and Windows, Electron's
+  // default menu is redundant and visually inconsistent with the shell.
+  if (!isMac) {
+    Menu.setApplicationMenu(null)
+    return
+  }
+
   const template: MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
     {
@@ -36,5 +45,4 @@ export function installApplicationMenu(dev: boolean): void {
   ]
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
-  app.setName('Stimma')
 }

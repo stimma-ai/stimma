@@ -16,8 +16,11 @@
  * only keys that don't already exist. The WKWebView source is never touched,
  * so rolling back to a Tauri build keeps its state.
  *
- * A marker at <dataDir>/webkit-storage-imported.json makes the whole thing
- * one-shot per sandbox.
+ * A successful-import marker at <dataDir>/webkit-storage-imported.json makes
+ * the migration one-shot per sandbox. Negative results remain retryable: a
+ * helper/build failure or source that appears after the first Electron start
+ * must not permanently strand the Tauri state. Dev sandboxes are included:
+ * Tauri and Electron share the same data directory there.
  */
 
 import fs from 'node:fs'
@@ -95,6 +98,20 @@ function discoverCandidates(identity: AppIdentity): string[] {
   const override = process.env.STIMMA_LEGACY_STORAGE_DB
   if (override) return fs.existsSync(override) ? [override] : []
 
+  // WebKitGTK keeps the Tauri origin's localStorage directly inside the
+  // configured webview data directory.  Unlike WKWebView on macOS there is
+  // no salted origin tree to discover.
+  if (process.platform === 'linux') {
+    const localStorageRoot = path.join(identity.dataDir, 'browser', 'localstorage')
+    try {
+      return fs.readdirSync(localStorageRoot)
+        .filter((name) => name.endsWith('.localstorage'))
+        .map((name) => path.join(localStorageRoot, name))
+    } catch {
+      return []
+    }
+  }
+
   if (process.platform !== 'darwin') return []
 
   const webkitRoot = path.join(os.homedir(), 'Library', 'WebKit', identity.bundleId)
@@ -132,20 +149,23 @@ function looksLikeStimmaDump(items: Record<string, string>): boolean {
  * once per sandbox (marker-gated) before the first window is created.
  */
 export async function prepareLegacyStorageImport(identity: AppIdentity): Promise<void> {
-  // Dev shells run against the Vite origin and have no WKWebView history to
-  // inherit; the env override still allows exercising the path in tests.
-  if (identity.dev && !process.env.STIMMA_LEGACY_STORAGE_DB) return
-
   markerPath = path.join(identity.dataDir, 'webkit-storage-imported.json')
-  if (fs.existsSync(markerPath)) return
+  try {
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as { imported?: boolean }
+    if (marker.imported === true) return
+  } catch {
+    // Missing/corrupt/negative markers are safe to retry.
+  }
 
   const candidates = discoverCandidates(identity)
   if (candidates.length === 0) {
-    // Fresh install (or non-mac): nothing to import, never look again.
+    // Record the diagnostic, but a later launch may retry if a Tauri source
+    // appears (for example after rollback and another shell upgrade).
     writeMarker(markerPath, { imported: false, reason: 'no-source', at: new Date().toISOString() })
     return
   }
 
+  let readFailed = false
   for (const candidate of candidates) {
     try {
       const result = (await helperRequest('read_webkit_local_storage', {
@@ -161,9 +181,13 @@ export async function prepareLegacyStorageImport(identity: AppIdentity): Promise
         return
       }
     } catch (e) {
+      readFailed = true
       log.warn('legacy-storage', `Failed reading ${candidate}: ${e}`)
     }
   }
+
+  // Do not turn a transient helper/database error into permanent data loss.
+  if (readFailed) return
 
   writeMarker(markerPath, { imported: false, reason: 'no-stimma-origin', at: new Date().toISOString() })
 }

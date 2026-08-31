@@ -1384,6 +1384,10 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   const builderConfig: Record<string, unknown> = {
     appId: bundleId,
     productName,
+    // Electron Builder's legacy AppImage toolset requires libfuse.so.2 at
+    // runtime. Current distributions such as Arch ship FUSE 3 only; the
+    // static runtime mounts without the removed host libfuse2 library.
+    toolsets: Deno.build.os === "linux" ? { appimage: "1.0.3" } : undefined,
     directories: { app: ".", output: "out", buildResources: "build" },
     asar: true,
     files: ["dist/**/*", "package.json"],
@@ -1392,6 +1396,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       version,
       productName,
       stimmaBundleId: bundleId,
+      desktopName: `${bundleId}.desktop`,
       // Update feed base for electron-updater's generic provider. Only baked
       // when release CI provides a base URL; dev/local builds stay updater-off.
       ...(Deno.env.get("STIMMA_UPDATE_BASE_URL")
@@ -1425,6 +1430,11 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       },
       notarize,
     },
+    linux: {
+      target: ["AppImage"],
+      category: "Graphics",
+      syncDesktopName: true,
+    },
     // Configuring the publish provider makes electron-builder emit
     // latest-mac.yml/latest.yml next to the artifacts; actual uploading is
     // done by the release workflow (R2), never by the builder.
@@ -1433,6 +1443,11 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
 
   const configPath = join(electronDir, ".generated-builder.json");
   await Deno.writeTextFile(configPath, JSON.stringify(builderConfig, null, 2) + "\n");
+
+  // electron-builder does not remove artifacts from earlier versions. A
+  // release workflow that selects the first matching AppImage could otherwise
+  // sign and publish stale bytes from a persistent self-hosted runner.
+  await Deno.remove(join(electronDir, "out"), { recursive: true }).catch(() => {});
 
   const builderBin = join(electronDir, "node_modules", ".bin", Deno.build.os === "windows" ? "electron-builder.cmd" : "electron-builder");
   // Scrub ELECTRON_RUN_AS_NODE (agent/editor shells export it; it turns any
@@ -1916,6 +1931,23 @@ async function ensureElectronDeps(): Promise<void> {
   }
 }
 
+async function ensureElectronDevDeps(): Promise<void> {
+  await ensureElectronDeps();
+
+  // The Electron shell uses the standalone native helper for legacy
+  // localStorage import and desktop-native operations. Tauri built its Rust
+  // code as part of `tauri dev`; preserve that first-run behavior instead of
+  // allowing Electron dev to boot without migration support.
+  console.log("[electron] Building native helper (incremental)...");
+  const code = await run("cargo", ["build"], {
+    cwd: join(repoRoot, "native", "stimma-native"),
+  });
+  if (code !== 0) {
+    console.error("[electron] Native helper build failed.");
+    Deno.exit(1);
+  }
+}
+
 function electronDevEnv(bundleId: string, ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
   return {
     ...runtimeEnv,
@@ -2044,7 +2076,7 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
 
     if (shell === "electron") {
       console.log("[dev all] Backend and frontend are ready; launching Electron app.");
-      await ensureElectronDeps();
+      await ensureElectronDevDeps();
       processes.push(spawnDevProcess("app", "node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
         cwd: join(repoRoot, "electron"),
         env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
@@ -2188,7 +2220,7 @@ async function main(): Promise<void> {
         }
         const { shell } = parseShellFlag(rest);
         if (shell === "electron") {
-          await ensureElectronDeps();
+          await ensureElectronDevDeps();
           await run("node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
             cwd: join(repoRoot, "electron"),
             env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),

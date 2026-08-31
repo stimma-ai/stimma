@@ -35,7 +35,10 @@ const sandbox = makeSandbox()
 fs.mkdirSync(sandbox.dataDir, { recursive: true })
 
 // Fixture WKWebView database (schema matches the real ItemTable).
-const fixtureDb = path.join(sandbox.dir, 'localstorage.sqlite3')
+const fixtureDb = process.platform === 'linux'
+  ? path.join(sandbox.dataDir, 'browser', 'localstorage', 'tauri_localhost_0.localstorage')
+  : path.join(sandbox.dir, 'localstorage.sqlite3')
+fs.mkdirSync(path.dirname(fixtureDb), { recursive: true })
 const rows = [
   ['profileId', 'profile-legacy1'],
   ['stimma_bundle_id', 'ai.stimma.stimma.canary'],
@@ -52,15 +55,14 @@ execFileSync('sqlite3', [
 ])
 
 const markerPath = path.join(sandbox.dataDir, 'webkit-storage-imported.json')
-const launch = () =>
-  launchShell({ sandbox, frontendPort: port }).then(async (app) => {
-    // The harness launches in dev mode; the env override activates the import.
-    return app
-  })
+// A prior transient helper/read failure may have left a negative marker.
+// It must not permanently suppress migration once the source is readable.
+fs.writeFileSync(markerPath, JSON.stringify({ imported: false, reason: 'no-stimma-origin' }))
+const launch = () => launchShell({ sandbox, frontendPort: port })
 
 // launchShell doesn't pass custom env; splice the override into process.env
 // for the child (harness spreads process.env).
-process.env.STIMMA_LEGACY_STORAGE_DB = fixtureDb
+if (process.platform !== 'linux') process.env.STIMMA_LEGACY_STORAGE_DB = fixtureDb
 
 const app = await launch()
 try {

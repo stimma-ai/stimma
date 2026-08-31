@@ -1,6 +1,7 @@
 {
   "name": "stimma-shell",
   "productName": "Stimma",
+  "desktopName": "ai.stimma.stimma.debug.desktop",
   "version": "0.1.0",
   "private": true,
   "description": "Stimma desktop shell (Electron main + preload)",
