@@ -1432,6 +1432,10 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
     },
     linux: {
       target: ["AppImage"],
+      // Do not let electron-builder fall back to mac.icon: Linux CI's icon
+      // generator cannot run iconutil, so its .icns compatibility output is
+      // PNG data. The real PNG is the canonical AppImage icon.
+      icon: "../src-tauri/icons/icon.png",
       category: "Graphics",
       syncDesktopName: true,
     },
