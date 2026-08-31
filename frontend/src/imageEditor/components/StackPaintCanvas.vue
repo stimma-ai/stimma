@@ -27,7 +27,7 @@ import type { PaintGradientType } from '../stack/paintEngineSettings'
 import { constrainedGradientEnd } from '../stack/rasterGradient'
 import { applyAdjust } from '../stack/opExecutors'
 import { retouchBrushAdjustmentParams } from '../stack/retouchBrushAdjustment'
-import { BrushStrokeRuntime } from '../brush/brushRuntime'
+import { BrushStrokeRuntime, repairActivePenPressureDropouts } from '../brush/brushRuntime'
 import { brushPreset } from '../brush/brushPresets'
 import type { BrushInputSample, BrushPresetDefinition } from '../brush/types'
 import { fittedBrushScale, zoomedBrushSize } from '../stack/viewportRaster'
@@ -301,8 +301,16 @@ function applyResolvedDabs(dabs: ReturnType<BrushStrokeRuntime['push']>) {
   if (dabs.length) drawOverlay()
 }
 
-function pushBrushSample(event: PointerEvent) {
-  if (brushRuntime) applyResolvedDabs(brushRuntime.push(inputSample(event)))
+let lastActivePenPressure: number | null = null
+
+function pushBrushSamples(events: PointerEvent[]) {
+  if (!brushRuntime) return
+  const input = events.map(inputSample)
+  const repaired = repairActivePenPressureDropouts(input, lastActivePenPressure)
+  lastActivePenPressure = repaired.lastPressure
+  for (const sample of repaired.samples) {
+    applyResolvedDabs(brushRuntime.push(sample))
+  }
 }
 
 function prepareStroke() {
@@ -588,6 +596,7 @@ function onPointerDown(event: PointerEvent) {
   activePointerId = event.pointerId
   overlay.value?.setPointerCapture(event.pointerId)
   drawing = true
+  lastActivePenPressure = null
   if (props.engineId === 'gradient') {
     gradientGesture = { start: point, end: point }
     drawOverlay()
@@ -595,7 +604,7 @@ function onPointerDown(event: PointerEvent) {
   }
   if (props.engineId === 'paint' || props.engineId === 'erase') {
     beginBrushRuntime()
-    pushBrushSample(event)
+    pushBrushSamples([event])
   } else {
     stamp(point, tabletInputFor(event)?.pressure ?? null)
   }
@@ -620,10 +629,11 @@ function onPointerMove(event: PointerEvent) {
     const coalesced = typeof event.getCoalescedEvents === 'function'
       ? event.getCoalescedEvents()
       : []
-    for (const sample of coalesced.length ? coalesced : [event]) {
-      if (props.engineId === 'paint' || props.engineId === 'erase') {
-        pushBrushSample(sample)
-      } else {
+    const samples = coalesced.length ? coalesced : [event]
+    if (props.engineId === 'paint' || props.engineId === 'erase') {
+      pushBrushSamples(samples)
+    } else {
+      for (const sample of samples) {
         stamp(pointFrom(sample), tabletInputFor(sample)?.pressure ?? null)
       }
     }

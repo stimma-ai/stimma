@@ -220,6 +220,7 @@ import {
   publishEditorLivePreview,
 } from '../imageEditor/liveEditorPreview'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
+import { editorBarrelAction, heldButtonMask } from '../imageEditor/stack/tabletButtons'
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -1566,6 +1567,7 @@ function startViewPan(event: PointerEvent) {
 }
 
 let middleMousePointerId: number | null = null
+let viewportPanButtonMask = 4
 let nativeTabletPanActive = false
 let stopTabletPan: (() => void) | null = null
 
@@ -1602,18 +1604,18 @@ function onNativeTabletPan(sample: NativeTabletPanSample) {
 
 function startMiddleMousePan(event: PointerEvent) {
   const element = viewport.value
-  const isMiddleMouse = event.button === 1
+  const action = editorBarrelAction(event, /Linux/i.test(navigator.userAgent))
   if (
-    !isMiddleMouse
+    action !== 'pan'
     || !element?.contains(event.target as Node)
   ) return
-  // Pen barrel switches are handled by their explicit physical assignments:
-  // front pans through native tablet points; back reaches the brush picker.
-  // This path is only for an actual middle mouse button.
+  // Real middle mouse always pans. Linux pen buttons are normalized by their
+  // physical assignment here; macOS native tablet points retain their own pan.
   paintRef.value?.commitStroke()
   retouchRef.value?.commitStroke()
 
   middleMousePointerId = event.pointerId
+  viewportPanButtonMask = heldButtonMask(event.button)
   viewPanning.value = true
   viewPanStart = { pointerX: event.clientX, pointerY: event.clientY }
   beginLivePan()
@@ -1632,7 +1634,7 @@ function moveMiddleMousePan(event: PointerEvent) {
   }
   // Mouseup can be lost when the window itself loses capture. `buttons` is the
   // authoritative held-state on every later move.
-  if ((event.buttons & 4) === 0) {
+  if ((event.buttons & viewportPanButtonMask) === 0) {
     endMiddleMousePan(event)
     return
   }
@@ -1696,8 +1698,8 @@ watch(brushHudTarget, target => {
 })
 
 function onBrushHudPointerDown(event: PointerEvent) {
-  const isPenRightClick = event.button === 2 && tabletInputFor(event) !== null
-  if (event.button !== 3 && event.button !== 4 && !isPenRightClick) return
+  const action = editorBarrelAction(event, /Linux/i.test(navigator.userAgent))
+  if (action !== 'brush-popup') return
   event.preventDefault()
   event.stopPropagation()
   if (brushHud.value) {
@@ -1709,9 +1711,10 @@ function onBrushHudPointerDown(event: PointerEvent) {
   brushHud.value = { x: event.clientX, y: event.clientY }
 }
 
-/** Buttons 3/4 can mean history navigation to WebKit; never let that through. */
-function swallowBrushHudButton(event: MouseEvent) {
-  if (event.button === 3 || event.button === 4) {
+/** Never let a claimed popup button fall through to browser navigation/scroll. */
+function swallowBrushHudButton(event: PointerEvent) {
+  const action = editorBarrelAction(event, /Linux/i.test(navigator.userAgent))
+  if (action === 'brush-popup') {
     event.preventDefault()
     event.stopPropagation()
   }

@@ -5,6 +5,7 @@ import {
   BrushStrokeRuntime,
   calibratePressure,
   evaluateCurve,
+  repairActivePenPressureDropouts,
   resolveBrushDab,
   seededRandom,
 } from '../brush/brushRuntime.ts'
@@ -73,6 +74,36 @@ test('pressure dynamics are interpolated per dab and ignored for mouse samples',
   const mouseSample = { ...sample(0, 0), pointer: 'mouse' as const }
   const mouseDab = resolveBrushDab(mouseSample, settings, preset, 0.5)
   assert.equal(mouseDab.size, settings.size)
+})
+
+test('active pen pressure dropouts interpolate between valid neighbours', () => {
+  const repaired = repairActivePenPressureDropouts([
+    sample(0, 0.8),
+    sample(1, 0),
+    sample(2, 0),
+    sample(3, 0.5),
+  ], null)
+  assert.deepEqual(
+    repaired.samples.map(point => Number(point.pressure.toFixed(2))),
+    [0.8, 0.7, 0.6, 0.5],
+  )
+  assert.equal(repaired.lastPressure, 0.5)
+})
+
+test('dropouts spanning event batches hold the last active pressure', () => {
+  const repaired = repairActivePenPressureDropouts([
+    sample(1, 0),
+    sample(2, 0),
+  ], 0.65)
+  assert.deepEqual(repaired.samples.map(point => point.pressure), [0.65, 0.65])
+  assert.equal(repaired.lastPressure, 0.65)
+})
+
+test('mouse pressure and a pen stroke with no valid pressure remain untouched', () => {
+  const mouse = { ...sample(0, 0), pointer: 'mouse' as const }
+  const repaired = repairActivePenPressureDropouts([mouse, sample(1, 0)], null)
+  assert.deepEqual(repaired.samples.map(point => point.pressure), [0, 0])
+  assert.equal(repaired.lastPressure, null)
 })
 
 test('seeded random dynamics replay exactly and differ under another seed', () => {

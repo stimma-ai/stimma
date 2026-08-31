@@ -82,6 +82,66 @@ export function interpolateBrushSample(
   }
 }
 
+/**
+ * Repair browser pressure dropouts while a pen stroke is known to be active.
+ *
+ * Chromium/Wayland can put zero pressure on otherwise valid coalesced samples
+ * between positive-pressure neighbours. Pressure-to-flow brushes render those
+ * dabs transparent, producing holes despite a continuous coordinate path.
+ * The caller invokes this only between pen pointerdown and pointerup, so zero
+ * here is missing axis data rather than the end of the stroke.
+ */
+export function repairActivePenPressureDropouts(
+  samples: BrushInputSample[],
+  previousPressure: number | null,
+): { samples: BrushInputSample[]; lastPressure: number | null } {
+  const repaired = samples.map(sample => ({ ...sample }))
+  let lastPressure = previousPressure && previousPressure > 0 ? previousPressure : null
+  let index = 0
+
+  while (index < repaired.length) {
+    const sample = repaired[index]
+    if (sample.pointer !== 'pen' || sample.pressure > 0) {
+      if (sample.pointer === 'pen' && sample.pressure > 0) lastPressure = sample.pressure
+      index += 1
+      continue
+    }
+
+    const start = index
+    while (
+      index < repaired.length
+      && repaired[index].pointer === 'pen'
+      && repaired[index].pressure === 0
+    ) index += 1
+    const after = index < repaired.length && repaired[index].pointer === 'pen'
+      ? repaired[index].pressure
+      : 0
+
+    if (lastPressure !== null && after > 0) {
+      const length = index - start
+      for (let offset = 0; offset < length; offset += 1) {
+        const amount = (offset + 1) / (length + 1)
+        repaired[start + offset].pressure = lerp(lastPressure, after, amount)
+      }
+    } else {
+      const fallback = lastPressure ?? (after > 0 ? after : 0)
+      if (fallback > 0) {
+        for (let cursor = start; cursor < index; cursor += 1) {
+          repaired[cursor].pressure = fallback
+        }
+      }
+    }
+  }
+
+  for (let cursor = repaired.length - 1; cursor >= 0; cursor -= 1) {
+    if (repaired[cursor].pointer === 'pen' && repaired[cursor].pressure > 0) {
+      lastPressure = repaired[cursor].pressure
+      break
+    }
+  }
+  return { samples: repaired, lastPressure }
+}
+
 /** Deterministic PRNG: the same preset/sample stream always produces the same dabs. */
 export function seededRandom(seed: number): () => number {
   let state = seed >>> 0
