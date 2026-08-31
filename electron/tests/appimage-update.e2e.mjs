@@ -30,10 +30,20 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-appimage-update-'))
 const feedDir = path.join(work, 'feed')
 const installDir = path.join(work, 'install')
 const homeDir = path.join(work, 'home')
-const dataDir = path.join(work, 'data')
-const cacheDir = path.join(work, 'cache')
+const bridgeDataDir = path.join(work, 'bridge-data')
+const bridgeCacheDir = path.join(work, 'bridge-cache')
+const fixedDataDir = path.join(work, 'fixed-data')
+const fixedCacheDir = path.join(work, 'fixed-cache')
 const marker = `stimma-update-test-${process.pid}`
-for (const dir of [feedDir, installDir, homeDir, dataDir, cacheDir]) {
+for (const dir of [
+  feedDir,
+  installDir,
+  homeDir,
+  bridgeDataDir,
+  bridgeCacheDir,
+  fixedDataDir,
+  fixedCacheDir,
+]) {
   fs.mkdirSync(dir, { recursive: true })
 }
 
@@ -210,7 +220,7 @@ function restoreFixedMain() {
   fs.writeFileSync(mainMap, fixedMap)
 }
 
-function appEnv(sandbox) {
+function appEnv(sandbox, dataDir, cacheDir) {
   const env = { ...process.env }
   for (const key of ['ELECTRON_RUN_AS_NODE', 'APPIMAGE', 'APPDIR', 'OWD']) delete env[key]
   return {
@@ -227,8 +237,12 @@ function appEnv(sandbox) {
   }
 }
 
-async function launch(executable, sandbox) {
-  const app = await _electron.launch({ executablePath: executable, args: [], env: appEnv(sandbox) })
+async function launch(executable, sandbox, dataDir, cacheDir) {
+  const app = await _electron.launch({
+    executablePath: executable,
+    args: [],
+    env: appEnv(sandbox, dataDir, cacheDir),
+  })
   const page = await app.firstWindow()
   await page.waitForURL('app://stimma/**', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => window.stimmaDesktop?.kind === 'electron')
@@ -288,7 +302,7 @@ try {
   publish(fixed)
 
   console.log('exercising buggy -> fixed with forced recheck...')
-  activeApp = await launch(installed, 'update-test-bridge')
+  activeApp = await launch(installed, 'update-test-bridge', bridgeDataDir, bridgeCacheDir)
   await stageRecheckAndRelaunch(activeApp, versions.fixed)
   activeApp = null
   await waitFor(() => sha512(installed) === sha512(fixed.appImage), 'fixed AppImage replacement')
@@ -298,19 +312,19 @@ try {
   // updater's auto-install-on-quit path. Whether that path loses its AppImage
   // mount is a timing race, so do not require the old binary to crash here.
   await new Promise((resolve) => setTimeout(resolve, 5_000))
-  const bridgeLog = fs.readFileSync(path.join(dataDir, 'Logs', 'Stimma-shell.log'), 'utf8')
+  const bridgeLog = fs.readFileSync(path.join(bridgeDataDir, 'Logs', 'Stimma-shell.log'), 'utf8')
   assert.match(bridgeLog, /Auto install update on quit/)
   await stopMarkedProcesses()
 
   console.log('recovering by launching the installed fixed AppImage...')
-  activeApp = await launch(installed, 'update-test-fixed')
+  activeApp = await launch(installed, 'update-test-fixed', fixedDataDir, fixedCacheDir)
   assert.equal(
     await activeApp.page.evaluate(() => window.stimmaDesktop.getAppVersion()),
     versions.fixed,
   )
 
   publish(next)
-  const logPath = path.join(dataDir, 'Logs', 'Stimma-shell.log')
+  const logPath = path.join(fixedDataDir, 'Logs', 'Stimma-shell.log')
   const startsBefore = count(fs.readFileSync(logPath, 'utf8'), 'Starting Electron shell')
   console.log('exercising fixed -> fixed with forced recheck...')
   await stageRecheckAndRelaunch(activeApp, versions.next)
