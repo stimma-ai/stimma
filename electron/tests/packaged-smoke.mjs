@@ -10,9 +10,9 @@
 
 import { execSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { makeScratchDir } from './scratch.mjs'
 
 const repoRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))))
 const defaultBinary = path.join(
@@ -34,7 +34,8 @@ const check = (label, condition) => {
   }
 }
 
-const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-packaged-smoke-'))
+const scratch = makeScratchDir('packaged-smoke-')
+const sandboxDir = scratch.dir
 const dataDir = path.join(sandboxDir, 'data')
 const cacheDir = path.join(sandboxDir, 'cache')
 const shellLog = path.join(dataDir, 'Logs', 'Stimma-shell.log')
@@ -175,8 +176,10 @@ check(
   survivors.length === 0,
 )
 
-if (process.env.STIMMA_SMOKE_KEEP_SANDBOX) console.log(`sandbox kept: ${sandboxDir}`)
-else fs.rmSync(sandboxDir, { recursive: true, force: true })
+if (process.env.STIMMA_SMOKE_KEEP_SANDBOX) {
+  scratch.preserve()
+  console.log(`sandbox kept: ${sandboxDir}`)
+} else scratch.cleanup()
 
 if (failed) process.exit(1)
 console.log('packaged smoke: all checks passed')

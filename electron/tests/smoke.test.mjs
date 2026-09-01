@@ -8,10 +8,10 @@
 import { createServer } from 'node:http'
 import { createReadStream, existsSync } from 'node:fs'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { makeScratchDir } from './scratch.mjs'
 
 const repoRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))))
 const electronRoot = path.join(repoRoot, 'electron')
@@ -56,7 +56,8 @@ const server = createServer((req, res) => {
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
 const port = server.address().port
 
-const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-electron-smoke-'))
+const scratch = makeScratchDir('electron-smoke-')
+const sandboxDir = scratch.dir
 const fakeBackendPort = 9999
 
 let failed = false
@@ -118,7 +119,7 @@ const logContents = existsSync(shellLog) ? fs.readFileSync(shellLog, 'utf8') : '
 check('shell log written with forwarded web line', logContents.includes('smoke-test log line'))
 
 server.close()
-fs.rmSync(sandboxDir, { recursive: true, force: true })
+scratch.cleanup()
 
 if (failed) process.exit(1)
 console.log('electron smoke: all checks passed')

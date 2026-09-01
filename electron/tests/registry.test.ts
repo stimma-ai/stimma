@@ -1,13 +1,26 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import test, { afterEach } from 'node:test'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
 import { WindowRegistry, profileWindowLabel } from '../src/registry.ts'
+import { makeScratchDir } from './scratch.mjs'
+
+const scratchCleanups = new Set<() => void>()
+
+function tmpDir(): string {
+  const scratch = makeScratchDir('registry-test-')
+  scratchCleanups.add(scratch.cleanup)
+  return scratch.dir
+}
+
+afterEach(() => {
+  for (const cleanup of scratchCleanups) cleanup()
+  scratchCleanups.clear()
+})
 
 test('registry round-trips through disk', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-registry-test-'))
+  const dir = tmpDir()
 
   const registry = new WindowRegistry(dir)
   assert.deepEqual(registry.snapshot(), [])
@@ -28,7 +41,7 @@ test('registry round-trips through disk', () => {
 })
 
 test('registry reads the Tauri-era windows.json format', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-registry-test-'))
+  const dir = tmpDir()
   // Exact shape persisted by src-tauri/src/windows.rs (serde_json pretty).
   fs.writeFileSync(
     path.join(dir, 'windows.json'),
@@ -50,7 +63,7 @@ test('registry reads the Tauri-era windows.json format', () => {
 })
 
 test('registry drops duplicate and empty labels on load', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-registry-test-'))
+  const dir = tmpDir()
   fs.writeFileSync(
     path.join(dir, 'windows.json'),
     JSON.stringify({
@@ -68,7 +81,7 @@ test('registry drops duplicate and empty labels on load', () => {
 })
 
 test('registry survives a corrupt file', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-registry-test-'))
+  const dir = tmpDir()
   fs.writeFileSync(path.join(dir, 'windows.json'), '{not json')
   const registry = new WindowRegistry(dir)
   assert.deepEqual(registry.snapshot(), [])

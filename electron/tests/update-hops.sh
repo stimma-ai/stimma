@@ -19,7 +19,13 @@ RESUME_DIR="${4:-}"
 
 # NOT under /tmp: the Tauri updater refuses app paths that traverse a
 # symlink (/tmp -> /private/tmp) with "StartingBinary ... symlink".
-WORK="$(mktemp -d "$HOME/.stimma-update-hop.XXXXXX")"
+SCRATCH_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/stimma/scratch"
+mkdir -p "$SCRATCH_ROOT"
+WORK="$(mktemp -d "$SCRATCH_ROOT/update-hop.XXXXXX")"
+cleanup() {
+  rm -rf -- "$WORK"
+}
+trap cleanup EXIT HUP INT TERM
 echo "workdir: $WORK"
 DATA="$WORK/data"; CACHE="$WORK/cache"
 mkdir -p "$DATA" "$CACHE"

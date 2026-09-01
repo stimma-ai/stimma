@@ -2,11 +2,10 @@
 // frontend, isolated temp sandbox, Playwright _electron driver.
 import { createServer } from 'node:http'
 import { createReadStream, existsSync } from 'node:fs'
-import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { makeScratchDir } from './scratch.mjs'
 
 export const repoRoot = path.dirname(
   path.dirname(path.dirname(fileURLToPath(import.meta.url))),
@@ -64,12 +63,13 @@ export async function waitForFrontendWindow(page, frontendPort) {
 }
 
 export function makeSandbox() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-electron-test-'))
+  const scratch = makeScratchDir('electron-test-')
+  const dir = scratch.dir
   return {
     dir,
     dataDir: path.join(dir, 'data'),
     cacheDir: path.join(dir, 'cache'),
-    cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
+    cleanup: scratch.cleanup,
   }
 }
 

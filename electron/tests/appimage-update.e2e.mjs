@@ -7,11 +7,11 @@ import { spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { createServer } from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { build as esbuild } from 'esbuild'
+import { makeScratchDir } from './scratch.mjs'
 
 const electronRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const repoRoot = path.dirname(electronRoot)
@@ -26,7 +26,9 @@ const versions = {
   next: '9.9.0-update-test.3',
 }
 
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'stimma-appimage-update-'))
+const scratch = makeScratchDir('appimage-update-')
+const work = scratch.dir
+const tempDir = path.join(work, 'tmp')
 const feedDir = path.join(work, 'feed')
 const installDir = path.join(work, 'install')
 const homeDir = path.join(work, 'home')
@@ -46,6 +48,10 @@ for (const dir of [
 ]) {
   fs.mkdirSync(dir, { recursive: true })
 }
+fs.mkdirSync(tempDir, { recursive: true })
+// electron-builder, AppImage tools, and launched AppImages all honor TMPDIR.
+// Keep their large extraction/build trees off a tmpfs /tmp as well.
+process.env.TMPDIR = tempDir
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -347,5 +353,5 @@ try {
   if (activeApp) await activeApp.app.close().catch(() => {})
   await stopMarkedProcesses()
   await new Promise((resolve) => server.close(resolve))
-  fs.rmSync(work, { recursive: true, force: true })
+  scratch.cleanup()
 }
