@@ -10,7 +10,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import { APP_ORIGIN, installAppProtocolHandler, registerAppScheme } from './appProtocol'
-import { startBackend } from './backend'
+import { shutdownBackend, startBackend } from './backend'
 import { initHelper, shutdownHelper } from './helper'
 import { prepareLegacyStorageImport } from './legacyStorage'
 import { readPackagedMetadata, resolveIdentity } from './identity'
@@ -67,6 +67,9 @@ if (!app.requestSingleInstanceLock()) {
   registerIpcHandlers()
   startBackend(identity, app.getVersion())
 
+  app.on('before-quit', () => {
+    shutdownBackend()
+  })
   app.on('will-quit', () => {
     shutdownHelper()
   })

@@ -6,7 +6,7 @@
  * parse. Dev mode: the developer runs the backend; the port comes from env.
  */
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
@@ -14,6 +14,7 @@ import type { AppIdentity } from './identity'
 import { log } from './log'
 
 let backendPort: number | null = null
+let watchdogPid: number | null = null
 
 export function getBackendPortSync(): number | null {
   return backendPort
@@ -96,6 +97,7 @@ export function startBackend(identity: AppIdentity, appVersion: string): void {
   )
 
   log.info('stimma', `Watchdog spawned with pid: ${child.pid}`)
+  watchdogPid = child.pid ?? null
 
   const attach = (stream: NodeJS.ReadableStream, level: 'info' | 'warn') => {
     const rl = readline.createInterface({ input: stream })
@@ -112,7 +114,36 @@ export function startBackend(identity: AppIdentity, appVersion: string): void {
   attach(child.stderr!, 'warn')
 
   child.on('exit', (code, signal) => {
+    if (watchdogPid === child.pid) watchdogPid = null
     log.error('stimma', `Watchdog exited (code=${code}, signal=${signal})`)
   })
   child.unref()
+}
+
+/**
+ * Stop the packaged backend before Windows replaces the installation tree.
+ *
+ * Parent-death monitoring is normally sufficient, but on Windows the cmd.exe
+ * launcher can disappear before the watchdog observes Electron's exit. That
+ * orphans Python inside resources/ and makes NSIS stop at "cannot be closed".
+ * Killing the watchdog tree while it is still intact includes cmd.exe, Python,
+ * and multiprocessing children, and spawnSync keeps the installer behind it.
+ */
+export function shutdownBackend(): void {
+  backendPort = null
+  if (process.platform !== 'win32' || watchdogPid === null) return
+
+  const pid = watchdogPid
+  watchdogPid = null
+  log.info('backend', `Stopping watchdog process tree ${pid}`)
+  const result = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+    windowsHide: true,
+    encoding: 'utf8',
+  })
+  if (result.status !== 0) {
+    log.warn(
+      'backend',
+      `taskkill for watchdog ${pid} exited ${result.status}: ${result.stderr?.trim() || result.stdout?.trim() || 'unknown error'}`,
+    )
+  }
 }

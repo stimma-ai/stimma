@@ -21,6 +21,8 @@
  */
 
 import { app } from 'electron'
+import { shutdownBackend } from './backend'
+import { shutdownHelper } from './helper'
 import { readPackagedMetadata } from './identity'
 import { log } from './log'
 import { UpdaterState } from './updaterState'
@@ -113,7 +115,10 @@ export async function updaterDownloadAndInstall(): Promise<void> {
     await getAutoUpdater().downloadUpdate()
     state.markDownloaded(version)
   }
-  getAutoUpdater().quitAndInstall(false, true)
+  // Keep the bridge call awaitable. The renderer follows this with relaunch(),
+  // which performs the one authoritative quitAndInstall after the backend and
+  // helper have released the installation tree. Calling it here as well races
+  // two installers and returns before Electron has actually quit.
 }
 
 export function updaterClose(): void {
@@ -130,6 +135,11 @@ export function updaterClose(): void {
  */
 export function relaunchApp(): void {
   if (state.hasDownloadedUpdate()) {
+    // NSIS refuses to proceed while packaged Python/native binaries are alive.
+    // Stop them before launching the installer, while the watchdog still owns
+    // the complete backend process tree.
+    shutdownHelper()
+    shutdownBackend()
     getAutoUpdater().quitAndInstall(false, true)
     return
   }
