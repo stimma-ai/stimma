@@ -22,6 +22,8 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import numpy as np
 
+from portable_path import PortableProfilePath
+
 Base = declarative_base()
 
 
@@ -33,7 +35,7 @@ class MediaItem(Base):
     # File information
     # A source locator is not Media identity: watched files can change in place,
     # producing multiple immutable Media revisions at the same external path.
-    file_path = Column(String, nullable=False, index=True)
+    file_path = Column(PortableProfilePath, nullable=False, index=True)
     file_hash = Column(String, nullable=False, index=True)
     file_size = Column(Integer, nullable=False)  # bytes
     file_format = Column(String, nullable=False, index=True)  # jpg, png, mp4, etc.
@@ -426,7 +428,7 @@ class WorkingDocument(Base):
     editor_type = Column(String, nullable=False, index=True)
     branch_key = Column(String, nullable=False, default="main")
     base_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='SET NULL'), nullable=True, index=True)
-    state_locator = Column(String, nullable=True)
+    state_locator = Column(PortableProfilePath, nullable=True)
     generation = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -546,7 +548,7 @@ class ManagedArtifact(Base):
     owner_id = Column(String, nullable=False, index=True)
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=True, index=True)
     artifact_kind = Column(String, nullable=False, index=True)
-    locator = Column(String, nullable=False)
+    locator = Column(PortableProfilePath, nullable=False)
     state = Column(String, nullable=False, default="available", index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True, index=True)
@@ -748,7 +750,7 @@ class GenerationJob(Base):
     model_name = Column(String, nullable=False)  # Model being used
     parameters = Column(String, nullable=False)  # JSON string of generation parameters
     # Private staging path. The name is retained for database compatibility.
-    folder_path = Column(String, nullable=False)
+    folder_path = Column(PortableProfilePath, nullable=False)
 
     # Generator tracking (new architecture)
     generator_instance_id = Column(String, nullable=True, index=True)  # Which generator owns this job (UUID for clients, ID for server-side)
@@ -937,7 +939,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    root_path = Column(String, nullable=True)
+    root_path = Column(PortableProfilePath, nullable=True)
     additional_instructions = Column(Text, nullable=True)
     memory = Column(Text, nullable=True)
     agent_tool_config = Column(String, nullable=True)
@@ -1195,7 +1197,7 @@ class MediaLineage(Base):
 
     # Source - either internal ID or external path
     source_media_id = Column(Integer, ForeignKey('media_items.id', ondelete='SET NULL'), nullable=True, index=True)
-    source_file_path = Column(String, nullable=True)  # For external/imported files
+    source_file_path = Column(PortableProfilePath, nullable=True)  # For external/imported files
 
     # Ordering for multi-input tasks (image-to-image can have multiple inputs)
     source_order = Column(Integer, nullable=False, default=0)
@@ -1294,7 +1296,7 @@ class DeleteOperationItem(Base):
 
     operation_id = Column(Integer, ForeignKey('delete_operations.id', ondelete='CASCADE'), nullable=False, primary_key=True)
     media_id = Column(Integer, nullable=False, primary_key=True, index=True)
-    file_path = Column(String, nullable=True)
+    file_path = Column(PortableProfilePath, nullable=True)
     file_hash = Column(String, nullable=True)
     storage_object_id = Column(Integer, nullable=True)
     storage_object_key = Column(String, nullable=True)
@@ -1316,7 +1318,7 @@ class MediaThumbnailCache(Base):
     __tablename__ = "media_thumbnail_cache"
 
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, primary_key=True)
-    cache_path = Column(String, nullable=False, primary_key=True)
+    cache_path = Column(PortableProfilePath, nullable=False, primary_key=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (

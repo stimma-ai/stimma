@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import OperationalError
 
 from asset_service import create_asset_from_media, create_asset_snapshot
@@ -92,6 +92,19 @@ async def test_identical_media_share_object_until_last_asset_is_deleted(
         await cleanup_staged_source(session, media_id=second.id)
         assert not first_source.exists()
         assert not second_source.exists()
+
+        persisted_paths = list((await session.execute(text(
+            "SELECT file_path FROM media_items WHERE id IN (:first, :second) ORDER BY id"
+        ), {"first": first.id, "second": second.id})).scalars())
+        assert persisted_paths == [
+            f"objects/media/{first.id}/first.png",
+            f"objects/media/{second.id}/second.png",
+        ]
+
+    async with db_session() as session:
+        reloaded = await session.get(MediaItem, first.id)
+        assert Path(reloaded.file_path).is_absolute()
+        assert Path(reloaded.file_path).is_file()
 
     await _delete_asset(client, first_asset.id)
     assert object_file.exists()

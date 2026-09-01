@@ -1,7 +1,16 @@
 import subprocess
 
 import ffmpeg_checker
+import pytest
 from ffmpeg_checker import ExecutableStatus, FFmpegChecker
+
+
+@pytest.fixture(autouse=True)
+def _isolate_checker_cache():
+    """Synthetic health results must not leak into later media tests."""
+    FFmpegChecker().clear_cache()
+    yield
+    FFmpegChecker().clear_cache()
 
 
 def _checker(monkeypatch):

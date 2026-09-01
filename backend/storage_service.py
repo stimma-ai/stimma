@@ -259,6 +259,7 @@ async def stage_managed_media(
     await asyncio.to_thread(_install_media_link, destination, compatibility_path)
     await asyncio.to_thread(_install_editor_sidecar, source, compatibility_path)
     media.storage_object_id = storage.id
+    # PortableProfilePath contracts this runtime path when it is persisted.
     media.file_path = str(compatibility_path)
     if remove_source and source.resolve() not in {
         destination.resolve(), compatibility_path.resolve()
@@ -432,7 +433,7 @@ async def resolve_media_path(session: AsyncSession, media: MediaItem, profile_id
     if storage is None or storage.deleted_at is not None:
         raise StorageServiceError("StorageObject is unavailable")
     if storage.kind == "managed":
-        return Path(media.file_path)
+        return object_path(profile_id, storage.object_key)
     return Path(storage.external_path)
 
 
