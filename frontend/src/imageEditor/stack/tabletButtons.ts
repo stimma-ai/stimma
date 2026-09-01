@@ -31,3 +31,14 @@ export function heldButtonMask(button: number): number {
   if (button === 4) return 16
   return 0
 }
+
+/**
+ * Chromium can occasionally resume pen hover without delivering the captured
+ * pointerup first. A hover has no primary/tip button held, so it must never be
+ * allowed to extend the active paint stroke.
+ */
+export function penTipContactLost(
+  event: Pick<PointerEvent, 'buttons' | 'pointerType'>,
+): boolean {
+  return event.pointerType === 'pen' && (event.buttons & 1) === 0
+}

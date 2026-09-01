@@ -31,6 +31,7 @@ import { BrushStrokeRuntime, repairActivePenPressureDropouts } from '../brush/br
 import { brushPreset } from '../brush/brushPresets'
 import type { BrushInputSample, BrushPresetDefinition } from '../brush/types'
 import { fittedBrushScale, zoomedBrushSize } from '../stack/viewportRaster'
+import { penTipContactLost } from '../stack/tabletButtons'
 
 interface RasterGestureMetadata {
   tool: string
@@ -614,6 +615,19 @@ function onPointerMove(event: PointerEvent) {
   if (activePointerId !== null && event.pointerId !== activePointerId) return
   const rect = overlay.value?.getBoundingClientRect()
   if (rect) cursor.value = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  // A few Wacom/Chromium combinations can transition straight from contact to
+  // hover without routing pointerup back through the captured canvas. Do not
+  // feed those pressure-zero hover samples into the active brush runtime.
+  if (drawing && penTipContactLost(event)) {
+    releasePointer(event.pointerId)
+    activePointerId = null
+    if (props.engineId === 'gradient') {
+      updateGradient(pointFrom(event), event.shiftKey)
+    }
+    commitActiveStroke()
+    gradientGesture = null
+    return
+  }
   if (patchDrag) {
     patchDrag.current = pointFrom(event)
     drawOverlay()
@@ -713,7 +727,7 @@ async function onPointerUp(event: PointerEvent) {
     }
   } else if (props.engineId === 'paint' || props.engineId === 'erase') {
     // Release is authoritative when pointer capture dropped the last move.
-    pushBrushSample(event)
+    pushBrushSamples([event])
   }
   commitActiveStroke()
   gradientGesture = null
