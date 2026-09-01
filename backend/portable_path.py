@@ -15,16 +15,18 @@ def _profile_dir() -> Path:
 
 
 def contract_profile_path(value: str) -> str:
-    """Store Stimma-owned paths without machine-specific directory prefixes."""
+    """Store Stimma-owned paths without machine-specific directory prefixes.
+
+    Data locators include the profile directory below ``@data``.  A bare path
+    is ambiguous when work for multiple profiles runs concurrently, because a
+    SQLAlchemy result processor has no reliable way to know which profile's
+    database produced the value.
+    """
     import app_dirs
 
     path = Path(value)
     if not path.is_absolute():
-        return path.as_posix()
-    try:
-        return path.relative_to(_profile_dir()).as_posix()
-    except (RuntimeError, ValueError):
-        pass
+        path = _profile_dir() / path
     for marker, root in (
         ("@data", app_dirs.get_data_dir()),
         ("@cache", app_dirs.get_cache_dir()),
@@ -47,6 +49,7 @@ def expand_profile_path(value: str) -> str:
     if path.parts and path.parts[0] == "@cache":
         import app_dirs
         return str(app_dirs.get_cache_dir().joinpath(*path.parts[1:]))
+    # Legacy fallback for databases that have not run the follow-up migration.
     return str(_profile_dir() / path)
 
 

@@ -97,8 +97,8 @@ async def test_identical_media_share_object_until_last_asset_is_deleted(
             "SELECT file_path FROM media_items WHERE id IN (:first, :second) ORDER BY id"
         ), {"first": first.id, "second": second.id})).scalars())
         assert persisted_paths == [
-            f"objects/media/{first.id}/first.png",
-            f"objects/media/{second.id}/second.png",
+            f"@data/default/objects/media/{first.id}/first.png",
+            f"@data/default/objects/media/{second.id}/second.png",
         ]
 
     async with db_session() as session:
