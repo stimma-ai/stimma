@@ -29,18 +29,20 @@ No account is required. Source builds send no telemetry and do not check for upd
 
 ## Running from source
 
-You need **Node.js 20+**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), **Rust** (for the desktop shell), and **FFmpeg** on `PATH`. Everything goes through the dev CLI at `tools/stimma` (it self-installs Deno on first run; run it with no args for full help):
+You need **Node.js 20+**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), **Rust** (for the desktop shell), and **FFmpeg** on `PATH`. Windows additionally needs Visual Studio Build Tools with the C++ workload; the PowerShell launcher imports its MSVC environment automatically, so a normal Windows Terminal tab is sufficient. Everything goes through the dev CLI (it self-installs Deno on first run; run it with no args for full help):
 
 ```bash
-tools/stimma dev all        # backend + frontend + Tauri shell, merged logs
+tools/stimma dev all        # backend + frontend + Electron shell, merged logs
 ```
+
+On Windows, use `tools\stimma.cmd dev all` (or `tools\stimma.ps1 dev all` from PowerShell). The Electron shell is the default on every platform; pass `--shell=tauri` only for migration comparisons.
 
 or run the pieces separately:
 
 ```bash
 tools/stimma dev backend    # FastAPI on :9191, auto-reload
 tools/stimma dev frontend   # Vite on :9192, HMR
-tools/stimma dev app        # Tauri shell
+tools/stimma dev app        # Electron shell
 ```
 
 Dependencies install on first run. Development uses its own data directory and config, separate from any packaged install — see [docs/DATA_DIRECTORIES.md](docs/DATA_DIRECTORIES.md).

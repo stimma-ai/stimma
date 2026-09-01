@@ -11,6 +11,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   assertPrereqs,
+  electronBinary,
+  electronRoot,
   launchShell,
   makeSandbox,
   startFrontendServer,
@@ -35,11 +37,13 @@ const { server, port } = await startFrontendServer()
 const sandbox = makeSandbox()
 fs.mkdirSync(sandbox.dataDir, { recursive: true })
 
-// Fixture WKWebView database (schema matches the real ItemTable).
-const fixtureDb = process.platform === 'linux'
+// Fixture Tauri database: WebView2/Chromium LevelDB on Windows, WebKit's
+// SQLite/flat-file storage on macOS/Linux.
+const fixtureDb = process.platform === 'win32'
+  ? path.join(sandbox.dataDir, 'browser', 'EBWebView', 'Default', 'Local Storage', 'leveldb')
+  : process.platform === 'linux'
   ? path.join(sandbox.dataDir, 'browser', 'localstorage', 'tauri_localhost_0.localstorage')
   : path.join(sandbox.dir, 'localstorage.sqlite3')
-fs.mkdirSync(path.dirname(fixtureDb), { recursive: true })
 const rows = [
   ['profileId', 'profile-legacy1'],
   ['stimma_bundle_id', 'ai.stimma.stimma.canary'],
@@ -47,13 +51,29 @@ const rows = [
   ['stimma_ai.stimma.stimma.canary_default_profile-legacy1_workspace_tabs', '{"tabs":[{"id":"tool-1"}]}'],
   ['stimma_global_theme', 'dark'],
 ]
-const inserts = rows
-  .map(([k, v]) => `INSERT INTO ItemTable VALUES ('${k}', X'${utf16leHex(v)}');`)
-  .join('\n')
-execFileSync('sqlite3', [
-  fixtureDb,
-  `CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB NOT NULL ON CONFLICT FAIL);\n${inserts}`,
-])
+
+const writeWindowsFixture = (fixtureRows) => {
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  execFileSync(electronBinary, [
+    path.join(electronRoot, 'tests', 'write-chromium-storage-fixture.cjs'),
+    path.join(sandbox.dataDir, 'browser', 'EBWebView', 'Default'),
+    Buffer.from(JSON.stringify(fixtureRows)).toString('base64'),
+  ], { env, stdio: 'inherit' })
+}
+
+if (process.platform === 'win32') {
+  writeWindowsFixture(rows)
+} else {
+  fs.mkdirSync(path.dirname(fixtureDb), { recursive: true })
+  const inserts = rows
+    .map(([k, v]) => `INSERT INTO ItemTable VALUES ('${k}', X'${utf16leHex(v)}');`)
+    .join('\n')
+  execFileSync('sqlite3', [
+    fixtureDb,
+    `CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB NOT NULL ON CONFLICT FAIL);\n${inserts}`,
+  ])
+}
 
 const markerPath = path.join(sandbox.dataDir, 'webkit-storage-imported.json')
 // A prior transient helper/read failure may have left a negative marker.
@@ -61,9 +81,9 @@ const markerPath = path.join(sandbox.dataDir, 'webkit-storage-imported.json')
 fs.writeFileSync(markerPath, JSON.stringify({ imported: false, reason: 'no-stimma-origin' }))
 const launch = () => launchShell({ sandbox, frontendPort: port })
 
-// launchShell doesn't pass custom env; splice the override into process.env
-// for the child (harness spreads process.env).
-if (process.platform !== 'linux') process.env.STIMMA_LEGACY_STORAGE_DB = fixtureDb
+// macOS uses a direct fixture override. Linux/Windows exercise their real
+// platform discovery paths.
+if (process.platform === 'darwin') process.env.STIMMA_LEGACY_STORAGE_DB = fixtureDb
 
 const app = await launch()
 try {
@@ -92,6 +112,10 @@ try {
   const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'))
   check(`marker written (imported=${marker.imported}, written=${marker.written})`, marker.imported === true)
   check('marker counted the writes', marker.written === rows.length)
+
+  // Remove one imported value from Electron. A marker-gated second launch
+  // must leave it absent even after the Tauri source changes.
+  await page.evaluate(() => localStorage.removeItem('stimma_global_theme'))
 } finally {
   await app.close()
 }
@@ -99,17 +123,21 @@ try {
 // Second launch: marker gates the import; existing values must not be
 // clobbered even though the fixture is still present. Mutate a value in the
 // fixture to prove nothing is re-read.
-execFileSync('sqlite3', [
-  fixtureDb,
-  `UPDATE ItemTable SET value = X'${utf16leHex('CLOBBERED')}' WHERE key = 'stimma_global_theme';`,
-])
+if (process.platform === 'win32') {
+  writeWindowsFixture([['stimma_global_theme', 'CLOBBERED']])
+} else {
+  execFileSync('sqlite3', [
+    fixtureDb,
+    `UPDATE ItemTable SET value = X'${utf16leHex('CLOBBERED')}' WHERE key = 'stimma_global_theme';`,
+  ])
+}
 
 const app2 = await launch()
 try {
   const page = await app2.firstWindow()
   await waitForFrontendWindow(page, port)
   const theme = await page.evaluate(() => localStorage.getItem('stimma_global_theme'))
-  check('second launch does not re-import (marker gate)', theme === 'dark')
+  check('second launch does not re-import (marker gate)', theme === null)
 } finally {
   await app2.close()
 }

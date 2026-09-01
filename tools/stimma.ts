@@ -1439,6 +1439,23 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       category: "Graphics",
       syncDesktopName: true,
     },
+    win: {
+      target: ["nsis"],
+      icon: "../src-tauri/icons/icon.ico",
+      // Match the executable installed by Tauri. The handoff installer can
+      // therefore replace the fielded app in place instead of leaving two
+      // different Stimma executables behind.
+      executableName: "stimma",
+      artifactName: "${productName}-Setup-${version}.${ext}",
+    },
+    nsis: {
+      oneClick: true,
+      perMachine: false,
+      allowElevation: false,
+      deleteAppDataOnUninstall: false,
+      include: "build/installer.nsh",
+      artifactName: "${productName}-Setup-${version}.${ext}",
+    },
     // Configuring the publish provider makes electron-builder emit
     // latest-mac.yml/latest.yml next to the artifacts; actual uploading is
     // done by the release workflow (R2), never by the builder.

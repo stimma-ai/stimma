@@ -96,3 +96,17 @@ jobs:
       publish_updates: true
       publish_github_release: false
     secrets: inherit
+
+  windows:
+    name: Windows x64
+    needs:
+      - version
+      - quality-gate
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      ref: ${{ needs.version.outputs.ref }}
+      channel: canary
+      version: ${{ needs.version.outputs.version }}
+      publish_updates: true
+      publish_github_release: false
+    secrets: inherit

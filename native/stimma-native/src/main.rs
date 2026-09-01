@@ -6,6 +6,7 @@
 //! Speaks the JSON-lines protocol in protocol.rs over stdio. Logs to stderr.
 //! Exits when stdin closes (parent death) after cancelling any live capture.
 
+mod chromium_storage;
 mod embed;
 mod protocol;
 mod voice;
@@ -120,6 +121,16 @@ fn handle_request(
         "read_webkit_local_storage" => {
             match serde_json::from_value::<webkit_storage::ReadRequest>(params) {
                 Ok(req) => match webkit_storage::read_local_storage(req) {
+                    Ok(items) => writer.respond_ok(id, serde_json::json!({ "items": items })),
+                    Err(e) => writer.respond_err(id, &e),
+                },
+                Err(e) => writer.respond_err(id, &format!("invalid request: {e}")),
+            }
+        }
+
+        "read_chromium_local_storage" => {
+            match serde_json::from_value::<chromium_storage::ReadRequest>(params) {
+                Ok(req) => match chromium_storage::read_local_storage(req) {
                     Ok(items) => writer.respond_ok(id, serde_json::json!({ "items": items })),
                     Err(e) => writer.respond_err(id, &e),
                 },

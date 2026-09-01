@@ -11,7 +11,8 @@
     "test": "npm run build && npm run test:unit && npm run test:e2e",
     "test:unit": "node --test --experimental-strip-types tests/*.test.ts",
     "test:e2e": "node scripts/test-e2e.mjs",
-    "test:update-linux": "node scripts/test-appimage-update.mjs"
+    "test:update-linux": "node scripts/test-appimage-update.mjs",
+    "test:update-windows-installed": "node tests/windows-installed-update.e2e.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

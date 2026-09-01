@@ -85,7 +85,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            electron/package-lock.json
 
       - name: Setup Rust
         shell: powershell
@@ -107,13 +109,17 @@ jobs:
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            native/stimma-native
           save-if: false
 
       - name: Ensure Visual Studio Build Tools
         shell: powershell
         run: |
           $vcvarsCandidates = @(
+            "C:\Program Files\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat",
             "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
             "C:\Program Files (x86)\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
             "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
@@ -159,6 +165,8 @@ jobs:
         shell: powershell
         run: |
           $vcvarsCandidates = @(
+            "C:\Program Files\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat",
             "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
             "C:\Program Files (x86)\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
             "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
@@ -224,7 +232,11 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
-        run: npm install
+        run: npm ci
+
+      - name: Install Electron deps
+        working-directory: electron
+        run: npm ci
 
       - name: Install backend deps
         working-directory: backend
@@ -259,7 +271,7 @@ jobs:
       - name: Set app version in build manifests
         shell: powershell
         env:
-          VERSION: ${{ steps.version.outputs.windows_version }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           @'
           import json
@@ -331,13 +343,10 @@ jobs:
         env:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/windows-x86_64/latest.json
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          RUST_LOG: tauri_bundler=trace
-        # Windows stays on the Tauri shell until the Electron port's Phase 7.
-        run: powershell -ExecutionPolicy Bypass -File tools/stimma.ps1 app build --shell=tauri
+          STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
+        run: powershell -ExecutionPolicy Bypass -File tools/stimma.ps1 --channel=${{ env.STIMMA_RELEASE_CHANNEL }} app build --release --shell=electron
 
-      - name: Print MSI payload stats
+      - name: Print portable backend payload stats
         if: always()
         shell: powershell
         run: |
@@ -346,8 +355,8 @@ jobs:
             $files = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue
             $count = ($files | Measure-Object).Count
             $size = ($files | Measure-Object -Property Length -Sum).Sum
-            Write-Host "MSI backend payload files: $count"
-            Write-Host ("MSI backend payload size bytes: {0}" -f $size)
+            Write-Host "Electron backend payload files: $count"
+            Write-Host ("Electron backend payload size bytes: {0}" -f $size)
           } else {
             Write-Host "MSI payload root not found: $root"
           }
@@ -356,31 +365,77 @@ jobs:
         if: failure()
         shell: powershell
         run: |
-          Write-Host "Bundle directory:"
-          Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName,Length | Format-Table -AutoSize
+          Write-Host "Electron output directory:"
+          Get-ChildItem -Path "electron/out" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName,Length | Format-Table -AutoSize
+
+      - name: Create Tauri-compatible updater artifact (handoff)
+        shell: powershell
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $installer = Get-ChildItem electron/out -File -Filter "*.exe" | Where-Object { $_.Name -like "*Setup*" } | Select-Object -First 1
+          if (-not $installer) { throw "Electron NSIS installer was not generated." }
+
+          # Fielded Tauri clients expect a minisign-signed .nsis.zip whose
+          # payload is an NSIS installer. Using the Electron installer here
+          # performs the one-time shell handoff in place.
+          $archive = Join-Path $installer.DirectoryName "$($installer.BaseName).nsis.zip"
+          Compress-Archive -LiteralPath $installer.FullName -DestinationPath $archive -CompressionLevel Optimal -Force
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY is required for the Tauri-to-Electron handoff."
+          }
+          & frontend/node_modules/.bin/tauri.cmd signer sign `
+            --private-key $env:TAURI_SIGNING_PRIVATE_KEY `
+            --password $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD `
+            $archive
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path "$archive.sig")) {
+            throw "Failed to sign Tauri handoff artifact."
+          }
+
+      - name: Generate electron-updater manifest
+        shell: powershell
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $installer = Get-ChildItem electron/out -File -Filter "*.exe" | Where-Object { $_.Name -like "*Setup*" } | Select-Object -First 1
+          if (-not $installer) { throw "Electron NSIS installer was not generated." }
+          $sha = [System.Security.Cryptography.SHA512]::Create()
+          try {
+            $stream = [System.IO.File]::OpenRead($installer.FullName)
+            try { $digest = [Convert]::ToBase64String($sha.ComputeHash($stream)) } finally { $stream.Dispose() }
+          } finally { $sha.Dispose() }
+          $stamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.000Z")
+          $manifest = @"
+          version: $env:VERSION
+          files:
+            - url: $($installer.Name)
+              sha512: $digest
+              size: $($installer.Length)
+          path: $($installer.Name)
+          sha512: $digest
+          releaseDate: '$stamp'
+          "@
+          [System.IO.File]::WriteAllText((Join-Path $installer.DirectoryName "latest.yml"), $manifest, [System.Text.UTF8Encoding]::new($false))
 
       - name: Collect build artifacts
         id: collect
         shell: powershell
         run: |
-          $bundleDir = "src-tauri/target/release/bundle"
-
-          # NSIS installer (.exe)
-          $installer = Get-ChildItem -Path $bundleDir -Recurse -Filter *.exe | Where-Object { $_.Name -like "*setup*" -or $_.Directory.Name -eq "nsis" } | Select-Object -First 1
+          $bundleDir = "electron/out"
+          $installer = Get-ChildItem -Path $bundleDir -File -Filter *.exe | Where-Object { $_.Name -like "*Setup*" } | Select-Object -First 1
           if (-not $installer) { throw "NSIS installer was not generated." }
-
-          # NSIS updater artifact (.nsis.zip + .nsis.zip.sig)
-          $archive = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.nsis.zip" | Select-Object -First 1
+          $blockmap = Get-Item "$($installer.FullName).blockmap" -ErrorAction Stop
+          $electronManifest = Get-Item (Join-Path $bundleDir "latest.yml") -ErrorAction Stop
+          $archive = Get-ChildItem -Path $bundleDir -File -Filter "*.nsis.zip" | Select-Object -First 1
           $sig = if ($archive) { Get-Item "$($archive.FullName).sig" -ErrorAction SilentlyContinue } else { $null }
+          if (-not $archive -or -not $sig) { throw "Signed Tauri handoff artifact was not generated." }
 
           "installer_file=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          if ($archive -and $sig) {
-            "app_archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "app_sig=$($sig.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          } else {
-            "app_archive=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "app_sig=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          }
+          "blockmap=$($blockmap.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "electron_manifest=$($electronManifest.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "app_archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "app_sig=$($sig.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Upload workflow artifacts
         continue-on-error: true
@@ -390,6 +445,8 @@ jobs:
           retention-days: 1
           path: |
             ${{ steps.collect.outputs.installer_file }}
+            ${{ steps.collect.outputs.blockmap }}
+            ${{ steps.collect.outputs.electron_manifest }}
             ${{ steps.collect.outputs.app_archive }}
             ${{ steps.collect.outputs.app_sig }}
 
@@ -402,6 +459,7 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ steps.collect.outputs.installer_file }}
+            ${{ steps.collect.outputs.blockmap }}
             ${{ steps.collect.outputs.app_archive }}
             ${{ steps.collect.outputs.app_sig }}
 
@@ -410,9 +468,11 @@ jobs:
         shell: powershell
         env:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          VERSION: ${{ steps.version.outputs.windows_version }}
+          VERSION: ${{ steps.version.outputs.version }}
           PUBLIC_VERSION: ${{ steps.version.outputs.version }}
           INSTALLER_FILE: ${{ steps.collect.outputs.installer_file }}
+          BLOCKMAP: ${{ steps.collect.outputs.blockmap }}
+          ELECTRON_MANIFEST: ${{ steps.collect.outputs.electron_manifest }}
           APP_ARCHIVE: ${{ steps.collect.outputs.app_archive }}
           APP_SIG: ${{ steps.collect.outputs.app_sig }}
           BUCKET: ${{ env.R2_BUCKET }}
@@ -429,6 +489,7 @@ jobs:
           $env:AWS_SECRET_ACCESS_KEY = $env:AWS_SECRET_ACCESS_KEY.Trim()
 
           $versionedPrefix = "stimma/$env:CHANNEL/windows-x86_64/$env:VERSION"
+          $platformPrefix = "stimma/$env:CHANNEL/windows-x86_64"
           $basename = [System.IO.Path]::GetFileName($env:APP_ARCHIVE)
           $installerBasename = [System.IO.Path]::GetFileName($env:INSTALLER_FILE)
           $basenameUrl = [System.Uri]::EscapeDataString($basename)
@@ -442,6 +503,11 @@ jobs:
           uvx --python 3.11 --from awscli aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$versionedPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
           uvx --python 3.11 --from awscli aws s3 cp "$env:APP_ARCHIVE" "s3://$env:BUCKET/$versionedPrefix/$basename" --content-type application/zip --endpoint-url "$env:R2_S3_ENDPOINT"
           uvx --python 3.11 --from awscli aws s3 cp "$env:APP_SIG" "s3://$env:BUCKET/$versionedPrefix/$basename.sig" --content-type text/plain --endpoint-url "$env:R2_S3_ENDPOINT"
+
+          # Electron-to-Electron update feed. The manifest uses a bare
+          # installer filename, so all three files live at the platform root.
+          uvx --python 3.11 --from awscli aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$platformPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$env:BLOCKMAP" "s3://$env:BUCKET/$platformPrefix/$installerBasename.blockmap" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
 
           # Write without BOM — Tauri's updater (serde_json) chokes on UTF-8 BOM
           $latestJson = @"
@@ -504,6 +570,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$env:ELECTRON_MANIFEST" "s3://$env:BUCKET/$platformPrefix/latest.yml" --content-type text/yaml --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
 
           $downloadJson = @"
           {
@@ -534,6 +601,7 @@ jobs:
           }
 
           $manifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/latest.json"
+          $electronManifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/latest.yml"
           $downloadManifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/download.json"
-          $body = @{ files = @($manifestUrl, $downloadManifestUrl) } | ConvertTo-Json -Compress
+          $body = @{ files = @($manifestUrl, $downloadManifestUrl, $electronManifestUrl) } | ConvertTo-Json -Compress
           Invoke-RestMethod -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$env:CF_ZONE_ID/purge_cache" -Headers @{ Authorization = "Bearer $env:CF_API_TOKEN"; "Content-Type" = "application/json" } -Body $body | Out-Null

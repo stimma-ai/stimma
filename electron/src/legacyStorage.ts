@@ -1,5 +1,5 @@
 /**
- * One-time import of WKWebView (Tauri-era) localStorage into Chromium.
+ * One-time import of Tauri-era localStorage into Electron Chromium.
  *
  * WKWebView leaves DOM storage on disk after the Tauri→Electron update:
  *   custom store:  ~/Library/WebKit/<bundleId>/WebsiteDataStore/<uuid>/
@@ -9,7 +9,11 @@
  *                    <hash>/<hash>/LocalStorage/localstorage.sqlite3
  *     (production builds never set a data-store-id)
  *
- * The origin-hash directories are salted and not derivable, so candidates are
+ * Windows/WebView2: <dataDir>/browser/EBWebView/Default/
+ *                     Local Storage/leveldb
+ *   Older Windows builds used <bundleRoot>/EBWebView instead of the sandbox.
+ *
+ * The macOS origin-hash directories are salted and not derivable, so candidates are
  * enumerated and identified by content (presence of stimma keys). The dump is
  * read via the stimma-native helper before any window exists, then injected
  * into localStorage by the preload — before any page script runs — writing
@@ -93,10 +97,24 @@ function originCandidates(originsRoot: string): string[] {
   return out
 }
 
-function discoverCandidates(identity: AppIdentity): string[] {
+type LegacyCandidate = {
+  path: string
+  helperMethod: 'read_webkit_local_storage' | 'read_chromium_local_storage'
+}
+
+function discoverCandidates(identity: AppIdentity): LegacyCandidate[] {
   // Test/dev override: point straight at a database file.
   const override = process.env.STIMMA_LEGACY_STORAGE_DB
-  if (override) return fs.existsSync(override) ? [override] : []
+  if (override) {
+    return fs.existsSync(override)
+      ? [{
+        path: override,
+        helperMethod: fs.statSync(override).isDirectory()
+          ? 'read_chromium_local_storage'
+          : 'read_webkit_local_storage',
+      }]
+      : []
+  }
 
   // WebKitGTK keeps the Tauri origin's localStorage directly inside the
   // configured webview data directory.  Unlike WKWebView on macOS there is
@@ -106,10 +124,28 @@ function discoverCandidates(identity: AppIdentity): string[] {
     try {
       return fs.readdirSync(localStorageRoot)
         .filter((name) => name.endsWith('.localstorage'))
-        .map((name) => path.join(localStorageRoot, name))
+        .map((name) => ({
+          path: path.join(localStorageRoot, name),
+          helperMethod: 'read_webkit_local_storage' as const,
+        }))
     } catch {
       return []
     }
+  }
+
+  if (process.platform === 'win32') {
+    const suffix = path.join('EBWebView', 'Default', 'Local Storage', 'leveldb')
+    const candidates = [
+      path.join(identity.dataDir, 'browser', suffix),
+      // Pre-sandbox Windows Tauri builds stored WebView2 beside `default/`.
+      path.join(path.dirname(identity.dataDir), suffix),
+    ]
+    return [...new Set(candidates)]
+      .filter((candidate) => fs.existsSync(candidate))
+      .map((candidate) => ({
+        path: candidate,
+        helperMethod: 'read_chromium_local_storage' as const,
+      }))
   }
 
   if (process.platform !== 'darwin') return []
@@ -136,7 +172,10 @@ function discoverCandidates(identity: AppIdentity): string[] {
   // predates the custom-store code.
   candidates.push(...originCandidates(path.join(webkitRoot, 'WebsiteData', 'Default')))
 
-  return candidates
+  return candidates.map((candidate) => ({
+    path: candidate,
+    helperMethod: 'read_webkit_local_storage' as const,
+  }))
 }
 
 function looksLikeStimmaDump(items: Record<string, string>): boolean {
@@ -168,21 +207,21 @@ export async function prepareLegacyStorageImport(identity: AppIdentity): Promise
   let readFailed = false
   for (const candidate of candidates) {
     try {
-      const result = (await helperRequest('read_webkit_local_storage', {
-        db_path: candidate,
+      const result = (await helperRequest(candidate.helperMethod, {
+        db_path: candidate.path,
       })) as { items?: Record<string, string> }
       const items = result?.items ?? {}
       if (looksLikeStimmaDump(items)) {
         log.info(
           'legacy-storage',
-          `Found WKWebView localStorage (${Object.keys(items).length} keys): ${candidate}`,
+          `Found Tauri localStorage (${Object.keys(items).length} keys): ${candidate.path}`,
         )
         pendingDump = items
         return
       }
     } catch (e) {
       readFailed = true
-      log.warn('legacy-storage', `Failed reading ${candidate}: ${e}`)
+      log.warn('legacy-storage', `Failed reading ${candidate.path}: ${e}`)
     }
   }
 

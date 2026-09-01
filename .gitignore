@@ -172,6 +172,9 @@ electron/node_modules/
 electron/dist/
 electron/out/
 electron/.generated-builder.json
+!electron/build/
+electron/build/*
+!electron/build/installer.nsh
 
 # Native helper
 native/stimma-native/target/

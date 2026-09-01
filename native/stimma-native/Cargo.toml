@@ -16,6 +16,7 @@ futures-util = "0.3"
 crc32fast = "1.4"
 sherpa-onnx = "1.13.3"
 rusqlite = { version = "0.32", features = ["bundled"] }
+rusty-leveldb = "4.0.1"
 
 [profile.release]
 strip = true

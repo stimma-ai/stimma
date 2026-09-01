@@ -41,6 +41,13 @@ function getAutoUpdater() {
     const { autoUpdater } = autoUpdaterModule
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+    // Each Stimma release channel already has an isolated feed directory.
+    // Pin the manifest name to latest(.yml/-mac.yml) so prerelease semver
+    // labels do not make electron-updater unexpectedly request canary.yml or
+    // beta.yml. Setting channel toggles allowDowngrade in electron-updater;
+    // turn it back off so a stale feed can never roll an install backward.
+    autoUpdater.channel = 'latest'
+    autoUpdater.allowDowngrade = false
     autoUpdater.logger = {
       info: (m: unknown) => log.info('updater', String(m)),
       warn: (m: unknown) => log.warn('updater', String(m)),
