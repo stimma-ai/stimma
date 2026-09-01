@@ -18,6 +18,7 @@ import { registerIpcHandlers } from './ipc'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
 import { WindowRegistry } from './registry'
+import { installTray } from './tray'
 import { initWindowState } from './windowState'
 import {
   installAppLifecycle,
@@ -87,6 +88,7 @@ if (!app.requestSingleInstanceLock()) {
       installAppProtocolHandler(path.join(process.resourcesPath, 'frontend'))
     }
     installApplicationMenu(identity.dev)
+    installTray(pkg.productName || 'Stimma')
     initWindowState(identity.dataDir)
     // WKWebView localStorage import must be resolved before the first window
     // loads: its preload injects the dump ahead of any page script.

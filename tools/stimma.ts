@@ -1412,6 +1412,8 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       { from: `../src-tauri/binaries/stimma-backend-${target}`, to: "stimma-backend" },
       { from: `../src-tauri/binaries/stimma-watchdog-${target}${ext}`, to: `stimma-watchdog${ext}` },
       { from: nativeHelper, to: `stimma-native${ext}` },
+      // Windows/Linux system-tray icon (macOS has no tray; harmless there).
+      { from: "../src-tauri/icons/32x32.png", to: "tray-icon.png" },
     ],
     mac: {
       target: macTargets,
