@@ -13,6 +13,13 @@ const CONTRACT_METHODS = [
   'getAppVersion',
   'relaunch',
   'log',
+  // multi-device
+  'mdGetState',
+  'mdRefreshDevices',
+  'mdSetActiveDevice',
+  'mdUseThisComputer',
+  'mdRetry',
+  'mdOnConnectionState',
   // windows / profiles
   'getWindowProfile',
   'reportWindowProfile',
@@ -74,6 +81,20 @@ for (const [name, bridge] of IMPLEMENTATIONS) {
     assert.deepEqual(extras, [], `${name} bridge has undeclared methods: ${extras.join(', ')}`)
   })
 }
+
+test('non-electron bridges report multi-device as absent, not broken', async () => {
+  // The chip hides itself when there are no devices, so a shell without
+  // multi-device support must report an empty list on a ready local device
+  // rather than an error state.
+  for (const bridge of [browserBridge, tauriBridge]) {
+    const state = await bridge.mdGetState()
+    assert.equal(state.connectionState, 'ready')
+    assert.equal(state.activeDeviceId, state.localDeviceId)
+    assert.deepEqual(state.devices, [])
+    assert.deepEqual(await bridge.mdRefreshDevices(), [])
+    assert.equal(typeof bridge.mdOnConnectionState(() => {}), 'function')
+  }
+})
 
 test('browser bridge inert operations resolve to safe defaults', async () => {
   assert.equal(await browserBridge.getWindowProfile(), null)

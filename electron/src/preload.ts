@@ -59,6 +59,23 @@ const stimmaDesktop = {
   relaunch: () => invoke<void>('stimma:relaunch'),
   log: (level: string, message: string) => invoke<void>('stimma:log', level, message),
 
+  // ---- multi-device --------------------------------------------------------
+  mdGetState: () =>
+    invoke<{
+      activeDeviceId: string
+      connectionState: 'connecting' | 'ready' | 'unreachable'
+      devices: unknown[]
+      localDeviceId: string
+    }>('stimma:md-get-state'),
+  mdRefreshDevices: () => invoke<unknown[]>('stimma:md-refresh-devices'),
+  mdSetActiveDevice: (deviceId: string) =>
+    invoke<string>('stimma:md-set-active-device', deviceId),
+  mdUseThisComputer: () => invoke<string>('stimma:md-use-this-computer'),
+  mdRetry: () => invoke<string>('stimma:md-retry'),
+  /** Main pushes every connection transition; returns an unsubscribe fn. */
+  mdOnConnectionState: (onEvent: (state: unknown) => void) =>
+    subscribeStream('stimma:connection-state', onEvent),
+
   // ---- windows / profiles --------------------------------------------------
   getWindowProfile: () => invoke<string | null>('stimma:get-window-profile'),
   reportWindowProfile: (profileId: string) =>

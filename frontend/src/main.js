@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { initApiConfig, isTauri, setStartupStatusCallback } from './apiConfig'
+import { initApiConfig, isTauri, setStartupStatusCallback, startedWithUnreachableDevice } from './apiConfig'
 import { initConsoleBridge, installVueConsoleHandlers } from './consoleBridge'
 // Import useProfile early to set up the global fetch interceptor before any API calls
 import './composables/useProfile'
@@ -105,6 +105,10 @@ if (isTauri()) {
 
 // Initialize API config (handles Tauri port detection) before mounting
 initApiConfig().then(() => {
+  // Profiles live on the active device. If it is unreachable there is nothing
+  // to resolve them against — mount anyway so ConnectionScreen can explain
+  // the situation and offer Retry / Use this computer.
+  if (startedWithUnreachableDevice()) return null
   return initializeCurrentProfile()
 }).then(() => {
   const app = createApp(App)

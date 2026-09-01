@@ -41,6 +41,31 @@ export interface DirectoryPickerOptions {
   defaultPath?: string
 }
 
+export type ConnectionState = 'connecting' | 'ready' | 'unreachable'
+
+export interface DeviceRoute {
+  kind: 'lan' | 'tailscale'
+  host: string
+  port: number
+}
+
+export interface DeviceRecord {
+  deviceId: string
+  name: string
+  platform: string
+  serving: boolean
+  routes: DeviceRoute[]
+  certFingerprint: string | null
+  lastSeenAt?: string
+}
+
+export interface MultiDeviceState {
+  activeDeviceId: string
+  connectionState: ConnectionState
+  devices: DeviceRecord[]
+  localDeviceId: string
+}
+
 export interface DesktopBridge {
   readonly kind: DesktopKind
 
@@ -53,6 +78,20 @@ export interface DesktopBridge {
   relaunch(): Promise<void>
   /** Forward a webview console line into the native app log. Fire-and-forget. */
   log(level: string, message: string): Promise<void>
+
+  // ---- multi-device --------------------------------------------------------
+  /** Active device, connection state, and the cached device list. */
+  mdGetState(): Promise<MultiDeviceState>
+  /** Re-read the account device registry (via the local backend). */
+  mdRefreshDevices(): Promise<DeviceRecord[]>
+  /** Switch the window to a device; main reloads the window on success. */
+  mdSetActiveDevice(deviceId: string): Promise<ConnectionState>
+  /** Explicit fallback from the unreachable screen. Never automatic. */
+  mdUseThisComputer(): Promise<ConnectionState>
+  /** Retry the current device now. */
+  mdRetry(): Promise<ConnectionState>
+  /** Subscribe to connection transitions; returns an unsubscribe function. */
+  mdOnConnectionState(onEvent: (state: ConnectionState) => void): () => void
 
   // ---- windows / profiles --------------------------------------------------
   /** Profile this window is pinned to, or null for the bootstrap window. */

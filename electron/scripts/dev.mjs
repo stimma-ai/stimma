@@ -20,8 +20,13 @@ let shuttingDown = false
 const childEnv = { ...process.env }
 delete childEnv.ELECTRON_RUN_AS_NODE
 
+// Opt-in Chromium remote debugging, for driving the dev app from a script
+// (UI automation, screenshots). Off unless the env var is set.
+const remoteDebugPort = process.env.STIMMA_DEV_REMOTE_DEBUG_PORT
+const extraArgs = remoteDebugPort ? [`--remote-debugging-port=${remoteDebugPort}`] : []
+
 function startElectron() {
-  child = spawn(electronBinary, [root], {
+  child = spawn(electronBinary, [root, ...extraArgs], {
     stdio: 'inherit',
     env: childEnv,
   })

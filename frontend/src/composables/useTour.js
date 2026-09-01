@@ -29,6 +29,38 @@ import { useReadiness } from './useReadiness'
 import { useFeedback } from './useFeedback'
 import { useTelemetry } from './useTelemetry'
 
+/**
+ * The multi-device coachmark is a SEPARATE track from the first-run tour.
+ *
+ * It fires on an event ("this account now has a serving device"), not on
+ * first run, and it has its own seen-flag: folding it into TOUR_STEPS would
+ * mean bumping FIRST_RUN_TOUR_VERSION, which re-runs all three first-run
+ * stops for every existing install.
+ */
+export const DEVICE_COACHMARK = {
+  id: 'device-chip',
+  title: 'Atelier is available',
+  body: 'This account has another computer serving. Switch to it here.',
+}
+
+const DEVICE_COACHMARK_KEY = 'stimma_device_coachmark_seen'
+
+export function isDeviceCoachmarkDue() {
+  try {
+    return localStorage.getItem(DEVICE_COACHMARK_KEY) !== '1'
+  } catch {
+    return false
+  }
+}
+
+export function markDeviceCoachmarkSeen() {
+  try {
+    localStorage.setItem(DEVICE_COACHMARK_KEY, '1')
+  } catch {
+    // A browser that refuses storage just shows it again; harmless.
+  }
+}
+
 export const TOUR_STEPS = [
   {
     id: 'chats',
@@ -61,6 +93,8 @@ const endedForSession = ref(false) // never auto-restart within a session
 // Dev-only override: forces the tour to run regardless of the seen version
 // (Settings → Developer → Replay First-Run Tour).
 const forceShowForDev = ref(false)
+// Set by startTour when a caller runs its own separately-gated coachmark.
+let endHook = null
 
 const isActive = computed(() => stepIndex.value >= 0)
 const currentStep = computed(() => activeSteps.value[stepIndex.value] ?? null)
@@ -88,13 +122,16 @@ function anchorFor(stepId) {
  * nothing could anchor (nothing is marked seen in that case — we retry on a
  * later launch rather than burning the one showing on a broken layout).
  */
-function startTour() {
+function startTour(steps = TOUR_STEPS, options = {}) {
   if (isActive.value) return true
-  const steps = TOUR_STEPS.filter((s) => anchorFor(s.id))
-  if (steps.length === 0) return false
-  activeSteps.value = steps
+  const live = steps.filter((s) => anchorFor(s.id))
+  if (live.length === 0) return false
+  activeSteps.value = live
   stepIndex.value = 0
-  useTelemetry().track('tour_started', { steps: steps.map((s) => s.id) })
+  // A caller-supplied track (the device coachmark) owns its own seen-flag and
+  // must NOT mark the first-run tour version as seen when it ends.
+  endHook = options.onEnd || null
+  useTelemetry().track('tour_started', { steps: live.map((s) => s.id) })
   return true
 }
 
@@ -124,10 +161,20 @@ function endTour(reason) {
     })
   }
   const includedFeedback = activeSteps.value.some((s) => s.id === 'feedback')
+  const hook = endHook
+  endHook = null
   stepIndex.value = -1
   activeSteps.value = []
-  endedForSession.value = true
   forceShowForDev.value = false
+
+  // A separately-gated coachmark persists its own flag and leaves both the
+  // first-run tour version and the once-per-session guard untouched.
+  if (hook) {
+    hook()
+    return
+  }
+
+  endedForSession.value = true
   void markTourSeen()
   // The tour's Feedback stop is the one-time feedback coachmark — seeing the
   // tour (or opting out of it) satisfies that flag too.

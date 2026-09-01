@@ -430,6 +430,34 @@ class CloudConfig(BaseModel):
     base_url: str = "https://stimma.ai"
 
 
+class MultiDeviceConfig(BaseModel):
+    """Serving side of multi-device.
+
+    ``serving`` is the user-facing "Serve this computer" toggle. Off by
+    default: an install never becomes reachable without an explicit act.
+
+    ``device_id`` and the TLS keypair are minted lazily on first serve and
+    then stable, so the account registry can key on the device across
+    restarts and the connecting side can pin the certificate.
+    """
+    serving: bool = False
+    device_id: Optional[str] = None
+    device_name: Optional[str] = None  # defaults to OS hostname
+
+    # 0 = let the OS assign a free port. Several installs can share a machine
+    # (different channels, different sandboxes, dev beside release), and the
+    # registry propagates whatever port we end up on, so there is nothing to
+    # coordinate and no number to debug. Set a specific port only when
+    # something external needs one — a firewall rule, say.
+    port: int = 0
+    # The port most recently bound. Tried first next time so the port stays
+    # stable across restarts without ever being required to be.
+    last_port: Optional[int] = None
+
+    cert_pem: Optional[str] = None
+    key_pem: Optional[str] = None
+
+
 class AgentToolConfig(BaseModel):
     """Tool configuration for the agent."""
     allowed_tools: List[str] = []  # Tools explicitly allowed (no permission prompt)
@@ -869,6 +897,7 @@ class Settings(BaseSettings):
     server: ServerConfig
     agent: AgentConfig = AgentConfig()
     cloud: CloudConfig = CloudConfig()
+    multi_device: MultiDeviceConfig = MultiDeviceConfig()
     telemetry: TelemetryConfig = TelemetryConfig()
     compliance: ComplianceConfig = ComplianceConfig()
     feedback: FeedbackConfig = FeedbackConfig()

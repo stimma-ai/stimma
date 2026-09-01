@@ -15,6 +15,17 @@ import {
 import fs from 'node:fs'
 import path from 'node:path'
 import { waitForBackendPort } from './backend'
+import { waitForProxyPort } from './proxy'
+import {
+  LOCAL_DEVICE,
+  connect as connectDevice,
+  getActiveDeviceId,
+  getConnectionState,
+  getKnownDevices,
+  refreshDevices,
+  setActiveDevice,
+  useThisComputer,
+} from './devices'
 import {
   relaunchApp,
   updaterCheck,
@@ -36,6 +47,7 @@ import {
   isAppUrl,
   labelOf,
   openProfileWindow,
+  reloadAllWindows,
   showAllWindows,
 } from './windows'
 
@@ -124,7 +136,50 @@ export function registerIpcHandlers(): void {
   })
 
   // ---- app / backend -------------------------------------------------------
-  handle('stimma:get-backend-port', () => waitForBackendPort())
+  // The renderer talks to the proxy, never to the backend directly. Still
+  // gated on the backend port so boot semantics are unchanged: resolving
+  // early would just hand back a proxy that 503s until the target is set.
+  handle('stimma:get-backend-port', async () => {
+    await waitForBackendPort()
+    return waitForProxyPort()
+  })
+
+  // ---- multi-device --------------------------------------------------------
+  // The renderer never talks to a remote device itself; it asks main to point
+  // the proxy somewhere and then reloads against the same local origin.
+
+  handle('stimma:md-get-state', async () => ({
+    activeDeviceId: getActiveDeviceId(),
+    connectionState: getConnectionState(),
+    devices: getKnownDevices(),
+    localDeviceId: LOCAL_DEVICE,
+  }))
+
+  handle('stimma:md-refresh-devices', async () => refreshDevices())
+
+  handle('stimma:md-set-active-device', async (_event, deviceId: unknown) => {
+    if (typeof deviceId !== 'string' || !deviceId) throw new Error('deviceId required')
+    const state = await setActiveDevice(deviceId)
+    // Switching is explicitly allowed to be heavyweight: reloading is what
+    // resets the renderer's module-scoped state for the new device.
+    if (state === 'ready') reloadAllWindows()
+    return state
+  })
+
+  handle('stimma:md-use-this-computer', async () => {
+    const state = await useThisComputer()
+    if (state === 'ready') reloadAllWindows()
+    return state
+  })
+
+  handle('stimma:md-retry', async () => {
+    const state = await connectDevice()
+    // A window that booted unreachable skipped its backend-dependent startup
+    // (profile resolution, route restore), so recovering has to be a reload
+    // rather than a resumption.
+    if (state === 'ready') reloadAllWindows()
+    return state
+  })
 
   handle('stimma:get-app-version', () => app.getVersion())
 

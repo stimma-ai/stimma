@@ -24,12 +24,20 @@ export async function waitForBackendHealth(
     sleepImpl = sleep,
     retryDelayMs = DEFAULT_RETRY_DELAY_MS,
     onWaiting = null,
+    shouldAbort = null,
   } = {},
 ) {
   const startedAt = Date.now()
   let attempt = 0
 
   while (true) {
+    // "Starting up" and "unreachable" both look like a failing health check,
+    // but they call for opposite behaviour: the first must wait indefinitely
+    // (a migration has no honest upper bound), the second must stop waiting
+    // so the app can mount and SAY it is unreachable. Only the caller can
+    // tell them apart, so it decides.
+    if (shouldAbort?.()) return null
+
     attempt += 1
     try {
       const response = await fetchImpl(`${backendOrigin}/`)
@@ -37,6 +45,8 @@ export async function waitForBackendHealth(
     } catch {
       // Connection failures are expected until the sidecar finishes startup.
     }
+
+    if (shouldAbort?.()) return null
 
     onWaiting?.({
       attempt,

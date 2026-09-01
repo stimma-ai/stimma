@@ -246,6 +246,27 @@ export function isAppUrl(url: string): boolean {
   return false
 }
 
+/**
+ * Push connection state to every window. The renderer treats it as ordinary
+ * app state (connecting | ready | unreachable) rather than a boot condition,
+ * which is what lets one component cover cold launch, satellite launch, and
+ * a mid-session drop.
+ */
+export function broadcastConnectionState(state: string): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    win.webContents.send('stimma:connection-state', state)
+  }
+}
+
+/** Reload every window — used after a device switch. */
+export function reloadAllWindows(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    win.webContents.reload()
+  }
+}
+
 export function showAllWindows(): void {
   const windows = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
   for (const win of windows) {

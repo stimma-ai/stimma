@@ -1354,6 +1354,16 @@ async def lifespan(app: FastAPI):
 
         await ensure_delete_worker_started()
 
+        # Multi-device: resume serving if the user left it on, and make this
+        # install discoverable to its account. Deliberately fire-and-forget —
+        # discovery must never delay or fail app startup.
+        try:
+            from multi_device import service as multi_device_service
+            multi_device_service.set_app(app)
+            background_tasks.append(asyncio.create_task(multi_device_service.start_if_enabled()))
+        except Exception:
+            log.exception("multi-device startup failed")
+
     except Exception as e:
         # Log the full exception with traceback before re-raising
         # This ensures startup failures are visible even if FastAPI swallows them
@@ -1366,6 +1376,13 @@ async def lifespan(app: FastAPI):
 
     # === SHUTDOWN ===
     log.info("shutdown begin")
+
+    # Stop the serving listener before anything it depends on goes away.
+    try:
+        from multi_device import service as multi_device_service
+        await multi_device_service.shutdown()
+    except Exception:
+        pass
 
     # Flush telemetry before anything else shuts down
     try:

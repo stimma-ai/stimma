@@ -135,6 +135,7 @@ from routes import (
     keywords,
     markers,
     media,
+    multi_device as multi_device_routes,
     media_files,
     models,
     postprocessing,
@@ -183,6 +184,7 @@ app.include_router(cloud.router)
 app.include_router(media.router)
 app.include_router(models.router)
 app.include_router(markers.router)
+app.include_router(multi_device_routes.router)
 app.include_router(tags.router)
 app.include_router(trash.router)
 app.include_router(keywords.router)

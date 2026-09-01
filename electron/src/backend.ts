@@ -12,9 +12,20 @@ import path from 'node:path'
 import readline from 'node:readline'
 import type { AppIdentity } from './identity'
 import { log } from './log'
+import { setLocalBackendPort } from './devices'
 
 let backendPort: number | null = null
 let watchdogPid: number | null = null
+
+/**
+ * Record the backend port and hand it to the device manager, which decides
+ * whether the proxy should point here or at a remote device. Every
+ * assignment goes through this one place so the two cannot drift.
+ */
+function setBackendPort(port: number): void {
+  backendPort = port
+  setLocalBackendPort(port)
+}
 
 export function getBackendPortSync(): number | null {
   return backendPort
@@ -52,7 +63,7 @@ function watchdogPath(): string {
 
 export function startBackend(identity: AppIdentity, appVersion: string): void {
   if (identity.dev) {
-    backendPort = identity.devBackendPort
+    setBackendPort(identity.devBackendPort)
     log.info('stimma', `Dev mode: using external backend on port ${backendPort}`)
     return
   }
@@ -105,7 +116,7 @@ export function startBackend(identity: AppIdentity, appVersion: string): void {
       const port = parseBackendPort(line)
       if (port !== null) {
         log.info('backend', `Detected port: ${port}`)
-        backendPort = port
+        setBackendPort(port)
       }
       log[level]('backend', line)
     })

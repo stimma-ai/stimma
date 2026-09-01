@@ -14,6 +14,9 @@ let backendOrigin = '' // Empty for dev (relative URLs), 'http://127.0.0.1:PORT'
 let initialized = false
 let initPromise = null
 let updateStartupStatus = null
+// True when startup gave up on the health check because the active device is
+// unreachable. The app still mounts; ConnectionScreen owns the window.
+let startedUnreachable = false
 
 const SESSION_HEADER = 'X-Stimma-Session-Id'
 
@@ -155,9 +158,23 @@ export async function initApiConfig() {
       // supervisor has supplied a port, there is deliberately no fixed
       // readiness deadline: a large one-time migration can legitimately take
       // several minutes and remains transactional until startup completes.
+      // A remote active device that is down would otherwise keep us here
+      // forever, showing a bare logo and eventually a migration message that
+      // has nothing to do with what is wrong.
+      let connectionState = 'connecting'
+      if (isDesktop()) {
+        try {
+          connectionState = (await desktop.mdGetState()).connectionState
+          desktop.mdOnConnectionState((next) => { connectionState = next })
+        } catch {
+          // Shell without multi-device support; behave exactly as before.
+        }
+      }
+
       console.log('[apiConfig] Health checking', backendOrigin)
       const response = await waitForBackendHealth(backendOrigin, {
         retryDelayMs: delayMs,
+        shouldAbort: () => connectionState === 'unreachable',
         onWaiting: ({ attempt, elapsedMs }) => {
           if (attempt === 1 || attempt % 20 === 0) {
             console.log(
@@ -170,7 +187,12 @@ export async function initApiConfig() {
           if (message) updateStartupStatus?.(message)
         },
       })
-      console.log('[apiConfig] Health check response:', response.status)
+      if (response === null) {
+        console.log('[apiConfig] Active device unreachable; mounting anyway')
+        startedUnreachable = true
+      } else {
+        console.log('[apiConfig] Health check response:', response.status)
+      }
       initialized = true
       return
     } else {
@@ -206,6 +228,14 @@ export function getWsBase() {
  */
 export function isInitialized() {
   return initialized
+}
+
+/**
+ * True when startup completed without a reachable backend. Callers should
+ * skip backend-dependent bootstrap work; the connection UI takes the window.
+ */
+export function startedWithUnreachableDevice() {
+  return startedUnreachable
 }
 
 /**

@@ -115,6 +115,32 @@ export const tauriBridge: DesktopBridge = {
     await invoke('report_window_profile', { profileId })
   },
 
+  // Multi-device is Electron-only; Tauri is kept runnable purely for the
+  // migration and never grows this feature.
+  async mdGetState() {
+    return {
+      activeDeviceId: 'local',
+      connectionState: 'ready' as const,
+      devices: [],
+      localDeviceId: 'local',
+    }
+  },
+  async mdRefreshDevices() {
+    return []
+  },
+  async mdSetActiveDevice() {
+    return 'ready' as const
+  },
+  async mdUseThisComputer() {
+    return 'ready' as const
+  },
+  async mdRetry() {
+    return 'ready' as const
+  },
+  mdOnConnectionState() {
+    return () => {}
+  },
+
   async openProfileWindow(profileId) {
     const { invoke } = await core()
     await invoke('open_profile_window', { profileId })

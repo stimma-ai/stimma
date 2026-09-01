@@ -381,6 +381,11 @@
           </div>
         </transition>
       </div>
+
+      <!-- Device chip: rightmost, because device is the outer scope and
+           profiles are local to whichever device is active. Hides itself
+           until the account has had a second device. -->
+      <DeviceChip />
     </div>
 
     <!-- Failed Items Modal -->
@@ -495,6 +500,7 @@ import WhatsNewModal from './WhatsNewModal.vue'
 import { captioningEnabledRef } from '../appConfig'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 import ProviderManagerButton from './ProviderManagerButton.vue'
+import DeviceChip from './DeviceChip.vue'
 import Spinner from './ui/Spinner.vue'
 import Modal from './ui/Modal.vue'
 import { formatEta } from '../utils/timeFormat'

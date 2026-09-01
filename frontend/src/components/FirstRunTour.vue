@@ -88,11 +88,14 @@ import { useRoute } from 'vue-router'
 import { useTour } from '../composables/useTour'
 import { useReadiness } from '../composables/useReadiness'
 import { useCloudAccount } from '../composables/useCloudAccount'
+import { useMultiDevice } from '../composables/useMultiDevice'
+import { DEVICE_COACHMARK, isDeviceCoachmarkDue, markDeviceCoachmarkSeen } from '../composables/useTour'
 
 const SETTLE_DELAY_MS = 1000
 
 const route = useRoute()
 const { isDue, isActive, currentStep, stepIndex, activeSteps, anchorFor, startTour, nextStep, endTour } = useTour()
+const { hasOtherDevices } = useMultiDevice()
 const { shouldShowPanel } = useReadiness()
 
 const anchorRect = ref(null)
@@ -109,6 +112,31 @@ const canStart = computed(() =>
   && route.name === 'home'
   && !isActive.value
 )
+
+/**
+ * The device coachmark rides the same glow-ring machinery but is gated
+ * separately: it fires the first time this account has a serving device,
+ * whenever that turns out to be, and never re-runs the first-run stops.
+ */
+const canStartDeviceCoachmark = computed(() =>
+  hasOtherDevices.value
+  && isDeviceCoachmarkDue()
+  && !shouldShowPanel.value
+  && !isActive.value
+  && !isDue.value
+)
+
+watch(canStartDeviceCoachmark, (ok) => {
+  if (!ok) return
+  setTimeout(() => {
+    if (!canStartDeviceCoachmark.value) return
+    if (!window.matchMedia('(min-width: 768px)').matches) return
+    // Anchor missing means the chip has not rendered; try again next launch
+    // rather than burning the one showing.
+    if (!anchorFor(DEVICE_COACHMARK.id)) return
+    startTour([DEVICE_COACHMARK], { onEnd: markDeviceCoachmarkSeen })
+  }, SETTLE_DELAY_MS)
+}, { immediate: true })
 
 watch(canStart, (ok) => {
   if (ok) {

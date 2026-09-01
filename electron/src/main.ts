@@ -15,12 +15,15 @@ import { initHelper, shutdownHelper } from './helper'
 import { prepareLegacyStorageImport } from './legacyStorage'
 import { readPackagedMetadata, resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
+import { initDevices, setConnectionStateListener } from './devices'
+import { startProxy, stopProxy } from './proxy'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
 import { WindowRegistry } from './registry'
 import { installTray } from './tray'
 import { initWindowState } from './windowState'
 import {
+  broadcastConnectionState,
   installAppLifecycle,
   restoreWindows,
   setWindowEnvironment,
@@ -66,6 +69,16 @@ if (!app.requestSingleInstanceLock()) {
   installAppLifecycle()
   initHelper(identity)
   registerIpcHandlers()
+
+  // Independent: setProxyTarget only records where to forward, so the
+  // backend may report its port before the listener is bound. Backend spawn
+  // is the long pole in startup and must not wait on anything.
+  initDevices(identity.dataDir)
+  // The renderer renders connection state as ordinary app state, so main
+  // pushes every transition rather than the renderer polling for it.
+  setConnectionStateListener((connState) => broadcastConnectionState(connState))
+
+  void startProxy(identity.dataDir).catch((e) => log.error('proxy', `Failed to start: ${e}`))
   startBackend(identity, app.getVersion())
 
   app.on('before-quit', () => {
@@ -73,6 +86,7 @@ if (!app.requestSingleInstanceLock()) {
   })
   app.on('will-quit', () => {
     shutdownHelper()
+    stopProxy()
   })
 
   // Terminal signals become a genuine quit so quit hooks run — including

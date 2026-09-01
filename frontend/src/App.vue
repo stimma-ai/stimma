@@ -112,6 +112,11 @@
     </div>
   </div>
 
+  <!-- Connection state, ahead of everything the active device owns. The
+       sidebar, browsers, and content of an unreachable backend are undefined,
+       so they must not render at all — v-if, never v-show. -->
+  <ConnectionScreen v-else-if="connectionState !== 'ready'" />
+
   <!-- No-chrome mode for standalone pages like LLM trace viewer -->
   <div v-else-if="noChrome" class="w-full h-screen overflow-auto bg-base">
     <!-- Draggable title bar region -->
@@ -191,12 +196,14 @@ import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
+import ConnectionScreen from './components/ConnectionScreen.vue'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
+import { useMultiDevice } from './composables/useMultiDevice'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
 import {
   profileRequiresPin,
@@ -268,6 +275,12 @@ const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
 const startupPending = ref(true)
+
+// Connection state is ordinary app state, not a boot precondition: the
+// renderer always has the local proxy to talk to, and main pushes every
+// transition. One screen then covers cold launch, satellite launch, and a
+// mid-session drop.
+const { connectionState, init: initMultiDevice } = useMultiDevice()
 
 function openSettings(section = 'folders') {
   settingsSection.value = section
@@ -815,6 +828,9 @@ async function checkStartupPin() {
   } catch (error) {
     console.error('[App] Failed to resolve startup state:', error)
   } finally {
+    // Subscribe before clearing startupPending so the very first paint after
+    // startup already reflects a device that turned out to be unreachable.
+    await initMultiDevice()
     startupPending.value = false
     if (isLocked.value) {
       await nextTick()

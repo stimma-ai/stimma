@@ -36,6 +36,32 @@ export const browserBridge: DesktopBridge = {
 
   async reportWindowProfile() {},
 
+  // Outside a desktop shell there is exactly one backend and no device
+  // switching, so the feature reports itself as absent rather than broken.
+  async mdGetState() {
+    return {
+      activeDeviceId: 'local',
+      connectionState: 'ready' as const,
+      devices: [],
+      localDeviceId: 'local',
+    }
+  },
+  async mdRefreshDevices() {
+    return []
+  },
+  async mdSetActiveDevice() {
+    return 'ready' as const
+  },
+  async mdUseThisComputer() {
+    return 'ready' as const
+  },
+  async mdRetry() {
+    return 'ready' as const
+  },
+  mdOnConnectionState() {
+    return () => {}
+  },
+
   async openProfileWindow() {
     throw new Error('Profile windows are only available in the desktop app')
   },

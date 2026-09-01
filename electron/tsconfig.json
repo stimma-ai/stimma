@@ -3,6 +3,10 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // Lets a module that imports a sibling still be unit-tested under
+    // `node --test --experimental-strip-types`, whose ESM resolver will not
+    // resolve extensionless specifiers. esbuild accepts either form.
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
