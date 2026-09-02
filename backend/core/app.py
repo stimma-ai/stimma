@@ -1178,18 +1178,12 @@ async def lifespan(app: FastAPI):
         except Exception:
             log.exception("flow task count reconciliation failed (non-fatal)")
 
-        # Start provider connections as early as possible, then give them a short
-        # grace window before the server starts accepting requests.
+        # Provider discovery is not part of HTTP readiness. Start it before
+        # accepting requests so it overlaps the frontend's initial data fetch,
+        # but do not add a fixed delay to every launch: provider state already
+        # updates live as each connection becomes available.
         tool_provider_init_task = asyncio.create_task(initialize_tool_providers(settings))
         background_tasks.append(tool_provider_init_task)
-        try:
-            await asyncio.wait_for(asyncio.shield(tool_provider_init_task), timeout=0.5)
-            log.info("tool provider initialization completed during startup grace period")
-        except asyncio.TimeoutError:
-            log.info("tool provider initialization still in progress after 500ms grace period")
-        except Exception:
-            # initialize_tool_providers logs exceptions internally; keep startup moving
-            pass
 
         log.info("startup complete - server ready")
 

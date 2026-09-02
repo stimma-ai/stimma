@@ -1175,6 +1175,11 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   console.log("Copying app-level runtime files...");
   await Deno.copyFile(join(repoRoot, "prompts.yaml"), join(outputDir, "prompts.yaml"));
 
+  console.log("Precompiling the backend startup import graph...");
+  await run(pythonExe, [join(repoRoot, "scripts", "precompile_python_startup.py"), outputDir], {
+    cwd: outputDir,
+  });
+
   console.log("Creating launchers...");
   // Build distribution baked into the launchers: 'dev' (default) or
   // 'official' (set only by release CI). Runtime env still wins so the

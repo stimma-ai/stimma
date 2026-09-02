@@ -787,7 +787,10 @@ async function checkStartupPin() {
       console.warn('[App] Failed to load app identity from settings:', e)
     }
 
-    await syncMarketplaceStimpacks()
+    // Marketplace maintenance is not required to render the saved workspace.
+    // Let it overlap first paint; completion already announces live changes
+    // through the stimpacks-changed event.
+    void syncMarketplaceStimpacks()
 
     // Start persisting route changes
     setupPersistence()

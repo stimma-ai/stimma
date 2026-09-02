@@ -123,6 +123,9 @@ rsync -a "$STAGING_DIR/backend/" "$OUTPUT_DIR/backend/"
 echo "Copying app-level runtime files..."
 cp "$PROJECT_ROOT/prompts.yaml" "$OUTPUT_DIR/"
 
+echo "Precompiling the backend startup import graph..."
+"$PYTHON_BIN" "$SCRIPT_DIR/precompile_python_startup.py" "$OUTPUT_DIR"
+
 # Build distribution baked into the launchers: 'dev' (default) or 'official'
 # (set only by release CI). Runtime env still wins so the Tauri shell's
 # compile-time value can override.
