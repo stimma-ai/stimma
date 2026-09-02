@@ -3,9 +3,19 @@
  *
  * The backend is the source of truth for auth state, token storage, token
  * refresh, and cloud tool connection.
+ *
+ * Which backend matters. Sign-in and sign-out are about THIS install (the
+ * multi-device "local island"), so every call here goes through the desktop
+ * bridge to this machine's own backend — never through the API base, which
+ * points at whichever server the window is driving. Through the API base a
+ * satellite's "Sign out" would sign out the remote server's account while
+ * this install stayed signed in, and its sign-in would bind the browser
+ * callback on the wrong computer. Outside Electron the bridge resolves to
+ * the one backend there is, which is what the API base pointed at anyway.
  */
 import { ref, readonly } from 'vue'
-import { isTauri, getApiBase } from '../apiConfig'
+import { isTauri } from '../apiConfig'
+import { desktop } from '../desktop'
 import { isPrivacyLockdownActive, setPrivacyLockdownActive } from './usePrivacyLockdown'
 import { useReadiness } from './useReadiness'
 
@@ -42,10 +52,10 @@ export async function initAuth() {
   initialized = true
 
   try {
-    // Check backend auth status (backend is source of truth)
-    const response = await fetch(`${getApiBase()}/auth/status`)
+    // Check this install's auth status (its backend is the source of truth)
+    const response = await desktop.authLocal('GET', '/auth/status')
     if (response.ok) {
-      const data = await response.json()
+      const data = response.data || {}
       console.log('[useAuth] backend auth status:', data)
       setPrivacyLockdownActive(data.privacy_lockdown === true)
 
@@ -81,17 +91,15 @@ export async function signInWithBrowser(mode) {
   }
 
   try {
-    // 1. Start auth flow - backend creates callback server
-    const startResponse = await fetch(`${getApiBase()}/auth/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
+    // 1. Start auth flow - THIS install's backend creates the callback
+    //    server, so the browser redirect lands on the machine it opened from.
+    const startResponse = await desktop.authLocal('POST', '/auth/start')
 
     if (!startResponse.ok) {
       throw new Error('Failed to start authentication')
     }
 
-    const { session_id, login_url } = await startResponse.json()
+    const { session_id, login_url } = startResponse.data
 
     // Carry the chosen action (Sign in vs Create account) to the web login page
     // so it opens on the matching tab instead of a fixed default.
@@ -149,8 +157,8 @@ async function pollForAuthResult(sessionId, timeoutMs = 1800000) {
   const pollInterval = 1000
 
   while (Date.now() - start < timeoutMs) {
-    const response = await fetch(`${getApiBase()}/auth/poll/${sessionId}`)
-    const data = await response.json()
+    const response = await desktop.authLocal('GET', `/auth/poll/${sessionId}`)
+    const data = response.data || {}
 
     if (data.completed) {
       return data
@@ -165,15 +173,16 @@ async function pollForAuthResult(sessionId, timeoutMs = 1800000) {
 
 /**
  * Sign out the current user.
- * Calls backend logout endpoint to clear stored auth and disconnect cloud.
+ *
+ * Signs THIS install out: its backend clears stored auth, disconnects cloud,
+ * stops serving and revokes the sessions it issued. In Electron, main then
+ * drops its cached remote sessions and, if the window was driving another
+ * server, takes the proxy away — the connection screen's "Use local server"
+ * is the explicit way back.
  */
 export async function signOut() {
   try {
-    // Call backend logout to clear stored auth and disconnect cloud
-    await fetch(`${getApiBase()}/auth/logout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    })
+    await desktop.authLocal('POST', '/auth/logout')
   } catch (error) {
     console.error('Error calling backend logout:', error)
   }

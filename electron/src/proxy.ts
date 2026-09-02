@@ -27,6 +27,7 @@ import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
 import path from 'node:path'
+import type stream from 'node:stream'
 import tls from 'node:tls'
 import { log } from './log.ts'
 
@@ -80,28 +81,80 @@ export function fingerprintMatches(der: Buffer, expected: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
+type ConnectionCallback = (err: Error | null, socket: stream.Duplex) => void
+
 /**
- * A TLS agent that trusts exactly one certificate.
+ * A socket factory that trusts exactly one certificate.
  *
  * CA verification is deliberately off: the certificate is self-signed by the
  * serving device, so there is no chain to check. Trust comes entirely from
  * the pinned fingerprint, which is strictly stronger here than the public CA
  * system would be for a LAN address.
+ *
+ * The check lives in `createConnection`, not `checkServerIdentity`: Node only
+ * consults the latter once chain verification has PASSED, and with
+ * `rejectUnauthorized: false` a self-signed peer never gets that far — the
+ * callback is skipped and the socket is accepted. So the pin is enforced on
+ * `secureConnect`, and the socket is handed to the HTTP layer only after the
+ * fingerprint matches. Nothing is written to it before then.
+ *
+ * Returned in the shape http.Agent#createConnection / request.createConnection
+ * expect, so one implementation covers the proxy pool, upgrades, and the
+ * one-off device calls in devices.ts.
  */
-function pinnedAgent(target: ProxyTarget): https.Agent {
-  return new https.Agent({
-    keepAlive: true,
-    maxSockets: 64,
-    rejectUnauthorized: false,
-    checkServerIdentity: (_host: string, cert: tls.PeerCertificate) => {
-      const expected = target.certFingerprint
-      if (!expected) return new Error('no pinned fingerprint for target')
-      if (!cert?.raw || !fingerprintMatches(cert.raw, expected)) {
-        return new Error('certificate fingerprint mismatch')
+export function pinnedConnection(expectedFingerprint: string) {
+  return function createConnection(
+    options: http.ClientRequestArgs,
+    callback?: ConnectionCallback,
+  ): undefined {
+    const tlsOptions = options as tls.ConnectionOptions
+    // RFC 6066 forbids an IP literal as SNI; Node warns and ignores it, and
+    // LAN/tailnet routes are mostly IPs, so only send a real name.
+    const servername =
+      typeof tlsOptions.servername === 'string' && !net.isIP(tlsOptions.servername)
+        ? tlsOptions.servername
+        : undefined
+    const socket = tls.connect({ ...tlsOptions, servername, rejectUnauthorized: false })
+
+    let settled = false
+    const fail = (err: Error) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      callback?.(err, socket)
+    }
+    socket.once('error', fail)
+    socket.once('secureConnect', () => {
+      if (settled) return
+      if (!expectedFingerprint) {
+        fail(new Error('no pinned fingerprint for target'))
+        return
       }
-      return undefined
-    },
-  })
+      const cert = socket.getPeerCertificate()
+      if (!cert?.raw || !fingerprintMatches(cert.raw, expectedFingerprint)) {
+        fail(new Error('certificate fingerprint mismatch'))
+        return
+      }
+      settled = true
+      socket.removeListener('error', fail)
+      callback?.(null, socket)
+    })
+    return undefined
+  }
+}
+
+/** Pooled HTTPS agent whose every socket goes through `pinnedConnection`. */
+class PinnedAgent extends https.Agent {
+  private readonly connect: ReturnType<typeof pinnedConnection>
+
+  constructor(fingerprint: string) {
+    super({ keepAlive: true, maxSockets: 64 })
+    this.connect = pinnedConnection(fingerprint)
+  }
+
+  override createConnection(options: http.ClientRequestArgs, callback?: ConnectionCallback): undefined {
+    return this.connect(options, callback)
+  }
 }
 
 /** Rebuilt whenever the target changes, so a stale pin can never be reused. */
@@ -109,7 +162,7 @@ let tlsAgent: https.Agent | null = null
 
 function transportFor(target: ProxyTarget) {
   if (!target.tls) return { mod: http, agent }
-  if (!tlsAgent) tlsAgent = pinnedAgent(target)
+  if (!tlsAgent) tlsAgent = new PinnedAgent(target.certFingerprint ?? '')
   return { mod: https, agent: tlsAgent }
 }
 
@@ -163,14 +216,11 @@ function dropUpgrades(): void {
 }
 
 /**
- * Strip hop-by-hop headers and anything named by Connection, then re-point
- * Host at the upstream. Everything else (Range, X-Profile-ID, X-Profile-PIN,
- * Origin, conditional-request headers) passes through untouched.
+ * Drop hop-by-hop headers and anything named by Connection. Applied in both
+ * directions: request headers going upstream and response headers coming
+ * back, since each hop negotiates its own connection semantics.
  */
-export function forwardHeaders(
-  headers: http.IncomingHttpHeaders,
-  upstream: ProxyTarget,
-): http.OutgoingHttpHeaders {
+function stripHopByHop(headers: http.IncomingHttpHeaders): http.OutgoingHttpHeaders {
   const connectionTokens = new Set(
     String(headers.connection ?? '')
       .split(',')
@@ -184,6 +234,19 @@ export function forwardHeaders(
     if (HOP_BY_HOP.has(lower) || connectionTokens.has(lower)) continue
     if (value !== undefined) out[name] = value
   }
+  return out
+}
+
+/**
+ * Strip hop-by-hop headers and anything named by Connection, then re-point
+ * Host at the upstream. Everything else (Range, X-Profile-ID, X-Profile-PIN,
+ * Origin, conditional-request headers) passes through untouched.
+ */
+export function forwardHeaders(
+  headers: http.IncomingHttpHeaders,
+  upstream: ProxyTarget,
+): http.OutgoingHttpHeaders {
+  const out = stripHopByHop(headers)
   out.host = `${upstream.host}:${upstream.port}`
   // The renderer never holds this. Injecting it here is the whole reason the
   // proxy exists: <img> and <video> cannot set headers, so remote media would
@@ -232,20 +295,31 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       agent: transport.agent,
     },
     (upstreamRes) => {
-      // Status and headers verbatim: 206/416 for ranged media and 304 for
-      // conditional thumbnail requests have to survive the hop intact.
-      res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers)
+      // Status verbatim: 206/416 for ranged media and 304 for conditional
+      // thumbnail requests have to survive the hop intact. Headers too, minus
+      // the per-connection ones — Node frames this hop itself.
+      res.writeHead(upstreamRes.statusCode ?? 502, stripHopByHop(upstreamRes.headers))
       upstreamRes.pipe(res)
     },
   )
 
   proxied.on('error', (err) => {
     log.warn('proxy', `Upstream error for ${req.method} ${req.url}: ${err}`)
-    if (!res.headersSent) {
-      res.writeHead(502, { 'content-type': 'application/json', ...corsHeadersFor(req) })
+    if (res.headersSent) {
+      // Mid-stream: a JSON tail glued onto half an image is worse than a
+      // truncated response the renderer can detect.
+      res.destroy()
+      return
     }
+    res.writeHead(502, { 'content-type': 'application/json', ...corsHeadersFor(req) })
     res.end(JSON.stringify({ detail: 'Upstream unreachable' }))
   })
+
+  // A renderer that cancels (scrubbing a video, leaving a grid) closes its
+  // side; stop pulling from upstream rather than draining a stream nobody
+  // will read. After a completed exchange the request is already done and
+  // this is a no-op.
+  res.on('close', () => proxied.destroy())
 
   // Piped, never buffered — uploads and large media must stream.
   req.pipe(proxied)
@@ -270,7 +344,8 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
   headers.connection = 'Upgrade'
   headers.upgrade = req.headers.upgrade ?? 'websocket'
 
-  // Upgrades detach from the pool, but still need the pinned TLS settings.
+  // Dialled through the same agent as ordinary requests so the pin applies;
+  // Node detaches the socket from the pool once the upgrade completes.
   const transport = transportFor(upstream)
   const proxied = transport.mod.request({
     host: upstream.host,
@@ -278,7 +353,7 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
     method: req.method,
     path: req.url,
     headers,
-    ...(upstream.tls ? { rejectUnauthorized: false, checkServerIdentity: (transport.agent as any).options.checkServerIdentity } : {}),
+    agent: transport.agent,
   })
 
   proxied.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {

@@ -12,24 +12,26 @@
        glance; the name lives in the tooltip and the menu. `chip` (name +
        dot) survives for the connection screen, which has no sidebar. -->
   <div v-if="hasOtherDevices" class="device-menu" :class="isFooter ? 'contents' : 'relative'">
-    <button
-      v-if="isFooter"
-      data-tour="device-chip"
-      class="relative w-8 h-8 flex-shrink-0 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
-      :class="menuOpen ? 'text-content bg-overlay-subtle' : ''"
-      :title="isRemote ? `Server: ${activeDeviceName}` : 'Server: this install'"
-      @click="toggleMenu"
-    >
-      <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
-      </svg>
-      <!-- Presence dot rides the icon's corner; ringed in surface so it reads
-           as a badge rather than part of the glyph. -->
-      <span
-        class="absolute right-1 bottom-1 w-2 h-2 rounded-full ring-2 ring-surface"
-        :class="statusDotClass"
-      />
-    </button>
+    <!-- Same kit Tooltip as the feedback and settings buttons beside it, so
+         the footer's hover behaviour is one thing, not two. -->
+    <Tooltip v-if="isFooter" :text="isRemote ? `Server: ${activeDeviceName}` : 'Server: this install'" class="w-8 flex-shrink-0">
+      <button
+        data-tour="device-chip"
+        class="relative w-8 h-8 flex-shrink-0 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
+        :class="menuOpen ? 'text-content bg-overlay-subtle' : ''"
+        @click="toggleMenu"
+      >
+        <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+        </svg>
+        <!-- Presence dot rides the icon's corner; ringed in surface so it reads
+             as a badge rather than part of the glyph. -->
+        <span
+          class="absolute right-1 bottom-1 w-2 h-2 rounded-full ring-2 ring-surface"
+          :class="statusDotClass"
+        />
+      </button>
+    </Tooltip>
 
     <!-- Ghost trigger, matching the profile picker: bordered+filled chips
          aren't Atelier chrome; the menu carries the affordance. -->
@@ -129,6 +131,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceRow from './DeviceRow.vue'
+import Tooltip from './ui/Tooltip.vue'
 
 const props = defineProps({
   /** `footer`: sidebar-footer icon with a presence dot, menu opens upward.

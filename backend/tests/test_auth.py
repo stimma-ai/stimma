@@ -779,6 +779,33 @@ class TestLogout:
         mock_clear.assert_called_once()
         mock_disconnect.assert_called_once()
 
+    async def test_logout_tears_down_multi_device_before_the_token_dies(self, auth_client: AsyncClient):
+        """Signed out = the feature doesn't exist: serving stops, sessions are
+        revoked, and the install leaves the roster. The unregister is a
+        registry call, so it has to happen while the account token is still
+        valid — before the remote revoke and before local state is cleared."""
+        order = []
+
+        async def md_sign_out():
+            order.append("multi_device")
+
+        async def remote_revoke(token):
+            order.append("remote_revoke")
+            return True
+
+        with patch("multi_device.service.sign_out", side_effect=md_sign_out) as mock_md, \
+             patch("auth_storage.clear_auth_state", side_effect=lambda: order.append("clear")) as mock_clear, \
+             patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="id-token"), \
+             patch("cloud_api.revoke_remote_session_if_supported", side_effect=remote_revoke), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock):
+            response = await auth_client.post("/api/auth/logout")
+
+        assert response.status_code == 200
+        mock_md.assert_awaited_once()
+        mock_clear.assert_called_once()
+        assert order == ["multi_device", "remote_revoke", "clear"]
+
     async def test_logout_without_token_still_succeeds_locally(self, auth_client: AsyncClient):
         """Test logout succeeds even when no auth token is available."""
         with patch("auth_storage.clear_auth_state") as mock_clear, \

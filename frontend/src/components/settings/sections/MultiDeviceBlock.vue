@@ -73,11 +73,13 @@
             class="px-1.5 py-0.5 rounded bg-overlay-subtle font-mono text-[10px] text-content-muted flex-shrink-0"
             >{{ tag }}</span
           >
-          <!-- Housekeeping only: the row comes back if that install starts
-               serving again. Trust is the account, so this is not a revoke. -->
+          <!-- Housekeeping for stale rows only, so offline rows alone get it:
+               removing an online server is undone by its next heartbeat, and
+               trust is the account, so this was never a revoke. -->
           <button
+            v-if="!isOnline(device)"
             class="p-1.5 rounded text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors cursor-pointer flex-shrink-0"
-            title="Forget this server"
+            title="Remove this server from the list"
             @click="remove(device.deviceId)"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

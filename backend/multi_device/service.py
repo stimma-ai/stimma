@@ -161,6 +161,29 @@ async def apply_serving(enabled: bool) -> dict:
     return await status()
 
 
+async def sign_out() -> None:
+    """The account is signing out of this install: the feature stops existing.
+
+    Serving stops, the sessions this install handed out die, and its row
+    leaves the registry — otherwise a signed-out server keeps answering to
+    every satellite that already holds a session, and stays in their pickers.
+
+    Must run while the account token is still valid: the unregister is a
+    registry call, and everything logout does after this point invalidates
+    that token. Never raises — a failure here must not block the sign-out.
+    """
+    try:
+        if _app is not None and (server.is_serving() or get_settings().multi_device.serving):
+            await apply_serving(False)
+            return
+    except Exception as exc:
+        log.warning("multi-device: failed to stop serving on sign-out", error=str(exc))
+    # Not serving (or serving could not be torn down cleanly): the sessions
+    # still have to go, and any heartbeat must not outlive the account.
+    registry.stop_heartbeat()
+    revoke_all_sessions()
+
+
 async def rename(name: str) -> dict:
     """Set this device's display name and republish it."""
     ensure_persisted_identity()

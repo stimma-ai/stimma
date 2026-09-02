@@ -14,6 +14,7 @@ import type {
   VoiceDownloadEvent,
   VoiceTranscriptEvent,
 } from './types'
+import { fetchLocalAuth } from './browserBridge.ts'
 
 export function isTauriShell(): boolean {
   return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined
@@ -150,6 +151,11 @@ export const tauriBridge: DesktopBridge = {
   },
   mdOnConnectionState() {
     return () => {}
+  },
+  // No device switching under Tauri, so the sidecar IS this install.
+  async authLocal(method, path, body) {
+    const port = await tauriBridge.getBackendPort()
+    return fetchLocalAuth(`http://127.0.0.1:${port}`, method, path, body)
   },
 
   async openProfileWindow(profileId) {

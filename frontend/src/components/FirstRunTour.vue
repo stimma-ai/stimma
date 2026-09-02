@@ -89,13 +89,13 @@ import { useTour } from '../composables/useTour'
 import { useReadiness } from '../composables/useReadiness'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { useMultiDevice } from '../composables/useMultiDevice'
-import { DEVICE_COACHMARK, isDeviceCoachmarkDue, markDeviceCoachmarkSeen } from '../composables/useTour'
+import { DEVICE_COACHMARK, deviceCoachmarkStep, isDeviceCoachmarkDue, markDeviceCoachmarkSeen } from '../composables/useTour'
 
 const SETTLE_DELAY_MS = 1000
 
 const route = useRoute()
 const { isDue, isActive, currentStep, stepIndex, activeSteps, anchorFor, startTour, nextStep, endTour } = useTour()
-const { hasOtherDevices } = useMultiDevice()
+const { hasOtherDevices, onlineDevices } = useMultiDevice()
 const { shouldShowPanel } = useReadiness()
 
 const anchorRect = ref(null)
@@ -105,6 +105,7 @@ const bubblePos = ref({ left: 0, top: 0, arrowTop: 20 })
 // ── Trigger ──────────────────────────────────────────────────────────────
 
 let startTimer = null
+let deviceCoachmarkTimer = null
 
 const canStart = computed(() =>
   isDue.value
@@ -127,14 +128,18 @@ const canStartDeviceCoachmark = computed(() =>
 )
 
 watch(canStartDeviceCoachmark, (ok) => {
+  clearTimeout(deviceCoachmarkTimer)
   if (!ok) return
-  setTimeout(() => {
+  deviceCoachmarkTimer = setTimeout(() => {
     if (!canStartDeviceCoachmark.value) return
     if (!window.matchMedia('(min-width: 768px)').matches) return
     // Anchor missing means the chip has not rendered; try again next launch
     // rather than burning the one showing.
     if (!anchorFor(DEVICE_COACHMARK.id)) return
-    startTour([DEVICE_COACHMARK], { onEnd: markDeviceCoachmarkSeen })
+    // Built now, not at module load: the title names the server that showed
+    // up, and which one that is only becomes known when the roster arrives.
+    const step = deviceCoachmarkStep(onlineDevices.value[0]?.name)
+    startTour([step], { onEnd: markDeviceCoachmarkSeen })
   }, SETTLE_DELAY_MS)
 }, { immediate: true })
 
@@ -235,6 +240,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearTimeout(startTimer)
+  clearTimeout(deviceCoachmarkTimer)
   document.removeEventListener('keydown', onKeydown)
   document.removeEventListener('click', onDocClick, true)
   window.removeEventListener('resize', onLayoutChange)

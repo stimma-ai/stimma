@@ -78,6 +78,17 @@ export interface LocalDeviceStatus {
   servingError?: string | null
 }
 
+/**
+ * Result of an auth request routed to this install's own backend. Status is
+ * passed through, not thrown: the caller reads it (403 in privacy lockdown,
+ * 401 on an expired session).
+ */
+export interface LocalAuthResponse {
+  ok: boolean
+  status: number
+  data: unknown
+}
+
 export interface MultiDeviceState {
   activeDeviceId: string
   connectionState: ConnectionState
@@ -116,6 +127,12 @@ export interface DesktopBridge {
   mdRenameLocal(name: string): Promise<LocalDeviceStatus>
   /** Housekeeping removal of a row from the account roster. */
   mdForgetDevice(deviceId: string): Promise<void>
+  /**
+   * Account sign-in/out for THIS install, never the device the window is
+   * driving. Sent through the API base on a satellite these would sign the
+   * remote server's account in or out. Restricted to `/auth/*` paths.
+   */
+  authLocal(method: 'GET' | 'POST', path: string, body?: unknown): Promise<LocalAuthResponse>
   /** Switch the window to a device; main reloads the window on success. */
   mdSetActiveDevice(deviceId: string): Promise<ConnectionState>
   /** Explicit fallback from the unreachable screen. Never automatic. */

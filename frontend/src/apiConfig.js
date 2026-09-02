@@ -162,9 +162,12 @@ export async function initApiConfig() {
       // forever, showing a bare logo and eventually a migration message that
       // has nothing to do with what is wrong.
       let connectionState = 'connecting'
+      let activeDeviceId = 'local'
       if (isDesktop()) {
         try {
-          connectionState = (await desktop.mdGetState()).connectionState
+          const mdState = await desktop.mdGetState()
+          connectionState = mdState.connectionState
+          activeDeviceId = mdState.activeDeviceId
           desktop.mdOnConnectionState((next) => { connectionState = next })
         } catch {
           // Shell without multi-device support; behave exactly as before.
@@ -183,6 +186,10 @@ export async function initApiConfig() {
               'seconds elapsed',
             )
           }
+          // The long-wait message explains a local migration. Waiting on a
+          // remote device is a different story (it is being probed, or is
+          // down), so say nothing rather than something untrue.
+          if (activeDeviceId !== 'local') return
           const message = getStartupWaitMessage(elapsedMs)
           if (message) updateStartupStatus?.(message)
         },

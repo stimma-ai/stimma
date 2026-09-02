@@ -259,11 +259,19 @@ export function broadcastConnectionState(state: string): void {
   }
 }
 
-/** Reload every window — used after a device switch. */
+/**
+ * Reload every window from the app root — used after a device switch or a
+ * successful retry. Not `webContents.reload()`: that keeps the current URL,
+ * and a pass that ran against an unreachable or half-up backend may have
+ * parked the window on a route (onboarding, say) that the new device has no
+ * business inheriting. Starting from '/' lets route restore decide instead.
+ */
 export function reloadAllWindows(): void {
+  const rootUrl = environment.devUrl ?? (environment.appOrigin ? environment.appOrigin + '/' : null)
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed()) continue
-    win.webContents.reload()
+    if (rootUrl) void win.loadURL(rootUrl)
+    else win.webContents.reload()
   }
 }
 

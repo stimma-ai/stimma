@@ -18,9 +18,8 @@ import { safeStorage } from 'electron'
 import fs from 'node:fs'
 import https from 'node:https'
 import path from 'node:path'
-import type tls from 'node:tls'
 import { log } from './log.ts'
-import { fingerprintMatches, setProxyTarget, type ProxyTarget } from './proxy.ts'
+import { pinnedConnection, setProxyTarget, type ProxyTarget } from './proxy.ts'
 
 export interface DeviceRoute {
   kind: 'lan' | 'tailscale'
@@ -165,6 +164,76 @@ export function clearSessions(): void {
   persist()
 }
 
+// --- account sign-in / sign-out ---------------------------------------------
+
+/**
+ * The only auth endpoints the renderer may reach through main. Anything else
+ * still goes through the proxy to the active device.
+ */
+const LOCAL_AUTH_PATH = /^\/auth\/(status|start|logout|poll\/[A-Za-z0-9_-]+)$/
+
+export interface LocalAuthResponse {
+  ok: boolean
+  status: number
+  data: unknown
+}
+
+/**
+ * Account sign-in and sign-out belong to the local island: they are about
+ * THIS install, never the one the window is driving. Sent through the proxy
+ * they would sign the REMOTE server's account in or out while this machine
+ * stayed as it was — and the sign-in callback server would be bound on the
+ * wrong computer.
+ *
+ * Status codes are passed through rather than thrown, because the renderer
+ * reads them (a 403 in privacy lockdown, a 401 on an expired session).
+ */
+export async function localAuth(
+  method: 'GET' | 'POST',
+  pathname: string,
+  body?: unknown,
+): Promise<LocalAuthResponse> {
+  if (!LOCAL_AUTH_PATH.test(pathname)) throw new Error(`Not a local auth path: ${pathname}`)
+  if (localBackendPort === null) throw new Error('local backend not ready')
+
+  const init: RequestInit = { method }
+  if (body !== undefined && body !== null) {
+    init.headers = { 'content-type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  const response = await fetch(`http://127.0.0.1:${localBackendPort}/api${pathname}`, init)
+  let data: unknown = null
+  try {
+    data = await response.json()
+  } catch {
+    // A body that is not JSON (or is empty) is reported as null.
+  }
+
+  if (method === 'POST' && pathname === '/auth/logout' && response.ok) onLocalLogout()
+
+  return { ok: response.ok, status: response.status, data }
+}
+
+/**
+ * Signed out = the feature does not exist. Every cached session was issued
+ * to the account that just left, and a window driving a remote device is
+ * now driving it with credentials the local backend can no longer renew.
+ *
+ * The active device is deliberately NOT switched back to local: the spec
+ * forbids automatic switching, and the connection screen's explicit
+ * "Use local server" is the way back. The persisted choice survives so a
+ * sign-in can return to the same server.
+ */
+function onLocalLogout(): void {
+  clearSessions()
+  if (state.activeDeviceId === LOCAL_DEVICE) return
+  // Supersede any connect still in flight so it cannot re-point the proxy at
+  // the remote device after we have taken it away.
+  connectGen++
+  setProxyTarget(null)
+  setConnectionState('unreachable')
+}
+
 // --- local backend calls ---------------------------------------------------
 
 async function localFetch(pathname: string, init?: RequestInit): Promise<any> {
@@ -285,13 +354,10 @@ function pinnedRequest(
         path: options.path,
         method: options.method ?? 'GET',
         headers,
-        rejectUnauthorized: false,
-        checkServerIdentity: (_h: string, cert: tls.PeerCertificate) => {
-          if (!cert?.raw || !fingerprintMatches(cert.raw, options.fingerprint)) {
-            return new Error('certificate fingerprint mismatch')
-          }
-          return undefined
-        },
+        // No agent: with one set, Node ignores a per-request createConnection.
+        // The pin has to sit in the socket factory (see proxy.ts) because
+        // checkServerIdentity never runs for a self-signed peer.
+        createConnection: pinnedConnection(options.fingerprint),
       },
       (res) => {
         let body = ''
@@ -362,8 +428,20 @@ async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promi
  * Point the proxy at the active device. LAN routes are tried before tailnet
  * ones because the registry orders them that way and a LAN hop is faster to
  * the same machine.
+ *
+ * Calls overlap: a device switch while a probe is mid-flight, a retry from
+ * the unreachable screen, the local backend restarting. Only the newest call
+ * may touch the proxy or the connection state — otherwise the older one,
+ * finishing later, would point the window at a device the user has already
+ * left. A superseded call reports the state the winner established.
  */
+let connectGen = 0
+
 export async function connect(): Promise<ConnectionState> {
+  const gen = ++connectGen
+  const deviceId = state.activeDeviceId
+  const superseded = () => gen !== connectGen || state.activeDeviceId !== deviceId
+
   if (state.activeDeviceId === LOCAL_DEVICE) {
     if (localBackendPort === null) {
       setConnectionState('connecting')
@@ -385,6 +463,7 @@ export async function connect(): Promise<ConnectionState> {
 
   for (const route of device.routes) {
     if (!(await probe(route, device.deviceId, device.certFingerprint))) continue
+    if (superseded()) return connectionState
 
     let session = loadSession(device.deviceId)
     let target: ProxyTarget = {
@@ -400,12 +479,16 @@ export async function connect(): Promise<ConnectionState> {
       log.info('devices', `Cached session rejected by ${device.name}; re-bootstrapping`)
       session = null
     }
+    if (superseded()) return connectionState
 
     if (!session) {
       session = await bootstrapSession(device, route)
       if (!session) continue
+      // The session is valid for that device regardless of who wins, so
+      // caching it is safe; pointing the proxy at it is not.
       storeSession(device.deviceId, session)
       target = { ...target, session }
+      if (superseded()) return connectionState
     }
 
     setProxyTarget(target)
@@ -414,6 +497,7 @@ export async function connect(): Promise<ConnectionState> {
     return connectionState
   }
 
+  if (superseded()) return connectionState
   setProxyTarget(null)
   setConnectionState('unreachable')
   return connectionState

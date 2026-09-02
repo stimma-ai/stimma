@@ -592,6 +592,13 @@ async def logout():
     )
     from routes.cloud import disconnect_cloud_internal
 
+    # Multi-device first: signed out means the feature does not exist, so
+    # serving stops, issued sessions are revoked, and this install leaves the
+    # account roster. The unregister needs the account token, which every
+    # step below works to invalidate.
+    from multi_device import service as multi_device_service
+    await multi_device_service.sign_out()
+
     id_token = None
     auth_state = load_auth_state()
     if auth_state and auth_state.get('refresh_token') and not is_privacy_lockdown_enabled():

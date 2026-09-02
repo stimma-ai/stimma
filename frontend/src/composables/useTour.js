@@ -39,8 +39,15 @@ import { useTelemetry } from './useTelemetry'
  */
 export const DEVICE_COACHMARK = {
   id: 'device-chip',
-  title: 'Atelier is available',
   body: 'Another Stimma Server is running on your account. Switch to it here.',
+}
+
+/** The step as shown: named after the server that just appeared. */
+export function deviceCoachmarkStep(deviceName) {
+  return {
+    ...DEVICE_COACHMARK,
+    title: deviceName ? `${deviceName} is available` : 'A Stimma Server is available',
+  }
 }
 
 const DEVICE_COACHMARK_KEY = 'stimma_device_coachmark_seen'

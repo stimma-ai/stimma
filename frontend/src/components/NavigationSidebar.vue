@@ -932,12 +932,15 @@
               </button>
             </Tooltip>
             <FeedbackFooterButton />
-            <!-- Server picker: an icon in the occasional-actions strip, not a
-                 chip over the balance. Renders nothing until the account has
-                 a second server; its menu opens upward across the footer. -->
-            <DeviceChip variant="footer" />
           </template>
           <FeedbackFooterButton v-if="!showAccountChip" wide />
+          <!-- Server picker: an icon in the occasional-actions strip, not a
+               chip over the balance. Renders nothing until the account has a
+               second server; its menu opens upward across the footer. Keyed
+               on sign-in alone, not showAccountChip: the developer "hide
+               account" toggle dresses the footer for screenshots and must not
+               take the picker with it. -->
+          <DeviceChip v-if="isAuthenticated" variant="footer" />
           <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
             <button
               @click="openSettingsFromFooter"

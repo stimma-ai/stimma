@@ -20,6 +20,7 @@ const CONTRACT_METHODS = [
   'mdSetLocalServing',
   'mdRenameLocal',
   'mdForgetDevice',
+  'authLocal',
   'mdSetActiveDevice',
   'mdUseLocalServer',
   'mdRetry',

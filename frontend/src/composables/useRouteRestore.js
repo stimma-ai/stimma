@@ -42,6 +42,10 @@ export function useRouteRestore() {
     watch(() => route.fullPath, () => {
       if (!route.name) return  // Skip during redirects
       if (route.meta?.skipRouteRestore) return  // Opt-out routes don't persist
+      // Onboarding is a startup decision, re-made every launch from the
+      // completion flag. Persisting it would drag a window back into the
+      // wizard after it has finished, or after a device switch.
+      if (route.name === 'onboarding') return
       saveCurrentRoute()
     })
   }

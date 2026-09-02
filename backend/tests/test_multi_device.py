@@ -453,3 +453,116 @@ async def test_being_signed_out_is_not_an_error(monkeypatch):
     monkeypatch.setattr(registry, "is_privacy_lockdown_enabled", lambda: False)
 
     assert await registry.list_devices() is None
+
+
+# --- sign-out -----------------------------------------------------------------
+#
+# "Signed out = the feature doesn't exist." A server that keeps answering to
+# satellites after its account signed out is the opposite of that, so logout
+# must stop serving, drop every issued session, and leave the roster — while
+# the account token is still good enough to reach the registry.
+
+
+@pytest.fixture
+def signed_in_server(monkeypatch, fake_registry, isolated_sessions):
+    """A serving install with the side effects of apply_serving captured."""
+    from multi_device import service
+
+    calls: dict[str, list] = {"stop_serving": [], "stop_heartbeat": [], "patched": []}
+    serving = {"on": True}
+
+    async def stop_serving():
+        calls["stop_serving"].append(True)
+        serving["on"] = False
+
+    monkeypatch.setattr(service, "_app", object())
+    monkeypatch.setattr(service.server, "is_serving", lambda: serving["on"])
+    monkeypatch.setattr(service.server, "serving_port", lambda: 43239 if serving["on"] else None)
+    monkeypatch.setattr(service.server, "stop_serving", stop_serving)
+    monkeypatch.setattr(
+        service.registry, "stop_heartbeat", lambda: calls["stop_heartbeat"].append(True)
+    )
+    monkeypatch.setattr(
+        service, "_patch_multi_device", lambda **changes: calls["patched"].append(changes)
+    )
+
+    async def no_broadcast():
+        pass
+
+    monkeypatch.setattr(service, "notify_devices_changed", no_broadcast)
+    return calls, fake_registry
+
+
+@pytest.mark.asyncio
+async def test_signing_out_stops_serving_and_cuts_every_satellite_off(signed_in_server):
+    from multi_device import service
+
+    calls, published = signed_in_server
+    a = auth.issue_session("device-a", "acct-1")
+    b = auth.issue_session("device-b", "acct-1")
+
+    await service.sign_out()
+
+    assert calls["stop_serving"] == [True]
+    assert calls["stop_heartbeat"] == [True]
+    # Persisted off, not merely paused: the toggle and the listener agree.
+    assert {"serving": False} in calls["patched"]
+    # The registry saw an unregister, so the row leaves other installs' pickers.
+    assert published[-1]["serving"] is False
+    assert published[-1]["cert_fingerprint"] is None
+    # verify_session is the gate every proxied request passes through.
+    assert auth.verify_session(a) is None
+    assert auth.verify_session(b) is None
+
+
+@pytest.mark.asyncio
+async def test_signing_out_while_not_serving_still_drops_sessions(monkeypatch, isolated_sessions):
+    """An install that served earlier and then turned serving off may still
+    hold no live listener but the sessions file is what grants access."""
+    from multi_device import service
+
+    class Off:
+        class multi_device:
+            serving = False
+
+    monkeypatch.setattr(service, "_app", object())
+    monkeypatch.setattr(service.server, "is_serving", lambda: False)
+    monkeypatch.setattr(service, "get_settings", lambda: Off())
+    stopped = []
+    monkeypatch.setattr(service.registry, "stop_heartbeat", lambda: stopped.append(True))
+
+    async def must_not_run(enabled):
+        raise AssertionError("apply_serving should not run when nothing is serving")
+
+    monkeypatch.setattr(service, "apply_serving", must_not_run)
+    token = auth.issue_session("device-a", "acct-1")
+
+    await service.sign_out()
+
+    assert auth.verify_session(token) is None
+    assert stopped == [True]
+
+
+@pytest.mark.asyncio
+async def test_a_failure_to_stop_serving_does_not_block_sign_out(monkeypatch, isolated_sessions):
+    from multi_device import service
+
+    class On:
+        class multi_device:
+            serving = True
+
+    monkeypatch.setattr(service, "_app", object())
+    monkeypatch.setattr(service.server, "is_serving", lambda: True)
+    monkeypatch.setattr(service, "get_settings", lambda: On())
+    monkeypatch.setattr(service.registry, "stop_heartbeat", lambda: None)
+
+    async def boom(enabled):
+        raise RuntimeError("listener wedged")
+
+    monkeypatch.setattr(service, "apply_serving", boom)
+    token = auth.issue_session("device-a", "acct-1")
+
+    await service.sign_out()  # must not raise
+
+    # Even when the listener could not be torn down, the sessions are gone.
+    assert auth.verify_session(token) is None

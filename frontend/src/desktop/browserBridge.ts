@@ -7,7 +7,34 @@
  * call the bridge unconditionally where it already had no Tauri gate.
  */
 
-import type { DesktopBridge, LocalDeviceStatus } from './types'
+import type { DesktopBridge, LocalAuthResponse, LocalDeviceStatus } from './types'
+
+/**
+ * Shared by the browser and Tauri bridges: one backend, so "this install"
+ * and "the active device" are the same server. Mirrors the shape Electron
+ * main returns so useAuth reads one contract.
+ */
+export async function fetchLocalAuth(
+  origin: string,
+  method: 'GET' | 'POST',
+  path: string,
+  body?: unknown,
+): Promise<LocalAuthResponse> {
+  if (!path.startsWith('/auth/')) throw new Error(`Not a local auth path: ${path}`)
+  const init: RequestInit = { method }
+  if (body !== undefined && body !== null) {
+    init.headers = { 'Content-Type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  const response = await fetch(`${origin}/api${path}`, init)
+  let data: unknown = null
+  try {
+    data = await response.json()
+  } catch {
+    // Empty or non-JSON body.
+  }
+  return { ok: response.ok, status: response.status, data }
+}
 
 export const browserBridge: DesktopBridge = {
   kind: 'browser',
@@ -70,6 +97,10 @@ export const browserBridge: DesktopBridge = {
   },
   mdOnConnectionState() {
     return () => {}
+  },
+  // Plain web dev: relative /api, exactly where the API base points.
+  authLocal(method, path, body) {
+    return fetchLocalAuth('', method, path, body)
   },
 
   async openProfileWindow() {

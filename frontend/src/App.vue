@@ -216,6 +216,7 @@ import { getApiBase, isTauri } from './apiConfig'
 import { useSettingsApi } from './composables/useSettingsApi'
 import {
   devModeRef,
+  isSettingsLoaded,
   setAppModifier,
   setDevMode,
   setGenerationPreviews,
@@ -777,6 +778,21 @@ async function loadAppSettings() {
   window.dispatchEvent(new CustomEvent('settings-loaded'))
 }
 
+/**
+ * Whether the window's active device is connected. Outside the desktop shell
+ * (or in a shell predating multi-device) there is exactly one backend and no
+ * connection state to wait on, so that counts as ready.
+ */
+async function multiDeviceReady() {
+  if (!isTauri()) return true
+  try {
+    const { desktop } = await import('./desktop')
+    return (await desktop.mdGetState()).connectionState === 'ready'
+  } catch {
+    return true
+  }
+}
+
 async function checkStartupPin() {
   try {
     // In the desktop app each window is pinned to one profile; resolve it
@@ -816,13 +832,21 @@ async function checkStartupPin() {
     } else {
       // Resolve onboarding before exposing the application shell. Otherwise
       // /home gets one paint before this asynchronous startup check redirects.
+      //
+      // Only when the backend actually answered, though. The onboarding flag
+      // is keyed by the bundle id settings supplied; with settings unloaded
+      // (backend down, errored, or a remote device still connecting) the key
+      // is wrong and the flag reads as absent, which would shove an onboarded
+      // user into the wizard. The connection screen owns that case; the
+      // window is reloaded from the root once the device comes back.
+      const startupReady = isSettingsLoaded() && (await multiDeviceReady())
       const onboarded = localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
       // The onboarding flag is scoped to the backend this window is driving,
       // so it is per server by design. Acceptance of the terms is not: carry
       // an existing one over to this install before the gate, or the first
       // switch to another server would ask for it a second time.
-      adoptLegacyAcceptance(onboarded)
-      if (!onboarded) {
+      if (startupReady) adoptLegacyAcceptance(onboarded)
+      if (startupReady && !onboarded) {
         await router.replace({ name: 'onboarding' })
         return
       }

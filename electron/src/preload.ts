@@ -75,6 +75,14 @@ const stimmaDesktop = {
   mdRenameLocal: (name: string) =>
     invoke<Record<string, unknown>>('stimma:md-rename-local', name),
   mdForgetDevice: (deviceId: string) => invoke<void>('stimma:md-forget-device', deviceId),
+  /** Account sign-in/out for THIS install, never the device the window is on. */
+  authLocal: (method: 'GET' | 'POST', path: string, body?: unknown) =>
+    invoke<{ ok: boolean; status: number; data: unknown }>(
+      'stimma:auth-local',
+      method,
+      path,
+      body ?? null,
+    ),
   mdSetActiveDevice: (deviceId: string) =>
     invoke<string>('stimma:md-set-active-device', deviceId),
   mdUseLocalServer: () => invoke<string>('stimma:md-use-local-server'),

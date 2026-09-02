@@ -55,10 +55,14 @@ const props = defineProps({
   sandbox: { type: String, default: null },
 })
 
-/** Only non-default values earn a chip; a stock install shows none. */
+/**
+ * Only non-default, CLASSIFIED values earn a chip; a stock install shows
+ * none. The backend reports 'unknown' for a bundle id it cannot map to a
+ * channel — a chip saying so would be noise, not a qualifier.
+ */
 const tags = computed(() => {
   const out = []
-  if (props.channel && props.channel !== 'production') out.push(props.channel)
+  if (props.channel && props.channel !== 'production' && props.channel !== 'unknown') out.push(props.channel)
   if (props.sandbox && props.sandbox !== 'default') out.push(props.sandbox)
   return out
 })

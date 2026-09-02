@@ -23,6 +23,7 @@ import {
   getConnectionState,
   forgetDevice,
   getKnownDevices,
+  localAuth,
   localStatus,
   refreshDevices,
   renameLocal,
@@ -164,6 +165,20 @@ export function registerIpcHandlers(): void {
   // Deliberately NOT proxied: these describe and control the machine the user
   // is sitting at, even while the window is driving another one.
   handle('stimma:md-local-status', async () => localStatus())
+
+  // Account sign-in/out is part of the same local island: it is about this
+  // install, never the device the window is on. Restricted to /auth/* so the
+  // renderer cannot turn this into a general bypass of the proxy.
+  handle('stimma:auth-local', async (_event, method: unknown, pathname: unknown, body: unknown) => {
+    if (method !== 'GET' && method !== 'POST') throw new Error('method must be GET or POST')
+    if (typeof pathname !== 'string' || !pathname.startsWith('/auth/')) {
+      throw new Error('path must be under /auth/')
+    }
+    // Same gate as get-backend-port: the answer is about the local install,
+    // so wait for it rather than reporting "signed out" while it boots.
+    await waitForBackendPort()
+    return localAuth(method, pathname, body ?? undefined)
+  })
 
   handle('stimma:md-set-local-serving', async (_event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw new Error('enabled must be a boolean')
