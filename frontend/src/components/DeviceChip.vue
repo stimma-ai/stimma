@@ -2,11 +2,39 @@
   <!-- Hidden entirely until the account has offered a second server, so
        single-machine users see zero footprint. Note this does NOT depend on
        whether THIS install serves: pointing a laptop at the studio machine
-       must not require offering the laptop in return. -->
-  <div v-if="hasOtherDevices" class="relative device-menu">
+       must not require offering the laptop in return.
+
+       Two triggers, one menu. `footer` is the everyday home: a 32px icon in
+       the sidebar footer strip beside feedback and settings, because picking
+       a server is rare and belongs with the other occasional actions, and
+       because it leaves the account chip's name and balance untouched. The
+       presence dot on its corner carries the state you actually need at a
+       glance; the name lives in the tooltip and the menu. `chip` (name +
+       dot) survives for the connection screen, which has no sidebar. -->
+  <div v-if="hasOtherDevices" class="device-menu" :class="isFooter ? 'contents' : 'relative'">
+    <button
+      v-if="isFooter"
+      data-tour="device-chip"
+      class="relative w-8 h-8 flex-shrink-0 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
+      :class="menuOpen ? 'text-content bg-overlay-subtle' : ''"
+      :title="isRemote ? `Server: ${activeDeviceName}` : 'Server: this install'"
+      @click="toggleMenu"
+    >
+      <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+      </svg>
+      <!-- Presence dot rides the icon's corner; ringed in surface so it reads
+           as a badge rather than part of the glyph. -->
+      <span
+        class="absolute right-1 bottom-1 w-2 h-2 rounded-full ring-2 ring-surface"
+        :class="statusDotClass"
+      />
+    </button>
+
     <!-- Ghost trigger, matching the profile picker: bordered+filled chips
          aren't Atelier chrome; the menu carries the affordance. -->
     <button
+      v-else
       data-tour="device-chip"
       class="flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
       @click="toggleMenu"
@@ -26,9 +54,16 @@
     </button>
 
     <transition name="menu">
+      <!-- Footer: opens upward and spans the footer's width. A 300px panel
+           hanging off a 32px icon at the sidebar's right edge would clip
+           against the window, so the panel anchors to the footer container
+           (the `contents` wrapper makes that the positioning parent). -->
       <div
         v-if="menuOpen"
-        class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[300px] overflow-hidden"
+        class="absolute bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu overflow-hidden"
+        :class="isFooter
+          ? 'bottom-[calc(100%+0.375rem)] left-2 right-2 origin-bottom'
+          : 'top-[calc(100%+0.5rem)] right-0 min-w-[300px]'"
       >
         <div class="py-1">
           <DeviceRow
@@ -94,6 +129,13 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceRow from './DeviceRow.vue'
+
+const props = defineProps({
+  /** `footer`: sidebar-footer icon with a presence dot, menu opens upward.
+   *  `chip`: name + dot for surfaces without a sidebar (connection screen). */
+  variant: { type: String, default: 'chip' },
+})
+const isFooter = computed(() => props.variant === 'footer')
 
 const {
   LOCAL_DEVICE,

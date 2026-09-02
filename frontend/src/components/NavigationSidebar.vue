@@ -909,7 +909,7 @@
              (scroll-edge divider); border stays in flow via transparent so
              toggling never shifts layout. -->
         <div
-          class="flex items-center gap-1 px-2 py-2 border-t flex-shrink-0 transition-colors"
+          class="relative flex items-center gap-1 px-2 py-2 border-t flex-shrink-0 transition-colors"
           :class="navScrolledUnder ? 'border-edge-subtle' : 'border-transparent'"
         >
           <!-- Signed in: chip fills the left, compact feedback + gear icons
@@ -932,6 +932,10 @@
               </button>
             </Tooltip>
             <FeedbackFooterButton />
+            <!-- Server picker: an icon in the occasional-actions strip, not a
+                 chip over the balance. Renders nothing until the account has
+                 a second server; its menu opens upward across the footer. -->
+            <DeviceChip variant="footer" />
           </template>
           <FeedbackFooterButton v-if="!showAccountChip" wide />
           <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
@@ -1057,6 +1061,7 @@ import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 import EditorShelf from './EditorShelf.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'
+import DeviceChip from './DeviceChip.vue'
 
 const props = defineProps({
   isOpen: {
