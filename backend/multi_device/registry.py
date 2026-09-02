@@ -116,7 +116,21 @@ async def register(
         return None
 
 
+class RegistryUnavailable(Exception):
+    """The registry could not be read. Distinct from being signed out.
+
+    Both leave us without a roster, but they are not the same problem and must
+    not look the same: reporting an unreachable registry as "signed out" sends
+    everyone looking at the account instead of at the deployment, and the UI
+    quietly shows a stale list while claiming the feature is simply off.
+    """
+
+
 async def list_devices() -> Optional[list[dict]]:
+    """The account roster, or None when this install is not signed in.
+
+    Raises RegistryUnavailable when signed in but the registry did not answer.
+    """
     if is_privacy_lockdown_enabled():
         return None
     headers = await _cloud_headers()
@@ -129,7 +143,7 @@ async def list_devices() -> Optional[list[dict]]:
             return response.json().get("devices", [])
     except Exception as exc:
         log.warning("multi-device: device list failed", error=str(exc))
-        return None
+        raise RegistryUnavailable(str(exc)) from exc
 
 
 async def remove_device(device_id: str) -> bool:

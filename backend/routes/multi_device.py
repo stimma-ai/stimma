@@ -57,20 +57,33 @@ async def rename_device(request: RenameRequest):
 
 @router.get("/devices")
 async def get_devices():
-    """Every device on the account, with this one marked.
+    """The account roster, with this install marked.
 
-    Returns an empty list rather than an error when signed out: the UI's rule
-    is "signed in = the feature exists", so a signed-out install simply has
-    no devices, which is exactly what the chip needs to hide itself.
+    Three outcomes, kept apart on purpose. Signed out is not an error: the
+    UI's rule is "signed in = the feature exists", so an empty list is exactly
+    what the chip needs to hide itself. A registry that did not answer IS an
+    error, and saying so is what stops an outage from being read as a
+    signed-out account — the caller keeps its cached roster either way, but
+    only one of the two is worth investigating.
     """
-    devices = await registry.list_devices()
+    try:
+        devices = await registry.list_devices()
+    except registry.RegistryUnavailable as exc:
+        return {
+            "devices": [],
+            "signedIn": True,
+            "registryError": str(exc),
+            "selfDeviceId": None,
+        }
+
     if devices is None:
-        return {"devices": [], "signedIn": False, "selfDeviceId": None}
+        return {"devices": [], "signedIn": False, "registryError": None, "selfDeviceId": None}
 
     status = await service.status()
     return {
         "devices": devices,
         "signedIn": True,
+        "registryError": None,
         "selfDeviceId": status["deviceId"],
     }
 

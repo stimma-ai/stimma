@@ -407,3 +407,49 @@ def test_the_identity_never_goes_in_the_query_string():
 
     assert events_url("https://api.example.com/") == "wss://api.example.com/account-events-v1"
     assert "?" not in events_url("http://localhost:8787")
+
+
+# --- diagnosing a missing roster ---------------------------------------------
+#
+# "No roster" has two causes that look identical from the outside and are not
+# remotely the same problem. Reporting an unreachable registry as a signed-out
+# account sends everyone to look at the wrong thing, while the client quietly
+# keeps showing a cached list.
+
+
+@pytest.mark.asyncio
+async def test_a_registry_that_does_not_answer_is_an_error_not_a_sign_out(monkeypatch):
+    from multi_device import registry
+
+    async def headers():
+        return {"Authorization": "Bearer t"}
+
+    class Failing:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, *args, **kwargs):
+            raise RuntimeError("404 Not Found")
+
+    monkeypatch.setattr(registry, "_cloud_headers", headers)
+    monkeypatch.setattr(registry, "is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr(registry.httpx, "AsyncClient", lambda **kwargs: Failing())
+
+    with pytest.raises(registry.RegistryUnavailable, match="404"):
+        await registry.list_devices()
+
+
+@pytest.mark.asyncio
+async def test_being_signed_out_is_not_an_error(monkeypatch):
+    from multi_device import registry
+
+    async def no_headers():
+        return None
+
+    monkeypatch.setattr(registry, "_cloud_headers", no_headers)
+    monkeypatch.setattr(registry, "is_privacy_lockdown_enabled", lambda: False)
+
+    assert await registry.list_devices() is None

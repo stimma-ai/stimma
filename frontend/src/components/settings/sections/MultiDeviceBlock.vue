@@ -3,10 +3,9 @@
     <h3 class="text-xs font-semibold text-content-secondary">Stimma Server</h3>
 
     <div class="mt-2">
-      <SettingRow label="Enable Stimma Server">
+      <SettingRow label="Enable server">
         <template #description>
           Serve this library and its tools to your other Stimma installs.
-          Until you turn this on, it is not listed anywhere.
           <span v-if="error" class="block mt-1 text-red-500">{{ error }}</span>
           <span v-else-if="status?.servingError" class="block mt-1 text-red-500">
             Could not start serving: {{ status.servingError }}
@@ -44,47 +43,6 @@
           @keydown.enter="$event.target.blur()"
           @keydown.esc="nameDraft = status?.deviceName || ''"
         />
-      </div>
-
-      <!-- Only when non-default: a stock install has nothing to disambiguate. -->
-      <div
-        v-if="tags.length"
-        class="flex items-center justify-between gap-4 py-2.5 border-t border-edge-subtle"
-      >
-        <div class="min-w-0">
-          <div class="text-[13px] text-content">Install</div>
-          <div class="text-[11.5px] text-content-tertiary">
-            A separate library from the stock install on this machine.
-          </div>
-        </div>
-        <div class="flex items-center gap-1.5 flex-shrink-0">
-          <span
-            v-for="tag in tags"
-            :key="tag"
-            class="px-1.5 py-0.5 rounded bg-overlay-subtle font-mono text-[10px] text-content-muted"
-            >{{ tag }}</span
-          >
-        </div>
-      </div>
-
-      <div
-        v-if="serving"
-        class="flex items-start justify-between gap-4 py-2.5 border-t border-edge-subtle"
-      >
-        <div class="min-w-0">
-          <div class="text-[13px] text-content">Reachable at</div>
-          <div class="text-[11.5px] text-content-tertiary">Direct link — media never goes via the cloud.</div>
-        </div>
-        <div class="text-right min-w-0">
-          <div
-            v-for="route in status?.routes || []"
-            :key="`${route.host}:${route.port}`"
-            class="text-xs font-mono tabular-nums text-content-secondary truncate select-text"
-          >
-            {{ route.host }}:{{ route.port }}
-          </div>
-          <div v-if="!(status?.routes || []).length" class="text-xs font-mono text-content-muted">—</div>
-        </div>
       </div>
     </div>
 
@@ -150,9 +108,6 @@ const serving = computed(() => status.value?.serving === true)
 const peers = computed(() =>
   devices.value.filter((d) => d.deviceId !== status.value?.deviceId),
 )
-
-/** Non-default channel/sandbox for THIS install. Empty when both default. */
-const tags = computed(() => deviceTags(status.value))
 
 function deviceTags(device) {
   if (!device) return []

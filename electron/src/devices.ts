@@ -178,17 +178,23 @@ async function localFetch(pathname: string, init?: RequestInit): Promise<any> {
  * Refresh the device list from the account registry, via local Python.
  *
  * Only an AUTHORITATIVE answer replaces the cache. The endpoint answers 200
- * with an empty list and `signedIn: false` whenever it could not reach the
- * registry, so keying on HTTP success would let a cloud outage silently
- * erase every known device — and the cache is exactly what lets the chip
- * render, and the unreachable screen name the device it is waiting for,
- * while nothing is reachable.
+ * with an empty list whenever it could not reach the registry, so keying on
+ * HTTP success would let a cloud outage silently erase every known device —
+ * and the cache is exactly what lets the chip render, and the unreachable
+ * screen name the device it is waiting for, while nothing is reachable.
  */
 export async function refreshDevices(): Promise<DeviceRecord[]> {
   try {
     const data = await localFetch('/api/multi-device/devices')
+    if (data?.registryError) {
+      // Signed in, but the registry did not answer. Say which it was: read as
+      // "signed out" this looks like a feature nobody turned on, and the
+      // stale cache below makes it look like it half works.
+      log.warn('devices', `Registry unreachable (${data.registryError}); keeping cached list`)
+      return state.devices
+    }
     if (data?.signedIn !== true) {
-      log.info('devices', 'Registry unavailable; keeping cached device list')
+      log.info('devices', 'Not signed in; keeping cached device list')
       return state.devices
     }
     state.devices = (data.devices ?? []).filter(
