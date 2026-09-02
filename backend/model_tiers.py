@@ -101,6 +101,8 @@ UNKNOWN_VENDOR_RANK = 99
 # selectable.
 SPECIALTY_MODELS: frozenset[str] = frozenset({
     "claude-fable-5",
+    "claude-fable-5-1",
+    "claude-fable-5.1",
 })
 
 # Curated tiers, keyed on the bare model identifier (cloud `stimma:` prefixes and
@@ -111,6 +113,8 @@ CURATED_TIERS: dict[str, str] = {
     # Anthropic
     "claude-opus-5": DEEP,
     "claude-fable-5": DEEP,
+    "claude-fable-5-1": DEEP,
+    "claude-fable-5.1": DEEP,
     "claude-sonnet-5": BALANCED,
     "claude-haiku-4.5": FAST,
     "claude-haiku-4-5-20251001": FAST,

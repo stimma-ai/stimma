@@ -71,6 +71,30 @@ def test_config_migration_rewrites_retired_model_aliases(tmp_path):
     assert _migrate_legacy_llm_model_slugs(config_path) is False
 
 
+def test_config_migration_carries_fable_reasoning_to_its_successor(tmp_path):
+    """Fable 5.1 replaced Fable 5 with an identical ladder, so 'xhigh' carries.
+
+    The Opus 4.8 case above proved the mechanism; this pins the Fable mapping,
+    where the saved level must survive rather than fall back to the default.
+    """
+    import yaml
+
+    from config import _migrate_legacy_llm_model_slugs
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "default_model: stimma:claude-fable-5\n"
+        "llm_reasoning_levels:\n"
+        "  stimma:claude-fable-5: xhigh\n"
+    )
+
+    assert _migrate_legacy_llm_model_slugs(config_path) is True
+    migrated = yaml.safe_load(config_path.read_text())
+
+    assert migrated["default_model"] == "stimma:claude-fable-5.1"
+    assert migrated["llm_reasoning_levels"] == {"stimma:claude-fable-5.1": "xhigh"}
+
+
 def test_retired_global_model_keys_are_dropped_not_migrated(tmp_path):
     """The old globals do not seed the per-role settings.
 

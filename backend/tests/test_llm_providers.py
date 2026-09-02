@@ -182,7 +182,7 @@ def test_branded_provider_contracts_match_current_model_series():
     assert [model.model_id for model in anthropic] == [
         "claude-sonnet-5",
         "claude-opus-5",
-        "claude-fable-5",
+        "claude-fable-5-1",
         "claude-haiku-4-5-20251001",
     ]
     assert anthropic[2].reasoning.mode == "required"

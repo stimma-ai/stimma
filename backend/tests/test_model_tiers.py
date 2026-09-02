@@ -72,6 +72,11 @@ class TestTierFor:
 class TestSpecialty:
     def test_fable_excluded(self):
         assert is_specialty(c("stimma:claude-fable-5"))
+        assert is_specialty(c("stimma:claude-fable-5.1"))
+        # Cloud rows look up by canonical_model_id, BYO rows by the provider's
+        # own id — the dashed spelling has to be excluded too.
+        assert is_specialty(c("stimma:claude-fable-5.1",
+                              model_id="anthropic:claude-fable-5-1"))
         assert not is_specialty(c("stimma:claude-opus-5"))
 
 
@@ -99,11 +104,12 @@ class TestSelectAutoModels:
 
     def test_fable_never_auto_selected(self):
         chosen = select_auto_models([
-            c("stimma:claude-fable-5", vendor="anthropic"),
+            c("stimma:claude-fable-5.1", vendor="anthropic",
+              model_id="anthropic:claude-fable-5-1"),
             c("stimma:claude-sonnet-5", vendor="anthropic"),
             c("stimma:claude-haiku-4.5", vendor="anthropic"),
         ])
-        assert "stimma:claude-fable-5" not in chosen.values()
+        assert "stimma:claude-fable-5.1" not in chosen.values()
         assert chosen["chat"] == "stimma:claude-sonnet-5"
 
     def test_openai_only_install(self):

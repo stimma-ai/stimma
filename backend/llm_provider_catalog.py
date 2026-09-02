@@ -97,7 +97,10 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
             ),
         },
         {
-            "model_id": "claude-fable-5", "name": "Claude Fable 5", "context": 1_000_000,
+            # Succeeds Claude Fable 5 in the same tier at the same price. Like
+            # its predecessor it always thinks: there is no off rung, and both
+            # thinking:disabled and budget_tokens are rejected outright.
+            "model_id": "claude-fable-5-1", "name": "Claude Fable 5.1", "context": 1_000_000,
             "reasoning": _reasoning(
                 "required", ["low", "medium", "high", "xhigh", "max"],
                 "high", "low", "anthropic_adaptive_required",

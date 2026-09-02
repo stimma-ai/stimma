@@ -16,6 +16,7 @@ LEGACY_LLM_MODEL_SLUGS = {
     "agent-max": "stimma:minimax-m3",
     "default": "stimma:minimax-m3",
     "stimma:claude-opus-4.8": "stimma:claude-opus-5",
+    "stimma:claude-fable-5": "stimma:claude-fable-5.1",
 }
 
 # Reasoning levels each replacement model accepts, used when migrating a saved
@@ -23,6 +24,8 @@ LEGACY_LLM_MODEL_SLUGS = {
 LEGACY_LLM_REASONING_LEVELS = {
     "stimma:minimax-m3": {"off", "high"},
     "stimma:claude-opus-5": {"off", "low", "medium", "high", "xhigh", "max"},
+    # Fable 5.1 inherits Fable 5's ladder exactly, so every saved level carries.
+    "stimma:claude-fable-5.1": {"low", "medium", "high", "xhigh", "max"},
 }
 
 def generate_profile_id() -> str:
