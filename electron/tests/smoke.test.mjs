@@ -98,8 +98,11 @@ try {
   const bridgeKind = await window.evaluate(() => window.stimmaDesktop?.kind ?? null)
   check(`preload bridge exposed (kind: ${bridgeKind})`, bridgeKind === 'electron')
 
-  const backendPort = await window.evaluate(() => window.stimmaDesktop.getBackendPort())
-  check(`IPC round-trip: getBackendPort → ${backendPort}`, backendPort === fakeBackendPort)
+  const appPort = await window.evaluate(() => window.stimmaDesktop.getBackendPort())
+  check(
+    `IPC round-trip: getBackendPort → local proxy ${appPort}`,
+    Number.isInteger(appPort) && appPort > 0 && appPort <= 65535,
+  )
 
   const logged = await window
     .evaluate(() => window.stimmaDesktop.log('info', 'smoke-test log line'))
