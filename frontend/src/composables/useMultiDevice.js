@@ -7,7 +7,7 @@
  * So this composable is thin on purpose: selection, the roster, and the
  * connection state main pushes to us.
  *
- * The roster only ever contains computers that were OFFERED (serving turned
+ * The roster only ever contains installs that were OFFERED (serving turned
  * on). Reading it does not require offering this one, so a laptop that never
  * serves can still drive the studio machine.
  */
@@ -22,7 +22,7 @@ const activeDeviceId = ref(LOCAL_DEVICE)
 const devices = ref([])
 const connectionState = ref('connecting')
 const initialized = ref(false)
-// This install's own identity, so "This computer" carries the same
+// This install's own identity, so the local row carries the same name and
 // qualifiers as every other row rather than being the one ambiguous entry.
 const selfName = ref(null)
 const selfChannel = ref(null)
@@ -44,7 +44,7 @@ const offlineDevices = computed(() => devices.value.filter((d) => !isOnline(d)))
 
 /**
  * The chip is hidden entirely until the account has offered a second
- * computer, so single-machine users see zero footprint.
+ * server, so single-machine users see zero footprint.
  */
 const hasOtherDevices = computed(() => devices.value.length > 0)
 
@@ -57,10 +57,10 @@ const activeDevice = computed(() =>
 const isRemote = computed(() => activeDeviceId.value !== LOCAL_DEVICE)
 
 const activeDeviceName = computed(() =>
-  activeDevice.value ? activeDevice.value.name : selfName.value || 'This computer',
+  activeDevice.value ? activeDevice.value.name : selfName.value || 'Local server',
 )
 
-/** "just now" / "3 h ago" — only shown for computers that are not up. */
+/** "just now" / "3 h ago" — only shown for servers that are not up. */
 function lastSeenLabel(device) {
   const iso = device?.lastSeenAt
   if (!iso) return 'not seen yet'
@@ -119,10 +119,10 @@ async function refresh() {
 }
 
 /**
- * Who THIS computer is — asked of main, not of the API base.
+ * Who THIS install is — asked of main, not of the API base.
  *
  * The API base points at the active device, so reading identity from it would
- * label the "This computer" row with the name of the machine you are driving.
+ * label the local row with the name of the machine you are driving.
  */
 async function loadSelf() {
   try {
@@ -152,11 +152,11 @@ async function switchToDevice(deviceId) {
 }
 
 /** Explicit escape hatch from the unreachable screen — never automatic. */
-async function useThisComputer() {
+async function useLocalServer() {
   connectionState.value = 'connecting'
   activeDeviceId.value = LOCAL_DEVICE
   try {
-    connectionState.value = await desktop.mdUseThisComputer()
+    connectionState.value = await desktop.mdUseLocalServer()
   } catch {
     connectionState.value = 'unreachable'
   }
@@ -192,7 +192,7 @@ export function useMultiDevice() {
     refresh,
     loadSelf,
     switchToDevice,
-    useThisComputer,
+    useLocalServer,
     retry,
   }
 }

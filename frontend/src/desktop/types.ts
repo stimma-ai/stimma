@@ -119,7 +119,7 @@ export interface DesktopBridge {
   /** Switch the window to a device; main reloads the window on success. */
   mdSetActiveDevice(deviceId: string): Promise<ConnectionState>
   /** Explicit fallback from the unreachable screen. Never automatic. */
-  mdUseThisComputer(): Promise<ConnectionState>
+  mdUseLocalServer(): Promise<ConnectionState>
   /** Retry the current device now. */
   mdRetry(): Promise<ConnectionState>
   /** Subscribe to connection transitions; returns an unsubscribe function. */

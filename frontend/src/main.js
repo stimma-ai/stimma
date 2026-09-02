@@ -107,7 +107,7 @@ if (isTauri()) {
 initApiConfig().then(() => {
   // Profiles live on the active device. If it is unreachable there is nothing
   // to resolve them against — mount anyway so ConnectionScreen can explain
-  // the situation and offer Retry / Use this computer.
+  // the situation and offer Retry / Use local server.
   if (startedWithUnreachableDevice()) return null
   return initializeCurrentProfile()
 }).then(() => {

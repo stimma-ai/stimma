@@ -40,7 +40,7 @@ import { useTelemetry } from './useTelemetry'
 export const DEVICE_COACHMARK = {
   id: 'device-chip',
   title: 'Atelier is available',
-  body: 'This account has another computer serving. Switch to it here.',
+  body: 'Another Stimma Server is running on your account. Switch to it here.',
 }
 
 const DEVICE_COACHMARK_KEY = 'stimma_device_coachmark_seen'

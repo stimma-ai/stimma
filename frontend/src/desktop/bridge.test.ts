@@ -21,7 +21,7 @@ const CONTRACT_METHODS = [
   'mdRenameLocal',
   'mdForgetDevice',
   'mdSetActiveDevice',
-  'mdUseThisComputer',
+  'mdUseLocalServer',
   'mdRetry',
   'mdOnConnectionState',
   // windows / profiles

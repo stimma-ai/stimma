@@ -77,7 +77,7 @@ const stimmaDesktop = {
   mdForgetDevice: (deviceId: string) => invoke<void>('stimma:md-forget-device', deviceId),
   mdSetActiveDevice: (deviceId: string) =>
     invoke<string>('stimma:md-set-active-device', deviceId),
-  mdUseThisComputer: () => invoke<string>('stimma:md-use-this-computer'),
+  mdUseLocalServer: () => invoke<string>('stimma:md-use-local-server'),
   mdRetry: () => invoke<string>('stimma:md-retry'),
   /** Main pushes every connection transition; returns an unsubscribe fn. */
   mdOnConnectionState: (onEvent: (state: unknown) => void) =>

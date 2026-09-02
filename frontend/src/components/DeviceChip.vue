@@ -1,5 +1,5 @@
 <template>
-  <!-- Hidden entirely until the account has offered a second computer, so
+  <!-- Hidden entirely until the account has offered a second server, so
        single-machine users see zero footprint. Note this does NOT depend on
        whether THIS install serves: pointing a laptop at the studio machine
        must not require offering the laptop in return. -->
@@ -10,7 +10,7 @@
       data-tour="device-chip"
       class="flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
       @click="toggleMenu"
-      :title="isRemote ? `On ${activeDeviceName}` : 'This computer'"
+      :title="isRemote ? `On ${activeDeviceName}` : 'Local server'"
     >
       <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="statusDotClass" />
       <span class="max-w-[140px] truncate">{{ activeDeviceName }}</span>
@@ -32,10 +32,10 @@
       >
         <div class="py-1">
           <DeviceRow
-            :label="selfName || 'This computer'"
+            :label="selfName || 'Local server'"
             :channel="selfChannel"
             :sandbox="selfSandbox"
-            :detail="selfName ? 'this computer' : ''"
+            :detail="selfName ? 'local' : ''"
             :selected="!isRemote"
             @select="pick(LOCAL_DEVICE)"
           />
@@ -52,7 +52,7 @@
 
         <!-- Offered but not up. Behind a disclosure so the everyday list is
              only what you can actually reach, but still present, because a
-             computer vanishing from the menu is worse than a quiet count. -->
+             server vanishing from the menu is worse than a quiet count. -->
         <div v-if="offlineDevices.length" class="border-t border-edge-subtle">
           <button
             class="w-full flex items-center gap-1.5 px-3 py-2 text-[11px] text-content-tertiary transition-colors cursor-pointer hover:text-content-secondary"

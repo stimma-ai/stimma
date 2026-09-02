@@ -32,9 +32,9 @@
         <button
           v-if="connectionState === 'unreachable'"
           class="h-8 px-3 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
-          @click="useThisComputer"
+          @click="useLocalServer"
         >
-          Use this computer
+          Use local server
         </button>
       </div>
     </div>
@@ -46,7 +46,7 @@ import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
 
-const { connectionState, activeDeviceName, retry, refresh, useThisComputer } = useMultiDevice()
+const { connectionState, activeDeviceName, retry, refresh, useLocalServer } = useMultiDevice()
 
 const deviceName = computed(() => activeDeviceName.value)
 

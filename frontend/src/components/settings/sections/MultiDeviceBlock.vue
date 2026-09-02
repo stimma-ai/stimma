@@ -1,12 +1,12 @@
 <template>
   <section class="mt-9">
-    <h3 class="text-xs font-semibold text-content-secondary">Multi-device</h3>
+    <h3 class="text-xs font-semibold text-content-secondary">Stimma Server</h3>
 
     <div class="mt-2">
-      <SettingRow label="Serve this computer">
+      <SettingRow label="Enable Stimma Server">
         <template #description>
-          Offer this computer to the others signed into your account. Until you
-          turn this on, it is not listed anywhere.
+          Serve this library and its tools to your other Stimma installs.
+          Until you turn this on, it is not listed anywhere.
           <span v-if="error" class="block mt-1 text-red-500">{{ error }}</span>
           <span v-else-if="status?.servingError" class="block mt-1 text-red-500">
             Could not start serving: {{ status.servingError }}
@@ -34,12 +34,12 @@
       >
         <div class="min-w-0">
           <div class="text-[13px] text-content">Name</div>
-          <div class="text-[11.5px] text-content-tertiary">What the other computers call this one.</div>
+          <div class="text-[11.5px] text-content-tertiary">How this server appears to your other installs.</div>
         </div>
         <input
           v-model="nameDraft"
           class="text-xs font-mono text-content text-right bg-transparent border border-transparent rounded px-1.5 py-0.5 min-w-0 max-w-[240px] focus:outline-none focus:border-accent hover:border-edge-subtle transition-colors"
-          :placeholder="status?.deviceName || 'This computer'"
+          :placeholder="status?.deviceName || 'Server name'"
           @blur="commitName"
           @keydown.enter="$event.target.blur()"
           @keydown.esc="nameDraft = status?.deviceName || ''"
@@ -88,10 +88,10 @@
       </div>
     </div>
 
-    <!-- The account's roster. Only computers that were OFFERED appear here,
+    <!-- The account's roster. Only installs that were OFFERED appear here,
          on this machine or any other. -->
     <div v-if="peers.length" class="mt-6">
-      <div class="text-xs font-semibold text-content-secondary">Other computers</div>
+      <div class="text-xs font-semibold text-content-secondary">Other servers</div>
       <div class="mt-2">
         <div
           v-for="(device, i) in peers"
@@ -115,11 +115,11 @@
             class="px-1.5 py-0.5 rounded bg-overlay-subtle font-mono text-[10px] text-content-muted flex-shrink-0"
             >{{ tag }}</span
           >
-          <!-- Housekeeping only: the row comes back if that computer starts
+          <!-- Housekeeping only: the row comes back if that install starts
                serving again. Trust is the account, so this is not a revoke. -->
           <button
             class="p-1.5 rounded text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors cursor-pointer flex-shrink-0"
-            title="Forget this computer"
+            title="Forget this server"
             @click="remove(device.deviceId)"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -165,7 +165,7 @@ function deviceTags(device) {
 // Everything below asks MAIN about the machine the user is sitting at. Going
 // through the API base would answer for whichever device the window is
 // driving, so on a satellite this block would describe — and toggle — the
-// remote computer while labelled "This computer".
+// remote install while labelled as this one.
 async function loadStatus() {
   try {
     status.value = await desktop.mdLocalStatus()

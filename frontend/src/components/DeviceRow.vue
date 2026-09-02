@@ -1,5 +1,5 @@
 <template>
-  <!-- One grammar for every row, including "This computer": check gutter,
+  <!-- One grammar for every row, including the local one: check gutter,
        name, qualifier chips, optional right-hand fact. Nothing is optional on
        the LEFT, so no row is ever indented relative to its neighbours. -->
   <button

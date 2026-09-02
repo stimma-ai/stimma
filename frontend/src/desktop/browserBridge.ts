@@ -62,7 +62,7 @@ export const browserBridge: DesktopBridge = {
   async mdSetActiveDevice() {
     return 'ready' as const
   },
-  async mdUseThisComputer() {
+  async mdUseLocalServer() {
     return 'ready' as const
   },
   async mdRetry() {

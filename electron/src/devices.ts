@@ -73,7 +73,7 @@ export function initDevices(dataDir: string): void {
       }
     }
   } catch {
-    // First launch, or a corrupt file: default to this computer.
+    // First launch, or a corrupt file: default to the local server.
   }
 }
 
@@ -435,7 +435,7 @@ export async function setActiveDevice(deviceId: string): Promise<ConnectionState
   return connect()
 }
 
-/** Explicit "Use this computer" from the unreachable screen. Never automatic. */
-export async function useThisComputer(): Promise<ConnectionState> {
+/** Explicit "Use local server" from the unreachable screen. Never automatic. */
+export async function useLocalServer(): Promise<ConnectionState> {
   return setActiveDevice(LOCAL_DEVICE)
 }

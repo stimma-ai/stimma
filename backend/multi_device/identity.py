@@ -43,7 +43,7 @@ def default_device_name() -> str:
         name = socket.gethostname().split(".")[0]
     except Exception:
         name = ""
-    return name or "This computer"
+    return name or "Unnamed server"
 
 
 def local_addresses() -> list[str]:

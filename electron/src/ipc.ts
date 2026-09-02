@@ -28,7 +28,7 @@ import {
   renameLocal,
   setActiveDevice,
   setLocalServing,
-  useThisComputer,
+  useLocalServer,
 } from './devices'
 import {
   relaunchApp,
@@ -189,8 +189,8 @@ export function registerIpcHandlers(): void {
     return state
   })
 
-  handle('stimma:md-use-this-computer', async () => {
-    const state = await useThisComputer()
+  handle('stimma:md-use-local-server', async () => {
+    const state = await useLocalServer()
     if (state === 'ready') reloadAllWindows()
     return state
   })

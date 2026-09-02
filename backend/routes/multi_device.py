@@ -1,7 +1,7 @@
 """Multi-device HTTP surface (loopback only).
 
 Two consumers:
-- The settings UI, for the "Serve this computer" toggle and the device ledger.
+- The settings UI, for the "Enable Stimma Server" toggle and the server ledger.
 - Electron main, which needs the account token and device list to reach a
   remote device, and deliberately never holds account credentials itself.
 """
@@ -32,7 +32,7 @@ async def get_status():
 
 @router.post("/serving")
 async def set_serving(request: ServingRequest):
-    """Flip 'Serve this computer'."""
+    """Flip 'Enable Stimma Server'."""
     try:
         return await service.apply_serving(request.enabled)
     except Exception as exc:
@@ -42,7 +42,7 @@ async def set_serving(request: ServingRequest):
 
 @router.patch("/name")
 async def rename_device(request: RenameRequest):
-    """Rename this computer.
+    """Rename this server.
 
     The default is the OS hostname, which is not always unique and is rarely
     what the user would call the machine. The new name is republished
