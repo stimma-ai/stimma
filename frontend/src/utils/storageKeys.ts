@@ -80,6 +80,11 @@ export function makeGlobalKey(...parts: (string | number)[]): string {
   return `${prefix}_global_${parts.join('_')}`
 }
 
+// Install-scoped keys live in their own dependency-free module, because not
+// importing anything from here is exactly what makes them install-scoped.
+// Re-exported so this file stays the one place to look for a key helper.
+export { makeInstallKey } from './installKey.ts'
+
 /**
  * Create a tool-specific DB-scoped key (includes db_guid).
  *

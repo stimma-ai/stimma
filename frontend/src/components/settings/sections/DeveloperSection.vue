@@ -254,6 +254,7 @@ import { useReadiness } from '../../../composables/useReadiness'
 import { useTour } from '../../../composables/useTour'
 import { useReleaseNotes } from '../../../composables/useReleaseNotes'
 import { makeGlobalKey } from '../../../utils/storageKeys'
+import { clearTermsAcceptance } from '../../../utils/terms'
 import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
@@ -329,6 +330,9 @@ function resetOnboarding() {
   // Close settings first so finishing onboarding lands in the app, not settings.
   emit('close-settings')
   localStorage.removeItem(makeGlobalKey('onboarding_completed'))
+  // A real first run includes the clickwrap, so clear that too — otherwise
+  // this only ever replays the half of onboarding that is per backend.
+  clearTermsAcceptance()
   router.push({ name: 'onboarding' })
 }
 

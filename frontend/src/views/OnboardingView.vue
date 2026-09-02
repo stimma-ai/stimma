@@ -99,12 +99,21 @@
         </label>
       </div>
 
-      <!-- Legal -->
-      <p class="text-content-secondary text-center" style="font-size: 10.5px; line-height: 1.5;">
+      <!-- Legal. The clickwrap is shown until it has been accepted on this
+           computer; after that the links stay reachable but the agreement
+           sentence does not come back. Onboarding itself still runs per
+           backend, and pointing the window at a second computer must not ask
+           the same person to agree a second time. -->
+      <p v-if="!termsAccepted" class="text-content-secondary text-center" style="font-size: 10.5px; line-height: 1.5;">
         By continuing you agree to our
         <a @click.prevent="openUrl(termsUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Terms of Service</a>
         and
         <a @click.prevent="openUrl(privacyUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Privacy Policy</a>.
+      </p>
+      <p v-else class="text-content-tertiary text-center" style="font-size: 10.5px; line-height: 1.5;">
+        <a @click.prevent="openUrl(termsUrl)" href="#" class="text-content-tertiary underline underline-offset-2 hover:text-content-secondary transition-colors">Terms of Service</a>
+        <span class="px-1.5">·</span>
+        <a @click.prevent="openUrl(privacyUrl)" href="#" class="text-content-tertiary underline underline-offset-2 hover:text-content-secondary transition-colors">Privacy Policy</a>
       </p>
     </div>
   </div>
@@ -116,6 +125,7 @@ import { useRouter } from 'vue-router'
 import { signInWithBrowser } from '../composables/useAuth'
 import { isOfficialBuild } from '../distribution'
 import { makeGlobalKey } from '../utils/storageKeys'
+import { hasAcceptedTerms, recordTermsAcceptance } from '../utils/terms'
 import { getApiBase } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { useTheme } from '../composables/useTheme'
@@ -152,6 +162,10 @@ function selectTheme(theme) {
 const loading = ref(false)
 const isOfficial = isOfficialBuild()
 
+// Read once: it cannot change while this screen is up, and re-reading would
+// make the footer swap under the user's cursor as they click through.
+const termsAccepted = ref(hasAcceptedTerms())
+
 // Consent toggle default per compliance regime (official builds only):
 // optin regimes (EEA/UK/CH) default OFF, optout regimes default ON.
 // The region check is resolved before this view renders (cached in config
@@ -174,6 +188,9 @@ if (isOfficial) {
 
 function markComplete() {
   localStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
+  // Install-scoped, unlike the flag above: the person does not re-agree just
+  // because they pointed this window at another computer.
+  recordTermsAcceptance()
   // Activation-funnel endpoint. Tracked BEFORE the consent decision lands so
   // it buffers pre-consent and flushes together with first_run on consent-on.
   track('onboarding_completed', {}, 'app')

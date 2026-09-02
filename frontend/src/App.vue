@@ -242,6 +242,7 @@ import { useReleaseNotes } from './composables/useReleaseNotes'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
+import { adoptLegacyAcceptance } from './utils/terms'
 import { updateCheckIntervalMs } from './utils/updateCheckSchedule'
 import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
@@ -815,7 +816,13 @@ async function checkStartupPin() {
     } else {
       // Resolve onboarding before exposing the application shell. Otherwise
       // /home gets one paint before this asynchronous startup check redirects.
-      if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) {
+      const onboarded = localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
+      // The onboarding flag is scoped to the backend this window is driving,
+      // so it is per server by design. Acceptance of the terms is not: carry
+      // an existing one over to this install before the gate, or the first
+      // switch to another server would ask for it a second time.
+      adoptLegacyAcceptance(onboarded)
+      if (!onboarded) {
         await router.replace({ name: 'onboarding' })
         return
       }
