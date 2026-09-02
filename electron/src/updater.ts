@@ -26,6 +26,7 @@ import { shutdownBackend } from './backend'
 import { shutdownHelper } from './helper'
 import { readPackagedMetadata } from './identity'
 import { log } from './log'
+import { beginUpdateInstall } from './updaterLifecycle'
 import { UpdaterState } from './updaterState'
 import {
   hasStagedPackage,
@@ -33,6 +34,7 @@ import {
   pruneStagedUpdate,
   readUpdaterCacheDirName,
 } from './updaterCache'
+import { markQuitting } from './windows'
 
 const state = new UpdaterState()
 
@@ -187,10 +189,15 @@ export function relaunchApp(): void {
   if (state.hasDownloadedUpdate()) {
     // NSIS refuses to proceed while packaged Python/native binaries are alive.
     // Stop them before launching the installer, while the watchdog still owns
-    // the complete backend process tree.
-    shutdownHelper()
-    shutdownBackend()
-    getAutoUpdater().quitAndInstall(false, true)
+    // the complete backend process tree. electron-updater closes windows before
+    // emitting before-quit, so mark the app as quitting first; otherwise the
+    // last-window handler hides the window and cancels the macOS installer quit.
+    beginUpdateInstall({
+      markQuitting,
+      shutdownHelper,
+      shutdownBackend,
+      quitAndInstall: () => getAutoUpdater().quitAndInstall(false, true),
+    })
     return
   }
   app.relaunch()
