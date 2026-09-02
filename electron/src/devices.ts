@@ -19,7 +19,13 @@ import fs from 'node:fs'
 import https from 'node:https'
 import path from 'node:path'
 import { log } from './log.ts'
-import { pinnedConnection, setProxyTarget, type ProxyTarget } from './proxy.ts'
+import {
+  getProxyTarget,
+  pinnedConnection,
+  setProxyFailureListener,
+  setProxyTarget,
+  type ProxyTarget,
+} from './proxy.ts'
 
 export interface DeviceRoute {
   kind: 'lan' | 'tailscale'
@@ -52,10 +58,17 @@ interface PersistedState {
   devices: DeviceRecord[]
   /** deviceId -> encrypted session, base64. Decrypted only in this process. */
   sessions: Record<string, string>
+  /** deviceId -> last route that completed a real authenticated connection. */
+  preferredRoutes: Record<string, DeviceRoute>
 }
 
 let statePath = ''
-let state: PersistedState = { activeDeviceId: LOCAL_DEVICE, devices: [], sessions: {} }
+let state: PersistedState = {
+  activeDeviceId: LOCAL_DEVICE,
+  devices: [],
+  sessions: {},
+  preferredRoutes: {},
+}
 let localBackendPort: number | null = null
 let connectionState: ConnectionState = 'connecting'
 let onStateChange: ((state: ConnectionState) => void) | null = null
@@ -69,11 +82,16 @@ export function initDevices(dataDir: string): void {
         activeDeviceId: typeof parsed.activeDeviceId === 'string' ? parsed.activeDeviceId : LOCAL_DEVICE,
         devices: Array.isArray(parsed.devices) ? parsed.devices : [],
         sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
+        preferredRoutes:
+          parsed.preferredRoutes && typeof parsed.preferredRoutes === 'object'
+            ? parsed.preferredRoutes
+            : {},
       }
     }
   } catch {
     // First launch, or a corrupt file: default to the local server.
   }
+  setProxyFailureListener((failedTarget) => void recoverFromProxyFailure(failedTarget))
 }
 
 function persist(): void {
@@ -396,6 +414,39 @@ async function probe(
   }
 }
 
+function sameRoute(a: DeviceRoute | undefined, b: DeviceRoute): boolean {
+  return !!a && a.host === b.host && a.port === b.port && a.kind === b.kind
+}
+
+/**
+ * Probe all candidates within one bounded window instead of serially paying a
+ * timeout for every stale interface. LAN gets a short head start over the
+ * tailnet, while the last route known to work starts immediately regardless
+ * of kind. Successful candidates are returned in observed-speed order.
+ */
+async function* reachableRoutes(device: DeviceRecord): AsyncGenerator<DeviceRoute> {
+  const preferred = state.preferredRoutes[device.deviceId]
+  const ready: DeviceRoute[] = []
+  let remaining = device.routes.length
+  let wake: (() => void) | null = null
+
+  for (const route of device.routes) {
+    const delay = route.kind === 'tailscale' && !sameRoute(preferred, route) ? 250 : 0
+    void (async () => {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
+      if (await probe(route, device.deviceId, device.certFingerprint!)) ready.push(route)
+      remaining--
+      wake?.()
+      wake = null
+    })()
+  }
+
+  while (remaining > 0 || ready.length > 0) {
+    while (ready.length > 0) yield ready.shift()!
+    if (remaining > 0) await new Promise<void>((resolve) => (wake = resolve))
+  }
+}
+
 async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promise<string | null> {
   try {
     const { idToken, selfDeviceId } = await localFetch('/api/multi-device/connect-token', {
@@ -425,9 +476,8 @@ async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promi
 }
 
 /**
- * Point the proxy at the active device. LAN routes are tried before tailnet
- * ones because the registry orders them that way and a LAN hop is faster to
- * the same machine.
+ * Point the proxy at the active device. Candidate probes are concurrent with
+ * a small LAN head start, avoiding N serial timeouts before tailnet fallback.
  *
  * Calls overlap: a device switch while a probe is mid-flight, a retry from
  * the unreachable screen, the local backend restarting. Only the newest call
@@ -461,8 +511,7 @@ export async function connect(): Promise<ConnectionState> {
     return connectionState
   }
 
-  for (const route of device.routes) {
-    if (!(await probe(route, device.deviceId, device.certFingerprint))) continue
+  for await (const route of reachableRoutes(device)) {
     if (superseded()) return connectionState
 
     let session = loadSession(device.deviceId)
@@ -475,10 +524,12 @@ export async function connect(): Promise<ConnectionState> {
     }
 
     // A cached session may have been revoked (serving turned off, sign-out).
-    if (session && !(await sessionWorks(target))) {
+    const sessionState = session ? await sessionWorks(target) : null
+    if (session && sessionState === 'invalid') {
       log.info('devices', `Cached session rejected by ${device.name}; re-bootstrapping`)
       session = null
     }
+    if (session && sessionState === 'unreachable') continue
     if (superseded()) return connectionState
 
     if (!session) {
@@ -492,6 +543,8 @@ export async function connect(): Promise<ConnectionState> {
     }
 
     setProxyTarget(target)
+    state.preferredRoutes[device.deviceId] = route
+    persist()
     setConnectionState('ready')
     log.info('devices', `Connected to ${device.name} via ${route.kind} ${route.host}:${route.port}`)
     return connectionState
@@ -503,7 +556,7 @@ export async function connect(): Promise<ConnectionState> {
   return connectionState
 }
 
-async function sessionWorks(target: ProxyTarget): Promise<boolean> {
+async function sessionWorks(target: ProxyTarget): Promise<'valid' | 'invalid' | 'unreachable'> {
   try {
     const { status } = await pinnedRequest({
       host: target.host,
@@ -512,9 +565,35 @@ async function sessionWorks(target: ProxyTarget): Promise<boolean> {
       fingerprint: target.certFingerprint!,
       session: target.session,
     })
-    return status === 200
+    // The serving gate returns 401 before the app for a missing/revoked
+    // session. Other application statuses still prove that the credential
+    // was accepted; do not turn a transient backend 500 into an auth event.
+    return status === 401 || status === 403 ? 'invalid' : 'valid'
   } catch {
-    return false
+    return 'unreachable'
+  }
+}
+
+let recoveryInFlight = false
+
+/**
+ * A route that was healthy can disappear when a laptop changes networks.
+ * First fail over using cached candidates (fast and cloud-independent), then
+ * refresh discovery and make one more attempt if none of them work.
+ */
+async function recoverFromProxyFailure(failedTarget: ProxyTarget): Promise<void> {
+  if (recoveryInFlight || state.activeDeviceId === LOCAL_DEVICE) return
+  if (getProxyTarget() !== failedTarget) return
+  recoveryInFlight = true
+  try {
+    log.warn('devices', 'Active remote route failed; selecting another route')
+    setProxyTarget(null)
+    setConnectionState('connecting')
+    if ((await connect()) === 'ready') return
+    await refreshDevices()
+    await connect()
+  } finally {
+    recoveryInFlight = false
   }
 }
 

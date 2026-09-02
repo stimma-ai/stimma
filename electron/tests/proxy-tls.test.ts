@@ -17,7 +17,13 @@ import https from 'node:https'
 import net from 'node:net'
 import path from 'node:path'
 
-import { pinnedConnection, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
+import {
+  pinnedConnection,
+  setProxyFailureListener,
+  setProxyTarget,
+  startProxy,
+  stopProxy,
+} from '../src/proxy.ts'
 import { makeScratchDir } from './scratch.mjs'
 
 const scratchCleanups = new Set<() => void>()
@@ -203,6 +209,29 @@ test('refuses a TLS upstream whose certificate does not match the pin', { skip }
 
   stopProxy()
   await closeUpstream(up)
+})
+
+test('reports an active remote route after two connection-level failures', { skip }, async () => {
+  const dir = tmpDir()
+  const id = selfSigned(dir, 'failed-route')
+  const up = await tlsUpstream(id, (_req, res) => res.end('unused'))
+  const deadPort = up.port
+  await closeUpstream(up)
+
+  const port = await startProxy(dir)
+  const failed = new Promise<void>((resolve) => {
+    setProxyFailureListener(() => resolve())
+  })
+  setProxyTarget({
+    host: '127.0.0.1',
+    port: deadPort,
+    tls: true,
+    certFingerprint: id.fingerprint,
+  })
+
+  assert.equal((await get(port, '/api/settings')).status, 502)
+  assert.equal((await get(port, '/api/settings')).status, 502)
+  await failed
 })
 
 test('refuses a TLS upstream when the target carries no fingerprint at all', { skip }, async () => {

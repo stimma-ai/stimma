@@ -60,15 +60,21 @@ const statusLine = computed(() =>
 // hammer a sleeping machine, fast enough that waking one feels immediate.
 const RETRY_INTERVAL_MS = 5000
 let timer = null
+let autoRetryInFlight = false
 
 onMounted(() => {
-  timer = setInterval(() => {
-    if (connectionState.value !== 'unreachable') return
+  timer = setInterval(async () => {
+    if (connectionState.value !== 'unreachable' || autoRetryInFlight) return
+    autoRetryInFlight = true
     // Nothing is pushing us roster changes here — there is no app websocket
-    // while the window has no backend — so re-read the roster alongside the
+    // while the window has no backend — so re-read the roster before the
     // retry. That is also how a device's routes get refreshed after it moves.
-    void refresh()
-    void retry()
+    try {
+      await refresh()
+      if (connectionState.value === 'unreachable') await retry()
+    } finally {
+      autoRetryInFlight = false
+    }
   }, RETRY_INTERVAL_MS)
 })
 

@@ -19,6 +19,7 @@ import secrets
 import socket
 from typing import Optional, Tuple
 
+import psutil
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -47,17 +48,48 @@ def default_device_name() -> str:
 
 
 def local_addresses() -> list[str]:
-    """Non-loopback IPv4 addresses this host can be reached at.
+    """Usable IPv4 addresses this host can be reached at.
 
     Tailscale addresses live in 100.64.0.0/10 (CGNAT), which is how they are
     told apart from ordinary LAN addresses without shelling out to tailscale.
+    Enumerating interfaces matters here: hostname lookup commonly returns only
+    one address and misses Tailscale entirely on Linux and Windows.
     """
     found: list[str] = []
+
+    try:
+        stats = psutil.net_if_stats()
+        for interface, addresses in psutil.net_if_addrs().items():
+            if interface in stats and not stats[interface].isup:
+                continue
+            for address in addresses:
+                if address.family != socket.AF_INET:
+                    continue
+                try:
+                    ip = ipaddress.ip_address(address.address)
+                except ValueError:
+                    continue
+                if ip.is_loopback or ip.is_unspecified or ip.is_multicast or ip.is_link_local:
+                    continue
+                text = str(ip)
+                if text not in found:
+                    found.append(text)
+    except Exception as exc:
+        # Keep the older discovery methods as a fallback for unusual packaged
+        # environments. Missing a route is recoverable; refusing to serve is not.
+        log.warning("multi-device: interface enumeration failed", error=str(exc))
+
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             addr = info[4][0]
-            if addr not in found and not addr.startswith("127."):
-                found.append(addr)
+            try:
+                ip = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            if not (ip.is_loopback or ip.is_unspecified or ip.is_multicast or ip.is_link_local):
+                text = str(ip)
+                if text not in found:
+                    found.append(text)
     except Exception:
         pass
 
@@ -67,8 +99,11 @@ def local_addresses() -> list[str]:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("192.0.2.1", 9))  # TEST-NET-1, never actually routed
             addr = s.getsockname()[0]
-            if addr and not addr.startswith("127.") and addr not in found:
-                found.append(addr)
+            ip = ipaddress.ip_address(addr)
+            if not (ip.is_loopback or ip.is_unspecified or ip.is_multicast or ip.is_link_local):
+                text = str(ip)
+                if text not in found:
+                    found.append(text)
     except Exception:
         pass
 

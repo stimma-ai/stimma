@@ -83,7 +83,7 @@ license:
 ## Python packages
 
 <!-- BEGIN GENERATED: python -->
-126 packages (direct and transitive; the entire environment is bundled with the app).
+127 packages (direct and transitive; the entire environment is bundled with the app).
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -159,6 +159,7 @@ license:
 | primp | 1.1.3 | MIT License | https://github.com/deedy5/primp |
 | propcache | 0.4.1 | Apache-2.0 | https://github.com/aio-libs/propcache |
 | protobuf | 6.33.2 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
+| psutil | 7.2.2 | BSD-3-Clause | https://github.com/giampaolo/psutil |
 | pycparser | 3.0 | BSD-3-Clause | https://github.com/eliben/pycparser |
 | pydantic | 2.5.0 | MIT | https://github.com/pydantic/pydantic |
 | pydantic-core | 2.14.1 | MIT | https://github.com/pydantic/pydantic-core |
@@ -284,7 +285,7 @@ license:
 | delayed-stream | 1.0.0 | MIT | https://github.com/felixge/node-delayed-stream |
 | dompurify | 3.4.11 | (MPL-2.0 OR Apache-2.0) | https://github.com/cure53/DOMPurify |
 | dunder-proto | 1.0.1 | MIT | https://github.com/es-shims/dunder-proto |
-| electron | 43.4.1 | MIT | https://github.com/electron/electron |
+| electron | 44.0.0 | MIT | https://github.com/electron/electron |
 | electron-updater | 6.8.9 | MIT | https://github.com/electron-userland/electron-builder |
 | entities | 4.5.0 | BSD-2-Clause | https://github.com/fb55/entities |
 | env-paths | 3.0.0 | MIT | https://github.com/sindresorhus/env-paths |
@@ -349,7 +350,7 @@ license:
 ## Rust crates
 
 <!-- BEGIN GENERATED: rust -->
-596 crates (560 compiled into shipped binaries; the rest are marked build-time only).
+602 crates (566 compiled into shipped binaries; the rest are marked build-time only).
 
 | Crate | Version(s) | License | Source | Notes |
 |---|---|---|---|---|
@@ -440,6 +441,7 @@ license:
 | coreaudio-sys | 0.2.17 | MIT | https://github.com/RustAudio/coreaudio-sys |  |
 | cpal | 0.15.3 | Apache-2.0 | https://github.com/rustaudio/cpal |  |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |  |
+| crc32c | 0.6.8 | Apache-2.0 OR MIT | https://github.com/zowens/crc32c |  |
 | crc32fast | 1.5.0 | MIT OR Apache-2.0 | https://github.com/srijs/rust-crc32fast |  |
 | crossbeam-channel | 0.5.15 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |  |
 | crossbeam-utils | 0.8.21 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |  |
@@ -485,6 +487,7 @@ license:
 | equivalent | 1.0.2 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/equivalent |  |
 | erased-serde | 0.4.9 | MIT OR Apache-2.0 | https://github.com/dtolnay/erased-serde |  |
 | errno | 0.3.14 | MIT OR Apache-2.0 | https://github.com/lambda-fairy/rust-errno |  |
+| errno-dragonfly | 0.1.2 | MIT | https://github.com/mneumann/errno-dragonfly-rs |  |
 | error-code | 3.3.2 | BSL-1.0 | https://github.com/DoumanAsh/error-code |  |
 | event-listener | 5.4.1 | Apache-2.0 OR MIT | https://github.com/smol-rs/event-listener |  |
 | event-listener-strategy | 0.5.4 | Apache-2.0 OR MIT | https://github.com/smol-rs/event-listener-strategy |  |
@@ -506,6 +509,7 @@ license:
 | foreign-types-macros | 0.2.3 | MIT OR Apache-2.0 | https://github.com/sfackler/foreign-types |  |
 | foreign-types-shared | 0.3.1 | MIT OR Apache-2.0 | https://github.com/sfackler/foreign-types |  |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |  |
+| fs2 | 0.4.3 | MIT OR Apache-2.0 | https://github.com/danburkert/fs2-rs |  |
 | funty | 2.0.0 | MIT | https://github.com/myrrlyn/funty |  |
 | futf | 0.1.5 | MIT  OR  Apache-2.0 | https://github.com/servo/futf |  |
 | futures-channel | 0.3.31 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |  |
@@ -568,6 +572,7 @@ license:
 | image | 0.25.9 | MIT OR Apache-2.0 | https://github.com/image-rs/image |  |
 | indexmap | 1.9.3, 2.12.1 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/indexmap |  |
 | infer | 0.19.0 | MIT | https://github.com/bojand/infer |  |
+| integer-encoding | 3.0.4 | MIT | https://github.com/dermesser/integer-encoding-rs |  |
 | ipnet | 2.11.0 | MIT OR Apache-2.0 | https://github.com/krisprice/ipnet |  |
 | iri-string | 0.7.9 | MIT OR Apache-2.0 | https://github.com/lo48576/iri-string |  |
 | is-docker | 0.2.0 | MIT | https://github.com/TheLarkInn/is-docker |  |
@@ -731,6 +736,7 @@ license:
 | rustls-platform-verifier-android | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rustls/rustls-platform-verifier |  |
 | rustls-webpki | 0.103.9 | ISC | https://github.com/rustls/webpki |  |
 | rustversion | 1.0.22 | MIT OR Apache-2.0 | https://github.com/dtolnay/rustversion |  |
+| rusty-leveldb | 4.0.1 | MIT | https://github.com/dermesser/leveldb-rs |  |
 | ryu | 1.0.21 | Apache-2.0 OR BSL-1.0 | https://github.com/dtolnay/ryu |  |
 | same-file | 1.0.6 | Unlicense OR MIT | https://github.com/BurntSushi/same-file |  |
 | schannel | 0.1.28 | MIT | https://github.com/steffengy/schannel-rs |  |
@@ -769,6 +775,7 @@ license:
 | siphasher | 0.3.11, 1.0.1 | MIT OR Apache-2.0 | https://github.com/jedisct1/rust-siphash |  |
 | slab | 0.4.11 | MIT | https://github.com/tokio-rs/slab |  |
 | smallvec | 1.15.1 | MIT OR Apache-2.0 | https://github.com/servo/rust-smallvec |  |
+| snap | 1.1.2 | BSD-3-Clause | https://github.com/BurntSushi/rust-snappy |  |
 | socket2 | 0.6.1 | MIT OR Apache-2.0 | https://github.com/rust-lang/socket2 |  |
 | softbuffer | 0.4.8 | MIT OR Apache-2.0 | https://github.com/rust-windowing/softbuffer |  |
 | soup3 | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |  |

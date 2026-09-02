@@ -13,7 +13,7 @@ import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
-from multi_device import auth, identity, server
+from multi_device import auth, identity, registry, server
 
 
 # --- identity ---------------------------------------------------------------
@@ -65,6 +65,17 @@ def test_two_devices_get_distinct_ids():
 def test_tailscale_detection(address, expected):
     """Route ordering depends on this: LAN is preferred over the tailnet."""
     assert identity.is_tailscale_address(address) is expected
+
+
+def test_route_budget_never_crowds_out_tailscale(monkeypatch):
+    addresses = [f"10.0.0.{n}" for n in range(1, 10)] + ["100.64.0.9"]
+    monkeypatch.setattr(registry, "local_addresses", lambda: addresses)
+
+    routes = registry.build_routes(43239)
+
+    assert len(routes) == 8
+    assert [route["kind"] for route in routes].count("lan") == 7
+    assert routes[-1] == {"kind": "tailscale", "host": "100.64.0.9", "port": 43239}
 
 
 def test_ensure_identity_is_stable_when_already_persisted():

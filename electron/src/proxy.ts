@@ -175,6 +175,41 @@ let listenPort: number | null = null
 let ready: Promise<number> | null = null
 let target: ProxyTarget | null = null
 let portFilePath = ''
+let onUpstreamFailure: ((failedTarget: ProxyTarget) => void) | null = null
+let recentFailures: number[] = []
+
+/**
+ * Report a dead active route after more than one connection-level failure.
+ * One cancelled request or websocket is ordinary renderer lifecycle; two
+ * failures close together are strong evidence that the route itself died.
+ */
+export function setProxyFailureListener(fn: (failedTarget: ProxyTarget) => void): void {
+  onUpstreamFailure = fn
+}
+
+function reportUpstreamSuccess(): void {
+  recentFailures = []
+}
+
+function reportUpstreamFailure(failedTarget: ProxyTarget): void {
+  if (target !== failedTarget || !failedTarget.tls) return
+  const now = Date.now()
+  recentFailures = [...recentFailures.filter((at) => now - at < 4000), now]
+  if (recentFailures.length < 2) return
+  recentFailures = []
+  onUpstreamFailure?.(failedTarget)
+}
+
+/** Bound connection establishment without imposing an idle timeout on media. */
+function boundConnectionEstablishment(req: http.ClientRequest): void {
+  req.once('socket', (socket) => {
+    if (!(socket as net.Socket).connecting) return
+    socket.setTimeout(10000, () => socket.destroy(new Error('upstream connect timeout')))
+    const connected = () => socket.setTimeout(0)
+    if (socket instanceof tls.TLSSocket) socket.once('secureConnect', connected)
+    else socket.once('connect', connected)
+  })
+}
 
 export function getProxyPort(): number | null {
   return listenPort
@@ -203,6 +238,7 @@ export function setProxyTarget(next: ProxyTarget | null): void {
     target?.certFingerprint !== next?.certFingerprint
   target = next
   if (changed) {
+    recentFailures = []
     dropUpgrades()
     tlsAgent?.destroy()
     tlsAgent = null
@@ -295,6 +331,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       agent: transport.agent,
     },
     (upstreamRes) => {
+      reportUpstreamSuccess()
       // Status verbatim: 206/416 for ranged media and 304 for conditional
       // thumbnail requests have to survive the hop intact. Headers too, minus
       // the per-connection ones — Node frames this hop itself.
@@ -302,8 +339,10 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       upstreamRes.pipe(res)
     },
   )
+  boundConnectionEstablishment(proxied)
 
   proxied.on('error', (err) => {
+    reportUpstreamFailure(upstream)
     log.warn('proxy', `Upstream error for ${req.method} ${req.url}: ${err}`)
     if (res.headersSent) {
       // Mid-stream: a JSON tail glued onto half an image is worse than a
@@ -355,8 +394,10 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
     headers,
     agent: transport.agent,
   })
+  boundConnectionEstablishment(proxied)
 
   proxied.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
+    reportUpstreamSuccess()
     const statusLine = `HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage}\r\n`
     const rawHeaders = Object.entries(upstreamRes.headers)
       .flatMap(([name, value]) => (Array.isArray(value) ? value.map((v) => [name, v]) : [[name, value]]))
@@ -380,7 +421,10 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
     }
     socket.on('close', teardown)
     socket.on('error', teardown)
-    upstreamSocket.on('close', teardown)
+    upstreamSocket.on('close', () => {
+      reportUpstreamFailure(upstream)
+      teardown()
+    })
     upstreamSocket.on('error', teardown)
 
     socket.pipe(upstreamSocket)
@@ -393,6 +437,7 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
   })
 
   proxied.on('error', (err) => {
+    reportUpstreamFailure(upstream)
     log.warn('proxy', `Upgrade failed for ${req.url}: ${err}`)
     socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n')
   })
@@ -486,4 +531,6 @@ export function stopProxy(): void {
   listenPort = null
   ready = null
   target = null
+  recentFailures = []
+  onUpstreamFailure = null
 }

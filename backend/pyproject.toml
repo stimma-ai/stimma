@@ -57,6 +57,8 @@ dependencies = [
     "pypdfium2>=4.0",
     "secretstorage>=3.3 ; sys_platform == 'linux'",
     "cryptography>=49.0.0",
+    # Reliable cross-platform interface enumeration for LAN + Tailscale routes.
+    "psutil>=5.9",
 ]
 
 [project.optional-dependencies]

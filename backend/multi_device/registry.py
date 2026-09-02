@@ -42,7 +42,15 @@ def build_routes(port: int) -> list[dict]:
     for addr in local_addresses():
         entry = {"kind": "tailscale" if is_tailscale_address(addr) else "lan", "host": addr, "port": port}
         (tailscale if entry["kind"] == "tailscale" else lan).append(entry)
-    return (lan + tailscale)[:8]  # registry bounds the list at 8
+    # The registry bounds the list at eight. Never let a host with many VM or
+    # VPN interfaces crowd the tailnet route out of that budget: crossing
+    # networks is exactly when that route is needed.
+    if len(lan) + len(tailscale) <= 8:
+        return lan + tailscale
+    if lan and tailscale:
+        lan_budget = min(len(lan), 7)
+        return lan[:lan_budget] + tailscale[: 8 - lan_budget]
+    return (lan or tailscale)[:8]
 
 
 async def _cloud_headers() -> Optional[dict]:
