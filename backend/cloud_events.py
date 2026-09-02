@@ -28,6 +28,23 @@ RECONNECT_MIN_S = 2
 RECONNECT_MAX_S = 60
 # Coalesce bursts (e.g. webhook fan-out) into one account refresh.
 EVENT_DEBOUNCE_S = 0.5
+# How this install identifies itself on the account socket. See events_headers.
+DEVICE_ID_HEADER = "X-Stimma-Device-Id"
+
+
+def _own_device_id() -> str | None:
+    """This install's stable multi-device id, or None if it cannot be read.
+
+    Never fatal: a socket without an id still delivers account events, it just
+    doesn't contribute presence.
+    """
+    try:
+        from multi_device.service import ensure_persisted_identity
+
+        return ensure_persisted_identity()[0]
+    except Exception as exc:
+        log.warning("account-events: could not read device id", error=str(exc))
+        return None
 
 
 def _http_to_ws_url(http_url: str) -> str:
@@ -38,10 +55,34 @@ def _http_to_ws_url(http_url: str) -> str:
     return http_url
 
 
+def events_url(base_url: str) -> str:
+    return _http_to_ws_url(base_url.rstrip("/")) + "/account-events-v1"
+
+
+def events_headers(token: str, device_id: str | None) -> dict[str, str]:
+    """Auth plus this install's identity.
+
+    The device id is what makes this socket double as multi-device presence:
+    while it is open the computer is up, and the moment it drops the account's
+    other computers stop offering it.
+
+    It rides in a HEADER rather than the query string because a Cloudflare
+    Worker route pattern without a trailing wildcard does not match a URL that
+    carries one — `/account-events-v1?deviceId=…` falls through the API worker
+    entirely and lands on the marketing site's 404.
+    """
+    headers = dict(cloud_access_headers())
+    headers["Authorization"] = f"Bearer {token}"
+    if device_id:
+        headers[DEVICE_ID_HEADER] = device_id
+    return headers
+
+
 class CloudEventsClient:
     def __init__(self) -> None:
         self._task: asyncio.Task | None = None
         self._refresh_task: asyncio.Task | None = None
+        self._devices_task: asyncio.Task | None = None
 
     def start(self) -> None:
         """Start (or keep) the connection loop. Idempotent; no-op when signed
@@ -58,13 +99,14 @@ class CloudEventsClient:
         self._task = asyncio.create_task(self._run(), name="cloud-account-events")
 
     async def stop(self) -> None:
-        for task in (self._task, self._refresh_task):
+        for task in (self._task, self._refresh_task, self._devices_task):
             if task and not task.done():
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
         self._task = None
         self._refresh_task = None
+        self._devices_task = None
 
     def _schedule_refresh(self, reason: str) -> None:
         """Debounced account refresh — one fetch per burst of events."""
@@ -112,10 +154,8 @@ class CloudEventsClient:
             await asyncio.sleep(delay)
 
     async def _connect_and_listen(self, token: str) -> None:
-        base_url = get_settings().cloud.base_url
-        ws_url = _http_to_ws_url(base_url) + "/account-events-v1"
-        headers = dict(cloud_access_headers())
-        headers["Authorization"] = f"Bearer {token}"
+        ws_url = events_url(get_settings().cloud.base_url)
+        headers = events_headers(token, _own_device_id())
 
         session = aiohttp.ClientSession()
         try:
@@ -152,8 +192,25 @@ class CloudEventsClient:
         if data.get('type') == 'account_event':
             reason = data.get('reason') or 'account'
             log.info("account-events: event received", reason=reason)
-            self._schedule_refresh(reason)
+            if reason == 'devices':
+                # A computer joined or left the roster. That has nothing to do
+                # with balance or entitlements, so don't drag the whole
+                # account refresh along behind it.
+                self._schedule_devices_refresh()
+            else:
+                self._schedule_refresh(reason)
         # 'pong' and anything else: ignore
+
+    def _schedule_devices_refresh(self) -> None:
+        if self._devices_task and not self._devices_task.done():
+            return
+
+        async def _refresh() -> None:
+            await asyncio.sleep(EVENT_DEBOUNCE_S)
+            from multi_device import service as md_service
+            await md_service.notify_devices_changed()
+
+        self._devices_task = asyncio.create_task(_refresh())
 
     async def _ping_loop(self, ws: aiohttp.ClientWebSocketResponse) -> None:
         # App-level ping matched by the DO's hibernation auto-response, so

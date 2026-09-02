@@ -16,6 +16,10 @@ const CONTRACT_METHODS = [
   // multi-device
   'mdGetState',
   'mdRefreshDevices',
+  'mdLocalStatus',
+  'mdSetLocalServing',
+  'mdRenameLocal',
+  'mdForgetDevice',
   'mdSetActiveDevice',
   'mdUseThisComputer',
   'mdRetry',

@@ -7,7 +7,7 @@
  * call the bridge unconditionally where it already had no Tauri gate.
  */
 
-import type { DesktopBridge } from './types'
+import type { DesktopBridge, LocalDeviceStatus } from './types'
 
 export const browserBridge: DesktopBridge = {
   kind: 'browser',
@@ -49,6 +49,16 @@ export const browserBridge: DesktopBridge = {
   async mdRefreshDevices() {
     return []
   },
+  async mdLocalStatus() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdSetLocalServing() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdRenameLocal() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdForgetDevice() {},
   async mdSetActiveDevice() {
     return 'ready' as const
   },

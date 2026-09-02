@@ -21,9 +21,13 @@ import {
   connect as connectDevice,
   getActiveDeviceId,
   getConnectionState,
+  forgetDevice,
   getKnownDevices,
+  localStatus,
   refreshDevices,
+  renameLocal,
   setActiveDevice,
+  setLocalServing,
   useThisComputer,
 } from './devices'
 import {
@@ -156,6 +160,25 @@ export function registerIpcHandlers(): void {
   }))
 
   handle('stimma:md-refresh-devices', async () => refreshDevices())
+
+  // Deliberately NOT proxied: these describe and control the machine the user
+  // is sitting at, even while the window is driving another one.
+  handle('stimma:md-local-status', async () => localStatus())
+
+  handle('stimma:md-set-local-serving', async (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw new Error('enabled must be a boolean')
+    return setLocalServing(enabled)
+  })
+
+  handle('stimma:md-rename-local', async (_event, name: unknown) => {
+    if (typeof name !== 'string' || !name.trim()) throw new Error('name required')
+    return renameLocal(name.trim())
+  })
+
+  handle('stimma:md-forget-device', async (_event, deviceId: unknown) => {
+    if (typeof deviceId !== 'string' || !deviceId) throw new Error('deviceId required')
+    await forgetDevice(deviceId)
+  })
 
   handle('stimma:md-set-active-device', async (_event, deviceId: unknown) => {
     if (typeof deviceId !== 'string' || !deviceId) throw new Error('deviceId required')

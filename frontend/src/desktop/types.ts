@@ -53,10 +53,29 @@ export interface DeviceRecord {
   deviceId: string
   name: string
   platform: string
+  /** In the account roster at all — i.e. this computer was offered. */
   serving: boolean
+  /** Up right now, per the account's push channel. */
+  online?: boolean
+  channel?: string | null
+  sandbox?: string | null
   routes: DeviceRoute[]
   certFingerprint: string | null
   lastSeenAt?: string
+}
+
+/** What this physical computer reports about itself. */
+export interface LocalDeviceStatus {
+  deviceId?: string
+  deviceName?: string
+  platform?: string
+  channel?: string | null
+  sandbox?: string | null
+  serving: boolean
+  port?: number
+  routes?: DeviceRoute[]
+  certFingerprint?: string | null
+  servingError?: string | null
 }
 
 export interface MultiDeviceState {
@@ -84,6 +103,19 @@ export interface DesktopBridge {
   mdGetState(): Promise<MultiDeviceState>
   /** Re-read the account device registry (via the local backend). */
   mdRefreshDevices(): Promise<DeviceRecord[]>
+  /**
+   * This physical computer's multi-device state, never the active device's.
+   * Serving and naming are properties of the machine you are sitting at, so
+   * they must not travel through the proxy to whichever device the window is
+   * driving.
+   */
+  mdLocalStatus(): Promise<LocalDeviceStatus>
+  /** Offer, or stop offering, this computer. Returns the new local status. */
+  mdSetLocalServing(enabled: boolean): Promise<LocalDeviceStatus>
+  /** Rename this computer. Returns the new local status. */
+  mdRenameLocal(name: string): Promise<LocalDeviceStatus>
+  /** Housekeeping removal of a row from the account roster. */
+  mdForgetDevice(deviceId: string): Promise<void>
   /** Switch the window to a device; main reloads the window on success. */
   mdSetActiveDevice(deviceId: string): Promise<ConnectionState>
   /** Explicit fallback from the unreachable screen. Never automatic. */

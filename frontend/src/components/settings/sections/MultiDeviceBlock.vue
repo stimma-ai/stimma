@@ -5,7 +5,8 @@
     <div class="mt-2">
       <SettingRow label="Serve this computer">
         <template #description>
-          Other computers signed into your account can browse and create here.
+          Offer this computer to the others signed into your account. Until you
+          turn this on, it is not listed anywhere.
           <span v-if="error" class="block mt-1 text-red-500">{{ error }}</span>
           <span v-else-if="status?.servingError" class="block mt-1 text-red-500">
             Could not start serving: {{ status.servingError }}
@@ -28,11 +29,16 @@
       <!-- Editable in place: the default is the OS hostname, which is often
            neither unique nor what you would call the machine. No modal — the
            field is the affordance. -->
-      <div class="flex items-center justify-between gap-4 py-1.5 border-b border-edge-subtle">
-        <span class="text-xs text-content-tertiary flex-shrink-0">This computer</span>
+      <div
+        class="flex items-center justify-between gap-4 py-2.5 border-t border-edge-subtle"
+      >
+        <div class="min-w-0">
+          <div class="text-[13px] text-content">Name</div>
+          <div class="text-[11.5px] text-content-tertiary">What the other computers call this one.</div>
+        </div>
         <input
           v-model="nameDraft"
-          class="text-xs font-mono text-content text-right bg-transparent border border-transparent rounded px-1.5 py-0.5 min-w-0 max-w-[240px] focus:outline-none focus:border-edge hover:border-edge-subtle transition-colors"
+          class="text-xs font-mono text-content text-right bg-transparent border border-transparent rounded px-1.5 py-0.5 min-w-0 max-w-[240px] focus:outline-none focus:border-accent hover:border-edge-subtle transition-colors"
           :placeholder="status?.deviceName || 'This computer'"
           @blur="commitName"
           @keydown.enter="$event.target.blur()"
@@ -40,40 +46,80 @@
         />
       </div>
 
+      <!-- Only when non-default: a stock install has nothing to disambiguate. -->
       <div
-        v-if="qualifier"
-        class="flex items-baseline justify-between gap-4 py-1.5 border-b border-edge-subtle"
+        v-if="tags.length"
+        class="flex items-center justify-between gap-4 py-2.5 border-t border-edge-subtle"
       >
-        <span class="text-xs text-content-tertiary flex-shrink-0">Install</span>
-        <span class="text-xs font-mono text-content-secondary text-right select-text">{{ qualifier }}</span>
+        <div class="min-w-0">
+          <div class="text-[13px] text-content">Install</div>
+          <div class="text-[11.5px] text-content-tertiary">
+            A separate library from the stock install on this machine.
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <span
+            v-for="tag in tags"
+            :key="tag"
+            class="px-1.5 py-0.5 rounded bg-overlay-subtle font-mono text-[10px] text-content-muted"
+            >{{ tag }}</span
+          >
+        </div>
       </div>
-      <div class="flex items-baseline justify-between gap-4 py-1.5">
-        <span class="text-xs text-content-tertiary flex-shrink-0">Reachable at</span>
-        <span class="text-xs font-mono text-content text-right min-w-0 truncate select-text">{{ routeSummary }}</span>
+
+      <div
+        v-if="serving"
+        class="flex items-start justify-between gap-4 py-2.5 border-t border-edge-subtle"
+      >
+        <div class="min-w-0">
+          <div class="text-[13px] text-content">Reachable at</div>
+          <div class="text-[11.5px] text-content-tertiary">Direct link — media never goes via the cloud.</div>
+        </div>
+        <div class="text-right min-w-0">
+          <div
+            v-for="route in status?.routes || []"
+            :key="`${route.host}:${route.port}`"
+            class="text-xs font-mono tabular-nums text-content-secondary truncate select-text"
+          >
+            {{ route.host }}:{{ route.port }}
+          </div>
+          <div v-if="!(status?.routes || []).length" class="text-xs font-mono text-content-muted">—</div>
+        </div>
       </div>
     </div>
 
-    <!-- Connected devices ledger -->
+    <!-- The account's roster. Only computers that were OFFERED appear here,
+         on this machine or any other. -->
     <div v-if="peers.length" class="mt-6">
-      <div class="text-xs font-semibold text-content-secondary">Connected devices</div>
+      <div class="text-xs font-semibold text-content-secondary">Other computers</div>
       <div class="mt-2">
         <div
           v-for="(device, i) in peers"
           :key="device.deviceId"
-          class="flex items-center justify-between gap-4 py-2"
-          :class="i < peers.length - 1 ? 'border-b border-edge-subtle' : ''"
+          class="flex items-center gap-3 py-2.5"
+          :class="i > 0 ? 'border-t border-edge-subtle' : ''"
         >
-          <div class="min-w-0">
+          <span
+            class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            :class="isOnline(device) ? 'bg-green-500' : 'bg-zinc-500'"
+          />
+          <div class="min-w-0 flex-1">
             <div class="text-[13px] text-content truncate">{{ device.name }}</div>
             <div class="text-[11.5px] text-content-tertiary">
-              {{ [device.platform, deviceQualifier(device), lastSeen(device.lastSeenAt)].filter(Boolean).join(' · ') }}
+              {{ isOnline(device) ? 'Online now' : `Last seen ${lastSeenLabel(device)}` }}
             </div>
           </div>
-          <!-- Housekeeping only: the row comes back if that device connects
-               again. Trust is the account, so this is not a revoke. -->
+          <span
+            v-for="tag in deviceTags(device)"
+            :key="tag"
+            class="px-1.5 py-0.5 rounded bg-overlay-subtle font-mono text-[10px] text-content-muted flex-shrink-0"
+            >{{ tag }}</span
+          >
+          <!-- Housekeeping only: the row comes back if that computer starts
+               serving again. Trust is the account, so this is not a revoke. -->
           <button
-            class="p-1.5 rounded text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors cursor-pointer"
-            title="Forget this device"
+            class="p-1.5 rounded text-content-muted hover:text-content hover:bg-overlay-subtle transition-colors cursor-pointer flex-shrink-0"
+            title="Forget this computer"
             @click="remove(device.deviceId)"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -89,10 +135,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import SettingRow from '../SettingRow.vue'
-import { getApiBase } from '../../../apiConfig'
+import { desktop } from '../../../desktop'
 import { useMultiDevice } from '../../../composables/useMultiDevice'
 
-const { devices, refresh } = useMultiDevice()
+const { devices, refresh, loadSelf, isOnline, lastSeenLabel } = useMultiDevice()
 
 const status = ref(null)
 const saving = ref(false)
@@ -106,43 +152,24 @@ const peers = computed(() =>
 )
 
 /** Non-default channel/sandbox for THIS install. Empty when both default. */
-const qualifier = computed(() => deviceQualifier(status.value))
+const tags = computed(() => deviceTags(status.value))
 
-function deviceQualifier(device) {
-  if (!device) return ''
-  const parts = []
-  if (device.channel && device.channel !== 'production') parts.push(device.channel)
-  if (device.sandbox && device.sandbox !== 'default') parts.push(device.sandbox)
-  return parts.join(' · ')
+function deviceTags(device) {
+  if (!device) return []
+  const out = []
+  if (device.channel && device.channel !== 'production') out.push(device.channel)
+  if (device.sandbox && device.sandbox !== 'default') out.push(device.sandbox)
+  return out
 }
 
-const routeSummary = computed(() => {
-  const routes = status.value?.routes || []
-  if (!routes.length) return status.value?.serving ? '—' : 'not serving'
-  const kinds = []
-  if (routes.some((r) => r.kind === 'lan')) kinds.push('local network')
-  if (routes.some((r) => r.kind === 'tailscale')) kinds.push('Tailscale')
-  return kinds.join(' · ')
-})
-
-function lastSeen(iso) {
-  if (!iso) return 'never seen'
-  const delta = Date.now() - new Date(iso).getTime()
-  const minutes = Math.round(delta / 60000)
-  if (minutes < 2) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h ago`
-  return `${Math.round(hours / 24)} d ago`
-}
-
+// Everything below asks MAIN about the machine the user is sitting at. Going
+// through the API base would answer for whichever device the window is
+// driving, so on a satellite this block would describe — and toggle — the
+// remote computer while labelled "This computer".
 async function loadStatus() {
   try {
-    const response = await fetch(`${getApiBase()}/multi-device/status`)
-    if (response.ok) {
-      status.value = await response.json()
-      nameDraft.value = status.value.deviceName || ''
-    }
+    status.value = await desktop.mdLocalStatus()
+    nameDraft.value = status.value?.deviceName || ''
   } catch (e) {
     console.warn('[MultiDevice] status failed:', e)
   }
@@ -156,15 +183,9 @@ async function commitName() {
   }
   error.value = ''
   try {
-    const response = await fetch(`${getApiBase()}/multi-device/name`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    })
-    if (!response.ok) throw new Error(`rename failed (${response.status})`)
-    status.value = await response.json()
-    nameDraft.value = status.value.deviceName || ''
-    await refresh()
+    status.value = await desktop.mdRenameLocal(name)
+    nameDraft.value = status.value?.deviceName || ''
+    await Promise.all([refresh(), loadSelf()])
   } catch (e) {
     error.value = String(e.message || e)
     nameDraft.value = status.value?.deviceName || ''
@@ -175,13 +196,7 @@ async function toggleServing() {
   saving.value = true
   error.value = ''
   try {
-    const response = await fetch(`${getApiBase()}/multi-device/serving`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: !serving.value }),
-    })
-    if (!response.ok) throw new Error(`serving toggle failed (${response.status})`)
-    status.value = await response.json()
+    status.value = await desktop.mdSetLocalServing(!serving.value)
     await refresh()
   } catch (e) {
     error.value = String(e.message || e)
@@ -192,7 +207,7 @@ async function toggleServing() {
 
 async function remove(deviceId) {
   try {
-    await fetch(`${getApiBase()}/multi-device/devices/${deviceId}`, { method: 'DELETE' })
+    await desktop.mdForgetDevice(deviceId)
     await refresh()
   } catch (e) {
     console.warn('[MultiDevice] remove failed:', e)

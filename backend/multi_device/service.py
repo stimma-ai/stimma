@@ -102,7 +102,13 @@ def ensure_persisted_identity() -> tuple[str, str, str, str]:
 
 
 async def register_now() -> Optional[list[dict]]:
-    """Publish current state to the registry and return peer devices."""
+    """Publish current state to the registry and return the account roster.
+
+    When serving is off this is an UNREGISTER: the registry drops our row.
+    An install the user has not offered has no business appearing in the
+    picker on their other machines, so "not serving" and "not listed" are the
+    same state rather than two that can drift apart.
+    """
     settings = get_settings()
     md = settings.multi_device
     device_id, name, cert_pem, _key = ensure_persisted_identity()
@@ -151,6 +157,7 @@ async def apply_serving(enabled: bool) -> dict:
     _patch_multi_device(serving=enabled)
 
     await register_now()
+    await notify_devices_changed()
     return await status()
 
 
@@ -159,7 +166,23 @@ async def rename(name: str) -> dict:
     ensure_persisted_identity()
     _patch_multi_device(device_name=name)
     await register_now()
+    await notify_devices_changed()
     return await status()
+
+
+async def notify_devices_changed() -> None:
+    """Tell this window the roster moved.
+
+    A nudge, not a payload: Electron holds the cached device list and is the
+    one that must re-read it, so the renderer re-asks through Electron rather
+    than being handed rows that main would not have seen.
+    """
+    from utils.websocket import ws_manager
+
+    try:
+        await ws_manager.broadcast("multi_device_changed", {}, include_profile=False)
+    except Exception as exc:
+        log.warning("multi-device: could not broadcast roster change", error=str(exc))
 
 
 async def status() -> dict:

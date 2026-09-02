@@ -297,3 +297,113 @@ def test_many_installs_on_one_machine_all_get_distinct_ports():
     finally:
         for s in socks:
             s.close()
+
+
+# --- roster membership --------------------------------------------------------
+#
+# Being signed in on a machine is not consent to have that machine listed on
+# every other machine you own. The roster is what the user OFFERED, so "not
+# serving" and "not listed" have to be the same state rather than two that can
+# drift apart.
+
+
+@pytest.fixture
+def fake_registry(monkeypatch):
+    """Capture what would be published, without touching config or the cloud."""
+    from multi_device import service
+
+    published: list[dict] = []
+
+    async def capture(**kwargs):
+        published.append(kwargs)
+        return []
+
+    monkeypatch.setattr(service.registry, "register", capture)
+    monkeypatch.setattr(
+        service,
+        "ensure_persisted_identity",
+        lambda: ("device-alpha", "ALPHA", _CERT_PEM, _KEY_PEM),
+    )
+    monkeypatch.setattr(service, "get_settings", lambda: _FakeSettings())
+    return published
+
+
+_CERT_PEM, _KEY_PEM = identity.generate_self_signed_cert("ALPHA", ["192.168.1.5"])
+
+
+class _FakeMultiDevice:
+    port = 0
+    last_port = 43239
+    serving = False
+
+
+class _FakeSettings:
+    multi_device = _FakeMultiDevice()
+
+
+@pytest.mark.asyncio
+async def test_a_serving_install_publishes_how_to_reach_it(monkeypatch, fake_registry):
+    from multi_device import service
+
+    monkeypatch.setattr(service.server, "is_serving", lambda: True)
+    monkeypatch.setattr(service.server, "serving_port", lambda: 43239)
+    monkeypatch.setattr(
+        service.registry, "build_routes", lambda port: [{"kind": "lan", "host": "h", "port": port}]
+    )
+
+    await service.register_now()
+
+    assert len(fake_registry) == 1
+    payload = fake_registry[0]
+    assert payload["serving"] is True
+    assert payload["routes"] == [{"kind": "lan", "host": "h", "port": 43239}]
+    assert payload["cert_fingerprint"] == identity.cert_fingerprint(_CERT_PEM)
+
+
+@pytest.mark.asyncio
+async def test_a_non_serving_install_publishes_nothing_to_connect_to(monkeypatch, fake_registry):
+    """The registry reads this as an unregister; the row leaves the roster."""
+    from multi_device import service
+
+    monkeypatch.setattr(service.server, "is_serving", lambda: False)
+    monkeypatch.setattr(service.server, "serving_port", lambda: None)
+
+    await service.register_now()
+
+    payload = fake_registry[0]
+    assert payload["serving"] is False
+    assert payload["routes"] == []
+    # No fingerprint means there is nothing another machine could pin, which is
+    # the point: an un-offered install is not connectable, not merely hidden.
+    assert payload["cert_fingerprint"] is None
+
+
+# --- presence -----------------------------------------------------------------
+
+
+def test_the_account_socket_carries_this_installs_identity():
+    """Presence is this socket. Without the id it cannot be attributed."""
+    from cloud_events import DEVICE_ID_HEADER, events_headers
+
+    headers = events_headers("id-token", "device-alpha")
+    assert headers[DEVICE_ID_HEADER] == "device-alpha"
+    assert headers["Authorization"] == "Bearer id-token"
+
+
+def test_the_account_socket_still_connects_without_an_identity():
+    """A device id we could not read must not cost us account events."""
+    from cloud_events import DEVICE_ID_HEADER, events_headers
+
+    headers = events_headers("id-token", None)
+    assert DEVICE_ID_HEADER not in headers
+    assert headers["Authorization"] == "Bearer id-token"
+
+
+def test_the_identity_never_goes_in_the_query_string():
+    """A Cloudflare route pattern with no trailing wildcard does not match a
+    URL carrying a query string: `?deviceId=` fell through the API worker
+    entirely and hit the marketing site's 404. Keep the URL bare."""
+    from cloud_events import events_url
+
+    assert events_url("https://api.example.com/") == "wss://api.example.com/account-events-v1"
+    assert "?" not in events_url("http://localhost:8787")

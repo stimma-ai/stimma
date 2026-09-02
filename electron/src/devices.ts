@@ -32,7 +32,12 @@ export interface DeviceRecord {
   deviceId: string
   name: string
   platform: string
+  /** In the roster at all — i.e. this computer was offered. */
   serving: boolean
+  /** Up right now, per the account's push channel. */
+  online?: boolean
+  channel?: string | null
+  sandbox?: string | null
   routes: DeviceRoute[]
   certFingerprint: string | null
   lastSeenAt?: string
@@ -194,6 +199,47 @@ export async function refreshDevices(): Promise<DeviceRecord[]> {
     log.warn('devices', `Device refresh failed, using cache: ${e}`)
   }
   return state.devices
+}
+
+/**
+ * This physical computer's own multi-device state — never the active device's.
+ *
+ * Everything else in the window belongs to whichever device it is on, but
+ * "is this computer offered, and what is it called" is about the machine in
+ * front of you. Reading it through the proxy would answer for the machine you
+ * are driving, which is how a satellite ends up showing the studio machine's
+ * name under the heading "This computer" and toggling ITS serving switch.
+ */
+export async function localStatus(): Promise<unknown> {
+  return localFetch('/api/multi-device/status')
+}
+
+export async function setLocalServing(enabled: boolean): Promise<unknown> {
+  const status = await localFetch('/api/multi-device/serving', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  await refreshDevices()
+  return status
+}
+
+export async function renameLocal(name: string): Promise<unknown> {
+  const status = await localFetch('/api/multi-device/name', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  await refreshDevices()
+  return status
+}
+
+/** Housekeeping removal from the account roster. Account-scoped, not local. */
+export async function forgetDevice(deviceId: string): Promise<void> {
+  await localFetch(`/api/multi-device/devices/${encodeURIComponent(deviceId)}`, {
+    method: 'DELETE',
+  })
+  await refreshDevices()
 }
 
 // --- connecting ------------------------------------------------------------

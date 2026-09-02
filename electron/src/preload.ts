@@ -68,6 +68,13 @@ const stimmaDesktop = {
       localDeviceId: string
     }>('stimma:md-get-state'),
   mdRefreshDevices: () => invoke<unknown[]>('stimma:md-refresh-devices'),
+  /** This physical computer, never the device the window is driving. */
+  mdLocalStatus: () => invoke<Record<string, unknown>>('stimma:md-local-status'),
+  mdSetLocalServing: (enabled: boolean) =>
+    invoke<Record<string, unknown>>('stimma:md-set-local-serving', enabled),
+  mdRenameLocal: (name: string) =>
+    invoke<Record<string, unknown>>('stimma:md-rename-local', name),
+  mdForgetDevice: (deviceId: string) => invoke<void>('stimma:md-forget-device', deviceId),
   mdSetActiveDevice: (deviceId: string) =>
     invoke<string>('stimma:md-set-active-device', deviceId),
   mdUseThisComputer: () => invoke<string>('stimma:md-use-this-computer'),

@@ -9,6 +9,7 @@
 import type {
   DesktopBridge,
   DesktopUpdate,
+  LocalDeviceStatus,
   DirectoryPickerOptions,
   VoiceDownloadEvent,
   VoiceTranscriptEvent,
@@ -128,6 +129,16 @@ export const tauriBridge: DesktopBridge = {
   async mdRefreshDevices() {
     return []
   },
+  async mdLocalStatus() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdSetLocalServing() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdRenameLocal() {
+    return { serving: false } as LocalDeviceStatus
+  },
+  async mdForgetDevice() {},
   async mdSetActiveDevice() {
     return 'ready' as const
   },

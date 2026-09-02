@@ -4,11 +4,16 @@
  * The window is "on" exactly one device at a time, and that scope owns
  * everything in the window. The renderer does not talk to remote devices
  * itself — it asks main to point the proxy, and main reloads the window.
- * So this composable is thin on purpose: selection, the device list, and
- * the connection state main pushes to us.
+ * So this composable is thin on purpose: selection, the roster, and the
+ * connection state main pushes to us.
+ *
+ * The roster only ever contains computers that were OFFERED (serving turned
+ * on). Reading it does not require offering this one, so a laptop that never
+ * serves can still drive the studio machine.
  */
 import { ref, computed, readonly } from 'vue'
 import { desktop, isDesktop } from '../desktop'
+import { useWebSocket } from './useWebSocket'
 
 const LOCAL_DEVICE = 'local'
 
@@ -17,19 +22,29 @@ const activeDeviceId = ref(LOCAL_DEVICE)
 const devices = ref([])
 const connectionState = ref('connecting')
 const initialized = ref(false)
-// This install's own channel/sandbox, so "This computer" can carry the same
-// qualifier as every other row rather than being the one ambiguous entry.
+// This install's own identity, so "This computer" carries the same
+// qualifiers as every other row rather than being the one ambiguous entry.
+const selfName = ref(null)
 const selfChannel = ref(null)
 const selfSandbox = ref(null)
 
 let unsubscribe = null
 
-/** Serving devices, which are the only ones that can be switched to. */
-const availableDevices = computed(() => devices.value.filter((d) => d.serving))
+/**
+ * Up right now, per the account's push channel — not inferred from a
+ * timestamp. An older backend that omits the field is assumed reachable
+ * rather than silently hidden.
+ */
+function isOnline(device) {
+  return device?.online !== false
+}
+
+const onlineDevices = computed(() => devices.value.filter(isOnline))
+const offlineDevices = computed(() => devices.value.filter((d) => !isOnline(d)))
 
 /**
- * The chip is hidden entirely until the account has had a second device, so
- * single-machine users see zero footprint.
+ * The chip is hidden entirely until the account has offered a second
+ * computer, so single-machine users see zero footprint.
  */
 const hasOtherDevices = computed(() => devices.value.length > 0)
 
@@ -42,16 +57,20 @@ const activeDevice = computed(() =>
 const isRemote = computed(() => activeDeviceId.value !== LOCAL_DEVICE)
 
 const activeDeviceName = computed(() =>
-  activeDevice.value ? activeDevice.value.name : 'This computer',
+  activeDevice.value ? activeDevice.value.name : selfName.value || 'This computer',
 )
 
-/** Quiet route fact for a device row: "local network", "Tailscale", or unreachable. */
-function routeLabel(device) {
-  if (!device?.serving) return 'unreachable'
-  const kinds = new Set((device.routes || []).map((r) => r.kind))
-  if (kinds.has('lan')) return 'local network'
-  if (kinds.has('tailscale')) return 'Tailscale'
-  return 'unreachable'
+/** "just now" / "3 h ago" — only shown for computers that are not up. */
+function lastSeenLabel(device) {
+  const iso = device?.lastSeenAt
+  if (!iso) return 'not seen yet'
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (!Number.isFinite(minutes)) return 'not seen yet'
+  if (minutes < 2) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} h ago`
+  return `${Math.round(hours / 24)} d ago`
 }
 
 async function syncState() {
@@ -75,6 +94,12 @@ async function init() {
     unsubscribe = desktop.mdOnConnectionState((next) => {
       connectionState.value = next
     })
+    // Roster changes arrive as a nudge over the app websocket, which the
+    // backend raises from the account's cloud channel. Re-reading through
+    // Electron keeps main's cache and this list the same list.
+    useWebSocket().on('multi_device_changed', () => {
+      void refresh()
+    })
     // Both go over the network; never block first paint on them.
     void refresh()
     void loadSelf()
@@ -93,17 +118,20 @@ async function refresh() {
   }
 }
 
-/** Local identity comes from this install's own backend, not the registry. */
+/**
+ * Who THIS computer is — asked of main, not of the API base.
+ *
+ * The API base points at the active device, so reading identity from it would
+ * label the "This computer" row with the name of the machine you are driving.
+ */
 async function loadSelf() {
   try {
-    const { getApiBase } = await import('../apiConfig')
-    const response = await fetch(`${getApiBase()}/multi-device/status`)
-    if (!response.ok) return
-    const status = await response.json()
-    selfChannel.value = status.channel ?? null
-    selfSandbox.value = status.sandbox ?? null
+    const status = await desktop.mdLocalStatus()
+    selfName.value = status?.deviceName ?? null
+    selfChannel.value = status?.channel ?? null
+    selfSandbox.value = status?.sandbox ?? null
   } catch {
-    // Non-fatal: the row simply renders without a qualifier.
+    // Non-fatal: the row simply renders without a name or qualifier.
   }
 }
 
@@ -148,17 +176,21 @@ export function useMultiDevice() {
     LOCAL_DEVICE,
     activeDeviceId: readonly(activeDeviceId),
     devices: readonly(devices),
-    availableDevices,
+    onlineDevices,
+    offlineDevices,
     hasOtherDevices,
     activeDevice,
     activeDeviceName,
     isRemote,
     connectionState: readonly(connectionState),
+    selfName: readonly(selfName),
     selfChannel: readonly(selfChannel),
     selfSandbox: readonly(selfSandbox),
-    routeLabel,
+    isOnline,
+    lastSeenLabel,
     init,
     refresh,
+    loadSelf,
     switchToDevice,
     useThisComputer,
     retry,

@@ -46,7 +46,7 @@ import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
 
-const { connectionState, activeDeviceName, retry, useThisComputer } = useMultiDevice()
+const { connectionState, activeDeviceName, retry, refresh, useThisComputer } = useMultiDevice()
 
 const deviceName = computed(() => activeDeviceName.value)
 
@@ -63,7 +63,12 @@ let timer = null
 
 onMounted(() => {
   timer = setInterval(() => {
-    if (connectionState.value === 'unreachable') void retry()
+    if (connectionState.value !== 'unreachable') return
+    // Nothing is pushing us roster changes here — there is no app websocket
+    // while the window has no backend — so re-read the roster alongside the
+    // retry. That is also how a device's routes get refreshed after it moves.
+    void refresh()
+    void retry()
   }, RETRY_INTERVAL_MS)
 })
 
