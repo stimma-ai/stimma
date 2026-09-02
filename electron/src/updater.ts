@@ -21,13 +21,31 @@
  */
 
 import { app } from 'electron'
+import * as path from 'node:path'
 import { shutdownBackend } from './backend'
 import { shutdownHelper } from './helper'
 import { readPackagedMetadata } from './identity'
 import { log } from './log'
 import { UpdaterState } from './updaterState'
+import {
+  hasStagedPackage,
+  pendingUpdateDir,
+  pruneStagedUpdate,
+  readUpdaterCacheDirName,
+} from './updaterCache'
 
 const state = new UpdaterState()
+
+/**
+ * Where electron-updater stages the downloaded package, or null when we can't
+ * work it out (unpackaged, or app-update.yml missing its cache dir name).
+ */
+function stagingDir(): string | null {
+  if (!app.isPackaged) return null
+  const cacheDirName = readUpdaterCacheDirName(path.join(process.resourcesPath, 'app-update.yml'))
+  if (!cacheDirName) return null
+  return pendingUpdateDir(cacheDirName)
+}
 
 let autoUpdaterModule: typeof import('electron-updater') | null = null
 
@@ -64,8 +82,40 @@ function getAutoUpdater() {
       const version = info.version || state.available?.version
       if (version) state.markDownloaded(version)
     })
+    installStagedUpdateGuard(autoUpdater)
   }
   return autoUpdaterModule.autoUpdater
+}
+
+/**
+ * Keeps install-on-quit enabled but never lets it run against a package that
+ * isn't there. See updaterCache.ts: AppImageUpdater.doInstall() deletes the
+ * running AppImage *before* moving the staged one in, so installing with the
+ * staged package already gone uninstalls the app instead of updating it.
+ */
+function installStagedUpdateGuard(autoUpdater: {
+  autoInstallOnAppQuit: boolean
+}): void {
+  const pendingDir = stagingDir()
+  if (!pendingDir) return
+
+  // A successful install moves the package out of pending/ but leaves
+  // update-info.json behind, and electron-updater never clears it. Drop it now
+  // so the next check re-downloads rather than pointing at a missing file.
+  const pruned = pruneStagedUpdate(pendingDir)
+  if (pruned) {
+    log.warn('updater', `Discarded stale staged update with no package on disk: ${pruned}`)
+  }
+
+  // 'will-quit' always precedes the 'quit' listener electron-updater installs,
+  // regardless of which registered first, so this decides whether its
+  // quit-time install is allowed to proceed.
+  app.on('will-quit', () => {
+    if (autoUpdater.autoInstallOnAppQuit && !hasStagedPackage(pendingDir)) {
+      log.warn('updater', 'Skipping install on quit: staged update package is missing.')
+      autoUpdater.autoInstallOnAppQuit = false
+    }
+  })
 }
 
 export function updatesSupported(): boolean {
