@@ -20,6 +20,14 @@ const { _electron } = frontendRequire('playwright')
 const builder = path.join(electronRoot, 'node_modules', '.bin', 'electron-builder')
 const baseConfigPath = path.join(electronRoot, '.generated-builder.json')
 
+// electron-builder names the Linux manifest with an arch suffix on every arch
+// except x64, and electron-updater's Provider.getChannelFilePrefix() asks for
+// the matching name. Both sides must agree or the feed 404s (arm64 requests
+// latest-linux-arm64.yml, not latest-linux.yml).
+const archSuffix = process.arch === 'x64' ? '' : `-${process.arch}`
+const channelFile = `latest-linux${archSuffix}.yml`
+const manifestSuffix = `-linux${archSuffix}.yml`
+
 const versions = {
   buggy: '9.9.0-update-test.1',
   fixed: '9.9.0-update-test.2',
@@ -170,14 +178,14 @@ function buildAppImage(version, label) {
   run(builder, ['--config', configPath, '--publish', 'never'])
   return {
     appImage: findOne(output, (name) => name.endsWith('.AppImage'), 'AppImage'),
-    manifest: findOne(output, (name) => name.endsWith('-linux.yml'), 'Linux manifest'),
+    manifest: findOne(output, (name) => name.endsWith(manifestSuffix), 'Linux manifest'),
   }
 }
 
 function publish(release) {
   for (const name of fs.readdirSync(feedDir)) fs.rmSync(path.join(feedDir, name))
   fs.copyFileSync(release.appImage, path.join(feedDir, path.basename(release.appImage)))
-  fs.copyFileSync(release.manifest, path.join(feedDir, 'latest-linux.yml'))
+  fs.copyFileSync(release.manifest, path.join(feedDir, channelFile))
 }
 
 const mainBundle = path.join(electronRoot, 'dist', 'main.cjs')

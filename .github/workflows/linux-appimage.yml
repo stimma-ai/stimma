@@ -52,6 +52,11 @@ jobs:
       LINUX_ARCH: ${{ inputs.arch }}
       LINUX_PLATFORM: ${{ inputs.arch == 'aarch64' && 'linux-aarch64' || 'linux-x86_64' }}
       LINUX_TARGET_TRIPLE: ${{ inputs.arch == 'aarch64' && 'aarch64-unknown-linux-gnu' || 'x86_64-unknown-linux-gnu' }}
+      # electron-builder suffixes the Linux update manifest with the arch on
+      # every arch except x64, and electron-updater asks for the matching name
+      # (Provider.getChannelFilePrefix()). Both sides must agree or arm64
+      # clients 404 on the feed and updates silently never apply.
+      ELECTRON_MANIFEST_SUFFIX: ${{ inputs.arch == 'aarch64' && '-linux-arm64' || '-linux' }}
 
     steps:
       - name: Checkout
@@ -184,7 +189,7 @@ jobs:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest-linux.yml
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest${{ env.ELECTRON_MANIFEST_SUFFIX }}.yml
         run: tools/stimma --channel="$CHANNEL" app build
 
       - name: Create Tauri-compatible updater artifact (handoff)
@@ -217,24 +222,25 @@ jobs:
           # electron-builder names prerelease manifests after the semver
           # prerelease channel (for example canary-linux.yml). Each Stimma
           # channel already has its own feed directory, and electron-updater's
-          # generic provider therefore requests latest-linux.yml in all of
+          # generic provider therefore requests latest<suffix>.yml in all of
           # them. Normalize the single generated manifest before publishing.
-          mapfile -t GENERATED_MANIFESTS < <(find electron/out -maxdepth 1 -name '*-linux.yml' -print)
+          CHANNEL_FILE="latest${ELECTRON_MANIFEST_SUFFIX}.yml"
+          mapfile -t GENERATED_MANIFESTS < <(find electron/out -maxdepth 1 -name "*${ELECTRON_MANIFEST_SUFFIX}.yml" -print)
           if [ "${#GENERATED_MANIFESTS[@]}" -ne 1 ]; then
             echo "Expected exactly one electron-updater Linux manifest; found ${#GENERATED_MANIFESTS[@]}."
             printf '%s\n' "${GENERATED_MANIFESTS[@]}"
             exit 1
           fi
-          MANIFEST="electron/out/latest-linux.yml"
+          MANIFEST="electron/out/${CHANNEL_FILE}"
           if [ "${GENERATED_MANIFESTS[0]}" != "$MANIFEST" ]; then
             mv "${GENERATED_MANIFESTS[0]}" "$MANIFEST"
           fi
           test -s "$MANIFEST"
-          VERSION="$VERSION" python3 - <<'PY'
+          VERSION="$VERSION" MANIFEST="$MANIFEST" python3 - <<'PY'
           import os
           from pathlib import Path
 
-          path = Path("electron/out/latest-linux.yml")
+          path = Path(os.environ["MANIFEST"])
           version = os.environ["VERSION"]
           lines = []
           for line in path.read_text(encoding="utf-8").splitlines():
@@ -274,7 +280,7 @@ jobs:
         run: |
           set -euo pipefail
           APPIMAGE="$(find electron/out -maxdepth 1 -name '*.AppImage' -print -quit)"
-          LATEST_LINUX_YML="electron/out/latest-linux.yml"
+          LATEST_LINUX_YML="electron/out/latest${ELECTRON_MANIFEST_SUFFIX}.yml"
           UPDATER_ARCHIVE="${APPIMAGE}.tar.gz"
           UPDATER_SIG="${UPDATER_ARCHIVE}.sig"
           test -n "$APPIMAGE"
@@ -421,7 +427,7 @@ jobs:
           fi
 
           uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/${PREFIX}/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
-          uvx --python 3.11 --from awscli aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest-linux.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$LATEST_LINUX_YML" "s3://${BUCKET}/${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml" --content-type application/yaml --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
 
           python3 - <<'PY'
           import json, os
@@ -459,4 +465,4 @@ jobs:
           curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data "{\"files\":[\"${PREFIX}/latest.json\",\"${PREFIX}/latest-linux.yml\",\"${PREFIX}/download.json\"]}"
+            --data "{\"files\":[\"${PREFIX}/latest.json\",\"${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml\",\"${PREFIX}/download.json\"]}"
