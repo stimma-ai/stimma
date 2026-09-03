@@ -54,7 +54,16 @@ const pycBefore = Number(
   execSync(`find "${packagedPayload}" -name "*.pyc" | wc -l`, { encoding: 'utf8' }).trim(),
 )
 
-const child = spawn(binary, [], { env, stdio: ['ignore', 'ignore', 'ignore'] })
+const outputLimit = 64 * 1024
+const output = { stdout: '', stderr: '' }
+const captureOutput = (stream, key) => {
+  stream.on('data', (chunk) => {
+    output[key] = (output[key] + chunk).slice(-outputLimit)
+  })
+}
+const child = spawn(binary, [], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+captureOutput(child.stdout, 'stdout')
+captureOutput(child.stderr, 'stderr')
 const appPid = child.pid
 console.log(`launched packaged app (pid ${appPid})`)
 
@@ -181,5 +190,11 @@ if (process.env.STIMMA_SMOKE_KEEP_SANDBOX) {
   console.log(`sandbox kept: ${sandboxDir}`)
 } else scratch.cleanup()
 
-if (failed) process.exit(1)
+if (failed) {
+  console.error('packaged app stdout (last 64 KiB):')
+  console.error(output.stdout || '(no output)')
+  console.error('packaged app stderr (last 64 KiB):')
+  console.error(output.stderr || '(no output)')
+  process.exit(1)
+}
 console.log('packaged smoke: all checks passed')
