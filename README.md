@@ -12,7 +12,7 @@ This repo is the app itself — every release builds from here. [AGPL-3.0](LICEN
 ## How it fits together
 
 ```
-Tauri shell (macOS / Windows / Linux)
+Electron shell (macOS / Windows / Linux)
  ├─ Vue 3 frontend
  └─ FastAPI backend ── SQLite + managed media storage + external Sources
       ├─ local ML: CLIP search, face detection, segmentation (ONNX)
@@ -36,6 +36,26 @@ tools/stimma dev all        # backend + frontend + Electron shell, merged logs
 ```
 
 On Windows, use `tools\stimma.cmd dev all` (or `tools\stimma.ps1 dev all` from PowerShell). The Electron shell is the default on every platform; pass `--shell=tauri` only for migration comparisons.
+
+On Debian/Ubuntu, install the Chromium runtime libraries the shell needs (add `xvfb` only if you are running headless, for example over SSH or in CI):
+
+```bash
+sudo apt install libgbm1 libgtk-3-0 libnss3 libxss1 libasound2t64
+```
+
+Electron's own sandbox helper must be owned by root, which npm cannot do at install time:
+
+```bash
+sudo chown root:root electron/node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 electron/node_modules/electron/dist/chrome-sandbox
+```
+
+npm 11 defers package install scripts, so the Electron binary and Playwright's browsers may not download during `npm ci`. If the shell or the acceptance lane cannot find them:
+
+```bash
+node electron/node_modules/electron/install.js
+cd frontend && npx playwright install chromium
+```
 
 or run the pieces separately:
 
@@ -90,7 +110,7 @@ The agent's skills come from **stimpacks** — packages of markdown skill defini
 
 | Repo | Contents |
 |------|----------|
-| **stimma** (this repo) | The desktop app: `frontend/` (Vue 3), `backend/` (FastAPI), `src-tauri/` (shell), `tools/stimma` (dev CLI), `docs/` |
+| **stimma** (this repo) | The desktop app: `frontend/` (Vue 3), `backend/` (FastAPI), `electron/` (shell), `tools/stimma` (dev CLI), `docs/` |
 | [stimma-tools-protocol](https://github.com/stimma-ai/stimma-tools-protocol) | The STP specification |
 | [stimma-tools-protocol-cli](https://github.com/stimma-ai/stimma-tools-protocol-cli) | `stp` — command-line STP client |
 | [stimma-tools-protocol-python](https://github.com/stimma-ai/stimma-tools-protocol-python) | Python SDK for building providers |
