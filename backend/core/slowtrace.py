@@ -27,13 +27,30 @@ SKIP_PATHS = frozenset(("/", "/ws", "/api/processing/stats", "/api/media"))
 SKIP_PREFIXES = ("/thumbnails/", "/thumbnail", "/file")
 
 
+def _skip_detailed_logging(path: str) -> bool:
+    """Keep high-volume media responses in metrics without per-request logs.
+
+    Database-scoped media URLs have identifiers before the resource name, so
+    prefix-only matching never recognized them (for example
+    /api/db/{guid}/thumbnail/{hash}).
+    """
+    return (
+        path in SKIP_PATHS
+        or any(path.startswith(prefix) for prefix in SKIP_PREFIXES)
+        or "/thumbnail/" in path
+        or path.endswith("/thumbnail")
+        or path.endswith("/file")
+        or "/mse-loop/" in path
+    )
+
+
 class SlowtraceMiddleware(BaseHTTPMiddleware):
     """Middleware that logs detailed diagnostics for slow requests."""
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         method = request.method
-        skip_logging = path in SKIP_PATHS or any(path.startswith(p) for p in SKIP_PREFIXES)
+        skip_logging = _skip_detailed_logging(path)
         metric_path = _resolve_metric_path(request)
 
         start_time = time.monotonic()

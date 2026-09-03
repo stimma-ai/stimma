@@ -223,6 +223,28 @@ def test_session_round_trips(isolated_sessions):
     assert record["client_device_id"] == "client-device"
 
 
+def test_account_identity_is_cached_for_request_hot_path(monkeypatch):
+    """A thumbnail burst must not launch the credential store per request."""
+    from auth_storage import load_auth_state as real_load_auth_state
+
+    calls = 0
+
+    def fake_load_auth_state():
+        nonlocal calls
+        calls += 1
+        payload = base64.urlsafe_b64encode(json.dumps({"sub": "acct-1"}).encode()).decode().rstrip("=")
+        return {"id_token": f"header.{payload}.signature"}
+
+    monkeypatch.setattr("auth_storage.load_auth_state", fake_load_auth_state)
+    monkeypatch.setattr(auth, "_own_account_uid_cache", auth._ACCOUNT_UID_UNSET)
+    try:
+        assert auth.own_account_uid() == "acct-1"
+        assert auth.own_account_uid() == "acct-1"
+        assert calls == 1
+    finally:
+        monkeypatch.setattr("auth_storage.load_auth_state", real_load_auth_state)
+
+
 def test_unknown_and_empty_sessions_are_refused(isolated_sessions):
     auth.issue_session("client-device", "acct-1")
     assert auth.verify_session("not-a-real-session") is None

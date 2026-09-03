@@ -51,6 +51,8 @@ SESSIONS_FILENAME = "multi_device_sessions.json"
 _JWKS_TTL_S = 6 * 3600
 _jwks_cache: dict[str, str] = {}
 _jwks_fetched_at: float = 0.0
+_ACCOUNT_UID_UNSET = object()
+_own_account_uid_cache: object | Optional[str] = _ACCOUNT_UID_UNSET
 
 
 class AuthError(Exception):
@@ -149,18 +151,28 @@ def own_account_uid() -> Optional[str]:
     check keeps working while the cloud is unreachable. No signature check:
     it is our own token, obtained over TLS from Firebase.
     """
+    global _own_account_uid_cache
+
+    if _own_account_uid_cache is not _ACCOUNT_UID_UNSET:
+        return _own_account_uid_cache  # type: ignore[return-value]
+
     from auth_storage import load_auth_state
 
     state = load_auth_state()
     if not state:
+        _own_account_uid_cache = None
         return None
     token = state.get("id_token")
     if not token:
+        _own_account_uid_cache = None
         return None
     try:
         claims = json.loads(_b64url_decode(token.split(".")[1]))
-        return claims.get("sub")
+        uid = claims.get("sub")
+        _own_account_uid_cache = uid if isinstance(uid, str) else None
+        return _own_account_uid_cache
     except Exception:
+        _own_account_uid_cache = None
         return None
 
 
@@ -201,6 +213,10 @@ def _save_sessions(sessions: dict) -> None:
 
 def issue_session(client_device_id: str, account_uid: str) -> str:
     """Mint and persist a session token for a bootstrapped client."""
+    global _own_account_uid_cache
+    # Bootstrap has just verified both the presented token and our account.
+    # Seed the request-hot identity cache without another credential-store read.
+    _own_account_uid_cache = account_uid
     token = secrets.token_urlsafe(32)
     sessions = _load_sessions()
     sessions[_hash_session(token)] = {
@@ -229,5 +245,7 @@ def verify_session(token: str) -> Optional[dict]:
 
 def revoke_all_sessions() -> None:
     """Drop every session — called when serving stops or the account signs out."""
+    global _own_account_uid_cache
     _save_sessions({})
+    _own_account_uid_cache = _ACCOUNT_UID_UNSET
     log.info("multi-device: revoked all sessions")

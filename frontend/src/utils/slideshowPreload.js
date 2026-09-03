@@ -23,3 +23,9 @@ export function nearbyPreloadIndices(currentIndex, totalCount, direction = 1, li
   }
   return candidates
 }
+
+export const SMALL_VIDEO_PRELOAD_MAX_BYTES = 5 * 1024 * 1024
+
+export function shouldPreloadVideoBytes(fileSize, maxBytes = SMALL_VIDEO_PRELOAD_MAX_BYTES) {
+  return Number.isFinite(fileSize) && fileSize > 0 && fileSize < maxBytes
+}

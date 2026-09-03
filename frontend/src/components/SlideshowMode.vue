@@ -1263,7 +1263,7 @@ import {
   orderLiveAdvanceKeys,
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
-import { nearbyPreloadIndices } from '../utils/slideshowPreload'
+import { nearbyPreloadIndices, shouldPreloadVideoBytes } from '../utils/slideshowPreload'
 
 const router = useRouter()
 const { setKeywordFilter, setTagFilter, setSimilarFilter } = useBrowseFilters()
@@ -1579,6 +1579,7 @@ const mediaLoaded = ref(false) // Track whether current media has finished loadi
 const MEDIA_PRELOAD_LIMIT = 2
 const DECODED_IMAGE_CACHE_LIMIT = 3
 const decodedImageCache = new Map() // url -> { image, promise }
+const warmedVideoCache = new Map() // file hash -> preload promise
 let mediaPreloadEpoch = 0
 let preloadDirection = 1
 
@@ -1617,6 +1618,34 @@ function preloadAndDecodeImage(url) {
   })
   retainDecodedImage(url, entry)
   return entry.promise
+}
+
+function preloadSmallVideo(fileHash) {
+  const cached = warmedVideoCache.get(fileHash)
+  if (cached) return cached
+
+  const urls = getMseLoopUrls(fileHash)
+  const promise = (async () => {
+    // Preparing the manifest may run ffmpeg on the server the first time. Do
+    // that ahead of navigation, then fully consume the immutable init/segment
+    // responses so Chromium's HTTP cache owns the bytes MseLoopPlayback needs.
+    const manifest = await fetch(urls.manifest)
+    if (!manifest.ok) throw new Error(`video manifest preload failed (${manifest.status})`)
+    await manifest.arrayBuffer()
+    const responses = await Promise.all([fetch(urls.init), fetch(urls.segment)])
+    if (responses.some(response => !response.ok)) throw new Error('video segment preload failed')
+    await Promise.all(responses.map(response => response.arrayBuffer()))
+    return true
+  })().catch(() => {
+    warmedVideoCache.delete(fileHash)
+    return false
+  })
+
+  warmedVideoCache.set(fileHash, promise)
+  while (warmedVideoCache.size > DECODED_IMAGE_CACHE_LIMIT) {
+    warmedVideoCache.delete(warmedVideoCache.keys().next().value)
+  }
+  return promise
 }
 
 // While the hero (full-res main image) is loading, throttle thumbnail
@@ -2899,7 +2928,7 @@ function itemAtDisplayIndex(displayIndex) {
 
 // Warm actual media bytes after the current hero has painted. Metadata/page
 // preloading alone is not enough over Wi-Fi: without this, changing the index
-// creates the next <img> before Chromium has fetched or decoded its source.
+// creates the next media element before Chromium has fetched its source.
 async function preloadNearbyMedia(displayIndex) {
   const epoch = ++mediaPreloadEpoch
   const indices = nearbyPreloadIndices(
@@ -2916,9 +2945,11 @@ async function preloadNearbyMedia(displayIndex) {
     if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
 
     const item = itemAtDisplayIndex(nearbyIndex)
-    // Native video/MSE preloading has very different bandwidth behavior and
-    // can consume the whole link, so this bounded pass only decodes images.
-    if (!item?.file_hash || isVideoType(item) || isAudioType(item) || isStructuredType(item)) continue
+    if (!item?.file_hash || isAudioType(item) || isStructuredType(item)) continue
+    if (isVideoType(item)) {
+      if (shouldPreloadVideoBytes(item.file_size)) await preloadSmallVideo(item.file_hash)
+      continue
+    }
     await preloadAndDecodeImage(getMediaFileUrl(item.file_hash))
   }
 }
@@ -5758,6 +5789,7 @@ onMounted(async () => {
 onUnmounted(() => {
   mediaPreloadEpoch++
   decodedImageCache.clear()
+  warmedVideoCache.clear()
   destroyMsePlayback()
   if (releaseHeroLoad) {
     releaseHeroLoad()
@@ -5838,7 +5870,7 @@ onActivated(() => {
   if (videoElement.value && transportRaf == null) {
     transportRaf = requestAnimationFrame(transportTick)
   }
-  if (mediaLoaded.value && !isVideo.value) void preloadNearbyMedia(currentIndex.value)
+  if (mediaLoaded.value) void preloadNearbyMedia(currentIndex.value)
 })
 
 // Set up ResizeObserver when container ref becomes available
@@ -5885,7 +5917,7 @@ watch(currentIndex, async (newIndex) => {
 // hero. Once it is decoded and paintable, spend a small sequential budget on
 // the most likely next images.
 watch(mediaLoaded, (loaded) => {
-  if (loaded && !isVideo.value && !isViewingSet.value && !isViewingGrid.value && !isViewingSource.value) {
+  if (loaded && !isViewingSet.value && !isViewingGrid.value && !isViewingSource.value) {
     void preloadNearbyMedia(currentIndex.value)
   }
 })

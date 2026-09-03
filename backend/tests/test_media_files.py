@@ -13,6 +13,29 @@ from database_registry import get_database_registry
 from tests.helpers.media import create_media_item, generate_test_image
 
 
+@pytest.mark.asyncio
+async def test_known_thumbnail_cache_hit_avoids_sqlite_write(tmp_path):
+    from routes.media_files import _record_thumbnail_cache, _recorded_thumbnail_cache_entries
+
+    cache_path = tmp_path / "cached.jpg"
+    cache_key = (42, str(cache_path))
+    _recorded_thumbnail_cache_entries.discard(cache_key)
+
+    class ExistingResult:
+        def scalar_one_or_none(self):
+            return 42
+
+    class ReadOnlySession:
+        async def execute(self, _statement):
+            return ExistingResult()
+
+        async def commit(self):
+            raise AssertionError("an already-indexed cache hit must not take a SQLite write lock")
+
+    await _record_thumbnail_cache(ReadOnlySession(), 42, cache_path)
+    assert cache_key in _recorded_thumbnail_cache_entries
+
+
 def test_set_preview_prefers_normalized_member_paths_after_manifest_move(tmp_path):
     from routes.media_files import _generate_set_preview
 

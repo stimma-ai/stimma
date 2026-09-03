@@ -66,6 +66,19 @@ async def _record_thumbnail_cache(session: AsyncSession, media_id: int, cache_pa
     cache_key = (media_id, str(cache_path))
     if cache_key in _recorded_thumbnail_cache_entries:
         return
+    # A backend restart empties the process cache but not this durable index.
+    # Cached-grid requests used to run INSERT OR IGNORE + COMMIT once per tile,
+    # needlessly serializing dozens of readers behind SQLite write locks. Most
+    # hits already have an index row, so prove that with a read first.
+    existing = await session.execute(
+        select(MediaThumbnailCache.media_id).where(
+            MediaThumbnailCache.media_id == media_id,
+            MediaThumbnailCache.cache_path == str(cache_path),
+        ).limit(1)
+    )
+    if existing.scalar_one_or_none() is not None:
+        _recorded_thumbnail_cache_entries.add(cache_key)
+        return
     stmt = sqlite_insert(MediaThumbnailCache).values(
         media_id=media_id,
         cache_path=str(cache_path),
