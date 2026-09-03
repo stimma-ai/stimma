@@ -14,7 +14,13 @@
         <!-- Centered device identity: on a satellite this is the only thing
              telling you which machine you are waiting for. -->
         <div class="text-lg font-semibold text-content">{{ deviceName }}</div>
-        <div class="text-sm text-content-secondary min-h-[1.25rem]">{{ statusLine }}</div>
+        <!-- The connecting state can last a while on purpose (main keeps
+             sweeping before it admits a device is unreachable), so it has to
+             read as progress rather than a stall. -->
+        <div class="text-sm text-content-secondary min-h-[1.25rem] flex items-center gap-2">
+          <Spinner v-if="connectionState === 'connecting'" size="sm" />
+          <span>{{ statusLine }}</span>
+        </div>
       </div>
 
       <div class="flex items-center gap-3 pointer-events-auto">
@@ -45,6 +51,7 @@
 import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
+import Spinner from './ui/Spinner.vue'
 
 const { connectionState, activeDeviceName, retry, refresh, useLocalServer } = useMultiDevice()
 

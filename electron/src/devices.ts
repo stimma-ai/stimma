@@ -71,6 +71,14 @@ let state: PersistedState = {
 }
 let localBackendPort: number | null = null
 let connectionState: ConnectionState = 'connecting'
+/**
+ * Whether the cached roster reflects the registry's last word. False until
+ * local Python has answered once this run, and again after a route dies, so
+ * a connect loop knows when re-reading the list could change the outcome.
+ */
+let devicesFresh = false
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 let onStateChange: ((state: ConnectionState) => void) | null = null
 
 export function initDevices(dataDir: string): void {
@@ -131,21 +139,52 @@ export function getKnownDevices(): DeviceRecord[] {
 /**
  * Called by backend.ts whenever the local Python port is known.
  *
- * Always (re)connects, not just for the local device: a satellite boots with
- * a REMOTE active device and must dial it here. Bootstrapping a session
- * needs the local backend for an account token, so this is the earliest
- * point at which a remote connect can succeed.
+ * Connects the local device right away: the renderer waits on that
+ * backend's health itself. A satellite boots with a REMOTE active device
+ * and dials it from here instead — but the port is announced before uvicorn
+ * listens, while migrations still run, and bootstrapping a session needs
+ * local Python for an account token. Dialling immediately therefore failed
+ * every launch within a few hundred milliseconds and flashed "unreachable"
+ * at a server that was fine. So wait until Python answers, and only then
+ * start the patience window for the remote device.
+ *
+ * A remote session already established does not depend on local Python, so
+ * a backend restart mid-session leaves it alone rather than re-dialling
+ * (which would flash the connection screen over a healthy window).
  */
 export function setLocalBackendPort(port: number): void {
   localBackendPort = port
   void (async () => {
-    if (state.activeDeviceId !== LOCAL_DEVICE) {
-      // Routes and fingerprints may have changed since we last ran; the
-      // cached list is only the fallback for when the registry is down.
-      await refreshDevices()
+    if (state.activeDeviceId === LOCAL_DEVICE) {
+      await connect()
+      return
     }
-    await connect()
+    if (connectionState === 'ready') return
+    if (!(await waitForLocalBackend(port))) return
+    // Routes and fingerprints may have changed since we last ran; the
+    // cached list is only the fallback for when the registry is down.
+    await refreshDevices()
+    await connect({ patienceMs: CONNECT_PATIENCE_MS })
   })()
+}
+
+/**
+ * Resolve true once local Python serves requests on `port`. No deadline, for
+ * the same reason the renderer's own health wait has none: a one-time
+ * migration has no honest upper bound. Resolves false if a newer port
+ * supersedes this one first (the watchdog restarted the backend).
+ */
+async function waitForLocalBackend(port: number): Promise<boolean> {
+  while (localBackendPort === port) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`)
+      if (response.ok) return true
+    } catch {
+      // Not listening yet.
+    }
+    await sleep(500)
+  }
+  return false
 }
 
 // --- session storage -------------------------------------------------------
@@ -278,18 +317,24 @@ export async function refreshDevices(): Promise<DeviceRecord[]> {
       // "signed out" this looks like a feature nobody turned on, and the
       // stale cache below makes it look like it half works.
       log.warn('devices', `Registry unreachable (${data.registryError}); keeping cached list`)
+      devicesFresh = false
       return state.devices
     }
     if (data?.signedIn !== true) {
       log.info('devices', 'Not signed in; keeping cached device list')
+      // Authoritative in its own way: asking again changes nothing until a
+      // sign-in, and that path clears the cache itself.
+      devicesFresh = true
       return state.devices
     }
     state.devices = (data.devices ?? []).filter(
       (d: DeviceRecord) => d.deviceId !== data.selfDeviceId
     )
+    devicesFresh = true
     persist()
   } catch (e) {
     log.warn('devices', `Device refresh failed, using cache: ${e}`)
+    devicesFresh = false
   }
   return state.devices
 }
@@ -476,8 +521,23 @@ async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promi
 }
 
 /**
+ * How long an AUTOMATIC connect (launch, a route dying mid-session) keeps
+ * sweeping in the connecting state before it admits the device is
+ * unreachable. Networks come up after the app does, a woken machine takes a
+ * moment to answer, and a laptop mid-switch between Wi-Fi networks fails
+ * every probe instantly; none of those deserve a red screen on the first
+ * miss. Explicit user actions (Retry, picking a device) get one sweep, so
+ * the answer to a click is immediate.
+ */
+const CONNECT_PATIENCE_MS = 20_000
+const SWEEP_PAUSE_MS = 1_000
+
+/**
  * Point the proxy at the active device. Candidate probes are concurrent with
  * a small LAN head start, avoiding N serial timeouts before tailnet fallback.
+ * With `patienceMs`, failed sweeps repeat — on a cached roster first, then a
+ * re-read one if the last read was not authoritative — until the window
+ * closes; the state stays `connecting` throughout.
  *
  * Calls overlap: a device switch while a probe is mid-flight, a retry from
  * the unreachable screen, the local backend restarting. Only the newest call
@@ -487,7 +547,7 @@ async function bootstrapSession(device: DeviceRecord, route: DeviceRoute): Promi
  */
 let connectGen = 0
 
-export async function connect(): Promise<ConnectionState> {
+export async function connect(options: { patienceMs?: number } = {}): Promise<ConnectionState> {
   const gen = ++connectGen
   const deviceId = state.activeDeviceId
   const superseded = () => gen !== connectGen || state.activeDeviceId !== deviceId
@@ -503,23 +563,45 @@ export async function connect(): Promise<ConnectionState> {
   }
 
   setConnectionState('connecting')
+  const deadline = Date.now() + (options.patienceMs ?? 0)
 
-  const device = state.devices.find((d) => d.deviceId === state.activeDeviceId)
-  if (!device || !device.serving || !device.certFingerprint) {
-    setProxyTarget(null)
-    setConnectionState('unreachable')
-    return connectionState
+  for (let sweep = 0; ; sweep++) {
+    // The first sweep runs on the cached roster: fast and cloud-independent.
+    // Later ones re-read it when the last read was not the registry's word.
+    if (sweep > 0 && !devicesFresh) await refreshDevices()
+    if (superseded()) return connectionState
+
+    const device = state.devices.find((d) => d.deviceId === deviceId)
+    if (!device?.serving || !device.certFingerprint) {
+      // The registry says this device is not offered: no amount of waiting
+      // changes that. A stale cache saying so might, so keep the window open.
+      if (devicesFresh) break
+    } else if (await sweepRoutes(device, superseded)) {
+      return connectionState
+    }
+
+    if (superseded()) return connectionState
+    if (Date.now() >= deadline) break
+    await sleep(SWEEP_PAUSE_MS)
   }
 
+  if (superseded()) return connectionState
+  setProxyTarget(null)
+  setConnectionState('unreachable')
+  return connectionState
+}
+
+/** One pass over a device's routes. True once the proxy points at it. */
+async function sweepRoutes(device: DeviceRecord, superseded: () => boolean): Promise<boolean> {
   for await (const route of reachableRoutes(device)) {
-    if (superseded()) return connectionState
+    if (superseded()) return false
 
     let session = loadSession(device.deviceId)
     let target: ProxyTarget = {
       host: route.host,
       port: route.port,
       tls: true,
-      certFingerprint: device.certFingerprint,
+      certFingerprint: device.certFingerprint!,
       session: session ?? undefined,
     }
 
@@ -530,7 +612,7 @@ export async function connect(): Promise<ConnectionState> {
       session = null
     }
     if (session && sessionState === 'unreachable') continue
-    if (superseded()) return connectionState
+    if (superseded()) return false
 
     if (!session) {
       session = await bootstrapSession(device, route)
@@ -539,7 +621,7 @@ export async function connect(): Promise<ConnectionState> {
       // caching it is safe; pointing the proxy at it is not.
       storeSession(device.deviceId, session)
       target = { ...target, session }
-      if (superseded()) return connectionState
+      if (superseded()) return false
     }
 
     setProxyTarget(target)
@@ -547,13 +629,9 @@ export async function connect(): Promise<ConnectionState> {
     persist()
     setConnectionState('ready')
     log.info('devices', `Connected to ${device.name} via ${route.kind} ${route.host}:${route.port}`)
-    return connectionState
+    return true
   }
-
-  if (superseded()) return connectionState
-  setProxyTarget(null)
-  setConnectionState('unreachable')
-  return connectionState
+  return false
 }
 
 async function sessionWorks(target: ProxyTarget): Promise<'valid' | 'invalid' | 'unreachable'> {
@@ -578,8 +656,9 @@ let recoveryInFlight = false
 
 /**
  * A route that was healthy can disappear when a laptop changes networks.
- * First fail over using cached candidates (fast and cloud-independent), then
- * refresh discovery and make one more attempt if none of them work.
+ * Fail over using cached candidates first (fast and cloud-independent); if
+ * none of them work the patient connect re-reads discovery and keeps trying
+ * until its window closes.
  */
 async function recoverFromProxyFailure(failedTarget: ProxyTarget): Promise<void> {
   if (recoveryInFlight || state.activeDeviceId === LOCAL_DEVICE) return
@@ -588,10 +667,8 @@ async function recoverFromProxyFailure(failedTarget: ProxyTarget): Promise<void>
   try {
     log.warn('devices', 'Active remote route failed; selecting another route')
     setProxyTarget(null)
-    setConnectionState('connecting')
-    if ((await connect()) === 'ready') return
-    await refreshDevices()
-    await connect()
+    devicesFresh = false
+    await connect({ patienceMs: CONNECT_PATIENCE_MS })
   } finally {
     recoveryInFlight = false
   }
