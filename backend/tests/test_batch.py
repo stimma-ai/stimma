@@ -73,8 +73,10 @@ class TestBatchJobSubmission:
 
             # Verify submit_batch_job was called 3 times
             assert mock_queue.submit_batch_job.call_count == 3
+            # The route claims a forever-mode reservation up front via
+            # _claim_forever_reservation, so no individual job consumes it.
             assert [call.kwargs["consume_pending_request"] for call in mock_queue.submit_batch_job.await_args_list] == [
-                True,
+                False,
                 False,
                 False,
             ]

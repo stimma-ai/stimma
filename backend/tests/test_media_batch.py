@@ -93,7 +93,9 @@ class TestMediaBatchSubmission:
         assert data["total_jobs"] == 3
         assert len(data["job_ids"]) == 3
         assert mock_queue.submit_batch_job.call_count == 3
-        assert [c["consume_pending_request"] for c in calls] == [True, False, False]
+        # The route claims a forever-mode reservation up front via
+        # _claim_forever_reservation, so no individual job consumes it.
+        assert [c["consume_pending_request"] for c in calls] == [False, False, False]
 
         # All jobs share one batch_id
         batch_ids = {c["batch_id"] for c in calls}
