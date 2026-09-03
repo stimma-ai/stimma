@@ -88,6 +88,16 @@ export const test = base.extend<{
     const page = await electronApp.firstWindow();
     await page.waitForLoadState('domcontentloaded');
 
+    // The shell kicks off its own loadURL(devUrl) when it creates the window
+    // (electron/src/windows.ts) and does not await it. firstWindow() plus
+    // domcontentloaded can resolve before that navigation lands, so the seed
+    // below would write to the wrong origin and the goto would race the
+    // shell's own load -- Playwright then aborts the goto with "interrupted
+    // by another navigation". Let the shell reach its start URL first.
+    await page.waitForURL((url) => url.href.startsWith(baseURL), {
+      waitUntil: 'domcontentloaded',
+    });
+
     // Replay the browser lane's seeded storage, then reboot the UI so the
     // app starts from the same baseline the Chromium project uses.
     const seed = storageSeed();
