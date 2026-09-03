@@ -115,13 +115,6 @@
       @cancel="cancelRemoveFolder"
     />
 
-    <!-- Add folder modal (web mode) -->
-    <AddFolderModal
-      :show="showAddFolderModal"
-      @confirm="handleAddFolderConfirm"
-      @cancel="handleAddFolderCancel"
-    />
-
     <!-- Folder menu dropdown (teleported to avoid overflow clipping) -->
     <Teleport to="body">
       <div
@@ -174,10 +167,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { isTauri } from '../../../apiConfig'
 import { useMarkers } from '../../../composables/useMarkers'
 import ConfirmModal from '../../ConfirmModal.vue'
-import AddFolderModal from '../AddFolderModal.vue'
+import { pickDirectory } from '../../../composables/useDirectoryPicker'
 import FolderSettingsModal from '../FolderSettingsModal.vue'
 import { sanitizeSvg } from '../../../utils/sanitizeHtml'
 
@@ -214,7 +206,6 @@ const saving = ref(false)
 const rescanning = ref(null)
 const showRemoveConfirm = ref(false)
 const folderToRemove = ref(null)
-const showAddFolderModal = ref(false)
 const showFolderSettings = ref(false)
 const folderToEdit = ref(null)
 const folderToEditIndex = ref(null)
@@ -386,23 +377,11 @@ function cancelRemoveFolder() {
 }
 
 async function addFolder() {
-  // Try Tauri dialog first
-  if (isTauri()) {
-    try {
-      const { desktop } = await import('../../../desktop')
-      const selected = await desktop.pickDirectory({
-        title: 'Select Folder'
-      })
-      if (selected) {
-        await addFolderPath(selected)
-      }
-    } catch (err) {
-      console.warn('Tauri dialog failed, falling back to modal:', err)
-      showAddFolderModal.value = true
-    }
-  } else {
-    // Web mode: show modal
-    showAddFolderModal.value = true
+  // Native dialog when the backend is this machine, in-app picker otherwise
+  // (remote server or plain browser) — the path must exist where the backend runs.
+  const selected = await pickDirectory({ title: 'Add folder' })
+  if (selected) {
+    await addFolderPath(selected)
   }
 }
 
@@ -418,15 +397,6 @@ async function addFolderPath(path) {
     }
   ]
   await immediateSave(updatedFolders)
-}
-
-function handleAddFolderConfirm(path) {
-  showAddFolderModal.value = false
-  addFolderPath(path)
-}
-
-function handleAddFolderCancel() {
-  showAddFolderModal.value = false
 }
 
 </script>

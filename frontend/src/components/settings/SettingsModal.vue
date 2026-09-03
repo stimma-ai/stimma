@@ -326,6 +326,8 @@ function handleKeydown(e) {
   if (e.key === 'Escape' && props.show) {
     // Don't close if Escape originated from a CodeMirror editor (e.g. exiting Vim insert mode)
     if (e.target?.closest?.('.cm-editor')) return
+    // A modal stacked above Settings (folder picker, confirm) owns Escape.
+    if (document.querySelectorAll('[data-modal-layer]').length > 1) return
     if (activeSection.value === 'ai-services' && aiServicesSection.value?.handleEscape?.()) {
       e.preventDefault()
       e.stopPropagation()

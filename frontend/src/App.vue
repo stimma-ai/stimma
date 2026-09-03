@@ -18,6 +18,9 @@
 
     <BalanceCelebrationModal />
 
+    <!-- In-app folder picker (global, opened via pickDirectory) -->
+    <DirectoryPickerModal />
+
     <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
@@ -198,6 +201,7 @@ import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
 import ConnectionScreen from './components/ConnectionScreen.vue'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
+import DirectoryPickerModal from './components/DirectoryPickerModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'

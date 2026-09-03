@@ -32,6 +32,7 @@ const emit = defineEmits<{
 }>()
 
 const cardRef = ref<HTMLElement | null>(null)
+const layerRef = ref<HTMLElement | null>(null)
 let previouslyFocused: HTMLElement | null = null
 
 const sizeClasses: Record<string, string> = {
@@ -57,8 +58,18 @@ function onBackdropClick() {
   if (props.closeOnBackdrop) close()
 }
 
+// Every open modal listens on window, and stopPropagation does not stop
+// sibling listeners on the same target — so without this, one Escape inside
+// a picker launched from Settings would close the picker, the folder
+// dialog under it, and Settings itself. Layers teleport to body in opening
+// order, so the last one in the document is the one on top.
+function isTopmostLayer(): boolean {
+  const layers = document.querySelectorAll('[data-modal-layer]')
+  return layers.length === 0 || layers[layers.length - 1] === layerRef.value
+}
+
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.closeOnEsc) {
+  if (e.key === 'Escape' && props.closeOnEsc && isTopmostLayer()) {
     e.stopPropagation()
     close()
   }
@@ -87,6 +98,7 @@ onBeforeUnmount(() => {
     <Transition name="modal">
       <div
         v-if="show"
+        ref="layerRef"
         data-modal-layer
         class="fixed inset-0 flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         :class="zClass"

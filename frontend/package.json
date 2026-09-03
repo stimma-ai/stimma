@@ -25,7 +25,8 @@
     "test:storage-migration": "node --test --experimental-strip-types src/utils/debugPrefixMigration.test.ts",
     "test:image-stack": "node --test --experimental-strip-types src/imageEditor/stack/*.test.ts",
     "test:desktop-bridge": "node --test --experimental-strip-types src/desktop/bridge.test.ts",
-    "test:terms": "node --test --experimental-strip-types src/utils/terms.test.ts"
+    "test:terms": "node --test --experimental-strip-types src/utils/terms.test.ts",
+    "test:directory-picker": "node --test --experimental-strip-types src/utils/directoryPicker.test.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

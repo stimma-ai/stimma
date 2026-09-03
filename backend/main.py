@@ -129,6 +129,7 @@ from routes import (
     cloud,
     chats,
     feedback,
+    filesystem,
     flags,
     generation,
     image_stack,
@@ -214,6 +215,7 @@ app.include_router(share.router)
 app.include_router(stimpack_marketplace.router)
 app.include_router(telemetry.router)
 app.include_router(feedback.router)
+app.include_router(filesystem.router)
 app.include_router(flags.router)
 
 log.info(f"TIMING: routers included at {time.time() - _startup_time:.2f}s")

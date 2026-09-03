@@ -21,27 +21,16 @@
       <!-- Path -->
       <div>
         <label class="block text-sm font-medium text-content-secondary mb-2">Path</label>
-        <div v-if="isTauriMode" class="flex gap-2">
+        <div class="flex gap-2">
           <input
             v-model="localPath"
             type="text"
-            readonly
-            class="flex-1 px-3 py-2 bg-surface-raised/50 border border-edge rounded-lg text-content-secondary text-sm"
+            spellcheck="false"
+            class="min-w-0 flex-1 px-3 py-2 bg-overlay-subtle border border-transparent rounded-md font-mono text-content placeholder:text-content-muted text-sm outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+            placeholder="/path/to/media/folder"
           />
-          <button
-            @click="browsePath"
-            class="px-3 py-2 bg-surface-raised hover:bg-surface-hover border border-edge rounded-lg text-content text-sm transition-colors"
-          >
-            Browse...
-          </button>
+          <Button variant="secondary" @click="browsePath">Browse…</Button>
         </div>
-        <input
-          v-else
-          v-model="localPath"
-          type="text"
-          class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content placeholder:text-content-muted text-sm outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
-          placeholder="/path/to/media/folder"
-        />
         <p class="mt-1.5 text-xs text-content-muted">
           Choosing a new location rebinds existing assets by relative path. Stimma does not move files.
         </p>
@@ -97,7 +86,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { isTauri } from '../../apiConfig'
+import { pickDirectory } from '../../composables/useDirectoryPicker'
 import { useMarkers } from '../../composables/useMarkers'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import Modal from '../ui/Modal.vue'
@@ -120,7 +109,6 @@ const emit = defineEmits(['save', 'cancel'])
 const localPath = ref('')
 const localRefreshInterval = ref(300)
 const localMarkerNames = ref([])  // Selected marker names
-const isTauriMode = isTauri()
 
 // Access available markers
 const { availableMarkers, init: initMarkers } = useMarkers()
@@ -153,17 +141,12 @@ function toggleMarker(markerName) {
 }
 
 async function browsePath() {
-  try {
-    const { desktop } = await import('../../desktop')
-    const selected = await desktop.pickDirectory({
-      title: 'Select Folder',
-      defaultPath: localPath.value || undefined
-    })
-    if (selected) {
-      localPath.value = selected
-    }
-  } catch (err) {
-    console.error('Failed to open folder dialog:', err)
+  const selected = await pickDirectory({
+    title: 'Choose a folder',
+    defaultPath: localPath.value || undefined
+  })
+  if (selected) {
+    localPath.value = selected
   }
 }
 
