@@ -1263,6 +1263,7 @@ import {
   orderLiveAdvanceKeys,
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
+import { nearbyPreloadIndices } from '../utils/slideshowPreload'
 
 const router = useRouter()
 const { setKeywordFilter, setTagFilter, setSimilarFilter } = useBrowseFilters()
@@ -1570,6 +1571,53 @@ const loadingPages = ref(new Map()) // Maps page number to loading promise
 let pageProviderCacheRevision = 0
 const displayItem = ref(null) // Item to display (stays visible while loading next)
 const mediaLoaded = ref(false) // Track whether current media has finished loading
+
+// Keep a few neighboring full-resolution images decoded in memory. Chromium's
+// immutable HTTP cache already avoids a second network transfer; retaining the
+// Image objects also avoids paying decode time again when the slideshow swaps.
+// The budget is intentionally small because source images can be very large.
+const MEDIA_PRELOAD_LIMIT = 2
+const DECODED_IMAGE_CACHE_LIMIT = 3
+const decodedImageCache = new Map() // url -> { image, promise }
+let mediaPreloadEpoch = 0
+let preloadDirection = 1
+
+function retainDecodedImage(url, entry) {
+  decodedImageCache.delete(url)
+  decodedImageCache.set(url, entry)
+  while (decodedImageCache.size > DECODED_IMAGE_CACHE_LIMIT) {
+    const oldestUrl = decodedImageCache.keys().next().value
+    decodedImageCache.delete(oldestUrl)
+  }
+}
+
+function preloadAndDecodeImage(url) {
+  const cached = decodedImageCache.get(url)
+  if (cached) {
+    retainDecodedImage(url, cached)
+    return cached.promise
+  }
+
+  const image = new Image()
+  image.fetchPriority = 'low'
+  const entry = { image, promise: null }
+  entry.promise = new Promise((resolve) => {
+    const finish = async (loaded) => {
+      image.onload = null
+      image.onerror = null
+      if (loaded && typeof image.decode === 'function') {
+        try { await image.decode() } catch { /* load succeeded; decode may already be complete */ }
+      }
+      if (!loaded) decodedImageCache.delete(url)
+      resolve(loaded)
+    }
+    image.onload = () => void finish(true)
+    image.onerror = () => void finish(false)
+    image.src = url
+  })
+  retainDecodedImage(url, entry)
+  return entry.promise
+}
 
 // While the hero (full-res main image) is loading, throttle thumbnail
 // admissions so the filmstrip and any grids underneath don't starve it of
@@ -2844,6 +2892,37 @@ async function preloadNearbyItems(displayIndex) {
   }
 }
 
+function itemAtDisplayIndex(displayIndex) {
+  if (props.items) return withAssetHeadOverride(props.items[displayIndex] || null)
+  return withAssetHeadOverride(stripItemGetter.value(displayIndex))
+}
+
+// Warm actual media bytes after the current hero has painted. Metadata/page
+// preloading alone is not enough over Wi-Fi: without this, changing the index
+// creates the next <img> before Chromium has fetched or decoded its source.
+async function preloadNearbyMedia(displayIndex) {
+  const epoch = ++mediaPreloadEpoch
+  const indices = nearbyPreloadIndices(
+    displayIndex,
+    localTotalCount.value,
+    preloadDirection,
+    MEDIA_PRELOAD_LIMIT,
+  )
+
+  for (const nearbyIndex of indices) {
+    if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
+    const actualIndex = getActualIndex(nearbyIndex)
+    if (!props.items) await ensureItemLoaded(actualIndex).catch(() => {})
+    if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
+
+    const item = itemAtDisplayIndex(nearbyIndex)
+    // Native video/MSE preloading has very different bandwidth behavior and
+    // can consume the whole link, so this bounded pass only decodes images.
+    if (!item?.file_hash || isVideoType(item) || isAudioType(item) || isStructuredType(item)) continue
+    await preloadAndDecodeImage(getMediaFileUrl(item.file_hash))
+  }
+}
+
 // Navigation
 
 // Index of the item the user is actually LOOKING at. currentIndex can briefly
@@ -2868,6 +2947,7 @@ function displayAnchorIndex() {
 function stepFromAnchor(delta) {
   const target = displayAnchorIndex() + delta
   if (target < 0 || target >= localTotalCount.value) return false
+  preloadDirection = delta < 0 ? -1 : 1
   clearLiveAdvanceQueue()
   followStream.value = target === 0
   if (target === currentIndex.value) {
@@ -2937,6 +3017,7 @@ function previous() {
 }
 
 function goToFirst() {
+  preloadDirection = -1
   clearLiveAdvanceQueue()
   isUserNavigating.value = true
   currentIndex.value = 0
@@ -2945,6 +3026,7 @@ function goToFirst() {
 }
 
 function goToLast() {
+  preloadDirection = 1
   clearLiveAdvanceQueue()
   isUserNavigating.value = true
   currentIndex.value = localTotalCount.value - 1
@@ -2954,6 +3036,7 @@ function goToLast() {
 
 function goToIndex(index) {
   if (index >= 0 && index < localTotalCount.value) {
+    preloadDirection = index < displayAnchorIndex() ? -1 : 1
     clearLiveAdvanceQueue()
     isUserNavigating.value = true
     currentIndex.value = index
@@ -5673,6 +5756,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  mediaPreloadEpoch++
+  decodedImageCache.clear()
   destroyMsePlayback()
   if (releaseHeroLoad) {
     releaseHeroLoad()
@@ -5712,6 +5797,7 @@ onUnmounted(() => {
 // Also clean up focus mode when deactivated by KeepAlive (e.g., navigating away)
 // This is needed because the parent view uses KeepAlive, so onUnmounted won't fire
 onDeactivated(() => {
+  mediaPreloadEpoch++
   slideshowViewActive = false
   document.body.classList.remove('slideshow-focus-mode')
   cleanupCursorTimeout()
@@ -5752,6 +5838,7 @@ onActivated(() => {
   if (videoElement.value && transportRaf == null) {
     transportRaf = requestAnimationFrame(transportTick)
   }
+  if (mediaLoaded.value && !isVideo.value) void preloadNearbyMedia(currentIndex.value)
 })
 
 // Set up ResizeObserver when container ref becomes available
@@ -5792,6 +5879,15 @@ watch(currentIndex, async (newIndex) => {
   }
 
   preloadNearbyItems(newIndex)
+})
+
+// Do not let speculative full-resolution transfers compete with the current
+// hero. Once it is decoded and paintable, spend a small sequential budget on
+// the most likely next images.
+watch(mediaLoaded, (loaded) => {
+  if (loaded && !isVideo.value && !isViewingSet.value && !isViewingGrid.value && !isViewingSource.value) {
+    void preloadNearbyMedia(currentIndex.value)
+  }
 })
 
 // Face data is now loaded in the consolidated metadata watcher below
