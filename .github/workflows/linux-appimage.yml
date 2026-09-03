@@ -281,7 +281,11 @@ jobs:
             node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
       - name: Test packaged AppImage update cycle
-        timeout-minutes: 15
+        # The lane builds three AppImages and drives two update hops; it lands
+        # in about two minutes warm and under six cold. Ten minutes leaves room
+        # for a cold runner while still failing a hang reasonably fast -- this
+        # step used to sit for its whole timeout after a stuck teardown.
+        timeout-minutes: 10
         working-directory: electron
         env:
           # As above: the AppImages this lane builds and relaunches cannot mount
