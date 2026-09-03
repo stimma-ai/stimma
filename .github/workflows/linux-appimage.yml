@@ -267,13 +267,17 @@ jobs:
             exit 1
           fi
           "$APPIMAGE" --appimage-offset
-          env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 xvfb-run -a \
+          # Drop privileges outside xvfb-run: its X authority file is written
+          # mode 600, so starting it as root would leave it unreadable to the
+          # unprivileged user that actually launches the app.
+          scripts/run-unprivileged.sh \
+            env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 xvfb-run -a \
             node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
       - name: Test packaged AppImage update cycle
         timeout-minutes: 10
         working-directory: electron
-        run: npm run test:update-linux
+        run: ../scripts/run-unprivileged.sh npm run test:update-linux
 
       - name: Collect build artifacts
         id: collect
