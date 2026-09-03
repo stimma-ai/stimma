@@ -27,6 +27,7 @@ import { shutdownHelper } from './helper'
 import { readPackagedMetadata } from './identity'
 import { log } from './log'
 import { beginUpdateInstall } from './updaterLifecycle'
+import { updaterFeedConfiguration } from './updaterFeed'
 import { UpdaterState } from './updaterState'
 import {
   hasStagedPackage,
@@ -78,7 +79,7 @@ function getAutoUpdater() {
     }
     const url = feedUrl()
     if (url) {
-      autoUpdater.setFeedURL({ provider: 'generic', url })
+      autoUpdater.setFeedURL(updaterFeedConfiguration(url))
     }
     autoUpdater.on('update-downloaded', (info) => {
       const version = info.version || state.available?.version
