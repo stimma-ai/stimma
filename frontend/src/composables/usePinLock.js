@@ -15,21 +15,29 @@ function getPinCacheStorageKey() {
   return makeGlobalKey('pin_cache')
 }
 
-// In-memory PIN cache: profileId -> { pin: string, lastActivity: number }
-// Hydrated from sessionStorage on load
+// In-memory PIN cache:
+//   profileId -> { pin: string, lastActivity: number, timeoutMinutes: number|null }
+// Hydrated from sessionStorage on load. timeoutMinutes is the idle limit the
+// server last reported for the profile; it lets hydration expire an entry
+// without a round trip.
 const pinCache = new Map()
 
-// Hydrate PIN cache from sessionStorage on module load
+// Hydrate PIN cache from sessionStorage on module load. The persisted
+// lastActivity is honored: the idle clock must survive a reload, because the
+// app reloads itself on every device switch, retry, and profile switch, and
+// restarting the clock on each of those meant a PIN could effectively never
+// expire while working remotely.
 try {
   const stored = sessionStorage.getItem(getPinCacheStorageKey())
   if (stored) {
     const data = JSON.parse(stored)
+    const now = Date.now()
     for (const [profileId, entry] of Object.entries(data)) {
-      // Restore with updated lastActivity to prevent immediate timeout
-      pinCache.set(profileId, {
-        pin: entry.pin,
-        lastActivity: Date.now()
-      })
+      if (!entry?.pin) continue
+      const lastActivity = Number.isFinite(entry.lastActivity) ? entry.lastActivity : now
+      const timeoutMinutes = Number.isFinite(entry.timeoutMinutes) ? entry.timeoutMinutes : null
+      if (timeoutMinutes !== null && now - lastActivity >= timeoutMinutes * 60 * 1000) continue
+      pinCache.set(profileId, { pin: entry.pin, lastActivity, timeoutMinutes })
     }
   }
 } catch (e) {
@@ -43,7 +51,11 @@ function persistPinCache() {
   try {
     const data = {}
     for (const [profileId, entry] of pinCache.entries()) {
-      data[profileId] = { pin: entry.pin, lastActivity: entry.lastActivity }
+      data[profileId] = {
+        pin: entry.pin,
+        lastActivity: entry.lastActivity,
+        timeoutMinutes: entry.timeoutMinutes ?? null,
+      }
     }
     sessionStorage.setItem(getPinCacheStorageKey(), JSON.stringify(data))
   } catch (e) {
@@ -60,6 +72,10 @@ const pinModalCallback = ref(null)
 // Idle tracking state
 let idleCheckInterval = null
 const IDLE_CHECK_INTERVAL_MS = 10000 // Check every 10 seconds
+// Activity is persisted at most this often; the idle limit is minutes, so a
+// clock that lags by a few seconds across a reload is fine.
+const ACTIVITY_PERSIST_INTERVAL_MS = 5000
+let lastActivityPersistAt = 0
 
 /**
  * Update last activity timestamp for a profile.
@@ -68,9 +84,12 @@ function updateActivity(profileId = null) {
   const id = profileId || getCurrentProfileId()
   const cached = pinCache.get(id)
   if (cached) {
-    cached.lastActivity = Date.now()
-    // Note: We don't persist on every activity update for performance.
-    // Activity is reset to Date.now() on hydration anyway.
+    const now = Date.now()
+    cached.lastActivity = now
+    if (now - lastActivityPersistAt >= ACTIVITY_PERSIST_INTERVAL_MS) {
+      lastActivityPersistAt = now
+      persistPinCache()
+    }
   }
 }
 
@@ -82,21 +101,34 @@ function handleActivity() {
 }
 
 /**
+ * Pointer motion only counts while the window is focused. An unfocused
+ * window still receives mousemove when the cursor crosses it on the way to
+ * another app, and that must not keep a locked-away profile open.
+ */
+function handleFocusedActivity() {
+  if (typeof document !== 'undefined' && !document.hasFocus()) return
+  updateActivity()
+}
+
+/**
  * Start idle tracking by listening to user activity events.
  */
 function startIdleTracking() {
   if (typeof window === 'undefined') return
 
   // Listen for activity events
-  window.addEventListener('mousemove', handleActivity, { passive: true })
+  window.addEventListener('mousemove', handleFocusedActivity, { passive: true })
+  window.addEventListener('scroll', handleFocusedActivity, { passive: true })
   window.addEventListener('mousedown', handleActivity, { passive: true })
   window.addEventListener('keydown', handleActivity, { passive: true })
   window.addEventListener('touchstart', handleActivity, { passive: true })
-  window.addEventListener('scroll', handleActivity, { passive: true })
+  window.addEventListener('focus', handleActivity, { passive: true })
 
-  // Start periodic idle check
+  // Start periodic idle check. Run one immediately: a reload restores the
+  // clock from storage and may already be past the limit.
   if (!idleCheckInterval) {
     idleCheckInterval = setInterval(checkIdleTimeouts, IDLE_CHECK_INTERVAL_MS)
+    void checkIdleTimeouts()
   }
 }
 
@@ -106,11 +138,12 @@ function startIdleTracking() {
 function stopIdleTracking() {
   if (typeof window === 'undefined') return
 
-  window.removeEventListener('mousemove', handleActivity)
+  window.removeEventListener('mousemove', handleFocusedActivity)
+  window.removeEventListener('scroll', handleFocusedActivity)
   window.removeEventListener('mousedown', handleActivity)
   window.removeEventListener('keydown', handleActivity)
   window.removeEventListener('touchstart', handleActivity)
-  window.removeEventListener('scroll', handleActivity)
+  window.removeEventListener('focus', handleActivity)
 
   if (idleCheckInterval) {
     clearInterval(idleCheckInterval)
@@ -120,17 +153,22 @@ function stopIdleTracking() {
 
 /**
  * Check all cached PINs for idle timeout expiration.
+ *
+ * The limit comes from the connected server. When it cannot be reached the
+ * last value it reported is used, so a flaky remote link cannot postpone
+ * expiry indefinitely.
  */
 async function checkIdleTimeouts() {
-  const now = Date.now()
-
   for (const [profileId, cached] of pinCache.entries()) {
-    // Fetch timeout for this profile
-    const timeout = await getProfilePinTimeout(profileId)
-    if (timeout === null) continue // No PIN configured
+    const reported = await getProfilePinTimeout(profileId)
+    if (reported !== null) {
+      cached.timeoutMinutes = reported
+    }
+    const timeout = cached.timeoutMinutes
+    if (timeout === null || timeout === undefined) continue // No PIN configured, or never learned
 
     const timeoutMs = timeout * 60 * 1000
-    const elapsed = now - cached.lastActivity
+    const elapsed = Date.now() - cached.lastActivity
 
     if (elapsed >= timeoutMs) {
       // PIN expired - remove from cache
@@ -198,9 +236,11 @@ function getCachedPin(profileId) {
  * Cache a PIN for a profile.
  */
 function cachePin(profileId, pin) {
+  const previous = pinCache.get(profileId)
   pinCache.set(profileId, {
     pin,
-    lastActivity: Date.now()
+    lastActivity: Date.now(),
+    timeoutMinutes: previous?.timeoutMinutes ?? null,
   })
   persistPinCache()
 }

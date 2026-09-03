@@ -23,8 +23,17 @@
 
     <FeedbackRoot />
 
+  <!-- Connection state, ahead of everything the active device owns — the
+       PIN lock included. A PIN is verified by the server the window is on,
+       so a lock screen over a dead connection can only fail; the connection
+       screen takes over and the lock re-evaluates on the reload that follows
+       a reconnect. The sidebar, browsers, and content of an unreachable
+       backend are undefined, so they must not render at all — v-if, never
+       v-show. -->
+  <ConnectionScreen v-if="connectionState !== 'ready'" />
+
   <!-- Full-screen lock screen when PIN is required -->
-  <div v-if="isLocked" class="fixed inset-0 z-top bg-surface-overlay">
+  <div v-else-if="isLocked" class="fixed inset-0 z-top bg-surface-overlay">
     <!-- Draggable title bar region -->
     <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
     <!-- Profile switcher in top-right corner -->
@@ -114,11 +123,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Connection state, ahead of everything the active device owns. The
-       sidebar, browsers, and content of an unreachable backend are undefined,
-       so they must not render at all — v-if, never v-show. -->
-  <ConnectionScreen v-else-if="connectionState !== 'ready'" />
 
   <!-- No-chrome mode for standalone pages like LLM trace viewer -->
   <div v-else-if="noChrome" class="w-full h-screen overflow-auto bg-base">
@@ -286,7 +290,7 @@ const startupPending = ref(true)
 // renderer always has the local proxy to talk to, and main pushes every
 // transition. One screen then covers cold launch, satellite launch, and a
 // mid-session drop.
-const { connectionState, init: initMultiDevice } = useMultiDevice()
+const { connectionState, activeDeviceName, init: initMultiDevice } = useMultiDevice()
 
 function openSettings(section = 'folders') {
   settingsSection.value = section
@@ -308,6 +312,16 @@ const lockScreenError = ref('')
 const lockScreenSubmitting = ref(false)
 const lockScreenPinInput = ref(null)
 const lockScreenProfileDropdownOpen = ref(false)
+
+// A lock screen's half-typed PIN or stale error belongs to the connection it
+// was entered on. Drop both when the device goes away so the lock screen
+// comes back clean after the reconnect reload.
+watch(connectionState, (state) => {
+  if (state !== 'ready' && isLocked.value) {
+    lockScreenPin.value = ''
+    lockScreenError.value = ''
+  }
+})
 
 function toggleLockScreenProfileDropdown() {
   lockScreenProfileDropdownOpen.value = !lockScreenProfileDropdownOpen.value
@@ -672,13 +686,20 @@ async function submitLockScreenPin() {
       } catch (e) {
         console.warn('[App] Failed to reload settings after PIN unlock:', e)
       }
+    } else if (response.status === 502 || response.status === 503) {
+      // The local proxy answers these itself when the active device is gone
+      // or unreachable. That is a connection problem, not a PIN problem; the
+      // connection screen takes over once main reports the drop.
+      lockScreenError.value = `Lost connection to ${activeDeviceName.value}`
+      lockScreenPin.value = ''
     } else {
       const data = await response.json().catch(() => ({}))
       lockScreenError.value = data.detail || 'Invalid PIN'
       lockScreenPin.value = ''
     }
   } catch (error) {
-    lockScreenError.value = 'Failed to verify PIN'
+    lockScreenError.value = `Could not reach ${activeDeviceName.value}`
+    lockScreenPin.value = ''
     console.error('[App] PIN verification error:', error)
   } finally {
     lockScreenSubmitting.value = false
