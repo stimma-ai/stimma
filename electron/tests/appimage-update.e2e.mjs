@@ -369,3 +369,13 @@ try {
   await new Promise((resolve) => server.close(resolve))
   scratch.cleanup()
 }
+
+// stageRecheckAndRelaunch deliberately does not wait on Playwright's Electron
+// connection, because the AppImage launcher can stay attached to it after the
+// main process it started has gone. Under APPIMAGE_EXTRACT_AND_RUN there is
+// always such a launcher -- the runtime forks the app and waits to clean up the
+// extraction directory -- so that handle keeps the event loop alive and Node
+// never exits. CI killed this step on its timeout more than thirteen minutes
+// after the last assertion passed. Everything has run and been cleaned up by
+// here, so exit deliberately. A failure above throws past this line.
+process.exit(0)
