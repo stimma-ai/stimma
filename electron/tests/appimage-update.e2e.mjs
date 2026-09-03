@@ -360,6 +360,12 @@ try {
   if (fixedMain && fixedMap) restoreFixedMain()
   if (activeApp) await activeApp.app.close().catch(() => {})
   await stopMarkedProcesses()
+  // http.Server#close waits for every open connection to end. This lane
+  // deliberately leaves the relaunched app running until the call above, and
+  // any keep-alive socket it still holds against the feed hangs the close
+  // forever -- the CI step timed out here long after every assertion had
+  // passed. Drop the sockets explicitly instead of waiting them out.
+  server.closeAllConnections?.()
   await new Promise((resolve) => server.close(resolve))
   scratch.cleanup()
 }
