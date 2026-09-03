@@ -128,6 +128,11 @@ class MockWebSocketManager:
         """Capture a broadcast event."""
         self.broadcasts.append((event, data))
 
+    async def send_to_generator_instance(self, generator_instance_id: str, event: str, data: dict) -> bool:
+        """Capture a directed generator event."""
+        self.broadcasts.append((event, data))
+        return True
+
     async def connect(self, websocket):
         """Track a connection."""
         self.connections.append(websocket)

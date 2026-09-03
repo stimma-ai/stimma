@@ -31,6 +31,7 @@ def _reset_queue_state(queue):
     queue._forever_mode_clients.clear()
     queue._pending_work_requests.clear()
     queue._pending_work_requests_per_client.clear()
+    queue._work_reservations.clear()
     queue._last_served_client.clear()
     if hasattr(queue, "_finalizing_per_client"):
         queue._finalizing_per_client.clear()
@@ -362,6 +363,51 @@ class TestForeverModeSlotFilling:
         assert len(client_requests) == 1
 
         # Clean up
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_work_reservation_can_only_be_claimed_once(
+        self, generation_queue, mock_ws
+    ):
+        """Two renderers answering one request cannot create two jobs."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-single-use-reservation"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        request = mock_ws.get_broadcasts("generation_request_work")[0][1]
+        reservation_id = request["reservation_id"]
+
+        assert await generation_queue.claim_work_reservation(
+            reservation_id, client, "test"
+        ) is True
+        assert await generation_queue.claim_work_reservation(
+            reservation_id, client, "test"
+        ) is False
+        assert generation_queue._pending_work_requests["test"] == []
+        assert generation_queue._pending_work_requests_per_client[client] == []
+
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_work_reservation_rejects_wrong_client_or_backend(
+        self, generation_queue, mock_ws
+    ):
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-bound-reservation"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        reservation_id = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+
+        assert await generation_queue.claim_work_reservation(
+            reservation_id, "another-client", "test"
+        ) is False
+        assert await generation_queue.claim_work_reservation(
+            reservation_id, client, "another-backend"
+        ) is False
+        assert await generation_queue.claim_work_reservation(
+            reservation_id, client, "test"
+        ) is True
+
         await generation_queue.unregister_forever_mode(client, "test")
 
     async def test_cancel_job_refills_forever_mode_slots(

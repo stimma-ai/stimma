@@ -26,6 +26,7 @@ from config_version import get_config_version_manager
 from pathlib import Path
 from PIL import Image
 import math
+import uuid
 
 
 log = get_logger(__name__)
@@ -368,6 +369,10 @@ class GenerationQueue:
         self._pending_work_requests: Dict[str, List[float]] = {}
         # Track pending work requests per client (timestamps for TTL-based self-healing)
         self._pending_work_requests_per_client: Dict[str, List[float]] = {}
+        # Single-use capabilities for frontend-driven forever work. A submit
+        # must claim the exact request that caused it; counters alone cannot
+        # prevent two renderers from answering one request.
+        self._work_reservations: Dict[str, Dict[str, Any]] = {}
         # Lock to protect forever mode slot filling from concurrent access
         self._forever_mode_lock = asyncio.Lock()
         # Event to wake workers immediately when a job is submitted
@@ -418,6 +423,9 @@ class GenerationQueue:
         without ever calling the submit API or sending a decline message.
         """
         now = time.monotonic()
+        for reservation_id, reservation in list(self._work_reservations.items()):
+            if now - reservation['created_at'] >= PENDING_REQUEST_TTL:
+                self._work_reservations.pop(reservation_id, None)
         for key in list(self._pending_work_requests):
             before = len(self._pending_work_requests[key])
             self._pending_work_requests[key] = [
@@ -452,6 +460,16 @@ class GenerationQueue:
         # Immediately try to fill all available slots
         await self._fill_available_slots(backend_name)
 
+    async def generator_instance_connected(self, generator_instance_id: str) -> None:
+        """Retry dispatch after the instance-to-socket registration is visible.
+
+        HTTP forever registration and WebSocket registration use independent
+        connections, so either can arrive first during reconnect.
+        """
+        for backend_name, clients in list(self._forever_mode_clients.items()):
+            if generator_instance_id in clients:
+                await self._fill_available_slots(backend_name)
+
     async def unregister_forever_mode(self, generator_instance_id: str, backend_name: str):
         """Unregister a client from continuous work."""
         if backend_name in self._forever_mode_clients:
@@ -463,6 +481,13 @@ class GenerationQueue:
                 self._pending_work_requests[backend_name] = self._pending_work_requests[backend_name][client_pending_count:]
                 log.debug(f"Forever mode: released {client_pending_count} pending requests for {backend_name}, pending now {len(self._pending_work_requests[backend_name])}")
             self._pending_work_requests_per_client.pop(generator_instance_id, None)
+            self._work_reservations = {
+                rid: reservation for rid, reservation in self._work_reservations.items()
+                if not (
+                    reservation['generator_instance_id'] == generator_instance_id
+                    and reservation['backend_name'] == backend_name
+                )
+            }
             log.info(f"Forever mode: unregistered {generator_instance_id} from backend {backend_name}")
         # Forever mode is the only thing that authorizes the prompt warm pool to
         # exist - stopping it (for any backend) tears the pool down immediately.
@@ -489,6 +514,10 @@ class GenerationQueue:
 
         # Clear per-client pending list
         self._pending_work_requests_per_client.pop(generator_instance_id, None)
+        self._work_reservations = {
+            rid: reservation for rid, reservation in self._work_reservations.items()
+            if reservation['generator_instance_id'] != generator_instance_id
+        }
 
         # Cancel all queued jobs for this instance
         await self.cancel_queued_jobs_for_instance(generator_instance_id, error_message='Client disconnected')
@@ -695,6 +724,38 @@ class GenerationQueue:
         # Re-fill to potentially assign the slot to another client or retry
         await self._fill_available_slots(backend_name)
 
+    async def claim_work_reservation(
+        self, reservation_id: str, generator_instance_id: str, backend_name: str
+    ) -> bool:
+        """Atomically consume one exact forever-mode work reservation."""
+        async with self._forever_mode_lock:
+            self._prune_expired_pending()
+            reservation = self._work_reservations.get(reservation_id)
+            if not reservation or (
+                reservation['generator_instance_id'] != generator_instance_id
+                or reservation['backend_name'] != backend_name
+            ):
+                return False
+            self._work_reservations.pop(reservation_id, None)
+            timestamps = self._pending_work_requests.get(backend_name, [])
+            if timestamps:
+                timestamps.pop(0)
+            timestamps = self._pending_work_requests_per_client.get(generator_instance_id, [])
+            if timestamps:
+                timestamps.pop(0)
+            return True
+
+    async def decline_work_reservation(
+        self, reservation_id: str, generator_instance_id: str, backend_name: str
+    ) -> bool:
+        """Release one exact reservation and ask the scheduler to refill it."""
+        released = await self.claim_work_reservation(
+            reservation_id, generator_instance_id, backend_name
+        )
+        if released:
+            await self._fill_available_slots(backend_name)
+        return released
+
     async def cancel_queued_jobs_for_instance(self, generator_instance_id: str,
                                                error_message: str = 'Cancelled - cleanup') -> int:
         """
@@ -898,16 +959,28 @@ class GenerationQueue:
                 # Track this request in our local counter (for capacity checking within this call)
                 requests_sent_this_call[next_client] = requests_sent_this_call.get(next_client, 0) + 1
 
+                reservation_id = str(uuid.uuid4())
                 # Also append timestamp to global pending lists (for other code paths)
                 now = time.monotonic()
                 self._pending_work_requests.setdefault(backend_name, []).append(now)
                 self._pending_work_requests_per_client.setdefault(next_client, []).append(now)
-
-                log.debug(f"Forever mode: requesting work from {next_client} for {backend_name} ({requests_sent+1}/{backend_slots_to_fill}, sent_this_call={requests_sent_this_call[next_client]})")
-                await self._websocket_manager.broadcast('generation_request_work', {
+                self._work_reservations[reservation_id] = {
+                    'created_at': now,
                     'generator_instance_id': next_client,
                     'backend_name': backend_name,
-                }, include_profile=False)
+                }
+
+                log.debug(f"Forever mode: requesting work from {next_client} for {backend_name} ({requests_sent+1}/{backend_slots_to_fill}, sent_this_call={requests_sent_this_call[next_client]})")
+                sent = await self._websocket_manager.send_to_generator_instance(next_client, 'generation_request_work', {
+                    'generator_instance_id': next_client,
+                    'backend_name': backend_name,
+                    'reservation_id': reservation_id,
+                })
+                if not sent:
+                    self._work_reservations.pop(reservation_id, None)
+                    self._pending_work_requests[backend_name].pop()
+                    self._pending_work_requests_per_client[next_client].pop()
+                    break
                 self._last_served_client[backend_name] = next_client
                 requests_sent += 1
 

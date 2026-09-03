@@ -4722,6 +4722,7 @@ type ForeverSubmitOptions = {
   foreverBackendName?: string
   foreverSessionId?: number
   foreverReserved?: boolean
+  foreverReservationId?: string
   // One-off count for THIS run only (the agent's generate(count)). Overrides the
   // persistent batchSize for this submit without mutating it. Ignored in forever mode.
   countOverride?: number
@@ -4776,7 +4777,7 @@ async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobR
 function recordUnsubmittedForeverWork(options: ForeverSubmitOptions) {
   if (!isForeverSubmissionCurrent(options)) return
   if (options.foreverBackendName && options.foreverReserved !== false) {
-    declineWorkRequest(options.foreverBackendName)
+    declineWorkRequest(options.foreverBackendName, options.foreverReservationId)
   }
   void recordForeverFailure()
 }
@@ -4979,6 +4980,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         ...basePayload,
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
+        forever_reservation_id: options.foreverReservationId,
         batch_input: { field: batchField, media_ids: mediaIds },
         constant_inputs: constantInputs,
         parameters: { ...batchParameters, ...(toolHasPrompt ? { prompt: processedPrompt } : {}) },
@@ -5055,6 +5057,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         ...basePayload,
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
+        forever_reservation_id: options.foreverReservationId,
         parameters: {
           ...batchParameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),
@@ -5100,6 +5103,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         ...basePayload,
         prompt_options: promptOptions || undefined,
         forever_work_reserved: options.foreverReserved === true,
+        forever_reservation_id: options.foreverReservationId,
         parameters: {
           ...capturedState.parameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),  // Override with processed prompt
@@ -6418,6 +6422,7 @@ type ForeverWorkRequest = {
   backendName: string
   sessionId: number
   reserved: boolean
+  reservationId?: string
 }
 
 // Queue of pending work requests, preserving the backend reservation each came from.
@@ -6445,10 +6450,11 @@ function isForeverBatchBlocked(): boolean {
   return !!foreverModeActiveBatchId.value || foreverModeBatchSubmitInFlight.value
 }
 
-function declineWorkRequest(backendName: string) {
+function declineWorkRequest(backendName: string, reservationId?: string) {
   sendWebSocketMessage('generation_decline_work', {
     generator_instance_id: generatorInstanceId,
     backend_name: backendName,
+    reservation_id: reservationId,
   })
 }
 
@@ -6457,7 +6463,7 @@ async function handleWorkRequest(data: any) {
     return
   }
   if (!uiState.value.generateForeverMode || !canSubmit.value) {
-    declineWorkRequest(data.backend_name)
+    declineWorkRequest(data.backend_name, data.reservation_id)
     return
   }
 
@@ -6465,7 +6471,7 @@ async function handleWorkRequest(data: any) {
   // (batches should run sequentially, parallelization happens within the batch)
   if (isInBatchMode() && isForeverBatchBlocked()) {
     console.log('[Forever Mode] Ignoring work request - batch already in progress')
-    declineWorkRequest(data.backend_name)
+    declineWorkRequest(data.backend_name, data.reservation_id)
     return
   }
 
@@ -6474,6 +6480,7 @@ async function handleWorkRequest(data: any) {
     backendName: data.backend_name,
     sessionId: foreverModeSessionId.value,
     reserved: true,
+    reservationId: data.reservation_id,
   })
 
   // Process queue if not already processing
@@ -6504,9 +6511,10 @@ async function processWorkQueue() {
         foreverBackendName: request.backendName,
         foreverSessionId: request.sessionId,
         foreverReserved: request.reserved,
+        foreverReservationId: request.reservationId,
       })
       if (!result.submitted && result.declineReservation) {
-        declineWorkRequest(request.backendName)
+        declineWorkRequest(request.backendName, request.reservationId)
         if (isForeverSubmissionCurrent({ foreverSessionId: request.sessionId })) {
           void recordForeverFailure()
         }
@@ -6523,7 +6531,7 @@ async function processWorkQueue() {
       const remaining = workRequestQueue.value.splice(0)
       for (const request of remaining) {
         if (request.reserved && request.sessionId === foreverModeSessionId.value) {
-          declineWorkRequest(request.backendName)
+          declineWorkRequest(request.backendName, request.reservationId)
         }
       }
     }

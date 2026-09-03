@@ -80,6 +80,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_manager.send_to(websocket, "generator_instance_registered", {
                             "generator_instance_id": generator_instance_id
                         })
+                        from generation_queue import get_generation_queue
+                        await get_generation_queue().generator_instance_connected(
+                            generator_instance_id
+                        )
 
                 # Handle agent control messages
                 elif message.get("event") == "agent_pause":
@@ -102,7 +106,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     if client_id and backend_name:
                         from generation_queue import get_generation_queue
                         queue = get_generation_queue()
-                        await queue.decline_work_request(client_id, backend_name)
+                        reservation_id = data.get("reservation_id")
+                        if reservation_id:
+                            await queue.decline_work_reservation(
+                                reservation_id, client_id, backend_name
+                            )
+                        else:
+                            await queue.decline_work_request(client_id, backend_name)
 
                 elif message.get("event") == "agent_cancel":
                     chat_id = message.get("data", {}).get("chat_id")

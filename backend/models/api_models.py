@@ -159,6 +159,7 @@ class GenerationJobRequest(BaseModel):
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None  # Project to associate generated media with
     forever_work_reserved: Optional[bool] = None
+    forever_reservation_id: Optional[str] = None
 
     # Where the generated Media lands. Defaults to a library Asset. The editor
     # submits candidates with 'context' rooted at its working document so they
@@ -199,6 +200,7 @@ class BatchJobRequest(BaseModel):
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None  # Project to associate generated media with
     forever_work_reserved: Optional[bool] = None
+    forever_reservation_id: Optional[str] = None
 
     # Batch-specific options
     output_set_title: Optional[str] = None  # Title for the output set
@@ -261,6 +263,7 @@ class MediaBatchJobRequest(BaseModel):
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None
     forever_work_reserved: Optional[bool] = None
+    forever_reservation_id: Optional[str] = None
 
 
 class GenerationJobResponse(BaseModel):

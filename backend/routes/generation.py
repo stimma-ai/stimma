@@ -355,8 +355,19 @@ def _prompt_pipeline_context(
 
 def _should_consume_forever_reservation(request) -> bool:
     # New clients send true only for a reserved forever work request and false
-    # for manual/local submits. Omitted preserves legacy submit semantics.
-    return getattr(request, "forever_work_reserved", None) is not False
+    # for manual/local submits. Omitted is a normal, unreserved submission.
+    return getattr(request, "forever_work_reserved", None) is True
+
+
+async def _claim_forever_reservation(generation_queue, request, provider_id: str) -> None:
+    if not _should_consume_forever_reservation(request):
+        return
+    reservation_id = getattr(request, "forever_reservation_id", None)
+    generator_instance_id = getattr(request, "generator_instance_id", None)
+    if not reservation_id or not generator_instance_id or not await generation_queue.claim_work_reservation(
+        reservation_id, generator_instance_id, provider_id
+    ):
+        raise HTTPException(status_code=409, detail="Forever-mode work reservation is missing, expired, or already used")
 
 
 def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any]]:
@@ -452,7 +463,13 @@ async def _decline_unqueued_reserved_work(
     if not request.generator_instance_id or not provider_id:
         return
     try:
-        await generation_queue.decline_work_request(request.generator_instance_id, provider_id)
+        reservation_id = getattr(request, "forever_reservation_id", None)
+        if reservation_id:
+            await generation_queue.decline_work_reservation(
+                reservation_id, request.generator_instance_id, provider_id
+            )
+        else:
+            await generation_queue.decline_work_request(request.generator_instance_id, provider_id)
     except Exception as e:
         log.warning(
             "Failed to decline reserved forever work after pre-queue submit failure: "
@@ -1592,6 +1609,7 @@ async def submit_generation_job(
 
         await _retain_generation_inputs(session, parameters)
 
+        await _claim_forever_reservation(generation_queue, request, provider_id)
         reservation_handed_to_queue = True
         job_id = await generation_queue.submit_job(
             generator_name=provider_id,  # Legacy field, use provider_id
@@ -1608,7 +1626,7 @@ async def submit_generation_job(
             output_disposition=disposition,
             output_context_kind=context_kind,
             output_context_id=context_id,
-            consume_pending_request=_should_consume_forever_reservation(request),
+            consume_pending_request=False,
         )
 
         return {"job_id": job_id, "status": "queued"}
@@ -1789,10 +1807,10 @@ async def submit_batch_jobs(
 
         # Create jobs for each prepared combination.
         job_ids = []
-        consume_reserved_work = _should_consume_forever_reservation(request)
+        await _claim_forever_reservation(generation_queue, request, provider_id)
+        reservation_handed_to_queue = True
         for idx, parameters in enumerate(prepared_jobs):
             # Submit job with batch tracking
-            reservation_handed_to_queue = True
             job_id = await generation_queue.submit_batch_job(
                 generator_name=provider_id,
                 model_name=_model_name_for_tool(request.tool_id),
@@ -1812,7 +1830,7 @@ async def submit_batch_jobs(
                 output_disposition="container_member",
                 output_context_kind="batch",
                 output_context_id=batch_id,
-                consume_pending_request=consume_reserved_work and idx == 0,
+                consume_pending_request=False,
             )
             job_ids.append(job_id)
 
@@ -2098,9 +2116,9 @@ async def submit_media_batch_jobs(
         )
 
         job_ids = []
-        consume_reserved_work = _should_consume_forever_reservation(request)
+        await _claim_forever_reservation(generation_queue, request, provider_id)
+        reservation_handed_to_queue = True
         for idx, parameters in enumerate(prepared_jobs):
-            reservation_handed_to_queue = True
             job_id = await generation_queue.submit_batch_job(
                 generator_name=provider_id,
                 model_name=model_name,
@@ -2117,7 +2135,7 @@ async def submit_media_batch_jobs(
                 batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
                 batch_output_title=None,
                 batch_input_set_ids=None,
-                consume_pending_request=consume_reserved_work and idx == 0,
+                consume_pending_request=False,
             )
             job_ids.append(job_id)
 

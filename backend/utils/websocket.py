@@ -149,6 +149,22 @@ class WebSocketManager:
             log.error(f"Error sending to client: {e}")
             await self.disconnect(websocket)
 
+    async def send_to_generator_instance(self, generator_instance_id: str, event: str, data: dict) -> bool:
+        """Send only to the socket that registered this generator instance."""
+        websocket = self._generator_instance_websockets.get(generator_instance_id)
+        if websocket is None:
+            log.warning(
+                "No WebSocket registered for generator instance",
+                generator_instance_id=generator_instance_id,
+                ws_event=event,
+            )
+            return False
+        try:
+            await self.send_to(websocket, event, data)
+            return websocket in self.active_connections
+        except Exception:
+            return False
+
     async def send_to_any(self, event: str, data: dict) -> bool:
         """Send to the first available client. Returns True on success, False if no clients.
 
