@@ -163,7 +163,22 @@ try {
   )
 } finally {
   // Genuine quit (SIGTERM = Cmd-Q equivalent at the process level).
-  child.kill('SIGTERM')
+  //
+  // When the AppImage mounts itself the runtime execs the app, so the pid we
+  // spawned IS the app. Under APPIMAGE_EXTRACT_AND_RUN (runners without FUSE)
+  // the runtime instead forks the app and stays around to clean up the
+  // extraction directory, so signalling our own child would only kill the
+  // launcher and strand the app. Signal the app itself to keep this check
+  // testing what it means to test: that quitting the app makes the watchdog
+  // reap the backend, leaving nothing behind.
+  const quitTarget = process.env.APPIMAGE_EXTRACT_AND_RUN
+    ? (descendants(appPid)[0] ?? appPid)
+    : appPid
+  try {
+    process.kill(quitTarget, 'SIGTERM')
+  } catch {
+    // Already gone.
+  }
   await new Promise((resolve) => {
     child.on('exit', resolve)
     setTimeout(resolve, 10000)

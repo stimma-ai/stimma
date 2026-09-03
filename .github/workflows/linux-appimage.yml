@@ -270,13 +270,23 @@ jobs:
           # Drop privileges outside xvfb-run: its X authority file is written
           # mode 600, so starting it as root would leave it unreadable to the
           # unprivileged user that actually launches the app.
+          # APPIMAGE_EXTRACT_AND_RUN is set only for the launch, not for the
+          # checks above: containerised runners have no /dev/fuse and no
+          # fusermount, so the AppImage cannot mount itself and exits before the
+          # shell starts. This is the runtime's supported fallback -- unpack into
+          # TMPDIR and run from there -- over the same packaged payload.
           scripts/run-unprivileged.sh \
-            env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 xvfb-run -a \
+            env -u WAYLAND_DISPLAY ELECTRON_OZONE_PLATFORM_HINT=x11 \
+            APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a \
             node electron/tests/packaged-smoke.mjs "$APPIMAGE"
 
       - name: Test packaged AppImage update cycle
-        timeout-minutes: 10
+        timeout-minutes: 15
         working-directory: electron
+        env:
+          # As above: the AppImages this lane builds and relaunches cannot mount
+          # themselves on a runner without FUSE.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: ../scripts/run-unprivileged.sh npm run test:update-linux
 
       - name: Collect build artifacts
