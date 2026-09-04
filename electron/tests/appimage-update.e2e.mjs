@@ -3,7 +3,7 @@
 // drives the packaged app through download -> recheck -> relaunch.
 
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { createServer } from 'node:http'
@@ -113,15 +113,46 @@ function markedProcesses() {
 
 async function stopMarkedProcesses() {
   const self = process.pid
-  for (const pid of markedProcesses()) {
-    if (pid !== self) {
-      try { process.kill(pid, 'SIGTERM') } catch { /* already exited */ }
-    }
+  const others = () => markedProcesses().filter((pid) => pid !== self)
+  for (const pid of others()) {
+    try { process.kill(pid, 'SIGTERM') } catch { /* already exited */ }
   }
   await new Promise((resolve) => setTimeout(resolve, 1_000))
-  for (const pid of markedProcesses()) {
-    if (pid !== self) {
-      try { process.kill(pid, 'SIGKILL') } catch { /* already exited */ }
+  for (const pid of others()) {
+    try { process.kill(pid, 'SIGKILL') } catch { /* already exited */ }
+  }
+  // SIGKILL is asynchronous: the kernel still has to tear the processes and
+  // their AppImage FUSE mounts down, and the scratch rm that follows races
+  // that teardown. Wait for them to actually be gone.
+  const deadline = Date.now() + 10_000
+  while (others().length > 0 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+}
+
+/**
+ * Launched AppImages mount their squashfs under TMPDIR, which this lane
+ * points into scratch. A mount that outlives its process (a runtime killed
+ * mid-teardown) makes the scratch tree undeletable — rmdir of the parent
+ * reports ENOTEMPTY — so detach anything still mounted under it, lazily.
+ */
+function unmountUnder(root) {
+  let mountinfo = ''
+  try { mountinfo = fs.readFileSync('/proc/self/mountinfo', 'utf8') } catch { return }
+  const points = mountinfo
+    .split('\n')
+    .map((line) => line.split(' ')[4])
+    .filter((point) => point && point.startsWith(root + '/'))
+    // Deepest first, so nested mounts go before their parents.
+    .sort((a, b) => b.length - a.length)
+  for (const point of points) {
+    const target = point.replace(/\\040/g, ' ')
+    for (const [cmd, args] of [['fusermount', ['-uz', target]], ['umount', ['-l', target]]]) {
+      try {
+        execFileSync(cmd, args, { stdio: 'ignore' })
+        console.log(`unmounted leftover ${target}`)
+        break
+      } catch { /* try the next tool */ }
     }
   }
 }
@@ -367,7 +398,15 @@ try {
   // passed. Drop the sockets explicitly instead of waiting them out.
   server.closeAllConnections?.()
   await new Promise((resolve) => server.close(resolve))
-  scratch.cleanup()
+  unmountUnder(work)
+  // Housekeeping must not fail a lane whose assertions all passed: a tree
+  // left behind on a runner is nothing, a red canary for it is a lost build.
+  try {
+    scratch.cleanup()
+  } catch (err) {
+    console.warn(`scratch cleanup left ${work} behind: ${err?.message ?? err}`)
+    scratch.preserve()
+  }
 }
 
 // stageRecheckAndRelaunch deliberately does not wait on Playwright's Electron
