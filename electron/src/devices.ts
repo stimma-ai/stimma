@@ -670,6 +670,15 @@ async function recoverFromProxyFailure(failedTarget: ProxyTarget): Promise<void>
   if (getProxyTarget() !== failedTarget) return
   recoveryInFlight = true
   try {
+    // Ask the route itself before believing the proxy. A cluster of failed
+    // requests can be a pool artefact or one bad moment on a healthy link,
+    // and announcing "connecting" for a route that still answers costs the
+    // renderer its whole screen: the app unmounts behind the connection
+    // screen and remounts a moment later, losing where the person was.
+    if (await routeStillAnswers(failedTarget)) {
+      log.info('devices', 'Active remote route still answers; keeping it')
+      return
+    }
     log.warn('devices', 'Active remote route failed; selecting another route')
     setProxyTarget(null)
     devicesFresh = false
@@ -677,6 +686,14 @@ async function recoverFromProxyFailure(failedTarget: ProxyTarget): Promise<void>
   } finally {
     recoveryInFlight = false
   }
+}
+
+/** The active route, probed fresh — not a pooled socket, not the session. */
+async function routeStillAnswers(target: ProxyTarget): Promise<boolean> {
+  const device = state.devices.find((d) => d.deviceId === state.activeDeviceId)
+  if (!device || !target.certFingerprint) return false
+  const route: DeviceRoute = { host: target.host, port: target.port, kind: 'lan' }
+  return probe(route, device.deviceId, target.certFingerprint)
 }
 
 /** Switch the window to a device. The caller reloads the window afterwards. */

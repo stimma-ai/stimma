@@ -65,7 +65,21 @@ const HOP_BY_HOP = new Set([
 // Our own pool rather than http.globalAgent: a thumbnail grid opens many
 // requests in a burst and should not pay TCP setup on each, and owning the
 // agent means stopProxy() can actually tear the connections down.
-const agent = new http.Agent({ keepAlive: true, maxSockets: 64 })
+/**
+ * Idle pooled sockets die before the server's keep-alive window does.
+ *
+ * uvicorn closes a connection idle for 5s. A pooled socket the server has
+ * just closed looks fine until the first byte is written, and then the
+ * request dies with "socket hang up" — and the renderer's bursts (a page of
+ * thumbnails, a fan of preflights) reuse a whole batch of them at once. Two
+ * such failures inside four seconds read as a dead route and the proxy
+ * fails over to the very same address. Dropping idle sockets at 3s means a
+ * burst after a pause opens fresh connections instead. LIFO reuse keeps
+ * the pool on its youngest sockets for the same reason.
+ */
+const FREE_SOCKET_TTL_MS = 3000
+const POOL: http.AgentOptions = { keepAlive: true, maxSockets: 64, timeout: FREE_SOCKET_TTL_MS, scheduling: 'lifo' }
+const agent = new http.Agent(POOL)
 
 /**
  * Verify a peer certificate against a pinned SHA-256 of its DER.
@@ -159,7 +173,7 @@ class PinnedAgent extends https.Agent {
   private readonly connect: ReturnType<typeof pinnedConnection>
 
   constructor(fingerprint: string) {
-    super({ keepAlive: true, maxSockets: 64 })
+    super(POOL)
     this.connect = pinnedConnection(fingerprint)
   }
 
@@ -345,13 +359,39 @@ function unavailable(req: http.IncomingMessage, res: http.ServerResponse): void 
   res.end(JSON.stringify({ detail: 'No active device' }))
 }
 
+/** Can be replayed verbatim: nothing was streamed from the renderer. */
+function isBodiless(method: string | undefined): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+}
+
+/**
+ * A pooled socket that upstream closed while it sat idle fails on first use
+ * with ECONNRESET / "socket hang up". Node flags such sockets as reused, and
+ * the fix it recommends is to retry once on a fresh connection. That is a
+ * pool artefact, not evidence about the route, so it is neither reported as
+ * a failure nor surfaced to the renderer when the request can be replayed.
+ */
+function isStalePooledSocket(proxied: http.ClientRequest, err: unknown): boolean {
+  if (!proxied.reusedSocket) return false
+  const code = (err as NodeJS.ErrnoException | null)?.code
+  return code === 'ECONNRESET' || (err as Error | null)?.message === 'socket hang up'
+}
+
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   const upstream = target
   if (!upstream) {
     unavailable(req, res)
     return
   }
+  forwardRequest(req, res, upstream, isBodiless(req.method))
+}
 
+function forwardRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  upstream: ProxyTarget,
+  retryable: boolean,
+): void {
   const transport = transportFor(upstream)
   const proxied = transport.mod.request(
     {
@@ -374,6 +414,11 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   boundConnectionEstablishment(proxied)
 
   proxied.on('error', (err) => {
+    if (retryable && !res.headersSent && target === upstream && isStalePooledSocket(proxied, err)) {
+      log.info('proxy', `Retrying ${req.method} ${req.url} on a fresh connection (pooled socket was closed)`)
+      forwardRequest(req, res, upstream, false)
+      return
+    }
     reportUpstreamFailure(upstream, err)
     log.warn('proxy', `Upstream error for ${req.method} ${req.url}: ${err}`)
     if (res.headersSent) {
@@ -392,9 +437,14 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   // this is a no-op.
   res.on('close', () => proxied.destroy())
 
-  // Piped, never buffered — uploads and large media must stream.
-  req.pipe(proxied)
-  req.on('error', () => proxied.destroy())
+  if (retryable) {
+    // No body to stream, so a retry can rebuild the request from scratch.
+    proxied.end()
+  } else {
+    // Piped, never buffered — uploads and large media must stream.
+    req.pipe(proxied)
+    req.on('error', () => proxied.destroy())
+  }
 }
 
 /**

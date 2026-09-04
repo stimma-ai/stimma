@@ -290,3 +290,43 @@ test('falls back to a fresh port when the remembered one is taken', async () => 
   await new Promise((resolve) => squatter.close(resolve))
   fs.rmSync(dir, { recursive: true, force: true })
 })
+
+/**
+ * uvicorn closes idle keep-alive connections; a pooled socket it has just
+ * closed fails on first use with "socket hang up". That is a pool artefact,
+ * not a dead route: a bodiless request must be replayed on a fresh
+ * connection, the renderer must see the real answer, and the failure
+ * listener must stay quiet.
+ */
+test('retries a bodiless request once when a pooled socket was closed upstream', async () => {
+  const dir = tmpDir()
+  let hits = 0
+  let connections = 0
+  const upstream = http.createServer((req, res) => {
+    hits += 1
+    // Close right behind the response. The proxy's pool learns of the FIN a
+    // task later than the renderer learns of the response, so a request
+    // issued in between is guaranteed to reuse the dead socket. (res.socket
+    // is detached by the time 'finish' fires; hold the socket from req.)
+    const socket = req.socket
+    res.on('finish', () => socket.end())
+    res.writeHead(200, { 'content-type': 'text/plain', connection: 'keep-alive' })
+    res.end(`hit ${hits}`)
+  })
+  upstream.on('connection', () => (connections += 1))
+  await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', resolve))
+  const upstreamPort = (upstream.address() as net.AddressInfo).port
+
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: upstreamPort })
+
+  const first = await get(port, '/api/one')
+  assert.equal(first.status, 200)
+  const second = await get(port, '/api/two')
+  assert.equal(second.status, 200, 'the replayed request reaches upstream')
+  assert.equal(second.body, 'hit 2')
+  assert.equal(connections, 2, 'the retry opened a fresh connection')
+
+  stopProxy()
+  await new Promise<void>((resolve) => upstream.close(() => resolve()))
+})
