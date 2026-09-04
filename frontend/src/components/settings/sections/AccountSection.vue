@@ -156,11 +156,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Multi-device lives under the account because trust IS the account:
-           every device on it is equally trusted, and signing out removes the
-           feature entirely. -->
-      <MultiDeviceBlock />
     </div>
   </div>
 </template>
@@ -172,7 +167,6 @@ import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { isTauri } from '../../../apiConfig'
 import RedeemCodeLink from '../../RedeemCodeLink.vue'
-import MultiDeviceBlock from './MultiDeviceBlock.vue'
 
 defineProps({
   toolProviders: { type: Array, default: () => [] },

@@ -17,6 +17,33 @@ import { useWebSocket } from './useWebSocket'
 
 const LOCAL_DEVICE = 'local'
 
+/** The Remote Access docs page, via the retargetable stimma.ai/link layer. */
+export const SERVER_DOCS_URL = 'https://stimma.ai/link/remote-access'
+
+/**
+ * "This Mac" / "This PC" / "This Machine": the local row never echoes the
+ * machine's own name back at the person sitting at it — that reads as one
+ * more server to choose between. The hostname is a subtitle, not the label.
+ */
+export const THIS_MACHINE_LABEL = (() => {
+  const platform = typeof navigator !== 'undefined' ? navigator.platform.toUpperCase() : ''
+  if (platform.includes('MAC')) return 'This Mac'
+  if (platform.includes('LINUX')) return 'This Machine'
+  return 'This PC'
+})()
+
+/**
+ * "local network · Tailscale" from a device's advertised routes. The kinds
+ * are what the backend classifies (100.64/10 = tailnet); this only names them.
+ */
+export function routeLabel(routes) {
+  const kinds = new Set((routes || []).map((r) => r?.kind))
+  const out = []
+  if (kinds.has('lan')) out.push('local network')
+  if (kinds.has('tailscale')) out.push('Tailscale')
+  return out.join(' · ')
+}
+
 // Global reactive state (shared across all components)
 const activeDeviceId = ref(LOCAL_DEVICE)
 const devices = ref([])
@@ -27,6 +54,11 @@ const initialized = ref(false)
 const selfName = ref(null)
 const selfChannel = ref(null)
 const selfSandbox = ref(null)
+const selfServing = ref(false)
+// First roster read has landed. Until then an empty list means "not asked
+// yet", not "nobody is serving" — the picker must not teach the feature to
+// someone whose servers simply have not loaded.
+const rosterLoaded = ref(false)
 
 let unsubscribe = null
 
@@ -42,10 +74,7 @@ function isOnline(device) {
 const onlineDevices = computed(() => devices.value.filter(isOnline))
 const offlineDevices = computed(() => devices.value.filter((d) => !isOnline(d)))
 
-/**
- * The chip is hidden entirely until the account has offered a second
- * server, so single-machine users see zero footprint.
- */
+/** Another install has been offered on this account (drives the coachmark). */
 const hasOtherDevices = computed(() => devices.value.length > 0)
 
 const activeDevice = computed(() =>
@@ -113,8 +142,29 @@ async function refresh() {
   if (!isDesktop()) return
   try {
     devices.value = (await desktop.mdRefreshDevices()) || []
+    rosterLoaded.value = true
   } catch (e) {
     console.warn('[MultiDevice] refresh failed:', e)
+  }
+}
+
+/**
+ * Housekeeping removal of a stale row — trust is the account, not a revoke.
+ *
+ * Optimistic: the row goes the instant you click. The registry call and the
+ * roster re-read that follows are a cloud round trip, and a trash icon that
+ * sits there for a second after being pressed reads as broken. If the call
+ * fails the row comes back, which is the truthful state.
+ */
+async function forgetDevice(deviceId) {
+  const before = devices.value
+  devices.value = before.filter((d) => d.deviceId !== deviceId)
+  try {
+    await desktop.mdForgetDevice(deviceId)
+    await refresh()
+  } catch (e) {
+    console.warn('[MultiDevice] remove failed:', e)
+    devices.value = before
   }
 }
 
@@ -130,6 +180,7 @@ async function loadSelf() {
     selfName.value = status?.deviceName ?? null
     selfChannel.value = status?.channel ?? null
     selfSandbox.value = status?.sandbox ?? null
+    selfServing.value = status?.serving === true
   } catch {
     // Non-fatal: the row simply renders without a name or qualifier.
   }
@@ -186,11 +237,14 @@ export function useMultiDevice() {
     selfName: readonly(selfName),
     selfChannel: readonly(selfChannel),
     selfSandbox: readonly(selfSandbox),
+    selfServing: readonly(selfServing),
+    rosterLoaded: readonly(rosterLoaded),
     isOnline,
     lastSeenLabel,
     init,
     refresh,
     loadSelf,
+    forgetDevice,
     switchToDevice,
     useLocalServer,
     retry,

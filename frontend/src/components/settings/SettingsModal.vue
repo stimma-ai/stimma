@@ -126,6 +126,11 @@
                 />
               </template>
 
+              <!-- Stimma Server Section -->
+              <template v-else-if="activeSection === 'server'">
+                <ServerSection @navigate="activeSection = $event" />
+              </template>
+
               <!-- Privacy Section -->
               <template v-else-if="activeSection === 'privacy'">
                 <PrivacySection
@@ -204,6 +209,7 @@ import ToolProvidersSection from './sections/ToolProvidersSection.vue'
 import BackgroundWorkSection from './sections/BackgroundWorkSection.vue'
 import UpdatesSection from './sections/UpdatesSection.vue'
 import AccountSection from './sections/AccountSection.vue'
+import ServerSection from './sections/ServerSection.vue'
 import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
 import ModelPreferencesSection from './sections/ModelPreferencesSection.vue'

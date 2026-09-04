@@ -377,6 +377,11 @@ export async function forgetDevice(deviceId: string): Promise<void> {
   await localFetch(`/api/multi-device/devices/${encodeURIComponent(deviceId)}`, {
     method: 'DELETE',
   })
+  // The registry has accepted the removal, so the cache must not carry the
+  // row a moment longer: the re-read below keeps the cache untouched when the
+  // registry does not answer, and that would resurrect what was just removed.
+  state.devices = state.devices.filter((d) => d.deviceId !== deviceId)
+  persist()
   await refreshDevices()
 }
 
