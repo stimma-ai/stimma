@@ -5,13 +5,23 @@ import path from 'node:path'
 const scratchDirs = new Set()
 let handlersInstalled = false
 
+/**
+ * A tree that a just-exited app may still be writing to (an AppImage's
+ * squashfs mount, a backend flushing logs) can lose the race with a single
+ * recursive rm and fail with ENOTEMPTY after the test itself has passed.
+ * Retry rather than fail a green run on its own cleanup.
+ */
+function removeTree(dir) {
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
+}
+
 function cacheHome() {
   return process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache')
 }
 
 function cleanupScratchDirs() {
   for (const dir of scratchDirs) {
-    fs.rmSync(dir, { recursive: true, force: true })
+    removeTree(dir)
     scratchDirs.delete(dir)
   }
 }
@@ -43,7 +53,7 @@ export function makeScratchDir(prefix) {
   return {
     dir,
     cleanup() {
-      fs.rmSync(dir, { recursive: true, force: true })
+      removeTree(dir)
       scratchDirs.delete(dir)
     },
     preserve() {
