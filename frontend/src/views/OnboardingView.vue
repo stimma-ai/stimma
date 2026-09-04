@@ -186,14 +186,15 @@ if (isOfficial) {
     })
 }
 
-function markComplete() {
+function markComplete(action) {
   localStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
   // Install-scoped, unlike the flag above: the person does not re-agree just
   // because they pointed this window at another computer.
   recordTermsAcceptance()
   // Activation-funnel endpoint. Tracked BEFORE the consent decision lands so
   // it buffers pre-consent and flushes together with first_run on consent-on.
-  track('onboarding_completed', {}, 'app')
+  // `action` is the closed set of ways off this screen: get_started | sign_in.
+  track('onboarding_completed', { action }, 'app')
   // Record the consent decision (official builds only). Until this lands,
   // consent is undetermined and the backend buffers events locally with
   // zero network (D14); dev builds have telemetry permanently disabled.
@@ -219,7 +220,7 @@ async function saveAnalyticsPref(enabled) {
 }
 
 function handleGetStarted() {
-  markComplete()
+  markComplete('get_started')
   router.push({ name: 'home' })
 }
 
@@ -227,7 +228,7 @@ async function handleSignIn() {
   loading.value = true
   try {
     await signInWithBrowser('sign-in')
-    markComplete()
+    markComplete('sign_in')
     router.push({ name: 'home' })
   } catch {
     loading.value = false

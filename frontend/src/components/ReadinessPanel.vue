@@ -17,7 +17,7 @@
             data-testid="readiness-dismiss"
             aria-label="Close"
             class="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-content-tertiary hover:bg-overlay-subtle hover:text-content"
-            @click="dismissWizard"
+            @click="dismissWizard('dismissed')"
           >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
               <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -222,6 +222,7 @@ import { preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnect
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { MODEL_MARK_SVGS } from './tools/modelMarks'
 import { MODEL_VENDORS } from '../utils/modelVendors'
+import { useTelemetry } from '../composables/useTelemetry'
 import {
   DEEPSEEK_SVG,
   FIREWORKS_SVG,
@@ -233,6 +234,7 @@ import {
 } from '../utils/modelVendorSvgs'
 
 const { readiness, shouldShowPanel, dismissPanel, markWizardSeen, refreshReadiness } = useReadiness()
+const { track } = useTelemetry()
 const { fetchSettings, updateToolProvider, createToolProvider, deleteToolProvider, updateFolders, rescanFolders } = useSettingsApi()
 const { on, off } = useWebSocket()
 
@@ -411,8 +413,22 @@ async function refreshWizardState() {
   }
 }
 
+// Telemetry: the wizard is where new installs fall off between onboarding
+// and their first generation, so each step is an event. Properties are the
+// closed step name plus readiness booleans — never provider names or keys.
+function wizardProps(extra = {}) {
+  return {
+    step: step.value,
+    stepIndex: STEPS.indexOf(step.value),
+    llmReady: llmReady.value,
+    generationReady: generationReady.value,
+    ...extra,
+  }
+}
+
 async function goToStep(nextStep) {
   step.value = nextStep
+  track('setup_wizard_step_viewed', wizardProps(), 'onboarding')
   await refreshWizardState()
 }
 
@@ -440,16 +456,19 @@ async function handlePrimaryAction() {
       return await goToStep('folders')
     }
     if (step.value === 'folders') return await goToStep('complete')
-    dismissWizard()
+    dismissWizard('completed')
   } finally {
     primaryBusy.value = false
   }
 }
 
-function dismissWizard() {
+function dismissWizard(reason = 'dismissed') {
   // Any exit marks the current wizard version seen (backend-persisted);
   // the wizard returns only when SETUP_WIZARD_VERSION is bumped, or via
   // Settings → Developer → Run Setup Wizard.
+  // `reason`: completed (Start creating / Start anyway) | dismissed (close
+  // button on any step) — where the close happened is in `step`.
+  track(reason === 'completed' ? 'setup_wizard_completed' : 'setup_wizard_dismissed', wizardProps(), 'onboarding')
   markWizardSeen()
   panelVisible.value = false
   dismissPanel()
@@ -585,6 +604,7 @@ watch(shouldShowPanel, async visible => {
   if (!visible || panelVisible.value) return
   panelVisible.value = true
   step.value = 'welcome'
+  track('setup_wizard_shown', wizardProps({ wizardVersion: readiness.value?.wizard_version ?? 0 }), 'onboarding')
   await loadWizardSettings()
 }, { immediate: true })
 
