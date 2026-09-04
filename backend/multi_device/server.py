@@ -28,7 +28,7 @@ from typing import Optional
 import app_dirs
 from core.logging import get_logger
 
-from .auth import AuthError, issue_session, own_account_uid, verify_firebase_token, verify_session
+from .auth import AuthError, ensure_own_account_uid, issue_session, verify_firebase_token, verify_session
 
 log = get_logger(__name__)
 
@@ -174,7 +174,7 @@ class ServingGate:
             await _send_json(send, 400, {"detail": "deviceId required"}, scope)
             return
 
-        expected = own_account_uid()
+        expected = await ensure_own_account_uid()
         if not expected:
             # Serving while signed out must not be possible; if it happens,
             # refuse rather than trusting whoever asked.

@@ -150,6 +150,13 @@ def own_account_uid() -> Optional[str]:
     Read from our own cached token rather than the network, so the identity
     check keeps working while the cloud is unreachable. No signature check:
     it is our own token, obtained over TLS from Firebase.
+
+    Only a FOUND uid is cached. The ID token lives in memory and exists only
+    after the first refresh in this process, while the serving socket is
+    listening before that refresh runs at startup. A satellite retrying every
+    few seconds lands a bootstrap in that window; caching the "no token yet"
+    answer turned that into a server that refused every bootstrap until it
+    was restarted, while still heartbeating as online.
     """
     global _own_account_uid_cache
 
@@ -159,21 +166,40 @@ def own_account_uid() -> Optional[str]:
     from auth_storage import load_auth_state
 
     state = load_auth_state()
-    if not state:
-        _own_account_uid_cache = None
-        return None
-    token = state.get("id_token")
+    token = state.get("id_token") if state else None
     if not token:
-        _own_account_uid_cache = None
         return None
     try:
         claims = json.loads(_b64url_decode(token.split(".")[1]))
         uid = claims.get("sub")
-        _own_account_uid_cache = uid if isinstance(uid, str) else None
-        return _own_account_uid_cache
     except Exception:
-        _own_account_uid_cache = None
         return None
+    if not isinstance(uid, str) or not uid:
+        return None
+    _own_account_uid_cache = uid
+    return uid
+
+
+async def ensure_own_account_uid() -> Optional[str]:
+    """own_account_uid(), refreshing our own ID token first if there is none.
+
+    For the bootstrap path, which is async and may be the first thing to run
+    after a restart: a refresh token on disk with no ID token in memory is a
+    signed-in install that has not talked to Firebase yet, not a signed-out
+    one. The refresh is what registration does anyway; doing it here means the
+    answer does not depend on which of the two happened first.
+    """
+    uid = own_account_uid()
+    if uid:
+        return uid
+    from firebase_auth import get_valid_id_token
+
+    try:
+        await get_valid_id_token()
+    except Exception as exc:
+        log.warning("multi-device: could not refresh own account token", error=str(exc))
+        return None
+    return own_account_uid()
 
 
 # ---------------------------------------------------------------------------

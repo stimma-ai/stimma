@@ -245,6 +245,57 @@ def test_account_identity_is_cached_for_request_hot_path(monkeypatch):
         monkeypatch.setattr("auth_storage.load_auth_state", real_load_auth_state)
 
 
+def _auth_state_with_uid(uid):
+    payload = base64.urlsafe_b64encode(json.dumps({"sub": uid}).encode()).decode().rstrip("=")
+    return {"id_token": f"header.{payload}.signature"}
+
+
+def test_a_missing_token_is_not_cached_as_signed_out(monkeypatch):
+    """After a restart the ID token exists only once the first refresh has run,
+    and the serving socket is listening before that. A bootstrap in that window
+    must not brand the install signed-out for the life of the process."""
+    from auth_storage import load_auth_state as real_load_auth_state
+
+    state = {"refresh_token": "r"}
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: dict(state))
+    monkeypatch.setattr(auth, "_own_account_uid_cache", auth._ACCOUNT_UID_UNSET)
+    try:
+        assert auth.own_account_uid() is None
+        state.update(_auth_state_with_uid("acct-1"))
+        assert auth.own_account_uid() == "acct-1"
+    finally:
+        monkeypatch.setattr("auth_storage.load_auth_state", real_load_auth_state)
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_identity_refreshes_the_token_before_refusing(monkeypatch):
+    """A refresh token on disk with no ID token in memory is a signed-in
+    install that has not talked to Firebase yet, not a signed-out one."""
+    from auth_storage import load_auth_state as real_load_auth_state
+    import firebase_auth
+
+    state = {"refresh_token": "r"}
+    refreshes = 0
+
+    async def fake_get_valid_id_token(**_kwargs):
+        nonlocal refreshes
+        refreshes += 1
+        state.update(_auth_state_with_uid("acct-1"))
+        return state["id_token"]
+
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: dict(state))
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", fake_get_valid_id_token)
+    monkeypatch.setattr(auth, "_own_account_uid_cache", auth._ACCOUNT_UID_UNSET)
+    try:
+        assert await auth.ensure_own_account_uid() == "acct-1"
+        assert refreshes == 1
+        # Found once, it is served from the cache: no second refresh.
+        assert await auth.ensure_own_account_uid() == "acct-1"
+        assert refreshes == 1
+    finally:
+        monkeypatch.setattr("auth_storage.load_auth_state", real_load_auth_state)
+
+
 def test_unknown_and_empty_sessions_are_refused(isolated_sessions):
     auth.issue_session("client-device", "acct-1")
     assert auth.verify_session("not-a-real-session") is None
