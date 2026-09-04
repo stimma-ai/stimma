@@ -20,6 +20,7 @@ import path from 'node:path'
 import {
   pinnedConnection,
   setProxyFailureListener,
+  setProxySessionInvalidListener,
   setProxyTarget,
   startProxy,
   stopProxy,
@@ -189,6 +190,28 @@ test('forwards to a TLS upstream whose certificate matches the pin', { skip }, a
   assert.equal(up.requests.length, 1)
 
   stopProxy()
+  await closeUpstream(up)
+})
+
+test('reports a serving-gate session rejection separately from route failure', { skip }, async () => {
+  const dir = tmpDir()
+  const id = selfSigned(dir, 'expired-session')
+  const up = await tlsUpstream(id, (_req, res) => {
+    res.writeHead(401, { 'x-stimma-session-invalid': '1' })
+    res.end('expired')
+  })
+
+  const port = await startProxy(dir)
+  let invalid = 0
+  let routeFailures = 0
+  setProxySessionInvalidListener(() => invalid++)
+  setProxyFailureListener(() => routeFailures++)
+  setProxyTarget({ host: '127.0.0.1', port: up.port, tls: true, certFingerprint: id.fingerprint, session: 'old' })
+
+  assert.equal((await get(port, '/api/settings')).status, 401)
+  assert.equal(invalid, 1)
+  assert.equal(routeFailures, 0)
+
   await closeUpstream(up)
 })
 

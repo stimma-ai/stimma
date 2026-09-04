@@ -38,6 +38,9 @@ BOOTSTRAP_PATH = "/multi-device/session"
 # Unauthenticated liveness probe. Reveals only that something is here, which
 # a TCP connect already tells you.
 PING_PATH = "/multi-device/ping"
+# Lets the connecting proxy distinguish a gate rejection from an ordinary
+# application-level 401 and refresh the device session without guessing.
+SESSION_INVALID_HEADER = (b"x-stimma-session-invalid", b"1")
 
 _server_task: Optional[asyncio.Task] = None
 _server = None
@@ -70,7 +73,7 @@ def _cors_headers(scope) -> list[tuple[bytes, bytes]]:
     return []
 
 
-async def _send_json(send, status: int, payload: dict, scope=None) -> None:
+async def _send_json(send, status: int, payload: dict, scope=None, extra_headers=None) -> None:
     body = json.dumps(payload).encode()
     headers = [
         (b"content-type", b"application/json"),
@@ -78,6 +81,8 @@ async def _send_json(send, status: int, payload: dict, scope=None) -> None:
     ]
     if scope is not None:
         headers.extend(_cors_headers(scope))
+    if extra_headers:
+        headers.extend(extra_headers)
     await send({"type": "http.response.start", "status": status, "headers": headers})
     await send({"type": "http.response.body", "body": body})
 
@@ -135,7 +140,13 @@ class ServingGate:
                 return
 
             if not verify_session(_bearer(scope.get("headers", []))):
-                await _send_json(send, 401, {"detail": "Multi-device session required"}, scope)
+                await _send_json(
+                    send,
+                    401,
+                    {"detail": "Multi-device session required"},
+                    scope,
+                    [SESSION_INVALID_HEADER],
+                )
                 return
 
             await self.app(scope, receive, send)

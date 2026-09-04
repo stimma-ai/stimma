@@ -23,6 +23,7 @@ import {
   getProxyTarget,
   pinnedConnection,
   setProxyFailureListener,
+  setProxySessionInvalidListener,
   setProxyTarget,
   type ProxyTarget,
 } from './proxy.ts'
@@ -100,6 +101,7 @@ export function initDevices(dataDir: string): void {
     // First launch, or a corrupt file: default to the local server.
   }
   setProxyFailureListener((failedTarget) => void recoverFromProxyFailure(failedTarget))
+  setProxySessionInvalidListener((failedTarget) => void recoverFromSessionFailure(failedTarget))
 }
 
 function persist(): void {
@@ -658,6 +660,34 @@ async function sessionWorks(target: ProxyTarget): Promise<'valid' | 'invalid' | 
 }
 
 let recoveryInFlight = false
+let sessionRecoveryInFlight = false
+
+/** Replace a revoked credential without declaring a healthy route dead. */
+async function recoverFromSessionFailure(failedTarget: ProxyTarget): Promise<void> {
+  if (sessionRecoveryInFlight || state.activeDeviceId === LOCAL_DEVICE) return
+  if (getProxyTarget() !== failedTarget) return
+  const device = state.devices.find((d) => d.deviceId === state.activeDeviceId)
+  if (!device?.certFingerprint) return
+
+  sessionRecoveryInFlight = true
+  try {
+    log.info('devices', `Session rejected by ${device.name}; re-bootstrapping`)
+    const route: DeviceRoute = { host: failedTarget.host, port: failedTarget.port, kind: 'lan' }
+    const session = await bootstrapSession(device, route)
+    if (getProxyTarget() !== failedTarget) return
+    if (session) {
+      storeSession(device.deviceId, session)
+      setProxyTarget({ ...failedTarget, session })
+      return
+    }
+
+    setProxyTarget(null)
+    devicesFresh = false
+    await connect({ patienceMs: CONNECT_PATIENCE_MS })
+  } finally {
+    sessionRecoveryInFlight = false
+  }
+}
 
 /**
  * A route that was healthy can disappear when a laptop changes networks.
@@ -693,7 +723,14 @@ async function routeStillAnswers(target: ProxyTarget): Promise<boolean> {
   const device = state.devices.find((d) => d.deviceId === state.activeDeviceId)
   if (!device || !target.certFingerprint) return false
   const route: DeviceRoute = { host: target.host, port: target.port, kind: 'lan' }
-  return probe(route, device.deviceId, target.certFingerprint)
+  // One fresh miss during a server/pool hiccup is not enough evidence to
+  // unmount every renderer. Give the same pinned route a short grace period;
+  // hard connect failures still finish each probe immediately.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await probe(route, device.deviceId, target.certFingerprint)) return true
+    if (attempt < 2) await sleep(250)
+  }
+  return false
 }
 
 /** Switch the window to a device. The caller reloads the window afterwards. */

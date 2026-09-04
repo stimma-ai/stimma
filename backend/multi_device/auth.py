@@ -262,9 +262,12 @@ def verify_session(token: str) -> Optional[dict]:
     record = _load_sessions().get(_hash_session(token))
     if not record:
         return None
-    # A session outlives cloud outages but not a change of account.
+    # A session outlives cloud outages, but only while this process can still
+    # bind it to the account that issued it. Failing open when identity is
+    # absent lets a persisted session survive a damaged/incomplete sign-out
+    # and a later restart of a still-enabled listener.
     current = own_account_uid()
-    if current and record.get("account_uid") != current:
+    if not current or record.get("account_uid") != current:
         return None
     return record
 

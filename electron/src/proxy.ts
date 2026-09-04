@@ -201,6 +201,7 @@ let ready: Promise<number> | null = null
 let target: ProxyTarget | null = null
 let portFilePath = ''
 let onUpstreamFailure: ((failedTarget: ProxyTarget) => void) | null = null
+let onSessionInvalid: ((failedTarget: ProxyTarget) => void) | null = null
 let recentFailures: number[] = []
 
 const CONNECT_TIMEOUT_MESSAGE = 'upstream connect timeout'
@@ -226,6 +227,10 @@ function isConnectFailure(err: unknown): boolean {
  */
 export function setProxyFailureListener(fn: (failedTarget: ProxyTarget) => void): void {
   onUpstreamFailure = fn
+}
+
+export function setProxySessionInvalidListener(fn: (failedTarget: ProxyTarget) => void): void {
+  onSessionInvalid = fn
 }
 
 function reportUpstreamSuccess(): void {
@@ -403,6 +408,9 @@ function forwardRequest(
       agent: transport.agent,
     },
     (upstreamRes) => {
+      if (upstream.tls && upstreamRes.headers['x-stimma-session-invalid'] === '1') {
+        onSessionInvalid?.(upstream)
+      }
       reportUpstreamSuccess()
       // Status verbatim: 206/416 for ranged media and 304 for conditional
       // thumbnail requests have to survive the hop intact. Headers too, minus
@@ -615,4 +623,5 @@ export function stopProxy(): void {
   target = null
   recentFailures = []
   onUpstreamFailure = null
+  onSessionInvalid = null
 }

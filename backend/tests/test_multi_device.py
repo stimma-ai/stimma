@@ -331,6 +331,46 @@ def test_session_is_refused_after_the_account_changes(tmp_path, monkeypatch):
     assert auth.verify_session(token) is None
 
 
+def test_session_is_refused_when_the_server_has_no_account(tmp_path, monkeypatch):
+    """Persisted credentials must not turn a signed-out server into an
+    account-less bearer-token service after a restart."""
+    monkeypatch.setattr(auth, "_sessions_path", lambda: tmp_path / "sessions.json")
+    monkeypatch.setattr(auth, "own_account_uid", lambda: "acct-1")
+    token = auth.issue_session("client-device", "acct-1")
+    assert auth.verify_session(token) is not None
+
+    monkeypatch.setattr(auth, "own_account_uid", lambda: None)
+    assert auth.verify_session(token) is None
+
+
+@pytest.mark.asyncio
+async def test_serving_gate_marks_only_its_own_session_rejections(monkeypatch):
+    """The proxy needs an unambiguous signal; an application's ordinary 401
+    must not make Electron rotate a valid device session."""
+    monkeypatch.setattr(server, "verify_session", lambda _token: None)
+    sent = []
+
+    async def inner_app(_scope, _receive, _send):
+        raise AssertionError("an unauthenticated request reached the app")
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    gate = server.ServingGate(inner_app, lambda: "server-device")
+    await gate(
+        {"type": "http", "path": "/api/settings", "headers": [], "method": "GET"},
+        receive,
+        send,
+    )
+
+    start = sent[0]
+    assert start["status"] == 401
+    assert server.SESSION_INVALID_HEADER in start["headers"]
+
+
 # --- port allocation ---------------------------------------------------------
 #
 # Port assignment must never be something a developer or user debugs. Several
