@@ -102,7 +102,10 @@ type ConnectionCallback = (err: Error | null, socket: stream.Duplex) => void
  * expect, so one implementation covers the proxy pool, upgrades, and the
  * one-off device calls in devices.ts.
  */
-export function pinnedConnection(expectedFingerprint: string) {
+/** Ordinary bound on TCP connect plus TLS handshake to a device. */
+export const CONNECT_TIMEOUT_MS = 10_000
+
+export function pinnedConnection(expectedFingerprint: string, connectTimeoutMs: number = CONNECT_TIMEOUT_MS) {
   return function createConnection(
     options: http.ClientRequestArgs,
     callback?: ConnectionCallback,
@@ -124,7 +127,15 @@ export function pinnedConnection(expectedFingerprint: string) {
       callback?.(err, socket)
     }
     socket.once('error', fail)
+    // The request has no socket until this callback hands it one, so any
+    // timeout the caller sets on the request cannot cover connecting. A
+    // route that blackholes SYNs (a laptop that went to sleep on a Wi-Fi
+    // address it still advertises) would otherwise sit in the kernel's
+    // connect retry for two minutes. Bound it here, then hand over an idle
+    // socket with no timeout — media streams must not be cut short.
+    socket.setTimeout(connectTimeoutMs, () => fail(connectTimeoutError()))
     socket.once('secureConnect', () => {
+      socket.setTimeout(0)
       if (settled) return
       if (!expectedFingerprint) {
         fail(new Error('no pinned fingerprint for target'))
@@ -178,6 +189,22 @@ let portFilePath = ''
 let onUpstreamFailure: ((failedTarget: ProxyTarget) => void) | null = null
 let recentFailures: number[] = []
 
+const CONNECT_TIMEOUT_MESSAGE = 'upstream connect timeout'
+function connectTimeoutError(): Error {
+  return new Error(CONNECT_TIMEOUT_MESSAGE)
+}
+
+/**
+ * Whether the failure happened before any byte reached the device: the
+ * address itself is not answering. One of these is already conclusive — a
+ * cancelled request or a torn-down websocket never looks like this.
+ */
+function isConnectFailure(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException | null)?.code
+  if (code === 'ECONNREFUSED' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'ETIMEDOUT') return true
+  return (err as Error | null)?.message === CONNECT_TIMEOUT_MESSAGE
+}
+
 /**
  * Report a dead active route after more than one connection-level failure.
  * One cancelled request or websocket is ordinary renderer lifecycle; two
@@ -191,8 +218,13 @@ function reportUpstreamSuccess(): void {
   recentFailures = []
 }
 
-function reportUpstreamFailure(failedTarget: ProxyTarget): void {
+function reportUpstreamFailure(failedTarget: ProxyTarget, err?: unknown): void {
   if (target !== failedTarget || !failedTarget.tls) return
+  if (err !== undefined && isConnectFailure(err)) {
+    recentFailures = []
+    onUpstreamFailure?.(failedTarget)
+    return
+  }
   const now = Date.now()
   recentFailures = [...recentFailures.filter((at) => now - at < 4000), now]
   if (recentFailures.length < 2) return
@@ -342,7 +374,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   boundConnectionEstablishment(proxied)
 
   proxied.on('error', (err) => {
-    reportUpstreamFailure(upstream)
+    reportUpstreamFailure(upstream, err)
     log.warn('proxy', `Upstream error for ${req.method} ${req.url}: ${err}`)
     if (res.headersSent) {
       // Mid-stream: a JSON tail glued onto half an image is worse than a
@@ -437,7 +469,7 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
   })
 
   proxied.on('error', (err) => {
-    reportUpstreamFailure(upstream)
+    reportUpstreamFailure(upstream, err)
     log.warn('proxy', `Upgrade failed for ${req.url}: ${err}`)
     socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n')
   })

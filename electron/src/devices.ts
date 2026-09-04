@@ -425,7 +425,7 @@ function pinnedRequest(
         // No agent: with one set, Node ignores a per-request createConnection.
         // The pin has to sit in the socket factory (see proxy.ts) because
         // checkServerIdentity never runs for a self-signed peer.
-        createConnection: pinnedConnection(options.fingerprint),
+        createConnection: pinnedConnection(options.fingerprint, options.timeoutMs ?? 5000),
       },
       (res) => {
         let body = ''

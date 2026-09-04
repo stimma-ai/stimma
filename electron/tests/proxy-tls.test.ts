@@ -315,3 +315,51 @@ test('pinnedConnection as a request createConnection enforces the pin', { skip }
 
   await closeUpstream(up)
 })
+
+/**
+ * A blackholed route — a laptop asleep on a Wi-Fi address it still
+ * advertises — accepts nothing and refuses nothing. The pinned connector is
+ * the only thing that can bound that wait, because the request has no socket
+ * until the handshake succeeds, and that one failure is conclusive: the proxy
+ * must report it at once rather than wait for a second one.
+ */
+test('a connect that never completes fails within the bound and reports the route dead', { skip }, async () => {
+  const dir = tmpDir()
+  // Accepts TCP and then says nothing, so the TLS handshake hangs forever.
+  // A paused socket never sees the peer's FIN either, so teardown has to
+  // destroy them by hand or server.close() waits for them forever.
+  const silentSockets = new Set<net.Socket>()
+  const silent = net.createServer((socket) => {
+    silentSockets.add(socket)
+    socket.pause()
+  })
+  const silentPort = await new Promise<number>((resolve) =>
+    silent.listen(0, '127.0.0.1', () => resolve((silent.address() as net.AddressInfo).port)),
+  )
+
+  const started = Date.now()
+  const err = await new Promise<Error>((resolve) => {
+    const req = https.request(
+      { host: '127.0.0.1', port: silentPort, path: '/', createConnection: pinnedConnection(WRONG_FINGERPRINT, 300) },
+      () => resolve(new Error('unexpected response')),
+    )
+    req.on('error', resolve)
+    req.end()
+  })
+  assert.equal(err.message, 'upstream connect timeout')
+  assert.ok(Date.now() - started < 5000, 'failed within the bound, not the kernel timeout')
+
+  const failures: number[] = []
+  setProxyFailureListener(() => failures.push(Date.now()))
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: silentPort, tls: true, certFingerprint: WRONG_FINGERPRINT, session: 's' })
+  const res = await get(port, '/api/profiles/p/verify-pin')
+  assert.equal(res.status, 502)
+  // One connect-level failure is enough; no second request was needed.
+  assert.equal(failures.length, 1)
+
+  stopProxy()
+  setProxyFailureListener(() => {})
+  for (const socket of silentSockets) socket.destroy()
+  await new Promise<void>((resolve) => silent.close(() => resolve()))
+})

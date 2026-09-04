@@ -663,6 +663,12 @@ async function submitLockScreenPin() {
   lockScreenSubmitting.value = true
   lockScreenError.value = ''
 
+  // On a remote server this call crosses the network, and a route that has
+  // gone dark answers nothing at all. The spinner must not outlive the
+  // person's patience: give up and say so rather than "Verifying..." forever.
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 20_000)
+
   try {
     const response = await fetch(`${getApiBase()}/profiles/${currentProfileId.value}/verify-pin`, {
       method: 'POST',
@@ -670,7 +676,8 @@ async function submitLockScreenPin() {
         'Content-Type': 'application/json',
         'X-Profile-ID': currentProfileId.value
       },
-      body: JSON.stringify({ pin: lockScreenPin.value })
+      body: JSON.stringify({ pin: lockScreenPin.value }),
+      signal: abort.signal
     })
 
     if (response.ok) {
@@ -702,6 +709,7 @@ async function submitLockScreenPin() {
     lockScreenPin.value = ''
     console.error('[App] PIN verification error:', error)
   } finally {
+    clearTimeout(timer)
     lockScreenSubmitting.value = false
     // Re-focus input after error
     await nextTick()
