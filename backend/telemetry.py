@@ -435,6 +435,18 @@ class TelemetryClient:
             except Exception:
                 pass
 
+            # Set-up state, as the app-entry readiness gate sees it: can this
+            # install chat (agent LLM) and can it generate (any provider)?
+            # Two booleans — the activation dashboard reads "no tools / chat
+            # only / generation only / both" off them.
+            try:
+                from routes.settings import _compute_readiness
+                readiness = _compute_readiness(get_settings())
+                stats["llmReady"] = bool(readiness.has_agent_llm)
+                stats["generationReady"] = bool(readiness.has_generation)
+            except Exception:
+                pass
+
             return stats
         except Exception as e:
             log.info(f"telemetry: failed to get library stats: {e}")
