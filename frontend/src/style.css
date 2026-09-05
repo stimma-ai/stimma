@@ -799,6 +799,9 @@ select option {
   gap: 2px;
 }
 [data-viewport="compact"] .jobs-results > * { width: 3.5rem; flex: none; }
+[data-viewport="compact"] .jobs-results { scrollbar-width: none; scrollbar-gutter: auto; }
+[data-viewport="compact"] .jobs-results::-webkit-scrollbar { display: none; }
+[data-viewport="compact"] .jobs-results .text-\[11px\] { display: none; }
 [data-viewport="compact"] .jobs-rail {
   display: flex !important;
   flex-direction: row !important;

@@ -919,7 +919,7 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:max-h-[60px] compact:border-l-0 compact:border-t compact:border-surface compact:!py-1 compact:!px-1"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5"
         :class="[
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : '',
