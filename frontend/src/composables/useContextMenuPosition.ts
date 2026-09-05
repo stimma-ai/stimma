@@ -175,7 +175,17 @@ function acquireSheetBackdrop() {
   if (backdropEl) return
   const el = document.createElement('div')
   el.setAttribute('data-sheet-backdrop', '')
-  el.style.cssText = 'position:fixed;inset:0;z-index:219;background:rgba(7,9,15,0.55);'
+  el.style.cssText = 'position:fixed;inset:0;z-index:219;background:var(--sheet-backdrop);cursor:pointer;'
+  // The tap bubbles to document as an outside click, which is how menus
+  // close. A menu that only listens for Escape (or missed the click) is
+  // still open a tick later: send it Escape. One tap, one dismissal, for
+  // every sheet, whatever it listens to.
+  el.addEventListener('click', () => {
+    setTimeout(() => {
+      if (!backdropEl) return
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))
+    }, 0)
+  })
   document.body.appendChild(el)
   backdropEl = el
 }
@@ -195,6 +205,29 @@ function useSheetBackdrop(visible: Ref<boolean>) {
   onUnmounted(() => { if (held) { releaseSheetBackdrop(); held = false } })
 }
 
+/**
+ * Menus that style.css converts into sheets (inline `.z-menu` dropdowns that
+ * never go through this composable) get the same tap-to-dismiss backdrop:
+ * watch the DOM for them and hold the shared backdrop while any is open. A
+ * tap on the backdrop is an outside click, which is how those menus close.
+ */
+export function installSheetBackdropObserver() {
+  if (typeof document === 'undefined' || !isCoarsePointer.value) return
+  const SEL = '.z-menu.fixed:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0):not([data-context-menu]), .z-menu.absolute:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0):not([data-context-menu]), .z-submenu.fixed:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0), .z-submenu.absolute:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0)'
+  let held = false
+  const isLive = (el: Element) => {
+    if (/-leave-active/.test(el.className)) return false
+    const cs = getComputedStyle(el)
+    return cs.display !== 'none' && cs.visibility !== 'hidden'
+  }
+  const sync = () => {
+    const open = [...document.querySelectorAll(SEL)].some(isLive)
+    if (open && !held) { acquireSheetBackdrop(); held = true }
+    else if (!open && held) { releaseSheetBackdrop(); held = false }
+  }
+  new MutationObserver(sync).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+}
+
 /** Bottom-sheet placement for menus on coarse pointers. */
 export const SHEET_MENU_STYLE: Record<string, string> = {
   position: 'fixed',
@@ -204,10 +237,10 @@ export const SHEET_MENU_STYLE: Record<string, string> = {
   top: 'auto',
   width: '100%',
   minWidth: '0',
-  maxHeight: '62dvh',
+  maxHeight: 'var(--sheet-menu-max-h)',
   overflowY: 'auto',
-  borderRadius: '12px 12px 0 0',
-  paddingTop: '18px',
+  borderRadius: 'var(--sheet-radius) var(--sheet-radius) 0 0',
+  paddingTop: 'var(--sheet-pad-top)',
   paddingBottom: 'calc(0.5rem + var(--safe-bottom))',
   // The rest of the sheet grammar (handle, backdrop, slide-up, row sizing)
   // lives in style.css under [data-sheet-menu].

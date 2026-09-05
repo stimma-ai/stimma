@@ -100,7 +100,7 @@ onBeforeUnmount(() => {
         v-if="show"
         ref="layerRef"
         data-modal-layer
-        class="fixed inset-0 flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm coarse:cursor-pointer"
         :class="zClass"
         @click.self="onBackdropClick"
       >

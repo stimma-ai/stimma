@@ -4,7 +4,7 @@
     @touchstart.passive="onSlideshowTouchStart"
     @touchend.passive="onSlideshowTouchEnd"
     data-drop-zone
-    :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay' : 'fixed inset-0 bg-slideshow-matt flex z-overlay'"
+    :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
     @drop.prevent
   >
@@ -16,10 +16,15 @@
     />
 
     <!-- Right sidebar -->
+    <component
+      :is="slideshowCompact ? Sheet : 'div'"
+      v-bind="slideshowCompact ? { show: showSidebar, maxHeight: '88dvh' } : { class: 'contents' }"
+      @close="showSidebar = false"
+    >
     <SlideshowInfoPanel
       v-if="showSidebar"
       ref="infoPanelRef"
-      class="compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:!max-w-none compact:!border-l-0"
+      :content-only="slideshowCompact"
       :current-item="currentPayloadItem"
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
@@ -63,6 +68,7 @@
       @view-lineage="handleViewLineage"
       @share-to-cloud="showShareDialog = true"
     />
+    </component>
 
 
 
@@ -330,8 +336,8 @@
 
     <!-- Close button -->
     <button
-      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60"
-      :style="{ right: (showSidebar && !focusMode) ? '400px' : '16px', WebkitAppRegion: 'no-drag' }"
+      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
+      :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
       @click="handleCloseClick"
       title="Close slideshow"
     >✕</button>
@@ -345,7 +351,7 @@
     <div
       ref="mediaContainer"
       class="flex-1 flex items-center justify-center relative transition-all duration-300"
-      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid) ? `${STRIP_HEIGHT}px` : '0px' }"
+      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid) ? `${STRIP_HEIGHT}px` : '0px', paddingBottom: slideshowCompact ? `${COMPACT_BAR_CLEARANCE}px` : '0px', paddingTop: slideshowCompact ? 'var(--safe-top, 0px)' : '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -602,8 +608,8 @@
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
       v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid"
-      :class="inline ? 'absolute' : 'fixed'"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2"
+      :class="fullscreen ? 'fixed' : 'absolute'"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1 compact:pb-safe"
       :style="{
         height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
@@ -614,10 +620,10 @@
         <div
           class="flex items-center justify-center relative"
           :title="currentItem.vlm_caption || 'Source image'"
-          style="height: 104px;"
+          :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -654,7 +660,7 @@
           :title="item.vlm_caption || `Item ${index + 1}`"
         >
           <div
-            class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
+            class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
             :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
           >
             <MediaImage
@@ -691,10 +697,10 @@
         :page-provider="stripPageProvider"
         :item-getter="stripItemGetter"
         :current-index="currentIndex"
-        :item-width="104"
-        :item-height="104"
-        :item-gap="8"
-        :height="120"
+        :item-width="STRIP_ROW"
+        :item-height="STRIP_ROW"
+        :item-gap="slideshowCompact ? 6 : 8"
+        :height="STRIP_ROW + 16"
         :chunk-size="50"
         :buffer-size="10"
         :auto-center="true"
@@ -706,17 +712,17 @@
             class="flex items-center justify-center transition-all relative"
             :class="item._isPlaceholder ? 'cursor-default' : 'cursor-pointer'"
             :title="item._isPlaceholder ? 'Loading...' : (item.vlm_caption || `Image ${index + 1}`)"
-            style="height: 104px;"
+            :style="{ height: `${STRIP_ROW}px` }"
           >
             <!-- Placeholder skeleton while loading -->
             <div
               v-if="item._isPlaceholder"
-              class="w-[96px] h-[96px] bg-surface-raised rounded overflow-hidden border border-edge animate-pulse"
+              class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-surface-raised rounded overflow-hidden border border-edge animate-pulse"
             />
             <!-- Real thumbnail -->
             <div
               v-else-if="item.file_hash"
-              class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
+              class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
               :class="index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
             >
               <MediaImage
@@ -816,7 +822,7 @@
     <div
       ref="controlBar"
       :class="[
-        'absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
+        'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging },
         { '!bg-black/60': isHovered },
         { 'cursor-grab': !isDragging },
@@ -829,6 +835,43 @@
       @mouseleave="isHovered = false"
       title="Drag to reposition"
     >
+      <!-- Compact: play · counter · markers · info · more. Shuffle, loop,
+           interval, mute, lineage and the filmstrip toggle live in the More
+           sheet; Focus mode does not exist here (the phone is always focused). -->
+      <template v-if="slideshowCompact">
+        <button
+          @click="toggleSlideshow"
+          :class="['compact-bar-btn', { '!text-live': isPlaying }]"
+          :aria-label="isPlaying ? 'Pause' : 'Play slideshow'"
+        >
+          <PauseIcon v-if="isPlaying" class="w-6 h-6" />
+          <PlayIcon v-else class="w-6 h-6" />
+        </button>
+        <div class="text-[13px] font-semibold text-white tabular-nums px-1 whitespace-nowrap">
+          <template v-if="isViewingGrid && currentGridView">{{ gridLinearPosition }} / {{ gridTotalCells }}</template>
+          <template v-else>{{ effectiveIndex + 1 }} / {{ effectiveTotalCount }}</template>
+        </div>
+        <template v-if="availableMarkers.length > 0 && currentItem">
+          <button
+            v-for="marker in availableMarkers"
+            :key="marker.id"
+            @click.stop="toggleMarker(marker.id)"
+            class="compact-bar-btn"
+            :class="isMarkerActive(marker.id) ? '' : 'text-white/60'"
+            :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
+            :aria-label="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+          >
+            <span class="w-6 h-6 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+          </button>
+        </template>
+        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info">
+          <InformationCircleIcon class="w-6 h-6" />
+        </button>
+        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More">
+          <EllipsisHorizontalIcon class="w-6 h-6" />
+        </button>
+      </template>
+      <template v-else>
       <!-- Cluster 1 — Playback: shuffle · play/pause · loop · interval · volume -->
       <div :class="['flex gap-2', { 'flex-col': controlBarOrientation === 'vertical' }]">
         <!-- Shuffle button -->
@@ -1056,7 +1099,20 @@
           </button>
         </template>
       </div>
+      </template>
     </div>
+
+    <!-- Compact: the rest of the bar as a sheet -->
+    <Sheet v-if="slideshowCompact" :show="compactMoreOpen" @close="compactMoreOpen = false">
+      <div class="pb-2">
+        <button type="button" class="sheet-row" @click="toggleRandomize"><ArrowsRightLeftIcon class="sheet-row-icon" /><span class="flex-1">Shuffle</span><span class="sheet-row-detail" :class="isRandomized ? '!text-live' : ''">{{ isRandomized ? 'on' : 'off' }}</span></button>
+        <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-base leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
+        <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
+        <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
+        <button type="button" class="sheet-row" @click="showImageStrip = !showImageStrip; compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="showImageStrip ? '!text-live' : ''">{{ showImageStrip ? 'shown' : 'hidden' }}</span></button>
+        <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
+      </div>
+    </Sheet>
 
     <!-- Video transport (bottom center, above the control bar's default spot).
          Filmstrip scrubber: the track is a frame-strip montage of the video with a
@@ -1241,6 +1297,8 @@ import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
+import Sheet from './ui/Sheet.vue'
+import { InformationCircleIcon, EllipsisHorizontalIcon, Squares2X2Icon, ShareIcon } from '@heroicons/vue/24/outline'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
@@ -1484,6 +1542,11 @@ const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
 const { isCompact: slideshowCompact } = useViewport()
+// Phones always take the whole screen: inline embedding (chat, tool, flow) is a desktop layout.
+const fullscreen = computed(() => !props.inline || slideshowCompact.value)
+const compactMoreOpen = ref(false)
+// Height the picture keeps clear of the bottom control bar on compact.
+const COMPACT_BAR_CLEARANCE = 64
 // Phones start in the image; the info panel is a swipe-up/tap-away overlay.
 const showSidebar = ref(!slideshowCompact.value)
 
@@ -1506,7 +1569,8 @@ const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (saved
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
 // Phones: a shorter strip, and the info panel overlays instead of taking width.
-const STRIP_HEIGHT = slideshowCompact.value ? 92 : 136
+const STRIP_HEIGHT = slideshowCompact.value ? 66 : 136
+const STRIP_ROW = slideshowCompact.value ? 52 : 104
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 // Markers and boards state
@@ -2505,9 +2569,8 @@ const controlBarStyle = computed(() => {
     return {
       left: '50%',
       transform: 'translateX(-50%)',
-      bottom: `${stripOffset + 12}px`,
+      bottom: `calc(${stripOffset + 8}px + ${showImageStrip.value ? '0px' : 'var(--safe-bottom, 0px)'})`,
       maxWidth: 'calc(100% - 16px)',
-      overflowX: 'auto',
     }
   }
   const anchors = controlBarEdgeAnchors.value
@@ -6428,6 +6491,11 @@ async function toggleMarker(markerId) {
 </script>
 
 <style scoped>
+.compact-bar-btn {
+  @apply bg-transparent border-none text-white/80 cursor-pointer w-11 h-11 p-0 flex items-center justify-center rounded-md;
+}
+[data-viewport="compact"] .slideshow-control-bar { padding: 4px 6px; gap: 2px; }
+
 /* Sidebar scrollbar styling */
 .sidebar-scroll::-webkit-scrollbar {
   width: 8px;

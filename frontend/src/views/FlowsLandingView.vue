@@ -38,7 +38,7 @@
 
       <template v-else>
         <!-- Unified list -->
-        <div v-if="displayed.length === 0" class="px-6 py-16 text-center">
+        <div v-if="displayed.length === 0" class="px-6 py-16 text-center compact:h-full compact:py-0 compact:flex compact:flex-col compact:justify-center">
           <template v-if="flows.length === 0">
             <div class="mx-auto max-w-md space-y-2">
               <p class="text-content-secondary text-sm">No flows yet.</p>
@@ -76,6 +76,7 @@
       </template>
     </div>
 
+    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename flow" @close="renameTarget = null" @save="renameFromSheet" />
     <EntityContextMenu
       @open="handleContextMenuOpen"
       @delete="handleContextMenuDelete"
@@ -92,6 +93,8 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
+import RenameSheet from '../components/compact/RenameSheet.vue'
+import { useViewport } from '../composables/useViewport'
 import { useFlowsApi, type Flow } from '../composables/useFlowsApi'
 
 import { useWebSocket } from '../composables/useWebSocket'
@@ -103,6 +106,7 @@ const router = useRouter()
 const api = useFlowsApi()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
+const { isCompact } = useViewport()
 const { addToast } = useToasts()
 
 const props = defineProps<{ projectId?: number | null }>()
@@ -180,7 +184,15 @@ function handleContextMenuDelete(_entityType: string, entityId: number) {
 }
 
 function handleContextMenuRename(_entityType: string, entityId: number) {
+  if (isCompact.value) { renameTarget.value = flows.value.find(r => r.id === entityId) || null; return }
   renamingId.value = entityId
+}
+
+const renameTarget = ref<Flow | null>(null)
+async function renameFromSheet(name: string) {
+  const flow = renameTarget.value
+  renameTarget.value = null
+  if (flow) await handleInlineRename(flow, name)
 }
 
 async function handleContextMenuMoveToProject(_entityType: string, entityId: number, projectId: number | null) {

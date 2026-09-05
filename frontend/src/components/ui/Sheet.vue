@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
   closeOnBackdrop?: boolean
 }>(), {
   title: '',
-  maxHeight: '85dvh',
+  maxHeight: 'var(--sheet-panel-max-h)',
   closeOnBackdrop: true,
 })
 
@@ -61,22 +61,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         v-if="show"
         ref="layerRef"
         data-modal-layer
-        class="fixed inset-0 z-menu flex flex-col justify-end bg-overlay-backdrop"
+        data-sheet-layer
+        class="fixed inset-0 z-menu flex flex-col justify-end bg-overlay-backdrop coarse:cursor-pointer"
         @click.self="closeOnBackdrop && close()"
       >
         <div
           ref="panelRef"
           tabindex="-1"
           role="dialog"
-          class="sheet-panel relative flex flex-col bg-surface border-t border-edge rounded-t-lg shadow-2xl outline-none pb-safe"
+          class="sheet-panel relative flex flex-col bg-surface border-t border-edge shadow-2xl outline-none pb-safe cursor-auto"
+          style="border-radius: var(--sheet-radius) var(--sheet-radius) 0 0"
           :style="panelStyle"
         >
-          <div class="flex-none flex items-center justify-center pt-2 pb-1" aria-hidden="true">
-            <span class="w-9 h-1 rounded-full bg-overlay-light"></span>
+          <div class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
+            <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
           </div>
-          <div v-if="title || $slots.header" class="flex-none px-4 py-2">
+          <div v-if="title || $slots.header" class="flex-none px-4 pt-1 pb-1">
             <slot name="header">
-              <h2 class="text-[15px] font-semibold text-content">{{ title }}</h2>
+              <h2 class="text-[14px] font-semibold text-content">{{ title }}</h2>
             </slot>
           </div>
           <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">

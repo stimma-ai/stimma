@@ -1,6 +1,7 @@
 <template>
   <div class="flex flex-col h-full bg-base relative">
     <!-- Control Strip (top bar) - suppressed when embedded -->
+    <RenameSheet :show="renameOpen" :name="chat?.name || ''" label="Rename chat" @close="renameOpen = false" @save="renameChatFromStrip" />
     <ChatControlStrip
       v-if="!embedded"
       :chat-name="chat?.name || ''"
@@ -1388,7 +1389,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed } from 'vue'
 import { useViewport } from '../composables/useViewport'
-import { setCompactTitle } from '../composables/useCompactChrome'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatControlStrip from '../components/chat/ChatControlStrip.vue'
 import ChatSettingsPanel from '../components/chat/ChatSettingsPanel.vue'
@@ -5516,7 +5518,17 @@ watch(wsConnected, (connected, wasConnected) => {
 })
 
 // Compact header title follows the chat name (cleared per route by App.vue).
-watch(() => chat.value?.name, (name) => { if (!props.embedded) setCompactTitle(name || 'Chat') })
+const renameOpen = ref(false)
+watch([() => route.query.rename, () => chat.value?.id], ([flag, id]) => {
+  if (props.embedded || flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+}, { immediate: true })
+watch(() => chat.value?.name, (name) => {
+  if (props.embedded) return
+  setCompactTitle(name || 'Chat')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
+})
 </script>
 
 <style scoped>

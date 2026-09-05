@@ -9,11 +9,12 @@
       @close="exitSlideshow"
       @update:current-media-id="updateCurrentMediaId"
     />
+    <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
     <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
       <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
-          v-if="isEditingBoardName || editedName"
+          v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
           class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none compact:min-h-11"
@@ -22,10 +23,11 @@
           @keydown.enter.prevent="saveBoardName"
           @keydown.esc.prevent="cancelBoardNameEdit"
         />
+        <span v-else-if="editedName" class="min-w-0 truncate text-lg font-semibold text-content compact:hidden">{{ editedName }}</span>
         <button
           v-else
           class="bg-transparent text-left text-lg font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
-          @click="startBoardNameEdit"
+          @click="!isCompact && startBoardNameEdit()"
         >
           Name this board...
         </button>
@@ -334,7 +336,9 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { setCompactTitle } from '../composables/useCompactChrome'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import { useViewport } from '../composables/useViewport'
+import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
@@ -1891,7 +1895,25 @@ onUnmounted(() => {
   window.removeEventListener('resize', measureWidth)
 })
 
-watch(() => board.value?.name, (name) => { setCompactTitle(name || 'Board') }, { immediate: true })
+const { isCompact } = useViewport()
+const renameOpen = ref(false)
+async function renameBoard(name) {
+  if (!board.value) return
+  editedName.value = name
+  board.value = await updateBoard(board.value.id, { name })
+}
+// Arriving with ?rename=1 (row menu → Rename): compact opens the sheet,
+// desktop starts the inline edit. The flag is consumed once.
+watch([() => route.query.rename, () => board.value?.id], ([flag, id]) => {
+  if (flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+  else startBoardNameEdit()
+}, { immediate: true })
+watch(() => board.value?.name, (name) => {
+  setCompactTitle(name || 'Board')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
+}, { immediate: true })
 </script>
 
 <style scoped>

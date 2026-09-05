@@ -287,6 +287,27 @@ that a desktop-sized window never trips.
   coarse pointers; submenus stack as a second sheet with a back caret.
   Modal renders as a full-screen sheet on compact. Both keep their z-tier.
   No sheet components outside the kit.
+- **One sheet, one dismissal.** Every bottom sheet on a coarse pointer comes
+  from one of exactly two places: the kit `Sheet` component (its own
+  full-screen layer, `data-sheet-layer`, is the backdrop) or the global
+  coarse-pointer conversion in `style.css` + `useContextMenuPosition`
+  (which puts the shared `data-sheet-backdrop` under the converted menu).
+  Both dismiss on ONE tap outside, always: the shared backdrop forwards the
+  tap as an outside click and then Escape. A full-screen `inset-0` box at
+  the menu tier is a backdrop, never a menu, and is never converted. Never
+  hand-roll a bottom panel, and never ship a sheet you have not tapped
+  outside of on a phone.
+- **Sheet geometry is tokens, not numbers.** `style.css` `:root` owns every
+  sheet dimension and every sheet reads it: `--sheet-row-h` 44px (a row is
+  one touch target, never taller), `--sheet-row-px` 16px, `--sheet-row-gap`
+  12px, `--sheet-font` 14px, `--sheet-font-detail` 12px mono,
+  `--sheet-icon` 20px, `--sheet-radius` 12px, handle 32×4 at 6px,
+  `--sheet-pad-top` 16px, `--sheet-menu-max-h` 62dvh (menus),
+  `--sheet-panel-max-h` 85dvh (pickers, info, forms), `--sheet-backdrop`.
+  Rows are `.sheet-row` (icon first, `.sheet-row-icon`; trailing fact in
+  `.sheet-row-detail`; group label `.sheet-section`). Sheets never show a
+  scrollbar: the content overflows and the user tugs it. Sheets are dense,
+  not toy-sized: no row padding beyond the tokens, no per-sheet sizes.
 - **Bottom edge.** One docked bar per screen (composer, run dock,
   selection bar), padded with `pb-safe`. Never two docked bars.
 - **Media grids.** 3 columns on compact, 2px gutters, on matte;

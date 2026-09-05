@@ -500,6 +500,12 @@ function calculateItemsPerRow() {
 
   // clientWidth excludes scrollbar, then we remove row horizontal padding (px-2)
   const scrollerWidth = scrollerEl ? scrollerEl.clientWidth : window.innerWidth
+  // A hidden grid (KeepAlive'd view in the background, slideshow over it)
+  // measures 0 wide. Computing from that yields one full-width column, and
+  // the ResizeObserver then sees "no change" when the real width returns —
+  // the occasional wrong-size grid. Keep the last good layout instead.
+  if (scrollerWidth <= 0) return false
+  lastCalculatedWidth = scrollerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
   // Phones: three across (DESIGN.md §1.11 media grids); the 200px minimum
@@ -1618,6 +1624,8 @@ let resizeTimeout
 let handleResize
 let resizeObserver
 let lastObservedWidth = 0
+// Width the current itemsPerRow was computed from; 0 until the first real layout.
+let lastCalculatedWidth = 0
 let resizeObserverProcessing = false
 
 // Initialize
@@ -1674,7 +1682,7 @@ onMounted(async () => {
       for (const entry of entries) {
         const newWidth = entry.contentRect.width
         // Only process if width actually changed by more than 1px
-        if (newWidth > 0 && Math.abs(newWidth - lastObservedWidth) > 1) {
+        if (newWidth > 0 && (Math.abs(newWidth - lastObservedWidth) > 1 || Math.abs(newWidth - lastCalculatedWidth) > 1)) {
           resizeObserverProcessing = true
           lastObservedWidth = newWidth
 
@@ -1820,6 +1828,13 @@ onDeactivated(() => {
 // Restore scroll position when component is reactivated (navigating back)
 onActivated(async () => {
   await nextTick()
+  // Coming back to a view whose grid was sized while hidden (or never sized).
+  const el = scroller.value?.$el
+  if (el && el.clientWidth > 0 && Math.abs(el.clientWidth - lastCalculatedWidth) > 1) {
+    const changed = calculateItemsPerRow()
+    buildRows()
+    if (changed) { loadedPages.value.clear(); buildRows(); loadPage(0) }
+  }
   // Prefer sessionStorage (most recently updated) over in-memory value
   const storedScroll = loadScrollFromStorage()
   const scrollToRestore = storedScroll ?? savedScrollPosition.value

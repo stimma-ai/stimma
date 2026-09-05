@@ -38,7 +38,7 @@
       <AgentUnavailableInput v-if="agentUnavailable" />
 
       <!-- Textarea scroll wrapper -->
-      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-3 mt-2">
+      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-3 mt-2 compact:mx-4 compact:mt-3">
         <textarea v-no-autocorrect
           ref="textareaRef"
           :value="modelValue"
@@ -55,7 +55,7 @@
 
       <!-- Action bar -->
       <div
-        class="flex items-center justify-between px-3 pb-2 pt-2"
+        class="flex items-center justify-between px-3 pb-2 pt-2 compact:px-4 compact:pb-3"
         :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker + upload button -->
@@ -67,7 +67,7 @@
           <button
             :disabled="agentUnavailable"
             @click="openUploadPicker"
-            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
+            class="w-8 h-8 compact:w-9 compact:h-9 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
             title="Add image"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
@@ -96,7 +96,7 @@
           v-if="agentUnavailable"
           type="button"
           disabled
-          class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full bg-content text-surface opacity-20"
+          class="w-8 h-8 compact:w-9 compact:h-9 flex items-center justify-center rounded-full bg-content text-surface opacity-20"
           title="Send unavailable"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
@@ -107,7 +107,7 @@
           <button
             @click="$emit('submit')"
             :disabled="(!modelValue?.trim() && attachments.length === 0) || disabled"
-            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
+            class="w-8 h-8 compact:w-9 compact:h-9 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             title="Send"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">

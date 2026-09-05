@@ -741,6 +741,46 @@ select option {
 .sheet-enter-from, .sheet-leave-to { opacity: 0; }
 .sheet-enter-from > .sheet-panel, .sheet-leave-to > .sheet-panel { transform: translateY(24px); }
 
+/* Sheet tokens (DESIGN.md §1.11 "Sheets"): the ONLY place sheet geometry
+   lives. The kit Sheet, context menus turned into sheets, and inline
+   dropdowns converted by the coarse-pointer rule all read these. */
+:root {
+  --sheet-row-h: 44px;        /* one row = one touch target, no taller */
+  --sheet-row-px: 16px;       /* row inset */
+  --sheet-row-gap: 12px;      /* icon → label */
+  --sheet-font: 14px;         /* row label */
+  --sheet-font-detail: 12px;  /* mono value / secondary line */
+  --sheet-icon: 20px;         /* row icon box */
+  --sheet-radius: 12px;       /* top corners */
+  --sheet-handle-w: 32px;
+  --sheet-handle-h: 4px;
+  --sheet-handle-top: 6px;
+  --sheet-pad-top: 16px;      /* room for the handle */
+  --sheet-menu-max-h: 62dvh;  /* menus */
+  --sheet-panel-max-h: 85dvh; /* pickers, info, forms */
+  --sheet-backdrop: rgba(7, 9, 15, 0.55);
+}
+/* A row in any sheet. Buttons or divs; the first child is the icon. */
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sheet-row-gap);
+  width: 100%;
+  min-height: var(--sheet-row-h);
+  padding: 0 var(--sheet-row-px);
+  font-size: var(--sheet-font);
+  text-align: left;
+  color: var(--color-content);
+  background: transparent;
+  border: 0;
+}
+.sheet-row > svg:first-child, .sheet-row > .sheet-row-icon { width: var(--sheet-icon); height: var(--sheet-icon); flex: none; color: var(--color-content-secondary); }
+.sheet-row .sheet-row-detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--sheet-font-detail); color: var(--color-content-tertiary); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-content-tertiary); }
+/* Sheets scroll by touch; a scrollbar is desktop furniture. */
+[data-sheet-layer] .sheet-panel > div, [data-sheet-menu], [data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0), [data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0) { scrollbar-width: none; }
+[data-sheet-layer] .sheet-panel > div::-webkit-scrollbar, [data-sheet-menu]::-webkit-scrollbar { display: none; }
+
 /* Context menus rendered as bottom sheets on coarse pointers
    (useContextMenuPosition sets data-sheet-menu). Rows grow to touch size;
    the menu itself is placed by SHEET_MENU_STYLE. */
@@ -760,11 +800,11 @@ select option {
 [data-sheet-menu]::before {
   content: '';
   position: absolute;
-  top: 7px;
+  top: var(--sheet-handle-top);
   left: 50%;
-  width: 36px;
-  height: 4px;
-  margin-left: -18px;
+  width: var(--sheet-handle-w);
+  height: var(--sheet-handle-h);
+  margin-left: calc(var(--sheet-handle-w) / -2);
   border-radius: 2px;
   background: var(--color-overlay-light);
 }
@@ -779,17 +819,17 @@ select option {
 [data-sheet-menu] > button,
 [data-sheet-menu] > div > button,
 [data-sheet-menu] [role="menuitem"] {
-  min-height: 48px;
-  padding-left: 20px;
-  padding-right: 20px;
-  font-size: 15px;
+  min-height: var(--sheet-row-h);
+  padding-left: var(--sheet-row-px);
+  padding-right: var(--sheet-row-px);
+  font-size: var(--sheet-font);
 }
-[data-sheet-menu] .text-xs { font-size: 14px; }
-[data-sheet-menu] .icon-container { display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; }
-[data-sheet-menu] .icon-container svg { width: 1.375rem; height: 1.375rem; }
+[data-sheet-menu] .text-xs { font-size: var(--sheet-font); }
+[data-sheet-menu] .icon-container { display: inline-flex; width: var(--sheet-icon); height: var(--sheet-icon); align-items: center; justify-content: center; }
+[data-sheet-menu] .icon-container svg { width: var(--sheet-icon); height: var(--sheet-icon); }
 [data-sheet-menu] .text-\[11px\],
-[data-sheet-menu] .text-\[12px\] { font-size: 13px; }
-[data-sheet-menu] svg.w-4, [data-sheet-menu] svg.w-3\.5 { width: 1.25rem; height: 1.25rem; }
+[data-sheet-menu] .text-\[12px\] { font-size: var(--sheet-font-detail); }
+[data-sheet-menu] svg.w-4, [data-sheet-menu] svg.w-3\.5 { width: var(--sheet-icon); height: var(--sheet-icon); }
 
 /* Tool view queue on phones: one horizontal strip of small tiles under the
    hero (the rail's grid/column modes are desktop compositions). */
@@ -810,14 +850,18 @@ select option {
 [data-viewport="compact"] .jobs-rail > * { width: 3.5rem; flex: none; }
 
 /* Coarse pointers: there are no floating menus, only sheets. Menus that go
-   through useContextMenuPosition get data-sheet-menu; the rest of the app's
+   through useContextMenuPosition get data-sheet-menu; the Sheet component's
+   own full-screen layer carries data-sheet-layer, and any inset-0 box at the
+   menu tier is a backdrop (SettingsDropdown and friends): both are excluded,
+   because a backdrop must stay full-screen for a tap outside to dismiss; the
+   rest of the app's
    inline dropdowns (sort menus, provider filters, header kebabs, slideshow
    menus) are `absolute`/`fixed` boxes at the menu tier, and this rule turns
    every one of them into the same sheet without touching each component. */
-[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-menu]):not([data-context-menu]),
-[data-pointer="coarse"] .z-submenu.absolute:not([data-sheet-menu]),
-[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-menu]):not([data-context-menu]),
-[data-pointer="coarse"] .z-submenu.fixed:not([data-sheet-menu]) {
+[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]):not([data-context-menu]),
+[data-pointer="coarse"] .z-submenu.absolute:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]),
+[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]):not([data-context-menu]),
+[data-pointer="coarse"] .z-submenu.fixed:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]) {
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
@@ -827,36 +871,53 @@ select option {
   width: 100% !important;
   min-width: 0 !important;
   max-width: none !important;
-  max-height: 62dvh !important;
+  max-height: var(--sheet-menu-max-h) !important;
   overflow-y: auto !important;
   margin: 0 !important;
-  border-radius: 12px 12px 0 0 !important;
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0 !important;
   border-left: 0 !important;
   border-right: 0 !important;
   border-bottom: 0 !important;
-  padding-top: 18px !important;
+  padding-top: var(--sheet-pad-top) !important;
   padding-bottom: calc(0.5rem + var(--safe-bottom)) !important;
-  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45), 0 -100vh 0 100vh rgba(7, 9, 15, 0.55) !important;
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45), 0 -100vh 0 100vh var(--sheet-backdrop) !important;
   animation: sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-menu]):not([data-context-menu])::before,
-[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-menu]):not([data-context-menu])::before {
+[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]):not([data-context-menu])::before,
+[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]):not([data-context-menu])::before {
   content: '';
   position: absolute;
-  top: 7px;
+  top: var(--sheet-handle-top);
   left: 50%;
-  width: 36px;
-  height: 4px;
-  margin-left: -18px;
+  width: var(--sheet-handle-w);
+  height: var(--sheet-handle-h);
+  margin-left: calc(var(--sheet-handle-w) / -2);
   border-radius: 2px;
   background: var(--color-overlay-light);
 }
-[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-menu]) > button,
-[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-menu]) > button,
-[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-menu]) > div > button,
-[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-menu]) > div > button {
-  min-height: 48px;
-  padding-left: 20px;
-  padding-right: 20px;
-  font-size: 15px;
+[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]) > button,
+[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]) > button,
+[data-pointer="coarse"] .z-menu.absolute:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]) > div > button,
+[data-pointer="coarse"] .z-menu.fixed:not([data-sheet-layer]):not(.inset-0):not([data-sheet-menu]) > div > button {
+  min-height: var(--sheet-row-h);
+  padding-left: var(--sheet-row-px);
+  padding-right: var(--sheet-row-px);
+  font-size: var(--sheet-font);
+}
+
+/* Every backdrop at the menu tier is tappable on touch (iOS only synthesises
+   click on elements that look clickable). */
+[data-pointer="coarse"] .z-menu.fixed.inset-0,
+[data-pointer="coarse"] [data-sheet-layer],
+[data-pointer="coarse"] [data-sheet-backdrop] { cursor: pointer; }
+
+/* Converted sheets carry a CSS animation, so a Vue <Transition> around them
+   would wait for an animationend that never fires on leave and keep an
+   invisible box (opacity 0, full hit area) over the page. Leave is instant. */
+[data-pointer="coarse"] .z-menu[class*="-leave-active"],
+[data-pointer="coarse"] .z-submenu[class*="-leave-active"],
+[data-pointer="coarse"] [data-sheet-menu][class*="-leave-active"] {
+  animation: none !important;
+  transition: none !important;
+  pointer-events: none !important;
 }

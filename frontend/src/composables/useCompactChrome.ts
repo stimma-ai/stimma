@@ -41,14 +41,15 @@ export type HubId = 'home' | 'library' | 'workspace' | 'boards' | 'chats'
 export function hubForRoute(name: unknown): HubId | null {
   switch (name) {
     case 'home': return 'home'
-    case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
+    // Projects are a library scope, so they light the Library hub.
+    case 'browse': case 'trash': case 'saved-view': case 'upload': case 'projects': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.
     case 'workspace': case 'all-tools': case 'flows': case 'stimpacks': case 'tool': case 'flow':
-    case 'edit-image': case 'lineage': case 'projects': return 'workspace'
+    case 'edit-image': case 'lineage': return 'workspace'
     case 'boards': case 'board-detail': return 'boards'
     case 'chats': case 'chat': return 'chats'
     default:
-      if (typeof name === 'string' && name.startsWith('project-')) return 'workspace'
+      if (typeof name === 'string' && name.startsWith('project-')) return 'library'
       return null
   }
 }
@@ -73,10 +74,19 @@ export function setCompactPrimaryAction(action: CompactAction | null) {
   primaryAction.value = action
 }
 
+export interface CompactMenuItem { label: string; run: () => void; destructive?: boolean }
+const menuItems = ref<CompactMenuItem[]>([])
+
+/** A detail screen's ⋯ menu (rename, delete, ...). Rendered by the header as a sheet. */
+export function setCompactMenu(items: CompactMenuItem[]) {
+  menuItems.value = items
+}
+
 export function clearCompactTitle() {
   routeTitle.value = ''
   routeSubtitle.value = ''
   primaryAction.value = null
+  menuItems.value = []
 }
 
 export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
@@ -99,5 +109,5 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     const name = typeof route.name === 'string' ? route.name : ''
     return ['workspace', 'all-tools', 'flows', 'stimpacks'].includes(name)
   })
-  return { surface, isHub, title, subtitle, workspaceSegments, primaryAction }
+  return { surface, isHub, title, subtitle, workspaceSegments, primaryAction, menuItems }
 }

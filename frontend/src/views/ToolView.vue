@@ -1003,7 +1003,9 @@
              hero + queue strip. ToolRunControl teleports into the compact header.
              The agent opens as a centred card from a floating button over the hero. -->
         <ToolDrawer v-if="isCompact" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" />
-        <Teleport v-if="isCompact" to="#compact-header-actions" defer>
+        <!-- Guarded by stageViewActive: KeepAlive keeps this view alive, and a
+             teleport left mounted would leave Run and Agent in every other hub's header. -->
+        <Teleport v-if="isCompact && stageViewActive" to="#compact-header-actions" defer>
           <button
             v-if="!llmUnconfigured"
             type="button"

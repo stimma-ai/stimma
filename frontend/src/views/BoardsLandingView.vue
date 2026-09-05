@@ -67,7 +67,7 @@
 
     <div class="flex-1 overflow-y-auto px-6 pb-6">
       <div v-if="loading" class="py-20 text-center text-content-muted">Loading boards...</div>
-      <div v-else-if="boards.length === 0" class="flex h-64 flex-col items-center justify-center text-center">
+      <div v-else-if="boards.length === 0" class="flex h-64 compact:h-full flex-col items-center justify-center text-center">
         <p class="mb-2 text-content-muted">No boards yet</p>
         <p class="text-sm text-content-muted">Create a board to curate a working set of assets.</p>
       </div>
@@ -144,6 +144,7 @@
       </div>
     </div>
 
+    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename board" @close="renameTarget = null" @save="renameFromSheet" />
     <EntityContextMenu
       @open="handleContextMenuOpen"
       @delete="handleContextMenuDelete"
@@ -158,6 +159,8 @@ import { computed, onMounted, onUnmounted, ref, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
+import RenameSheet from '../components/compact/RenameSheet.vue'
+import { useViewport } from '../composables/useViewport'
 import { MediaImage } from '../components/media'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -173,6 +176,7 @@ const props = defineProps({
 
 const router = useRouter()
 const entityContextMenu = useEntityContextMenu()
+const { isCompact } = useViewport()
 const { createBoard, deleteBoard, restoreBoard, getBoard, getBoards, updateBoard } = useMediaApi()
 const { addToast } = useToasts()
 const { on } = useWebSocket()
@@ -378,7 +382,22 @@ async function handleContextMenuDelete(entityType, entityId) {
 }
 
 async function handleContextMenuRename(entityType, entityId, entityName) {
+  if (isCompact.value) { renameTarget.value = boards.value.find((b) => b.id === entityId) || { id: entityId, name: entityName }; return }
   router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
+}
+
+const renameTarget = ref(null)
+async function renameFromSheet(name) {
+  const board = renameTarget.value
+  renameTarget.value = null
+  if (!board) return
+  try {
+    const updated = await updateBoard(board.id, { name })
+    const idx = boards.value.findIndex((b) => b.id === board.id)
+    if (idx >= 0) boards.value[idx] = { ...boards.value[idx], name: updated?.name ?? name }
+  } catch (err) {
+    console.error('Failed to rename board:', err)
+  }
 }
 
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {

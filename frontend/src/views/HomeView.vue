@@ -16,16 +16,16 @@
       <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-6 compact:pb-8">
+        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-6 compact:pb-10">
           <!-- Soft ambient halo, centered behind the greeting + prompt -->
           <div
             class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2"
             style="background: radial-gradient(50% 60% at 45% 40%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(45% 55% at 58% 55%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
           ></div>
 
-          <h1 class="relative font-brand text-[32px] font-bold tracking-tight text-content mb-2 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
+          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-7 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
           <!-- Spacer where the greeting subtitle used to sit — keeps the hero rhythm -->
-          <div class="relative h-[20px] mb-10" aria-hidden="true"></div>
+          <div class="relative h-[20px] mb-10 compact:hidden" aria-hidden="true"></div>
 
           <div class="relative w-full max-w-[720px]">
             <!-- No chat model configured (deliberate opt-out): tools take the
@@ -76,21 +76,21 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!llmUnconfigured && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4">
+            <div v-if="!llmUnconfigured && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4 compact:hidden">
               <button
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
                 @click="openToolById(tool.full_tool_id)"
-                class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
+                class="flex items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
                 :title="tool.name"
               >
-                <div class="w-5 h-5 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
-                <span class="text-[13px] font-medium text-content max-w-[180px] truncate">{{ tool.name }}</span>
-                <span class="text-[11px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+                <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+                <span class="text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-[128px] truncate">{{ tool.name }}</span>
+                <span class="text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
               </button>
               <router-link
                 to="/tools"
-                class="flex items-center px-3 py-1.5 rounded-md text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex items-center px-3 py-1.5 compact:px-2.5 compact:py-1 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>

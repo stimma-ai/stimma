@@ -14,6 +14,7 @@
       @reject="onSlideshowReject"
       @unapprove="onSlideshowUnapprove"
     />
+    <RenameSheet :show="renameOpen" :name="flow?.name || ''" label="Rename flow" @close="renameOpen = false" @save="renameFlow" />
 
     <Modal :show="showCodeIntroModal" size="md" @close="dismissCodeIntro">
       <template #header>
@@ -60,7 +61,7 @@
           <button
             v-if="flow?.name"
             class="text-sm font-semibold text-content hover:text-accent transition-colors truncate max-w-[200px]"
-            @click="startEditName"
+            @click="!isCompact && startEditName()"
             :title="flow.name"
           >
             {{ flow.name }}
@@ -68,7 +69,7 @@
           <button
             v-else
             class="text-sm font-semibold italic text-content-muted hover:text-content-secondary transition-colors truncate max-w-[200px]"
-            @click="startEditName"
+            @click="!isCompact && startEditName()"
           >
             Name this flow...
           </button>
@@ -762,7 +763,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, provide, type WatchStopHandle } from 'vue'
-import { setCompactTitle } from '../composables/useCompactChrome'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -2305,5 +2307,19 @@ watch(() => state.tasks.value.map(t => t.task_id).join(','), (_new) => {
   }
 })
 
-watch(() => flow.value?.name, (name) => { setCompactTitle(name || 'Flow') }, { immediate: true })
+const renameOpen = ref(false)
+async function renameFlow(name: string) {
+  if (!flow.value) return
+  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+}
+watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
+  if (flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+  else startEditName()
+}, { immediate: true })
+watch(() => flow.value?.name, (name) => {
+  setCompactTitle(name || 'Flow')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
+}, { immediate: true })
 </script>

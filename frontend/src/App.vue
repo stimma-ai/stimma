@@ -138,6 +138,7 @@
     <SettingsModal
       :show="settingsOpen"
       :initial-section="settingsSection"
+      :start-at-list="settingsStartAtList"
       @close="closeSettings"
     />
     <CompactHeader v-if="!compactOverlay && !slideshowActive" @open-settings="openSettings($event)" />
@@ -315,6 +316,8 @@ const { initReleaseNotes } = useReleaseNotes()
 const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
+// Compact: an empty section means "the settings list", a named one lands inside it.
+const settingsStartAtList = ref(false)
 const startupPending = ref(true)
 
 // Connection state is ordinary app state, not a boot precondition: the
@@ -324,7 +327,8 @@ const startupPending = ref(true)
 const { connectionState, activeDeviceName, init: initMultiDevice } = useMultiDevice()
 
 function openSettings(section = 'folders') {
-  settingsSection.value = section
+  settingsStartAtList.value = !section
+  settingsSection.value = section || 'folders'
   settingsOpen.value = true
 }
 

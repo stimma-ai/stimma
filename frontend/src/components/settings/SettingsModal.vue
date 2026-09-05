@@ -246,6 +246,11 @@ const props = defineProps({
   initialSection: {
     type: String,
     default: 'folders'
+  },
+  /** Compact only: open on the section list rather than inside initialSection. */
+  startAtList: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -270,7 +275,7 @@ const { isCompact } = useViewport()
 // Compact viewports show the section list first, then one section with a
 // back control; wide viewports keep the two-pane layout.
 const compactList = ref(true)
-watch(() => props.show, (open) => { if (open) compactList.value = true })
+watch(() => props.show, (open) => { if (open) compactList.value = props.startAtList })
 const SECTION_LABELS = {
   folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account',
   server: 'Stimma server', tools: 'Generation tools', 'ai-services': 'Chat models', 'model-preferences': 'Preferences',

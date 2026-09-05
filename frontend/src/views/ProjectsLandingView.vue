@@ -29,7 +29,7 @@
 
     <div class="flex-1 overflow-y-auto px-6 py-6 compact:px-3 compact:py-3">
       <div v-if="loading" class="py-20 text-center text-content-muted">Loading projects...</div>
-      <div v-else-if="filteredProjects.length === 0 && projects.length === 0" class="flex h-64 flex-col items-center justify-center text-center">
+      <div v-else-if="filteredProjects.length === 0 && projects.length === 0" class="flex h-64 compact:h-full flex-col items-center justify-center text-center">
         <p class="mb-2 text-content-muted">No projects yet</p>
         <p class="text-sm text-content-muted">Create a project to give chats, assets, boards, and the agent a shared working world.</p>
       </div>
@@ -66,7 +66,7 @@
                 v-else
                 class="truncate text-[14px] leading-tight font-brand font-semibold"
                 :class="project.name ? 'text-content' : 'italic text-content-muted'"
-                @click.stop="!project.name && startEditing(project)"
+                @click.stop="!project.name && !isCompact && startEditing(project)"
               >
                 {{ project.name || 'Name this project...' }}
               </h2>
@@ -104,6 +104,7 @@
       </div>
     </div>
 
+    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename project" @close="renameTarget = null" @save="renameFromSheet" />
     <EntityContextMenu
       @open="handleContextMenuOpen"
       @delete="handleContextMenuDelete"
@@ -127,6 +128,9 @@ import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
+import RenameSheet from '../components/compact/RenameSheet.vue'
+import { useViewport } from '../composables/useViewport'
+const { isCompact } = useViewport()
 import EntityIcon from '../components/EntityIcon.vue'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -219,7 +223,17 @@ async function handleContextMenuDelete(entityType, entityId) {
 }
 
 async function handleContextMenuRename(entityType, entityId, entityName) {
+  if (isCompact.value) { renameTarget.value = projects.value.find((p) => p.id === entityId) || null; return }
   router.push({ name: 'project-overview', params: { id: entityId }, query: { rename: '1' } })
+}
+
+const renameTarget = ref(null)
+async function renameFromSheet(name) {
+  const project = renameTarget.value
+  renameTarget.value = null
+  if (!project) return
+  const updated = await updateProject(project.id, { name })
+  project.name = updated.name
 }
 
 function cancelDeleteProject() {

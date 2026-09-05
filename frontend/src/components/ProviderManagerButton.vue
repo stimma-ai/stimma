@@ -4,10 +4,10 @@
        Click → popover with the provider's own manager, proxied through the
        local backend. Spinner = management work in progress · amber = warning ·
        red = error · dimmed icon = provider disconnected. -->
-  <div v-if="managed.length" class="flex items-center gap-0.5 h-[30px] px-[3px] rounded-[7px] bg-overlay-subtle">
+  <div v-if="managed.length" class="flex items-center gap-0.5 h-[30px] px-[3px] rounded-[7px] bg-overlay-subtle compact:h-11 compact:px-0 compact:bg-transparent compact:rounded-none">
   <div v-for="p in managed" :key="p.provider_id" class="relative provider-manager" :data-provider="p.provider_id">
     <button
-      class="relative w-6 h-6 flex items-center justify-center rounded-[5px] transition-colors cursor-pointer"
+      class="relative w-6 h-6 compact:w-11 compact:h-11 flex items-center justify-center rounded-[5px] compact:rounded-md transition-colors cursor-pointer border-none bg-transparent"
       :class="[
         openId === p.provider_id ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content',
         p.status !== 'connected' ? 'opacity-40' : '',
@@ -18,9 +18,9 @@
       <!-- Provider-supplied icon (STP presentation.icon, a data URI) rendered
            as a CSS mask so it takes currentColor and follows the theme. The
            bundled ComfyUI mark is only a fallback for providers that send none. -->
-      <span v-if="p.icon" class="block w-[15px] h-[15px]" :style="iconMaskStyle(p.icon)" aria-hidden="true"></span>
-      <ComfyUIIcon v-else-if="isComfy(p)" class="w-[15px] h-[15px]" />
-      <span v-else class="w-[15px] h-[15px] rounded-full bg-overlay-light"></span>
+      <span v-if="p.icon" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" :style="iconMaskStyle(p.icon)" aria-hidden="true"></span>
+      <ComfyUIIcon v-else-if="isComfy(p)" class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" />
+      <span v-else class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] rounded-full bg-overlay-light"></span>
       <Spinner
         v-if="p.status === 'connected' && p.state === 'in_progress'"
         size="sm"
@@ -34,9 +34,9 @@
       ></span>
     </button>
 
-    <!-- First-connect hint (once) -->
+    <!-- First-connect hint (once). Not on phones: there is no room to hang it. -->
     <div
-      v-if="hintFor === p.provider_id && openId !== p.provider_id"
+      v-if="!isCompact && hintFor === p.provider_id && openId !== p.provider_id"
       class="absolute top-[calc(100%+0.75rem)] right-0 w-[240px] bg-surface-raised border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] p-3 text-xs text-content-secondary z-menu"
     >
       <span class="absolute -top-[6px] right-[10px] w-[10px] h-[10px] bg-surface-raised border-l border-t border-edge-subtle rotate-45"></span>
@@ -45,13 +45,24 @@
       <button class="mt-1.5 text-accent-hi hover:underline" @click.stop="toggle(p.provider_id)">Open {{ shortName(p) }}</button>
     </div>
 
-    <!-- Popover -->
+    <!-- Popover on wide; on compact a full-screen sheet with its own back
+         row, because a 420px panel hanging off a header icon is not a phone
+         surface. -->
     <div
       v-if="openId === p.provider_id"
-      class="absolute top-[calc(100%+0.5rem)] right-0 w-[420px] bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu overflow-hidden flex flex-col"
-      :style="{ height: popoverHeight }"
+      class="bg-surface z-menu overflow-hidden flex flex-col absolute top-[calc(100%+0.5rem)] right-0 w-[420px] border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] compact:fixed compact:inset-0 compact:top-0 compact:w-auto compact:border-0 compact:rounded-none compact:shadow-none compact:pt-safe compact:pb-safe"
+      :style="isCompact ? undefined : { height: popoverHeight }"
       @click.stop
     >
+      <div v-if="isCompact" class="flex-none h-12 flex items-center gap-1 px-2 border-b border-edge-subtle">
+        <button type="button" class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Back" @click="close">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6" /></svg>
+        </button>
+        <div class="flex-1 min-w-0 px-1">
+          <div class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ shortName(p) }}</div>
+          <div v-if="p.status === 'connected' && p.state_summary" class="truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ p.state_summary }}</div>
+        </div>
+      </div>
       <div v-if="p.status !== 'connected'" class="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
         <ComfyUIIcon v-if="isComfy(p)" class="w-6 h-6 text-content-muted" />
         <div class="text-sm text-content">{{ p.provider_name }} · {{ p.status === 'connecting' ? 'connecting' : 'not connected' }}</div>
@@ -77,6 +88,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useProvidersApi, type Provider } from '../composables/useProvidersApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useTheme } from '../composables/useTheme'
+import { useViewport } from '../composables/useViewport'
 import { useToasts } from '../composables/useToasts'
 import { getApiBase } from '../apiConfig'
 import { isComfyUIProvider } from '../utils/toolProviderBrands'
@@ -91,6 +103,7 @@ defineProps<{ showSeparator?: boolean }>()
 const { listProviders, cachedProviders, subscribeToProviderChanges } = useProvidersApi()
 const { on, off } = useWebSocket()
 const { resolvedTheme } = useTheme()
+const { isCompact } = useViewport()
 const { addToast } = useToasts()
 
 const providers = ref<ManagedProvider[]>([])
