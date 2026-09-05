@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--image', default='stimma-headless:test')
     args = parser.parse_args()
     image = args.image
+    base_version = (ROOT / 'packaging/headless/VERSION').read_text().strip()
     # Bind-mounted fixtures belong to the runner (GitHub uses UID 1001).
     fixture_user = f'{os.getuid()}:{os.getgid()}'
     archives = list((ROOT / 'dist-headless').glob('*.tar.gz'))
@@ -65,7 +66,7 @@ def main():
         manifest['sha256'] = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
         feed = public / 'stimma' / manifest['branch'] / manifest['target']
         feed.mkdir(parents=True)
-        def publish(version, minimum='1.0.0'):
+        def publish(version, minimum=base_version):
             manifest.update(version=version, minimumBootstrapVersion=minimum)
             payload = root / 'manifest.json'
             payload.write_text(json.dumps(manifest))
@@ -103,7 +104,7 @@ def main():
                    '-e', 'SSL_CERT_FILE=/opt/stimma/test-ca.pem', '-e', f'STIMMA_UPDATE_BASE_URL={base}',
                    '-e', f'STIMMA_CLOUD_BASE_URL={base}', '-e', f'STIMMA_LOCAL_PORT={port}', '-e', f"BRANCH={manifest['branch']}", image)
             state = wait('0.0.0-smoke.1')
-            assert state['bootstrapVersion'] == '1.0.0'
+            assert state['bootstrapVersion'] == base_version
             docker('exec', name, 'bash', '-c', 'ffmpeg -version >/dev/null && python3 --version && git --version && rg --version && jq --version')
             image_id = docker('inspect', name, '--format', '{{.Image}}')
             publish('0.0.0-smoke.2')

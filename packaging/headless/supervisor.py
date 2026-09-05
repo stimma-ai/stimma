@@ -76,7 +76,8 @@ def window_key(window: str, timezone: str, now=None):
 def fetch(url: str, destination: Path, limit=4 * 1024**3):
     if not url.startswith('https://'):
         raise ValueError('Updates require HTTPS')
-    with urllib.request.urlopen(url, timeout=30) as response, destination.open('wb') as out:
+    request = urllib.request.Request(url, headers={'User-Agent': 'Stimma-Headless-Updater/1.0'})
+    with urllib.request.urlopen(request, timeout=30) as response, destination.open('wb') as out:
         if not response.url.startswith('https://'):
             raise ValueError('Insecure update redirect')
         total = 0

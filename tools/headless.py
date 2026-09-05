@@ -43,7 +43,7 @@ def package(version, branch):
     base = os.environ.get('STIMMA_UPDATE_BASE_URL', 'https://updates.stimma.ai').rstrip('/')
     metadata = {'version': version, 'branch': branch, 'target': f'headless-linux-{arch}',
                 'sha256': digest.hexdigest(), 'url': f'{base}/stimma/{branch}/headless-linux-{arch}/{version}/{name}',
-                'minimumBootstrapVersion': '1.0.0', 'latestBootstrapVersion': (PACKAGING / 'VERSION').read_text().strip(),
+                'minimumBootstrapVersion': '1.0.1', 'latestBootstrapVersion': (PACKAGING / 'VERSION').read_text().strip(),
                 'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
     (output / 'manifest.json').write_text(json.dumps(metadata, sort_keys=True))
     print(f'Built {name}')
