@@ -33,7 +33,7 @@ def package(version, branch):
     arch = target.split('-')[0]
     output = ROOT / 'dist-headless'
     output.mkdir(exist_ok=True)
-    name = f'stimma-headless-{version}-linux-{arch}.tar.gz'
+    name = f'stimma-server-{version}-linux-{arch}.tar.gz'
     run('tar', '--sort=name', '--owner=0', '--group=0', '--numeric-owner', '-czf', str(output / name), '-C', str(source), '.')
     # The build host can use Python 3.10 (Ubuntu 22.04); the bundled runtime is 3.11.
     digest = hashlib.sha256()
@@ -104,7 +104,7 @@ def main():
     parser.add_argument('command', choices=['package', 'image', 'test', 'publish', 'smoke'])
     parser.add_argument('--version', default='0.0.0-test')
     parser.add_argument('--branch', choices=['canary', 'beta', 'production'], default='production')
-    parser.add_argument('--tag', default='stimma-headless:test')
+    parser.add_argument('--tag', default='stimma-server:test')
     args = parser.parse_args()
     if args.command == 'package':
         package(args.version, args.branch)

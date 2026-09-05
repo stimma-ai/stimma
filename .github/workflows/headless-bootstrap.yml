@@ -1,4 +1,4 @@
-name: Publish / Headless bootstrap
+name: Publish / Stimma Server image
 on:
   workflow_dispatch:
   push:
@@ -57,9 +57,9 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
           RECIPE: ${{ steps.metadata.outputs.recipe }}
         run: |
-          if docker buildx imagetools inspect "ghcr.io/stimma-ai/stimma-headless:$VERSION" >/dev/null 2>&1; then
-            docker pull "ghcr.io/stimma-ai/stimma-headless:$VERSION"
-            existing=$(docker inspect "ghcr.io/stimma-ai/stimma-headless:$VERSION" --format '{{ index .Config.Labels "ai.stimma.bootstrap.recipe" }}')
+          if docker buildx imagetools inspect "ghcr.io/stimma-ai/stimma-server:$VERSION" >/dev/null 2>&1; then
+            docker pull "ghcr.io/stimma-ai/stimma-server:$VERSION"
+            existing=$(docker inspect "ghcr.io/stimma-ai/stimma-server:$VERSION" --format '{{ index .Config.Labels "ai.stimma.bootstrap.recipe" }}')
             if [ "$existing" = "$RECIPE" ]; then
               echo "reuse=true" >> "$GITHUB_OUTPUT"
               exit 0
@@ -78,5 +78,5 @@ jobs:
             BOOTSTRAP_VERSION=${{ steps.metadata.outputs.version }}
             BOOTSTRAP_RECIPE=${{ steps.metadata.outputs.recipe }}
           tags: |
-            ghcr.io/stimma-ai/stimma-headless:latest
-            ghcr.io/stimma-ai/stimma-headless:${{ steps.metadata.outputs.version }}
+            ghcr.io/stimma-ai/stimma-server:latest
+            ghcr.io/stimma-ai/stimma-server:${{ steps.metadata.outputs.version }}

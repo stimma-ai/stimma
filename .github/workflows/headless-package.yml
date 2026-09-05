@@ -1,4 +1,4 @@
-name: Build / Headless package
+name: Build / Stimma Server package
 on:
   workflow_call:
     inputs:

@@ -23,7 +23,7 @@ def run(*args, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image', default='stimma-headless:test')
+    parser.add_argument('--image', default='stimma-server:test')
     args = parser.parse_args()
     image = args.image
     base_version = (ROOT / 'packaging/headless/VERSION').read_text().strip()
@@ -34,7 +34,7 @@ def main():
         raise RuntimeError('Build one headless package before running smoke')
     archive = archives[0]
     manifest = json.loads((ROOT / 'dist-headless/manifest.json').read_text())
-    with tempfile.TemporaryDirectory(prefix='stimma-headless-smoke-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='stimma-server-smoke-') as tmp:
         root = Path(tmp)
         os.chmod(root, 0o755)
         data = root / 'data'
@@ -79,7 +79,7 @@ def main():
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             port = str(probe.getsockname()[1])
-        name = 'stimma-headless-smoke-' + str(os.getpid())
+        name = 'stimma-server-smoke-' + str(os.getpid())
         def docker(*command):
             return run('docker', *command, capture_output=True).stdout.strip()
         def status():

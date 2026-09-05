@@ -1,10 +1,10 @@
-# Headless Linux server
+# Stimma Server
 
-The headless distribution runs Stimma without a desktop shell. Connect using the
+Stimma Server runs on Linux without a desktop shell. Connect using the
 Stimma desktop app on the same account and a reachable LAN or tailnet route.
 
 Use the [Docker setup and downloadable Compose file](https://docs.stimma.ai/docker/).
-Both Linux amd64 and arm64 use `ghcr.io/stimma-ai/stimma-headless:latest`.
+Both Linux amd64 and arm64 use `ghcr.io/stimma-ai/stimma-server:latest`.
 The bootstrap also has explicit version tags; its installed version appears in
 Settings alongside the connected server's Stimma version.
 
@@ -63,10 +63,11 @@ Back up the data volume while Stimma is stopped. Do not run `docker compose down
 -v` unless deleting that volume is intended. The updater verifies signed
 metadata and the package digest, stages a complete package and activates it
 atomically. It retains the previous package and recent configuration/database
-snapshots. If migration/startup fails after activation, it stops rather than
+backups (the latest three after a successful update). These contain databases
+and settings, not media. If migration/startup fails after activation, it stops rather than
 running old code against potentially incompatible data. Consult container logs
 and `/data/app/activation.json` for the candidate, previous package and recovery
-snapshot. Restore from a complete backup before clearing a failed activation;
+backup. Restore from a complete backup before clearing a failed activation;
 do not point an old executable at migrated databases.
 
 ## Building

@@ -1,6 +1,6 @@
 services:
   stimma:
-    image: ghcr.io/stimma-ai/stimma-headless:latest
+    image: ghcr.io/stimma-ai/stimma-server:latest
     container_name: stimma
     restart: unless-stopped
     stop_grace_period: 2m
