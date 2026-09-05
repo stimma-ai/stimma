@@ -6,7 +6,7 @@
  * root. Workspace is the desktop sidebar's zone 2 (pinned + open tabs) as a
  * hub; it also owns the Tools, Flows and Stimpacks landings as segments.
  */
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   HomeIcon, Squares2X2Icon, Square3Stack3DIcon, RectangleStackIcon, ChatBubbleLeftIcon,
@@ -31,11 +31,25 @@ const router = useRouter()
 const { openTabs, editorTabs } = useWorkspaceTabs()
 
 const active = computed(() => hubForRoute(route.name))
+
+// Each hub keeps its own place, like a native tab bar: leaving a chat for
+// Boards and tapping Chats again lands back in that chat. Tapping the hub
+// you are already on pops it to its root. KeepAlive in App.vue keeps the
+// view instances, so this only has to remember where each stack is.
+const lastRouteByHub: Partial<Record<HubId, string>> = {}
+watch(() => route.fullPath, (path) => {
+  const hub = hubForRoute(route.name)
+  if (hub) lastRouteByHub[hub] = path
+}, { immediate: true })
 // One dot, not a count: something is open that isn't the screen you're on.
 const workspaceHasOpen = computed(() => openTabs.value.length + editorTabs.value.length > 0)
 
 function go(hub: typeof HUBS[number]) {
-  router.push(hub.to)
+  if (active.value === hub.id) {
+    if (route.path !== hub.to) router.push(hub.to)
+    return
+  }
+  router.push(lastRouteByHub[hub.id] ?? hub.to)
 }
 </script>
 

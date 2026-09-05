@@ -179,7 +179,9 @@
             </template>
           </div>
           </div>
-          <div class="flex items-center gap-2">
+          <!-- Compact: the run bar lives in the bottom dock with the prompt. -->
+          <Teleport to="#tool-compact-runbar" :disabled="!isCompact" defer>
+          <div class="flex items-center gap-2 compact:flex-wrap compact:gap-1.5">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
             <button
@@ -274,6 +276,7 @@
               @clear="handleResetToDefaults"
             />
           </div>
+          </Teleport>
         </div>
 
         </Teleport>
@@ -374,17 +377,19 @@
         <!-- Prompt (for task types that need it). external-chat: the editor is a
              plain editor here — the page-level chat lives in the dock below and
              is owned by this view, not the prompt field. -->
-        <div v-if="hasPrompt" class="mb-6">
+        <Teleport to="#tool-compact-prompt" :disabled="!isCompact" defer>
+        <div v-if="hasPrompt" class="mb-6 compact:mb-2">
           <AIPromptEditor
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
-            :rows="isFromScratch ? 19 : 10"
+            :rows="isCompact ? 3 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
             :placeholder="promptPlaceholder"
           />
         </div>
+        </Teleport>
 
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
@@ -717,7 +722,7 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-none compact:h-[38dvh] compact:!p-0"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-none compact:h-[30dvh] compact:!p-0"
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
@@ -759,6 +764,8 @@
                 <SparklesIcon class="w-6 h-6 text-content-muted" />
               </template>
               <template #action>
+                <!-- Compact has Run in the dock; a second one here is noise. -->
+                <div class="compact:hidden">
                 <BatchRunButton
                   :batch-size="uiState.batchSize"
                   :disabled="!canSubmit"
@@ -767,6 +774,7 @@
                   @run="submitJob"
                   @update:batch-size="uiState.batchSize = $event"
                 />
+                </div>
               </template>
             </EmptyState>
           </Transition>
@@ -993,6 +1001,13 @@
       </div>
         </div>
 
+        <!-- Compact dock: prompt over run bar, always visible above the tab bar
+             (the controls scroll behind it). Teleport targets are filled by the
+             prompt editor and the header run bar when isCompact. -->
+        <div v-if="isCompact" class="flex-none border-t border-edge-subtle bg-surface px-3 pt-2 pb-2">
+          <div id="tool-compact-prompt"></div>
+          <div id="tool-compact-runbar"></div>
+        </div>
         <!-- Agent chat dock: full width at the bottom of the page in both modes,
              so the chat stays put while the columns above tween between Studio
              and Stage. Single Teleport target — no remount on layout toggle.

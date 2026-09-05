@@ -1785,8 +1785,15 @@ async function testAcceptance(args: string[]): Promise<void> {
     console.log(`Starting acceptance frontend on :${frontendPort}...`);
     // The Electron lane loads http://127.0.0.1:<port> (the backend CORS
     // allowlist admits that host); make vite listen on IPv4 explicitly.
-    const frontendCmd = new Deno.Command("npx", {
-      args: electronShell ? ["vite", "--host", "127.0.0.1"] : ["vite"],
+    // Playwright tears down its worker process group when a test times out;
+    // on Linux that took the Vite child with it and every later test saw
+    // ECONNREFUSED. Give Vite its own session so the lane survives one slow
+    // test. (setsid is util-linux; absent elsewhere, fall back to a plain
+    // spawn.)
+    const viteArgs = electronShell ? ["vite", "--host", "127.0.0.1"] : ["vite"];
+    const useSetsid = Deno.build.os === "linux";
+    const frontendCmd = new Deno.Command(useSetsid ? "setsid" : "npx", {
+      args: useSetsid ? ["npx", ...viteArgs] : viteArgs,
       cwd: join(repoRoot, "frontend"),
       env: { ...Deno.env.toObject(), ...env },
       stdin: "null",

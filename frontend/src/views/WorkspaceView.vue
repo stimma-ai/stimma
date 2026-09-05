@@ -19,14 +19,26 @@ import EntityIcon from '../components/EntityIcon.vue'
 import ToolIcon from '../components/tools/ToolIcon.vue'
 import { MediaImage } from '../components/media'
 import { useProvidersApi } from '../composables/useProvidersApi'
-import { useWorkspaceTabs, toolTabRoute, editorTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, whenTabsReady, toolTabRoute, editorTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 
 const router = useRouter()
 const { pinnedTabs, openTabs, editorTabs, removeTab, markTabActivated } = useWorkspaceTabs()
 const { fetchProvidersAndTools } = useProvidersApi()
 
 const toolsById = ref<Map<string, any>>(new Map())
+const LANDED_KEY = 'stimma-workspace-landed'
 onMounted(async () => {
+  // Nothing open yet: the useful screen is the tool list, once per session.
+  // After that the empty state stays, because now you know where you are.
+  try {
+    await whenTabsReady()
+    if (pinnedTabs.value.length + openTabs.value.length + editorTabs.value.length === 0
+        && !window.sessionStorage.getItem(LANDED_KEY)) {
+      window.sessionStorage.setItem(LANDED_KEY, '1')
+      router.replace('/tools')
+      return
+    }
+  } catch { /* fall through to the empty state */ }
   try {
     const { tools } = await fetchProvidersAndTools()
     toolsById.value = new Map(tools.map((t: any) => [t.full_tool_id, t]))

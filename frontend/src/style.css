@@ -740,3 +740,15 @@ select option {
 .sheet-leave-active > .sheet-panel { transition: transform 120ms ease; }
 .sheet-enter-from, .sheet-leave-to { opacity: 0; }
 .sheet-enter-from > .sheet-panel, .sheet-leave-to > .sheet-panel { transform: translateY(24px); }
+
+/* Context menus rendered as bottom sheets on coarse pointers
+   (useContextMenuPosition sets data-sheet-menu). Rows grow to touch size;
+   the menu itself is placed by SHEET_MENU_STYLE. */
+[data-sheet-menu] { box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.55); }
+[data-sheet-menu] > button,
+[data-sheet-menu] > div > button,
+[data-sheet-menu] [role="menuitem"] {
+  min-height: 46px;
+  font-size: 15px;
+}
+[data-sheet-menu] .text-xs { font-size: 14px; }

@@ -1,4 +1,7 @@
 import { ref, computed, watch, nextTick, onUnmounted, type Ref } from 'vue'
+import { useViewport } from './useViewport'
+
+const { isCoarsePointer } = useViewport()
 
 const PADDING = 8
 
@@ -136,6 +139,11 @@ export function useContextMenuPosition(
   })
 
   const menuStyle = computed(() => {
+    // Coarse pointers get a bottom sheet instead of a menu at the finger
+    // (DESIGN.md §1.11): every context menu in the app goes through here,
+    // so one branch converts all of them. Row sizing comes from the
+    // [data-sheet-menu] rules in style.css.
+    if (isCoarsePointer.value) return SHEET_MENU_STYLE
     const style: Record<string, string> = anchorBottom.value
       ? { left: `${adjustedX.value}px`, bottom: `${adjustedY.value}px` }
       : { top: `${adjustedY.value}px`, left: `${adjustedX.value}px` }
@@ -146,7 +154,26 @@ export function useContextMenuPosition(
     return style
   })
 
+  watch([visible, menuRef], ([shown, el]) => {
+    if (shown && el && isCoarsePointer.value) el.setAttribute('data-sheet-menu', '')
+  }, { flush: 'post' })
+
   return { menuStyle, reposition }
+}
+
+/** Bottom-sheet placement for menus on coarse pointers. */
+export const SHEET_MENU_STYLE: Record<string, string> = {
+  position: 'fixed',
+  left: '0px',
+  right: '0px',
+  bottom: '0px',
+  top: 'auto',
+  width: '100%',
+  minWidth: '0',
+  maxHeight: '80dvh',
+  overflowY: 'auto',
+  borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+  paddingBottom: 'calc(0.5rem + var(--safe-bottom))',
 }
 
 /**
@@ -340,6 +367,12 @@ export function useSubmenuPosition(
   let appliedCap: number | null = null
 
   function reposition() {
+    if (isCoarsePointer.value) {
+      pos.value = { ...SHEET_MENU_STYLE }
+      bridgeStyle.value = { display: 'none' }
+      submenuRef.value?.setAttribute('data-sheet-menu', '')
+      return
+    }
     const parent = parentMenuRef.value
     const trigger = triggerRect.value
     if (!parent || !trigger) {

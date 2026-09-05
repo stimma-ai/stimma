@@ -8,9 +8,11 @@ import router from './router'
 import App from './App.vue'
 import './style.css'
 import { installTextSelectionPolicy } from './utils/textSelection'
+import { installLongPressContextMenu } from './utils/longPress'
 
 initConsoleBridge()
 installTextSelectionPolicy()
+installLongPressContextMenu()
 
 // Show loading screen for Tauri mode
 function showLoadingScreen() {

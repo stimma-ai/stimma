@@ -5,12 +5,12 @@
       <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
       <div v-else></div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 compact:flex-1 compact:gap-2">
         <!-- Provider filter dropdown -->
         <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative" ref="providerDropdownRef">
           <button
             @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors compact:min-h-11"
             :class="activeProviderFilters.size > 0
               ? 'bg-blue-500/15 text-blue-500'
               : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle'"
@@ -69,7 +69,7 @@
         </div>
 
         <!-- Text search -->
-        <div class="relative">
+        <div class="relative compact:flex-1">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
@@ -78,14 +78,14 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search tools..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
           />
         </div>
       </div>
     </div>
 
     <!-- Task type filter pills -->
-    <div v-if="availableTaskTypes.length > 0" class="px-6 py-3 flex flex-wrap gap-2 border-b border-edge-subtle">
+    <div v-if="availableTaskTypes.length > 0" class="px-6 py-3 flex flex-wrap gap-2 border-b border-edge-subtle compact:hidden">
       <button
         v-for="taskType in availableTaskTypes"
         :key="taskType"
@@ -100,7 +100,7 @@
     </div>
 
     <!-- Tools Grid -->
-    <div class="flex-1 overflow-y-auto p-6">
+    <div class="flex-1 overflow-y-auto p-6 compact:p-3">
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -145,7 +145,7 @@
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
+              class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised compact:h-auto compact:p-3"
               :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"

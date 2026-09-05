@@ -88,10 +88,13 @@ export async function auditHorizontalOverflow(page: Page): Promise<OverflowRepor
 export interface HitTargetReport { total: number; small: Array<{ el: string; w: number; h: number }> }
 
 /** Visible interactive elements smaller than 44×44 CSS px (DESIGN.md §1.11 touch targets). */
-export async function auditHitTargets(page: Page, min = 44): Promise<HitTargetReport> {
-  return page.evaluate((MIN) => {
+export async function auditHitTargets(page: Page, min = 44, root = 'body'): Promise<HitTargetReport> {
+  return page.evaluate(([MIN, ROOT]) => {
     const sel = 'button, a[href], [role="button"], [role="menuitem"], [role="tab"], input:not([type="hidden"]), select, textarea, summary';
-    const els = Array.from(document.querySelectorAll<HTMLElement>(sel));
+    // When a modal layer is open, only what is on top counts: everything
+    // under the backdrop is inert.
+    const scope = document.querySelector(ROOT as string) ?? document.body;
+    const els = Array.from(scope.querySelectorAll<HTMLElement>(sel));
     const small: Array<{ el: string; w: number; h: number }> = [];
     let total = 0;
     for (const el of els) {
@@ -108,7 +111,7 @@ export async function auditHitTargets(page: Page, min = 44): Promise<HitTargetRe
       }
     }
     return { total, small };
-  }, min);
+  }, [min, root] as [number, string]);
 }
 
 export interface ChromeGeometry { sidebar: number[] | null; topbar: number[] | null; content: number[] | null; viewport: number[] }

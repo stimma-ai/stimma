@@ -89,8 +89,26 @@ test.describe('phone lane: detail screens', () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
     await audit(page, 'settings');
-    await page.getByRole('button', { name: 'Markers' }).click();
-    await expect(page.getByRole('heading', { name: 'Markers' }).first()).toBeVisible();
-    await page.screenshot({ path: 'acceptance/phone-shots/detail-settings-section.png' });
   });
+
+  // Every settings section, one by one: no horizontal overflow, ever. Hit
+  // targets are reported, not enforced, until the settings kit pass.
+  const SECTIONS = ['Folders', 'Markers', 'Prompt Variables', 'Agent', 'Stimma Account', 'Stimma Server', 'Generation Tools', 'Chat Models', 'Preferences', 'Profiles', 'Background Work', 'Privacy', 'About'];
+  for (const section of SECTIONS) {
+    test(`settings › ${section} fits a phone`, async ({ page }) => {
+      await page.goto('/home');
+      await settleAnyViewport(page);
+      await page.getByRole('button', { name: 'Account and settings' }).click();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
+      await page.getByRole('button', { name: section }).first().click();
+      await page.waitForTimeout(600);
+      const slug = section.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      await page.screenshot({ path: `acceptance/phone-shots/settings-${slug}.png` });
+      const overflow = await auditHorizontalOverflow(page);
+      expectNoOverflow(overflow, `settings/${section}`);
+      const hits = await auditHitTargets(page, 44, '[data-modal-layer]');
+      if (hits.small.length) console.warn(`[phone] settings/${section}: ${hits.small.length}/${hits.total} sub-44px: ${hits.small.slice(0, 6).map((s) => `${s.el} ${s.w}×${s.h}`).join(', ')}`);
+    });
+  }
 });

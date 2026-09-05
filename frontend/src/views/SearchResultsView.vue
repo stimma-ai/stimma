@@ -98,7 +98,7 @@
               <span class="text-[11px] text-content-muted/70">{{ toolResults.length }}</span>
               <router-link
                 :to="{ name: 'all-tools', query: { q } }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -131,7 +131,7 @@
               <router-link
                 v-if="section.viewAll"
                 :to="section.viewAll"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -249,7 +249,7 @@
               <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">

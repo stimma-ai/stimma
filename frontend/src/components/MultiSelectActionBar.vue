@@ -22,12 +22,12 @@
               class="text-sm font-medium text-content whitespace-nowrap"
               @dblclick="$emit('invert-selection')"
             >
-              <span class="font-mono tabular-nums">{{ selectedCount }}</span><span v-if="totalCount > 0"> of <span class="font-mono tabular-nums">{{ totalCount }}</span></span> selected
+              <span class="font-mono tabular-nums">{{ selectedCount }}</span><span v-if="totalCount > 0" class="compact:hidden"> of <span class="font-mono tabular-nums">{{ totalCount }}</span></span> selected
             </span>
           </Tooltip>
 
           <!-- Select All button -->
-          <Tooltip v-if="totalCount > 0 && !isAllSelected" text="Select all">
+          <Tooltip v-if="totalCount > 0 && !isAllSelected" text="Select all" class="compact:hidden">
             <button
               @click="$emit('select-all')"
               class="px-2.5 py-1 border border-edge-subtle rounded text-xs font-medium text-content-tertiary hover:bg-overlay-subtle hover:border-edge hover:text-content transition-colors"
@@ -38,7 +38,7 @@
         </div>
 
         <!-- Actions (center) -->
-        <div class="actions flex items-center gap-2 mx-auto">
+        <div class="actions flex items-center gap-2 mx-auto compact:gap-1 compact:mx-0 compact:ml-auto">
           <!-- Trash view actions -->
           <template v-if="isTrashView">
             <!-- Find Similar (trash) -->

@@ -1,7 +1,7 @@
 <template>
   <div class="bg-surface border-b border-edge flex-shrink-0">
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap compact:flex-nowrap compact:overflow-x-auto compact:gap-1">
+    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap compact:gap-1.5">
       <!-- Left Side: Filter Toggle Button -->
       <button class="text-content-secondary px-4 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:px-3" @click="toggleCriteriaPanel">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -13,7 +13,7 @@
         </svg>
       </button>
 
-      <div class="flex gap-2 flex-wrap flex-1 compact:flex-nowrap compact:flex-none">
+      <div class="flex gap-2 flex-wrap flex-1">
         <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (accent), negative (red) -->
         <!-- 3-state marker toggles. Include is the PRIMARY active look: the
              clean native-color chip (icon + wash of the marker's own color),
@@ -402,15 +402,28 @@
     </div>
 
     <!-- Expandable Criteria Panel -->
+    <!-- Compact: a backdrop behind the criteria sheet. -->
+    <div
+      v-if="showCriteriaPanel"
+      class="hidden compact:block fixed inset-0 z-menu bg-overlay-backdrop"
+      @click="showCriteriaPanel = false"
+    ></div>
     <transition name="flow-expand">
-      <div v-if="showCriteriaPanel" class="border-t border-edge-subtle relative">
+      <div
+        v-if="showCriteriaPanel"
+        class="border-t border-edge-subtle relative compact:fixed compact:inset-x-0 compact:bottom-0 compact:z-menu compact:max-h-[85dvh] compact:overflow-y-auto compact:bg-surface compact:rounded-t-lg compact:shadow-2xl compact:border-t-0 compact:pb-safe"
+      >
+        <div class="hidden compact:flex items-center justify-between px-4 pt-3 pb-1">
+          <span class="text-[15px] font-semibold text-content">Filters</span>
+          <button type="button" class="min-h-11 px-3 rounded-md text-sm text-accent-hi border-none bg-transparent" @click="showCriteriaPanel = false">Done</button>
+        </div>
         <!-- Loading spinner -->
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
           <div class="w-8 h-8 border-[3px] border-edge border-t-accent rounded-full spinner"></div>
         </div>
-        <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
+        <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity compact:flex-col compact:gap-6 compact:overflow-visible" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
-          <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Created</h4>
             <div class="flex flex-col gap-0.5">
               <button
@@ -432,7 +445,7 @@
           </div>
 
           <!-- Asset Type Column -->
-          <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Asset type</h4>
             <div class="flex flex-col gap-0.5">
               <div
@@ -448,7 +461,7 @@
           </div>
 
           <!-- Folders Column -->
-          <div v-if="visibleFolders.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleFolders.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Folders</h4>
             <div class="flex flex-col gap-0.5">
               <div
@@ -467,7 +480,7 @@
           </div>
 
           <!-- Tags Column -->
-          <div v-if="visibleTags.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleTags.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Tags</h4>
             <div class="flex flex-col gap-0.5">
               <!-- Top tags (clickable) -->
@@ -488,7 +501,7 @@
           </div>
 
           <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
-          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
             <div class="flex flex-col gap-0.5">
               <!-- Membership existence chip: none → In a project (accent) → Not in a project (red) -->
@@ -549,7 +562,7 @@
           </div>
 
           <!-- Keywords Column -->
-          <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Keywords</h4>
             <div class="flex flex-col gap-0.5">
               <!-- Top keywords (clickable) -->
@@ -593,7 +606,7 @@
           </div>
 
           <!-- Utility Column - not shown in trash mode -->
-          <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Utility</h4>
             <div class="flex flex-col gap-0.5">
               <div
@@ -625,7 +638,7 @@
           </div>
 
           <!-- Resolution Column - not shown in trash mode -->
-          <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Resolution</h4>
             <div class="flex flex-col gap-0.5">
               <div
