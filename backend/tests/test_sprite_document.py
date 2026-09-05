@@ -472,3 +472,68 @@ def test_export_geometry_scale_trim_extrude():
     with pytest.raises(Exception) as excinfo:
         run_sprite_export(source, SpriteExportOptions(format="atlas-hash", max_sheet_size=64))
     assert "over the 64px limit" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_repeated_media_keeps_every_role_in_normalized_content(db_session, sprite_fixture):
+    from container_service import create_container_asset_from_media, get_normalized_container_content
+    from sprite_document import iter_sprite_refs, sprite_member_specs
+
+    doc = json.loads(json.dumps(sprite_fixture['doc']))
+    doc['portrait'] = dict(doc['base_image'])
+    for anim in doc['animations']:
+        anim['anchor'] = dict(doc['base_image'])
+    # Reusing an animation payload must also preserve both move bindings.
+    doc['animations'][1]['animation'] = dict(doc['animations'][0]['animation'])
+    doc['title'] = 'Shared roles'
+    async with db_session() as session:
+        media = await create_media_item(session, file_format='stimmasprite.json', raw_metadata=json.dumps(doc))
+        await create_container_asset_from_media(
+            session, media_id=media.id, container_type='sprite',
+            members=await sprite_member_specs(session, doc), origin_type='test',
+        )
+        content = await get_normalized_container_content(session, container_media=media)
+        refs = dict(iter_sprite_refs(content))
+        assert len(refs) == 6
+        for role, ref in iter_sprite_refs(doc):
+            assert refs[role]['resolved']['media_id'] == ref['media_id']
+
+
+@pytest.mark.parametrize('pinned', [False, True])
+def test_export_preserves_logical_holds_and_timing(tmp_path, pinned):
+    from sprite_export import SpriteExportOptions, run_sprite_export, source_from_content
+
+    a = Image.new('RGBA', (8, 8), 'red')
+    b = Image.new('RGBA', (8, 8), 'blue')
+    path = tmp_path / 'hold.webp'
+    _write_webp(path, [a, a, b], fps=10)
+    ref = {'hash': 'test', 'resolved': {'file_path': str(path)}}
+    if pinned:
+        ref['frame_indices'] = [0, 0, 1]
+    entry = _anim('idle', None, ref, 3, fps=10)
+    expected = [50, 300, 150] if pinned else [100, 100, 100]
+    if pinned:
+        entry['frames'] = [{'duration_ms': ms} for ms in expected]
+    source = source_from_content(_doc('Hold', base=None, portrait=None, animations=[entry]))
+    anim = source.animations[0]
+    assert len(anim.frames) == 3
+    assert [f.getpixel((0, 0)) for f in anim.frames] == [a.getpixel((0, 0)), a.getpixel((0, 0)), b.getpixel((0, 0))]
+    assert anim.durations_ms == expected
+    result = run_sprite_export(source, SpriteExportOptions(format='atlas-array'))
+    with zipfile.ZipFile(io.BytesIO(result.payload)) as zf:
+        atlas = json.loads(zf.read('hold.json'))
+        assert [f['duration'] for f in atlas['frames']] == expected
+        manifest = json.loads(zf.read('manifest.json'))
+        assert manifest['animations'][0]['frame_count'] == 3
+
+
+def test_frame_mapping_rejects_ambiguous_or_invalid_timelines():
+    from sprite_document import sprite_frame_indices
+
+    entry = _anim('idle', None, {'hash': 'test'}, 3, fps=10)
+    assert sprite_frame_indices(entry, [0]) == [0, 0, 0]
+    with pytest.raises(ValueError, match='boundaries'):
+        sprite_frame_indices(entry, [150, 150])
+    entry['animation']['frame_indices'] = [0, 0, 2]
+    with pytest.raises(ValueError, match='frame_indices'):
+        sprite_frame_indices(entry, [200, 100])

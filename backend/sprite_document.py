@@ -216,13 +216,47 @@ async def sprite_member_specs(session: AsyncSession, doc: dict) -> list[dict[str
     content endpoint reports it as unresolved.
     """
     specs: list[dict[str, Any]] = []
-    seen: set[int] = set()
     for role, media in (await resolve_sprite_refs(session, doc)).items():
-        if media is None or media.id in seen:
+        if media is None:
             continue
-        seen.add(media.id)
         specs.append({"embedded_media_id": media.id, "title": role})
     return specs
+
+
+def sprite_frame_indices(entry: dict, encoded_durations: list[int]) -> list[int]:
+    """Map logical document frames onto WebP frames (which can merge holds).
+
+    New documents pin this mapping before timing edits. For older documents,
+    recover it from the original timeline only when its boundaries align.
+    """
+    count = entry["frame_count"]
+    mapping = (entry.get("animation") or {}).get("frame_indices")
+    if mapping is not None:
+        if (not isinstance(mapping, list) or len(mapping) != count
+                or any(type(i) is not int or not 0 <= i < len(encoded_durations) for i in mapping)):
+            raise ValueError("animation.frame_indices must map every document frame to an encoded frame")
+        return mapping
+    if len(encoded_durations) == count:
+        return list(range(count))
+    if len(encoded_durations) == 1:
+        return [0] * count
+    base = max(1, round(1000 / float(entry.get("fps") or 12)))
+    durations = [int(m.get("duration_ms") or base) for m in entry["frames"]]
+    mapping = []
+    index = 0
+    elapsed = 0
+    boundary = encoded_durations[0]
+    for duration in durations:
+        if duration <= 0 or elapsed + duration > boundary:
+            raise ValueError("Encoded frame boundaries do not match the document timeline")
+        mapping.append(index)
+        elapsed += duration
+        if elapsed == boundary and index + 1 < len(encoded_durations):
+            index += 1
+            boundary += encoded_durations[index]
+    if elapsed != sum(encoded_durations):
+        raise ValueError("Encoded duration does not match the document timeline")
+    return mapping
 
 
 def media_payload(media: MediaItem, **extra: Any) -> dict[str, Any]:

@@ -35,8 +35,8 @@
       <div
         ref="stageRef"
         :class="[
-          'relative flex items-center justify-center overflow-hidden',
-          overlay ? 'absolute inset-0' : 'flex-1 min-h-0 w-full bg-slideshow-matt rounded-media',
+          'flex items-center justify-center overflow-hidden',
+          overlay ? 'absolute inset-0' : 'relative flex-1 min-h-0 w-full bg-slideshow-matt rounded-media',
         ]"
       >
         <canvas
@@ -140,8 +140,13 @@
 
       <!-- Animation chips -->
       <div
-        v-if="!overlay && (names.length > 1 || directions.length > 1)"
-        class="flex-shrink-0 flex flex-wrap items-center gap-1.5 px-1 pt-2.5 pb-0.5 cursor-default"
+        v-if="names.length > 1 || directions.length > 1"
+        :class="[
+          'flex-shrink-0 flex flex-wrap items-center gap-1.5 cursor-default',
+          overlay
+            ? 'absolute left-1/2 bottom-16 -translate-x-1/2 w-[min(520px,90%)] max-h-[35%] overflow-y-auto px-3 py-2 rounded-lg bg-black/85 backdrop-blur'
+            : 'px-1 pt-2.5 pb-0.5',
+        ]"
         @click.stop
         @contextmenu.stop
         @pointerdown.stop
@@ -191,6 +196,7 @@ import axios from 'axios'
 import { ArrowPathIcon, BackwardIcon, ForwardIcon, PauseIcon, PlayIcon } from '@heroicons/vue/24/solid'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { makeProfileKey } from '../../utils/storageKeys'
+import { nextSpriteFrame, spriteFrameIndices } from '../../utils/spritePlayback.js'
 
 const props = defineProps({
   mediaId: { type: [Number, String], required: true },
@@ -227,6 +233,7 @@ const readoutMode = ref('frames')
 const stageSize = ref({ width: 0, height: 0 })
 const pixelated = ref(false)
 
+let playbackDirection = 1
 let timer = null
 let decodeToken = 0
 let resizeObserver = null
@@ -293,6 +300,7 @@ async function loadContent() {
           loopStart: Number(a.loop_start) || 0,
           loopEnd: a.loop_end != null ? Number(a.loop_end) : Math.max(0, (a.frame_count || durations.length) - 1),
           frameCount: a.frame_count || durations.length,
+          frameIndices: a.animation.frame_indices,
           durations,
           url: resolved ? getMediaFileUrl(resolved.file_hash || resolved.media_id) : null,
         }
@@ -325,7 +333,7 @@ function selectDirection(direction) {
 // --- decoding -------------------------------------------------------------
 
 function releaseFrames() {
-  for (const bitmap of frames.value) {
+  for (const bitmap of new Set(frames.value)) {
     try { bitmap.close?.() } catch { /* ignore */ }
   }
   frames.value = []
@@ -338,6 +346,8 @@ async function decodeCurrent() {
   releaseFrames()
   decoded.value = false
   frameIndex.value = 0
+  playbackDirection = 1
+  loop.value = anim?.loop !== 'once'
   if (!anim?.url) return
   if (typeof window === 'undefined' || typeof window.ImageDecoder !== 'function') {
     // Fallback: the <img> plays the animated WebP natively; no frame control.
@@ -354,9 +364,11 @@ async function decodeCurrent() {
     const track = decoder.tracks.selectedTrack
     const count = track ? track.frameCount : 0
     const bitmaps = []
+    const encodedDurations = []
     for (let i = 0; i < count; i++) {
       const { image } = await decoder.decode({ frameIndex: i })
       const bitmap = await createImageBitmap(image)
+      encodedDurations.push(Math.round((image.duration || 0) / 1000))
       image.close?.()
       bitmaps.push(bitmap)
       if (token !== decodeToken) {
@@ -366,7 +378,17 @@ async function decodeCurrent() {
       }
     }
     decoder.close?.()
-    frames.value = bitmaps
+    let mapping
+    try {
+      mapping = spriteFrameIndices(anim, encodedDurations)
+    } catch (e) {
+      bitmaps.forEach(b => b.close?.())
+      error.value = e.message
+      return
+    }
+    frames.value = mapping.map(i => bitmaps[i])
+    const used = new Set(mapping)
+    bitmaps.forEach((b, i) => { if (!used.has(i)) b.close?.() })
     decoded.value = bitmaps.length > 0
     await nextTick()
     measureStage()
@@ -404,16 +426,16 @@ function advance() {
   if (!anim || !playing.value) return
   const last = Math.min(anim.loopEnd, frames.value.length - 1)
   const first = Math.min(anim.loopStart, last)
-  if (frameIndex.value >= last) {
-    if (loop.value) {
-      frameIndex.value = first
-    } else {
-      playing.value = false
-      draw()
-      return
-    }
-  } else {
-    frameIndex.value += 1
+  const next = nextSpriteFrame({
+    index: frameIndex.value, direction: playbackDirection, first, last,
+    looping: loop.value, mode: anim.loop,
+  })
+  frameIndex.value = next.index
+  playbackDirection = next.direction
+  playing.value = next.playing
+  if (!next.playing) {
+    draw()
+    return
   }
   draw()
   scheduleNext()
@@ -421,6 +443,11 @@ function advance() {
 
 function start() {
   if (!decoded.value) return
+  if (!loop.value && frameIndex.value >= Math.min(current.value.loopEnd, frames.value.length - 1)) {
+    frameIndex.value = 0
+    playbackDirection = 1
+    draw()
+  }
   playing.value = true
   if (timer) clearTimeout(timer)
   scheduleNext()
@@ -446,6 +473,7 @@ function togglePlay() {
 function step(delta) {
   if (!decoded.value) return
   stopPlayback()
+  playbackDirection = 1
   const n = frames.value.length
   frameIndex.value = (frameIndex.value + delta + n) % n
   draw()
@@ -458,6 +486,7 @@ function onScrubPointer(event) {
   const n = frames.value.length
   const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0
   stopPlayback()
+  playbackDirection = 1
   frameIndex.value = Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))))
   draw()
 }

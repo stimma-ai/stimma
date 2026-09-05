@@ -198,10 +198,16 @@ def source_from_content(content: dict, *, media_id: Optional[int] = None) -> Spr
         if not path or not Path(path).exists():
             missing.append(key)
             continue
+        from sprite_document import sprite_frame_indices
+
         frames, embedded = _decode_animation(path)
         if not frames:
             missing.append(key)
             continue
+        try:
+            frames = [frames[i] for i in sprite_frame_indices(entry, embedded)]
+        except ValueError as exc:
+            raise SpriteExportError(f"{key}: {exc}") from exc
         fps = float(entry.get("fps") or 12)
         base_ms = max(1, round(1000 / fps))
         overrides = [m.get("duration_ms") if isinstance(m, dict) else None for m in entry.get("frames") or []]
