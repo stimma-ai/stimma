@@ -27,6 +27,17 @@ async function longPress(page: Page, selector: string, ms = 650) {
   await cdp.detach();
 }
 
+/** A real touch tap (touchstart/touchend) at an element's centre. */
+async function tap(page: Page, locatorSel: string) {
+  const box = await page.locator(locatorSel).first().boundingBox();
+  if (!box) throw new Error(`no box for ${locatorSel}`);
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
 async function swipe(page: Page, from: [number, number], to: [number, number]) {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from[0], y: from[1] }] });
@@ -47,6 +58,23 @@ test.describe('phone lane: media touch paths', () => {
     await run.click();
     const [media] = await waitForGeneratedMedia(page, {});
     await shot(page, 'tool-after-run');
+
+    // Drawer: tap the handle to half, drag to full; the handle and a slice of
+    // the hero stay visible at every height.
+    const handleSel = '[aria-label="Toggle controls"]';
+    const handle = page.locator(handleSel);
+    await tap(page, handleSel);
+    await page.waitForTimeout(350);
+    await shot(page, 'tool-drawer-half');
+    const box = await handle.boundingBox();
+    expect(box!.y, 'handle stays below the header').toBeGreaterThan(96);
+    await swipe(page, [195, box!.y + 4], [195, 80]);
+    await page.waitForTimeout(400);
+    await shot(page, 'tool-drawer-full');
+    const full = await handle.boundingBox();
+    expect(full!.y, 'handle visible at full height').toBeGreaterThan(48 + 96 - 8);
+    await tap(page, handleSel);
+    await page.waitForTimeout(350);
 
     // Leaving and coming back through the tools list keeps the prompt.
     await page.goto('/tools');

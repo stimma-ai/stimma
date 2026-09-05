@@ -29,11 +29,18 @@ const rootEl = ref<HTMLElement | null>(null)
 const promptEl = ref<HTMLElement | null>(null)
 const dragPx = ref<number | null>(null)
 
-function viewportH() { return window.innerHeight }
+// Heights come from the space the drawer actually has (its flex parent:
+// hero + strip + drawer), never from the window, so full height can never
+// push the handle out of view. `heroReserve` is what stays visible above.
+const HERO_RESERVE = 96
+function availableH() {
+  const parent = rootEl.value?.parentElement
+  return parent ? parent.clientHeight : window.innerHeight - props.chromeReserve
+}
 function heightFor(l: Level): number | null {
   if (l === 'collapsed') return null
-  if (l === 'half') return Math.round(viewportH() * 0.52)
-  return viewportH() - props.chromeReserve
+  if (l === 'half') return Math.round(availableH() * 0.55)
+  return availableH() - HERO_RESERVE
 }
 const style = computed(() => {
   if (dragPx.value !== null) return { height: `${dragPx.value}px`, transition: 'none' }
@@ -59,7 +66,7 @@ function onPointerMove(e: PointerEvent) {
   if (Math.abs(dy) > 4) moved = true
   if (!moved) return
   const collapsedH = collapsedHeight()
-  dragPx.value = Math.max(collapsedH, Math.min(viewportH() - props.chromeReserve, startH + dy))
+  dragPx.value = Math.max(collapsedH, Math.min(availableH() - HERO_RESERVE, startH + dy))
 }
 function onPointerUp() {
   if (!moved) {
@@ -142,7 +149,7 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
 <template>
   <div
     ref="rootEl"
-    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
+    class="tool-drawer flex-none flex flex-col min-h-0 max-h-[calc(100%-96px)] overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
     :style="style"
     :data-level="level"
   >
