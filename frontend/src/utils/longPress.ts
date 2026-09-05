@@ -38,6 +38,7 @@ function onTouchStart(e: TouchEvent) {
     })
     ;(ev as unknown as { stimmaSynthetic: boolean }).stimmaSynthetic = true
     target.dispatchEvent(ev)
+    hoverSuppressUntil = Date.now() + 1000
     try { navigator.vibrate?.(10) } catch { /* no haptics */ }
   }, LONG_PRESS_MS)
 }
@@ -60,6 +61,15 @@ function onClick(e: MouseEvent) {
   if (fired) { fired = false; e.preventDefault(); e.stopImmediatePropagation() }
 }
 
+// After a touch ends, browsers replay compatibility mouse events (mousemove,
+// mouseover, mouseenter) at the touch point. With a sheet now under that
+// point, those would "hover" a row and pop its submenu. There is no hover on
+// a phone; swallow them for a moment after a long-press.
+let hoverSuppressUntil = 0
+function onCompatHover(e: Event) {
+  if (Date.now() < hoverSuppressUntil) e.stopImmediatePropagation()
+}
+
 export function installLongPressContextMenu() {
   if (typeof window === 'undefined') return
   if (!useViewport().isCoarsePointer.value) return
@@ -69,4 +79,7 @@ export function installLongPressContextMenu() {
   document.addEventListener('touchcancel', onTouchEnd, { passive: true, capture: true })
   document.addEventListener('contextmenu', onContextMenu, true)
   document.addEventListener('click', onClick, true)
+  for (const type of ['mousemove', 'mouseover', 'mouseenter', 'pointerover', 'pointerenter']) {
+    document.addEventListener(type, onCompatHover, true)
+  }
 }

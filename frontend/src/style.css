@@ -744,14 +744,52 @@ select option {
 /* Context menus rendered as bottom sheets on coarse pointers
    (useContextMenuPosition sets data-sheet-menu). Rows grow to touch size;
    the menu itself is placed by SHEET_MENU_STYLE. */
-[data-sheet-menu] { box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.55); }
+[data-sheet-menu] {
+  /* The huge upward shadow doubles as the backdrop: one element, no
+     teleported scrim to keep in sync with the menu's own open/close. */
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45), 0 -100vh 0 100vh rgba(7, 9, 15, 0.55);
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  animation: sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: none !important;
+  opacity: 1 !important;
+  overscroll-behavior: contain;
+}
+/* Grab handle. */
+[data-sheet-menu]::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--color-overlay-light);
+}
+@keyframes sheet-up {
+  from { transform: translateY(32px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+/* The desktop menu transition (fade + scale from the click point) never
+   applies to a sheet; the keyframe above is its motion. */
+[data-sheet-menu].menu-enter-from,
+[data-sheet-menu].menu-leave-to { transform: none; opacity: 1; }
 [data-sheet-menu] > button,
 [data-sheet-menu] > div > button,
 [data-sheet-menu] [role="menuitem"] {
-  min-height: 46px;
+  min-height: 48px;
+  padding-left: 20px;
+  padding-right: 20px;
   font-size: 15px;
 }
 [data-sheet-menu] .text-xs { font-size: 14px; }
+[data-sheet-menu] .icon-container { width: 1.5rem; height: 1.5rem; }
+[data-sheet-menu] .icon-container svg { width: 100%; height: 100%; }
+[data-sheet-menu] .text-\[11px\],
+[data-sheet-menu] .text-\[12px\] { font-size: 13px; }
+[data-sheet-menu] svg.w-4, [data-sheet-menu] svg.w-3\.5 { width: 1.25rem; height: 1.25rem; }
 
 /* Tool view queue on phones: one horizontal strip of small tiles under the
    hero (the rail's grid/column modes are desktop compositions). */

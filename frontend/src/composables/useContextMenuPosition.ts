@@ -170,10 +170,13 @@ export const SHEET_MENU_STYLE: Record<string, string> = {
   top: 'auto',
   width: '100%',
   minWidth: '0',
-  maxHeight: '80dvh',
+  maxHeight: '62dvh',
   overflowY: 'auto',
-  borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+  borderRadius: '12px 12px 0 0',
+  paddingTop: '18px',
   paddingBottom: 'calc(0.5rem + var(--safe-bottom))',
+  // The rest of the sheet grammar (handle, backdrop, slide-up, row sizing)
+  // lives in style.css under [data-sheet-menu].
 }
 
 /**
@@ -193,6 +196,11 @@ export function useAnchoredMenuPosition(
   let appliedCap: number | null = null
 
   function reposition() {
+    if (isCoarsePointer.value) {
+      style.value = { ...SHEET_MENU_STYLE }
+      menuRef.value?.setAttribute('data-sheet-menu', '')
+      return
+    }
     const el = menuRef.value
     const anchor = anchorRect.value
     if (!el || !anchor || !visible.value) return
