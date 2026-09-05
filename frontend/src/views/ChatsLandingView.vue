@@ -129,14 +129,14 @@
               <template v-else>
                 <span
                   v-if="chat.name"
-                  @click.stop="!isCompact && startEditingChatName(chat)"
+                  @click="onNameTap(chat, $event)"
                   class="text-[14px] text-content font-medium truncate cursor-pointer hover:text-content"
                 >
                   {{ chat.name }}
                 </span>
                 <span
                   v-else
-                  @click.stop="!isCompact && startEditingChatName(chat)"
+                  @click="onNameTap(chat, $event)"
                   class="text-[14px] text-content-muted italic truncate cursor-pointer hover:text-content-secondary"
                 >
                   New chat
@@ -608,6 +608,13 @@ function formatRelativeTime(dateStr) {
 }
 
 // Inline editing functions
+// Desktop: the name is a tap-to-edit target. Compact: it is just the row.
+function onNameTap(chat, event) {
+  if (isCompact.value) return
+  event.stopPropagation()
+  startEditingChatName(chat)
+}
+
 function startEditingChatName(chat) {
   editingChatId.value = chat.id
   editingName.value = chat.name || ''

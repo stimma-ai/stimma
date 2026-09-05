@@ -19,9 +19,9 @@ const HUB_TITLES: Record<string, string> = {
   upload: 'Upload',
   boards: 'Boards',
   chats: 'Chats',
-  workspace: 'Workspace',
-  'all-tools': 'Workspace',
-  flows: 'Workspace',
+  workspace: 'Open',
+  'all-tools': 'Tools',
+  flows: 'Flows',
   projects: 'Projects',
 }
 
@@ -34,7 +34,7 @@ const DETAIL_FALLBACKS: Record<string, string> = {
   'edit-image': 'Edit',
 }
 
-export type HubId = 'home' | 'library' | 'workspace' | 'boards' | 'chats'
+export type HubId = 'home' | 'library' | 'workspace' | 'chats'
 
 /** Which hub a route belongs to. Detail routes light their parent hub. */
 export function hubForRoute(name: unknown): HubId | null {
@@ -42,9 +42,10 @@ export function hubForRoute(name: unknown): HubId | null {
     case 'home': return 'home'
     case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.
+    // Tools hub: tools, flows, boards, projects, and every detail of those.
     case 'workspace': case 'all-tools': case 'flows': case 'tool': case 'flow':
-    case 'edit-image': case 'lineage': case 'projects': return 'workspace'
-    case 'boards': case 'board-detail': return 'boards'
+    case 'edit-image': case 'lineage': case 'projects':
+    case 'boards': case 'board-detail': return 'workspace'
     case 'chats': case 'chat': return 'chats'
     default:
       if (typeof name === 'string' && name.startsWith('project-')) return 'workspace'
@@ -53,7 +54,7 @@ export function hubForRoute(name: unknown): HubId | null {
 }
 
 export const HUB_ROOTS: Record<HubId, string> = {
-  home: '/home', library: '/browse', workspace: '/workspace', boards: '/boards', chats: '/chats',
+  home: '/home', library: '/browse', workspace: '/tools', chats: '/chats',
 }
 
 const routeTitle = ref<string>('')
@@ -102,10 +103,10 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     return 'Stimma'
   })
   const subtitle = computed(() => routeSubtitle.value)
-  // The Workspace hub owns four landings as segments.
+  // The Tools hub owns four landings as segments: Tools · Flows · Boards · Projects.
   const workspaceSegments = computed(() => {
     const name = typeof route.name === 'string' ? route.name : ''
-    return ['workspace', 'all-tools', 'flows'].includes(name)
+    return ['all-tools', 'flows', 'boards', 'projects'].includes(name)
   })
   return { surface, isHub, title, subtitle, workspaceSegments, primaryAction, menuItems }
 }

@@ -66,7 +66,7 @@
                 v-else
                 class="truncate text-[14px] leading-tight font-brand font-semibold"
                 :class="project.name ? 'text-content' : 'italic text-content-muted'"
-                @click.stop="!project.name && !isCompact && startEditing(project)"
+                @click="onNameTap(project, $event)"
               >
                 {{ project.name || 'Name this project...' }}
               </h2>
@@ -278,6 +278,12 @@ function formatRelativeTime(value) {
 function handleCardClick(event, project) {
   if (editingProjectId.value === project.id) return
   openProject(project.id)
+}
+
+function onNameTap(project, event) {
+  if (isCompact.value || project.name) return
+  event.stopPropagation()
+  startEditing(project)
 }
 
 async function startEditing(project) {

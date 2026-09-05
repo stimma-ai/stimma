@@ -21,9 +21,9 @@ test.describe('phone lane: two-layer navigation', () => {
     await page.locator('.cursor-pointer.group').filter({ hasText: 'Nav stack chat' }).first().click({ position: { x: 300, y: 24 } });
     await expect(page).toHaveURL(new RegExp(`/chat/${chat.id}$`));
 
-    // Switch hub: Boards. Then back to Chats: the chat is still there.
-    await tab('Boards').click();
-    await expect(page).toHaveURL(/\/boards$/);
+    // Switch hub: Assets. Then back to Chats: the chat is still there.
+    await tab('Assets').click();
+    await expect(page).toHaveURL(/\/browse$/);
     await tab('Chats').click();
     await expect(page).toHaveURL(new RegExp(`/chat/${chat.id}$`));
 
@@ -35,18 +35,29 @@ test.describe('phone lane: two-layer navigation', () => {
     // the OS back gesture and the tab bar are the way out, as on native.
     await expect(back).toHaveCount(0);
 
-    // Workspace: open a tool, back returns to Workspace, not Library.
-    await tab('Workspace').click();
+    // Tools: open a tool, back returns to the Tools hub, not Assets.
+    await tab('Tools').click();
     await page.goto(`/tools/test:text-to-image:test-model`);
     await settleAnyViewport(page);
     await expect(page.locator('.compact-header h1')).toContainText('Test Text-to-Image');
     await back.click();
-    await expect(page).toHaveURL(/\/(workspace|tools)$/);
+    await expect(page).toHaveURL(/\/tools$/);
 
     // Tapping the active tab pops to root.
     await page.goto(`/tools/test:text-to-image:test-model`);
     await settleAnyViewport(page);
-    await tab('Workspace').click();
-    await expect(page).toHaveURL(/\/(workspace|tools)$/);
+    await tab('Tools').click();
+    await expect(page).toHaveURL(/\/tools$/);
+
+    // Boards and Projects are segments of the Tools hub, and light its tab.
+    await page.getByRole('tab', { name: 'Boards' }).click();
+    await expect(page).toHaveURL(/\/boards$/);
+    await expect(tab('Tools')).toHaveClass(/accent/);
+
+    // The switcher lists what is open, from any screen, and dismisses on a tap outside.
+    await page.getByRole('button', { name: 'Open items' }).click();
+    await expect(page.locator('[data-sheet-layer]')).toContainText('Nav stack chat');
+    await page.mouse.click(200, 80);
+    await expect(page.locator('[data-sheet-layer]')).toHaveCount(0);
   });
 });

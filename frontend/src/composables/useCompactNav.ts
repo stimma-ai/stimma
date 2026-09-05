@@ -32,7 +32,6 @@ const state = reactive<NavState>({
     home: [HUB_ROOTS.home],
     library: [HUB_ROOTS.library],
     workspace: [HUB_ROOTS.workspace],
-    boards: [HUB_ROOTS.boards],
     chats: [HUB_ROOTS.chats],
   },
   hubHistory: [],
@@ -45,7 +44,11 @@ let driving: 'pop' | 'switch' | null = null
 
 function top(hub: HubId): string {
   const s = state.stacks[hub]
-  return s[s.length - 1] ?? HUB_ROOTS[hub]
+  // A stack must stand on its hub's root; anything else is stale (a root
+  // that moved under a live session) and starts over.
+  if (s[0] !== HUB_ROOTS[hub]) state.stacks[hub] = [HUB_ROOTS[hub]]
+  const t = state.stacks[hub]
+  return t[t.length - 1] ?? HUB_ROOTS[hub]
 }
 
 function isRoot(hub: HubId, path: string): boolean {

@@ -774,7 +774,8 @@ select option {
   background: transparent;
   border: 0;
 }
-.sheet-row > svg:first-child, .sheet-row > .sheet-row-icon { width: var(--sheet-icon); height: var(--sheet-icon); flex: none; color: var(--color-content-secondary); }
+.sheet-row > svg:first-child, .sheet-row .sheet-row-icon { width: var(--sheet-icon); height: var(--sheet-icon); flex: none; overflow: hidden; color: var(--color-content-secondary); display: inline-flex; align-items: center; justify-content: center; }
+.sheet-row .sheet-row-icon > *, .sheet-row .sheet-row-icon svg, .sheet-row .sheet-row-icon img { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; }
 .sheet-row .sheet-row-detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--sheet-font-detail); color: var(--color-content-tertiary); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-section { padding: 10px var(--sheet-row-px) 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-content-tertiary); }
 /* Sheets scroll by touch; a scrollbar is desktop furniture. */

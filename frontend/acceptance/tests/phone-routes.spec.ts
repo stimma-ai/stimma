@@ -17,7 +17,6 @@ import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyVi
 const ROUTES = [
   '/home',
   '/browse',
-  '/workspace',
   '/search?q=test',
   '/boards',
   '/chats',

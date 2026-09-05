@@ -1,18 +1,19 @@
 <script setup lang="ts">
 /**
- * The compact-viewport tab bar (DESIGN.md §1.11). Five hubs, nothing else:
- * Home · Assets · Workspace · Boards · Chats. Persistent on hub and detail
- * routes; App.vue hides it for overlays. Tapping the active hub pops to its
- * root. Workspace is the desktop sidebar's zone 2 (pinned + open tabs) as a
- * hub; it also owns the Tools and Flows landings as segments.
+ * The compact-viewport tab bar (DESIGN.md §1.11). Four hubs, nothing else:
+ * Home · Chats · Assets · Tools. Persistent on hub and detail routes;
+ * App.vue hides it for overlays. Tapping the active hub pops to its root.
+ * The Tools hub owns Tools · Flows · Boards · Projects as segments. The
+ * working set (open tools, chats, boards, edits) is not a hub: it is the
+ * header's switcher, available everywhere.
  */
 import { computed } from 'vue'
 import {
-  HomeIcon, Squares2X2Icon, Square3Stack3DIcon, RectangleStackIcon, ChatBubbleLeftIcon,
+  HomeIcon, Squares2X2Icon, WrenchScrewdriverIcon, ChatBubbleLeftIcon,
 } from '@heroicons/vue/24/outline'
 import {
-  HomeIcon as HomeSolid, Squares2X2Icon as GridSolid, Square3Stack3DIcon as StackSolid,
-  RectangleStackIcon as BoardsSolid, ChatBubbleLeftIcon as ChatSolid,
+  HomeIcon as HomeSolid, Squares2X2Icon as GridSolid, WrenchScrewdriverIcon as WrenchSolid,
+  ChatBubbleLeftIcon as ChatSolid,
 } from '@heroicons/vue/24/solid'
 import { useWorkspaceTabs } from '../../composables/useWorkspaceTabs'
 import { type HubId } from '../../composables/useCompactChrome'
@@ -20,10 +21,9 @@ import { useCompactNav } from '../../composables/useCompactNav'
 
 const HUBS: Array<{ id: HubId; label: string; to: string; icon: any; solid: any }> = [
   { id: 'home', label: 'Home', to: '/home', icon: HomeIcon, solid: HomeSolid },
-  { id: 'library', label: 'Assets', to: '/browse', icon: Squares2X2Icon, solid: GridSolid },
-  { id: 'workspace', label: 'Workspace', to: '/workspace', icon: Square3Stack3DIcon, solid: StackSolid },
-  { id: 'boards', label: 'Boards', to: '/boards', icon: RectangleStackIcon, solid: BoardsSolid },
   { id: 'chats', label: 'Chats', to: '/chats', icon: ChatBubbleLeftIcon, solid: ChatSolid },
+  { id: 'library', label: 'Assets', to: '/browse', icon: Squares2X2Icon, solid: GridSolid },
+  { id: 'workspace', label: 'Tools', to: '/tools', icon: WrenchScrewdriverIcon, solid: WrenchSolid },
 ]
 
 const { openTabs, editorTabs } = useWorkspaceTabs()

@@ -267,12 +267,17 @@ that a desktop-sized window never trips.
   the compact tier in a desktop window for dev and tests. Tailwind `md:` =
   medium, `lg:` = wide — the same lines.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
-  `overlay`. Wide = sidebar + top bar. Compact = a five-slot tab bar (Home ·
-  Library · Workspace · Boards · Chats) on hub AND detail routes, plus a
-  48px header (avatar or back chevron, title, at most two actions).
-  Overlays (slideshow, compare, image editor, PIN lock, connection screen)
-  and the open keyboard hide the tab bar. A view never renders its own
-  navigation chrome.
+  `overlay`. Wide = sidebar + top bar. Compact = a four-slot tab bar (Home ·
+  Chats · Assets · Tools) on hub AND detail routes, plus a 60px header
+  (avatar or back chevron, title, then the right strip: switcher, the
+  transient background-work indicator, provider managers, search, create).
+  The Tools hub carries Tools · Flows · Boards · Projects as segments. The
+  working set (open tools, chats, boards, edits) is not a hub: it is the
+  header's switcher sheet, reachable from every screen, backed by the same
+  workspace-tab store as the desktop sidebar's zone 2. Overlays (slideshow,
+  compare, image editor, PIN lock, connection screen) and the open keyboard
+  hide the tab bar; an overlay carries its own back control. A view never
+  renders its own navigation chrome.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.
