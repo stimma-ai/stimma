@@ -25,6 +25,7 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import SearchResultsView from '../views/SearchResultsView.vue'
+import WorkspaceView from '../views/WorkspaceView.vue'
 import ForeachMockView from '../views/ForeachMockView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 
@@ -52,6 +53,14 @@ const routes = [
     name: 'home',
     meta: { surface: 'hub' },
     component: HomeView
+  },
+  {
+    // Compact-viewport hub: the working set (pinned + open tabs). On wide
+    // viewports the sidebar shows the same data, so this redirects home.
+    path: '/workspace',
+    name: 'workspace',
+    component: WorkspaceView,
+    meta: { surface: 'hub' }
   },
   {
     path: '/browse',

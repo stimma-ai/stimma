@@ -731,3 +731,12 @@ select option {
   .pl-safe { padding-left: var(--safe-left); }
   .pr-safe { padding-right: var(--safe-right); }
 }
+
+/* Bottom sheet (ui/Sheet.vue): backdrop fades, panel slides up. 180ms in,
+   120ms out — the reveal tier, not the menu tier, because a sheet moves. */
+.sheet-enter-active { transition: opacity 180ms ease; }
+.sheet-enter-active > .sheet-panel { transition: transform 180ms ease; }
+.sheet-leave-active { transition: opacity 120ms ease; }
+.sheet-leave-active > .sheet-panel { transition: transform 120ms ease; }
+.sheet-enter-from, .sheet-leave-to { opacity: 0; }
+.sheet-enter-from > .sheet-panel, .sheet-leave-to > .sheet-panel { transform: translateY(24px); }

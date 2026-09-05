@@ -131,6 +131,31 @@
     <router-view />
   </div>
 
+  <!-- Compact chrome (phones): header + content + tab bar. DESIGN.md §1.11.
+       The sidebar and top bar do not exist here; their contents live in the
+       header's account sheet, the Workspace hub, and the Library scope. -->
+  <div v-else-if="isCompact" v-scroll-guard class="w-full h-[100dvh] flex flex-col overflow-hidden bg-base">
+    <SettingsModal
+      :show="settingsOpen"
+      :initial-section="settingsSection"
+      @close="closeSettings"
+    />
+    <CompactHeader v-if="!compactOverlay" @open-settings="openSettings($event)" />
+    <ProjectScopeBar
+      v-if="projectChrome.project && !slideshowActive && !compactOverlay"
+      :project="projectChrome.project"
+      :active-name="projectChrome.activeRouteName"
+    />
+    <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
+      <router-view v-slot="{ Component, route }">
+        <KeepAlive :max="20">
+          <component :is="Component" :key="getComponentKey(route)" />
+        </KeepAlive>
+      </router-view>
+    </div>
+    <CompactTabBar v-if="!compactOverlay && !slideshowActive" />
+  </div>
+
   <!-- Normal app with sidebar and topbar -->
   <div v-else v-scroll-guard class="w-full h-screen flex overflow-hidden bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
@@ -197,6 +222,9 @@ const vScrollGuard = {
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import { useViewport } from './composables/useViewport'
+import { clearCompactTitle } from './composables/useCompactChrome'
+import CompactHeader from './components/compact/CompactHeader.vue'
+import CompactTabBar from './components/compact/CompactTabBar.vue'
 import Spinner from './components/ui/Spinner.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
@@ -482,6 +510,10 @@ async function resolveProjectChrome() {
 // isCompact is false and nothing here changes.
 const { isCompact } = useViewport()
 const isMobile = isCompact
+// Overlay routes (onboarding, image editor) take the whole screen on compact.
+const compactOverlay = computed(() => route.meta?.surface === 'overlay')
+// A detail view's title must not outlive its route.
+watch(() => route.fullPath, () => clearCompactTitle())
 
 function openSidebar() {
   sidebarOpen.value = true

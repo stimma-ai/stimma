@@ -17,6 +17,7 @@ import { auditHitTargets, auditHorizontalOverflow, expectNoOverflow, settleAnyVi
 const ROUTES = [
   '/home',
   '/browse',
+  '/workspace',
   '/search?q=test',
   '/boards',
   '/chats',
@@ -30,17 +31,19 @@ const ROUTES = [
 
 // Ratchet. Everything starts here; the chrome PR and each hub PR delete rows.
 const KNOWN_BAD: Record<string, { overflow?: boolean; hitTargets?: boolean }> = {
-  '/home': { overflow: true, hitTargets: true },
-  '/browse': { overflow: true, hitTargets: true },
-  '/search?q=test': { overflow: true, hitTargets: true },
+  // Overflow is clean on every hub since the compact chrome landed, except
+  // the Boards landing's fixed-width search field. Hit targets are the
+  // per-hub PRs' job; each one deletes its row here.
+  '/home': { hitTargets: true },
+  '/browse': { hitTargets: true },
+  '/search?q=test': { hitTargets: true },
   '/boards': { overflow: true, hitTargets: true },
-  '/chats': { overflow: true, hitTargets: true },
-  '/flows': { overflow: true, hitTargets: true },
-  '/projects': { overflow: true, hitTargets: true },
-  '/tools': { overflow: true, hitTargets: true },
-  '/stimpacks': { overflow: true, hitTargets: true },
-  '/trash': { overflow: true, hitTargets: true },
-  '/upload': { overflow: true, hitTargets: true },
+  '/chats': { hitTargets: true },
+  '/flows': { hitTargets: true },
+  '/projects': { hitTargets: true },
+  '/tools': { hitTargets: true },
+  '/trash': { hitTargets: true },
+  '/upload': { hitTargets: true },
 };
 
 test.describe('phone lane: route audit', () => {

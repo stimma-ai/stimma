@@ -24,7 +24,8 @@ export async function settleAnyViewport(page: Page) {
       continue;
     }
     if (await dismiss.isVisible({ timeout: 250 }).catch(() => false)) {
-      await dismiss.click();
+      await dismiss.click({ timeout: 3000, force: true }).catch(() => {});
+      await page.waitForTimeout(300);
       continue;
     }
     const ready = await page.evaluate(() => {
