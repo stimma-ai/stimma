@@ -26,6 +26,8 @@ def main():
     parser.add_argument('--image', default='stimma-headless:test')
     args = parser.parse_args()
     image = args.image
+    # Bind-mounted fixtures belong to the runner (GitHub uses UID 1001).
+    fixture_user = f'{os.getuid()}:{os.getgid()}'
     archives = list((ROOT / 'dist-headless').glob('*.tar.gz'))
     if len(archives) != 1:
         raise RuntimeError('Build one headless package before running smoke')
@@ -40,7 +42,7 @@ def main():
         key = root / 'tls.key'
         run('openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(key), '-out', str(cert),
             '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        run('docker', 'run', '--rm', '-v', f'{root}:/fixture', '--entrypoint', 'minisign', image,
+        run('docker', 'run', '--rm', '--user', fixture_user, '-v', f'{root}:/fixture', '--entrypoint', 'minisign', image,
             '-G', '-W', '-p', '/fixture/test.pub', '-s', '/fixture/test.key', stdout=subprocess.DEVNULL)
         # Only serve fixture files. Never serve the ephemeral private signing key.
         public = root / 'public'
@@ -67,7 +69,7 @@ def main():
             manifest.update(version=version, minimumBootstrapVersion=minimum)
             payload = root / 'manifest.json'
             payload.write_text(json.dumps(manifest))
-            run('docker', 'run', '--rm', '-v', f'{root}:/fixture', '--entrypoint', 'minisign', image,
+            run('docker', 'run', '--rm', '--user', fixture_user, '-v', f'{root}:/fixture', '--entrypoint', 'minisign', image,
                 '-Sm', '/fixture/manifest.json', '-s', '/fixture/test.key', stdout=subprocess.DEVNULL)
             envelope = {'payload': base64.b64encode(payload.read_bytes()).decode(),
                         'signature': base64.b64encode((root / 'manifest.json.minisig').read_bytes()).decode()}
@@ -96,7 +98,7 @@ def main():
                 time.sleep(2)
             raise RuntimeError('Container did not become ready')
         try:
-            docker('run', '-d', '--name', name, '--network', 'host', '-v', f'{data}:/data',
+            docker('run', '-d', '--name', name, '--user', fixture_user, '--network', 'host', '-v', f'{data}:/data',
                    '-v', f'{root}/test.pub:/opt/stimma/updater.pub:ro', '-v', f'{cert}:/opt/stimma/test-ca.pem:ro',
                    '-e', 'SSL_CERT_FILE=/opt/stimma/test-ca.pem', '-e', f'STIMMA_UPDATE_BASE_URL={base}',
                    '-e', f'STIMMA_CLOUD_BASE_URL={base}', '-e', f'STIMMA_LOCAL_PORT={port}', '-e', f"BRANCH={manifest['branch']}", image)
