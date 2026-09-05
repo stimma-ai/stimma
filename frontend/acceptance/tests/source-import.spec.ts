@@ -65,16 +65,14 @@ test.describe('Source folder import acceptance', () => {
       return asset ? { asset, total: response.total } : null;
     }, 30000);
 
-    // This is the product contract: the browser was already open before the
-    // Source was configured, and its count/cache update without navigation or
-    // reload. copyFile preserves the fixture's old filesystem date, so under
-    // Newest First the imported Asset belongs at the bottom of a populated
-    // acceptance library rather than at the visible top.
+    // The browser was already open before the Source was configured. Verify
+    // its count and grid update without navigation or reload. Newest First
+    // places the newly created Asset at the top, regardless of fixture age.
     await expect(page.getByText(`${importedAssetResult.total} items`, { exact: true })).toBeVisible({
       timeout: 30000,
     });
     await page.locator('.media-grid-container').evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
+      element.scrollTop = 0;
       element.dispatchEvent(new Event('scroll'));
     });
     await expect(page.getByTestId(`media-grid-item-${importedAssetResult.asset.id}`)).toBeVisible({
