@@ -1,5 +1,5 @@
 <template>
-  <div class="w-52 flex-shrink-0 border-r border-edge py-4 flex flex-col">
+  <div class="w-52 flex-shrink-0 border-r border-edge py-4 flex flex-col overflow-y-auto">
     <nav class="flex flex-col gap-0.5 px-3 flex-1">
       <!-- Profile header with dropdown -->
       <div class="relative mb-2">
@@ -39,7 +39,7 @@
         v-for="section in profileSections"
         :key="section.id"
         @click="$emit('select', section.id)"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer compact:min-h-11 compact:text-[15px]"
         :class="activeSection === section.id
           ? 'bg-overlay-light text-content'
           : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
@@ -58,7 +58,7 @@
           v-for="section in group.sections"
           :key="section.id"
           @click="$emit('select', section.id)"
-          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all"
+          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all compact:min-h-11 compact:text-[15px]"
           :class="[
             activeSection === section.id
               ? 'bg-overlay-light'

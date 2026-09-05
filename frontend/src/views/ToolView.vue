@@ -77,14 +77,14 @@
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
         <!-- Plain page header (PageHeader grammar): no card — the content cards
              below float on base; one hairline separates header from workspace. -->
-        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle"></div>
+        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle compact:px-3 compact:pt-2 compact:pb-2"></div>
         <!-- Transient run context (remix banners) lands here as its own card
              so the header card stays fixed-height. Hidden when the teleport
              delivers nothing. -->
         <!-- Top gap lives INSIDE the teleported card's animated wrapper so it
              eases open/closed with the card instead of snapping. -->
         <div id="tool-context-slot" class="flex-none mx-3 empty:hidden"></div>
-        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0">
+        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0 compact:flex-col">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
@@ -93,11 +93,11 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:order-3 compact:flex-1 compact:!w-full compact:border-r-0"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
-        :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
+        :style="isCompact ? {} : { width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
       >
        <!-- Resolution auto-change notice: a minor card matching the params
             card's width and background, easing open above it (flow-expand)
@@ -220,7 +220,7 @@
             />
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md"
+              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
               :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
               :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
             >
@@ -683,7 +683,7 @@
            in the flex layout so it adds no gap or gray line; the drag zone is an
            overlay straddling the boundary. -->
       <div
-        class="order-2 relative w-0 flex-none z-10"
+        class="order-2 relative w-0 flex-none z-10 compact:hidden"
       >
         <div
           @pointerdown="layoutMode === 'stage' ? startStageResize($event) : startStudioResize($event)"
@@ -706,7 +706,7 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-none compact:h-[38dvh] compact:!p-0"
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
@@ -903,12 +903,12 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:max-h-[112px] compact:border-l-0 compact:border-t compact:border-surface compact:!py-1 compact:!px-1"
         :class="[
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : ''
         ]"
-        :style="{ width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
+        :style="isCompact ? {} : { width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
       >
         <JobsGrid
           :jobs="allJobs"
@@ -1063,6 +1063,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { devModeRef, hidePricesRef } from '../appConfig'
 import { usePromptMiniAgent } from '../composables/usePromptMiniAgent'
 import { usePromptEditorUndo } from '../composables/usePromptEditorUndo'
@@ -1182,6 +1183,7 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
+const { isCompact } = useViewport()
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const projectScopeId = computed(() => {

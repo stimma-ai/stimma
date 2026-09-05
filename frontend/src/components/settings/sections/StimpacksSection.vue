@@ -1,16 +1,16 @@
 <template>
   <div class="flex h-full flex-col bg-base">
     <!-- Header (matches the boards/chats landing treatment) -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
       <div class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold leading-none text-content">Stimpacks</h1>
-        <p class="text-sm text-content-tertiary">Stimpacks extend Stimma with new skills and capabilities.</p>
+        <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Stimpacks</h1>
+        <p class="text-sm text-content-tertiary compact:hidden">Stimpacks extend Stimma with new skills and capabilities.</p>
       </div>
       <div class="flex items-center gap-3">
         <button
           v-if="canOpenFolder"
           @click="openStimpacksFolder"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
           title="Open the profile's stimpacks folder — packs dropped or edited here load live"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -20,7 +20,7 @@
         </button>
         <button
           @click="showCatalog = true"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />

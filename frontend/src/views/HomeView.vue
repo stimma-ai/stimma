@@ -13,10 +13,10 @@
 
     <!-- Main content -->
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
-      <div class="min-h-full flex flex-col items-center px-8 lg:px-16" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
+      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16">
+        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-6 compact:pb-8">
           <!-- Soft ambient halo, centered behind the greeting + prompt -->
           <div
             class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2"

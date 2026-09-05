@@ -1,11 +1,11 @@
 <template>
   <div class="flex h-full flex-col bg-base">
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
-      <h1 class="text-xl font-semibold leading-none text-content">Boards</h1>
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
+      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Boards</h1>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
         <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
           @click="createNewBoard"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -15,7 +15,7 @@
         </button>
         <div class="relative" ref="sortDropdownRef">
           <button
-            class="flex items-center gap-2 rounded-lg border border-edge-subtle bg-overlay-subtle px-3 py-1.5 text-sm text-content-tertiary transition-colors hover:border-edge hover:text-content-secondary"
+            class="flex items-center gap-2 rounded-lg border border-edge-subtle bg-overlay-subtle px-3 py-1.5 text-sm text-content-tertiary transition-colors hover:border-edge hover:text-content-secondary compact:min-h-11"
             @click="sortDropdownOpen = !sortDropdownOpen"
           >
             <span>{{ activeSortLabel }}</span>
@@ -51,7 +51,7 @@
           </div>
         </div>
 
-        <div class="relative">
+        <div class="relative compact:flex-1">
           <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
@@ -59,7 +59,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search boards..."
-            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none"
+            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none compact:w-full compact:min-h-11"
           />
         </div>
       </div>
@@ -78,7 +78,7 @@
         <p class="mb-2 text-content-muted">No boards match your search</p>
       </div>
 
-      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6 pt-6">
+      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6 pt-6 compact:grid-cols-2 compact:gap-3 compact:pt-3">
         <button
           v-for="board in filteredBoards"
           :key="board.id"

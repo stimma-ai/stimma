@@ -2,9 +2,9 @@
   <Transition name="entity-bar-slide-up">
     <div
       v-if="visible"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome w-max max-w-[600px] bg-surface border border-edge-subtle rounded-lg shadow-lg"
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome w-max max-w-[600px] bg-surface border border-edge-subtle rounded-lg shadow-lg compact:left-3 compact:right-3 compact:translate-x-0 compact:w-auto compact:max-w-none compact:bottom-[calc(5.5rem+var(--safe-bottom))]"
     >
-      <div class="flex items-center justify-between gap-6 px-5 py-3">
+      <div class="flex items-center justify-between gap-6 px-5 py-3 compact:gap-3 compact:px-3 compact:py-2 compact:overflow-x-auto">
         <!-- Selection controls (left) -->
         <div class="flex items-center gap-3">
           <!-- Clear selection button (X) -->

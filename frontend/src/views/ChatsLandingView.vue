@@ -1,12 +1,12 @@
 <template>
   <div class="h-full flex flex-col bg-base" @contextmenu.self="handleEmptyContextMenu">
     <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle">
-      <h1 class="text-xl font-semibold leading-none text-content">Chats</h1>
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
+      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Chats</h1>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
         <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
           @click="createNewChat"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -15,7 +15,7 @@
           <span>New</span>
         </button>
         <!-- Search -->
-        <div class="relative">
+        <div class="relative compact:flex-1">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
@@ -24,7 +24,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search chats..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
           />
         </div>
       </div>

@@ -1,8 +1,8 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header row -->
-    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle">
-      <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content">All Tools</h1>
+    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-2">
+      <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
       <div v-else></div>
 
       <div class="flex items-center gap-3">
@@ -141,7 +141,7 @@
           </div>
 
           <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5 compact:grid-cols-1">
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"

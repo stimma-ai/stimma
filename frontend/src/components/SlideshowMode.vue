@@ -1,6 +1,8 @@
 <template>
   <div
     ref="overlay"
+    @touchstart.passive="onSlideshowTouchStart"
+    @touchend.passive="onSlideshowTouchEnd"
     data-drop-zone
     :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay' : 'fixed inset-0 bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
@@ -17,6 +19,7 @@
     <SlideshowInfoPanel
       v-if="showSidebar"
       ref="infoPanelRef"
+      class="compact:absolute compact:inset-0 compact:z-chrome compact:!w-full"
       :current-item="currentPayloadItem"
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
@@ -1203,6 +1206,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -1478,7 +1482,23 @@ const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPl
 const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
-const showSidebar = ref(true)
+const { isCompact: slideshowCompact } = useViewport()
+// Phones start in the image; the info panel is a swipe-up/tap-away overlay.
+const showSidebar = ref(!slideshowCompact.value)
+
+// Touch: horizontal swipe = previous/next, vertical swipe up = info panel.
+let touchStartX = 0, touchStartY = 0, touchStartT = 0
+function onSlideshowTouchStart(e) {
+  const t = e.touches[0]; if (!t) return
+  touchStartX = t.clientX; touchStartY = t.clientY; touchStartT = Date.now()
+}
+function onSlideshowTouchEnd(e) {
+  const t = e.changedTouches[0]; if (!t) return
+  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY
+  if (Date.now() - touchStartT > 800) return
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? next() : previous(); return }
+  if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && slideshowCompact.value) showSidebar.value = true
+}
 const controlBarOrientation = ref(savedSettings.controlBarOrientation ?? 'vertical')
 
 // Image strip state (shows items from current dataset)

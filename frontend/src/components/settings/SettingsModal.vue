@@ -2,13 +2,24 @@
   <Modal
     :show="show"
     size="custom"
-    custom-class="w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden"
+    custom-class="w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden compact:!w-full compact:!max-w-none compact:!h-[100dvh] compact:!max-h-none compact:!mx-0 compact:!rounded-none compact:!border-0"
     :close-on-esc="false"
     @close="close"
   >
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-[16px] font-semibold text-content">Settings</h2>
+        <div class="flex items-center gap-1 min-w-0">
+          <button
+            v-if="isCompact && !compactList"
+            type="button"
+            class="w-11 h-11 -ml-3 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+            aria-label="All settings"
+            @click="compactList = true"
+          >
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m15 6-6 6 6 6" /></svg>
+          </button>
+          <h2 class="text-[16px] font-semibold text-content truncate">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
+        </div>
         <IconButton aria-label="Close" title="Close" @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -21,17 +32,19 @@
     <div class="flex flex-1 overflow-hidden">
       <!-- Sidebar -->
       <SettingsSidebar
+        v-show="!isCompact || compactList"
+        class="compact:w-full compact:border-r-0"
         :active-section="activeSection"
         :profiles="settings?.profiles || []"
         :current-profile-id="currentProfileId"
         :llm-setup-required="llmSetupRequired"
         :generation-setup-required="generationSetupRequired"
-        @select="activeSection = $event"
+        @select="activeSection = $event; compactList = false"
         @switch-profile="handleProfileSwitch"
       />
 
       <!-- Main content area -->
-      <div class="flex-1 overflow-y-auto p-6">
+      <div v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />
@@ -190,6 +203,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { useViewport } from '../../composables/useViewport'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { useSettingsApi } from '../../composables/useSettingsApi'
 import { useWebSocket } from '../../composables/useWebSocket'
@@ -252,6 +266,17 @@ const pinModalProfileName = computed(() => {
 })
 
 const activeSection = ref('folders')
+const { isCompact } = useViewport()
+// Compact viewports show the section list first, then one section with a
+// back control; wide viewports keep the two-pane layout.
+const compactList = ref(true)
+watch(() => props.show, (open) => { if (open) compactList.value = true })
+const SECTION_LABELS = {
+  folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account',
+  server: 'Stimma server', tools: 'Generation tools', 'ai-services': 'Chat models', 'model-preferences': 'Preferences',
+  profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer',
+}
+const activeSectionLabel = computed(() => SECTION_LABELS[activeSection.value] || 'Settings')
 const aiServicesSection = ref(null)
 const toolProvidersSection = ref(null)
 const settings = ref(null)

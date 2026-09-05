@@ -216,6 +216,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -454,6 +455,7 @@ const GRID_GAP_PX = 2
 const GRID_SIDE_PADDING_PX = GRID_GAP_PX * 2 // split across left+right edges
 const ROW_VERTICAL_GUTTER_PX = GRID_GAP_PX
 const GRID_THUMBNAIL_SIZE = 512
+const { isCompact } = useViewport()
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
 const bufferSize = ref(1200) // Render buffer
@@ -500,7 +502,9 @@ function calculateItemsPerRow() {
   const scrollerWidth = scrollerEl ? scrollerEl.clientWidth : window.innerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
-  const minItemWidth = 200
+  // Phones: three across (DESIGN.md §1.11 media grids); the 200px minimum
+  // would leave a single column at 390px.
+  const minItemWidth = isCompact.value ? 110 : 200
   const gap = GRID_GAP_PX
 
   // Calculate how many items fit: floor((width + gap) / (minWidth + gap))

@@ -10,7 +10,7 @@
       @update:current-media-id="updateCurrentMediaId"
     />
 
-    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3">
+    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
       <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
           v-if="isEditingBoardName || editedName"
@@ -33,7 +33,7 @@
       <div class="relative">
         <button
           ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content"
+          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content compact:h-11 compact:w-11"
           title="Board actions"
           @click="toggleBoardMenu"
         >
@@ -60,7 +60,7 @@
       </div>
     </div>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5 compact:px-2 compact:py-3" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
       <div v-if="loading" class="py-20 text-center text-content-muted">Loading board...</div>
       <div v-else-if="!board" class="py-20 text-center text-content-muted">Board not found.</div>
       <TransitionGroup v-else tag="div" class="space-y-5">

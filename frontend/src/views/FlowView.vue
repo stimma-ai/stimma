@@ -43,7 +43,7 @@
     </Modal>
 
     <!-- Control strip -->
-    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3">
+    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3 compact:flex-wrap compact:px-3">
       <!-- Left: name + meta -->
       <div class="flex items-center gap-3 min-w-0 flex-shrink">
         <template v-if="editingName">
@@ -348,7 +348,7 @@
     </div>
 
     <!-- Main row: (main column + resize handle) wrapper + chat sidebar -->
-    <div class="flex flex-1 min-h-0">
+    <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
         <!-- View tabs subheader -->
@@ -705,14 +705,14 @@
           <!-- Resize handle (inside left wrapper so the tab subheader's border extends across it) -->
           <div
             v-if="chatPanelOpen"
-            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors"
+            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
             @mousedown="startChatResize"
           />
         </div>
       </div>
 
       <!-- Chat sidebar (open by default) -->
-      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface" :style="{ width: chatPanelWidth + 'px' }">
+      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px' }">
 
         <div class="flex-1 min-h-0 flex flex-col">
           <div v-if="chatLoading" class="flex-1 flex items-center justify-center text-[12px] text-content-muted">
@@ -762,6 +762,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, provide, type WatchStopHandle } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
@@ -798,6 +799,7 @@ import Button from '../components/ui/Button.vue'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
+const { isCompact } = useViewport()
 const router = useRouter()
 const { fetchProvidersAndTools } = useProvidersApi()
 const api = useFlowsApi()

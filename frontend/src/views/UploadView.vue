@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex-1 flex flex-col items-center p-6 overflow-hidden"
+    class="flex-1 flex flex-col items-center p-6 overflow-hidden compact:p-3"
     @dragenter="handleDragEnter"
     @dragleave="handleDragLeave"
     @dragover.prevent

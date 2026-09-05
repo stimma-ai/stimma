@@ -32,9 +32,9 @@
     <div v-show="!slideshowState.active && !compareState.active" class="w-full h-full flex flex-col">
 
     <!-- Trash Header (only in trash mode) -->
-    <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
+    <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
       <div class="flex items-baseline gap-3">
-        <h1 class="text-[16px] font-semibold leading-none text-content">Trash</h1>
+        <h1 class="text-[16px] font-semibold leading-none text-content compact:hidden">Trash</h1>
         <p class="text-xs font-mono tabular-nums text-content-tertiary">
           {{ trashHeaderSubtitle }}
         </p>
@@ -245,7 +245,7 @@
     <!-- Upload FAB (only in browse mode, not trash) -->
     <button
       v-if="!isTrashMode"
-      class="fixed right-6 bottom-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-chrome bg-accent hover:bg-accent/90 text-white"
+      class="fixed right-6 bottom-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-chrome bg-accent hover:bg-accent/90 text-white compact:right-4 compact:bottom-[calc(5.75rem+var(--safe-bottom))]"
       @click="goToUpload"
       title="Upload assets"
     >
