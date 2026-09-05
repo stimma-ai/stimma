@@ -625,6 +625,15 @@ async def _run_single_tool_job(
     if seed is not None and "seed" not in parameters:
         parameters["seed"] = seed
     async with _open_session() as session:
+        from mcp_server.jobs import check_execution, execution_chat
+        check_execution()
+        if execution_chat.get() is not None:
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+            from agent.v2.tool_permission_gate import ensure_tool_permission
+            await ensure_tool_permission(chat_id=execution_chat.get(), tool_id=tool_id,
+                kwargs=parameters, task_type=None, run_cache={},
+                session_maker=async_sessionmaker(session.bind, expire_on_commit=False))
+            check_execution()
         return await execute_call_tool(
             tool_id=tool_id,
             parameters=parameters,

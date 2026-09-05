@@ -131,14 +131,14 @@ async def test_gate_ask_blocks_then_approves(monkeypatch):
     # Let the gate register + raise the card, then confirm it is parked.
     await asyncio.sleep(0.01)
     assert not task.done()
-    assert cards == ["7:p:t"]
-    assert is_pending_permission("7:p:t")
+    assert cards == [gate._request_id(7, "p:t")]
+    assert is_pending_permission(gate._request_id(7, "p:t"))
 
     # Resolve as approved → the parked task completes and caches allow.
-    assert resolve_pending_permission("7:p:t", {"approved": True, "scope": "once"})
+    assert resolve_pending_permission(gate._request_id(7, "p:t"), {"approved": True, "scope": "once"})
     await asyncio.wait_for(task, timeout=1)
     assert cache["p:t"] is True
-    assert not is_pending_permission("7:p:t")  # registry cleaned up
+    assert not is_pending_permission(gate._request_id(7, "p:t"))  # registry cleaned up
 
 
 @pytest.mark.asyncio
@@ -156,7 +156,7 @@ async def test_gate_ask_blocks_then_denies(monkeypatch):
         ensure_tool_permission(chat_id=8, tool_id="p:t", kwargs={}, run_cache={})
     )
     await asyncio.sleep(0.01)
-    resolve_pending_permission("8:p:t", {"approved": False, "scope": "once"})
+    resolve_pending_permission(gate._request_id(8, "p:t"), {"approved": False, "scope": "once"})
     with pytest.raises(ToolPermissionDenied):
         await asyncio.wait_for(task, timeout=1)
 
@@ -184,7 +184,7 @@ async def test_gate_ask_dedups_concurrent_calls(monkeypatch):
     ]
     await asyncio.sleep(0.01)
     assert len(cards) == 1  # deduped to a single card
-    resolve_pending_permission("9:p:t", {"approved": True, "scope": "chat"})
+    resolve_pending_permission(gate._request_id(9, "p:t"), {"approved": True, "scope": "chat"})
     await asyncio.wait_for(asyncio.gather(*tasks), timeout=1)
     assert cache["p:t"] is True
 
@@ -204,8 +204,8 @@ async def test_gate_ask_interrupt_cleans_registry(monkeypatch):
         ensure_tool_permission(chat_id=10, tool_id="p:t", kwargs={}, run_cache={})
     )
     await asyncio.sleep(0.01)
-    assert is_pending_permission("10:p:t")
+    assert is_pending_permission(gate._request_id(10, "p:t"))
     task.cancel()  # simulates interrupt/stop cancelling the run_code task
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert not is_pending_permission("10:p:t")  # finally-block cleaned up
+    assert not is_pending_permission(gate._request_id(10, "p:t"))  # finally-block cleaned up

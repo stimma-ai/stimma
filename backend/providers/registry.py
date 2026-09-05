@@ -42,6 +42,7 @@ class ProviderRegistry:
 
         self._providers: Dict[str, ToolProvider] = {}
         self._tools_cache: Dict[str, Tuple[ToolProvider, ToolDescriptor]] = {}
+        self._profile_tools = {}
         self._status_subscribers: List[Callable[[str, ProviderStatus], None]] = []
         # Subscribers fired whenever the set of available tools changes —
         # provider registered/unregistered, refresh_tools updated a provider's
@@ -50,6 +51,10 @@ class ProviderRegistry:
         self._tools_changed_subscribers: List[Callable[[], None]] = []
         self._lock = asyncio.Lock()
         self._initialized = True
+
+    def _visible_tools(self):
+        from core.profile_context import get_current_profile
+        return {**self._tools_cache, **self._profile_tools.get(get_current_profile(), {})}
 
     # --- Database Caching ---
 
@@ -73,7 +78,12 @@ class ProviderRegistry:
         from database import CachedProviderTool
         from sqlalchemy import select
 
-        session_makers = await self._get_db_session_makers()
+        if provider.provider_id == 'user-tools':
+            from core.profile_context import get_current_profile
+            from database_registry import get_database_registry
+            session_makers = [get_database_registry().get_database(get_current_profile()).async_session_maker]
+        else:
+            session_makers = await self._get_db_session_makers()
         if not session_makers:
             return
 
@@ -216,14 +226,14 @@ class ProviderRegistry:
             # Cache tools in memory
             await self._refresh_tools_for_provider(provider)
 
-            tool_count = len([t for t in self._tools_cache.values() if t[0] == provider])
+            tool_count = len([t for t in self._visible_tools().values() if t[0] == provider])
             logger.info(
                 f"Provider registered: {provider.provider_id} "
                 f"with {tool_count} tools"
             )
 
             # Copy tools list while holding lock to avoid "dict changed size during iteration"
-            tools = [tool for p, tool in self._tools_cache.values() if p == provider]
+            tools = [tool for p, tool in self._visible_tools().values() if p == provider]
 
         # Cache tools to database (outside lock to avoid blocking)
         try:
@@ -265,6 +275,9 @@ class ProviderRegistry:
                     if entry[0] != provider
                 }
 
+                if provider_id == 'user-tools':
+                    self._profile_tools.clear()
+
                 # Notify subscribers
                 self._notify_status_change(provider_id, ProviderStatus.DISCONNECTED)
 
@@ -286,6 +299,15 @@ class ProviderRegistry:
             force_refresh: If True, call provider.refresh_tools() to trigger
                           re-discovery (e.g., LoRAs). If False, just re-list.
         """
+        if provider.provider_id == 'user-tools':
+            from core.profile_context import get_current_profile
+            tools = await provider.refresh_tools() if force_refresh else await provider.list_tools()
+            self._profile_tools[get_current_profile()] = {
+                f'user-tools:{tool.id}': (provider, tool) for tool in tools
+            }
+            await self._cache_tools_to_db(provider, tools)
+            return
+
         # Clear existing tools for this provider
         self._tools_cache = {
             full_id: entry
@@ -446,13 +468,13 @@ class ProviderRegistry:
             Tuple of (provider, tool_descriptor) or None if not found
         """
         # Try exact match first
-        result = self._tools_cache.get(full_tool_id)
+        result = self._visible_tools().get(full_tool_id)
         if result:
             return result
 
         # Try case-insensitive match
         full_tool_id_lower = full_tool_id.lower()
-        for cached_id, cached_tool in self._tools_cache.items():
+        for cached_id, cached_tool in self._visible_tools().items():
             if cached_id.lower() == full_tool_id_lower:
                 return cached_tool
 
@@ -466,7 +488,7 @@ class ProviderRegistry:
             List of (full_tool_id, provider, tool_descriptor) tuples
         """
         # Copy items to avoid "dict changed size during iteration"
-        cache_snapshot = list(self._tools_cache.items())
+        cache_snapshot = list(self._visible_tools().items())
         return [
             (full_id, provider, tool)
             for full_id, (provider, tool) in cache_snapshot
@@ -483,7 +505,7 @@ class ProviderRegistry:
             List of (full_tool_id, provider, tool_descriptor) tuples
         """
         # Copy items to avoid "dict changed size during iteration"
-        cache_snapshot = list(self._tools_cache.items())
+        cache_snapshot = list(self._visible_tools().items())
         return [
             (full_id, provider, tool)
             for full_id, (provider, tool) in cache_snapshot
@@ -498,7 +520,7 @@ class ProviderRegistry:
             List of (full_tool_id, tool_descriptor) tuples
         """
         # Copy items to avoid "dict changed size during iteration"
-        cache_snapshot = list(self._tools_cache.items())
+        cache_snapshot = list(self._visible_tools().items())
         return [
             (full_id, tool)
             for full_id, (provider, tool) in cache_snapshot
@@ -678,7 +700,7 @@ class ProviderRegistry:
             await self._refresh_tools_for_provider(provider)
 
         # Cache updated tools to database
-        tools = [t for p, t in self._tools_cache.values() if p == provider]
+        tools = [t for p, t in self._visible_tools().values() if p == provider]
         try:
             await self._cache_tools_to_db(provider, tools)
         except Exception as e:
@@ -754,6 +776,7 @@ class ProviderRegistry:
             await self.unregister(provider_id)
 
         self._tools_cache.clear()
+        self._profile_tools.clear()
         self._status_subscribers.clear()
 
     # --- Singleton Access ---
@@ -769,4 +792,5 @@ class ProviderRegistry:
         if cls._instance:
             cls._instance._providers.clear()
             cls._instance._tools_cache.clear()
+            cls._instance._profile_tools.clear()
             cls._instance._status_subscribers.clear()
