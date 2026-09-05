@@ -71,8 +71,13 @@ def publish():
         return int(major), int(minor), int(patch), prerelease is None, parts
     version_key(m['version'])
 
-    bucket = os.environ['R2_BUCKET']
-    endpoint = os.environ['R2_S3_ENDPOINT']
+    # Match the desktop publisher: repository settings can contain CR/LF.
+    bucket = ''.join(os.environ['R2_BUCKET'].split())
+    endpoint = ''.join(os.environ['R2_S3_ENDPOINT'].split())
+    for name in ('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'):
+        os.environ[name] = ''.join(os.environ[name].split())
+    if not bucket or not endpoint or not all(os.environ[name] for name in ('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')):
+        raise RuntimeError('R2 publication settings are required')
     with tempfile.TemporaryDirectory() as tmp:
         previous = Path(tmp) / 'latest.json'
         existing = subprocess.run(['uvx', '--from', 'awscli', 'aws', 's3', 'cp',
