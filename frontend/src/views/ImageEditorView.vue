@@ -222,8 +222,10 @@ import {
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { editorBarrelAction, heldButtonMask } from '../imageEditor/stack/tabletButtons'
 import { useViewport } from '../composables/useViewport'
+import { useCompactNav } from '../composables/useCompactNav'
 
 const { isCompact } = useViewport()
+const compactNav = useCompactNav()
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -8604,7 +8606,18 @@ watch(
            their labels from the ROW's width — the viewport says nothing about
            this column once the resizable sidebar takes its share. Clipped so a
            still-too-long row can never paint under the sidebar. -->
-      <div class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle compact:h-12 compact:overflow-x-auto compact:gap-2">
+      <div class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle compact:h-12 compact:overflow-x-auto compact:gap-2 compact:pl-1">
+        <!-- Compact: the editor is an overlay surface (no app header), so it
+             carries its own back chevron. Desktop leaves via the workspace tab. -->
+        <button
+          v-if="isCompact"
+          type="button"
+          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+          aria-label="Back"
+          @click="compactNav.back()"
+        >
+          <ChevronLeftIcon class="w-6 h-6" />
+        </button>
         <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
         <StatusDot
           v-if="stack.dirtySinceSave.value"
