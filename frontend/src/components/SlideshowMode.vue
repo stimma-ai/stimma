@@ -822,6 +822,7 @@
         { 'cursor-grab': !isDragging },
         { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' }
       ]"
+      v-show="!(slideshowCompact && showSidebar)"
       :style="controlBarStyle"
       @mousedown="startDrag"
       @mouseenter="isHovered = true"

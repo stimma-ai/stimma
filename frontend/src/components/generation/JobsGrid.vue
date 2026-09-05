@@ -12,7 +12,7 @@
         </div>
       </slot>
     </div>
-    <div v-else class="flex flex-col gap-0.5">
+    <div v-else class="flex flex-col gap-0.5 jobs-results">
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
