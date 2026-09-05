@@ -2852,7 +2852,7 @@ watch([maskDataUrl, inpaintSourceImage], ([newMask, newImage], [oldMask]) => {
 // Load persisted mask when tool changes (only if image path matches)
 watch([() => tool.value?.full_tool_id, inpaintSourceImage], async ([newFullToolId, currentImage]) => {
   if (!newFullToolId) return
-  if (pendingHoppedMask?.imagePath === currentImage?.path) {
+  if (pendingHoppedMask && pendingHoppedMask.imagePath === currentImage?.path) {
     hadMaskInSession.value = true
     maskDataUrl.value = pendingHoppedMask.mask
     pendingHoppedMask = null

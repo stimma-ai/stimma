@@ -221,6 +221,9 @@ import {
 } from '../imageEditor/liveEditorPreview'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { editorBarrelAction, heldButtonMask } from '../imageEditor/stack/tabletButtons'
+import { useViewport } from '../composables/useViewport'
+
+const { isCompact } = useViewport()
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -8595,13 +8598,13 @@ watch(
     back — the image itself never gets pushed around.
   -->
   <div class="h-full flex flex-col bg-base">
-    <div class="flex-1 flex min-h-0">
+    <div class="flex-1 flex min-h-0 compact:flex-col">
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
       <!-- Toolbar 1: the families. A container so the family buttons can drop
            their labels from the ROW's width — the viewport says nothing about
            this column once the resizable sidebar takes its share. Clipped so a
            still-too-long row can never paint under the sidebar. -->
-      <div class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle">
+      <div class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle compact:h-12 compact:overflow-x-auto compact:gap-2">
         <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
         <StatusDot
           v-if="stack.dirtySinceSave.value"
@@ -8923,13 +8926,15 @@ watch(
       <!-- Drag to widen the stack. The panels in here carry real controls, and
            how much room they deserve is the user's call, not a constant. -->
       <div
-        class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors"
+        class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors compact:hidden"
         @pointerdown="startSidebarResize"
       />
+      <!-- Compact: the stack/inspector sits under the canvas as a panel
+           (the full editor is a large-format tool; see DESIGN.md §1.11). -->
       <aside
         ref="sidebarEl"
-        class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0"
-        :style="{ width: sidebarWidth + 'px' }"
+        class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0 compact:!w-full compact:border-l-0 compact:border-t compact:max-h-[42dvh]"
+        :style="isCompact ? {} : { width: sidebarWidth + 'px' }"
       >
         <!-- Three panels, not three lists. Edits is the stack, Output is the
              terminal stage, and Info is the shared media-information body. -->
@@ -9238,7 +9243,7 @@ watch(
            IS (which version, whether it has uncommitted work), right is what
            you can do to it. One meaning per control: the chip reports, Revert
            discards, Save commits. -->
-    <footer class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle">
+    <footer class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle compact:h-auto compact:min-h-12 compact:pb-safe compact:flex-wrap compact:gap-1">
       <Tooltip text="Undo">
         <IconButton :disabled="!stack.canUndo.value" @click="stack.undo(); render()">
           <ArrowUturnLeftIcon class="w-4 h-4" />

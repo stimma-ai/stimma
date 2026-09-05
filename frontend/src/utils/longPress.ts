@@ -9,6 +9,8 @@
  * that follows the release is swallowed so the row under the finger does not
  * also activate.
  */
+import { useViewport } from '../composables/useViewport'
+
 const LONG_PRESS_MS = 450
 const MOVE_TOLERANCE_PX = 10
 
@@ -60,9 +62,7 @@ function onClick(e: MouseEvent) {
 
 export function installLongPressContextMenu() {
   if (typeof window === 'undefined') return
-  const coarse = window.matchMedia('(pointer: coarse)')
-  const params = new URLSearchParams(window.location.search)
-  if (!coarse.matches && params.get('pointer') !== 'coarse') return
+  if (!useViewport().isCoarsePointer.value) return
   document.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
   document.addEventListener('touchmove', onTouchMove, { passive: true, capture: true })
   document.addEventListener('touchend', onTouchEnd, { passive: true, capture: true })

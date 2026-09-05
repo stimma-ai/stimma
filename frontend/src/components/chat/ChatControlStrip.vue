@@ -36,7 +36,7 @@
       <!-- Settings Panel Toggle -->
       <button
         @click="$emit('toggle-settings-panel')"
-        class="w-7 h-7 flex items-center justify-center rounded transition-colors"
+        class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded transition-colors"
         :class="settingsPanelVisible
           ? 'text-accent bg-accent/15 hover:bg-accent/20'
           : 'text-content-muted hover:text-content-secondary hover:bg-surface'"
@@ -90,7 +90,7 @@
       <div class="relative" ref="menuContainerRef">
         <button
           @click="toggleMenu"
-          class="w-7 h-7 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-surface transition-colors"
+          class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-surface transition-colors"
           title="More options"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">

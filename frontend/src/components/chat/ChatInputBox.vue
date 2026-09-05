@@ -67,7 +67,7 @@
           <button
             :disabled="agentUnavailable"
             @click="openUploadPicker"
-            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
+            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
             title="Add image"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
@@ -96,7 +96,7 @@
           v-if="agentUnavailable"
           type="button"
           disabled
-          class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface opacity-20"
+          class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full bg-content text-surface opacity-20"
           title="Send unavailable"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
@@ -107,7 +107,7 @@
           <button
             @click="$emit('submit')"
             :disabled="(!modelValue?.trim() && attachments.length === 0) || disabled"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
+            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             title="Send"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">

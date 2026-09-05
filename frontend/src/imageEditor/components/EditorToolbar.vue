@@ -35,7 +35,7 @@ const families = computed(() =>
     >
       <button
         type="button"
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors compact:min-h-11 compact:text-[13px] focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="active === family.id
           ? 'bg-accent/15 text-accent-hi'
           : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"

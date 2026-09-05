@@ -121,7 +121,7 @@
         />
         <button
           v-if="showStartButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
           title="Start"
           @click="doPlay"
         >
@@ -131,7 +131,7 @@
         </button>
         <button
           v-if="showPauseButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
           title="Pause"
           @click="doPause"
         >
@@ -141,7 +141,7 @@
         </button>
         <button
           v-if="showResumeButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
           title="Resume"
           @click="doPlay"
         >
@@ -299,7 +299,7 @@
         <div class="relative" ref="menuContainerRef">
           <button
             @click="toggleMenu"
-            class="w-8 h-8 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
             title="More options"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -404,7 +404,7 @@
             <div class="relative" ref="tabMenuContainerRef">
               <button
                 @click="toggleTabMenu"
-                class="w-8 h-8 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
                 title="More options"
                 aria-label="More options"
               >

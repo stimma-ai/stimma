@@ -16,7 +16,7 @@
           v-if="isEditingBoardName || editedName"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none"
+          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none compact:min-h-11"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
