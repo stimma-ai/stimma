@@ -21,6 +21,7 @@ from utils.query_builder import (
     TEXT_FORMATS,
     SET_FORMATS,
     GRID_FORMATS,
+    SPRITE_FORMATS,
     COMPOSITE_FORMATS,
     ATOMIC_FORMATS,
     RESOLUTION_MAP,
@@ -90,7 +91,7 @@ class TestFormatConstants:
             assert fmt in AUDIO_FORMATS
 
     def test_composite_equals_set_plus_grid(self):
-        assert COMPOSITE_FORMATS == SET_FORMATS + GRID_FORMATS
+        assert COMPOSITE_FORMATS == SET_FORMATS + GRID_FORMATS + SPRITE_FORMATS
 
     def test_atomic_formats_no_overlap_with_composite(self):
         overlap = set(ATOMIC_FORMATS) & set(COMPOSITE_FORMATS)

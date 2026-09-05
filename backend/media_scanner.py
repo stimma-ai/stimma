@@ -22,10 +22,11 @@ TEXT_EXTENSIONS = {'.md'}
 VECTOR_EXTENSIONS = {'.svg'}  # Self-contained vector documents (single flat file)
 SET_EXTENSIONS = {'.stimmaset.json'}
 GRID_EXTENSIONS = {'.stimmagrid.json'}
+SPRITE_EXTENSIONS = {'.stimmasprite.json'}  # Sprite documents: recipe + media refs (see sprite_document.py)
 LAYOUT_EXTENSIONS = {'.stimmalayout'}  # Directory-based bundles (contains index.html + assets)
 # Compound-extension lookup set: only types whose extension is more than a plain
 # suffix need to be here, so .svg is deliberately absent.
-STRUCTURED_EXTENSIONS = TEXT_EXTENSIONS | SET_EXTENSIONS | GRID_EXTENSIONS | LAYOUT_EXTENSIONS
+STRUCTURED_EXTENSIONS = TEXT_EXTENSIONS | SET_EXTENSIONS | GRID_EXTENSIONS | SPRITE_EXTENSIONS | LAYOUT_EXTENSIONS
 
 # All supported extensions
 ALL_EXTENSIONS = (
@@ -38,7 +39,7 @@ def get_file_extension(file_path: Path) -> str:
     """
     Get the file extension, handling compound extensions for structured types.
 
-    For structured media (.md, .stimmaset.json, .stimmagrid.json),
+    For structured media (.md, .stimmaset.json, .stimmagrid.json, .stimmasprite.json),
     returns the compound extension. For regular files, returns the simple suffix.
 
     Returns extension with leading dot (e.g., '.png', '.md', '.stimmaset.json')
@@ -568,7 +569,7 @@ def extract_metadata(file_path: Path) -> dict:
             # Layout bundles are directories (index.html + assets), not flat JSON files
             pass
         else:
-            # JSON-based structured types (.stimmaset.json, .stimmagrid.json)
+            # JSON-based structured types (.stimmaset.json, .stimmagrid.json, .stimmasprite.json)
             parsed = parse_structured_media(file_path)
             if parsed:
                 raw_metadata = json.dumps(parsed)

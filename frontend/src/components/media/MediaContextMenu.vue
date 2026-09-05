@@ -320,9 +320,9 @@
           <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
-        <!-- Remix (single item only, not grids) - with submenu -->
+        <!-- Remix (single item only, not grids or sprites) - with submenu -->
         <div
-          v-if="!isMultiple && !isGrid"
+          v-if="!isMultiple && !isGrid && !isSprite"
           class="relative"
           @mouseenter="openSubmenu('generate', $event)"
           @mouseleave="closeSubmenuDelayed"
@@ -1137,6 +1137,7 @@ const hasExploreActions = computed(() => (
 // Visibility state computed properties
 const isSet = computed(() => mediaItem.value?.file_format === 'stimmaset.json')
 const isGrid = computed(() => mediaItem.value?.file_format === 'stimmagrid.json')
+const isSprite = computed(() => mediaItem.value?.file_format === 'stimmasprite.json')
 const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 const inBoard = computed(() => contextMenu.state.value.inBoard || false)
 const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
@@ -1144,7 +1145,7 @@ const inProject = computed(() => contextMenu.state.value.inProject || false)
 const currentProjectId = computed(() => contextMenu.state.value.projectId)
 
 // Can create set: multiple atomic items selected (not sets or grids)
-const STRUCTURED_FORMATS = ['stimmaset.json', 'stimmagrid.json']
+const STRUCTURED_FORMATS = ['stimmaset.json', 'stimmagrid.json', 'stimmasprite.json']
 const canCreateSet = computed(() => {
   if (!isMultiple.value) return false
   // Check if any selected items are structured (sets or grids)
@@ -1163,11 +1164,11 @@ const canCreateSet = computed(() => {
 const hasGridInSelection = computed(() => {
   // Single item case
   if (!isMultiple.value) {
-    return isGrid.value
+    return isGrid.value || isSprite.value
   }
   // Multi-select case
   const items = selectedItems.value
-  return items.some(item => item.file_format?.toLowerCase() === 'stimmagrid.json')
+  return items.some(item => ['stimmagrid.json', 'stimmasprite.json'].includes(item.file_format?.toLowerCase()))
 })
 const creatingSet = ref(false)
 const filteredBoards = computed(() => {

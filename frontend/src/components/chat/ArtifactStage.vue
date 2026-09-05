@@ -95,6 +95,7 @@
         >
           <LayoutViewer v-if="heroKind === 'layout'" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <SvgViewer v-else-if="heroKind === 'vector'" :media-id="viewedRevision.media_id" class="w-full h-full" />
+          <SpritePlayer v-else-if="heroKind === 'sprite'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <video
             v-else-if="heroKind === 'video'"
             :key="viewedRevision.media_id"
@@ -141,6 +142,7 @@ import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
 import LayoutViewer from '../viewers/LayoutViewer.vue'
 import SvgViewer from '../viewers/SvgViewer.vue'
+import SpritePlayer from '../viewers/SpritePlayer.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { getMediaType } from '../../utils/mediaTypes'
@@ -187,7 +189,7 @@ const heroKind = computed(() => {
 })
 
 const showDimensionChip = computed(() =>
-  heroKind.value !== 'vector' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
+  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
 
 function contextMenuTarget() {

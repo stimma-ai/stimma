@@ -29,7 +29,7 @@ from generation_metadata import build_parameters, dump_generation_metadata
 
 log = get_logger(__name__)
 
-STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "structured"]
+STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "sprites", "structured"]
 STATIC_RESOLUTIONS = ["small", "medium", "large", "huge"]
 STATIC_SORTS = ["created_desc", "created_asc", "indexed_desc", "indexed_asc", "random"]
 OPTION_FACETS = ["media_types", "resolutions", "generated", "folders", "keywords", "tags", "markers", "tools"]
@@ -413,7 +413,8 @@ async def _browse_options_static(
             "text": MediaItem.file_format.in_(["md"]),
             "sets": MediaItem.file_format.in_(["stimmaset.json"]),
             "grids": MediaItem.file_format.in_(["stimmagrid.json"]),
-            "structured": MediaItem.file_format.in_(["md", "stimmaset.json", "stimmagrid.json"]),
+            "sprites": MediaItem.file_format.in_(["stimmasprite.json"]),
+            "structured": MediaItem.file_format.in_(["md", "stimmaset.json", "stimmagrid.json", "stimmasprite.json"]),
         }
         for label in STATIC_MEDIA_TYPES:
             count_stmt = select(func.count()).select_from(MediaItem).where(
@@ -1362,6 +1363,26 @@ async def save_workspace_file(
         ext = os.path.splitext(dest)[1].lstrip(".").lower()
         if ext == "jpg":
             ext = "jpeg"
+        # Compound extensions name a structured document, not a plain JSON file.
+        for compound in ("stimmasprite.json", "stimmaset.json", "stimmagrid.json"):
+            if dest.lower().endswith("." + compound):
+                ext = compound
+                break
+
+    # Sprite documents are validated before anything is registered: a broken
+    # recipe must fail loudly here, not surface as an empty player later.
+    sprite_doc = None
+    if ext == "stimmasprite.json":
+        from sprite_document import load_sprite_document, validate_sprite_document
+
+        sprite_doc = load_sprite_document(dest)
+        problems = validate_sprite_document(sprite_doc) if sprite_doc is not None else ["not a sprite document"]
+        if problems:
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+            return "Error: invalid sprite document: " + "; ".join(problems[:5])
 
     # Get dimensions. SVG is text, so PIL cannot open it — and it must land
     # sanitized like every other SVG ingest path. Rewriting here, before the
@@ -1397,7 +1418,7 @@ async def save_workspace_file(
     # Determine if this is non-visual media (audio, text, structured types)
     # Non-visual media should skip AI processing phases (CLIP, face detection, VLM)
     _NON_VISUAL_FORMATS = {'md', 'svg', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg',
-                           'stimmaset.json', 'stimmagrid.json', 'stimmalayout'}
+                           'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout'}
     is_non_visual = ext in _NON_VISUAL_FORMATS or is_layout_bundle
 
     # Always stamp the canonical envelope (even for plain code-saved files, which
@@ -1445,6 +1466,7 @@ async def save_workspace_file(
         indexed_date=datetime.utcnow(),
         tool_id=provenance.get("tool_id") if provenance else None,
         generation_metadata=generation_metadata,
+        raw_metadata=json.dumps(sprite_doc) if sprite_doc is not None else None,
     )
     session.add(media_item)
     await session.flush()  # Get the ID
@@ -1509,12 +1531,26 @@ async def save_workspace_file(
             set_asset_tag,
         )
         from asset_service import create_asset_from_media
-        asset = await create_asset_from_media(
-            session,
-            media_id=media_item.id,
-            origin_type="library_save",
-            idempotency_key=f"library-save:media:{media_item.id}",
-        )
+        if sprite_doc is not None:
+            from container_service import create_container_asset_from_media
+            from sprite_document import sprite_member_specs
+
+            asset = await create_container_asset_from_media(
+                session,
+                media_id=media_item.id,
+                container_type="sprite",
+                members=await sprite_member_specs(session, sprite_doc),
+                title=sprite_doc.get("title"),
+                origin_type="library_save",
+                idempotency_key=f"library-save:media:{media_item.id}",
+            )
+        else:
+            asset = await create_asset_from_media(
+                session,
+                media_id=media_item.id,
+                origin_type="library_save",
+                idempotency_key=f"library-save:media:{media_item.id}",
+            )
         if effective_project_id is not None:
             await attach_asset_to_project(session, effective_project_id, asset.id)
         if save_tags:

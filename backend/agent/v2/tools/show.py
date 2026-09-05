@@ -302,6 +302,28 @@ async def _commit_show_artifact(
             note=revision_note,
             parent_revision_id=parent_revision,
         )
+        # A sprite revision is a container revision: pin the document's
+        # referenced artifacts as exact members so they are retained and the
+        # content endpoint reports this revision's members, not a hash guess.
+        from database import Asset, MediaItem
+        from sprite_document import is_sprite_format
+
+        media = await session.get(MediaItem, media_id)
+        if media is not None and is_sprite_format(media.file_format):
+            from container_service import (
+                infer_structured_member_specs,
+                populate_container_revision_members,
+            )
+
+            asset = await session.get(Asset, revision.asset_id)
+            if asset is None or asset.asset_type != "sprite":
+                return "Error: revises must name a sprite asset when showing a sprite document"
+            await populate_container_revision_members(
+                session,
+                container_asset_id=revision.asset_id,
+                revision_id=revision.id,
+                members=await infer_structured_member_specs(session, container_media=media),
+            )
     except AssetServiceError as e:
         return f"Error: Could not commit revision: {e}"
 
@@ -385,7 +407,10 @@ async def _apply_show_disposition(
                 expires_at = generation_job.completed_at + duration
 
         embedded_media_ids: list[int] = []
-        if media.file_format in {"stimmaset.json", "stimmagrid.json"}:
+        from sprite_document import container_type_for_format
+
+        container_type = container_type_for_format(media.file_format)
+        if container_type is not None:
             from container_service import (
                 create_container_asset_from_media,
                 infer_structured_member_specs,
@@ -401,7 +426,7 @@ async def _apply_show_disposition(
             asset = await create_container_asset_from_media(
                 session,
                 media_id=media_id,
-                container_type="set" if media.file_format == "stimmaset.json" else "grid",
+                container_type=container_type,
                 members=member_specs,
                 origin_type="chat_final",
                 origin_id=str(chat_id),

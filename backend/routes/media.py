@@ -980,6 +980,7 @@ async def get_media_content(
     - .md: {format: 'markdown', frontmatter, content, images: [{alt, path, resolved: {...}}, ...]}
     - .stimmaset.json: {version, title?, items: [{path, resolved: {media_id, file_hash, ...}}, ...]}
     - .stimmagrid.json: {version, rows, cols, row_headers?, col_headers?, cells: [{row, col, path, resolved: {...}}, ...]}
+    - .stimmasprite.json: the sprite document with a `resolved` block on every media reference
     """
     from structured_media import get_structured_content, parse_structured_content
 
@@ -999,7 +1000,7 @@ async def get_media_content(
         raise HTTPException(status_code=404, detail="Asset not found")
 
     # Check if this is a structured type
-    structured_formats = {'md', 'stimmaset.json', 'stimmagrid.json'}
+    structured_formats = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json'}
     if item.file_format.lower() not in structured_formats:
         raise HTTPException(
             status_code=404,
@@ -1009,7 +1010,7 @@ async def get_media_content(
     # Normalized containers resolve linked Assets through their current heads;
     # legacy manifests remain the compatibility fallback during migration.
     content = None
-    if item.file_format.lower() in {"stimmaset.json", "stimmagrid.json"}:
+    if item.file_format.lower() in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json"}:
         from container_service import get_normalized_container_content
         content = await get_normalized_container_content(
             session, container_media=item
@@ -1577,7 +1578,7 @@ async def create_set_from_media(
 
     # Validate that all items are atomic types (not sets or grids)
     for index, item in enumerate(ordered_items):
-        if item.file_format in ('stimmaset.json', 'stimmagrid.json'):
+        if item.file_format in ('stimmaset.json', 'stimmagrid.json', 'stimmasprite.json'):
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot create a set from structured media types (item {item.id} is a {item.file_format})"

@@ -690,6 +690,76 @@ class StimmaLibraryAPI:
         )
         return MediaRecord(json.loads(raw))
 
+    async def by_hash(self, file_hash: str) -> "MediaRecord":
+        """Resolve a content hash (as sprite documents reference media) to a
+        library record, copying the file into the workspace like ``get``."""
+        from sqlalchemy import select as _select
+
+        from database import MediaItem as _MediaItem
+
+        digest = (file_hash or "").strip().lower()
+        if not digest:
+            raise ValueError("by_hash() needs a hex content hash")
+        row = await self._sdk.session.scalar(
+            _select(_MediaItem)
+            .where(
+                _MediaItem.file_hash == digest,
+                _MediaItem.deleted_at.is_(None),
+                _MediaItem.deletion_pending_at.is_(None),
+                _MediaItem.ephemeral_run_id.is_(None),
+            )
+            .order_by(_MediaItem.id.desc())
+            .limit(1)
+        )
+        if row is None:
+            raise LookupError(f"No library media with hash {digest[:12]}…")
+        return await self.get(row.id)
+
+    async def export(self, media_id: int, format: str, **options: Any) -> list[str]:
+        """Export a library item the way the Export dialog does; files land in
+        the workspace and their paths are returned.
+
+        Sprites (``.stimmasprite.json``) support every target the dialog offers:
+        atlas-hash, atlas-array, godot, unity, unreal, gamemaker, rpgmaker,
+        defold, libgdx, cocos2d, frames, grid-sheet, strips, stills, gif, webp,
+        apng, mp4. Options mirror the dialog (animations=[...], directions=[...],
+        trim=, padding=, extrude=, scale=, power_of_two=, background=,
+        image_format=, walk=, sizes=[...]). Zips are unpacked into a folder
+        named after the export so the manifest sits beside the files.
+        """
+        import asyncio as _asyncio
+
+        from database import MediaItem as _MediaItem
+        from sprite_document import is_sprite_format
+        from sprite_export import (
+            SpriteExportError,
+            SpriteExportOptions,
+            load_sprite_source,
+            run_sprite_export,
+            unpack_export,
+        )
+
+        item = await self._sdk.session.get(_MediaItem, media_id)
+        if item is None or item.deleted_at is not None:
+            raise LookupError(f"No library media {media_id}")
+        if not is_sprite_format(item.file_format):
+            raise ValueError(
+                f"export() supports sprite documents; media {media_id} is a {item.file_format}. "
+                "Other types export through the app's Export dialog."
+            )
+        try:
+            source = await load_sprite_source(self._sdk.session, item)
+            result = await _asyncio.to_thread(
+                run_sprite_export, source, SpriteExportOptions(format=format, **options)
+            )
+        except SpriteExportError as exc:
+            raise ValueError(str(exc)) from exc
+        if result.media_type == "application/zip":
+            out_dir = self._sdk.workspace_dir / Path(result.filename).stem
+        else:
+            out_dir = self._sdk.workspace_dir
+        return [str(p) for p in unpack_export(result, out_dir)]
+
     async def lineage(self, media_id: int) -> dict[str, Any]:
         from .tools.library import _lineage
 

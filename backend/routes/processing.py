@@ -797,6 +797,7 @@ async def get_filter_counts(
     vector_formats = ['svg']
     set_formats = ['stimmaset.json']
     grid_formats = ['stimmagrid.json']
+    sprite_formats = ['stimmasprite.json']
 
     # Handle similarity search to get base item IDs
     base_item_ids = None
@@ -1068,6 +1069,31 @@ async def get_filter_counts(
     grids_query = grids_query.where(MediaItem.file_format.in_(grid_formats))
     grids_result = await session.execute(grids_query)
     grids_count = grids_result.scalar()
+
+    # Sprites count
+    sprites_query = get_base_query()
+    sprites_query = build_filtered_query(
+        sprites_query,
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        exclude_category='media_types'
+    )
+    sprites_query = sprites_query.where(MediaItem.file_format.in_(sprite_formats))
+    sprites_result = await session.execute(sprites_query)
+    sprites_count = sprites_result.scalar()
 
     # Layouts count
     layout_formats = ['stimmalayout']
@@ -1543,6 +1569,7 @@ async def get_filter_counts(
             "vectors": vectors_count,
             "sets": sets_count,
             "grids": grids_count,
+            "sprites": sprites_count,
             "layouts": layouts_count
         },
         "resolution": {
