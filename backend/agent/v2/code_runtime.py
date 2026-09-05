@@ -1190,6 +1190,9 @@ class StimmaSDK:
                 kwargs["_input_preprocessors"] = preprocessors
                 kwargs["_input_preprocessor_params"] = preprocessor_params
 
+        from mcp_server.jobs import check_execution
+        check_execution()
+
         # Single STP parameter namespace — hand the flat kwargs straight through.
         parameters = dict(kwargs)
         prompt_val = parameters.get("prompt")

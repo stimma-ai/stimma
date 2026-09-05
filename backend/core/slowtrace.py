@@ -35,7 +35,8 @@ def _skip_detailed_logging(path: str) -> bool:
     /api/db/{guid}/thumbnail/{hash}).
     """
     return (
-        path in SKIP_PATHS
+        path.startswith("/mcp/")
+        or path in SKIP_PATHS
         or any(path.startswith(prefix) for prefix in SKIP_PREFIXES)
         or "/thumbnail/" in path
         or path.endswith("/thumbnail")

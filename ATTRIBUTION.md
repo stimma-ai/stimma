@@ -83,7 +83,7 @@ license:
 ## Python packages
 
 <!-- BEGIN GENERATED: python -->
-127 packages (direct and transitive; the entire environment is bundled with the app).
+136 packages (direct and transitive; the entire environment is bundled with the app).
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -91,8 +91,9 @@ license:
 | aiosignal | 1.4.0 | Apache-2.0 | https://github.com/aio-libs/aiosignal |
 | aiosqlite | 0.19.0 | MIT | https://aiosqlite.omnilib.dev |
 | alembic | 1.17.2 | MIT | https://alembic.sqlalchemy.org |
+| annotated-doc | 0.0.5 | MIT | https://github.com/fastapi/annotated-doc |
 | annotated-types | 0.7.0 | MIT | https://github.com/annotated-types/annotated-types |
-| anyio | 3.7.1 | MIT | https://github.com/agronholm/anyio |
+| anyio | 4.14.2 | MIT | https://github.com/agronholm/anyio |
 | attrs | 25.4.0 | MIT | https://www.attrs.org/ |
 | babel | 2.18.0 | BSD | https://babel.pocoo.org/ |
 | bcrypt | 5.0.0 | Apache-2.0 | https://github.com/pyca/bcrypt/ |
@@ -111,7 +112,7 @@ license:
 | cssselect2 | 0.9.0 | BSD | https://doc.courtbouillon.org/cssselect2/ |
 | dateparser | 1.3.0 | BSD | https://github.com/scrapinghub/dateparser |
 | ddgs | 9.11.3 | MIT | https://github.com/deedy5/ddgs |
-| fastapi | 0.104.1 | MIT | https://github.com/tiangolo/fastapi |
+| fastapi | 0.141.1 | MIT | https://github.com/fastapi/fastapi |
 | ffmpeg-python | 0.2.0 | Apache-2.0 | https://github.com/kkroening/ffmpeg-python |
 | filelock | 3.20.1 | Unlicense | https://github.com/tox-dev/py-filelock |
 | flatbuffers | 25.12.19 | Apache-2.0 | https://google.github.io/flatbuffers/ |
@@ -126,14 +127,17 @@ license:
 | hf-xet | 1.2.0 | Apache-2.0 | https://github.com/huggingface/xet-core |
 | htmldate | 1.9.4 | Apache-2.0 | https://htmldate.readthedocs.io |
 | httpcore | 1.0.9 | BSD-3-Clause | https://www.encode.io/httpcore/ |
-| httptools | 0.7.1 | MIT | https://github.com/MagicStack/httptools |
+| httptools | 0.8.0 | MIT | https://github.com/MagicStack/httptools |
 | httpx | 0.28.1 | BSD | https://github.com/encode/httpx |
+| httpx-sse | 0.4.3 | MIT | https://github.com/florimondmanca/httpx-sse |
 | huggingface-hub | 1.4.1 | Apache-2.0 | https://github.com/huggingface/huggingface_hub |
 | humanfriendly | 10.0 | MIT | https://humanfriendly.readthedocs.io |
 | idna | 3.11 | BSD-3-Clause | https://github.com/kjd/idna |
 | imageio | 2.37.2 | BSD-2-Clause | https://github.com/imageio/imageio |
 | imgviz | 1.8.0 | MIT | https://github.com/wkentaro/imgviz |
 | jeepney | 0.9.0 | MIT | https://gitlab.com/takluyver/jeepney |
+| jsonschema | 4.26.0 | MIT | https://github.com/python-jsonschema/jsonschema |
+| jsonschema-specifications | 2025.9.1 | MIT | https://github.com/python-jsonschema/jsonschema-specifications |
 | justext | 3.0.2 | BSD | https://github.com/miso-belica/jusText |
 | lazy-loader | 0.4 | BSD | https://github.com/scientific-python/lazy_loader |
 | loguru | 0.7.3 | MIT | https://github.com/Delgan/loguru |
@@ -143,6 +147,7 @@ license:
 | markdown | 3.10.1 | BSD-3-Clause | https://Python-Markdown.github.io/ |
 | markdown-it-py | 4.0.0 | MIT | https://github.com/executablebooks/markdown-it-py |
 | markupsafe | 3.0.3 | BSD-3-Clause | https://github.com/pallets/markupsafe/ |
+| mcp | 1.29.1 | MIT | https://modelcontextprotocol.io |
 | mdurl | 0.1.2 | MIT | https://github.com/executablebooks/mdurl |
 | mpmath | 1.3.0 | BSD | http://mpmath.org/ |
 | multidict | 6.7.0 | Apache License 2.0 | https://github.com/aio-libs/multidict |
@@ -161,11 +166,12 @@ license:
 | protobuf | 6.33.2 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
 | psutil | 7.2.2 | BSD-3-Clause | https://github.com/giampaolo/psutil |
 | pycparser | 3.0 | BSD-3-Clause | https://github.com/eliben/pycparser |
-| pydantic | 2.5.0 | MIT | https://github.com/pydantic/pydantic |
-| pydantic-core | 2.14.1 | MIT | https://github.com/pydantic/pydantic-core |
-| pydantic-settings | 2.1.0 | MIT | https://github.com/pydantic/pydantic-settings |
+| pydantic | 2.13.5 | MIT | https://github.com/pydantic/pydantic |
+| pydantic-core | 2.46.5 | MIT | https://github.com/pydantic/pydantic |
+| pydantic-settings | 2.15.0 | MIT | https://github.com/pydantic/pydantic-settings |
 | pydyf | 0.12.1 | BSD | https://www.courtbouillon.org/pydyf |
 | pygments | 2.19.2 | BSD | https://pygments.org |
+| pyjwt | 2.13.0 | MIT | https://github.com/jpadilla/pyjwt |
 | pypdfium2 | 5.6.0 | BSD-3-Clause AND Apache-2.0 (bundles PDFium and its third-party libraries) | https://github.com/pypdfium2-team/pypdfium2 |
 | pyphen | 0.17.2 | GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1 (used under MPL-1.1) | https://www.courtbouillon.org/pyphen |
 | pyreadline3 | 3.5.4 | BSD-3-Clause | https://github.com/pyreadline3/pyreadline3 |
@@ -173,23 +179,25 @@ license:
 | python-dateutil | 2.9.0.post0 | BSD | https://github.com/dateutil/dateutil |
 | python-dotenv | 1.2.1 | BSD-3-Clause | https://github.com/theskumar/python-dotenv |
 | python-frontmatter | 1.1.0 | MIT | https://github.com/eyeseast/python-frontmatter |
-| python-multipart | 0.0.6 | Apache-2.0 | https://github.com/andrew-d/python-multipart |
+| python-multipart | 0.0.32 | Apache-2.0 | https://github.com/Kludex/python-multipart |
 | pytz | 2026.1.post1 | MIT | http://pythonhosted.org/pytz |
+| pywin32 | 312 | PSF-2.0 AND BSD-3-Clause AND (PSF-2.0 OR BSD-3-Clause) AND Python-2.0.1 AND MIT AND LGPL-2.1-or-later | https://github.com/mhammond/pywin32 |
 | pyyaml | 6.0.1 | MIT | https://pyyaml.org/ |
+| referencing | 0.37.0 | MIT | https://github.com/python-jsonschema/referencing |
 | regex | 2025.11.3 | Apache-2.0 AND CNRI-Python | https://github.com/mrabarnett/mrab-regex |
 | requests | 2.32.5 | Apache-2.0 | https://requests.readthedocs.io |
 | rich | 14.3.2 | MIT | https://github.com/Textualize/rich |
+| rpds-py | 2026.6.3 | MIT | https://github.com/crate-py/rpds |
 | ruamel-yaml | 0.19.1 | MIT | https://sourceforge.net/p/ruamel-yaml/code/ci/default/tree/ |
 | scikit-image | 0.23.2 | BSD | https://scikit-image.org |
 | scipy | 1.16.3 | BSD | https://scipy.org/ |
 | secretstorage | 3.5.0 | BSD-3-Clause | https://github.com/mitya57/secretstorage |
 | shellingham | 1.5.4 | ISC | https://github.com/sarugaku/shellingham |
 | six | 1.17.0 | MIT | https://github.com/benjaminp/six |
-| sniffio | 1.3.1 | MIT | https://github.com/python-trio/sniffio |
 | soupsieve | 2.8.1 | MIT | https://github.com/facelessuser/soupsieve |
 | sqlalchemy | 2.0.23 | MIT | https://www.sqlalchemy.org |
 | sse-starlette | 1.8.2 | BSD | https://github.com/sysid/sse-starlette |
-| starlette | 0.27.0 | BSD-3-Clause | https://github.com/encode/starlette |
+| starlette | 1.6.0 | BSD-3-Clause | https://github.com/Kludex/starlette |
 | strip-markdown | 1.3 | MIT | https://github.com/D3r3k23/strip_markdown |
 | structlog | 25.5.0 | MIT OR Apache-2.0 | https://www.structlog.org/ |
 | sympy | 1.14.0 | BSD | https://sympy.org |
@@ -201,10 +209,11 @@ license:
 | trafilatura | 2.0.0 | Apache-2.0 | https://trafilatura.readthedocs.io |
 | typer-slim | 0.21.1 | MIT | https://github.com/fastapi/typer |
 | typing-extensions | 4.15.0 | PSF-2.0 | https://github.com/python/typing_extensions |
+| typing-inspection | 0.4.4 | MIT | https://github.com/pydantic/typing-inspection |
 | tzdata | 2025.3 | Apache-2.0 | https://github.com/python/tzdata |
 | tzlocal | 5.3.1 | MIT | https://github.com/regebro/tzlocal |
 | urllib3 | 2.6.2 | MIT | https://github.com/urllib3/urllib3/blob/main/CHANGES.rst |
-| uvicorn | 0.24.0 | BSD-3-Clause | https://www.uvicorn.org/ |
+| uvicorn | 0.50.1 | BSD-3-Clause | https://uvicorn.dev/ |
 | uvloop | 0.22.1 | Apache-2.0 | https://github.com/MagicStack/uvloop |
 | watchfiles | 1.1.1 | MIT | https://github.com/samuelcolvin/watchfiles |
 | wcwidth | 0.2.14 | MIT | https://github.com/jquast/wcwidth |

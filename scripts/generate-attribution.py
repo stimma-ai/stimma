@@ -39,6 +39,7 @@ ATTRIBUTION = REPO_ROOT / "ATTRIBUTION.md"
 # embed full license text instead of an identifier). Verified against the
 # package's own LICENSE file or PyPI.
 PY_OVERRIDES = {
+    "pywin32": ("PSF-2.0 AND BSD-3-Clause AND (PSF-2.0 OR BSD-3-Clause) AND Python-2.0.1 AND MIT AND LGPL-2.1-or-later", "https://github.com/mhammond/pywin32"),
     "colorama": ("BSD-3-Clause", "https://github.com/tartley/colorama"),
     "win32-setctime": ("MIT", "https://github.com/Delgan/win32-setctime"),
     "pyreadline3": ("BSD-3-Clause", "https://github.com/pyreadline3/pyreadline3"),

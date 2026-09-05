@@ -89,10 +89,39 @@ class UserToolsProvider(ToolProvider):
     """Provider for flows frozen into first-class tools."""
 
     def __init__(self):
+        self._profile_state = {}
         self._status = ProviderStatus.DISCONNECTED
         self._descriptors: Dict[str, ToolDescriptor] = {}
         self._rows: Dict[str, Any] = {}  # tool_id -> UserTool.to_dict()
         self._assets: Dict[str, bytes] = {}
+
+    def _state(self):
+        from core.profile_context import get_current_profile
+        return self._profile_state.setdefault(get_current_profile(), {})
+
+    @property
+    def _descriptors(self):
+        return self._state().setdefault('descriptors', {})
+
+    @_descriptors.setter
+    def _descriptors(self, value):
+        self._state()['descriptors'] = value
+
+    @property
+    def _rows(self):
+        return self._state().setdefault('rows', {})
+
+    @_rows.setter
+    def _rows(self, value):
+        self._state()['rows'] = value
+
+    @property
+    def _assets(self):
+        return self._state().setdefault('assets', {})
+
+    @_assets.setter
+    def _assets(self, value):
+        self._state()['assets'] = value
 
     @property
     def provider_id(self) -> str:
@@ -172,16 +201,20 @@ class UserToolsProvider(ToolProvider):
                         "flow_id": row.flow_id,
                         "user_tool_id": row.id,
                         "provenance": "user-flow",
+                        "definition_version": __import__("hashlib").sha256((row.program_text + (row.hitl_policies or "") + (row.output_map or "")).encode()).hexdigest(),
                     },
                 )
                 # to_dict() omits program_text (kept out of API responses); the
                 # provider needs the runnable body to execute, so include it here.
                 rows[tool_id] = {**row.to_dict(), "program_text": row.program_text}
 
+        self._state()['loaded'] = True
         self._descriptors = descriptors
         self._rows = rows
 
     async def list_tools(self) -> List[ToolDescriptor]:
+        if 'loaded' not in self._state():
+            await self._load_tools()
         return list(self._descriptors.values())
 
     async def get_tool(self, tool_id: str) -> Optional[ToolDescriptor]:

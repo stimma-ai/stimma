@@ -51,7 +51,8 @@ _PENDING: dict[str, asyncio.Future] = {}
 
 
 def _request_id(chat_id: int, tool_id: str) -> str:
-    return f"{chat_id}:{tool_id}"
+    from core.profile_context import get_current_profile
+    return f"{get_current_profile()}:{chat_id}:{tool_id}"
 
 
 def is_pending_permission(request_id: str) -> bool:

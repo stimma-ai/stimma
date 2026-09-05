@@ -1,6 +1,9 @@
 """WebSocket connection management for real-time updates."""
 import asyncio
 import json
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
+from copy import deepcopy
 from core.logging import get_logger
 from typing import List, Dict, Optional, Callable, Awaitable
 from fastapi import WebSocket
@@ -8,6 +11,29 @@ from fastapi import WebSocket
 from core.profile_context import get_current_profile
 
 log = get_logger(__name__)
+
+
+# A mutation can defer its own broadcasts until its database receipt commits.
+# Child tasks use normal delivery instead of inheriting an abandoned buffer.
+_broadcast_buffer = ContextVar('broadcast_buffer', default=None)
+
+
+@asynccontextmanager
+async def defer_broadcasts():
+    events = []
+    token = _broadcast_buffer.set((asyncio.current_task(), events))
+    try:
+        yield
+    except BaseException:
+        raise
+    else:
+        _broadcast_buffer.reset(token)
+        token = None
+        for manager, event, data, include_profile in events:
+            await manager.broadcast(event, data, include_profile)
+    finally:
+        if token is not None:
+            _broadcast_buffer.reset(token)
 
 
 def _payload_log_metadata(data: dict) -> dict:
@@ -91,6 +117,10 @@ class WebSocketManager:
                             for client-side filtering. Set to False for truly
                             global events (like processing_stats).
         """
+        pending = _broadcast_buffer.get()
+        if pending is not None and pending[0] is asyncio.current_task():
+            pending[1].append((self, event, deepcopy(data), include_profile))
+            return
         if not self.active_connections:
             log.debug(f"No active WebSocket connections to broadcast '{event}' to")
             return

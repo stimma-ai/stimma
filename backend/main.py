@@ -178,6 +178,10 @@ async def root():
     return {"status": "ok", "service": "Stimma API"}
 
 # Include all routers
+from mcp_server.settings import router as mcp_settings_router
+from mcp_server.server import Gateway
+app.include_router(mcp_settings_router)
+app.mount('/mcp', Gateway())
 app.include_router(auth.router)
 app.include_router(provider_manage.router)
 app.include_router(assets.router)

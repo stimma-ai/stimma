@@ -1,0 +1,30 @@
+import { expect, test } from '../helpers/testbed';
+import { waitForShell } from '../helpers/app';
+
+test('MCP connection setup downloads a profile-bound credential and supports disconnect', async ({ page }, testInfo) => {
+  await page.addLocatorHandler(page.getByTestId('readiness-dismiss'), async dismiss => { await dismiss.click(); });
+  await page.goto('/browse');
+  await waitForShell(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'MCP', exact: true }).click();
+  const enabled = page.getByRole('checkbox', { name: 'Enable MCP for this profile' });
+  await enabled.check();
+  await expect(page.getByRole('button', { name: 'Download connection file' })).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download connection file' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.stimma-mcp\.json$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const connection = JSON.parse(Buffer.concat(chunks).toString());
+  expect(connection.endpoint).toContain(`/mcp/profiles/${connection.profile_id}`);
+  expect(connection.credential.length).toBeGreaterThanOrEqual(32);
+  expect(connection).not.toHaveProperty('pin');
+  await expect(page.getByText(/stimma mcp install/)).toBeVisible();
+  await page.getByRole('button', { name: 'Lock external access', exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath('mcp-settings.png') });
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.getByText('No assistants connected yet.')).toBeVisible();
+  await enabled.uncheck();
+});
