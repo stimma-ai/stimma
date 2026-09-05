@@ -15,6 +15,30 @@ router = APIRouter(prefix='/api/headless', tags=['headless'])
 _maintenance = False
 _active_requests = 0
 _login_task = None
+_paused_flow_runs = set()
+
+
+def is_in_maintenance():
+    return ENABLED and _maintenance
+
+
+async def drain_flows(enabled):
+    from flow_registry import all_runtimes
+    if not enabled:
+        for run in list(_paused_flow_runs):
+            await run.resume()
+            _paused_flow_runs.discard(run)
+        return 0
+    busy = 0
+    for runtime in all_runtimes():
+        run = runtime.run
+        if run is None:
+            continue
+        if run.state == 'running':
+            await run.pause()
+            _paused_flow_runs.add(run)
+        busy += run.active_evaluation_count
+    return busy
 
 
 def supervisor_command(action):
@@ -95,16 +119,15 @@ async def maintenance(request: Request, body: MaintenanceRequest):
         marker.unlink(missing_ok=True)
     from agent.v2.service import get_active_chat_ids
     from config import get_settings
-    from database import Flow, GenerationJob, DeleteOperation
+    from database import GenerationJob, DeleteOperation
     from database_registry import get_database_registry
     from sqlalchemy import func, select
-    busy = len(get_active_chat_ids()) + _active_requests
+    busy = len(get_active_chat_ids()) + _active_requests + await drain_flows(body.enabled)
     registry = get_database_registry()
     for profile in get_settings().profiles:
         db = registry.get_database(profile.id)
         async with db.async_session_maker() as session:
             for model, condition in (
-                (Flow, Flow.execution_state == 'running'),
                 (GenerationJob, GenerationJob.status.in_(['queued', 'assigned', 'processing'])),
                 (DeleteOperation, DeleteOperation.status.in_(['queued', 'running'])),
             ):

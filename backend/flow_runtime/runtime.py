@@ -577,6 +577,11 @@ class FlowRuntime:
     # Run control
 
     async def start(self) -> None:
+        # Read-side recovery can call start even while writes are gated. Keep
+        # it from resuming a scheduler that the headless updater has drained.
+        from headless_runtime import is_in_maintenance
+        if is_in_maintenance():
+            return
         if self.graph is None:
             self.build_initial_graph()
         if self.persist_media_results:

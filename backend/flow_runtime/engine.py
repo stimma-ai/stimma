@@ -196,6 +196,11 @@ class FlowRun:
     def state(self) -> str:
         return self._state
 
+    @property
+    def active_evaluation_count(self) -> int:
+        """Work that must finish before the server can safely restart."""
+        return sum(not task.done() for task in self._in_flight.values())
+
     async def start(self) -> None:
         if (
             self._state == RunState.RUNNING
