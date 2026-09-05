@@ -35,10 +35,14 @@ def package(version, branch):
     output.mkdir(exist_ok=True)
     name = f'stimma-headless-{version}-linux-{arch}.tar.gz'
     run('tar', '--sort=name', '--owner=0', '--group=0', '--numeric-owner', '-czf', str(output / name), '-C', str(source), '.')
-    digest = hashlib.file_digest((output / name).open('rb'), 'sha256').hexdigest()
+    # The build host can use Python 3.10 (Ubuntu 22.04); the bundled runtime is 3.11.
+    digest = hashlib.sha256()
+    with (output / name).open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
     base = os.environ.get('STIMMA_UPDATE_BASE_URL', 'https://updates.stimma.ai').rstrip('/')
     metadata = {'version': version, 'branch': branch, 'target': f'headless-linux-{arch}',
-                'sha256': digest, 'url': f'{base}/stimma/{branch}/headless-linux-{arch}/{version}/{name}',
+                'sha256': digest.hexdigest(), 'url': f'{base}/stimma/{branch}/headless-linux-{arch}/{version}/{name}',
                 'minimumBootstrapVersion': '1.0.0', 'latestBootstrapVersion': (PACKAGING / 'VERSION').read_text().strip(),
                 'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
     (output / 'manifest.json').write_text(json.dumps(metadata, sort_keys=True))
