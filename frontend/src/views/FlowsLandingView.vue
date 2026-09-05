@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
       <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Flows</h1>
 
       <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
@@ -86,7 +86,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted , watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
+import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -288,4 +289,9 @@ onUnmounted(() => {
   for (const u of unsubs) { try { u() } catch {} }
   unsubs.length = 0
 })
+
+// Compact header: the hub's create action is the header plus button.
+const compactCreate = { label: 'New flow', run: () => createFlow() }
+onMounted(() => setCompactPrimaryAction(compactCreate))
+onActivated(() => setCompactPrimaryAction(compactCreate))
 </script>

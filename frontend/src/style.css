@@ -747,7 +747,7 @@ select option {
 [data-sheet-menu] {
   /* The huge upward shadow doubles as the backdrop: one element, no
      teleported scrim to keep in sync with the menu's own open/close. */
-  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45), 0 -100vh 0 100vh rgba(7, 9, 15, 0.55);
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
   border-left: 0 !important;
   border-right: 0 !important;
   border-bottom: 0 !important;

@@ -41,7 +41,8 @@ export type HubId = 'home' | 'library' | 'workspace' | 'boards' | 'chats'
 export function hubForRoute(name: unknown): HubId | null {
   switch (name) {
     case 'home': return 'home'
-    case 'browse': case 'search': case 'trash': case 'saved-view': case 'upload': return 'library'
+    case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
+    // Search belongs to no hub: it rides on whichever hub opened it.
     case 'workspace': case 'all-tools': case 'flows': case 'stimpacks': case 'tool': case 'flow':
     case 'edit-image': case 'lineage': case 'projects': return 'workspace'
     case 'boards': case 'board-detail': return 'boards'
@@ -64,9 +65,18 @@ export function setCompactTitle(title: string, subtitle = '') {
   routeSubtitle.value = subtitle
 }
 
+export interface CompactAction { label: string; run: () => void }
+const primaryAction = ref<CompactAction | null>(null)
+
+/** A hub's one create action, rendered as the header's plus button. */
+export function setCompactPrimaryAction(action: CompactAction | null) {
+  primaryAction.value = action
+}
+
 export function clearCompactTitle() {
   routeTitle.value = ''
   routeSubtitle.value = ''
+  primaryAction.value = null
 }
 
 export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
@@ -89,5 +99,5 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     const name = typeof route.name === 'string' ? route.name : ''
     return ['workspace', 'all-tools', 'flows', 'stimpacks'].includes(name)
   })
-  return { surface, isHub, title, subtitle, workspaceSegments }
+  return { surface, isHub, title, subtitle, workspaceSegments, primaryAction }
 }

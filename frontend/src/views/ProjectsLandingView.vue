@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full flex-col bg-base">
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
       <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Projects</h1>
 
       <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
@@ -122,7 +122,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onActivated, onMounted, onUnmounted, ref , watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
@@ -307,4 +308,9 @@ const unsubscribeWs = [
   onWsEvent('project_deleted', loadProjects),
 ]
 onUnmounted(() => unsubscribeWs.forEach((unsubscribe) => unsubscribe()))
+
+// Compact header: the hub's create action is the header plus button.
+const compactCreate = { label: 'New project', run: () => createNewProject() }
+onMounted(() => setCompactPrimaryAction(compactCreate))
+onActivated(() => setCompactPrimaryAction(compactCreate))
 </script>

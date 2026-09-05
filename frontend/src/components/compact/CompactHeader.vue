@@ -7,16 +7,17 @@
  */
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronLeftIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { ChevronLeftIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '../../composables/useAuth'
-import { useCompactChrome, hubForRoute, HUB_ROOTS } from '../../composables/useCompactChrome'
+import { useCompactChrome } from '../../composables/useCompactChrome'
+import { useCompactNav } from '../../composables/useCompactNav'
 import AccountSheet from './AccountSheet.vue'
 
 const emit = defineEmits<{ openSettings: [section: string] }>()
 
 const route = useRoute()
 const router = useRouter()
-const { isHub, title, subtitle, workspaceSegments } = useCompactChrome(route)
+const { isHub, title, subtitle, workspaceSegments, primaryAction } = useCompactChrome(route)
 const { user, isAuthenticated } = useAuth()
 
 const accountInitial = computed(() => {
@@ -34,16 +35,9 @@ const SEGMENTS = [
 ]
 const activeSegment = computed(() => SEGMENTS.find((s) => s.names.includes(String(route.name))) ?? null)
 
+const nav = useCompactNav()
 function back() {
-  // vue-router records the previous in-app location on history.state; with
-  // none (deep link, reload) fall back to the route's hub root.
-  const state = window.history.state as { back?: string | null } | null
-  if (state?.back) {
-    router.back()
-    return
-  }
-  const hub = hubForRoute(route.name)
-  router.replace(hub ? HUB_ROOTS[hub] : '/home')
+  nav.back()
 }
 
 function openSearch() {
@@ -89,6 +83,15 @@ function openSearch() {
         @click="openSearch"
       >
         <MagnifyingGlassIcon class="w-6 h-6" />
+      </button>
+      <button
+        v-if="primaryAction"
+        type="button"
+        class="w-11 h-11 flex items-center justify-center rounded-md text-accent-hi bg-accent/15 border-none"
+        :aria-label="primaryAction.label"
+        @click="primaryAction.run()"
+      >
+        <PlusIcon class="w-6 h-6" />
       </button>
     </div>
 

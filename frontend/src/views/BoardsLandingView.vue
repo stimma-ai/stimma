@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full flex-col bg-base">
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
       <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Boards</h1>
 
       <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
@@ -154,7 +154,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref , watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, onActivated } from 'vue'
+import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import { MediaImage } from '../components/media'
@@ -469,4 +470,9 @@ onUnmounted(() => {
   document.removeEventListener('mousedown', handleDocumentClick)
   unsubscribers.forEach((unsubscribe) => unsubscribe?.())
 })
+
+// Compact header: the hub's create action is the header plus button.
+const compactCreate = { label: 'New board', run: () => createNewBoard() }
+onMounted(() => setCompactPrimaryAction(compactCreate))
+onActivated(() => setCompactPrimaryAction(compactCreate))
 </script>

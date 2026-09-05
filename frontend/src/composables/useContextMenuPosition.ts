@@ -157,8 +157,42 @@ export function useContextMenuPosition(
   watch([visible, menuRef], ([shown, el]) => {
     if (shown && el && isCoarsePointer.value) el.setAttribute('data-sheet-menu', '')
   }, { flush: 'post' })
+  useSheetBackdrop(visible)
 
   return { menuStyle, reposition }
+}
+
+/**
+ * One shared backdrop under whatever sheet menu is open. A tap on it reaches
+ * document as an outside click (which is how every menu closes) and never
+ * reaches the tile or row underneath, so dismissing a sheet cannot open a
+ * slideshow. Sheets stack (submenus), so it is reference counted.
+ */
+let backdropEl: HTMLElement | null = null
+let backdropUsers = 0
+function acquireSheetBackdrop() {
+  backdropUsers += 1
+  if (backdropEl) return
+  const el = document.createElement('div')
+  el.setAttribute('data-sheet-backdrop', '')
+  el.style.cssText = 'position:fixed;inset:0;z-index:219;background:rgba(7,9,15,0.55);'
+  document.body.appendChild(el)
+  backdropEl = el
+}
+function releaseSheetBackdrop() {
+  backdropUsers = Math.max(0, backdropUsers - 1)
+  if (backdropUsers === 0 && backdropEl) {
+    backdropEl.remove()
+    backdropEl = null
+  }
+}
+function useSheetBackdrop(visible: Ref<boolean>) {
+  let held = false
+  watch(visible, (shown) => {
+    if (shown && isCoarsePointer.value && !held) { acquireSheetBackdrop(); held = true }
+    else if (!shown && held) { releaseSheetBackdrop(); held = false }
+  }, { immediate: true })
+  onUnmounted(() => { if (held) { releaseSheetBackdrop(); held = false } })
 }
 
 /** Bottom-sheet placement for menus on coarse pointers. */
@@ -237,6 +271,8 @@ export function useAnchoredMenuPosition(
   useRepositionTriggers(menuRef, visible, reposition, () => {
     appliedCap = null
   })
+
+  useSheetBackdrop(visible)
 
   return { menuStyle: style, reposition }
 }

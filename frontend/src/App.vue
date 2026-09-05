@@ -223,6 +223,7 @@ const vScrollGuard = {
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import { useViewport } from './composables/useViewport'
 import { clearCompactTitle } from './composables/useCompactChrome'
+import { installCompactNav } from './composables/useCompactNav'
 import CompactHeader from './components/compact/CompactHeader.vue'
 import CompactTabBar from './components/compact/CompactTabBar.vue'
 import Spinner from './components/ui/Spinner.vue'
@@ -514,6 +515,7 @@ const isMobile = isCompact
 const compactOverlay = computed(() => route.meta?.surface === 'overlay')
 // A detail view's title must not outlive its route.
 watch(() => route.fullPath, () => clearCompactTitle())
+installCompactNav(router)
 
 function openSidebar() {
   sidebarOpen.value = true
