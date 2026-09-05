@@ -1,12 +1,13 @@
 <template>
   <div>
+    <h3 class="mb-4 text-base font-medium text-content">Stimma Server</h3>
     <HeadlessServerBlock />
     <div class="mb-3">
       <div class="flex items-center gap-3">
-        <h3 class="text-base font-medium text-content">Stimma Server</h3>
+        <h3 class="text-base font-medium text-content">{{ THIS_MACHINE_LABEL }}</h3>
       </div>
       <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
-        Use this library and its tools from your other Stimma installs.
+        Share the library on this computer with your other Stimma installs.
       </p>
     </div>
 
@@ -38,6 +39,7 @@
 
 <script setup>
 import HeadlessServerBlock from './HeadlessServerBlock.vue'
+import { THIS_MACHINE_LABEL } from '../../../composables/useMultiDevice'
 import { useAuth } from '../../../composables/useAuth'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import Button from '../../ui/Button.vue'

@@ -1,6 +1,5 @@
 <template>
   <div class="flex flex-col min-h-full">
-    <HeadlessServerBlock />
     <!-- Identity -->
     <div class="flex items-center gap-4 pb-6">
       <img src="/logo.svg" alt="Stimma" class="w-16 h-16 rounded-lg border border-edge bg-surface" />
@@ -77,9 +76,7 @@
               {{ pendingApply === 'install' ? 'Restart Stimma to install' : 'Restart Stimma to finish installing' }}
             </div>
           </div>
-          <Button size="sm" @click="restartToApply()">
-            {{ pendingApply === 'install' ? 'Restart & Install' : 'Restart Now' }}
-          </Button>
+          <UpdatePill :label="`Update ${machineLabel}`" @click="restartToApply()" />
         </template>
 
         <template v-else-if="hasUpdate">
@@ -90,7 +87,7 @@
               Checked {{ formatRelativeTime(lastCheckedAt) }}
             </div>
           </div>
-          <Button size="sm" @click="downloadAndInstallUpdate()">Install Update</Button>
+          <UpdatePill :label="`Update ${machineLabel}`" @click="downloadAndInstallUpdate()" />
         </template>
 
         <template v-else>
@@ -185,7 +182,6 @@
 </template>
 
 <script setup lang="ts">
-import HeadlessServerBlock from './HeadlessServerBlock.vue'
 import { computed, onMounted, ref } from 'vue'
 import { desktop } from '../../../desktop'
 import { useAppUpdater } from '../../../composables/useAppUpdater'
@@ -193,7 +189,10 @@ import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { COMMIT_HASH } from '../../../distribution'
 import StatusDot from '../../ui/StatusDot.vue'
 import Button from '../../ui/Button.vue'
+import UpdatePill from '../../ui/UpdatePill.vue'
+import { THIS_MACHINE_LABEL } from '../../../composables/useMultiDevice'
 import AttributionModal from '../../AttributionModal.vue'
+const machineLabel = THIS_MACHINE_LABEL.replace('This ', 'this ')
 
 const {
   channel,

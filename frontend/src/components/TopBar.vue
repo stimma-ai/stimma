@@ -271,9 +271,11 @@
         </transition>
       </div>
 
+      <UpdateControls />
+
       <!-- Update affordance: compact icon pill that peeks open on state change and expands on hover -->
       <button
-        v-if="updateState && !updatesBlockedByPrivacyLockdown"
+        v-if="updateState === 'whatsnew' && !updatesBlockedByPrivacyLockdown && !combinedUpdateCount && !combinedUpdateBusy"
         @click="onUpdatePillClick"
         @mouseenter="updatePillHover = true"
         @mouseleave="updatePillHover = false"
@@ -490,6 +492,8 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
 import { makeGlobalKey } from '../utils/storageKeys'
 import { useAppUpdater } from '../composables/useAppUpdater'
+import UpdateControls from './UpdateControls.vue'
+import { useServerUpdater } from '../composables/useServerUpdater'
 import { useReleaseNotes } from '../composables/useReleaseNotes'
 import WhatsNewModal from './WhatsNewModal.vue'
 import { captioningEnabledRef } from '../appConfig'
@@ -573,6 +577,7 @@ const {
 // Theme
 
 // Updates
+const { updateCount: combinedUpdateCount, busy: combinedUpdateBusy } = useServerUpdater()
 const {
   hasUpdate,
   pendingRestart,

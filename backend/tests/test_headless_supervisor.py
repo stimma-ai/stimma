@@ -105,3 +105,36 @@ def test_private_backend_uses_available_loopback_port(monkeypatch):
 def test_private_backend_explicit_port_is_preserved(monkeypatch):
     monkeypatch.setattr(supervisor, 'LOCAL_PORT', 49123)
     assert supervisor.local_port() == 49123
+
+
+@pytest.mark.parametrize('scheduled,idle,activates', [(False, False, True), (True, False, False), (True, True, True)])
+def test_only_scheduled_updates_wait_for_idle(monkeypatch, scheduled, idle, activates):
+    instance = supervisor.Supervisor()
+    instance.child = Mock()
+    for name, result in [('check', None), ('stage', 'new'), ('current', 'old'), ('drain', idle), ('activate', None), ('status', None)]:
+        monkeypatch.setattr(instance, name, Mock(return_value=result))
+    instance.perform('update', scheduled=scheduled)
+    assert instance.activate.called is activates
+    assert instance.drain.called is scheduled
+    if scheduled:
+        instance.drain.assert_called_once_with(scheduled=True)
+
+
+def test_manual_restart_starts_without_waiting_for_idle(monkeypatch):
+    instance = supervisor.Supervisor()
+    for name, result in [('current', 'release'), ('drain', False), ('stop_child', None), ('start_child', None), ('status', None)]:
+        monkeypatch.setattr(instance, name, Mock(return_value=result))
+    instance.perform('restart')
+    instance.drain.assert_not_called()
+    instance.stop_child.assert_called_once()
+    instance.start_child.assert_called_once_with('release')
+
+
+def test_manual_action_interrupts_scheduled_wait_and_resumes_scheduling(monkeypatch):
+    instance = supervisor.Supervisor()
+    instance.commands.put('update')
+    monkeypatch.setattr(instance, 'status', Mock())
+    monkeypatch.setattr(instance, 'local', Mock())
+    assert instance.drain(scheduled=True) is False
+    instance.local.assert_called_once_with('maintenance', {'enabled': False})
+    assert instance.commands.get_nowait() == 'update'

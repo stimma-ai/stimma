@@ -204,6 +204,7 @@ import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
 import ConnectionScreen from './components/ConnectionScreen.vue'
+import { startServerUpdater, stopServerUpdater } from './composables/useServerUpdater'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import DirectoryPickerModal from './components/DirectoryPickerModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
@@ -1083,6 +1084,7 @@ function handleOpenSettings(e) {
 }
 
 onMounted(async () => {
+  startServerUpdater()
   // Guard the root scrolling element the same way as the shell divs.
   const rootGuard = () => {
     const d = document.scrollingElement || document.documentElement
@@ -1116,6 +1118,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopServerUpdater()
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('pin-auto-locked', handleAutoLock)

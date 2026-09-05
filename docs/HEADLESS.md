@@ -37,15 +37,16 @@ model caches in `/data/cache`. Keep the volume when replacing the container.
 One running server owns each volume. External source folders can be mounted
 read-only. Store SQLite databases on suitable local storage.
 
-Settings → About and Settings → Stimma Server show a **Connected server** panel
-with app/base versions, update status, check/update actions and restart. Those
-controls address the server hosting the library; the desktop updater continues
-to manage the local desktop app separately.
+Settings → Stimma Server shows the server hosting your library in a named card
+with app/base versions, update status, check/update actions and restart. About
+shows only the local app. The top-bar update pill includes available server
+updates; **Update all** updates the server and this machine in one click.
 
 The launcher checks on startup and starts the cached package if the update
 service is unavailable. Optional `UPDATE_WINDOW=03:00-05:00` with `TZ` enables
-nightly updates; omit it for startup/manual updates only. Running jobs are
-allowed to finish before restart. A busy server defers a scheduled update once
+nightly updates; omit it for startup/manual updates only. Manual updates and
+restarts begin immediately. Scheduled updates wait for active work to finish.
+A busy server defers a scheduled update once
 the window closes. The headless runtime includes FFmpeg, Bash, Python, Git,
 curl, jq, ripgrep and archive tools. No Docker socket or privileged container
 is required.

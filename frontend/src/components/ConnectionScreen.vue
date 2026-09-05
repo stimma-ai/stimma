@@ -18,12 +18,15 @@
              sweeping before it admits a device is unreachable), so it has to
              read as progress rather than a stall. -->
         <div class="text-sm text-content-secondary min-h-[1.25rem] flex items-center gap-2">
-          <Spinner v-if="connectionState === 'connecting'" size="sm" />
+          <Spinner v-if="restartExpected || connectionState === 'connecting'" size="sm" />
           <span>{{ statusLine }}</span>
         </div>
+        <p v-if="restartExpected" class="text-xs text-content-tertiary">
+          {{ restartTakingLonger ? 'Still waiting for the server. Reconnecting automatically.' : 'Your library will reconnect automatically. This can take a couple of minutes.' }}
+        </p>
       </div>
 
-      <div class="flex items-center gap-3 pointer-events-auto">
+      <div v-if="!restartExpected || restartTakingLonger" class="flex items-center gap-3 pointer-events-auto">
         <button
           class="h-8 px-3 rounded-md text-[13px] bg-overlay-subtle text-content transition-colors cursor-pointer hover:bg-overlay-light"
           :disabled="connectionState === 'connecting'"
@@ -52,13 +55,15 @@ import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
 import Spinner from './ui/Spinner.vue'
+import { useServerUpdater } from '../composables/useServerUpdater'
 
 const { connectionState, activeDeviceName, retry, refresh, useLocalServer } = useMultiDevice()
+const { restartExpected, restartTakingLonger } = useServerUpdater()
 
 const deviceName = computed(() => activeDeviceName.value)
 
 const statusLine = computed(() =>
-  connectionState.value === 'unreachable'
+  restartExpected.value ? `Restarting ${deviceName.value}…` : connectionState.value === 'unreachable'
     ? `${deviceName.value} is unreachable`
     : `Connecting to ${deviceName.value}…`,
 )

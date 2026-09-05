@@ -294,7 +294,7 @@ class Supervisor:
         bundle = 'ai.stimma.stimma' + (f'.{BRANCH}' if BRANCH != 'production' else '')
         self.child = subprocess.Popen([str(release / 'run.sh'), '--bundle-id', bundle,
                                        '--port', str(self.local_port)], env=env, cwd=release)
-        self.status(status='starting', version=metadata['version'])
+        self.status(status='starting', version=metadata['version'], serverStartedAt=time.time_ns())
         deadline = time.monotonic() + 300
         while time.monotonic() < deadline and not self.stopping:
             if self.child.poll() is not None:
@@ -336,6 +336,8 @@ class Supervisor:
         deadline = time.monotonic() + 3600
         try:
             while not self.stopping and time.monotonic() < deadline:
+                if scheduled and not self.commands.empty():
+                    return False
                 if scheduled and not window_key(self.window, self.timezone):
                     return False
                 state = self.local('maintenance', {'enabled': True})
@@ -345,7 +347,7 @@ class Supervisor:
             return False
         finally:
             # The caller stops the backend immediately after a successful drain.
-            if self.stopping or time.monotonic() >= deadline or (scheduled and not window_key(self.window, self.timezone)):
+            if self.stopping or time.monotonic() >= deadline or (scheduled and (not self.commands.empty() or not window_key(self.window, self.timezone))):
                 self.local('maintenance', {'enabled': False})
 
     def perform(self, action, scheduled=False):
@@ -353,13 +355,13 @@ class Supervisor:
             self.check()
         if action == 'update':
             release = self.stage()
-            if release != self.current() and (not self.child or self.drain(scheduled)):
+            if release != self.current() and (not scheduled or not self.child or self.drain(scheduled=True)):
+                self.status(status='restarting')
                 self.activate(release)
         elif action == 'restart':
-            if self.drain():
-                self.status(status='restarting')
-                self.stop_child()
-                self.start_child(self.current())
+            self.status(status='restarting')
+            self.stop_child()
+            self.start_child(self.current())
         elif action == 'login':
             self.local('login', {})
         elif action == 'logout':
@@ -381,7 +383,8 @@ class Supervisor:
                     if action not in ('status', 'check', 'update', 'restart', 'login', 'logout'):
                         raise ValueError('Unknown command')
                     if action != 'status':
-                        if supervisor.state['status'] not in ('ready', 'error'):
+                        interrupting_schedule = supervisor.state['status'] == 'waiting_for_idle' and action in ('update', 'restart')
+                        if supervisor.state['status'] not in ('ready', 'error') and not interrupting_schedule:
                             raise ValueError('Another server operation is in progress')
                         supervisor.commands.put_nowait(action)
                     result = dict(supervisor.state, serverRunning=bool(supervisor.child and supervisor.child.poll() is None))
