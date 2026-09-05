@@ -66,8 +66,12 @@ export async function auditHorizontalOverflow(page: Page): Promise<OverflowRepor
       const style = getComputedStyle(el);
       if (style.position === 'fixed' && r.right <= vw + 1) continue;
       if (r.right > vw + 1 && r.left < vw) {
-        const parent = el.parentElement;
-        const clipped = parent && ['hidden', 'auto', 'scroll', 'clip'].includes(getComputedStyle(parent).overflowX);
+        // Anything inside a horizontally clipped or scrolling ancestor is
+        // that ancestor's business (a scrolling strip is not overflow).
+        let clipped = false;
+        for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+          if (['hidden', 'auto', 'scroll', 'clip'].includes(getComputedStyle(p).overflowX)) { clipped = true; break; }
+        }
         if (clipped) continue;
         offenders.push(describe(el));
         if (offenders.length >= 8) break;

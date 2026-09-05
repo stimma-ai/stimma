@@ -1,7 +1,7 @@
 <template>
   <div class="bg-surface border-b border-edge flex-shrink-0">
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap">
+    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap compact:flex-nowrap compact:overflow-x-auto compact:gap-1">
       <!-- Left Side: Filter Toggle Button -->
       <button class="text-content-secondary px-4 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:px-3" @click="toggleCriteriaPanel">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -13,7 +13,7 @@
         </svg>
       </button>
 
-      <div class="flex gap-2 flex-wrap flex-1">
+      <div class="flex gap-2 flex-wrap flex-1 compact:flex-nowrap compact:flex-none">
         <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (accent), negative (red) -->
         <!-- 3-state marker toggles. Include is the PRIMARY active look: the
              clean native-color chip (icon + wash of the marker's own color),

@@ -1,7 +1,7 @@
 <template>
   <div class="flex items-center gap-2 px-4 py-2 bg-base border-b border-edge">
-    <!-- Chat Name (Left) -->
-    <div class="flex items-center gap-2 flex-shrink-0">
+    <!-- Chat Name (Left). The compact header carries the name on phones. -->
+    <div class="flex items-center gap-2 flex-shrink-0 compact:hidden">
       <input v-no-autocorrect
         v-if="editingName"
         ref="nameInputRef"

@@ -130,8 +130,8 @@
        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
+        <div class="flex items-center justify-between compact:flex-wrap compact:gap-y-2">
+          <div class="min-w-0 compact:hidden">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-7 h-7 rounded-md bg-accent/12 flex items-center justify-center flex-shrink-0 text-accent-hi p-1.5"><ToolIcon :tool="tool" bare :ring="false" /></div>
             <HopToToolMenu
@@ -218,6 +218,17 @@
               @update:concurrency="uiState.generateForeverConcurrency = $event"
               @update:idle-limit="uiState.generateForeverIdleLimit = $event"
             />
+            <button
+              v-if="isCompact && !llmUnconfigured"
+              type="button"
+              @click="compactAgentOpen = !compactAgentOpen"
+              class="cursor-pointer transition-colors flex items-center justify-center min-w-11 min-h-11 rounded-md"
+              :class="compactAgentOpen ? 'bg-accent/15 text-accent-hi' : 'bg-surface-raised text-content-secondary'"
+              aria-label="Agent"
+              title="Agent"
+            >
+              <SparklesIcon class="w-5 h-5" />
+            </button>
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
               class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
@@ -989,7 +1000,7 @@
              stay mounted, and the dock reappears live once a model is added. -->
         <div
           id="agent-dock"
-          v-show="!llmUnconfigured"
+          v-show="!llmUnconfigured && (!isCompact || compactAgentOpen)"
           class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%]"
         ></div>
       </div>
@@ -1063,6 +1074,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
+import { setCompactTitle } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
 import { devModeRef, hidePricesRef } from '../appConfig'
 import { usePromptMiniAgent } from '../composables/usePromptMiniAgent'
@@ -1184,6 +1196,8 @@ const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
 const { isCompact } = useViewport()
+// Phones keep the agent dock behind a toggle so the controls get the height.
+const compactAgentOpen = ref(false)
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const projectScopeId = computed(() => {
@@ -7046,4 +7060,7 @@ onUnmounted(async () => {
 
   window.removeEventListener('keydown', handleKeyDown)
 })
+
+// Compact header title follows the tool (cleared per route by App.vue).
+watch(() => tool.value?.name, (name) => { if (name) setCompactTitle(name) }, { immediate: true })
 </script>

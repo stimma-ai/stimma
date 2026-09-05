@@ -80,7 +80,7 @@
           >
             <button
               @click.stop="toggleSelection(chat.id)"
-              class="w-5 h-5 rounded border flex items-center justify-center transition-colors"
+              class="w-5 h-5 rounded border flex items-center justify-center transition-colors compact:hidden"
               :class="isSelected(chat.id)
                 ? 'bg-selection border-selection'
                 : 'border-content-tertiary bg-black/55 hover:border-content-secondary'"

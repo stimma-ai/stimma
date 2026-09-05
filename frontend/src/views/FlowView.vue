@@ -762,6 +762,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, provide, type WatchStopHandle } from 'vue'
+import { setCompactTitle } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -1949,7 +1950,8 @@ watch(() => state.flow.value?.program_hash, () => {
 // --- Chat sidebar (embedded ChatView scoped to this flow) ---
 // Open by default — a non-technical user needs the chat visible to understand
 // that they drive the flow through conversation.
-const chatPanelOpen = ref(true)
+// Phones: the chat panel is a full-screen overlay, so it starts closed.
+const chatPanelOpen = ref(!isCompact.value)
 const chatPanelWidth = ref(420)
 const CHAT_MIN_WIDTH = 280
 const CHAT_MAX_WIDTH = 700
@@ -2302,4 +2304,6 @@ watch(() => state.tasks.value.map(t => t.task_id).join(','), (_new) => {
     focusedTaskId.value = ids[0]
   }
 })
+
+watch(() => flow.value?.name, (name) => { setCompactTitle(name || 'Flow') }, { immediate: true })
 </script>

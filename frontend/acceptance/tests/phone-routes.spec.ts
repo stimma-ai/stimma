@@ -37,7 +37,6 @@ const KNOWN_BAD: Record<string, { overflow?: boolean; hitTargets?: boolean }> = 
   '/home': { hitTargets: true },
   '/browse': { hitTargets: true },
   '/search?q=test': { hitTargets: true },
-  '/flows': { hitTargets: true },
   '/tools': { hitTargets: true },
   '/trash': { hitTargets: true },
   '/upload': { hitTargets: true },

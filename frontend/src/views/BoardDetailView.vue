@@ -334,6 +334,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { setCompactTitle } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
@@ -1889,6 +1890,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('resize', measureWidth)
 })
+
+watch(() => board.value?.name, (name) => { setCompactTitle(name || 'Board') }, { immediate: true })
 </script>
 
 <style scoped>
