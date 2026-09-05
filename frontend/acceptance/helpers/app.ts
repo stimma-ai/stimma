@@ -155,11 +155,12 @@ async function disablePromptTransforms(page: Page) {
 }
 
 export async function setBatchSize(page: Page, size: number) {
-  await page.getByRole('button', { name: 'Batch size' }).click();
-  const input = page.getByRole('spinbutton').first();
+  const toolbar = page.locator('#tool-header-slot');
+  await toolbar.getByRole('button', { name: 'Batch size' }).click();
+  const input = toolbar.getByRole('spinbutton');
   await input.fill(String(size));
   await input.press('Enter');
-  await expect(page.getByRole('button', { name: new RegExp(`^Run.*×${size}`) })).toBeVisible({ timeout: 5000 });
+  await expect(toolRunButton(page)).toContainText(`×${size}`, { timeout: 5000 });
 }
 
 export async function generateMedia(page: Page, prompt: string, projectId?: number): Promise<MediaItem> {
