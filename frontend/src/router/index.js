@@ -6,7 +6,6 @@ import UploadView from '../views/UploadView.vue'
 import ChatView from '../views/ChatView.vue'
 import SavedViewPage from '../views/SavedViewPage.vue'
 import AllToolsView from '../views/AllToolsView.vue'
-import StimpacksView from '../views/StimpacksView.vue'
 import ToolView from '../views/ToolView.vue'
 import ImageEditorView from '../views/ImageEditorView.vue'
 import LineageView from '../views/LineageView.vue'
@@ -193,12 +192,6 @@ const routes = [
     name: 'all-tools',
     meta: { surface: 'hub' },
     component: AllToolsView
-  },
-  {
-    path: '/stimpacks',
-    name: 'stimpacks',
-    meta: { surface: 'hub' },
-    component: StimpacksView
   },
   {
     // One stack document per Asset. Reopening the same Asset resumes the same

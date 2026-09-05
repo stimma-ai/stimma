@@ -22,7 +22,6 @@ const HUB_TITLES: Record<string, string> = {
   workspace: 'Workspace',
   'all-tools': 'Workspace',
   flows: 'Workspace',
-  stimpacks: 'Workspace',
   projects: 'Projects',
 }
 
@@ -41,15 +40,14 @@ export type HubId = 'home' | 'library' | 'workspace' | 'boards' | 'chats'
 export function hubForRoute(name: unknown): HubId | null {
   switch (name) {
     case 'home': return 'home'
-    // Projects are a library scope, so they light the Library hub.
-    case 'browse': case 'trash': case 'saved-view': case 'upload': case 'projects': return 'library'
+    case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.
-    case 'workspace': case 'all-tools': case 'flows': case 'stimpacks': case 'tool': case 'flow':
-    case 'edit-image': case 'lineage': return 'workspace'
+    case 'workspace': case 'all-tools': case 'flows': case 'tool': case 'flow':
+    case 'edit-image': case 'lineage': case 'projects': return 'workspace'
     case 'boards': case 'board-detail': return 'boards'
     case 'chats': case 'chat': return 'chats'
     default:
-      if (typeof name === 'string' && name.startsWith('project-')) return 'library'
+      if (typeof name === 'string' && name.startsWith('project-')) return 'workspace'
       return null
   }
 }
@@ -107,7 +105,7 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
   // The Workspace hub owns four landings as segments.
   const workspaceSegments = computed(() => {
     const name = typeof route.name === 'string' ? route.name : ''
-    return ['workspace', 'all-tools', 'flows', 'stimpacks'].includes(name)
+    return ['workspace', 'all-tools', 'flows'].includes(name)
   })
   return { surface, isHub, title, subtitle, workspaceSegments, primaryAction, menuItems }
 }

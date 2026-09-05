@@ -5,7 +5,7 @@
  * carries — the transient background-work indicator, provider managers
  * (ComfyUI), search — plus the hub's create action. Detail routes show a
  * back chevron. The Library hub's title opens the scope sheet; Workspace
- * routes carry the Open / Tools / Flows / Stimpacks segmented control.
+ * routes carry the Open / Tools / Flows segmented control.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -41,14 +41,13 @@ const scopeOpen = ref(false)
 const workOpen = ref(false)
 const menuOpen = ref(false)
 
-// The Library hub's title is a scope control: All assets, projects, views, trash.
+// The Assets hub's title is a scope control: All assets, saved views, upload, trash.
 const isLibrary = computed(() => isHub.value && hubForRoute(route.name) === 'library')
 
 const SEGMENTS = [
   { label: 'Open', to: '/workspace', names: ['workspace'] },
   { label: 'Tools', to: '/tools', names: ['all-tools'] },
   { label: 'Flows', to: '/flows', names: ['flows'] },
-  { label: 'Stimpacks', to: '/stimpacks', names: ['stimpacks'] },
 ]
 const activeSegment = computed(() => SEGMENTS.find((s) => s.names.includes(String(route.name))) ?? null)
 
@@ -91,7 +90,7 @@ function openSearch() {
         v-if="isLibrary"
         type="button"
         class="flex-1 min-w-0 h-11 px-1 flex items-center gap-1 text-left border-none bg-transparent"
-        aria-label="Library scope"
+        aria-label="Assets scope"
         @click="scopeOpen = true"
       >
         <span class="min-w-0">

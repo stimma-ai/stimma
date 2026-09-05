@@ -177,6 +177,9 @@
               </template>
 
               <!-- Developer Section -->
+              <template v-else-if="activeSection === 'stimpacks'">
+                <StimpacksSection />
+              </template>
               <template v-else-if="activeSection === 'developer'">
                 <DeveloperSection
                   v-if="settings"
@@ -228,6 +231,7 @@ import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
 import ModelPreferencesSection from './sections/ModelPreferencesSection.vue'
 import DeveloperSection from './sections/DeveloperSection.vue'
+import StimpacksSection from './sections/StimpacksSection.vue'
 import AgentSection from './sections/AgentSection.vue'
 import WildcardsSection from './sections/WildcardsSection.vue'
 import PinEntryModal from '../PinEntryModal.vue'
@@ -279,7 +283,7 @@ watch(() => props.show, (open) => { if (open) compactList.value = props.startAtL
 const SECTION_LABELS = {
   folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account',
   server: 'Stimma server', tools: 'Generation tools', 'ai-services': 'Chat models', 'model-preferences': 'Preferences',
-  profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer',
+  profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer', stimpacks: 'Stimpacks',
 }
 const activeSectionLabel = computed(() => SECTION_LABELS[activeSection.value] || 'Settings')
 const aiServicesSection = ref(null)

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
  * The compact-viewport tab bar (DESIGN.md §1.11). Five hubs, nothing else:
- * Home · Library · Workspace · Boards · Chats. Persistent on hub and detail
+ * Home · Assets · Workspace · Boards · Chats. Persistent on hub and detail
  * routes; App.vue hides it for overlays. Tapping the active hub pops to its
  * root. Workspace is the desktop sidebar's zone 2 (pinned + open tabs) as a
- * hub; it also owns the Tools, Flows and Stimpacks landings as segments.
+ * hub; it also owns the Tools and Flows landings as segments.
  */
 import { computed } from 'vue'
 import {
@@ -20,7 +20,7 @@ import { useCompactNav } from '../../composables/useCompactNav'
 
 const HUBS: Array<{ id: HubId; label: string; to: string; icon: any; solid: any }> = [
   { id: 'home', label: 'Home', to: '/home', icon: HomeIcon, solid: HomeSolid },
-  { id: 'library', label: 'Library', to: '/browse', icon: Squares2X2Icon, solid: GridSolid },
+  { id: 'library', label: 'Assets', to: '/browse', icon: Squares2X2Icon, solid: GridSolid },
   { id: 'workspace', label: 'Workspace', to: '/workspace', icon: Square3Stack3DIcon, solid: StackSolid },
   { id: 'boards', label: 'Boards', to: '/boards', icon: RectangleStackIcon, solid: BoardsSolid },
   { id: 'chats', label: 'Chats', to: '/chats', icon: ChatBubbleLeftIcon, solid: ChatSolid },

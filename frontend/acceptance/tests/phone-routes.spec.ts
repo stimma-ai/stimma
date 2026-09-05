@@ -24,7 +24,6 @@ const ROUTES = [
   '/flows',
   '/projects',
   '/tools',
-  '/stimpacks',
   '/trash',
   '/upload',
 ];

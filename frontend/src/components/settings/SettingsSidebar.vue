@@ -259,6 +259,10 @@ const ServerIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25' })
 ])
 
+const BookOpenIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25' })
+])
+
 const profileSections = [
   { id: 'folders', label: 'Folders', icon: FolderIcon },
   { id: 'markers', label: 'Markers', icon: TagIcon },
@@ -278,6 +282,7 @@ const globalSectionGroups = [
       { id: 'model-preferences', label: 'Preferences', icon: AdjustmentsIcon },
       { id: 'profiles', label: 'Profiles', icon: UserIcon },
       { id: 'background', label: 'Background Work', icon: CpuIcon },
+      { id: 'stimpacks', label: 'Stimpacks', icon: BookOpenIcon },
       { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
       { id: 'updates', label: 'About', icon: InformationCircleIcon },
     ],
