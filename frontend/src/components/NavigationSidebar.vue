@@ -11,22 +11,17 @@
       </defs>
     </svg>
 
-    <!-- Mobile overlay backdrop -->
-    <Transition name="fade">
+    <!-- Sidebar. Phones: a drawer that stays mounted and rides --drawer-x
+         (set by App.vue: -276px closed, 0 open, anything between while a
+         finger drags it), so the drawer and the pushed app move as one. -->
+    <Transition :name="isMobile ? '' : ''">
       <div
-        v-if="isOpen && isMobile"
-        class="fixed inset-0 bg-overlay-backdrop z-modal"
-        @click="$emit('close')"
-      ></div>
-    </Transition>
-
-    <!-- Sidebar -->
-    <Transition :name="isMobile ? 'slide' : ''">
-      <div
-        v-if="!isMobile || isOpen"
+        v-if="true"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'fixed top-0 left-0 z-modal shadow-[2px_0_10px_rgba(0,0,0,0.3)] w-[276px]' : 'relative'"
+        :class="isMobile ? 'compact-drawer fixed top-0 left-0 z-modal w-[276px] !h-[100dvh] pt-safe' : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
+        :aria-hidden="isMobile && !isOpen ? 'true' : undefined"
+        :inert="isMobile && !isOpen ? true : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
         <div v-if="isTauriMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
@@ -908,7 +903,7 @@
           <template v-if="showAccountChip">
             <Tooltip text="Stimma account" class="flex-1 min-w-0">
               <button
-                @click="openAccountSettings"
+                @click="isMobile ? $emit('open-account') : openAccountSettings()"
                 class="w-full flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
               >
                 <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
@@ -1068,7 +1063,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat'])
+const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat', 'open-account'])
 
 // Platform detection
 const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')

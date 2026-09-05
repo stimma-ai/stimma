@@ -101,6 +101,9 @@ export async function auditHitTargets(page: Page, min = 44, root = 'body'): Prom
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.bottom < 0 || r.top > window.innerHeight) continue;
+      // Off-screen horizontally (the closed drawer) or inert: not reachable.
+      if (r.right <= 0 || r.left >= window.innerWidth) continue;
+      if (el.closest('[inert], [aria-hidden="true"]')) continue;
       const style = getComputedStyle(el);
       if (style.visibility === 'hidden' || style.pointerEvents === 'none' || style.opacity === '0') continue;
       total++;

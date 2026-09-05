@@ -79,7 +79,8 @@ test.describe('phone lane: media touch paths', () => {
     // Leaving and coming back through the tools list keeps the prompt.
     await page.goto('/tools');
     await settleAnyViewport(page);
-    await page.getByText('Test Text-to-Image', { exact: true }).first().click();
+    // Scoped to the app: the drawer is mounted (off-screen) and lists the same tool.
+    await page.locator('.compact-pushed').getByText('Test Text-to-Image', { exact: true }).first().click();
     await page.waitForURL(/\/tools\/test/, { timeout: 15000 });
     await settleAnyViewport(page);
     await expect(promptInput(page)).toContainText(prompt, { timeout: 10000 });
@@ -101,10 +102,10 @@ test.describe('phone lane: media touch paths', () => {
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden({ timeout: 5000 });
 
-    // Tap → slideshow, no info panel, tab bar hidden.
+    // Tap → slideshow, no info panel, header hidden.
     await page.locator(tile).tap();
     await expect(page.locator('[data-testid="media-info-panel"]')).toHaveCount(0);
-    await expect(page.locator('.compact-tab-bar')).toBeHidden();
+    await expect(page.locator('.compact-header')).toBeHidden();
     await shot(page, 'slideshow');
     expectNoOverflow(await auditHorizontalOverflow(page), 'slideshow');
 

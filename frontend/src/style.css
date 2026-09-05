@@ -922,3 +922,25 @@ select option {
   transition: none !important;
   pointer-events: none !important;
 }
+
+/* Phone drawer (DESIGN.md §1.11 Chrome): one curve for the drawer and the
+   pushed app, both riding --drawer-x; no transition while a finger drags. */
+.compact-shell { --drawer-ease: cubic-bezier(0.32, 0.72, 0, 1); --drawer-ms: 340ms; }
+.compact-drawer {
+  transform: translateX(var(--drawer-x, -276px));
+  transition: transform var(--drawer-ms) var(--drawer-ease);
+  will-change: transform;
+}
+.compact-pushed {
+  transform: translateX(calc(var(--drawer-x, -276px) + 276px));
+  transition: transform var(--drawer-ms) var(--drawer-ease);
+  overflow: hidden;
+  will-change: transform;
+}
+.compact-shell.is-dragging .compact-drawer, .compact-shell.is-dragging .compact-pushed { transition: none; }
+/* The drawer's rows were sized for the desktop rail; on a phone every row and
+   control is a touch target. Scoped to the drawer so desktop does not move. */
+.compact-drawer nav > button, .compact-drawer nav > div > button, .compact-drawer nav .group > button { min-height: 44px; }
+.compact-drawer nav button.w-5.h-5 { width: 44px; height: 44px; margin: -12px 0; }
+.compact-drawer .h-8, .compact-drawer .w-8.h-8 > button, .compact-drawer button.h-8 { min-height: 44px; }
+.compact-drawer [data-tour="feedback"], .compact-drawer [data-tour="device-chip"], .compact-drawer button[aria-label="Settings"], .compact-drawer button.w-full.flex.items-center.gap-2\.5 { min-width: 44px; min-height: 44px; }

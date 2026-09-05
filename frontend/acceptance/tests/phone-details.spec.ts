@@ -49,7 +49,7 @@ test.describe('phone lane: detail screens', () => {
     await page.goto(`/tools/${TEST_T2I_TOOL_ID}`);
     await settleAnyViewport(page);
     await expect(page.getByRole('button', { name: /^Run/ }).first()).toBeVisible({ timeout: 30000 });
-    await expect(page.locator('.compact-tab-bar')).toBeVisible();
+    await expect(page.locator('.compact-header')).toBeVisible();
     await audit(page, 'tool');
   });
 
@@ -69,7 +69,7 @@ test.describe('phone lane: detail screens', () => {
     const board = await createBoard(page, 'Phone lane board');
     await page.goto(`/boards/${board.id}`);
     await settleAnyViewport(page);
-    await expect(page.locator('.compact-tab-bar')).toBeVisible();
+    await expect(page.locator('.compact-header')).toBeVisible();
     await audit(page, 'board');
   });
 
@@ -82,11 +82,11 @@ test.describe('phone lane: detail screens', () => {
     await audit(page, 'flow');
   });
 
-  test('settings opens as a full-screen list from the avatar', async ({ page }) => {
+  test('settings opens as a full-screen list from the drawer', async ({ page }) => {
     await page.goto('/home');
     await settleAnyViewport(page);
-    await page.getByRole('button', { name: 'Account and settings' }).click();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.locator('.navigation-sidebar').getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
     await audit(page, 'settings');
   });
@@ -98,8 +98,8 @@ test.describe('phone lane: detail screens', () => {
     test(`settings › ${section} fits a phone`, async ({ page }) => {
       await page.goto('/home');
       await settleAnyViewport(page);
-      await page.getByRole('button', { name: 'Account and settings' }).click();
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'Menu' }).click();
+      await page.locator('.navigation-sidebar').getByRole('button', { name: 'Settings', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
       await page.getByRole('button', { name: section }).first().click();
       await page.waitForTimeout(600);

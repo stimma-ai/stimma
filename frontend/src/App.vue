@@ -134,29 +134,57 @@
   <!-- Compact chrome (phones): header + content + tab bar. DESIGN.md §1.11.
        The sidebar and top bar do not exist here; their contents live in the
        header's account sheet, the Workspace hub, and the Library scope. -->
-  <div v-else-if="isCompact" v-scroll-guard class="w-full h-[100dvh] flex flex-col overflow-hidden bg-base">
+  <div
+    v-else-if="isCompact"
+    v-scroll-guard
+    class="compact-shell w-full h-[100dvh] overflow-hidden bg-black relative"
+    :class="{ 'is-dragging': drawerDragging }"
+    :style="{ '--drawer-x': `${drawerX}px` }"
+  >
     <SettingsModal
       :show="settingsOpen"
       :initial-section="settingsSection"
       :start-at-list="settingsStartAtList"
       @close="closeSettings"
     />
-    <!-- v-show, not v-if, under the slideshow: views teleport controls into
-         this header, and a remount would strand them in the old element. -->
-    <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" @open-settings="openSettings($event)" />
-    <ProjectScopeBar
-      v-if="projectChrome.project && !slideshowActive && !compactOverlay"
-      :project="projectChrome.project"
-      :active-name="projectChrome.activeRouteName"
+    <!-- The desktop sidebar, as a drawer: same component, same zones (library
+         links, the working set, footer). It pushes the app aside rather than
+         floating over it; the header's menu button and an edge swipe open it,
+         a tap on the pushed app or any navigation closes it. -->
+    <NavigationSidebar
+      :is-open="sidebarOpen"
+      :is-mobile="true"
+      @close="closeSidebar"
+      @open-settings="openSettings($event)"
+      @open-account="sidebarOpen = false; accountSheetOpen = true"
     />
-    <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
-      <router-view v-slot="{ Component, route }">
-        <KeepAlive :max="20">
-          <component :is="Component" :key="getComponentKey(route)" />
-        </KeepAlive>
-      </router-view>
+    <AccountSheet :show="accountSheetOpen" @close="accountSheetOpen = false" @open-settings="(s) => { accountSheetOpen = false; openSettings(s) }" />
+    <!-- The app, pushed aside by the drawer. It keeps the screen's rounded
+         corner as it slides, and a tap on it while pushed closes the drawer. -->
+    <div
+      class="compact-pushed h-full flex flex-col bg-base relative"
+      @touchstart.passive="onCompactTouchStart"
+      @touchmove.passive="onCompactTouchMove"
+      @touchend.passive="onCompactTouchEnd"
+      @touchcancel.passive="onCompactTouchEnd"
+    >
+      <div v-if="sidebarOpen" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
+      <!-- v-show, not v-if, under the slideshow: views teleport controls into
+           this header, and a remount would strand them in the old element. -->
+      <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" @open-settings="openSettings($event)" @open-menu="openSidebar" />
+      <ProjectScopeBar
+        v-if="projectChrome.project && !slideshowActive && !compactOverlay"
+        :project="projectChrome.project"
+        :active-name="projectChrome.activeRouteName"
+      />
+      <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
+        <router-view v-slot="{ Component, route }">
+          <KeepAlive :max="20">
+            <component :is="Component" :key="getComponentKey(route)" />
+          </KeepAlive>
+        </router-view>
+      </div>
     </div>
-    <CompactTabBar v-if="!compactOverlay && !slideshowActive" />
   </div>
 
   <!-- Normal app with sidebar and topbar -->
@@ -229,7 +257,7 @@ import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
 import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
 import CompactHeader from './components/compact/CompactHeader.vue'
-import CompactTabBar from './components/compact/CompactTabBar.vue'
+import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
@@ -316,6 +344,7 @@ const {
 } = useAppUpdater()
 const { initReleaseNotes } = useReleaseNotes()
 const sidebarOpen = ref(false)
+const accountSheetOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
 // Compact: an empty section means "the settings list", a named one lands inside it.
@@ -328,7 +357,9 @@ const startupPending = ref(true)
 // mid-session drop.
 const { connectionState, activeDeviceName, init: initMultiDevice } = useMultiDevice()
 
-function openSettings(section = 'folders') {
+function openSettings(section) {
+  // No section (the sidebar's gear) = the settings list on compact; desktop
+  // ignores startAtList and lands on Folders as it always has.
   settingsStartAtList.value = !section
   settingsSection.value = section || 'folders'
   settingsOpen.value = true
@@ -535,6 +566,61 @@ function openSidebar() {
 function closeSidebar() {
   sidebarOpen.value = false
 }
+
+// The drawer follows the finger: a horizontal drag anywhere on the app
+// reveals it (right) or puts it away (left); on release it snaps by distance
+// and speed. Vertical intent, horizontal scrollers and the slideshow are
+// left alone.
+const DRAWER_W = 276
+const drawerDragging = ref(false)
+const drawerDragX = ref(0)
+const drawerX = computed(() => drawerDragging.value ? drawerDragX.value : (sidebarOpen.value ? 0 : -DRAWER_W))
+let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0
+function onCompactTouchStart(e) {
+  const t = e.touches[0]
+  if (!t || e.touches.length > 1) { dragIntent = 'no'; return }
+  const el = e.target
+  const blocked = el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
+  dragIntent = blocked ? 'no' : null
+  dragStartX = dragLastX = t.clientX; dragStartY = t.clientY; dragStartT = dragLastT = Date.now()
+}
+function onCompactTouchMove(e) {
+  if (dragIntent === 'no') return
+  const t = e.touches[0]
+  if (!t) return
+  const dx = t.clientX - dragStartX
+  const dy = t.clientY - dragStartY
+  if (dragIntent === null) {
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+    if (Math.abs(dy) > Math.abs(dx)) { dragIntent = 'no'; return }
+    // A right-drag inside something that scrolls sideways is that thing's.
+    if (!sidebarOpen.value) {
+      let n = e.target
+      while (n && n !== e.currentTarget) {
+        if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX) && n.scrollLeft > 0) { dragIntent = 'no'; return }
+        n = n.parentElement
+      }
+    }
+    dragIntent = 'drawer'
+    drawerDragging.value = true
+  }
+  const base = sidebarOpen.value ? 0 : -DRAWER_W
+  drawerDragX.value = Math.max(-DRAWER_W, Math.min(0, base + dx))
+  dragLastX = t.clientX; dragLastT = Date.now()
+}
+function onCompactTouchEnd(e) {
+  if (dragIntent !== 'drawer') { dragIntent = null; return }
+  const t = e.changedTouches[0]
+  const vx = t ? (t.clientX - dragLastX) / Math.max(1, Date.now() - dragLastT) : 0
+  const x = drawerDragX.value
+  const open = vx > 0.35 ? true : vx < -0.35 ? false : x > -DRAWER_W / 2
+  drawerDragging.value = false
+  sidebarOpen.value = open
+  dragIntent = null
+}
+
+// Any navigation closes the drawer (the sidebar's own links already ask for it).
+watch(() => route.fullPath, () => { if (isCompact.value) sidebarOpen.value = false })
 
 // Auto-close the overlay sidebar when the viewport grows back to wide.
 watch(isCompact, (compact) => {

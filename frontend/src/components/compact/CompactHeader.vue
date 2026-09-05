@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The compact header (DESIGN.md §1.11): avatar or back chevron, title, and
- * the right-hand strip. Hubs carry what the desktop top bar's right side
+ * The compact header (DESIGN.md §1.11): menu (the sidebar drawer) or back
+ * chevron, title, and the right-hand strip. Hubs carry what the desktop top bar's right side
  * carries — the transient background-work indicator, provider managers
  * (ComfyUI), search — plus the hub's create action. Detail routes show a
  * back chevron. The Library hub's title opens the scope sheet; Workspace
@@ -12,33 +12,24 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDownIcon, ChevronLeftIcon, EllipsisVerticalIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '../../composables/useAuth'
 import { useCompactChrome, hubForRoute } from '../../composables/useCompactChrome'
 import { useCompactNav } from '../../composables/useCompactNav'
 import { useBackgroundWork } from '../../composables/useBackgroundWork'
 import Sheet from '../ui/Sheet.vue'
-import AccountSheet from './AccountSheet.vue'
 import LibraryScopeSheet from './LibraryScopeSheet.vue'
 import BackgroundWorkIndicator from '../BackgroundWorkIndicator.vue'
 import BackgroundWorkPanel from '../BackgroundWorkPanel.vue'
 import ProviderManagerButton from '../ProviderManagerButton.vue'
 
-const emit = defineEmits<{ openSettings: [section: string] }>()
+const emit = defineEmits<{ openSettings: [section: string]; openMenu: [] }>()
 
 const route = useRoute()
 const router = useRouter()
-const { isHub, title, subtitle, workspaceSegments, primaryAction, menuItems } = useCompactChrome(route)
-const { user, isAuthenticated } = useAuth()
+const { isHub, title, subtitle, primaryAction, menuItems } = useCompactChrome(route)
 const backgroundWork = useBackgroundWork()
 const { hasActiveWork, progressTitle } = backgroundWork
 onMounted(() => backgroundWork.start())
 
-const accountInitial = computed(() => {
-  const email = user.value?.email || ''
-  return (email.charAt(0) || '').toUpperCase()
-})
-
-const accountOpen = ref(false)
 const scopeOpen = ref(false)
 const workOpen = ref(false)
 const menuOpen = ref(false)
@@ -46,13 +37,6 @@ const menuOpen = ref(false)
 // The Assets hub's title is a scope control: All assets, saved views, upload, trash.
 const isLibrary = computed(() => isHub.value && hubForRoute(route.name) === 'library')
 
-const SEGMENTS = [
-  { label: 'Tools', to: '/tools', names: ['all-tools'] },
-  { label: 'Flows', to: '/flows', names: ['flows'] },
-  { label: 'Boards', to: '/boards', names: ['boards'] },
-  { label: 'Projects', to: '/projects', names: ['projects'] },
-]
-const activeSegment = computed(() => SEGMENTS.find((s) => s.names.includes(String(route.name))) ?? null)
 
 const nav = useCompactNav()
 function back() {
@@ -67,22 +51,25 @@ function openSearch() {
 <template>
   <header class="compact-header flex-none bg-base pt-safe">
     <div class="h-[60px] pt-2 flex items-center gap-0.5 px-3">
+      <!-- The menu (the sidebar drawer: library, working set, account) is on
+           every screen — it is the multitasking switcher. Details add a back
+           chevron beside it. -->
       <button
-        v-if="isHub"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent"
-        aria-label="Account and settings"
-        @click="accountOpen = true"
+        class="w-11 h-11 flex items-center justify-center border-none bg-transparent"
+        aria-label="Menu"
+        @click="emit('openMenu')"
       >
-        <span
-          class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-          :class="isAuthenticated ? 'bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500' : 'bg-overlay-light text-content-secondary'"
-        >{{ isAuthenticated ? accountInitial : '' }}</span>
+        <span class="w-9 h-9 rounded-full bg-overlay-subtle flex items-center justify-center text-content">
+          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 7h14M3 13h9" />
+          </svg>
+        </span>
       </button>
       <button
-        v-else
+        v-if="!isHub"
         type="button"
-        class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
+        class="w-9 h-11 -ml-1 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
         aria-label="Back"
         @click="back"
       >
@@ -152,22 +139,7 @@ function openSearch() {
       </button>
     </div>
 
-    <div v-if="workspaceSegments" class="px-3 pb-2">
-      <div class="flex gap-0.5 p-0.5 rounded-md bg-overlay-subtle" role="tablist">
-        <button
-          v-for="seg in SEGMENTS"
-          :key="seg.label"
-          type="button"
-          role="tab"
-          class="flex-1 h-11 rounded-md text-[13px] font-medium border-none bg-transparent transition-colors"
-          :class="activeSegment === seg ? 'bg-accent/15 text-accent-hi' : 'text-content-tertiary'"
-          :aria-selected="activeSegment === seg"
-          @click="router.push(seg.to)"
-        >{{ seg.label }}</button>
-      </div>
-    </div>
 
-    <AccountSheet :show="accountOpen" @close="accountOpen = false" @open-settings="(s) => { accountOpen = false; emit('openSettings', s) }" />
     <LibraryScopeSheet :show="scopeOpen" @close="scopeOpen = false" />
     <Sheet :show="menuOpen" @close="menuOpen = false">
       <div class="pb-2">

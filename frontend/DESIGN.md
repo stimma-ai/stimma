@@ -267,22 +267,22 @@ that a desktop-sized window never trips.
   the compact tier in a desktop window for dev and tests. Tailwind `md:` =
   medium, `lg:` = wide — the same lines.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
-  `overlay`. Wide = sidebar + top bar. Compact = a tab bar of four hubs and
-  one control (Home · Chats · [Open] · Assets · Studio) on hub AND detail
-  routes, plus a 60px header
-  (avatar or back chevron, title, then the right strip: the transient
-  background-work indicator, provider managers, search, create). Studio
-  carries Tools · Flows · Boards · Projects as segments. The working set
-  (open tools, chats, boards, edits) is not a hub: it is the bar's raised
-  centre "Open" button, styled apart from the hubs, never lit as current,
-  with a count badge; it opens a sheet that uses the desktop sidebar's zone
-  2 grammar (32px tile, 13/11 text, project chip, close) on the same
-  workspace-tab store, from every screen.
-  The header keeps mounting under the slideshow (v-show) because views
-  teleport controls into it. Overlays (slideshow,
-  compare, image editor, PIN lock, connection screen) and the open keyboard
-  hide the tab bar; an overlay carries its own back control. A view never
-  renders its own navigation chrome.
+  `overlay`. Wide = sidebar + top bar. Compact = the SAME sidebar as a
+  drawer (NavigationSidebar with `is-mobile`: 276px, pushes the app aside
+  rather than floating over it, opened by the header's Menu button or an
+  edge swipe, closed by any navigation or a tap on the pushed app) plus a
+  60px header on hub and detail routes: Menu (hubs) or back chevron
+  (details), title, then the right strip (the transient background-work
+  indicator, provider managers, search, create). No tab bar: the phone keeps
+  the desktop's navigation model — library links, projects, boards, chats,
+  flows, tools, the working set, and the footer (account, server, feedback,
+  settings) all live in the one sidebar, so nothing is renamed or re-homed
+  between the two. The account row in the drawer footer opens the account
+  sheet (server picker, profile picker, settings, feedback). Overlays
+  (slideshow, compare, image editor, PIN lock, connection screen) hide the
+  header; an overlay carries its own back control. The header keeps
+  mounting under the slideshow (v-show) because views teleport controls
+  into it. A view never renders its own navigation chrome.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.

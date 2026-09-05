@@ -103,10 +103,5 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     return 'Stimma'
   })
   const subtitle = computed(() => routeSubtitle.value)
-  // The Studio hub owns four landings as segments: Tools · Flows · Boards · Projects.
-  const workspaceSegments = computed(() => {
-    const name = typeof route.name === 'string' ? route.name : ''
-    return ['all-tools', 'flows', 'boards', 'projects'].includes(name)
-  })
-  return { surface, isHub, title, subtitle, workspaceSegments, primaryAction, menuItems }
+  return { surface, isHub, title, subtitle, primaryAction, menuItems }
 }
