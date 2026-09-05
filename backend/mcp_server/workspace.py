@@ -119,9 +119,14 @@ async def tool_parameters(caller, descriptor, parameters, session):
     return result
 
 
-async def media_row(caller, reference, session):
+async def media_row(caller, reference, session, *, preview_only=False):
     kind = reference.split(":", 1)[0]
-    if kind == "asset":
+    ephemeral_run = None
+    if kind == "context_media" and preview_only:
+        identifier, ephemeral_run = json.loads(
+            access.resolve(caller, reference, "context_media")
+        )
+    elif kind == "asset":
         asset = await session.get(
             Asset, int(access.resolve(caller, reference, "asset"))
         )
@@ -139,7 +144,12 @@ async def media_row(caller, reference, session):
     else:
         identifier = int(access.resolve(caller, reference, "media"))
     row = await session.get(MediaItem, identifier)
-    if not row or row.deleted_at or row.deletion_pending_at or row.ephemeral_run_id:
+    if (
+        not row
+        or row.deleted_at
+        or row.deletion_pending_at
+        or row.ephemeral_run_id != ephemeral_run
+    ):
         raise McpError("not_found", "Media is unavailable.")
     return row
 
@@ -147,7 +157,7 @@ async def media_row(caller, reference, session):
 async def preview(caller, reference, session):
     from mcp.types import ImageContent, TextContent
 
-    row = await media_row(caller, reference, session)
+    row = await media_row(caller, reference, session, preview_only=True)
     path = Path(row.file_path)
     if not path.is_file():
         raise McpError(
@@ -282,6 +292,44 @@ async def catalog(caller, kind, offset, session):
     }
 
 
+async def flow_candidate(caller, value, shape, session):
+    """Expose typed media choices as read-only previews until the run ends."""
+    from flow_dsl.shapes import Scalar, ListShape, DictShape, TupleShape
+
+    if isinstance(shape, Scalar) and shape.kind == "media" and isinstance(value, int):
+        row = await session.get(MediaItem, value)
+        if row is None:
+            return {"available": False}
+        reference = (
+            access.ref(
+                caller, "context_media", json.dumps([row.id, row.ephemeral_run_id])
+            )
+            if row.ephemeral_run_id
+            else access.ref(caller, "media", row.id)
+        )
+        return {"preview_ref": reference}
+    if isinstance(shape, ListShape) and isinstance(value, list):
+        return [
+            await flow_candidate(caller, item, shape.element, session) for item in value
+        ]
+    if isinstance(shape, DictShape) and isinstance(value, dict):
+        return {
+            key: await flow_candidate(caller, item, shape.field_map.get(key), session)
+            for key, item in value.items()
+        }
+    if isinstance(shape, TupleShape) and isinstance(value, (list, tuple)):
+        return [
+            await flow_candidate(
+                caller,
+                item,
+                shape.elements[index] if index < len(shape.elements) else None,
+                session,
+            )
+            for index, item in enumerate(value)
+        ]
+    return present(caller, value)
+
+
 async def execute_flow(caller, args, session, chat):
     from database import Flow
     from flow_runtime import get_flow_program_path
@@ -307,7 +355,7 @@ async def execute_flow(caller, args, session, chat):
         _PENDING[request_id] = future
         metadata = {
             "type": "mcp_flow",
-            "prompt": eq.key,
+            "prompt": eq.definition.get("instructions") or eq.key,
             "candidates": present(caller, inputs.get("candidates", []), "media"),
             "v2_tool_args": {"_inprocess_request_id": request_id},
             "decision_type": eq.definition.get("hitl_type"),
@@ -319,6 +367,26 @@ async def execute_flow(caller, args, session, chat):
             .get_database(caller.profile_id)
             .async_session_maker() as question_session
         ):
+            from flow_dsl.shapes import ListShape
+
+            shape = getattr(
+                eq.definition.get("_dynamic", {}).get("candidates"), "shape", None
+            )
+            if isinstance(shape, ListShape):
+                shape = shape.element
+            metadata["candidates"] = [
+                await flow_candidate(caller, candidate, shape, question_session)
+                for candidate in inputs.get("candidates", [])
+            ]
+            if "asset" in inputs:
+                metadata["asset"] = await flow_candidate(
+                    caller,
+                    inputs["asset"],
+                    getattr(
+                        eq.definition.get("_dynamic", {}).get("asset"), "shape", None
+                    ),
+                    question_session,
+                )
             question_session.add(
                 ChatItem(
                     chat_id=chat.id,

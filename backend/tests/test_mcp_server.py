@@ -900,3 +900,53 @@ def program():
         for task in list(jobs._tasks.values()):
             task.cancel()
         await asyncio.gather(*list(jobs._tasks.values()), return_exceptions=True)
+
+
+async def test_flow_candidate_preview_is_temporary_and_read_only(mcp_http):
+    from mcp_server.workspace import flow_candidate
+    from mcp_server.access import access
+    from database import MediaItem
+    from database_registry import get_database_registry
+    from flow_dsl.shapes import Scalar
+    from PIL import Image
+    import io
+
+    data = io.BytesIO()
+    Image.new("RGB", (4, 4), "green").save(data, format="PNG")
+    await rpc(mcp_http, "access_open")
+    uploaded = (
+        await mcp_http.post(
+            "/mcp/profiles/default/upload",
+            content=data.getvalue(),
+            headers={"X-Filename": "candidate.png"},
+        )
+    ).json()
+    caller = await access.authenticate("default", "test-credential-one")
+    async with (
+        get_database_registry().get_database("default").async_session_maker() as session
+    ):
+        media = await session.get(
+            MediaItem, int(access.resolve(caller, uploaded["media_ref"], "media"))
+        )
+        media.ephemeral_run_id = "test-candidate-run"
+        await session.commit()
+        try:
+            candidate = await flow_candidate(caller, media.id, Scalar("media"), session)
+            result = await rpc(
+                mcp_http, "media_read", {"ref": candidate["preview_ref"]}
+            )
+            assert (
+                not result.get("isError") and result["content"][0]["type"] == "image"
+            ), result
+            assert (
+                await rpc(mcp_http, "media_export", {"ref": candidate["preview_ref"]})
+            )["isError"]
+            # Reusing a payload for another run cannot reuse this preview authority.
+            media.ephemeral_run_id = "different-run"
+            await session.commit()
+            assert (
+                await rpc(mcp_http, "media_read", {"ref": candidate["preview_ref"]})
+            )["isError"]
+        finally:
+            media.ephemeral_run_id = None
+            await session.commit()
