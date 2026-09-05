@@ -224,6 +224,7 @@ import NavigationSidebar from './components/NavigationSidebar.vue'
 import { useViewport } from './composables/useViewport'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
+import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
 import CompactHeader from './components/compact/CompactHeader.vue'
 import CompactTabBar from './components/compact/CompactTabBar.vue'
 import Spinner from './components/ui/Spinner.vue'
@@ -516,6 +517,10 @@ const compactOverlay = computed(() => route.meta?.surface === 'overlay')
 // A detail view's title must not outlive its route.
 watch(() => route.fullPath, () => clearCompactTitle())
 installCompactNav(router)
+// Without the sidebar nothing would turn a visited tool/chat/board into a
+// workspace tab (and tool state lives on the tab's instance), so the compact
+// chrome runs the same route → tab logic itself.
+installWorkspaceTabRoutes(route, () => isCompact.value)
 
 function openSidebar() {
   sidebarOpen.value = true

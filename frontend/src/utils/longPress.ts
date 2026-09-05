@@ -67,7 +67,12 @@ function onClick(e: MouseEvent) {
 // a phone; swallow them for a moment after a long-press.
 let hoverSuppressUntil = 0
 function onCompatHover(e: Event) {
-  if (Date.now() < hoverSuppressUntil) e.stopImmediatePropagation()
+  // A phone has no hover: every mouseenter/mouseover the browser synthesises
+  // after a tap is noise, and the app's hover-driven UI (submenus that open on
+  // mouseenter, hover-revealed controls) must never react to it. Swallowed at
+  // the capture phase so element listeners never see them.
+  void hoverSuppressUntil
+  e.stopImmediatePropagation()
 }
 
 export function installLongPressContextMenu() {

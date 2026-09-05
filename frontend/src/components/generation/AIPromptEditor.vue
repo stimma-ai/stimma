@@ -109,7 +109,7 @@
         <span v-else></span>
 
         <!-- Right: Inline toggles + Help + AI Sparkle -->
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 compact:hidden">
           <!-- Vim/Reg toggle -->
           <button
             @click="toggleVim"

@@ -139,6 +139,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('board', $event)"
+          @click.stop="openSubmenu('board', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -226,6 +227,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('project', $event)"
+          @click.stop="openSubmenu('project', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -325,6 +327,7 @@
           v-if="!isMultiple && !isGrid"
           class="relative"
           @mouseenter="openSubmenu('generate', $event)"
+          @click.stop="openSubmenu('generate', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -486,6 +489,7 @@
           v-if="!hasGridInSelection"
           class="relative"
           @mouseenter="openSubmenu('tool', $event)"
+          @click.stop="openSubmenu('tool', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -538,6 +542,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('chat', $event)"
+          @click.stop="openSubmenu('chat', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -603,6 +608,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('flow', $event)"
+          @click.stop="openSubmenu('flow', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button

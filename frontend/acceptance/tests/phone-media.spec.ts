@@ -48,6 +48,14 @@ test.describe('phone lane: media touch paths', () => {
     const [media] = await waitForGeneratedMedia(page, {});
     await shot(page, 'tool-after-run');
 
+    // Leaving and coming back through the tools list keeps the prompt.
+    await page.goto('/tools');
+    await settleAnyViewport(page);
+    await page.getByText('Test Text-to-Image', { exact: true }).first().click();
+    await page.waitForURL(/\/tools\/test/, { timeout: 15000 });
+    await settleAnyViewport(page);
+    await expect(promptInput(page)).toContainText(prompt, { timeout: 10000 });
+
     await page.goto('/browse');
     await settleAnyViewport(page);
     const tile = `[data-testid="media-grid-item-${media.id}"]`;
