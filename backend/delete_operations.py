@@ -579,6 +579,11 @@ def _unlink_staged_manifests(
 ) -> None:
     from config import get_settings
     from storage_service import object_path
+    from drag_snapshots import purge_cached_path, purge_legacy_snapshots
+
+    # Old copies have no ownership index. Purge them before reporting any
+    # permanent deletion complete; failures retain the durable retry manifest.
+    purge_legacy_snapshots()
 
     trash_service = TrashService()
     offline_roots: list[Path] | None = None
@@ -603,7 +608,7 @@ def _unlink_staged_manifests(
         except (json.JSONDecodeError, TypeError):
             thumbnail_paths = []
         for thumbnail_path in thumbnail_paths:
-            Path(thumbnail_path).unlink(missing_ok=True)
+            purge_cached_path(Path(thumbnail_path))
         if item.file_path and item.file_path not in protected_paths:
             target = Path(item.file_path)
             if (

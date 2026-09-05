@@ -1314,7 +1314,7 @@ class DeleteOperationItem(Base):
 
 
 class MediaThumbnailCache(Base):
-    """Exact thumbnail cache index so deletes can purge cached previews."""
+    """Exact derived-cache index (previews and drag copies) for permanent deletion."""
     __tablename__ = "media_thumbnail_cache"
 
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, primary_key=True)

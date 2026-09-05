@@ -60,6 +60,10 @@ fs.mkdirSync(sandbox.cacheDir, { recursive: true })
 const srcPng = path.join(sandbox.dir, 'source.png')
 fs.writeFileSync(srcPng, tinyPng())
 
+const snapshotDir = path.join(sandbox.cacheDir, 'drag_snapshots', 'reservation')
+fs.mkdirSync(snapshotDir, { recursive: true })
+const destination = path.join(snapshotDir, 'snapshot.png')
+
 const app = await launchShell({ sandbox, frontendPort: port })
 
 try {
@@ -67,15 +71,16 @@ try {
   await waitForFrontendWindow(page, port)
 
   const embedded = await page.evaluate(
-    (source) =>
+    ({ source, destination }) =>
       window.stimmaDesktop.embedMetadata({
         source_path: source,
+        destination_path: destination,
         format: 'png',
         a1111: 'e2e prompt',
         stimma_json: '{"via":"electron"}',
         jpeg_exif_hex: null,
       }),
-    srcPng,
+    { source: srcPng, destination },
   )
   check(`embedMetadata returns a snapshot path (${embedded})`, typeof embedded === 'string')
   check('snapshot lives under drag_snapshots', String(embedded).includes('drag_snapshots'))
@@ -90,15 +95,16 @@ try {
   )
 
   const passthrough = await page.evaluate(
-    (source) =>
+    ({ source, destination }) =>
       window.stimmaDesktop.embedMetadata({
         source_path: source,
+        destination_path: destination,
         format: 'passthrough',
         a1111: null,
         stimma_json: null,
         jpeg_exif_hex: null,
       }),
-    srcPng,
+    { source: srcPng, destination },
   )
   check('passthrough returns the original path', passthrough === srcPng)
 

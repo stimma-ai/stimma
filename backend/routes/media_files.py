@@ -3435,7 +3435,7 @@ async def get_exportable_metadata_payload(
     the source file at drag time. Pure-string payload — no image work here.
 
     Response shape:
-      { source_path, format, a1111, stimma_json, jpeg_exif_hex }
+      { source_path, format, a1111, stimma_json, jpeg_exif_hex, destination_path }
 
     `format` is "png" or "jpeg"; "passthrough" indicates nothing to embed —
     caller drags the original file as-is. `jpeg_exif_hex` is populated for
@@ -3443,7 +3443,7 @@ async def get_exportable_metadata_payload(
     """
     result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
     item = result.scalar_one_or_none()
-    if not item:
+    if not item or item.deleted_at is not None or item.deletion_pending_at is not None:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     src_path = Path(item.file_path)
@@ -3470,6 +3470,12 @@ async def get_exportable_metadata_payload(
     if payload["format"] == "jpeg":
         exif_bytes = metadata_embed.build_jpeg_exif(a1111, sidecar)
         payload["jpeg_exif_hex"] = exif_bytes.hex()
+    from drag_snapshots import reserve_snapshot
+    try:
+        destination = await reserve_snapshot(session, media_id, payload["format"])
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Asset not found") from None
+    payload["destination_path"] = str(destination)
     return payload
 
 

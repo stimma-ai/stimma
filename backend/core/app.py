@@ -1354,6 +1354,9 @@ async def lifespan(app: FastAPI):
 
         await ensure_delete_worker_started()
 
+        from drag_snapshots import cleanup_loop as cleanup_drag_snapshots
+        background_tasks.append(asyncio.create_task(cleanup_drag_snapshots()))
+
         # Multi-device: resume serving if the user left it on, and make this
         # install discoverable to its account. Deliberately fire-and-forget —
         # discovery must never delay or fail app startup.

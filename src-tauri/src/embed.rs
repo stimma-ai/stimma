@@ -2,7 +2,7 @@
 //!
 //! The backend prepares format-specific payload (A1111 string, Stimma JSON,
 //! and for JPEG a pre-built EXIF block). This module copies the source file
-//! to a per-(file_hash, metadata_hash) temp path and splices in the
+//! to a backend-reserved, deletion-indexed cache path and splices in the
 //! metadata at byte level — no pixel decode, no re-encode.
 //!
 //! - PNG: insert two `tEXt` chunks (`parameters`, `stimma`) before the first
@@ -10,9 +10,7 @@
 //! - JPEG: replace the EXIF APP1 segment with the bytes Python prepared via
 //!   `piexif.dump`.
 
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -23,6 +21,7 @@ const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 #[derive(Debug, Deserialize)]
 pub struct EmbedRequest {
     pub source_path: String,
+    pub destination_path: Option<String>,
     pub format: String,
     pub a1111: Option<String>,
     pub stimma_json: Option<String>,
@@ -53,31 +52,21 @@ fn embed_metadata_sync(req: EmbedRequest, cache_root: PathBuf) -> Result<String,
 
     let source_bytes = fs::read(&source_path).map_err(|e| format!("read source: {e}"))?;
 
-    // Cache key: source path + mtime/size + payload fingerprint. Not cryptographic
-    // — just enough to dedupe drag-out snapshots for the same media+metadata.
-    let meta = fs::metadata(&source_path).map_err(|e| format!("stat source: {e}"))?;
-    let cache_key = {
-        let mut h = DefaultHasher::new();
-        req.source_path.hash(&mut h);
-        meta.len().hash(&mut h);
-        if let Ok(modified) = meta.modified() {
-            if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
-                dur.as_nanos().hash(&mut h);
-            }
-        }
-        req.a1111.as_deref().unwrap_or("").hash(&mut h);
-        req.stimma_json.as_deref().unwrap_or("").hash(&mut h);
-        req.jpeg_exif_hex.as_deref().unwrap_or("").hash(&mut h);
-        format!("{:016x}", h.finish())
-    };
-
-    let cache_dir = cache_root.join("drag_snapshots");
-    fs::create_dir_all(&cache_dir).map_err(|e| format!("create cache dir: {e}"))?;
-    let ext = source_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("bin");
-    let dst_path = cache_dir.join(format!("{cache_key}.{ext}"));
+    // Only the backend can reserve a snapshot directory, after indexing it
+    // under the Media deletion barrier. Never recreate a revoked reservation.
+    let dst_path = PathBuf::from(req.destination_path.as_deref()
+        .ok_or("missing backend snapshot reservation")?);
+    let parent = dst_path.parent().ok_or("invalid snapshot destination")?;
+    let cache_root = cache_root.canonicalize().map_err(|e| format!("cache root: {e}"))?;
+    let resolved_parent = parent.canonicalize().map_err(|e| format!("snapshot reservation: {e}"))?;
+    if !dst_path.is_absolute()
+        || !resolved_parent.starts_with(&cache_root)
+        || resolved_parent.parent().and_then(Path::file_name).and_then(|s| s.to_str()) != Some("drag_snapshots")
+        || !matches!(dst_path.file_name().and_then(|s| s.to_str()), Some("snapshot.png" | "snapshot.jpeg"))
+    {
+        return Err("invalid snapshot reservation".into());
+    }
+    let ext = dst_path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
 
     if dst_path.exists() {
         return Ok(path_to_string(&dst_path));

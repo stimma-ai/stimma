@@ -98,12 +98,16 @@ fn embed_metadata_over_protocol() {
     let src = dir.join("img.png");
     std::fs::write(&src, tiny_png()).unwrap();
 
+    let reservation = dir.join("drag_snapshots").join("reservation");
+    std::fs::create_dir_all(&reservation).unwrap();
+    let destination = reservation.join("snapshot.png");
     let mut helper = Helper::spawn(&dir);
     let resp = helper.request(serde_json::json!({
         "id": 2,
         "method": "embed_metadata",
         "params": {
             "source_path": src.to_str().unwrap(),
+            "destination_path": destination.to_str().unwrap(),
             "format": "png",
             "a1111": "a prompt",
             "stimma_json": "{\"v\":1}",
@@ -122,6 +126,7 @@ fn embed_metadata_over_protocol() {
         "method": "embed_metadata",
         "params": {
             "source_path": src.to_str().unwrap(),
+            "destination_path": destination.to_str().unwrap(),
             "format": "png",
             "a1111": "a prompt",
             "stimma_json": "{\"v\":1}",

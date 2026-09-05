@@ -92,11 +92,23 @@ const filePathCache = new Map<number, string>()
 // wait on a thumbnail fetch (see handleDragStart).
 const thumbnailPathCache = new Map<number, string>()
 
-// Cache for drag-out snapshot paths (mediaId -> fs path of a copy with
-// A1111/Stimma metadata embedded). Backend produces these on demand and
-// caches them on disk keyed by file_hash + metadata_hash; we additionally
-// cache the resolved path client-side to skip the round-trip on repeat drags.
-const snapshotPathCache = new Map<number, string>()
+// Paths expire before the disk cache's ten-minute eviction grace. Include
+// the profile GUID: media IDs alone are not unique across profiles.
+const snapshotPathCache = new Map<string, { path: string; expires: number }>()
+const snapshotRequests = new Map<string, Promise<string | null>>()
+const SNAPSHOT_PATH_TTL_MS = 5 * 60 * 1000
+
+function snapshotKey(mediaId: number): string {
+  return `${getCurrentDbGuid()}:${mediaId}`
+}
+
+function cachedSnapshotPath(mediaId: number): string | undefined {
+  const key = snapshotKey(mediaId)
+  const cached = snapshotPathCache.get(key)
+  if (cached && cached.expires > Date.now()) return cached.path
+  snapshotPathCache.delete(key)
+  return undefined
+}
 
 /**
  * Resolve (and cache) the filesystem path to a metadata-embedded snapshot
@@ -109,8 +121,23 @@ const snapshotPathCache = new Map<number, string>()
  * original file path.
  */
 async function getExportableSnapshotPath(mediaId: number): Promise<string | null> {
-  if (snapshotPathCache.has(mediaId)) return snapshotPathCache.get(mediaId)!
+  const cached = cachedSnapshotPath(mediaId)
+  if (cached) return cached
+  const key = snapshotKey(mediaId)
+  const pending = snapshotRequests.get(key)
+  if (pending) return pending
+  const request = resolveExportableSnapshotPath(mediaId, key)
+  snapshotRequests.set(key, request)
+  try {
+    return await request
+  } finally {
+    snapshotRequests.delete(key)
+  }
+}
+
+async function resolveExportableSnapshotPath(mediaId: number, key: string): Promise<string | null> {
   if (!isTauri.value) return null
+  const expires = Date.now() + SNAPSHOT_PATH_TTL_MS
   try {
     const dbGuid = getCurrentDbGuid()
     if (!dbGuid) return null
@@ -123,12 +150,12 @@ async function getExportableSnapshotPath(mediaId: number): Promise<string | null
     if (!payload?.source_path) return null
     if (payload.format === 'passthrough') {
       // Nothing to embed — drag the original.
-      snapshotPathCache.set(mediaId, payload.source_path)
+      snapshotPathCache.set(key, { path: payload.source_path, expires })
       return payload.source_path
     }
     const path = await desktop.embedMetadata(payload)
     if (path) {
-      snapshotPathCache.set(mediaId, path)
+      snapshotPathCache.set(key, { path, expires })
       return path
     }
   } catch (e) {
@@ -200,7 +227,7 @@ export function useTauriDrag() {
       // usually already here. Cold misses fall back to the raw file (drag still
       // works; it just lacks embedded metadata until the warm completes).
       const cachedPreview = thumbnailPathCache.get(mediaId)
-      const cachedSnapshot = snapshotPathCache.get(mediaId)
+      const cachedSnapshot = cachedSnapshotPath(mediaId)
       const dragPath = cachedSnapshot || filePath
 
       startNativeDrag([dragPath], cachedPreview).catch((e) => {
@@ -271,7 +298,7 @@ export function useTauriDrag() {
       // or thumbnail fetches before start_drag (doing so ends the mouse gesture
       // and crashes the macOS drag plugin). Use whatever snapshots are already
       // cached, falling back to the raw file path per item.
-      const resolvedPaths = mediaIds.map((id, i) => snapshotPathCache.get(id) || filePaths[i])
+      const resolvedPaths = mediaIds.map((id, i) => cachedSnapshotPath(id) || filePaths[i])
       const cachedPreview = thumbnailPathCache.get(mediaIds[0])
 
       startNativeDrag(resolvedPaths, cachedPreview).catch((e) => {
@@ -280,7 +307,7 @@ export function useTauriDrag() {
 
       // Warm embedded snapshots + preview in the background for next time.
       mediaIds.forEach((id) => {
-        if (!snapshotPathCache.has(id)) getExportableSnapshotPath(id).catch(() => {})
+        if (!cachedSnapshotPath(id)) getExportableSnapshotPath(id).catch(() => {})
       })
       if (!cachedPreview) {
         getThumbnailPath(mediaIds[0])
@@ -329,7 +356,7 @@ export function useTauriDrag() {
   async function prewarmDragSnapshot(mediaId: number): Promise<void> {
     await initTauri()
     if (!isTauri.value) return
-    if (!snapshotPathCache.has(mediaId)) {
+    if (!cachedSnapshotPath(mediaId)) {
       getExportableSnapshotPath(mediaId).catch(() => {})
     }
     if (!thumbnailPathCache.has(mediaId)) {
