@@ -43,6 +43,7 @@ PROFILE_EXEMPT_PREFIXES = [
     "/api/feature-flags",  # Feature flag bag (global)
     "/api/compliance", # Compliance region (global, pre-onboarding)
     "/api/provider-manage/",  # Proxy to a tool provider's management UI (providers are global)
+    "/api/headless",  # Server lifecycle is independent of selected profile
     "/api/multi-device",  # Device identity/serving is above profiles (device > profile)
 ]
 

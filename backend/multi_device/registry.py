@@ -13,6 +13,8 @@ Privacy Lockdown still disables it, because lockdown disables sign-in.
 """
 from __future__ import annotations
 
+import os
+
 import asyncio
 from typing import Optional
 
@@ -37,6 +39,11 @@ def build_routes(port: int) -> list[dict]:
     Order is the connect order on the other side: a LAN link is faster and
     lower-latency than going out over the tailnet to reach the same machine.
     """
+    advertised = os.environ.get("STIMMA_ADVERTISE_HOST", "").strip()
+    if advertised:
+        if any(c in advertised for c in "/?#@ "):
+            raise ValueError("STIMMA_ADVERTISE_HOST must be a host, not a URL")
+        return [{"kind": "lan", "host": advertised, "port": int(os.environ.get("STIMMA_ADVERTISE_PORT", str(port)))}]
     lan: list[dict] = []
     tailscale: list[dict] = []
     for addr in local_addresses():

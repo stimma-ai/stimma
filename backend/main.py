@@ -45,7 +45,8 @@ def _watch_parent():
                 os._exit(0)
         _time.sleep(0.5)
 
-threading.Thread(target=_watch_parent, daemon=True).start()
+if os.environ.get("STIMMA_HEADLESS") != "1":
+    threading.Thread(target=_watch_parent, daemon=True).start()
 
 # Parse CLI arguments FIRST - before any other imports that might load config
 # This is needed to determine the app modifier for finding config location
@@ -217,6 +218,10 @@ app.include_router(telemetry.router)
 app.include_router(feedback.router)
 app.include_router(filesystem.router)
 app.include_router(flags.router)
+from headless_runtime import router as headless_router, MaintenanceGate, ENABLED as HEADLESS
+app.include_router(headless_router)
+if HEADLESS:
+    app.add_middleware(MaintenanceGate)
 
 log.info(f"TIMING: routers included at {time.time() - _startup_time:.2f}s")
 
@@ -253,6 +258,6 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=port,
         reload=False,
-        timeout_graceful_shutdown=0,  # No graceful shutdown wait
+        timeout_graceful_shutdown=90 if HEADLESS else 0,  # No graceful shutdown wait
         log_config=None,  # Disable uvicorn's logging config - we use our own
     )

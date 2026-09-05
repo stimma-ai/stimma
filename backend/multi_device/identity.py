@@ -40,6 +40,9 @@ def generate_device_id() -> str:
 
 
 def default_device_name() -> str:
+    import os
+    if os.environ.get("STIMMA_HEADLESS") == "1":
+        return os.environ.get("STIMMA_SERVER_NAME", "Stimma Server")
     try:
         name = socket.gethostname().split(".")[0]
     except Exception:

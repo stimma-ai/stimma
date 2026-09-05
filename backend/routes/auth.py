@@ -215,37 +215,8 @@ async def start_auth() -> StartAuthResponse:
 
                         # Backend now owns the full auth flow
                         try:
-                            # 1. Exchange custom_token for Firebase tokens
-                            from firebase_auth import exchange_custom_token
-                            from auth_storage import save_auth_state
-                            from cloud_api import fetch_user_account
-                            from routes.cloud import connect_cloud_internal
-
-                            tokens = await exchange_custom_token(custom_token)
-                            log.info("exchanged custom token for firebase tokens")
-
-                            # 2. Fetch user account from stimma.cloud
-                            account = await fetch_user_account(tokens['id_token'])
-                            credits = account.get('credits', 0)
-                            log.info("fetched user account", credits=credits)
-
-                            # 3. Persist auth state
-                            save_auth_state({
-                                'user': user,
-                                'credits': credits,
-                                'ever_had_credits': bool(
-                                    account.get('hasEverHadCredits', credits > 0)
-                                ),
-                                'refresh_token': tokens['refresh_token'],
-                                'id_token': tokens['id_token'],
-                                'id_token_expiry': tokens['expiry'],
-                            })
-                            log.info("saved auth state to disk")
-
-                            # 4. Connect to cloud tools (non-blocking); access is
-                            # decided per-request by balance on the cloud side.
-                            log.info("connecting to stimma cloud tools")
-                            asyncio.create_task(connect_cloud_internal(tokens['id_token']))
+                            from headless_runtime import finish_login
+                            credits = await finish_login(custom_token, user)
 
                             # 5. Open the account-events push channel
                             try:

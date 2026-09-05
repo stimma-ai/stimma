@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col min-h-full">
+    <HeadlessServerBlock />
     <!-- Identity -->
     <div class="flex items-center gap-4 pb-6">
       <img src="/logo.svg" alt="Stimma" class="w-16 h-16 rounded-lg border border-edge bg-surface" />
@@ -184,6 +185,7 @@
 </template>
 
 <script setup lang="ts">
+import HeadlessServerBlock from './HeadlessServerBlock.vue'
 import { computed, onMounted, ref } from 'vue'
 import { desktop } from '../../../desktop'
 import { useAppUpdater } from '../../../composables/useAppUpdater'

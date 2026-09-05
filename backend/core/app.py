@@ -1360,7 +1360,11 @@ async def lifespan(app: FastAPI):
         try:
             from multi_device import service as multi_device_service
             multi_device_service.set_app(app)
-            background_tasks.append(asyncio.create_task(multi_device_service.start_if_enabled()))
+            if os.environ.get("STIMMA_HEADLESS") == "1":
+                from headless_runtime import startup
+                background_tasks.append(asyncio.create_task(startup()))
+            else:
+                background_tasks.append(asyncio.create_task(multi_device_service.start_if_enabled()))
         except Exception:
             log.exception("multi-device startup failed")
 

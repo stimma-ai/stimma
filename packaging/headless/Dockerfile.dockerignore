@@ -1,0 +1,7 @@
+**
+!packaging/
+!packaging/headless/
+!packaging/headless/Dockerfile
+!packaging/headless/supervisor.py
+!packaging/headless/stimma-server
+!packaging/headless/updater.pub

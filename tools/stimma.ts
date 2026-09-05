@@ -567,6 +567,7 @@ Commands:
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
+  headless package|image|test|smoke|publish  Build and verify the headless distribution
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
   oss             Regenerate ATTRIBUTION.md dependency tables from the current
@@ -2216,6 +2217,10 @@ async function main(): Promise<void> {
   const rest = args.slice(2);
 
   switch (command) {
+    case "headless": {
+      await run("python3", [join(repoRoot, "tools", "headless.py"), ...args.slice(1)]);
+      break;
+    }
     case "dev": {
       if (sub === "frontend") {
         // Pass sandbox ports so forked sandboxes get their own Vite port and

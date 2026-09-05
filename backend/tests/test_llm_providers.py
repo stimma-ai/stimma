@@ -575,6 +575,12 @@ async def test_failed_provider_is_blocked_without_cloud_fallback(monkeypatch):
     )
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
 
+    # This scenario explicitly has no cloud fallback; do not inherit a cached
+    # cloud account from other tests or a developer's source-build settings.
+    async def cloud_unavailable():
+        return False
+    monkeypatch.setattr(llm_resolver, "_cloud_is_available", cloud_unavailable)
+
     # A provider whose last test failed offers no candidates, so the saved slug
     # stands and the user is told which provider is broken rather than being
     # silently moved onto something else.

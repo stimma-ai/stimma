@@ -1,0 +1,20 @@
+services:
+  stimma:
+    image: ghcr.io/stimma-ai/stimma-headless:latest
+    container_name: stimma
+    restart: unless-stopped
+    stop_grace_period: 2m
+    ports:
+      - "9193:9193"
+    environment:
+      # Address reachable from your desktop (LAN IP or tailnet hostname).
+      STIMMA_ADVERTISE_HOST: ${STIMMA_ADVERTISE_HOST:?Set your server LAN IP or hostname}
+      # Optional: update overnight when no work is running.
+      # UPDATE_WINDOW: "03:00-05:00"
+      # TZ: "America/New_York"
+    volumes:
+      - stimma-data:/data
+      # Optional external media, mounted read-only:
+      # - /path/to/media:/media:ro
+volumes:
+  stimma-data:

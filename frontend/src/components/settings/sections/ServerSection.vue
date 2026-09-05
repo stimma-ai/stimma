@@ -1,5 +1,6 @@
 <template>
   <div>
+    <HeadlessServerBlock />
     <div class="mb-3">
       <div class="flex items-center gap-3">
         <h3 class="text-base font-medium text-content">Stimma Server</h3>
@@ -36,6 +37,7 @@
 </template>
 
 <script setup>
+import HeadlessServerBlock from './HeadlessServerBlock.vue'
 import { useAuth } from '../../../composables/useAuth'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import Button from '../../ui/Button.vue'

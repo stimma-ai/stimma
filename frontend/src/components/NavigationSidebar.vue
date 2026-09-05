@@ -945,6 +945,7 @@
           <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
             <button
               @click="openSettingsFromFooter"
+              aria-label="Settings"
               class="w-full h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
             >
               <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

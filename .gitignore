@@ -178,3 +178,6 @@ electron/build/*
 
 # Native helper
 native/stimma-native/target/
+
+# Headless build artifacts
+dist-headless/

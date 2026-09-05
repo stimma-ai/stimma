@@ -7,6 +7,7 @@ places.
 from __future__ import annotations
 
 import platform as platform_module
+import os
 from typing import Optional
 
 from app_context import (
@@ -142,7 +143,7 @@ async def apply_serving(enabled: bool) -> dict:
         # Prefer an explicitly configured port, else the one we bound last
         # time, else let the OS choose. Whatever we land on is remembered and
         # published, so the user never arbitrates a port.
-        preferred = md.port or md.last_port or 0
+        preferred = int(os.environ.get("STIMMA_SERVER_PORT", "9193")) if os.environ.get("STIMMA_HEADLESS") == "1" else md.port or md.last_port or 0
         bound = await server.start_serving(_app, cert_pem, key_pem, preferred, device_id)
         if bound != md.last_port:
             _patch_multi_device(last_port=bound)

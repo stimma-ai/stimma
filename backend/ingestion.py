@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime, timedelta
@@ -566,9 +567,17 @@ class MediaIngestion:
             try:
                 # Wait for work signal (with 5-minute timeout for periodic file scan)
                 try:
-                    await asyncio.wait_for(self._work_available.wait(), timeout=300.0)
+                    await asyncio.wait_for(self._work_available.wait(), timeout=2.0 if os.environ.get("STIMMA_HEADLESS") == "1" else 300.0)
                 except asyncio.TimeoutError:
                     pass  # Timeout triggers periodic file scan
+
+                if os.environ.get("STIMMA_HEADLESS") == "1":
+                    root = Path(os.environ.get("STIMMA_HEADLESS_ROOT", "/data"))
+                    if (root / "maintenance").exists():
+                        (root / "ingestion-idle").touch(mode=0o600)
+                        await asyncio.sleep(1)
+                        continue
+                    (root / "ingestion-idle").unlink(missing_ok=True)
 
                 self._work_available.clear()
                 now = datetime.now()

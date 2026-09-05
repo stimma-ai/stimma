@@ -1,0 +1,98 @@
+name: Build / Headless package
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      publish_updates:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      ref:
+        required: true
+        default: main
+      channel:
+        type: choice
+        options: [production, beta, canary]
+        default: canary
+      version:
+        required: true
+      publish_updates:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: headless-packages-${{ inputs.channel }}
+  cancel-in-progress: false
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: astral-sh/setup-uv@v6
+      - uses: denoland/setup-deno@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y patchelf rsync file
+      - name: Install test dependencies
+        working-directory: backend
+        run: uv sync --locked --extra dev
+      - name: Verify headless controls and installer
+        run: tools/stimma headless test
+      - name: Prepare release verification key
+        env:
+          PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          test -n "$PUBLIC_KEY"
+          printf '%s' "$PUBLIC_KEY" | base64 -d > packaging/headless/updater.pub
+      - name: Build package
+        env:
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ inputs.channel }}
+        run: tools/stimma headless package --version "$VERSION" --branch "$BRANCH"
+      - name: Build bootstrap for validation only
+        run: tools/stimma headless image
+      - name: Verify signed startup and unchanged-image updates
+        run: tools/stimma headless smoke
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-${{ matrix.arch }}
+          path: dist-headless/
+          retention-days: 7
+      - name: Install release signer
+        if: inputs.publish_updates
+        working-directory: frontend
+        run: npm ci
+      - name: Publish signed headless feed
+        if: inputs.publish_updates
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: tools/stimma headless publish

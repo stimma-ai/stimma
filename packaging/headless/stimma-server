@@ -1,0 +1,8 @@
+#!/bin/sh
+# The installed Stimma package owns its supervisor; the image bootstraps an
+# empty volume and retains a stable control client for recovery/status.
+root="${STIMMA_HEADLESS_ROOT:-/data}"
+if [ "${1:-serve}" = serve ] && [ -f "$root/app/current/supervisor.py" ]; then
+    exec /usr/bin/python3 "$root/app/current/supervisor.py" "$@"
+fi
+exec /usr/bin/python3 /opt/stimma/supervisor.py "$@"
