@@ -36,7 +36,17 @@ BRANCH = os.environ.get('BRANCH', 'production')
 ARCH = {'amd64': 'x86_64', 'arm64': 'aarch64'}.get(platform.machine(), platform.machine())
 TARGET = f'headless-linux-{ARCH}'
 BASE_URL = os.environ.get('STIMMA_UPDATE_BASE_URL', 'https://updates.stimma.ai').rstrip('/')
-LOCAL_PORT = int(os.environ.get('STIMMA_LOCAL_PORT', '9191'))
+LOCAL_PORT = int(os.environ.get('STIMMA_LOCAL_PORT', '0'))
+
+
+def local_port():
+    # Host networking shares the host's ports. Use a free loopback port for
+    # the private backend; only the authenticated serving port is advertised.
+    if LOCAL_PORT:
+        return LOCAL_PORT
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(('127.0.0.1', 0))
+        return listener.getsockname()[1]
 
 
 def atomic_json(path: Path, value: dict):
@@ -160,6 +170,7 @@ class Supervisor:
         self.base_version = BOOTSTRAP.read_text().strip() if BOOTSTRAP.exists() else '0.0.0'
         self.commands = queue.Queue(maxsize=1)
         self.child = None
+        self.local_port = None
         self.stopping = False
         self.token = secrets.token_urlsafe(32)
         self.manifest = None
@@ -176,7 +187,7 @@ class Supervisor:
 
     def local(self, action: str, body=None):
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(f'http://127.0.0.1:{LOCAL_PORT}/api/headless/{action}', data=data,
+        req = urllib.request.Request(f'http://127.0.0.1:{self.local_port}/api/headless/{action}', data=data,
                                      headers={'Content-Type': 'application/json',
                                               'X-Stimma-Supervisor': self.token})
         with urllib.request.urlopen(req, timeout=10) as response:
@@ -272,6 +283,7 @@ class Supervisor:
         return dest
 
     def start_child(self, release):
+        self.local_port = local_port()
         metadata = json.loads((release / 'release.json').read_text())
         env = dict(os.environ, STIMMA_HEADLESS='1', STIMMA_SUPERVISOR_TOKEN=self.token,
                    STIMMA_APP_VERSION=metadata['version'], STIMMA_RELEASE_CHANNEL=BRANCH,
@@ -281,7 +293,7 @@ class Supervisor:
         env['PATH'] = f"{release}/python/bin:" + env.get('PATH', '')
         bundle = 'ai.stimma.stimma' + (f'.{BRANCH}' if BRANCH != 'production' else '')
         self.child = subprocess.Popen([str(release / 'run.sh'), '--bundle-id', bundle,
-                                       '--port', str(LOCAL_PORT)], env=env, cwd=release)
+                                       '--port', str(self.local_port)], env=env, cwd=release)
         self.status(status='starting', version=metadata['version'])
         deadline = time.monotonic() + 300
         while time.monotonic() < deadline and not self.stopping:

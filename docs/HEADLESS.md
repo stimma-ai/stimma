@@ -3,10 +3,20 @@
 The headless distribution runs Stimma without a desktop shell. Connect using the
 Stimma desktop app on the same account and a reachable LAN or tailnet route.
 
-Use the [Docker setup and downloadable Compose file](https://stimma.ai/docker).
+Use the [Docker setup and downloadable Compose file](https://docs.stimma.ai/docker/).
 Both Linux amd64 and arm64 use `ghcr.io/stimma-ai/stimma-headless:latest`.
 The bootstrap also has explicit version tags; its installed version appears in
 Settings alongside the connected server's Stimma version.
+
+The default Compose file uses Linux host networking. Stimma advertises the
+host's LAN and VPN addresses automatically and refreshes them as interfaces
+change. Clients try those routes with pinned TLS; users do not maintain an IP
+list. Tailscale must run on the host to expose its interface to Stimma.
+
+The authenticated server prefers TCP 9193; if occupied, it advertises an
+available port. The private backend uses a free loopback port in base 1.0.2+.
+Host networking shares the host's network namespace, so `ports:` mappings do
+not apply. Network routes and firewall access are still required.
 
 ## Operation
 

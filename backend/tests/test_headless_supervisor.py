@@ -88,3 +88,20 @@ def test_branch_change_does_not_use_other_branch_cache(monkeypatch, tmp_path):
     (tmp_path / 'current').symlink_to(release)
     with pytest.raises(RuntimeError, match='another BRANCH'):
         supervisor.Supervisor().current()
+
+
+def test_private_backend_uses_available_loopback_port(monkeypatch):
+    import socket
+    monkeypatch.setattr(supervisor, 'LOCAL_PORT', 0)
+    with socket.socket() as occupied:
+        occupied.bind(('127.0.0.1', 0))
+        occupied.listen()
+        port = supervisor.local_port()
+        assert port != occupied.getsockname()[1]
+        with socket.socket() as available:
+            available.bind(('127.0.0.1', port))
+
+
+def test_private_backend_explicit_port_is_preserved(monkeypatch):
+    monkeypatch.setattr(supervisor, 'LOCAL_PORT', 49123)
+    assert supervisor.local_port() == 49123

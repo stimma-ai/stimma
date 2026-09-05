@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.12.7 AS uv
 FROM debian:bookworm-slim
-ARG BOOTSTRAP_VERSION=1.0.1
+ARG BOOTSTRAP_VERSION=1.0.2
 ARG BOOTSTRAP_RECIPE=local
 LABEL org.opencontainers.image.title="Stimma headless bootstrap" \
       org.opencontainers.image.source="https://github.com/stimma-ai/stimma" \

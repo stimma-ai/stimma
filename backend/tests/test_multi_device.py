@@ -690,3 +690,25 @@ async def test_a_failure_to_stop_serving_does_not_block_sign_out(monkeypatch, is
 
     # Even when the listener could not be torn down, the sessions are gone.
     assert auth.verify_session(token) is None
+
+
+def test_docker_bridges_do_not_crowd_out_host_interfaces(monkeypatch):
+    from types import SimpleNamespace
+    import socket
+    def addr(value):
+        return [SimpleNamespace(family=socket.AF_INET, address=value)]
+    interfaces = {f'br-{n}': addr(f'172.20.{n}.1') for n in range(10)}
+    interfaces.update({'eth0': addr('192.168.50.2'), 'eth1': addr('10.20.30.2'),
+                       'tailscale0': addr('100.64.0.9'), 'lo': addr('127.0.0.1')})
+    monkeypatch.delenv('STIMMA_ADVERTISE_HOST', raising=False)
+    monkeypatch.setattr(identity.psutil, 'net_if_addrs', lambda: interfaces)
+    monkeypatch.setattr(identity.psutil, 'net_if_stats', lambda: {})
+    monkeypatch.setattr(identity.socket, 'getaddrinfo', lambda *args: [])
+    routes = registry.build_routes(9193)
+    assert routes[:2] == [{'kind': 'lan', 'host': host, 'port': 9193}
+                          for host in ('192.168.50.2', '10.20.30.2')]
+    assert routes[-1] == {'kind': 'tailscale', 'host': '100.64.0.9', 'port': 9193}
+    interfaces['eth0'] = addr('192.168.50.3')
+    refreshed = registry.build_routes(9193)
+    assert refreshed[0]['host'] == '192.168.50.3'
+    assert all(route['host'] != '192.168.50.2' for route in refreshed)

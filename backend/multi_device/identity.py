@@ -62,7 +62,11 @@ def local_addresses() -> list[str]:
 
     try:
         stats = psutil.net_if_stats()
-        for interface, addresses in psutil.net_if_addrs().items():
+        # Keep host LAN/VPN interfaces ahead of container bridges so a busy
+        # Docker host does not spend the registry's route budget on bridges.
+        interfaces = sorted(psutil.net_if_addrs().items(), key=lambda item:
+                            item[0].startswith(('docker', 'br-', 'veth', 'virbr', 'cni', 'flannel')))
+        for interface, addresses in interfaces:
             if interface in stats and not stats[interface].isup:
                 continue
             for address in addresses:

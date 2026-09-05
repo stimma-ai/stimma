@@ -236,8 +236,6 @@ async def startup():
     from privacy_lockdown import is_privacy_lockdown_enabled
     if is_privacy_lockdown_enabled():
         return
-    if not os.environ.get('STIMMA_ADVERTISE_HOST'):
-        print('[stimma] Set STIMMA_ADVERTISE_HOST to the server LAN IP or tailnet hostname for Docker bridge networking.', flush=True)
     state = load_auth_state()
     if state and state.get('refresh_token'):
         await apply_serving(True)
