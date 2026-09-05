@@ -35,8 +35,8 @@ test.describe('phone lane: two-layer navigation', () => {
     // the OS back gesture and the tab bar are the way out, as on native.
     await expect(back).toHaveCount(0);
 
-    // Tools: open a tool, back returns to the Tools hub, not Assets.
-    await tab('Tools').click();
+    // Studio: open a tool, back returns to the Studio hub, not Assets.
+    await tab('Studio').click();
     await page.goto(`/tools/test:text-to-image:test-model`);
     await settleAnyViewport(page);
     await expect(page.locator('.compact-header h1')).toContainText('Test Text-to-Image');
@@ -46,13 +46,13 @@ test.describe('phone lane: two-layer navigation', () => {
     // Tapping the active tab pops to root.
     await page.goto(`/tools/test:text-to-image:test-model`);
     await settleAnyViewport(page);
-    await tab('Tools').click();
+    await tab('Studio').click();
     await expect(page).toHaveURL(/\/tools$/);
 
-    // Boards and Projects are segments of the Tools hub, and light its tab.
+    // Boards and Projects are segments of the Studio hub, and light its tab.
     await page.getByRole('tab', { name: 'Boards' }).click();
     await expect(page).toHaveURL(/\/boards$/);
-    await expect(tab('Tools')).toHaveClass(/accent/);
+    await expect(tab('Studio')).toHaveClass(/accent/);
 
     // The switcher lists what is open, from any screen, and dismisses on a tap outside.
     await page.getByRole('button', { name: 'Open items' }).click();

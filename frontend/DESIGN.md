@@ -267,15 +267,17 @@ that a desktop-sized window never trips.
   the compact tier in a desktop window for dev and tests. Tailwind `md:` =
   medium, `lg:` = wide — the same lines.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
-  `overlay`. Wide = sidebar + top bar. Compact = a four-slot tab bar (Home ·
-  Chats · Assets · Tools) on hub AND detail routes, plus a 60px header
+  `overlay`. Wide = sidebar + top bar. Compact = a tab bar of four hubs and
+  one control (Home · Chats · [Open] · Assets · Studio) on hub AND detail
+  routes, plus a 60px header
   (avatar or back chevron, title, then the right strip: the transient
-  background-work indicator, provider managers, search, create). The Tools
-  hub carries Tools · Flows · Boards · Projects as segments. The working set
-  (open tools, chats, boards, edits) is not a hub: it is the tab bar's
-  trailing "Open" switcher, narrower than a hub, divided from them, never
-  lit as current, with a count badge; it opens a sheet backed by the same
-  workspace-tab store as the desktop sidebar's zone 2, from every screen.
+  background-work indicator, provider managers, search, create). Studio
+  carries Tools · Flows · Boards · Projects as segments. The working set
+  (open tools, chats, boards, edits) is not a hub: it is the bar's raised
+  centre "Open" button, styled apart from the hubs, never lit as current,
+  with a count badge; it opens a sheet that uses the desktop sidebar's zone
+  2 grammar (32px tile, 13/11 text, project chip, close) on the same
+  workspace-tab store, from every screen.
   The header keeps mounting under the slideshow (v-show) because views
   teleport controls into it. Overlays (slideshow,
   compare, image editor, PIN lock, connection screen) and the open keyboard

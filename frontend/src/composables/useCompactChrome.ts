@@ -42,7 +42,7 @@ export function hubForRoute(name: unknown): HubId | null {
     case 'home': return 'home'
     case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.
-    // Tools hub: tools, flows, boards, projects, and every detail of those.
+    // Studio hub: tools, flows, boards, projects, and every detail of those.
     case 'workspace': case 'all-tools': case 'flows': case 'tool': case 'flow':
     case 'edit-image': case 'lineage': case 'projects':
     case 'boards': case 'board-detail': return 'workspace'
@@ -103,7 +103,7 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     return 'Stimma'
   })
   const subtitle = computed(() => routeSubtitle.value)
-  // The Tools hub owns four landings as segments: Tools · Flows · Boards · Projects.
+  // The Studio hub owns four landings as segments: Tools · Flows · Boards · Projects.
   const workspaceSegments = computed(() => {
     const name = typeof route.name === 'string' ? route.name : ''
     return ['all-tools', 'flows', 'boards', 'projects'].includes(name)
