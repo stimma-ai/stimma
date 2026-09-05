@@ -75,8 +75,10 @@ function openSearch() {
         <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ subtitle }}</p>
       </div>
 
+      <!-- Screens with a primary control (the tool view's Run) teleport it here. -->
+      <div id="compact-header-actions" class="flex items-center gap-1 empty:hidden"></div>
       <button
-        v-if="route.name !== 'search'"
+        v-if="route.name !== 'search' && route.name !== 'tool'"
         type="button"
         class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
         aria-label="Search"

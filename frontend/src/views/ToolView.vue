@@ -93,7 +93,7 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:order-3 compact:flex-1 compact:!w-full compact:border-r-0"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -179,9 +179,9 @@
             </template>
           </div>
           </div>
-          <!-- Compact: the run bar lives in the bottom dock with the prompt. -->
-          <Teleport to="#tool-compact-runbar" :disabled="!isCompact" defer>
-          <div class="flex items-center gap-2 compact:flex-wrap compact:gap-1.5">
+          <!-- Compact: hidden; Run is the header control (ToolRunControl) and
+               batch/forever live in its sheet. -->
+          <div class="flex items-center gap-2 compact:hidden">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
             <button
@@ -220,17 +220,6 @@
               @update:concurrency="uiState.generateForeverConcurrency = $event"
               @update:idle-limit="uiState.generateForeverIdleLimit = $event"
             />
-            <button
-              v-if="isCompact && !llmUnconfigured"
-              type="button"
-              @click="compactAgentOpen = !compactAgentOpen"
-              class="cursor-pointer transition-colors flex items-center justify-center min-w-11 min-h-11 rounded-md"
-              :class="compactAgentOpen ? 'bg-accent/15 text-accent-hi' : 'bg-surface-raised text-content-secondary'"
-              aria-label="Agent"
-              title="Agent"
-            >
-              <SparklesIcon class="w-5 h-5" />
-            </button>
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
               class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
@@ -276,7 +265,6 @@
               @clear="handleResetToDefaults"
             />
           </div>
-          </Teleport>
         </div>
 
         </Teleport>
@@ -328,7 +316,10 @@
 
         </Teleport>
 
+        <!-- Compact: the card's controls render inside ToolDrawer's body. -->
+        <Teleport to="#tool-drawer-body" :disabled="!isCompact" defer>
         <!-- Params-card top row: resolution + markers | auto-trash -->
+        <div data-drawer-group="Output" class="compact:pt-2"></div>
         <div class="flex items-center gap-2 mb-3">
             <ConstrainedResolutionPicker
               v-if="allowedDimensions"
@@ -377,8 +368,8 @@
         <!-- Prompt (for task types that need it). external-chat: the editor is a
              plain editor here — the page-level chat lives in the dock below and
              is owned by this view, not the prompt field. -->
-        <Teleport to="#tool-compact-prompt" :disabled="!isCompact" defer>
-        <div v-if="hasPrompt" class="mb-6 compact:mb-2">
+        <Teleport to="#tool-drawer-prompt" :disabled="!isCompact" defer>
+        <div v-if="hasPrompt" class="mb-6 compact:mb-0">
           <AIPromptEditor
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
@@ -409,7 +400,7 @@
              the single full-width dock so it survives layout switches without
              ever changing target — the chat stays put while the studio/stage
              toggle animates the columns above it. -->
-        <Teleport defer to="#agent-dock">
+        <Teleport defer :to="isCompact ? '#agent-dock-compact' : '#agent-dock'">
           <PromptAgentChat
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
@@ -424,6 +415,7 @@
         <!-- Media Input (images or videos, unified picker). In batch mode the slot
              collapses to a representative stack with a count; the same prep
              controls apply uniformly to every item. -->
+        <div v-if="mediaInputConfig || hasVideoFrames || audioInputConfig" data-drawer-group="Inputs"></div>
         <MediaPicker
           v-if="mediaInputConfig && !hasMask"
           ref="mediaPickerRef"
@@ -538,6 +530,7 @@
         />
 
         <!-- Video Parameters: Duration (for tools using duration param) -->
+        <div v-if="hasDuration || hasFrameCount" data-drawer-group="Video"></div>
         <div v-if="hasDuration" class="mb-6">
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Duration -->
@@ -638,6 +631,7 @@
 
 
         <!-- LoRA Selection (for task types that support it) -->
+        <div v-if="hasLoras" data-drawer-group="LoRAs"></div>
         <LoraPoolPanel
           v-if="hasLoras"
           ref="loraPoolPanelRef"
@@ -655,6 +649,7 @@
 
         <!-- Post-processing chain (auto-runs after each generation when On).
              Not shown for audio tools — no audio post-processing chains exist. -->
+        <div v-if="!outputsAudio" data-drawer-group="Post"></div>
         <PostProcessingPanel
           v-if="!outputsAudio"
           v-model:chain="toolChain"
@@ -663,6 +658,7 @@
         />
 
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
+        <div data-drawer-group="Params"></div>
         <SchemaParamGroup
           :full-tool-id="fullToolIdFromProps"
           :groups="groupedGenericParams"
@@ -690,6 +686,7 @@
             Configure Chat Models
           </button>
         </div>
+        </Teleport>
        </div>
       </div>
 
@@ -722,9 +719,18 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-none compact:h-[30dvh] compact:!p-0"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0"
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
+        <button
+          v-if="isCompact && !llmUnconfigured"
+          type="button"
+          class="absolute right-3 bottom-16 z-chrome w-12 h-12 rounded-[14px] bg-surface border border-edge text-accent-hi shadow-lg flex items-center justify-center"
+          aria-label="Agent"
+          @click="compactAgentOpen = true"
+        >
+          <SparklesIcon class="w-6 h-6" />
+        </button>
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
              slideshow item, no zoom/slideshow click). Chrome is just the
@@ -1001,12 +1007,43 @@
       </div>
         </div>
 
-        <!-- Compact dock: prompt over run bar, always visible above the tab bar
-             (the controls scroll behind it). Teleport targets are filled by the
-             prompt editor and the header run bar when isCompact. -->
-        <div v-if="isCompact" class="flex-none border-t border-edge-subtle bg-surface px-3 pt-2 pb-2">
-          <div id="tool-compact-prompt"></div>
-          <div id="tool-compact-runbar"></div>
+        <!-- Compact: the drawer (prompt pinned, controls beneath) sits under the
+             hero + queue strip. ToolRunControl teleports into the compact header.
+             The agent opens as a centred card from a floating button over the hero. -->
+        <ToolDrawer v-if="isCompact" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" />
+        <Teleport v-if="isCompact" to="#compact-header-actions" defer>
+          <ToolRunControl
+            :batch-size="uiState.batchSize"
+            :can-submit="canSubmit"
+            :running-count="compactRunningCount"
+            :forever-active="uiState.generateForeverMode"
+            :concurrency="uiState.generateForeverConcurrency"
+            :idle-limit="uiState.generateForeverIdleLimit"
+            :is-mac="isMac"
+            @run="submitJob()"
+            @update:batch-size="uiState.batchSize = $event"
+            @start-forever="startForeverMode"
+            @stop-forever="stopForeverMode"
+            @update:concurrency="uiState.generateForeverConcurrency = $event"
+            @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+          />
+        </Teleport>
+        <div
+          v-if="isCompact"
+          v-show="compactAgentOpen"
+          class="fixed inset-0 z-modal bg-overlay-backdrop backdrop-blur-sm flex items-start justify-center pt-16 px-3"
+          @click.self="compactAgentOpen = false"
+        >
+          <div class="w-full max-w-[420px] max-h-[80dvh] overflow-y-auto rounded-lg border border-edge bg-surface shadow-2xl">
+            <div class="flex items-center gap-2 px-4 pt-3 pb-1">
+              <SparklesIcon class="w-5 h-5 text-accent-hi" />
+              <span class="text-[15px] font-semibold text-content">Agent</span>
+              <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div id="agent-dock-compact" class="px-4 pb-4"></div>
+          </div>
         </div>
         <!-- Agent chat dock: full width at the bottom of the page in both modes,
              so the chat stays put while the columns above tween between Studio
@@ -1015,7 +1052,7 @@
              stay mounted, and the dock reappears live once a model is added. -->
         <div
           id="agent-dock"
-          v-show="!llmUnconfigured && (!isCompact || compactAgentOpen)"
+          v-show="!llmUnconfigured && !isCompact"
           class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%]"
         ></div>
       </div>
@@ -1091,6 +1128,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
 import { setCompactTitle } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
+import ToolDrawer from '../components/compact/ToolDrawer.vue'
+import ToolRunControl from '../components/compact/ToolRunControl.vue'
 import { devModeRef, hidePricesRef } from '../appConfig'
 import { usePromptMiniAgent } from '../composables/usePromptMiniAgent'
 import { usePromptEditorUndo } from '../composables/usePromptEditorUndo'
@@ -1213,6 +1252,7 @@ const route = useRoute()
 const { isCompact } = useViewport()
 // Phones keep the agent dock behind a toggle so the controls get the height.
 const compactAgentOpen = ref(false)
+const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const projectScopeId = computed(() => {
@@ -3700,6 +3740,13 @@ const canSubmit = computed(() => {
 
 // Job counts from jobs manager
 const allJobs = computed(() => jobsManager?.allJobs.value || [])
+// Jobs still in flight, for the compact Run control's ring + count.
+const compactRunningCount = computed(() => allJobs.value.filter((j: any) => !['completed', 'failed', 'cancelled'].includes(j.status)).length)
+// An empty tool starts with the drawer half-open (the form is the screen);
+// the first result collapses it so the image takes over.
+watch(() => allJobs.value.length, (n, prev) => {
+  if (prev === 0 && n > 0) toolDrawerRef.value?.open('collapsed')
+})
 
 // Keep the stage pin honest as the completed-jobs list changes. Declared here
 // (after jobsManager) so the watch's initial getter run doesn't hit the TDZ of

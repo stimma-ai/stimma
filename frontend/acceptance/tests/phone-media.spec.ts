@@ -42,7 +42,7 @@ test.describe('phone lane: media touch paths', () => {
     await settleAnyViewport(page);
     const prompt = `phone lane ${Date.now()}`;
     await promptInput(page).fill(prompt);
-    const run = page.locator('#tool-compact-runbar').getByTestId('tool-run-button');
+    const run = page.locator('#compact-header-actions').getByTestId('tool-run-button');
     await expect(run).toBeEnabled({ timeout: 15000 });
     await run.click();
     const [media] = await waitForGeneratedMedia(page, {});
