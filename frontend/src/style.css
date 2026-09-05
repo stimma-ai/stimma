@@ -752,3 +752,13 @@ select option {
   font-size: 15px;
 }
 [data-sheet-menu] .text-xs { font-size: 14px; }
+
+/* Tool view queue on phones: one horizontal strip of small tiles under the
+   hero (the rail's grid/column modes are desktop compositions). */
+[data-viewport="compact"] .jobs-rail {
+  display: flex !important;
+  flex-direction: row !important;
+  overflow-x: auto;
+  gap: 2px;
+}
+[data-viewport="compact"] .jobs-rail > * { width: 6rem; flex: none; }

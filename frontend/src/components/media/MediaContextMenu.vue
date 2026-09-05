@@ -90,14 +90,14 @@
         <div v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0" class="border-t border-edge-subtle my-1"></div>
 
         <!-- Marker toggles row -->
-        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle">
+        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:gap-2 coarse:px-3">
           <button
             v-for="marker in markers"
             :key="marker.id"
             @click="handleToggleMarker(marker)"
             :title="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             :class="[
-              'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
+              'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
               hasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'
             ]"
           >

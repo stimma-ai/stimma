@@ -140,7 +140,7 @@
       :initial-section="settingsSection"
       @close="closeSettings"
     />
-    <CompactHeader v-if="!compactOverlay" @open-settings="openSettings($event)" />
+    <CompactHeader v-if="!compactOverlay && !slideshowActive" @open-settings="openSettings($event)" />
     <ProjectScopeBar
       v-if="projectChrome.project && !slideshowActive && !compactOverlay"
       :project="projectChrome.project"

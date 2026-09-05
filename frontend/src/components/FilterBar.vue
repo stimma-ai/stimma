@@ -13,7 +13,7 @@
         </svg>
       </button>
 
-      <div class="flex gap-2 flex-wrap flex-1">
+      <div class="flex gap-2 flex-wrap flex-1 compact:flex-nowrap compact:order-2">
         <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (accent), negative (red) -->
         <!-- 3-state marker toggles. Include is the PRIMARY active look: the
              clean native-color chip (icon + wash of the marker's own color),
@@ -265,7 +265,7 @@
       </div>
 
       <!-- Right Side Controls -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 compact:order-3 compact:w-full compact:justify-end">
       <!-- Unified Pill Group -->
       <div class="flex items-center gap-1">
         <!-- Item count -->

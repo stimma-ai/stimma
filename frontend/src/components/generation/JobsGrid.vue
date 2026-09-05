@@ -85,7 +85,7 @@
              four of them to roughly the footprint of one finished image. The
              Stage rail is already narrow enough that its tiles never dominate,
              so it stays single-column. -->
-        <div :class="compactOverlays ? 'flex flex-col gap-0.5' : 'grid grid-cols-2 gap-0.5'">
+        <div class="jobs-rail" :class="compactOverlays ? 'flex flex-col gap-0.5' : 'grid grid-cols-2 gap-0.5'">
         <LiveJobTile
           v-for="item in tileActiveItems"
           :key="item.key"

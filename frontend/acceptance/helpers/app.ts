@@ -678,7 +678,7 @@ export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: numb
   throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms${suffix}`);
 }
 
-function promptInput(page: Page) {
+export function promptInput(page: Page) {
   return page.locator('.cm-content[contenteditable="true"]').first();
 }
 

@@ -19,7 +19,7 @@
     <SlideshowInfoPanel
       v-if="showSidebar"
       ref="infoPanelRef"
-      class="compact:absolute compact:inset-0 compact:z-chrome compact:!w-full"
+      class="compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:!max-w-none compact:!border-l-0"
       :current-item="currentPayloadItem"
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
@@ -1499,12 +1499,14 @@ function onSlideshowTouchEnd(e) {
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? next() : previous(); return }
   if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && slideshowCompact.value) showSidebar.value = true
 }
-const controlBarOrientation = ref(savedSettings.controlBarOrientation ?? 'vertical')
+// Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
+const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'vertical'))
 
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
-const STRIP_HEIGHT = 136
-const SIDEBAR_WIDTH = 384
+// Phones: a shorter strip, and the info panel overlays instead of taking width.
+const STRIP_HEIGHT = slideshowCompact.value ? 92 : 136
+const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 // Markers and boards state
 const availableMarkers = ref([])
@@ -2497,6 +2499,16 @@ const hasOnlyCaption = computed(() => {
 })
 
 const controlBarStyle = computed(() => {
+  if (slideshowCompact.value) {
+    const stripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
+    return {
+      left: '50%',
+      transform: 'translateX(-50%)',
+      bottom: `${stripOffset + 12}px`,
+      maxWidth: 'calc(100% - 16px)',
+      overflowX: 'auto',
+    }
+  }
   const anchors = controlBarEdgeAnchors.value
   // In focus mode, treat sidebar as if it's not there
   const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
