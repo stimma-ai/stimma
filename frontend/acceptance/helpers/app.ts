@@ -682,7 +682,7 @@ function promptInput(page: Page) {
   return page.locator('.cm-content[contenteditable="true"]').first();
 }
 
-async function continueWithoutAccountIfNeeded(page: Page) {
+export async function continueWithoutAccountIfNeeded(page: Page) {
   const shell = page.getByText('All Assets', { exact: true }).first();
   const getStarted = page.getByRole('button', { name: 'Get started' }).first();
   const deadline = Date.now() + 30000;

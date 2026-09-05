@@ -246,6 +246,14 @@ body {
   /* Atelier: media is never rounded like chrome — tiles/viewers only. */
   --radius-media: 2px;
 
+  /* Device safe areas (notch, home indicator). Zero everywhere except a
+     phone shell with viewport-fit=cover. Docked bars pad with these — see
+     DESIGN.md §1.11 and the pb-safe / pt-safe utilities below. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
@@ -713,4 +721,13 @@ select option {
 }
 [data-tauri-drag-region] * {
   -webkit-app-region: no-drag;
+}
+
+/* Safe-area padding for docked chrome (tab bar, composer, run dock,
+   selection bar). Never stack two docked bars on one screen. */
+@layer utilities {
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pt-safe { padding-top: var(--safe-top); }
+  .pl-safe { padding-left: var(--safe-left); }
+  .pr-safe { padding-right: var(--safe-right); }
 }

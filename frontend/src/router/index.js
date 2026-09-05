@@ -28,6 +28,14 @@ import SearchResultsView from '../views/SearchResultsView.vue'
 import ForeachMockView from '../views/ForeachMockView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 
+// Every route declares its chrome `surface`:
+//   hub     — a top-level landing; on compact viewports the tab bar shows.
+//   detail  — an entity screen (tool, chat, board, flow, project page); on
+//             compact viewports it gets a back header. The tab bar still
+//             shows — only overlays hide it.
+//   overlay — a full-screen takeover (onboarding, image editor); no app chrome.
+// Wide viewports render sidebar + top bar regardless. See useViewport.ts and
+// DESIGN.md §1.11.
 const routes = [
   {
     path: '/',
@@ -37,36 +45,42 @@ const routes = [
     path: '/onboarding',
     name: 'onboarding',
     component: OnboardingView,
-    meta: { noChrome: true }
+    meta: { surface: 'overlay', noChrome: true }
   },
   {
     path: '/home',
     name: 'home',
+    meta: { surface: 'hub' },
     component: HomeView
   },
   {
     path: '/browse',
     name: 'browse',
+    meta: { surface: 'hub' },
     component: BrowseGridView
   },
   {
     path: '/search',
     name: 'search',
+    meta: { surface: 'hub' },
     component: SearchResultsView
   },
   {
     path: '/boards',
     name: 'boards',
+    meta: { surface: 'hub' },
     component: BoardsLandingView
   },
   {
     path: '/boards/:id',
     name: 'board-detail',
+    meta: { surface: 'detail' },
     component: BoardDetailView
   },
   {
     path: '/projects',
     name: 'projects',
+    meta: { surface: 'hub' },
     component: ProjectsLandingView
   },
   {
@@ -80,36 +94,43 @@ const routes = [
       {
         path: 'overview',
         name: 'project-overview',
+        meta: { surface: 'detail' },
         component: ProjectOverviewView
       },
       {
         path: 'assets',
         name: 'project-assets',
+        meta: { surface: 'detail' },
         component: ProjectAssetsView
       },
       {
         path: 'chats',
         name: 'project-chats',
+        meta: { surface: 'detail' },
         component: ProjectChatsView
       },
       {
         path: 'boards',
         name: 'project-boards',
+        meta: { surface: 'detail' },
         component: ProjectBoardsView
       },
       {
         path: 'flows',
         name: 'project-flows',
+        meta: { surface: 'detail' },
         component: ProjectFlowsView
       },
       {
         path: 'settings',
         name: 'project-settings',
+        meta: { surface: 'detail' },
         component: ProjectSettingsView
       },
       {
         path: 'tools',
         name: 'project-tools',
+        meta: { surface: 'detail' },
         component: ProjectToolsView
       }
     ]
@@ -117,48 +138,57 @@ const routes = [
   {
     path: '/trash',
     name: 'trash',
+    meta: { surface: 'hub' },
     component: BrowseGridView,
     props: { isTrashMode: true }
   },
   {
     path: '/upload',
     name: 'upload',
+    meta: { surface: 'hub' },
     component: UploadView
   },
   {
     path: '/chats',
     name: 'chats',
+    meta: { surface: 'hub' },
     component: ChatsLandingView
   },
   {
     path: '/chat/:id',
     name: 'chat',
+    meta: { surface: 'detail' },
     component: ChatView
   },
   {
     path: '/flows',
     name: 'flows',
+    meta: { surface: 'hub' },
     component: FlowsLandingView
   },
   {
     path: '/flows/:id',
     name: 'flow',
+    meta: { surface: 'detail' },
     component: FlowView,
     props: true
   },
   {
     path: '/saved-view/:id',
     name: 'saved-view',
+    meta: { surface: 'hub' },
     component: SavedViewPage
   },
   {
     path: '/tools',
     name: 'all-tools',
+    meta: { surface: 'hub' },
     component: AllToolsView
   },
   {
     path: '/stimpacks',
     name: 'stimpacks',
+    meta: { surface: 'hub' },
     component: StimpacksView
   },
   {
@@ -166,12 +196,14 @@ const routes = [
     // document rather than creating another editor instance.
     path: '/edit-image/:assetId',
     name: 'edit-image',
+    meta: { surface: 'overlay' },
     component: ImageEditorView,
     props: true
   },
   {
     path: '/lineage/:mediaId',
     name: 'lineage',
+    meta: { surface: 'detail' },
     component: LineageView,
     props: true
   },
@@ -180,6 +212,7 @@ const routes = [
     // The :fullToolId(.*) pattern captures the entire path including colons
     path: '/tools/:fullToolId(.*)',
     name: 'tool',
+    meta: { surface: 'detail' },
     component: ToolView,
     props: true
   },
@@ -187,7 +220,7 @@ const routes = [
     path: '/dev/foreach-mock',
     name: 'dev-foreach-mock',
     component: ForeachMockView,
-    meta: { skipRouteRestore: true }
+    meta: { surface: 'detail', skipRouteRestore: true }
   }
 ]
 
@@ -213,6 +246,7 @@ router.beforeEach(async (to) => {
   const { instanceId } = resolveToolInstance(String(to.params.fullToolId), projectId)
   return {
     name: 'tool',
+    meta: { surface: 'detail' },
     params: to.params,
     query: { ...to.query, instance: instanceId },
     hash: to.hash,

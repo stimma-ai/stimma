@@ -10,6 +10,7 @@
     "e2e/docs-shots/shots/**/*.ts",
     "acceptance/playwright.config.ts",
     "acceptance/helpers/global-setup.ts",
+    "acceptance/helpers/viewport.ts",
     "acceptance/tests/**/*.ts"
   ],
   "project": [

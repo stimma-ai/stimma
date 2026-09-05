@@ -253,6 +253,60 @@ split migrates opportunistically). Sizes: `w-3.5` in dense rows, `w-4`
 standard, `w-5` toolbar. Tool icons via `ToolIcon.vue`/`taskTypeIcons.ts` +
 provider badge — the only sanctioned tool iconography (existing rule).
 
+### 1.11 Small screens and touch (adopted 2026-09-04)
+
+Stimma runs in a phone browser against a serving Stimma Server before it
+runs in any native shell. One component tree, no `Mobile*.vue` twins, no
+`/m` routes, no second stylesheet. Mobile behaviour is an additive branch
+that a desktop-sized window never trips.
+
+- **One source of truth.** `composables/useViewport.ts` exposes `isCompact`
+  (< 768px), `isMedium` (768–1023), `isWide` (≥ 1024) and `isCoarsePointer`.
+  Nothing else evaluates a width or pointer media query for a layout
+  decision (popover geometry arithmetic is fine). `?viewport=compact` pins
+  the compact tier in a desktop window for dev and tests. Tailwind `md:` =
+  medium, `lg:` = wide — the same lines.
+- **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
+  `overlay`. Wide = sidebar + top bar. Compact = a five-slot tab bar (Home ·
+  Library · Workspace · Boards · Chats) on hub AND detail routes, plus a
+  48px header (avatar or back chevron, title, at most two actions).
+  Overlays (slideshow, compare, image editor, PIN lock, connection screen)
+  and the open keyboard hide the tab bar. A view never renders its own
+  navigation chrome.
+- **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
+  (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
+  keep their 28px icon buttons on fine pointers; the kit does the switch.
+- **Hover is an accelerator.** Anything revealed on hover (`group-hover:`
+  controls, tooltips) is also reachable by tap, long-press or a menu. On
+  coarse pointers hover-revealed controls render visible or move into the
+  row's context sheet.
+- **Drag is an accelerator.** Every drag/drop action has a menu twin: Send
+  to board / chat / flow / tool, reorder by long-press. Never a drag-only
+  path. Touch drag is not attempted.
+- **Menus and modals.** The ContextMenu shell renders a bottom sheet on
+  coarse pointers; submenus stack as a second sheet with a back caret.
+  Modal renders as a full-screen sheet on compact. Both keep their z-tier.
+  No sheet components outside the kit.
+- **Bottom edge.** One docked bar per screen (composer, run dock,
+  selection bar), padded with `pb-safe`. Never two docked bars.
+- **Media grids.** 3 columns on compact, 2px gutters, on matte;
+  `rounded-media` and the selection ring unchanged. Tap = open,
+  long-press = select.
+- **Voice.** Facts are real facts: one mono fact per row, status as a dot
+  plus a word. Never invented rollups (`6 · 2 running · 1 unsaved`).
+- **Type.** Body stays `text-sm`; row labels are 15px on compact via the
+  kit; mono facts stay 12–12.5px.
+
+**Greppable rules** (enforced as a ratchet by `stimma lint frontend`;
+counts may only go down): a width/pointer `matchMedia` outside
+`useViewport.ts` · `innerWidth` compared against a number · a fixed
+`w-[NNNpx]` ≥ 360 with no breakpoint prefix · `group-hover:opacity-100`
+with no coarse-pointer fallback. The phone acceptance lane
+(`stimma test acceptance --viewport=phone`) fails any route with
+horizontal overflow or a visible sub-44px control unless the route is on
+the spec's ratchet list; the desktop geometry guard fails any change that
+moves the sidebar or top bar at 1440×900.
+
 ## 2. The component kit
 
 Everything below lives in `src/components/ui/`. Building one of these means
@@ -609,7 +663,7 @@ control · a `<Transition>` with a new one-off name · `animate-pulse` on a
 status dot · inline `<svg class="animate-spin">` · a new all-caps label class
 string · `bg-blue-500`/`bg-indigo-500` on a button · raw hex colors ·
 `title=` where a Tooltip is warranted (interactive controls) · a bordered box
-around read-only text.
+around read-only text · any §1.11 small-screen rule.
 
 ## 5. What is deliberately NOT changing
 

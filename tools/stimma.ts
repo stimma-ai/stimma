@@ -560,12 +560,15 @@ Commands:
                       (skills, environments, lib modules; non-zero exit on errors)
   backup          Create timestamped local snapshot (source backend must be stopped)
   lint backend    Run ruff over the backend (undefined names, syntax errors)
+  lint frontend   Small-screen ratchet (scripts/lint-mobile.sh; DESIGN.md §1.11)
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
   test backend    Run backend pytest tests
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
+  test acceptance --viewport=phone  Run the phone lane (390×844, touch): route
+                      audit for overflow + hit targets, screenshot per route
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   headless package|image|test|smoke|publish  Build and verify the headless distribution
   doctor assets     Read-only Asset/Media integrity audit
@@ -1710,10 +1713,15 @@ async function testAcceptance(args: string[]): Promise<void> {
   const verbose = args.includes("--verbose");
   const electronShell = args.includes("--electron");
   let slowMo: string | null = null;
+  let viewport: string | null = null;
   const filteredArgs: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (["--verbose", "--no-server", "--no-reset", "--electron"].includes(arg)) continue;
+    if (arg.startsWith("--viewport=")) {
+      viewport = arg.slice("--viewport=".length);
+      continue;
+    }
     if (arg === "--slow-mo") {
       slowMo = args[i + 1] || null;
       i += 1;
@@ -1808,6 +1816,9 @@ async function testAcceptance(args: string[]): Promise<void> {
     const pwConfig = electronShell
       ? "acceptance/playwright.electron.config.ts"
       : "acceptance/playwright.config.ts";
+    // --viewport=phone selects the phone project (phone-*.spec.ts only);
+    // the default lane runs the chromium project and ignores those specs.
+    if (viewport && viewport !== "desktop") filteredArgs.push(`--project=${viewport}`);
     const pw = ["playwright", "test", "--config", pwConfig, ...filteredArgs];
     const testCmd = new Deno.Command("npx", {
       args: pw,
@@ -2386,6 +2397,8 @@ async function main(): Promise<void> {
     case "lint": {
       if (sub === "backend" || !sub) {
         await run("uv", ["run", "ruff", "check", ".", ...rest], { cwd: join(repoRoot, "backend") });
+      } else if (sub === "frontend") {
+        await run("bash", ["scripts/lint-mobile.sh", ...rest], { cwd: join(repoRoot, "frontend") });
       } else if (sub === "frontend-dead-code") {
         await run("npm", ["run", "lint:dead-code", "--", ...rest], { cwd: join(repoRoot, "frontend") });
       } else {

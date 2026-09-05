@@ -196,6 +196,7 @@ const vScrollGuard = {
   unmounted(el) { el.removeEventListener('scroll', el.__scrollGuard) },
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
+import { useViewport } from './composables/useViewport'
 import Spinner from './components/ui/Spinner.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
@@ -303,7 +304,6 @@ function closeSettings() {
   // through both BYOAI steps — recheck what they configured in there.
   void refreshReadiness()
 }
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
 // Lock screen state
 const isLocked = ref(false)
@@ -476,8 +476,12 @@ async function resolveProjectChrome() {
   }
 }
 
-// Sidebar is always visible (no collapsing)
-const isMobile = computed(() => false)
+// Chrome mode comes from the one viewport source of truth (useViewport):
+// wide = sidebar + top bar exactly as before; compact = the sidebar becomes
+// an overlay and the compact chrome takes over. On a desktop-sized window
+// isCompact is false and nothing here changes.
+const { isCompact } = useViewport()
+const isMobile = isCompact
 
 function openSidebar() {
   sidebarOpen.value = true
@@ -487,13 +491,10 @@ function closeSidebar() {
   sidebarOpen.value = false
 }
 
-function handleResize() {
-  windowWidth.value = window.innerWidth
-  // Auto-close sidebar when switching to desktop
-  if (!isMobile.value) {
-    sidebarOpen.value = false
-  }
-}
+// Auto-close the overlay sidebar when the viewport grows back to wide.
+watch(isCompact, (compact) => {
+  if (!compact) sidebarOpen.value = false
+})
 
 // Re-sync cloud state whenever the app regains focus. This is the general case
 // of returning from an external browser flow — most importantly completing a
@@ -1095,7 +1096,6 @@ onMounted(async () => {
   window.addEventListener('scroll', rootGuard, { passive: true })
   document.getElementById('app')?.addEventListener('scroll', rootGuard, { passive: true })
 
-  window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('pin-auto-locked', handleAutoLock)
   window.addEventListener('open-settings', handleOpenSettings)
@@ -1116,7 +1116,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('pin-auto-locked', handleAutoLock)
   window.removeEventListener('open-settings', handleOpenSettings)

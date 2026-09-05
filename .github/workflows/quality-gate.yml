@@ -118,6 +118,9 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      - name: Lint frontend (small-screen ratchet)
+        run: tools/stimma lint frontend
+
       - name: Run smoke acceptance tests
         if: ${{ inputs.acceptance_suite != 'full' }}
         run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=30000 --retries=0
@@ -125,6 +128,18 @@ jobs:
       - name: Run full acceptance tests
         if: ${{ inputs.acceptance_suite == 'full' }}
         run: tools/stimma test acceptance
+
+      - name: Run phone lane (route audit)
+        run: tools/stimma test acceptance --viewport=phone --timeout=30000 --retries=0
+
+      - name: Upload phone screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-shots
+          retention-days: 5
+          if-no-files-found: ignore
+          path: frontend/acceptance/phone-shots/
 
       - name: Upload acceptance artifacts
         if: failure()

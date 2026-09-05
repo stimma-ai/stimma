@@ -181,3 +181,6 @@ native/stimma-native/target/
 
 # Headless build artifacts
 dist-headless/
+
+# Phone lane screenshots (CI artifact, regenerated every run)
+frontend/acceptance/phone-shots/
