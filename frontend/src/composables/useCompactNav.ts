@@ -46,7 +46,7 @@ function top(hub: HubId): string {
   const s = state.stacks[hub]
   // A stack must stand on its hub's root; anything else is stale (a root
   // that moved under a live session) and starts over.
-  if (s[0] !== HUB_ROOTS[hub]) state.stacks[hub] = [HUB_ROOTS[hub]]
+  if ((s[0] ?? '').split('?')[0] !== HUB_ROOTS[hub]) state.stacks[hub] = [HUB_ROOTS[hub]]
   const t = state.stacks[hub]
   return t[t.length - 1] ?? HUB_ROOTS[hub]
 }

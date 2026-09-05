@@ -6,20 +6,18 @@
  * (ComfyUI), search — plus the hub's create action. Detail routes show a
  * back chevron. The Library hub's title opens the scope sheet; Workspace
  * hub routes carry the Tools / Flows / Boards / Projects segmented control.
- * The working set (open tools, chats, boards, edits) is the switcher button,
- * present on hubs and details alike.
+ * The working set (open tools, chats, boards, edits) is the tab bar's
+ * trailing switcher control, not a header action.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronDownIcon, ChevronLeftIcon, EllipsisVerticalIcon, MagnifyingGlassIcon, PlusIcon, Square2StackIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ChevronLeftIcon, EllipsisVerticalIcon, MagnifyingGlassIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '../../composables/useAuth'
 import { useCompactChrome, hubForRoute } from '../../composables/useCompactChrome'
 import { useCompactNav } from '../../composables/useCompactNav'
 import { useBackgroundWork } from '../../composables/useBackgroundWork'
 import Sheet from '../ui/Sheet.vue'
 import AccountSheet from './AccountSheet.vue'
-import SwitcherSheet from './SwitcherSheet.vue'
-import { useWorkspaceTabs } from '../../composables/useWorkspaceTabs'
 import LibraryScopeSheet from './LibraryScopeSheet.vue'
 import BackgroundWorkIndicator from '../BackgroundWorkIndicator.vue'
 import BackgroundWorkPanel from '../BackgroundWorkPanel.vue'
@@ -30,7 +28,6 @@ const emit = defineEmits<{ openSettings: [section: string] }>()
 const route = useRoute()
 const router = useRouter()
 const { isHub, title, subtitle, workspaceSegments, primaryAction, menuItems } = useCompactChrome(route)
-const compactOverlay = computed(() => route.meta?.surface === 'overlay')
 const { user, isAuthenticated } = useAuth()
 const backgroundWork = useBackgroundWork()
 const { hasActiveWork, progressTitle } = backgroundWork
@@ -45,10 +42,6 @@ const accountOpen = ref(false)
 const scopeOpen = ref(false)
 const workOpen = ref(false)
 const menuOpen = ref(false)
-const switcherOpen = ref(false)
-const { pinnedTabs, openTabs, editorTabs } = useWorkspaceTabs()
-const openCount = computed(() => openTabs.value.length + editorTabs.value.length)
-const hasWorkingSet = computed(() => openCount.value + pinnedTabs.value.length > 0)
 
 // The Assets hub's title is a scope control: All assets, saved views, upload, trash.
 const isLibrary = computed(() => isHub.value && hubForRoute(route.name) === 'library')
@@ -127,18 +120,6 @@ function openSearch() {
       <!-- Provider managers (ComfyUI and friends), as on the desktop top bar. -->
       <ProviderManagerButton v-if="isHub" />
 
-      <!-- The working set: what is open, across kinds. Not a hub. -->
-      <button
-        v-if="!compactOverlay"
-        type="button"
-        class="relative w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent"
-        :class="hasWorkingSet ? 'text-content-secondary' : 'text-content-muted'"
-        aria-label="Open items"
-        @click="switcherOpen = true"
-      >
-        <Square2StackIcon class="w-6 h-6" />
-        <span v-if="openCount" class="absolute top-1.5 right-1 min-w-[16px] h-4 px-1 rounded-full bg-accent text-white text-[10px] font-semibold leading-4 text-center">{{ openCount }}</span>
-      </button>
       <!-- Screens with a primary control (the tool view's Run) teleport it here. -->
       <div id="compact-header-actions" class="flex items-center gap-1 empty:hidden"></div>
       <button
@@ -188,7 +169,6 @@ function openSearch() {
 
     <AccountSheet :show="accountOpen" @close="accountOpen = false" @open-settings="(s) => { accountOpen = false; emit('openSettings', s) }" />
     <LibraryScopeSheet :show="scopeOpen" @close="scopeOpen = false" />
-    <SwitcherSheet :show="switcherOpen" @close="switcherOpen = false" />
     <Sheet :show="menuOpen" @close="menuOpen = false">
       <div class="pb-2">
         <button

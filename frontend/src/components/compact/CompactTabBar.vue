@@ -7,10 +7,11 @@
  * working set (open tools, chats, boards, edits) is not a hub: it is the
  * header's switcher, available everywhere.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
-  HomeIcon, Squares2X2Icon, WrenchScrewdriverIcon, ChatBubbleLeftIcon,
+  HomeIcon, Squares2X2Icon, WrenchScrewdriverIcon, ChatBubbleLeftIcon, Square2StackIcon,
 } from '@heroicons/vue/24/outline'
+import SwitcherSheet from './SwitcherSheet.vue'
 import {
   HomeIcon as HomeSolid, Squares2X2Icon as GridSolid, WrenchScrewdriverIcon as WrenchSolid,
   ChatBubbleLeftIcon as ChatSolid,
@@ -32,8 +33,10 @@ const { openTabs, editorTabs } = useWorkspaceTabs()
 // which hub is current and hands taps over.
 const nav = useCompactNav()
 const active = computed(() => nav.state.current)
-// One dot, not a count: something is open that isn't the screen you're on.
-const workspaceHasOpen = computed(() => openTabs.value.length + editorTabs.value.length > 0)
+// The switcher: a fixed control at the bar's end, styled apart from the hubs
+// (no active state, a count instead of a dot). It opens a sheet, never a route.
+const switcherOpen = ref(false)
+const openCount = computed(() => openTabs.value.length + editorTabs.value.length)
 
 function go(hub: typeof HUBS[number]) {
   nav.goToHub(hub.id)
@@ -56,11 +59,22 @@ function go(hub: typeof HUBS[number]) {
     >
       <component :is="active === hub.id ? hub.solid : hub.icon" class="w-6 h-6" />
       <span>{{ hub.label }}</span>
-      <span
-        v-if="hub.id === 'workspace' && workspaceHasOpen && active !== 'workspace'"
-        class="absolute top-1.5 right-[calc(50%-18px)] w-2 h-2 rounded-full bg-accent ring-2 ring-surface"
-        aria-hidden="true"
-      ></span>
     </button>
+    <!-- Switcher: the working set. Narrower than a hub, a divider before it,
+         a count badge, never lit as "current". -->
+    <button
+      type="button"
+      class="relative flex-none w-[72px] flex flex-col items-center justify-center gap-1 pt-2 pb-2.5 text-[10.5px] font-medium border-none bg-transparent border-l border-edge-subtle min-h-11"
+      :class="openCount ? 'text-content-secondary' : 'text-content-muted'"
+      aria-label="Open items"
+      @click="switcherOpen = true"
+    >
+      <span class="relative">
+        <Square2StackIcon class="w-6 h-6" />
+        <span v-if="openCount" class="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-white text-[10px] font-semibold leading-4 text-center ring-2 ring-surface">{{ openCount }}</span>
+      </span>
+      <span>Open</span>
+    </button>
+    <SwitcherSheet :show="switcherOpen" @close="switcherOpen = false" />
   </nav>
 </template>

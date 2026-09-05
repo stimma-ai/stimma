@@ -141,7 +141,9 @@
       :start-at-list="settingsStartAtList"
       @close="closeSettings"
     />
-    <CompactHeader v-if="!compactOverlay && !slideshowActive" @open-settings="openSettings($event)" />
+    <!-- v-show, not v-if, under the slideshow: views teleport controls into
+         this header, and a remount would strand them in the old element. -->
+    <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" @open-settings="openSettings($event)" />
     <ProjectScopeBar
       v-if="projectChrome.project && !slideshowActive && !compactOverlay"
       :project="projectChrome.project"
