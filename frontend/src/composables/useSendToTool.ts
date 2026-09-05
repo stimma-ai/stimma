@@ -116,6 +116,9 @@ export function useSendToTool() {
       if (fmt === 'stimmagrid.json') {
         throw new ToolHandoffError('Grids cannot be sent to tools')
       }
+      if (fmt === 'stimmasprite.json') {
+        throw new ToolHandoffError('Sprites cannot be sent to tools')
+      }
       if (fmt !== 'stimmaset.json' && fmt !== 'stimmagrid.json') {
         planningItems.push(item)
         continue

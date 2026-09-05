@@ -153,6 +153,7 @@ from routes import (
     tasks as flow_tasks,
     settings,
     share,
+    sprite_media,
     stimpack_marketplace,
     svg_media,
     tags,
@@ -196,6 +197,7 @@ app.include_router(postprocessing.router)
 app.include_router(processing.router)
 app.include_router(media_files.router)
 app.include_router(svg_media.router)
+app.include_router(sprite_media.router)
 app.include_router(preferences.router)
 app.include_router(projects.router)
 app.include_router(flows.router)

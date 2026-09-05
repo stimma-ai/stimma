@@ -163,7 +163,7 @@ async def backfill_structured_media_raw_metadata(profile_id: str) -> int:
             select(MediaItem).where(
                 MediaItem.deleted_at.is_(None),
                 MediaItem.raw_metadata.is_(None),
-                MediaItem.file_format.in_(['stimmaset.json', 'stimmagrid.json', 'md'])
+                MediaItem.file_format.in_(['stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'md'])
             )
         )
         items = result.scalars().all()
@@ -972,6 +972,7 @@ async def lifespan(app: FastAPI):
                         formats={
                             "stimmaset.json",
                             "stimmagrid.json",
+                            "stimmasprite.json",
                             "stimmalayout",
                         },
                         limit=100,

@@ -488,6 +488,7 @@ async def get_structured_content(
     - .md (markdown) - reads from disk, resolves image references to MediaItems
     - .stimmaset.json - resolves item references to MediaItems
     - .stimmagrid.json - resolves cell references to MediaItems
+    - .stimmasprite.json - resolves media references (by id, then hash) to MediaItems
 
     Returns None for non-structured types or if parsing fails.
 
@@ -515,15 +516,21 @@ async def get_structured_content(
         }
 
     # For JSON-based types, use centralized read with cache validation
-    if file_format in ('stimmaset.json', 'stimmagrid.json'):
+    if file_format in ('stimmaset.json', 'stimmagrid.json', 'stimmasprite.json'):
         content = await read_composite_content(session, media_item)
         if not content:
             return None
 
         if file_format == 'stimmaset.json':
             return await resolve_set_references(session, content, base_path)
-        else:
-            return await resolve_grid_references(session, content, base_path)
+        if file_format == 'stimmasprite.json':
+            from sprite_document import parse_sprite_document, resolve_sprite_content
+
+            doc = parse_sprite_document(content)
+            if doc is None:
+                return None
+            return await resolve_sprite_content(session, doc)
+        return await resolve_grid_references(session, content, base_path)
 
     return None
 

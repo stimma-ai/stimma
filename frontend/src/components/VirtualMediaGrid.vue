@@ -131,6 +131,10 @@
                   <svg v-else-if="getMediaType(rowItem) === 'grid'" class="w-4 h-4 flex-shrink-0 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                   </svg>
+                  <!-- Sprite icon (film frame, monochrome like vector) -->
+                  <svg v-else-if="getMediaType(rowItem) === 'sprite'" class="w-4 h-4 flex-shrink-0 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 3.75C5.496 15.75 6 15.246 6 14.625v-1.5m-3.75 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C4.254 8.25 3.75 7.746 3.75 7.125v-1.5m0 0c0-.621.504-1.125 1.125-1.125h1.5C6.996 4.5 7.5 5.004 7.5 5.625v1.5m0 0v10.5m0-10.5h9m-9 10.5h9m0 0v-10.5m0 10.5c0 .621.504 1.125 1.125 1.125h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5m1.5 2.625c.621 0 1.125-.504 1.125-1.125v-1.5m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m0 0h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5m-1.5-3.75C18.504 8.25 18 7.746 18 7.125v-1.5m1.125 2.625h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
+                  </svg>
                   <!-- Layout icon (newspaper) -->
                   <svg v-else-if="getMediaType(rowItem) === 'layout'" class="w-4 h-4 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
@@ -181,9 +185,9 @@
                 </div>
               </div>
 
-              <!-- Set/Grid name pill (hover only) -->
+              <!-- Set/Grid/Sprite name pill (hover only) -->
               <div
-                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.title"
+                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite') && rowItem.title"
                 class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 <span class="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">

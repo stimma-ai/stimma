@@ -32,6 +32,8 @@ def infer_asset_type(media: MediaItem) -> str:
         return "grid"
     if fmt == "stimmaset.json":
         return "set"
+    if fmt == "stimmasprite.json":
+        return "sprite"
     if fmt in {"mp4", "mov", "mkv", "webm", "avi", "m4v"}:
         return "video"
     if fmt in {"mp3", "wav", "flac", "aac", "m4a", "ogg", "opus"}:

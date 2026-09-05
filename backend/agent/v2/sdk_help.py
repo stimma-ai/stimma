@@ -135,6 +135,34 @@ the derivation shows up in lineage. ToolResults carry their own provenance.""",
         group="library",
         is_async=True,
     ),
+    "library.by_hash": SDKMethodHelp(
+        name="library.by_hash",
+        signature="await stimma.library.by_hash(file_hash: str)",
+        summary="Resolve a content hash to a library item (copied into the workspace).",
+        details="""\
+Sprite documents (.stimmasprite.json) reference their base image, portrait, and
+per-move artifacts as {"media_id", "hash"}. Use the media_id when present; fall
+back to by_hash when only the hash survived. Returns the same record as get().""",
+        group="library",
+        is_async=True,
+    ),
+    "library.export": SDKMethodHelp(
+        name="library.export",
+        signature="await stimma.library.export(media_id: int, format: str, **options)",
+        summary="Export a sprite document for a game engine, as frames, or as a preview.",
+        details="""\
+Same writers as the Export dialog. Formats: atlas-hash (Phaser/Pixi), atlas-array,
+godot, unity, unreal, gamemaker, rpgmaker, defold, libgdx, cocos2d, frames,
+grid-sheet, strips, stills, gif, webp, apng, mp4. Options: animations=[...],
+directions=[...], trim=, padding=, extrude=, scale=, power_of_two=, background=,
+image_format=, walk=, sizes=[...]. Files land in the workspace (zips unpacked
+into a folder with manifest.json) and the paths are returned — save them with
+library.save(path=..., sources=[sprite_media_id]) when the user wants to keep them.
+Example:
+  paths = await stimma.library.export(sprite.media_id, "godot")""",
+        group="library",
+        is_async=True,
+    ),
     "library.lineage": SDKMethodHelp(
         name="library.lineage",
         signature="await stimma.library.lineage(media_id: int)",
@@ -283,7 +311,7 @@ _GROUP_LABELS = {
 _GROUP_DESCRIPTIONS = {
     "core": "generated tools, parallel batches, progress, shared project paths",
     "display": "show, show_grid",
-    "library": "search, browse, get, save, lineage, regeneration",
+    "library": "search, browse, get, by_hash, save, export, lineage, regeneration",
     "image": "adjust, filters, detect_faces",
     "ai": "llm text and vision reasoning",
 }

@@ -59,7 +59,7 @@ _INLINE_MEDIA_RE = re.compile(r"!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)")
 # Generation outputs referenced by call_tool result strings: <result media_id=123 ...>
 _TOOL_RESULT_MEDIA_RE = re.compile(r"<result media_id=(\d+)")
 
-_COMPOSITE_FORMATS = ("stimmaset.json", "stimmagrid.json")
+_COMPOSITE_FORMATS = ("stimmaset.json", "stimmagrid.json", "stimmasprite.json")
 
 
 def _media_ids_for_item(item: Any) -> List[int]:
@@ -174,6 +174,10 @@ def _composite_ref_paths(row: Any) -> List[str]:
     from structured_media import resolve_path
 
     refs: List[str] = []
+    if content.get("type") == "sprite":
+        # Sprite references are media ids + hashes; expansion below matches
+        # them through _composite_ref_ids instead of paths.
+        return refs
     for key in ("items", "cells"):
         entries = content.get(key)
         if not isinstance(entries, list):
@@ -185,6 +189,24 @@ def _composite_ref_paths(row: Any) -> List[str]:
                 except (TypeError, ValueError):
                     continue
     return refs
+
+
+def _composite_ref_ids(row: Any) -> List[int]:
+    """Media ids referenced by a sprite document (base, portrait, per-move artifacts)."""
+    from sprite_document import iter_sprite_refs, load_sprite_document, parse_sprite_document
+
+    content = load_sprite_document(row.file_path) if row.file_path else None
+    if content is None:
+        content = parse_sprite_document(getattr(row, "raw_metadata", None) or "")
+    if content is None:
+        return []
+    ids: List[int] = []
+    for _role, ref in iter_sprite_refs(content):
+        try:
+            ids.append(int(ref["media_id"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return ids
 
 
 def _item_to_message(item: Any, media_names: Dict[int, str]) -> Optional[Dict[str, Any]]:
@@ -221,7 +243,7 @@ async def build_chat_package(
     max_bytes: int = DEFAULT_MAX_PACKAGE_BYTES,
 ) -> bytes:
     """Build the package zip for a chat (or flow chat). Returns zip bytes."""
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
     from database import Chat, ChatItem, LLMTrace, MediaItem
 
     result = await session.execute(select(Chat).where(Chat.id == chat_id))
@@ -256,14 +278,23 @@ async def build_chat_package(
         for row in new_rows:
             media_rows[row.id] = row
         ref_paths: List[str] = []
+        ref_ids: List[int] = []
         for row in new_rows:
-            if (row.file_format or "").lower() in _COMPOSITE_FORMATS:
+            fmt = (row.file_format or "").lower()
+            if fmt == "stimmasprite.json":
+                ref_ids.extend(_composite_ref_ids(row))
+            elif fmt in _COMPOSITE_FORMATS:
                 ref_paths.extend(_composite_ref_paths(row))
         new_rows = []
-        if ref_paths:
+        if ref_paths or ref_ids:
+            conditions = []
+            if ref_paths:
+                conditions.append(MediaItem.file_path.in_(ref_paths))
+            if ref_ids:
+                conditions.append(MediaItem.id.in_(ref_ids))
             result = await session.execute(
                 select(MediaItem).where(
-                    MediaItem.file_path.in_(ref_paths),
+                    or_(*conditions),
                     MediaItem.deleted_at.is_(None),
                 )
             )
