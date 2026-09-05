@@ -38,7 +38,8 @@ function heightFor(l: Level): number | null {
 const style = computed(() => {
   if (dragPx.value !== null) return { height: `${dragPx.value}px`, transition: 'none' }
   const h = heightFor(level.value)
-  return h === null ? {} : { height: `${h}px` }
+  if (h === null) return { height: `${collapsedPx.value ?? 112}px` }
+  return { height: `${h}px` }
 })
 
 // --- handle: tap toggles, drag sets height and snaps on release
@@ -81,6 +82,12 @@ function collapsedHeight(): number {
   const prompt = promptEl.value?.getBoundingClientRect().height ?? 0
   return handle + prompt
 }
+// Collapsed is an explicit height too (measured from the pinned prompt), so
+// every level change is one continuous height tween and the body below is
+// simply clipped, never hidden. Re-measured whenever the prompt resizes.
+const collapsedPx = ref<number | null>(null)
+let promptObserver: ResizeObserver | null = null
+function measureCollapsed() { collapsedPx.value = collapsedHeight() }
 
 // --- groups: read from the body's data-drawer-group markers
 interface Group { label: string; el: HTMLElement }
@@ -114,13 +121,18 @@ function jumpTo(g: Group) {
 }
 
 onMounted(() => {
+  requestAnimationFrame(measureCollapsed)
+  if (promptEl.value && typeof ResizeObserver !== 'undefined') {
+    promptObserver = new ResizeObserver(() => measureCollapsed())
+    promptObserver.observe(promptEl.value)
+  }
   scanGroups()
   if (bodyEl.value && typeof MutationObserver !== 'undefined') {
     observer = new MutationObserver(() => scanGroups())
     observer.observe(bodyEl.value, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-drawer-group'] })
   }
 })
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => { observer?.disconnect(); promptObserver?.disconnect() })
 
 watch(level, (l) => { if (l !== 'collapsed') requestAnimationFrame(updateActive) })
 
@@ -130,7 +142,7 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
 <template>
   <div
     ref="rootEl"
-    class="tool-drawer flex-none flex flex-col min-h-0 bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
+    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
     :style="style"
     :data-level="level"
   >
@@ -151,7 +163,7 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
 
     <!-- Group row: only when the drawer is open and the tool has groups. -->
     <div
-      v-show="level !== 'collapsed' && groups.length > 1"
+      v-show="groups.length > 1"
       class="flex-none flex gap-4 px-4 h-10 items-stretch border-t border-b border-edge-subtle overflow-x-auto"
       role="tablist"
     >
@@ -173,7 +185,7 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
       ref="bodyEl"
       id="tool-drawer-body"
       class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-safe"
-      :class="level === 'collapsed' ? 'invisible h-0 flex-none overflow-hidden' : ''"
+      :class="level === 'collapsed' ? 'overflow-hidden' : ''"
       @scroll.passive="updateActive"
     ></div>
   </div>

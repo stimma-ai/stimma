@@ -722,15 +722,6 @@
         class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0"
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
-        <button
-          v-if="isCompact && !llmUnconfigured"
-          type="button"
-          class="absolute right-3 bottom-16 z-chrome w-12 h-12 rounded-[14px] bg-surface border border-edge text-accent-hi shadow-lg flex items-center justify-center"
-          aria-label="Agent"
-          @click="compactAgentOpen = true"
-        >
-          <SparklesIcon class="w-6 h-6" />
-        </button>
         <!-- Live generation preview: the in-flight frames at full hero size.
              Presentation-only (raw <img> over an ephemeral blob: URL — never a
              slideshow item, no zoom/slideshow click). Chrome is just the
@@ -931,7 +922,8 @@
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:max-h-[112px] compact:border-l-0 compact:border-t compact:border-surface compact:!py-1 compact:!px-1"
         :class="[
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
-          stageResizing ? '!transition-none' : ''
+          stageResizing ? '!transition-none' : '',
+          isCompact && compactDrawerOpen ? '!hidden' : ''
         ]"
         :style="isCompact ? {} : { width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
       >
@@ -1012,6 +1004,16 @@
              The agent opens as a centred card from a floating button over the hero. -->
         <ToolDrawer v-if="isCompact" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" />
         <Teleport v-if="isCompact" to="#compact-header-actions" defer>
+          <button
+            v-if="!llmUnconfigured"
+            type="button"
+            class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent transition-colors"
+            :class="compactAgentOpen ? 'text-accent-hi bg-accent/15' : 'text-content-secondary'"
+            aria-label="Agent"
+            @click="compactAgentOpen = true"
+          >
+            <SparklesIcon class="w-6 h-6" />
+          </button>
           <ToolRunControl
             :batch-size="uiState.batchSize"
             :can-submit="canSubmit"
@@ -1253,6 +1255,8 @@ const { isCompact } = useViewport()
 // Phones keep the agent dock behind a toggle so the controls get the height.
 const compactAgentOpen = ref(false)
 const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
+// While the drawer is up the queue strip folds away so the hero keeps its height.
+const compactDrawerOpen = computed(() => !!toolDrawerRef.value && toolDrawerRef.value.level !== 'collapsed')
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const projectScopeId = computed(() => {
