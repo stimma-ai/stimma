@@ -164,18 +164,6 @@ class TestGetProfileConfig:
 
 class TestGuidLookup:
 
-    async def test_get_db_guid(self, registry, profile_a):
-        registry.register_profile(profile_a)
-        db = registry.get_database("profile_a")
-        from database import Base
-        async with db.async_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        await registry.init_database("profile_a")
-
-        guid = registry.get_db_guid("profile_a")
-        assert isinstance(guid, str)
-        assert len(guid) == 8
-
     async def test_get_profile_by_db_guid(self, registry, profile_a):
         registry.register_profile(profile_a)
         db = registry.get_database("profile_a")

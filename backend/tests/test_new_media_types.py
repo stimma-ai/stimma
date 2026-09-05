@@ -13,8 +13,10 @@ from datetime import datetime
 from pathlib import Path
 from httpx import AsyncClient
 from sqlalchemy import select
+from types import SimpleNamespace
 
 from database import MediaItem
+from ingestion import MediaIngestion
 from tests.helpers.media import create_media_item
 
 
@@ -435,105 +437,61 @@ class TestContentAPI:
 class TestAudioMetadata:
     """Tests for audio-specific metadata."""
 
-    async def test_audio_has_duration(self, client: AsyncClient, audio_items):
-        """Audio items should have duration field."""
+    async def test_audio_metadata_projection(self, client: AsyncClient, audio_items):
+        """Audio responses retain duration on every format and expose audio metadata."""
+        responses = []
         for audio_item in audio_items:
             response = await client.get(f"/api/media/{audio_item.id}")
             assert response.status_code == 200
+            responses.append(response.json())
 
-            data = response.json()
-            assert data["duration"] is not None
-            assert data["duration"] > 0
+        assert [data["duration"] for data in responses] == [120.0, 30.0, 180.0]
 
-    async def test_audio_no_visual_dimensions(self, client: AsyncClient, audio_items):
-        """Audio items have zero dimensions."""
-        audio_item = audio_items[0]
-        response = await client.get(f"/api/media/{audio_item.id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["width"] == 0
-        assert data["height"] == 0
-
-    async def test_audio_has_sample_rate(self, client: AsyncClient, audio_items):
-        """Audio items should have sample_rate field."""
-        audio_item = audio_items[0]
-        response = await client.get(f"/api/media/{audio_item.id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["audio_sample_rate"] == 44100
-
-    async def test_audio_has_channels(self, client: AsyncClient, audio_items):
-        """Audio items should have channels field."""
-        audio_item = audio_items[0]
-        response = await client.get(f"/api/media/{audio_item.id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["audio_channels"] == 2  # Stereo
-
-    async def test_audio_has_bitrate(self, client: AsyncClient, audio_items):
-        """Audio items should have bitrate field."""
-        audio_item = audio_items[0]
-        response = await client.get(f"/api/media/{audio_item.id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["audio_bitrate"] == 128000
-
-    async def test_audio_has_codec(self, client: AsyncClient, audio_items):
-        """Audio items should have codec field."""
-        audio_item = audio_items[0]
-        response = await client.get(f"/api/media/{audio_item.id}")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["audio_codec"] == "mp3"
+        representative = responses[0]
+        assert representative["width"] == 0
+        assert representative["height"] == 0
+        assert representative["audio_sample_rate"] == 44100
+        assert representative["audio_channels"] == 2  # Stereo
+        assert representative["audio_bitrate"] == 128000
+        assert representative["audio_codec"] == "mp3"
 
 
 class TestProcessingSkip:
     """Tests that non-visual types skip AI processing."""
 
-    async def test_audio_skips_clip(self, db_session, audio_items):
-        """Audio should have clip_status = 'skipped'."""
+    async def _run_clip_skip_decision(self, db_session, file_format):
         async with db_session() as session:
-            for audio_item in audio_items:
-                result = await session.execute(
-                    select(MediaItem).where(MediaItem.id == audio_item.id)
-                )
-                item = result.scalar_one()
-                assert item.clip_status == "skipped"
-
-    async def test_audio_skips_face_detection(self, db_session, audio_items):
-        """Audio should have face_detection_status = 'skipped'."""
-        async with db_session() as session:
-            for audio_item in audio_items:
-                result = await session.execute(
-                    select(MediaItem).where(MediaItem.id == audio_item.id)
-                )
-                item = result.scalar_one()
-                assert item.face_detection_status == "skipped"
-
-    async def test_text_skips_all_ai_processing(self, db_session, text_item):
-        """Text should skip all AI processing phases."""
-        async with db_session() as session:
-            result = await session.execute(
-                select(MediaItem).where(MediaItem.id == text_item.id)
+            item = await create_media_item(
+                session,
+                file_format=file_format,
+                clip_status="pending",
+                face_detection_status="pending",
+                vlm_caption_status="pending",
             )
-            item = result.scalar_one()
-            assert item.clip_status == "skipped"
-            assert item.face_detection_status == "skipped"
-            assert item.vlm_caption_status == "skipped"
 
-    async def test_set_skips_all_ai_processing(self, db_session, set_with_refs):
-        """Set should skip all AI processing phases."""
-        set_item, _ = set_with_refs
+        worker = MediaIngestion.__new__(MediaIngestion)
+        worker.config_mgr = SimpleNamespace(get_version=lambda _phase: "test")
+
+        async def get_profile_db(_profile_id):
+            return SimpleNamespace(async_session_maker=db_session)
+
+        worker._get_profile_db = get_profile_db
+        await worker._process_one_clip("default", item.id)
+
         async with db_session() as session:
-            result = await session.execute(
-                select(MediaItem).where(MediaItem.id == set_item.id)
+            result = await session.execute(select(MediaItem).where(MediaItem.id == item.id))
+            refreshed = result.scalar_one()
+            return (
+                refreshed.clip_status,
+                refreshed.face_detection_status,
+                refreshed.vlm_caption_status,
             )
-            item = result.scalar_one()
-            assert item.clip_status == "skipped"
-            assert item.face_detection_status == "skipped"
-            assert item.vlm_caption_status == "skipped"
+
+    @pytest.mark.parametrize("file_format", ["mp3", "md", "stimmaset.json"])
+    async def test_non_visual_processing_decision_skips_all_visual_phases(
+        self, db_session, file_format
+    ):
+        """The CLIP worker classifies audio, text, and sets as non-visual."""
+        assert await self._run_clip_skip_decision(db_session, file_format) == (
+            "skipped", "skipped", "skipped"
+        )

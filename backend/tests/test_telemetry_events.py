@@ -7,7 +7,6 @@ Covers the trickiest emissions:
 - toolRef/toolSource classification + closed errorType / errorHash;
 - refusal classification feeding agent_turn_completed via the shared
   classifier (status failed + errorType refusal, completed otherwise);
-- actor attribution on set/grid events;
 - salted-hash prefix-convention stability (per-entity hashes are stable
   within an install and distinct across entity types).
 """
@@ -320,26 +319,6 @@ def test_classify_agent_error_known_members():
     assert classify_agent_error(ValueError("anything")) == "other"
     for exc in (ContentFilteredError("x"), ValueError("y")):
         assert classify_agent_error(exc) in AGENT_ERROR_TYPES
-
-
-# ── actor attribution ────────────────────────────────────────────────────
-
-
-def test_set_grid_actor_values_cover_user_agent_system():
-    """The three actor values each have at least one emission point wired."""
-    import inspect
-    import routes.media as media_routes
-    from agent.v2.tools import assemble_set, assemble_grid
-    import generation_queue
-
-    media_src = inspect.getsource(media_routes)
-    assert '"actor": "user"' in media_src
-
-    agent_src = inspect.getsource(assemble_set) + inspect.getsource(assemble_grid)
-    assert '"actor": "agent"' in agent_src
-
-    queue_src = inspect.getsource(generation_queue)
-    assert '"actor": "system"' in queue_src
 
 
 # ── salted hash conventions ─────────────────────────────────────────────

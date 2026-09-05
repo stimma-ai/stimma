@@ -21,8 +21,8 @@ async def test_get_nonexistent_preference_returns_404(client: httpx.AsyncClient)
     assert response.status_code == 404
 
 
-async def test_create_preference(client: httpx.AsyncClient):
-    """PUT /api/preferences/test_key creates a preference."""
+async def test_preference_crud_round_trip(client: httpx.AsyncClient):
+    """Create, read, update, and read back a preference."""
     response = await client.put(
         "/api/preferences/test_key",
         json={"theme": "dark"},
@@ -32,27 +32,18 @@ async def test_create_preference(client: httpx.AsyncClient):
     assert data["status"] == "success"
     assert data["key"] == "test_key"
 
-
-async def test_get_preference(client: httpx.AsyncClient):
-    """GET /api/preferences/test_key returns the value."""
     response = await client.get("/api/preferences/test_key")
     assert response.status_code == 200
     data = response.json()
     assert data["key"] == "test_key"
     assert data["value"]["theme"] == "dark"
 
-
-async def test_update_preference(client: httpx.AsyncClient):
-    """PUT /api/preferences/test_key updates existing (upsert)."""
     response = await client.put(
         "/api/preferences/test_key",
         json={"theme": "light", "font_size": 14},
     )
     assert response.status_code == 200
 
-
-async def test_get_updated_preference(client: httpx.AsyncClient):
-    """GET /api/preferences/test_key returns updated value."""
     response = await client.get("/api/preferences/test_key")
     assert response.status_code == 200
     data = response.json()

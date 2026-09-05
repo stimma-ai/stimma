@@ -2052,49 +2052,6 @@ class TestGraphDiff:
 
 
 @pytest.mark.asyncio
-async def test_reload_program_preserves_unchanged(isolated_store_and_db):
-    db_path, store = isolated_store_and_db
-
-    @flow()
-    def first():
-        with phase("Run"):
-            a = llm(prompt="A stage")
-            b = llm(prompt="B stage")
-            return [a, b]
-
-    @flow()
-    def second():
-        with phase("Run"):
-            a = llm(prompt="A stage")    # unchanged -> preserved
-            b = llm(prompt="B changed!")  # changed -> must reset
-            return [a, b]
-
-    counter: dict[str, int] = {}
-    reg = _make_mock_evaluators(tool_call_counter=counter)
-    runtime = FlowRuntime(
-        50, db_path, flow_callable=first, evaluators=reg, store=store,
-    )
-    runtime.build_initial_graph()
-    await runtime.start()
-    await runtime.wait_quiescent(timeout=5.0)
-
-    a_key = "first/llm$0"
-    b_key = "first/llm$1"
-    assert counter.get(a_key, 0) == 1
-    assert counter.get(b_key, 0) == 1
-
-    # Hot-swap the callable and reload. Program-edit on the fly.
-    runtime.flow_callable = second
-    diff = runtime.reload_program()
-    # Keys use the new function name 'second', so in this test the entire
-    # set changes. Use a more realistic reload where the function name is
-    # the same — define a helper.
-    assert "second/llm$0" in diff.added or "second/llm$0" in diff.unchanged
-    await runtime.wait_quiescent(timeout=5.0)
-    await runtime.stop()
-
-
-@pytest.mark.asyncio
 async def test_reload_program_same_name_preserves_unchanged(isolated_store_and_db):
     """Same function name, changed B prompt: A should be store-hit / preserved."""
     db_path, store = isolated_store_and_db

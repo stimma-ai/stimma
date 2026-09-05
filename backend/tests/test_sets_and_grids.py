@@ -10,7 +10,7 @@ import json
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from tests.helpers.media import create_media_item
 from tests.helpers.ws import MockWebSocketManager
@@ -59,11 +59,21 @@ class TestIndependentMembershipOnCreate:
     """Creating a set must not hide, move, or replace member items."""
 
     async def test_members_remain_independent_assets(
-        self, generation_client, generation_db_session
+        self, generation_client, generation_db_session, monkeypatch
     ):
         """Grouping does not remove member Asset identity."""
+        telemetry_client = MagicMock()
+        monkeypatch.setattr(
+            "telemetry.get_telemetry_client", lambda: telemetry_client
+        )
+
         set_id, member_ids = await create_set(
             generation_client, generation_db_session
+        )
+
+        telemetry_client.track.assert_called_once_with(
+            "set_created", {"count": len(member_ids), "actor": "user"},
+            category="library",
         )
 
         from database import AssetRevision

@@ -10,12 +10,20 @@ import json
 from pathlib import Path
 
 import pytest
+from unittest.mock import MagicMock
 from sqlalchemy import select
 
 from database import MediaItem
 from storage_service import stage_managed_media
 from structured_media import resolve_path
 from tests.helpers.media import create_media_item
+
+
+@pytest.fixture
+def telemetry_client(monkeypatch):
+    client = MagicMock()
+    monkeypatch.setattr("telemetry.get_telemetry_client", lambda: client)
+    return client
 
 
 async def _staged_member(session, tmp_path, name: str) -> MediaItem:
@@ -40,7 +48,9 @@ async def _load(session, media_id: int) -> MediaItem:
 
 
 @pytest.mark.asyncio
-async def test_assembled_set_member_paths_resolve_after_staging(db_session, tmp_path):
+async def test_assembled_set_member_paths_resolve_after_staging(
+    db_session, tmp_path, telemetry_client
+):
     from agent.v2.tools.assemble_set import assemble_set
 
     async with db_session() as session:
@@ -62,10 +72,15 @@ async def test_assembled_set_member_paths_resolve_after_staging(db_session, tmp_
 
     assert resolved == expected
     assert all(Path(p).exists() for p in resolved)
+    telemetry_client.track.assert_called_once_with(
+        "set_created", {"count": 2, "actor": "agent"}, category="library"
+    )
 
 
 @pytest.mark.asyncio
-async def test_assembled_grid_cell_paths_resolve_after_staging(db_session, tmp_path):
+async def test_assembled_grid_cell_paths_resolve_after_staging(
+    db_session, tmp_path, telemetry_client
+):
     from agent.v2.tools.assemble_grid import create_parameter_sweep
 
     async with db_session() as session:
@@ -91,3 +106,6 @@ async def test_assembled_grid_cell_paths_resolve_after_staging(db_session, tmp_p
 
     assert resolved == expected
     assert all(Path(p).exists() for p in resolved)
+    telemetry_client.track.assert_called_once_with(
+        "grid_created", {"cellCount": 2, "actor": "agent"}, category="library"
+    )

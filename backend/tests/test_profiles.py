@@ -22,8 +22,8 @@ from unittest.mock import patch
 class TestListProfiles:
     """Tests for GET /api/profiles endpoint."""
 
-    async def test_list_profiles_returns_profiles(self, client: AsyncClient):
-        """Test that profiles are returned."""
+    async def test_list_profiles(self, client: AsyncClient):
+        """Test that profiles are returned with expected default details."""
         response = await client.get("/api/profiles")
         assert response.status_code == 200
 
@@ -31,19 +31,8 @@ class TestListProfiles:
         assert "profiles" in data
         profiles = data["profiles"]
         assert len(profiles) >= 1
-
-    async def test_list_profiles_contains_default(self, client: AsyncClient):
-        """Test that the default profile is present."""
-        response = await client.get("/api/profiles")
-        profiles = response.json()["profiles"]
-
         ids = {p["id"] for p in profiles}
         assert "default" in ids
-
-    async def test_list_profiles_has_expected_fields(self, client: AsyncClient):
-        """Test that profile objects have the expected fields."""
-        response = await client.get("/api/profiles")
-        profiles = response.json()["profiles"]
 
         profile = profiles[0]
         assert "id" in profile
@@ -51,11 +40,6 @@ class TestListProfiles:
         assert "database" in profile
         assert "has_pin" in profile
         assert "pin_idle_timeout_minutes" in profile
-
-    async def test_list_profiles_default_has_no_pin(self, client: AsyncClient):
-        """Test that the default test profile has no PIN set."""
-        response = await client.get("/api/profiles")
-        profiles = response.json()["profiles"]
 
         default = next(p for p in profiles if p["id"] == "default")
         assert default["has_pin"] is False
@@ -66,18 +50,13 @@ class TestCurrentProfile:
     """Tests for GET /api/profiles/current endpoint."""
 
     async def test_get_current_profile(self, client: AsyncClient):
-        """Test getting the current profile."""
+        """Test getting the current profile and its database GUID field."""
         response = await client.get("/api/profiles/current")
         assert response.status_code == 200
 
         profile = response.json()
         assert profile["id"] == "default"
         assert "name" in profile
-
-    async def test_current_profile_has_db_guid(self, client: AsyncClient):
-        """Test that current profile includes db_guid."""
-        response = await client.get("/api/profiles/current")
-        profile = response.json()
         # db_guid should be present (may be None if DB not fully initialized)
         assert "db_guid" in profile
 
@@ -86,7 +65,7 @@ class TestGetProfile:
     """Tests for GET /api/profiles/{profile_id} endpoint."""
 
     async def test_get_existing_profile(self, client: AsyncClient):
-        """Test getting details for an existing profile."""
+        """Test getting details and marker definitions for an existing profile."""
         response = await client.get("/api/profiles/default")
         assert response.status_code == 200
 
@@ -95,11 +74,6 @@ class TestGetProfile:
         assert profile["name"] == "Test Profile"
         assert "folders" in profile
         assert "markers" in profile
-
-    async def test_get_profile_includes_markers(self, client: AsyncClient):
-        """Test that profile details include marker definitions."""
-        response = await client.get("/api/profiles/default")
-        profile = response.json()
 
         marker_names = {m["name"] for m in profile["markers"]}
         assert "favorite" in marker_names
@@ -126,13 +100,6 @@ class TestProfileFolders:
         data = response.json()
         assert "folders" in data
         # Default test config has empty folders
-        assert isinstance(data["folders"], list)
-
-    async def test_folder_response_structure(self, client: AsyncClient):
-        """Test that folder objects have expected fields when present."""
-        response = await client.get("/api/profiles/default/folders")
-        data = response.json()
-        # Empty folders list is valid for the test config
         assert isinstance(data["folders"], list)
 
 

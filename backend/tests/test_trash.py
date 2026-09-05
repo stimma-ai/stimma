@@ -1379,14 +1379,31 @@ class TestFilteredTrash:
         if len(dates) >= 2:
             assert dates == sorted(dates, reverse=True)
 
-    async def test_trash_sorting_by_deleted_date(self, client: AsyncClient, filtered_trash_media):
-        """Test sorting trash by deleted date."""
-        # Sort by deleted_asc
-        response = await client.get("/api/trash", params={"sort_by": "deleted_asc"})
-        assert response.status_code == 200
+    async def test_trash_sorting_by_deleted_date(self, client: AsyncClient, filtered_trash_media, db_session):
+        from datetime import timedelta
+        from pathlib import Path
+        from database import AssetRevision
 
-        data = response.json()
-        assert data["total"] >= 2
+        # Deletion order differs from insertion and file-creation order.
+        now = datetime.utcnow()
+        async with db_session() as session:
+            for item, days in zip(filtered_trash_media[:3], [2, 1, 3]):
+                asset = (await session.execute(
+                    select(Asset).join(AssetRevision, Asset.current_revision_id == AssetRevision.id)
+                    .where(AssetRevision.primary_media_id == item.id)
+                )).scalar_one()
+                asset.deleted_at = now - timedelta(days=days)
+            await session.commit()
+
+        response = await client.get("/api/trash", params={
+            "folders": str(Path(filtered_trash_media[0].file_path).parent),
+            "sort_by": "deleted_asc",
+        })
+        assert response.status_code == 200
+        assert response.json()["total"] == 3
+        assert [item["id"] for item in response.json()["items"]] == [
+            filtered_trash_media[i].id for i in [2, 0, 1]
+        ]
 
     async def test_combined_trash_filters(self, client: AsyncClient, filtered_trash_media):
         """Test combining multiple filters on trash."""
@@ -1404,66 +1421,33 @@ class TestFilteredTrash:
 
 
 class TestTrashFilterCounts:
-    """Tests for GET /api/trash/filter-counts endpoint."""
+    async def test_counts_and_active_filter(self, client: AsyncClient, filtered_trash_media):
+        from pathlib import Path
 
-    async def test_trash_filter_counts_basic(self, client: AsyncClient, filtered_trash_media):
-        """Test basic trash filter counts endpoint."""
-        response = await client.get("/api/trash/filter-counts")
+        # Each fixture has its own folder, isolating counts from earlier module tests.
+        params = {"folders": str(Path(filtered_trash_media[0].file_path).parent)}
+        response = await client.get("/api/trash/filter-counts", params=params)
         assert response.status_code == 200
-
         data = response.json()
-        assert "media_type" in data
-        assert "resolution" in data
-        assert "folders" in data
-        assert "keywords" in data
-        assert "date_ranges" in data
+        assert {"media_type", "resolution", "folders", "keywords", "date_ranges"} <= data.keys()
+        assert data["media_type"]["images"] == 2
+        assert data["media_type"]["videos"] == 1
+        assert data["resolution"] == {"small": 2, "medium": 0, "large": 1}
+        assert data["date_ranges"] == {
+            "2hrs": 1, "24hrs": 2, "72hrs": 3, "7d": 3,
+            "30d": 3, "90d": 3, "365d": 3,
+        }
 
-    async def test_trash_filter_counts_media_type(self, client: AsyncClient, filtered_trash_media):
-        """Test media type counts in trash."""
-        response = await client.get("/api/trash/filter-counts")
+        response = await client.get("/api/trash/filter-counts", params={**params, "media_types": "images"})
         assert response.status_code == 200
-
-        data = response.json()
-        # Should have counts for images and videos
-        assert data["media_type"]["images"] >= 0
-        assert data["media_type"]["videos"] >= 0
-        # Our fixture has 2 images and 1 video in trash
-        total_media = data["media_type"]["images"] + data["media_type"]["videos"]
-        assert total_media >= 3
-
-    async def test_trash_filter_counts_resolution(self, client: AsyncClient, filtered_trash_media):
-        """Test resolution counts in trash."""
-        response = await client.get("/api/trash/filter-counts")
-        assert response.status_code == 200
-
-        data = response.json()
-        # Should have resolution category counts
-        assert data["resolution"]["small"] >= 0
-        assert data["resolution"]["medium"] >= 0
-        assert data["resolution"]["large"] >= 0
-
-    async def test_trash_filter_counts_with_filter(self, client: AsyncClient, filtered_trash_media):
-        """Test filter counts with active filter."""
-        # Get counts with media_type filter active
-        response = await client.get("/api/trash/filter-counts", params={"media_types": "images"})
-        assert response.status_code == 200
-
-        data = response.json()
-        # Counts should reflect current filter state
-        assert "media_type" in data
-        assert "resolution" in data
-
-    async def test_trash_filter_counts_date_ranges(self, client: AsyncClient, filtered_trash_media):
-        """Test date range counts in trash."""
-        response = await client.get("/api/trash/filter-counts")
-        assert response.status_code == 200
-
-        data = response.json()
-        # Should have standard date range keys
-        assert "2hrs" in data["date_ranges"]
-        assert "24hrs" in data["date_ranges"]
-        assert "7d" in data["date_ranges"]
-        assert "30d" in data["date_ranges"]
+        filtered = response.json()
+        # Media-type facets preview alternatives, but resolution/date counts respect images-only.
+        assert filtered["media_type"] == data["media_type"]
+        assert filtered["resolution"] == {"small": 2, "medium": 0, "large": 0}
+        assert filtered["date_ranges"] == {
+            "2hrs": 0, "24hrs": 1, "72hrs": 2, "7d": 2,
+            "30d": 2, "90d": 2, "365d": 2,
+        }
 
 
 class TestRestoreTrashedMediaSilently:
@@ -1753,43 +1737,43 @@ async def filtered_trash_media(db_session, client: AsyncClient):
         # Create an image with caption
         item1 = await create_media_item(
             session,
-            file_path=Path(f"/fake/path/{prefix}_image1.png"),
+            file_path=Path(f"/fake/path/{prefix}/image1.png"),
             file_format="png",
             width=100,
             height=100,
             vlm_caption="A test image with red color",
-            created_date=datetime.now() - timedelta(days=1),
+            created_date=datetime.utcnow() - timedelta(hours=36),
         )
         items.append(item1)
 
         # Create another image with different caption
         item2 = await create_media_item(
             session,
-            file_path=Path(f"/fake/path/{prefix}_image2.jpg"),
+            file_path=Path(f"/fake/path/{prefix}/image2.jpg"),
             file_format="jpg",
             width=200,
             height=200,
             vlm_caption="A test image with blue color",
-            created_date=datetime.now() - timedelta(hours=2),
+            created_date=datetime.utcnow() - timedelta(hours=3),
         )
         items.append(item2)
 
         # Create a video
         item3 = await create_media_item(
             session,
-            file_path=Path(f"/fake/path/{prefix}_video1.mp4"),
+            file_path=Path(f"/fake/path/{prefix}/video1.mp4"),
             file_format="mp4",
             width=1920,
             height=1080,
             vlm_caption="A test video",
-            created_date=datetime.now(),
+            created_date=datetime.utcnow() - timedelta(minutes=30),
         )
         items.append(item3)
 
         # Create a large resolution image (outside trash for comparison)
         item4 = await create_media_item(
             session,
-            file_path=Path(f"/fake/path/{prefix}_large.png"),
+            file_path=Path(f"/fake/path/{prefix}/large.png"),
             file_format="png",
             width=3000,
             height=3000,

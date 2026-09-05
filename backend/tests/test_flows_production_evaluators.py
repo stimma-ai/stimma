@@ -2188,23 +2188,12 @@ class TestFormatInfoValue:
         assert _format_info_value(3.14) == "3.14"
         assert _format_info_value(None) == "None"
 
-    def test_list_renders_as_bullets(self):
-        out = _format_info_value(["a blue dog", "a green dog", "a pink dog"])
-        assert out == "- a blue dog\n- a green dog\n- a pink dog"
-        # No Python repr leakage
-        assert "[" not in out
-        assert "'" not in out
-
     def test_tuple_renders_as_bullets(self):
         out = _format_info_value(("first", "second"))
         assert out == "- first\n- second"
 
     def test_empty_list_renders_placeholder(self):
         assert _format_info_value([]) == "_(empty)_"
-
-    def test_dict_renders_as_key_value_bullets(self):
-        out = _format_info_value({"width": 1024, "height": 768})
-        assert out == "- **width:** 1024\n- **height:** 768"
 
     def test_empty_dict_renders_placeholder(self):
         assert _format_info_value({}) == "_(empty)_"

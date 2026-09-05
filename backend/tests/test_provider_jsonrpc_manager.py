@@ -403,7 +403,8 @@ class TestRestartLogic:
         # Mock _connect_provider to always fail
         mgr._connect_provider = AsyncMock(return_value=False)
 
-        await mgr._restart_provider("p1")
+        with patch("providers.jsonrpc_manager.RETRY_INTERVAL_SECONDS", 0):
+            await mgr._restart_provider("p1")
 
         assert state.retry_count == MAX_RETRIES
         assert mgr._connect_provider.call_count == MAX_RETRIES

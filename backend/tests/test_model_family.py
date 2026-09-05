@@ -71,14 +71,10 @@ FIXTURES = [
 
 
 @pytest.mark.parametrize("raw,expected", FIXTURES)
-def test_model_family_fixture(raw, expected):
-    assert model_family(raw) == expected
-
-
-@pytest.mark.parametrize("raw,expected", FIXTURES)
-def test_raw_input_never_appears_in_output(raw, expected):
-    """The privacy property: the output never echoes the input string."""
+def test_model_family_fixture_and_privacy(raw, expected):
+    """Classify each fixture while checking the output privacy property."""
     family = model_family(raw)
+    assert family == expected
     if raw and len(str(raw)) > len(family):
         assert str(raw).lower() != family
         assert str(raw) not in family

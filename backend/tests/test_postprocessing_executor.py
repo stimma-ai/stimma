@@ -16,10 +16,13 @@ from postprocessing.executor import start_chain_for_job, CHAIN_INSTANCE_ID
 from tests.helpers.media import create_media_item, generate_test_image
 
 
-# loop_scope="function": the worker tasks must live on the TEST's event loop
-# (the project default puts async fixtures on the module loop, which doesn't
-# run while a test is executing — workers would be frozen).
-@pytest_asyncio.fixture(autouse=True, loop_scope="function")
+# generation_app owns a module-scoped queue, so tests and its worker tasks must
+# share one module-scoped event loop. The fixture itself stays function-scoped
+# so each test still starts and stops its workers independently.
+pytestmark = pytest.mark.asyncio(loop_scope="module")
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="module")
 async def queue_workers(generation_app):
     """Filter steps run as builtin tools through the generation queue, so
     these tests need live queue workers (other modules process jobs manually)."""

@@ -15,9 +15,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 from httpx import AsyncClient
-from unittest.mock import patch
-
-from tests.helpers.ws import MockWebSocketManager
 
 
 class TestMediaListing:
@@ -424,41 +421,6 @@ class TestMediaFilteringByTags:
         item_ids = [item["id"] for item in data["items"]]
         assert media_id_1 in item_ids
         assert media_id_2 in item_ids
-
-
-class TestMediaWebSocketEvents:
-    """Tests for WebSocket events emitted on media changes."""
-
-    async def test_delete_media_broadcasts_event(self, client: AsyncClient, seeded_media):
-        """Test that the compatibility route broadcasts canonical Asset state."""
-        media_id = seeded_media[0].id
-
-        mock_ws = MockWebSocketManager()
-
-        # Note: delete endpoint is in trash.py, not media.py
-        with patch("routes.trash.ws_manager", mock_ws), \
-             patch("utils.websocket.ws_manager", mock_ws):
-            response = await client.delete(f"/api/media/{media_id}")
-            assert response.status_code == 200
-
-            events = mock_ws.get_broadcasts("asset_trashed")
-            assert len(events) >= 1
-
-    async def test_marker_change_broadcasts_media_updated(self, client: AsyncClient, seeded_media, marker_ids):
-        """Test that changing markers broadcasts media_updated event."""
-        media_id = seeded_media[0].id
-        marker_id = marker_ids["favorite"]
-
-        mock_ws = MockWebSocketManager()
-
-        with patch("routes.markers.ws_manager", mock_ws), \
-             patch("utils.websocket.ws_manager", mock_ws):
-            response = await client.post(f"/api/media/{media_id}/markers/{marker_id}")
-            assert response.status_code == 200
-
-            # Check that media_updated was broadcast
-            events = mock_ws.get_broadcasts("media_updated")
-            assert len(events) >= 1
 
 
 # Fixtures specific to this test module

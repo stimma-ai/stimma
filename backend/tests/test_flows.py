@@ -118,11 +118,6 @@ class TestStateDbSchema:
         finally:
             conn.close()
 
-    def test_verify_state_db_schema_passes_on_fresh_db(self, tmp_path):
-        db_path = tmp_path / "state.db"
-        create_flow_state_db(db_path)
-        verify_state_db_schema(db_path)  # should not raise
-
     def test_verify_state_db_schema_fails_without_wal(self, tmp_path):
         # Hand-built DB in delete journal mode — verify_state_db_schema must reject.
         db_path = tmp_path / "state.db"

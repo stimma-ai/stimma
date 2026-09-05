@@ -7,12 +7,13 @@ These complement test_generation.py (which tests via HTTP API).
 """
 
 import asyncio
+import json
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from asset_service import create_asset_from_media
 from database import Asset, GenerationJob, MediaItem
@@ -1032,6 +1033,48 @@ class TestJobSubmissionConsolidation:
         params = json.loads(job["parameters"])
         assert params["_batch_output_title"] == "My Batch Output"
         assert params["_batch_input_set_ids"] == [10, 20]
+
+    async def test_batch_output_set_emits_system_actor(
+        self, generation_queue, generation_db_session, output_folder, monkeypatch
+    ):
+        telemetry_client = MagicMock()
+        monkeypatch.setattr(
+            "telemetry.get_telemetry_client", lambda: telemetry_client
+        )
+
+        async with generation_db_session() as session:
+            media_item = await create_media_item(
+                session,
+                file_path=Path(output_folder) / "batch-result.png",
+                file_format="png",
+            )
+            job = GenerationJob(
+                status="completed",
+                task_type="text-to-image",
+                generator_type="test",
+                generator_name="test",
+                backend_name="test",
+                model_name="test-model",
+                parameters=json.dumps({"_batch_output_title": "System Batch"}),
+                folder_path=output_folder,
+                generator_instance_id="system-batch",
+                tool_id="test:text-to-image:test-model",
+                batch_id="system-actor-batch",
+                batch_total=2,
+                result_media_id=media_item.id,
+                completed_at=datetime.utcnow(),
+            )
+            session.add(job)
+            await session.commit()
+            await session.refresh(job)
+
+        await generation_queue._handle_batch_job_completion(
+            job=job, media_item=media_item, profile_id="default"
+        )
+
+        telemetry_client.track.assert_called_once_with(
+            "set_created", {"count": 2, "actor": "system"}, category="library"
+        )
 
 
 # =============================================================================

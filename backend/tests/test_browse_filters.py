@@ -185,15 +185,15 @@ class TestDateFiltering:
         assert data["total"] >= 1
 
     async def test_filter_date_range(self, client: AsyncClient, date_varied_media):
-        """Test filtering by date range (both after and before)."""
-        two_weeks_ago = (datetime.now() - timedelta(days=14)).isoformat()
-        one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
-
+        now = datetime.utcnow()
         response = await client.get("/api/media", params={
-            "created_after": two_weeks_ago,
-            "created_before": one_week_ago
+            "folders": str(Path(date_varied_media[0].file_path).parent),
+            "created_after": (now - timedelta(days=14)).isoformat(),
+            "created_before": (now - timedelta(days=7)).isoformat(),
         })
         assert response.status_code == 200
+        assert response.json()["total"] == 1
+        assert [item["id"] for item in response.json()["items"]] == [date_varied_media[1].id]
         # May have items or not depending on test data
 
 
@@ -248,38 +248,37 @@ class TestSortOptions:
     """Tests for sort_by parameter."""
 
     async def test_sort_created_desc(self, client: AsyncClient, date_varied_media):
-        """Test sorting by creation date descending (default)."""
-        response = await client.get("/api/media", params={"sort_by": "created_desc"})
+        response = await client.get("/api/media", params={
+            "folders": str(Path(date_varied_media[0].file_path).parent),
+            "sort_by": "created_desc",
+        })
         assert response.status_code == 200
-
-        data = response.json()
-        items = data["items"]
-        if len(items) >= 2:
-            # Items with created_date should be in descending order
-            dates = [item.get("created_date") for item in items if item.get("created_date")]
-            if len(dates) >= 2:
-                assert dates == sorted(dates, reverse=True)
+        assert response.json()["total"] == 3
+        assert [item["id"] for item in response.json()["items"]] == [
+            date_varied_media[i].id for i in [0, 1, 2]
+        ]
 
     async def test_sort_created_asc(self, client: AsyncClient, date_varied_media):
-        """Test sorting by creation date ascending."""
-        response = await client.get("/api/media", params={"sort_by": "created_asc"})
+        response = await client.get("/api/media", params={
+            "folders": str(Path(date_varied_media[0].file_path).parent),
+            "sort_by": "created_asc",
+        })
         assert response.status_code == 200
+        assert response.json()["total"] == 3
+        assert [item["id"] for item in response.json()["items"]] == [
+            date_varied_media[i].id for i in [2, 1, 0]
+        ]
 
-        data = response.json()
-        items = data["items"]
-        if len(items) >= 2:
-            dates = [item.get("created_date") for item in items if item.get("created_date")]
-            if len(dates) >= 2:
-                assert dates == sorted(dates)
-
-    async def test_sort_indexed_desc(self, client: AsyncClient, seeded_media):
-        """Test sorting by indexed date descending."""
-        response = await client.get("/api/media", params={"sort_by": "indexed_desc"})
+    async def test_sort_indexed_desc(self, client: AsyncClient, date_varied_media):
+        response = await client.get("/api/media", params={
+            "folders": str(Path(date_varied_media[0].file_path).parent),
+            "sort_by": "indexed_desc",
+        })
         assert response.status_code == 200
-
-        data = response.json()
-        # Just verify it returns successfully
-        assert "items" in data
+        assert response.json()["total"] == 3
+        assert [item["id"] for item in response.json()["items"]] == [
+            date_varied_media[i].id for i in [1, 0, 2]
+        ]
 
     async def test_sort_random(self, client: AsyncClient, seeded_media):
         """Test random sorting with seed for reproducibility."""
@@ -420,17 +419,19 @@ async def folder_organized_media(db_session):
 
 
 @pytest.fixture
-async def date_varied_media(db_session):
-    """Create media with different creation dates."""
+async def date_varied_media(db_session, tmp_path):
+    """Isolate date cases; indexed order deliberately differs from creation order."""
     async with db_session() as session:
+        now = datetime.utcnow()
         items = []
-        now = datetime.now()
-        # Recent (3 days ago)
-        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=3)))
-        # Week ago
-        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=10)))
-        # Month ago
-        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=30)))
+        for index, (created_days, indexed_days) in enumerate([(3, 2), (10, 1), (30, 3)]):
+            item = await create_media_item(
+                session, materialize_asset=True, file_path=tmp_path / f"dated_{index}.png",
+                created_date=now - timedelta(days=created_days),
+            )
+            item.indexed_date = now - timedelta(days=indexed_days)
+            items.append(item)
+        await session.commit()
         yield items
 
 

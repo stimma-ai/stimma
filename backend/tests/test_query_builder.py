@@ -121,7 +121,7 @@ class TestResolutionMap:
 
 
 # =============================================================================
-# build_filtered_query tests (creates query objects, verifies they compile)
+# build_filtered_query tests (execute predicates against controlled rows)
 # =============================================================================
 
 
@@ -135,53 +135,149 @@ class TestBuildFilteredQuery:
         compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
         assert "superseded_by" not in compiled.lower()
 
-    def test_media_types_filter(self):
-        """media_types filter adds format conditions."""
-        query = build_filtered_query(self._base_query(), media_types="images")
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        assert "file_format" in compiled.lower()
+    async def test_media_types_filter_selects_only_requested_format(self, db_session):
+        """media_types selects image rows without relying on projected column names."""
+        async with db_session() as session:
+            image = await self._create_item(session, file_format="png")
+            video = await self._create_item(session, file_format="mp4")
+            query = build_filtered_query(
+                select(MediaItem).where(MediaItem.id.in_([image.id, video.id])),
+                media_types="images",
+            )
+            result = await session.execute(query)
 
-    def test_is_generated_true(self):
-        """is_generated=True adds generation_metadata IS NOT NULL."""
-        query = build_filtered_query(self._base_query(), is_generated=True)
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        assert "generation_metadata" in compiled.lower()
+        assert {item.id for item in result.scalars()} == {image.id}
 
-    def test_is_generated_false(self):
-        """is_generated=False adds generation_metadata IS NULL."""
-        query = build_filtered_query(self._base_query(), is_generated=False)
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        assert "generation_metadata" in compiled.lower()
+    async def test_is_generated_true_selects_generated_rows(self, db_session):
+        """is_generated=True returns rows with generation provenance."""
+        async with db_session() as session:
+            generated = await self._create_item(
+                session, file_format="png", generation_metadata='{"prompt":"sunrise"}'
+            )
+            imported = await self._create_item(session, file_format="png")
+            query = build_filtered_query(
+                select(MediaItem).where(MediaItem.id.in_([generated.id, imported.id])),
+                is_generated=True,
+            )
+            result = await session.execute(query)
 
-    def test_is_imported_uses_lineage_metadata_not_storage(self):
-        """Imported provenance is derived from history metadata."""
-        query = build_filtered_query(self._base_query(), is_imported=True)
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True})).lower()
-        assert "json_extract" in compiled
-        assert "$.source" in compiled
-        assert "file_path" not in compiled.split("where", 1)[-1]
+        assert {item.id for item in result.scalars()} == {generated.id}
 
-    def test_exclude_category_skips_filter(self):
-        """build_filtered_query with exclude_category skips that filter category."""
-        query = build_filtered_query(
-            self._base_query(),
-            media_types="images",
-            exclude_category="media_types",
-        )
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        # The WHERE clause should NOT filter on image formats since media_types is excluded
-        # (file_format appears in SELECT columns, so check for IN with image format values)
-        assert "'jpg'" not in compiled.lower()
+    async def test_is_generated_false_selects_rows_without_generation_provenance(self, db_session):
+        """is_generated=False returns rows without generation provenance."""
+        async with db_session() as session:
+            generated = await self._create_item(
+                session, file_format="png", generation_metadata='{"prompt":"sunrise"}'
+            )
+            imported = await self._create_item(session, file_format="png")
+            query = build_filtered_query(
+                select(MediaItem).where(MediaItem.id.in_([generated.id, imported.id])),
+                is_generated=False,
+            )
+            result = await session.execute(query)
 
-    def test_multiple_filters_compose(self):
-        """Multiple filters compose together without crashing."""
-        query = build_filtered_query(
-            self._base_query(),
-            media_types="images,videos",
-            is_generated=True,
-            resolutions="small,large",
-            folders="/some/path",
-        )
-        # Just verify it compiles without error
-        compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        assert compiled  # non-empty string
+        assert {item.id for item in result.scalars()} == {imported.id}
+
+    async def test_is_imported_uses_lineage_metadata_not_storage(self, db_session):
+        """Imported provenance follows generation history metadata, regardless of path."""
+        async with db_session() as session:
+            plain_import = await self._create_item(
+                session, file_format="png", file_path="/managed/looks-generated.png"
+            )
+            external_import = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/sources/external.png",
+                generation_metadata='{"source":"external"}',
+            )
+            generated = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/sources/generated.png",
+                generation_metadata='{"source":"stimma","prompt":"sunrise"}',
+            )
+            query = build_filtered_query(
+                select(MediaItem).where(
+                    MediaItem.id.in_([plain_import.id, external_import.id, generated.id])
+                ),
+                is_imported=True,
+            )
+            result = await session.execute(query)
+
+        assert {item.id for item in result.scalars()} == {
+            plain_import.id,
+            external_import.id,
+        }
+
+    async def test_exclude_category_skips_media_type_filter(self, db_session):
+        """Excluding media_types leaves all controlled formats eligible."""
+        async with db_session() as session:
+            image = await self._create_item(session, file_format="png")
+            video = await self._create_item(session, file_format="mp4")
+            query = build_filtered_query(
+                select(MediaItem).where(MediaItem.id.in_([image.id, video.id])),
+                media_types="images",
+                exclude_category="media_types",
+            )
+            result = await session.execute(query)
+
+        assert {item.id for item in result.scalars()} == {image.id, video.id}
+
+    async def test_multiple_filters_compose_as_intersection(self, db_session):
+        """Multiple filter categories select only the row satisfying every predicate."""
+        async with db_session() as session:
+            matching = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/controlled/one/match.png",
+                width=100,
+                height=100,
+                generation_metadata='{"prompt":"sunrise"}',
+            )
+            not_generated = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/controlled/one/import.png",
+            )
+            wrong_resolution = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/controlled/one/medium.png",
+                width=1000,
+                height=1000,
+                generation_metadata='{"prompt":"sunrise"}',
+            )
+            wrong_folder = await self._create_item(
+                session,
+                file_format="png",
+                file_path="/controlled/two/other.png",
+                width=100,
+                height=100,
+                generation_metadata='{"prompt":"sunrise"}',
+            )
+            wrong_type = await self._create_item(
+                session,
+                file_format="mp3",
+                file_path="/controlled/one/audio.mp3",
+                width=0,
+                height=0,
+                generation_metadata='{"prompt":"sunrise"}',
+            )
+            candidates = [matching, not_generated, wrong_resolution, wrong_folder, wrong_type]
+            query = build_filtered_query(
+                select(MediaItem).where(MediaItem.id.in_([item.id for item in candidates])),
+                media_types="images,videos",
+                is_generated=True,
+                resolutions="small,large",
+                folders="/controlled/one",
+            )
+            result = await session.execute(query)
+
+        assert {item.id for item in result.scalars()} == {matching.id}
+
+    @staticmethod
+    async def _create_item(session, **kwargs):
+        """Seed one isolated candidate row for an executable predicate check."""
+        from tests.helpers.media import create_media_item
+
+        return await create_media_item(session, **kwargs)
