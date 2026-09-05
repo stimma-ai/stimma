@@ -6,6 +6,7 @@ import {
   openToolById,
   seedPendingToolInput,
   submitGeneration,
+  toolRunButton,
   TEST_I2I_TOOL_ID,
   TEST_UPSCALE_TOOL_ID,
   waitForGeneratedFromSource,
@@ -70,7 +71,7 @@ test.describe('media handoff acceptance', () => {
     await openToolWithPendingInput(page, TEST_UPSCALE_TOOL_ID);
     await expect(page.locator('[data-drop-zone="media-picker-image"]').getByText('1/1')).toBeVisible();
 
-    await page.getByRole('button', { name: /^Run/ }).click();
+    await toolRunButton(page).click();
 
     const outputs = await waitForGeneratedFromSource(page, TEST_UPSCALE_TOOL_ID, [source.id]);
     expect(outputs[0].generation_metadata).toContain(String(source.id));

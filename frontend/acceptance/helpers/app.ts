@@ -133,7 +133,7 @@ export async function submitGeneration(page: Page, prompt: string) {
   await runButton.click();
 }
 
-function toolRunButton(page: Page) {
+export function toolRunButton(page: Page) {
   return page.locator('#tool-header-slot').getByTestId('tool-run-button');
 }
 
