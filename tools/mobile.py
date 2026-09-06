@@ -13,6 +13,12 @@ IOS = ROOT / 'mobile' / 'ios'
 BUILD = IOS / '.build'
 
 
+# npm is npm.cmd on Windows and subprocess does not search PATHEXT; the
+# nested Python is this interpreter, whatever it was launched as.
+NPM = shutil.which('npm') or 'npm'
+PYTHON = sys.executable or 'python3'
+
+
 def run(args, **kwargs):
     return subprocess.run([str(a) for a in args], check=True, **kwargs)
 
@@ -91,9 +97,9 @@ def main():
         frontend = ROOT / 'frontend'
         if not args.skip_frontend:
             if not (frontend / 'node_modules').exists():
-                run(['npm', 'ci'], cwd=frontend)
-            run(['npm', 'run', 'build'], cwd=frontend, env=dict(os.environ, STIMMA_MOBILE_SHELL='0'))
-        run(['python3', ROOT / 'tools' / 'build_ui_package.py', frontend / 'dist', ROOT / 'backend' / 'mobile-ui'])
+                run([NPM, 'ci'], cwd=frontend)
+            run([NPM, 'run', 'build'], cwd=frontend, env=dict(os.environ, STIMMA_MOBILE_SHELL='0'))
+        run([PYTHON, ROOT / 'tools' / 'build_ui_package.py', frontend / 'dist', ROOT / 'backend' / 'mobile-ui'])
         return
     if args.action == 'test':
         run(['bash', IOS / 'Tests' / 'run.sh'], cwd=ROOT)

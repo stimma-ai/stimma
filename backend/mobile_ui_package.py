@@ -139,14 +139,21 @@ def build_ui_package(source: Path, output: Path) -> dict:
             "entrypoint": "index.html",
         }
         destination = archives / f"{digest}.tar.gz"
-        # Content-addressed archives are never modified or removed on rebuild.
+        # Temp files are created owner-only; the package is read by whoever
+        # runs the server (a build as root, a gate as an unprivileged user,
+        # the packaged app), so both files get the same modes as the build.
+        os.chmod(temp_path, 0o644)
+        # Content-addressed archives are never modified or removed on rebuild;
+        # one left by an earlier build still gets today's modes.
         if not destination.exists():
             os.replace(temp_path, destination)
+        os.chmod(destination, 0o644)
         with tempfile.NamedTemporaryFile(dir=output, mode="w", suffix=".tmp", delete=False) as handle:
             manifest_temp = Path(handle.name)
             json.dump(manifest, handle, sort_keys=True, separators=(",", ":"))
             handle.flush()
             os.fsync(handle.fileno())
+        os.chmod(manifest_temp, 0o644)
         os.replace(manifest_temp, output / "manifest.json")
         return manifest
     finally:
