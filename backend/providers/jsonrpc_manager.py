@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 from .jsonrpc import JsonRpcProvider, create_provider_from_config
 from .registry import ProviderRegistry
 from .base import ProviderStatus
+from .sidecars import SidecarProcess
 
 log = structlog.get_logger(__name__)
 
@@ -78,6 +79,8 @@ class ProviderState:
     retry_count: int = 0
     is_healthy: bool = False
     restart_task: Optional[asyncio.Task] = None
+    # Bundled engine process this provider connects to (config['sidecar']).
+    sidecar: Optional[SidecarProcess] = None
     # Error tracking - persists even when provider fails to connect
     error_message: Optional[str] = None
     # Stderr log buffer - persists across restarts
@@ -183,6 +186,11 @@ class JsonRpcProviderManager:
                     await self._registry.unregister(provider_id)
                 except Exception as e:
                     log.warning(f"Error unregistering provider {provider_id}: {e}")
+            if state.sidecar:
+                try:
+                    await state.sidecar.stop()
+                except Exception as e:
+                    log.warning(f"Error stopping sidecar for {provider_id}: {e}")
 
         self._providers.clear()
 
@@ -238,6 +246,18 @@ class JsonRpcProviderManager:
             elif provider_type == 'websocket':
                 url = state.config.get('url', 'unknown')
                 self._add_log_line(state, f"[{datetime.now().strftime('%H:%M:%S')}] Connecting to: {url}")
+
+            sidecar_name = state.config.get('sidecar')
+            if sidecar_name:
+                if state.sidecar is None:
+                    state.sidecar = SidecarProcess(
+                        sidecar_name, on_log=lambda line: self._add_log_line(state, line)
+                    )
+                if not state.sidecar.running or not state.sidecar.url:
+                    state.config['url'] = await state.sidecar.start()
+                    state.process_started_at = datetime.now()
+                else:
+                    state.config['url'] = state.sidecar.url
 
             # Ensure clean slate - unregister any stale entries
             try:
@@ -430,7 +450,9 @@ class JsonRpcProviderManager:
 
         # WebSocket providers retry indefinitely since remote services can come/go
         provider_type = state.config.get('type', 'stdio')
-        retry_indefinitely = provider_type == 'websocket'
+        # A bundled engine that keeps crashing should stop like a stdio
+        # process, not be relaunched every two seconds forever.
+        retry_indefinitely = provider_type == 'websocket' and not state.config.get('sidecar')
 
         while not self._shutdown:
             if self._providers.get(provider_id) is not state:
@@ -749,6 +771,10 @@ class JsonRpcProviderManager:
             await self._backend_registry.unregister_backend(backend_name)
         except Exception as e:
             log.warning(f"Error unregistering backend {backend_name}: {e}")
+
+        if state.sidecar:
+            await state.sidecar.stop()
+            state.sidecar = None
 
         # Remove from managed providers
         del self._providers[provider_id]

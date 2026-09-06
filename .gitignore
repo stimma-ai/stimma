@@ -133,6 +133,7 @@ src-tauri/target/
 target-tauri/
 src-tauri/binaries/stimma-backend-*
 src-tauri/binaries/stimma-watchdog-*
+src-tauri/binaries/stimma-drawthings-*
 src-tauri/gen/
 
 # Tauri build outputs (if moved out of target/)

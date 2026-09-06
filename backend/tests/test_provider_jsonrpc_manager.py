@@ -503,3 +503,109 @@ class TestStop:
         await mgr.stop()
 
         assert mgr._shutdown is True
+
+
+# ---------------------------------------------------------------------------
+# Bundled sidecar engines (providers.sidecars)
+# ---------------------------------------------------------------------------
+
+
+class TestSidecarProviders:
+    """A `sidecar` config launches the bundled executable and connects to the
+    port it reports; removing the provider stops the process."""
+
+    @staticmethod
+    def _fake_sidecar(tmp_path, monkeypatch, script):
+        import stat
+
+        path = tmp_path / "stimma-drawthings"
+        path.write_text("#!/bin/sh\n" + script)
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+        monkeypatch.setenv("STIMMA_SIDECAR_STIMMA_DRAWTHINGS", str(path))
+        monkeypatch.setattr("providers.sidecars.sys.platform", "darwin")
+        return path
+
+    @staticmethod
+    def _manager():
+        mgr = JsonRpcProviderManager()
+        mgr._registry = MagicMock()
+        mgr._registry.unregister = AsyncMock()
+        mgr._registry.register = AsyncMock()
+        mgr._backend_registry = MagicMock()
+        mgr._backend_registry.unregister_backend = AsyncMock()
+        mgr._backend_registry.register_backend = AsyncMock()
+        return mgr
+
+    async def test_sidecar_url_is_filled_from_the_process(self, tmp_path, monkeypatch):
+        self._fake_sidecar(
+            tmp_path,
+            monkeypatch,
+            'echo "Draw Things STP listening on 127.0.0.1:45123" >&2\nexec sleep 30\n',
+        )
+        mgr = self._manager()
+        state = ProviderState(config={"id": "drawthings", "type": "websocket", "sidecar": "drawthings"})
+        mgr._providers["drawthings"] = state
+        provider = MagicMock()
+        provider.connect = AsyncMock(side_effect=ConnectionError("fixture stops here"))
+
+        with patch("providers.jsonrpc_manager.create_provider_from_config", return_value=provider) as factory:
+            await mgr._connect_provider("drawthings")
+
+        assert factory.call_args.args[0]["url"] == "ws://127.0.0.1:45123/stp-v1"
+        assert state.sidecar is not None and state.sidecar.running
+        assert any("listening on" in line for line in state.stderr_buffer)
+
+        # A retry reuses the live process instead of spawning another one.
+        first_pid = state.sidecar.pid
+        with patch("providers.jsonrpc_manager.create_provider_from_config", return_value=provider):
+            await mgr._connect_provider("drawthings")
+        assert state.sidecar.pid == first_pid
+
+        sidecar = state.sidecar
+        await mgr.remove_provider("drawthings")
+        assert "drawthings" not in mgr._providers
+        assert not sidecar.running
+
+    async def test_sidecar_startup_failure_is_reported(self, tmp_path, monkeypatch):
+        self._fake_sidecar(tmp_path, monkeypatch, 'echo "engine missing" >&2\nexit 7\n')
+        mgr = self._manager()
+        state = ProviderState(config={"id": "drawthings", "type": "websocket", "sidecar": "drawthings"})
+        mgr._providers["drawthings"] = state
+
+        with patch("providers.jsonrpc_manager.create_provider_from_config") as factory:
+            connected = await mgr._connect_provider("drawthings")
+
+        assert connected is False
+        factory.assert_not_called()
+        assert "code 7" in (state.error_message or "")
+
+    async def test_sidecar_restarts_are_bounded(self):
+        mgr = JsonRpcProviderManager()
+        mgr._shutdown = False
+        state = ProviderState(config={"id": "drawthings", "type": "websocket", "sidecar": "drawthings"})
+        mgr._providers["drawthings"] = state
+        mgr._connect_provider = AsyncMock(return_value=False)
+
+        with patch("providers.jsonrpc_manager.RETRY_INTERVAL_SECONDS", 0):
+            await mgr._restart_provider("drawthings")
+
+        assert state.retry_count == MAX_RETRIES
+
+    async def test_stop_terminates_sidecars(self, tmp_path, monkeypatch):
+        self._fake_sidecar(
+            tmp_path,
+            monkeypatch,
+            'echo "Draw Things STP listening on 127.0.0.1:45124" >&2\nexec sleep 30\n',
+        )
+        mgr = self._manager()
+        state = ProviderState(config={"id": "drawthings", "type": "websocket", "sidecar": "drawthings"})
+        mgr._providers["drawthings"] = state
+        provider = MagicMock()
+        provider.connect = AsyncMock(side_effect=ConnectionError("fixture"))
+        with patch("providers.jsonrpc_manager.create_provider_from_config", return_value=provider):
+            await mgr._connect_provider("drawthings")
+        sidecar = state.sidecar
+        assert sidecar.running
+
+        await mgr.stop()
+        assert not sidecar.running

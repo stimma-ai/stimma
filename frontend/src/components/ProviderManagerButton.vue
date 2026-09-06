@@ -15,8 +15,11 @@
       :title="titleFor(p)"
       @click.stop="toggle(p.provider_id)"
     >
-      <!-- PNG app icons keep their colors; SVG marks follow the theme. -->
-      <img v-if="p.icon?.startsWith('data:image/png')" :src="p.icon" alt="" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] object-contain" />
+      <!-- Provider-supplied icon (STP presentation.icon, a data URI). Vector
+           icons render as a CSS mask so they take currentColor and follow the
+           theme; raster icons (a provider's real app icon) render as-is. The
+           bundled ComfyUI mark is only a fallback for providers that send none. -->
+      <img v-if="p.icon && isRasterIcon(p.icon)" :src="p.icon" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] rounded-[3px] compact:rounded-[5px] object-contain" alt="" aria-hidden="true" draggable="false" />
       <span v-else-if="p.icon" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" :style="iconMaskStyle(p.icon)" aria-hidden="true"></span>
       <ComfyUIIcon v-else-if="isComfy(p)" class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" />
       <span v-else class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] rounded-full bg-overlay-light"></span>
@@ -40,7 +43,7 @@
     >
       <span class="absolute -top-[6px] right-[10px] w-[10px] h-[10px] bg-surface-raised border-l border-t border-edge-subtle rotate-45"></span>
       <div class="text-content font-medium mb-0.5">Manage {{ shortName(p) }}</div>
-      <div>Set up workflows, install required models and custom nodes, and track downloads and running jobs.</div>
+      <div>{{ hintBody(p) }}</div>
       <button class="mt-1.5 text-accent-hi hover:underline" @click.stop="toggle(p.provider_id)">Open {{ shortName(p) }}</button>
     </div>
 
@@ -158,6 +161,12 @@ function onFrameMessage(e: MessageEvent) {
 
 function isComfy(p: ManagedProvider) { return isComfyUIProvider({ id: p.provider_id, name: p.provider_name }) }
 function shortName(p: ManagedProvider) { return isComfy(p) ? 'ComfyUI' : p.provider_name }
+function hintBody(p: ManagedProvider) {
+  return isComfy(p)
+    ? 'Set up workflows, install required models and custom nodes, and track downloads and running jobs.'
+    : 'Download models to turn on Draw Things tools, then check downloads, activity, and the engine from this button.'
+}
+function isRasterIcon(icon: string) { return /^data:image\/(png|jpeg|webp|gif|avif)[;,]/i.test(icon) }
 function iconMaskStyle(icon: string) {
   const url = `url("${icon}")`
   return { backgroundColor: 'currentColor', maskImage: url, WebkitMaskImage: url, maskRepeat: 'no-repeat', WebkitMaskRepeat: 'no-repeat', maskSize: 'contain', WebkitMaskSize: 'contain', maskPosition: 'center', WebkitMaskPosition: 'center' }
@@ -231,7 +240,7 @@ const MANAGER_JOB_EVENTS = [
 function handleManagerJobEvent() {
   if (!frameEl.value?.contentWindow || !openId.value) return
   const provider = providers.value.find(p => p.provider_id === openId.value)
-  if (!provider || !isComfy(provider)) return
+  if (!provider) return
   if (managerRefreshTimer) return
   managerRefreshTimer = setTimeout(() => {
     managerRefreshTimer = null

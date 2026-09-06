@@ -543,6 +543,7 @@ Commands:
   dev app         Run desktop app in dev mode (Electron; --shell=tauri for the
                       legacy shell during the migration)
   dev all         Run backend + frontend + app together with merged logs
+  dev ios         Build, sign, install, and launch on the connected iPhone
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
   run app         Run Tauri app (release, no watching)
@@ -572,6 +573,7 @@ Commands:
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   headless package|image|test|smoke|publish  Build and verify the headless distribution
   mobile ios package|build|run|device|test|test-ui|doctor|screenshot  Build, run, and sign the iOS shell
+  mobile android doctor|build|run|test|test-ui|lint|screenshot  Build and run the Android shell
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
   oss             Regenerate ATTRIBUTION.md dependency tables from the current
@@ -1007,6 +1009,53 @@ async function buildWatchdog(target: string): Promise<void> {
   await Deno.copyFile(src, join(destDir, `stimma-watchdog-${target}${ext}`));
 }
 
+// Draw Things sidecar: the standalone STP provider from stimma-ai/stimma-drawthings,
+// bundled into the macOS app so "generate on this Mac" is one click in setup.
+// Pinned to a release; bump when a new adapter release should ship.
+const DRAWTHINGS_SIDECAR_VERSION = "0.5.0";
+
+async function ensureDrawThingsSidecar(target: string): Promise<string | null> {
+  if (Deno.build.os !== "darwin") return null;
+  const destDir = join(repoRoot, "src-tauri", "binaries");
+  await Deno.mkdir(destDir, { recursive: true });
+  const dest = join(destDir, `stimma-drawthings-${target}`);
+  const override = Deno.env.get("STIMMA_DRAWTHINGS_BIN");
+  if (override) {
+    console.log(`Using Draw Things sidecar from STIMMA_DRAWTHINGS_BIN: ${override}`);
+    await Deno.copyFile(override, dest);
+    await Deno.chmod(dest, 0o755);
+    return dest;
+  }
+  const stamp = `${dest}.version`;
+  if (await pathExists(dest) && await pathExists(stamp) && (await Deno.readTextFile(stamp)).trim() === DRAWTHINGS_SIDECAR_VERSION) {
+    return dest;
+  }
+  const platform = target.startsWith("x86_64") ? "macos-x86_64" : "macos-arm64";
+  const folder = `stimma-drawthings-${DRAWTHINGS_SIDECAR_VERSION}-${platform}`;
+  const base = `https://github.com/stimma-ai/stimma-drawthings/releases/download/v${DRAWTHINGS_SIDECAR_VERSION}`;
+  const work = join(repoRoot, "build-experimental", "drawthings-sidecar");
+  await Deno.mkdir(work, { recursive: true });
+  const tarball = join(work, `${folder}.tar.gz`);
+  console.log(`Downloading Draw Things sidecar v${DRAWTHINGS_SIDECAR_VERSION}`);
+  for (const suffix of ["", ".sha256"]) {
+    await run("/usr/bin/curl", ["-fL", "--retry", "5", "--retry-delay", "2", "-o", `${tarball}${suffix}`, `${base}/${folder}.tar.gz${suffix}`]);
+  }
+  // The published checksum file is "<sha>  <name>"; verify before unpacking.
+  const expected = (await Deno.readTextFile(`${tarball}.sha256`)).trim().split(/\s+/)[0];
+  const actual = Array.from(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", await Deno.readFile(tarball))),
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("");
+  if (expected !== actual) {
+    throw new Error(`Draw Things sidecar checksum mismatch (expected ${expected}, got ${actual})`);
+  }
+  await run("tar", ["-xzf", tarball, "-C", work, `${folder}/stimma-drawthings`]);
+  await Deno.copyFile(join(work, folder, "stimma-drawthings"), dest);
+  await Deno.chmod(dest, 0o755);
+  await Deno.writeTextFile(stamp, DRAWTHINGS_SIDECAR_VERSION);
+  return dest;
+}
+
 async function downloadWindowsStandalonePython(target: string, pythonStandaloneDir: string): Promise<string> {
   await Deno.mkdir(pythonStandaloneDir, { recursive: true });
 
@@ -1363,6 +1412,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   console.log("Building portable backend");
   await buildPortableBackend(target);
   await buildWatchdog(target);
+  const drawThingsSidecar = await ensureDrawThingsSidecar(target);
   const nativeHelper = await buildStimmaNative();
 
   console.log("Building Electron shell");
@@ -1438,6 +1488,8 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       extraResources: [
         // macOS 26+ Liquid Glass icon; older macOS falls back to icon.icns.
         { from: "../src-tauri/icons/Assets.car", to: "Assets.car" },
+        // Bundled Draw Things engine; the backend launches it from Resources.
+        ...(drawThingsSidecar ? [{ from: `../src-tauri/binaries/stimma-drawthings-${target}`, to: "stimma-drawthings" }] : []),
       ],
       extendInfo: {
         NSMicrophoneUsageDescription: "Stimma uses the microphone for voice input in chat.",
@@ -1520,6 +1572,7 @@ async function appBuild(args: string[], channel: string): Promise<void> {
   await buildPortableBackend(target);
 
   await buildWatchdog(target);
+  await ensureDrawThingsSidecar(target);
   await ensurePlatformResourceMapping(target);
 
   const env: Record<string, string> = {};
@@ -2258,7 +2311,13 @@ async function main(): Promise<void> {
       break;
     }
     case "dev": {
-      if (sub === "frontend") {
+      if (sub === "ios") {
+        await run(
+          pythonCommand,
+          [join(repoRoot, "tools", "mobile.py"), "ios", "device", ...rest],
+          { env: runtimeEnv },
+        );
+      } else if (sub === "frontend") {
         // Pass sandbox ports so forked sandboxes get their own Vite port and
         // proxy to their own backend (vite.config.js reads these; defaults
         // are 9191/9192, so the default sandbox is unchanged).

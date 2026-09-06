@@ -65,6 +65,7 @@ ALWAYS_SHOW_BUILTIN_PROVIDERS = []
 STIMMA_CLOUD_PROVIDER_ID = STIMMA_TOOL_PROVIDER_ID
 from core.logging import get_logger
 from core.profile_context import get_current_profile
+from providers.sidecars import available_sidecars, installed_sidecars
 
 log = get_logger(__name__)
 
@@ -150,6 +151,8 @@ class ToolProviderResponse(BaseModel):
     working_dir: Optional[str] = None
     # For websocket providers
     url: Optional[str] = None
+    # Bundled local engine launched by Stimma (providers/sidecars.py)
+    sidecar: Optional[str] = None
 
 
 # Current AI-setup-wizard version. Bump this when the wizard changes enough
@@ -329,6 +332,10 @@ class SettingsResponse(BaseModel):
     show_image_generation_previews: bool = False  # Live previews on image jobs
     show_video_generation_previews: bool = False  # Live previews on video jobs
     debug_force_ffmpeg_missing: bool = False  # Dev-only: pretend ffmpeg/ffprobe aren't installed
+    # Bundled local engines this build can launch (e.g. ['drawthings'] on macOS)
+    available_sidecars: List[str] = []
+    # Subset whose engine runtime is already on this machine
+    installed_sidecars: List[str] = []
     theme: str  # UI theme preference: light, dark, system
     # Usage telemetry consent: True/False, or None while
     # undetermined (onboarding not completed). Official builds only —
@@ -424,6 +431,8 @@ class CreateToolProviderRequest(BaseModel):
     # For websocket providers
     url: Optional[str] = None
     auth_token: Optional[str] = None
+    # Bundled local engine (macOS): Stimma launches it and fills in the URL.
+    sidecar: Optional[str] = Field(None, pattern=r'^[a-z0-9-]+$')
 
 
 class UpdateBackgroundWorkRequest(BaseModel):
@@ -663,7 +672,8 @@ async def get_settings_all():
             command=provider_config.command if provider_config.type == "stdio" else None,
             args=provider_config.args if provider_config.type == "stdio" and provider_config.args else None,
             working_dir=provider_config.working_dir if provider_config.type == "stdio" else None,
-            url=provider_config.url if provider_config.type == "websocket" else None,
+            url=provider_config.url if provider_config.type == "websocket" and not provider_config.sidecar else None,
+            sidecar=provider_config.sidecar,
         ))
 
     # Add unconfigured builtin providers that should always be shown
@@ -753,6 +763,8 @@ async def get_settings_all():
         sandbox=get_sandbox(),
         cloud_base_url=settings.cloud.base_url,
         developer_mode=settings.developer_mode,
+        available_sidecars=available_sidecars(),
+        installed_sidecars=installed_sidecars(),
         show_image_generation_previews=settings.show_image_generation_previews,
         show_video_generation_previews=settings.show_video_generation_previews,
         debug_force_ffmpeg_missing=settings.debug_force_ffmpeg_missing,
@@ -1521,7 +1533,15 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
     # Validate type-specific fields
     if request.type == "stdio" and not request.command:
         raise HTTPException(status_code=400, detail="Command is required for stdio providers")
-    if request.type == "websocket" and not request.url:
+    if request.sidecar:
+        if request.type != "websocket":
+            raise HTTPException(status_code=400, detail="Bundled engines use the websocket type")
+        if request.sidecar not in available_sidecars():
+            raise HTTPException(status_code=400, detail="This engine is not included in this build")
+        for provider in settings.tool_providers:
+            if provider.sidecar == request.sidecar:
+                raise HTTPException(status_code=400, detail="This engine is already set up")
+    elif request.type == "websocket" and not request.url:
         raise HTTPException(status_code=400, detail="URL is required for websocket providers")
 
     # Create provider config
@@ -1537,6 +1557,8 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
         new_provider["args"] = request.args
         if request.working_dir:
             new_provider["working_dir"] = request.working_dir
+    elif request.sidecar:
+        new_provider["sidecar"] = request.sidecar
     else:  # websocket
         new_provider["url"] = request.url
         if request.auth_token:
@@ -1561,7 +1583,8 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
         has_auth_token=bool(request.auth_token),
         status="disconnected",
         command=request.command if request.type == "stdio" else None,
-        url=request.url if request.type == "websocket" else None,
+        url=request.url if request.type == "websocket" and not request.sidecar else None,
+        sidecar=request.sidecar,
     )
 
 

@@ -109,6 +109,8 @@
                   v-if="settings"
                   ref="toolProvidersSection"
                   :providers="settings.tool_providers"
+                  :available-sidecars="settings.available_sidecars || []"
+                  :installed-sidecars="settings.installed_sidecars || []"
                   :setup-required="generationSetupRequired"
                   @update="handleToolProviderUpdate"
                   @create="handleToolProviderCreate"
@@ -556,6 +558,7 @@ async function handleToolProviderCreate(providerConfig) {
     args: providerConfig.args,
     url: providerConfig.url,
     has_auth_token: Boolean(providerConfig.auth_token),
+    sidecar: providerConfig.sidecar,
   }
   if (settings.value) {
     settings.value = {

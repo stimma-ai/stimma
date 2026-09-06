@@ -726,6 +726,11 @@ class ToolProviderConfig(BaseModel):
     headers: Dict[str, str] = Field(default_factory=dict)
     reconnect_delay: float = 5.0  # Base delay in seconds for reconnection
 
+    # Bundled local engine launched by Stimma itself (websocket type). The
+    # backend starts the named sidecar executable on a loopback port and fills
+    # in `url` at connect time; see providers/sidecars.py.
+    sidecar: Optional[str] = None
+
 
 def _migrate_source_folder_config(config_file: Path) -> bool:
     """Contract historical folder roles into temporary migration roots.

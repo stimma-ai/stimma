@@ -16,6 +16,22 @@ export function isComfyUIProvider(provider: ToolProviderIdentity | null | undefi
   return identity.includes('comfyui')
 }
 
+// Draw Things is a bundled local engine (macOS): identified by the sidecar
+// the backend launches for it, never by a user-typed name.
+export const DRAWTHINGS_SIDECAR = 'drawthings'
+
+export function isDrawThingsProvider(provider: (ToolProviderIdentity & { sidecar?: string | null }) | null | undefined): boolean {
+  return !!provider && provider.sidecar === DRAWTHINGS_SIDECAR
+}
+
+export function nextDrawThingsIdentity(providers: ToolProviderIdentity[]): { id: string; name: string } {
+  const usedIds = new Set(providers.map(provider => String(provider.id || '').toLowerCase()))
+  if (!usedIds.has(DRAWTHINGS_SIDECAR)) return { id: DRAWTHINGS_SIDECAR, name: 'Draw Things' }
+  let suffix = 2
+  while (usedIds.has(`${DRAWTHINGS_SIDECAR}-${suffix}`)) suffix += 1
+  return { id: `${DRAWTHINGS_SIDECAR}-${suffix}`, name: `Draw Things ${suffix}` }
+}
+
 export function nextComfyUIIdentity(providers: ToolProviderIdentity[]): { id: string; name: string } {
   const usedIds = new Set(providers.map(provider => String(provider.id || '').toLowerCase()))
   if (!usedIds.has('comfyui')) return { id: 'comfyui', name: 'ComfyUI' }
@@ -27,6 +43,7 @@ export function nextComfyUIIdentity(providers: ToolProviderIdentity[]): { id: st
 
 const CONNECTION_FIELDS = new Set([
   'url',
+  'sidecar',
   'auth_token',
   'command',
   'args',

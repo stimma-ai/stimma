@@ -105,7 +105,7 @@
                 <div class="text-xs font-semibold text-content-secondary">Step 2 of 3 · Generation tools</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Connect generation tools</h1>
                 <p class="mt-2 text-sm text-content-secondary">Generation tools create and edit images, video, and audio.</p>
-                <div v-if="generationReady" class="mt-5 flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
+                <div v-if="generationReady && !toolProvidersSection?.settingUp" class="mt-5 flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
                   <svg class="h-4 w-4 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                   <p class="text-sm text-content-secondary">You're all set. Continue, or add more providers below.</p>
                 </div>
@@ -113,6 +113,8 @@
                   <ToolProvidersSection
                     ref="toolProvidersSection"
                     :providers="settings?.tool_providers || []"
+                    :available-sidecars="settings?.available_sidecars || []"
+                    :installed-sidecars="settings?.installed_sidecars || []"
                     :setup-required="!generationReady"
                     wizard
                     @update="handleToolProviderUpdate"
@@ -148,8 +150,8 @@
             <div v-else class="relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-10 py-9">
               <GlowCanvas class="absolute inset-0" :blobs="END_GLOW" />
 
-              <!-- Both connected: welcome -->
-              <div v-if="allReady" class="relative flex flex-col items-center text-center">
+              <!-- Anything connected: welcome -->
+              <div v-if="anyReady" class="relative flex flex-col items-center text-center">
                 <div class="relative">
                   <div
                     class="relative mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-[19px] border border-transparent p-2 shadow-[0_0_42px_rgba(6,182,212,.18),0_14px_34px_rgba(0,0,0,.5)]"
@@ -158,16 +160,16 @@
                     <img src="/logo.svg" class="h-full w-full" alt="" />
                   </div>
                 </div>
-                <div class="relative mt-4 font-brand text-xl font-medium lowercase tracking-[0.12em] text-content">stimma</div>
-                <h1 class="relative mt-5 text-3xl font-semibold tracking-tight text-content">Welcome to Stimma</h1>
-                <p class="relative mt-2 text-sm text-content-secondary">Stimma is ready.</p>
+                <h1 class="relative mt-6 text-3xl font-semibold tracking-tight text-content">Welcome to Stimma</h1>
+                <p v-if="allReady" class="relative mt-2 text-sm text-content-secondary">Stimma is ready.</p>
               </div>
+              <p v-if="anyReady && !allReady" class="absolute inset-x-0 bottom-6 text-center text-xs text-content-tertiary">{{ llmReady ? 'You can add generation tools any time in Settings.' : 'You can add a chat model any time in Settings.' }}</p>
 
-              <!-- Something missing -->
+              <!-- Nothing connected -->
               <div v-else class="relative flex flex-col items-center text-center">
-                <h1 class="text-3xl font-semibold tracking-tight text-content">Setup isn’t finished</h1>
+                <h1 class="text-3xl font-semibold tracking-tight text-content">Nothing connected yet</h1>
                 <p class="mt-2 max-w-xl text-sm text-content-secondary">
-                  Creation will be limited until setup is finished.
+                  Stimma needs a chat model or a generation tool to create. Add one now, or later in Settings.
                 </p>
                 <button
                   type="button"
@@ -193,7 +195,7 @@
                 type="button"
                 :disabled="primaryBusy"
                 class="rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                :class="step === 'complete' && allReady
+                :class="step === 'complete' && anyReady
                   ? 'bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 shadow-lg shadow-cyan-500/15 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400'
                   : 'bg-accent hover:bg-accent/90 shadow-lg shadow-accent/15'"
                 @click="handlePrimaryAction"
@@ -318,7 +320,7 @@ const chatChips = [
   { label: 'vLLM', text: 'vLLM', tileClass: 'bg-[#2a3140] text-[7px] font-extrabold text-[#fcbf49]' },
   { label: '+ more', more: true },
 ]
-const genChips = [
+const genChipsBase = [
   { label: 'FLUX', svg: MODEL_MARK_SVGS.bfl },
   { label: 'Nano Banana', svg: MODEL_MARK_SVGS['nano-banana'], color: '#f9d13a' },
   { label: 'Kling', text: 'K', tileClass: 'border border-edge-strong bg-black text-[10px] font-extrabold text-[#00e676]' },
@@ -334,6 +336,10 @@ const genChips = [
   { label: 'Grok Imagine', svg: MODEL_MARK_SVGS.grok },
   { label: '+ dozens more', more: true },
 ]
+// Draw Things ships inside the macOS app: lead with "on this Mac" there.
+const genChips = computed(() => (settings.value?.available_sidecars || []).includes('drawthings')
+  ? [{ label: 'Draw Things · on this Mac', img: '/drawthings.png' }, ...genChipsBase]
+  : genChipsBase)
 
 const WizardBrandChip = defineComponent({
   props: { chip: { type: Object, required: true }, side: { type: String, default: 'chat' } },
@@ -342,7 +348,9 @@ const WizardBrandChip = defineComponent({
       if (props.chip.more) {
         return h('span', { class: 'rounded-lg border border-dashed border-edge px-2.5 py-1 text-[11px] text-content-tertiary' }, props.chip.label)
       }
-      const tile = props.chip.svg
+      const tile = props.chip.img
+        ? h('img', { src: props.chip.img, alt: '', draggable: false, class: 'h-5 w-5 shrink-0 rounded-[5px] object-cover' })
+        : props.chip.svg
         ? h('span', {
             class: 'flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-overlay-subtle [&_svg]:h-[13px] [&_svg]:w-[13px]',
             style: props.chip.color ? { color: props.chip.color } : { color: '#e8eaf0' },
@@ -376,12 +384,13 @@ const pendingToolProviderWrites = new Set()
 const llmReady = computed(() => Boolean(readiness.value?.has_agent_llm))
 const generationReady = computed(() => Boolean(readiness.value?.has_generation))
 const allReady = computed(() => llmReady.value && generationReady.value)
+const anyReady = computed(() => llmReady.value || generationReady.value)
 const primaryActionLabel = computed(() => {
   if (primaryBusy.value) return 'Saving…'
   if (step.value === 'welcome') return 'Get started'
   if (step.value === 'llm' || step.value === 'generation') return 'Continue'
   if (step.value === 'folders') return 'Continue'
-  return allReady.value ? 'Start creating' : 'Start anyway'
+  return anyReady.value ? 'Start creating' : 'Start anyway'
 })
 
 async function loadWizardSettings() {
@@ -558,6 +567,7 @@ async function persistToolProviderCreate(providerConfig) {
     args: providerConfig.args,
     url: providerConfig.url,
     has_auth_token: Boolean(providerConfig.auth_token),
+    sidecar: providerConfig.sidecar,
   }
   if (settings.value) {
     settings.value = { ...settings.value, tool_providers: [...settings.value.tool_providers, temporaryProvider] }

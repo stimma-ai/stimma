@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { DEFAULT_COMFYUI_STP_URL, isComfyUIProvider, nextComfyUIIdentity, preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from './toolProviderBrands.ts'
+import { DEFAULT_COMFYUI_STP_URL, isComfyUIProvider, isDrawThingsProvider, nextComfyUIIdentity, nextDrawThingsIdentity, preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from './toolProviderBrands.ts'
 
 test('recognizes existing and guided ComfyUI providers', () => {
   assert.equal(isComfyUIProvider({ id: 'comfyui', name: 'ComfyUI' }), true)
@@ -41,4 +41,16 @@ test('does not regress an optimistic connection during an intermediate refresh',
     )[0].status,
     'error',
   )
+})
+
+test('identifies the bundled Draw Things engine by its sidecar, never by name', () => {
+  assert.equal(isDrawThingsProvider({ id: 'drawthings', name: 'Draw Things', sidecar: 'drawthings' }), true)
+  assert.equal(isDrawThingsProvider({ id: 'drawthings', name: 'Draw Things' }), false)
+  assert.equal(isDrawThingsProvider({ id: 'mine', name: 'Draw Things', sidecar: null }), false)
+  assert.equal(isDrawThingsProvider(null), false)
+})
+
+test('assigns a stable id for the bundled engine', () => {
+  assert.deepEqual(nextDrawThingsIdentity([]), { id: 'drawthings', name: 'Draw Things' })
+  assert.deepEqual(nextDrawThingsIdentity([{ id: 'drawthings' }]), { id: 'drawthings-2', name: 'Draw Things 2' })
 })

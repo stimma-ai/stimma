@@ -55,6 +55,46 @@
       </button>
 
       <button
+        v-if="drawThingsAvailable && drawThingsProviders.length === 0"
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        @click="openDrawThingsSetup"
+      >
+        <ToolProviderBrandIcon kind="drawthings" />
+        <div class="min-w-0 flex-1">
+          <div class="text-[13px] text-content">Draw Things</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Generate images and video on this Mac. Free and private.</div>
+        </div>
+        <div class="min-w-20 shrink-0 text-right text-xs text-accent-hi">Configure</div>
+        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        v-for="provider in drawThingsProviders"
+        :key="provider.id"
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
+        @click="openProviderDetails(provider.id)"
+      >
+        <ToolProviderBrandIcon :provider="provider" />
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Draw Things · on this Mac</div>
+        </div>
+        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
+          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
+          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
+          {{ providerStatusLabel(provider) }}
+        </div>
+        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
         v-if="comfyProviders.length === 0"
         type="button"
         class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
@@ -214,6 +254,8 @@
           <p class="truncate text-xs text-content-tertiary">
             {{ selectedProvider.id === 'stimma-cloud'
               ? 'Hosted generation tools'
+              : isDrawThingsProvider(selectedProvider)
+                ? 'Image and video generation on this Mac'
               : isComfyUIProvider(selectedProvider)
                 ? 'Local generation tools'
                 : getProviderTypeLabel(selectedProvider.type) }}
@@ -262,6 +304,10 @@
           </div>
         </div>
       </template>
+
+      <div v-else-if="isDrawThingsProvider(selectedProvider)" class="max-w-2xl space-y-5">
+        <p class="text-sm leading-6 text-content-tertiary">Runs the Draw Things engine on this Mac. Nothing leaves your computer. Download models and follow activity from the Draw Things button in the top bar.</p>
+      </div>
 
       <div v-else-if="isComfyUIProvider(selectedProvider)" class="max-w-2xl space-y-5">
         <div>
@@ -409,14 +455,58 @@
         <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to Generation Tools" @click="closeModal">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
         </button>
-        <ToolProviderBrandIcon :kind="addMode === 'comfy' ? 'comfyui' : 'custom'" />
+        <ToolProviderBrandIcon :kind="addMode === 'comfy' ? 'comfyui' : addMode === 'drawthings' ? 'drawthings' : 'custom'" />
         <div>
-          <h3 class="text-xs font-semibold text-content-secondary">{{ addMode === 'comfy' ? 'Set up ComfyUI' : 'Add Provider' }}</h3>
-          <p class="text-xs text-content-tertiary">{{ addMode === 'comfy' ? 'Run generation tools on your own computer.' : 'For STP servers you’re developing or running yourself.' }}</p>
+          <h3 class="text-xs font-semibold text-content-secondary">{{ addMode === 'comfy' ? 'Set up ComfyUI' : addMode === 'drawthings' ? 'Set up Draw Things' : 'Add Provider' }}</h3>
+          <p class="text-xs text-content-tertiary">{{ addMode === 'comfy' ? 'Run generation tools on your own computer.' : addMode === 'drawthings' ? 'Generate images and video on this Mac.' : 'For STP servers you’re developing or running yourself.' }}</p>
         </div>
       </div>
 
-      <template v-if="addMode === 'comfy'">
+      <template v-if="addMode === 'drawthings'">
+        <div class="space-y-5">
+          <p class="text-sm leading-6 text-content-tertiary">Stimma works with Draw Things, the open-source generation engine for Apple silicon. Images and video are made on this Mac: no account, no credits, and nothing leaves your computer.</p>
+          <ul class="space-y-1.5 text-sm leading-6 text-content-tertiary">
+            <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Image models</span> such as FLUX.2 Klein, Z-Image Turbo, Qwen Image, and SDXL.</span></li>
+            <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Video models</span> such as LTX-2.3 and Wan 2.2, from text or from an image.</span></li>
+            <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Already use the Draw Things app?</span> Stimma shares its model folder, so the models you have downloaded are ready to use.</span></li>
+          </ul>
+
+          <div v-if="!drawThingsSetupProvider">
+            <button type="button" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90" @click="enableDrawThings">{{ drawThingsInstalled ? 'Enable Draw Things' : 'Install Draw Things' }}</button>
+          </div>
+          <template v-else>
+            <div class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(drawThingsSetupProvider)">
+              <Spinner v-if="isProviderConnecting(drawThingsSetupProvider)" size="sm" />
+              <ExclamationCircleIcon v-else-if="isProviderConnectionError(drawThingsSetupProvider)" class="h-4 w-4" />
+              <span v-else-if="providerStatusDotClass(drawThingsSetupProvider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(drawThingsSetupProvider)"></span>
+              {{ drawThingsSetupStatusLabel }}
+            </div>
+            <div v-if="isProviderConnectionError(drawThingsSetupProvider) && drawThingsSetupProvider.error_message" class="flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
+              <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
+              </svg>
+              <p class="min-w-0 text-xs leading-5 text-content-secondary">{{ drawThingsSetupProvider.error_message }}</p>
+            </div>
+            <template v-if="drawThingsSetupProvider.status === 'connected'">
+              <div v-if="drawThingsEngine.state === 'starting'" class="max-w-xl">
+                <div class="flex items-center justify-between gap-4 text-xs text-content-secondary">
+                  <span class="truncate">{{ drawThingsEngine.detail || 'Setting up the Draw Things engine…' }}</span>
+                  <span v-if="drawThingsEngine.progress != null" class="shrink-0 font-mono tabular-nums">{{ Math.round(drawThingsEngine.progress * 100) }}%</span>
+                </div>
+                <div class="mt-2 h-1 overflow-hidden rounded-full bg-overlay-light">
+                  <div class="h-full rounded-full bg-accent transition-[width] duration-300" :style="{ width: `${Math.round((drawThingsEngine.progress || 0) * 100)}%` }"></div>
+                </div>
+              </div>
+              <div v-else-if="drawThingsEngine.state === 'failed'" class="flex items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
+                <p class="min-w-0 text-xs leading-5 text-content-secondary">{{ drawThingsEngine.detail }}</p>
+                <button type="button" class="shrink-0 text-xs font-medium text-accent-hi hover:text-accent" @click="startDrawThingsEngine">Retry</button>
+              </div>
+            </template>
+          </template>
+        </div>
+      </template>
+
+      <template v-else-if="addMode === 'comfy'">
         <div class="space-y-1">
           <div class="flex gap-4 py-3">
             <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent-hi">1</span>
@@ -518,6 +608,13 @@
           class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
           @click="finishComfySetup"
         >Done</button>
+        <button
+          v-else-if="addMode === 'drawthings' && !wizard && drawThingsSetupProvider"
+          type="button"
+          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          @click="showModal = false"
+        >Done</button>
+        <template v-else-if="addMode === 'drawthings'"></template>
         <template v-else>
           <button type="button" :disabled="!canTest || testing" class="bg-surface-raised px-4 py-2 text-sm font-medium text-content hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50" @click="testConnection">{{ testing ? 'Testing…' : 'Test connection' }}</button>
           <button type="button" :disabled="!canSave || saving" class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
@@ -836,7 +933,7 @@ import { addToast } from '../../../composables/useToasts'
 import { devModeRef } from '../../../appConfig'
 import { formatTaskTypeLabel } from '../../../utils/taskTypeIcons'
 import { STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../../../utils/stimmaCloud'
-import { DEFAULT_COMFYUI_STP_URL, isComfyUIProvider, nextComfyUIIdentity } from '../../../utils/toolProviderBrands'
+import { DEFAULT_COMFYUI_STP_URL, DRAWTHINGS_SIDECAR, isComfyUIProvider, isDrawThingsProvider, nextComfyUIIdentity, nextDrawThingsIdentity } from '../../../utils/toolProviderBrands'
 import { formatToolProviderConnectionError } from '../../../utils/toolProviderErrors'
 import ToolProviderBrandIcon from '../../tools/ToolProviderBrandIcon.vue'
 
@@ -848,6 +945,16 @@ const props = defineProps({
   setupRequired: {
     type: Boolean,
     default: false
+  },
+  // Bundled local engines this build can launch (backend available_sidecars).
+  availableSidecars: {
+    type: Array,
+    default: () => []
+  },
+  // Sidecars whose engine runtime is already on this machine (no install step).
+  installedSidecars: {
+    type: Array,
+    default: () => []
   },
   // Setup-wizard variant: no section header/description/banner; rows and
   // connect flows are unchanged.
@@ -943,7 +1050,13 @@ const cloudRowStatusDot = computed(() => {
 
 const configurableProviders = computed(() => props.providers.filter(provider => provider.id !== 'stimma-cloud'))
 const comfyProviders = computed(() => configurableProviders.value.filter(isComfyUIProvider))
-const customProviders = computed(() => configurableProviders.value.filter(provider => !isComfyUIProvider(provider)))
+const drawThingsProviders = computed(() => configurableProviders.value.filter(isDrawThingsProvider))
+const drawThingsAvailable = computed(() => props.availableSidecars.includes(DRAWTHINGS_SIDECAR))
+const drawThingsInstalled = computed(() => props.installedSidecars.includes(DRAWTHINGS_SIDECAR))
+// True while the engine is being fetched/started after enabling; the wizard
+// holds its "all set" banner until this clears.
+const settingUp = computed(() => !!drawThingsSetupProvider.value && drawThingsEngine.value.state !== 'ready')
+const customProviders = computed(() => configurableProviders.value.filter(provider => !isComfyUIProvider(provider) && !isDrawThingsProvider(provider)))
 const stimmaProviderDescription = computed(() => {
   if (!isAuthenticated.value) return 'A complete toolkit powered by one pool of credits.'
   return 'Over 50 hosted image, video, and audio tools'
@@ -983,6 +1096,9 @@ const testResult = ref(null)
 // the provider itself (the backend connects and retries asynchronously).
 const comfyCreatedId = ref(null)
 const comfyDirty = ref(false)
+// Draw Things setup screen: created on "Enable"; status and the embedded
+// manager render live from the provider itself.
+const drawThingsCreatedId = ref(null)
 const addModalRef = ref(null)
 const logsContentRef = ref(null)
 const nameInputRef = ref(null)
@@ -1080,6 +1196,79 @@ const comfySetupStatusLabel = computed(() => {
   return providerConnectionStatus(provider)
 })
 
+const drawThingsSetupProvider = computed(() => {
+  if (!drawThingsCreatedId.value) return null
+  return props.providers.find(provider => provider.id === drawThingsCreatedId.value) || null
+})
+const drawThingsSetupStatusLabel = computed(() => {
+  const provider = drawThingsSetupProvider.value
+  if (!provider) return ''
+  if (provider.status === 'connected') {
+    if (drawThingsEngine.value.state === 'ready') return 'Draw Things is ready'
+    return drawThingsInstalled.value ? 'Starting Draw Things…' : 'Installing Draw Things…'
+  }
+  if (isProviderConnecting(provider)) return 'Starting Draw Things…'
+  return providerConnectionStatus(provider)
+})
+
+// Engine setup: the adapter connects at once, but its generation engine is
+// fetched and started on first use. Enabling kicks that off immediately so
+// the setup screen shows the real work (download, then start) instead of a
+// premature "ready". State comes from the adapter's manager API via the
+// backend proxy: 'idle' | 'starting' | 'ready' | 'failed'.
+const drawThingsEngine = ref({ state: 'idle', detail: '', progress: null })
+let drawThingsEngineTimer = null
+let drawThingsEngineKicked = false
+
+async function drawThingsManage(path, body) {
+  const id = drawThingsSetupProvider.value?.id
+  if (!id) return null
+  const response = await fetch(`/api/provider-manage/${encodeURIComponent(id)}/api/${path}`, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { cache: 'no-store' })
+  if (!response.ok) {
+    const err = new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`)
+    err.status = response.status
+    throw err
+  }
+  return response.json()
+}
+
+async function startDrawThingsEngine() {
+  drawThingsEngine.value = { state: 'starting', detail: '', progress: null }
+  try { await drawThingsManage('action', { action: 'start' }) }
+  catch (e) { if (e.status !== 409) drawThingsEngine.value = { state: 'failed', detail: e.message, progress: null } }
+}
+
+async function pollDrawThingsEngine() {
+  if (drawThingsSetupProvider.value?.status !== 'connected') return
+  let overview
+  try { overview = await drawThingsManage('overview') } catch { return }
+  if (!overview) return
+  if (overview.engine?.online) {
+    drawThingsEngine.value = { state: 'ready', detail: '', progress: null }
+    return
+  }
+  const op = (overview.activity || []).find(a => a.kind === 'engine')
+  if (op?.state === 'running') {
+    drawThingsEngine.value = { state: 'starting', detail: op.detail, progress: op.progress }
+  } else if (op?.state === 'failed') {
+    drawThingsEngine.value = { state: 'failed', detail: op.detail || 'The engine did not start', progress: null }
+  } else if (!drawThingsEngineKicked) {
+    drawThingsEngineKicked = true
+    await startDrawThingsEngine()
+  }
+}
+
+watch(() => [drawThingsSetupProvider.value?.id, drawThingsSetupProvider.value?.status], ([id, status]) => {
+  clearInterval(drawThingsEngineTimer)
+  drawThingsEngineTimer = null
+  if (!id) { drawThingsEngine.value = { state: 'idle', detail: '', progress: null }; drawThingsEngineKicked = false; return }
+  if (status !== 'connected') return
+  pollDrawThingsEngine()
+  drawThingsEngineTimer = setInterval(pollDrawThingsEngine, 1500)
+}, { immediate: true })
+onUnmounted(() => clearInterval(drawThingsEngineTimer))
 const comfySetupError = computed(() => formatToolProviderConnectionError(
   comfySetupProvider.value?.error_message,
   comfySetupProvider.value?.url,
@@ -1660,6 +1849,21 @@ function openComfySetup() {
   showModal.value = true
 }
 
+function openDrawThingsSetup() {
+  closeProviderDetails()
+  addMode.value = 'drawthings'
+  testResult.value = null
+  drawThingsCreatedId.value = drawThingsProviders.value[0]?.id || null
+  showModal.value = true
+}
+
+function enableDrawThings() {
+  if (drawThingsSetupProvider.value) return
+  const identity = nextDrawThingsIdentity(props.providers)
+  emit('create', { id: identity.id, name: identity.name, type: 'websocket', sidecar: DRAWTHINGS_SIDECAR })
+  drawThingsCreatedId.value = identity.id
+}
+
 function closeModal() {
   // Leaving the ComfyUI setup screen must never lose typed work (Escape while
   // the URL field is still focused skips the blur commit).
@@ -1683,7 +1887,7 @@ function handleEscape() {
   return false
 }
 
-defineExpose({ handleEscape, commitWizardStep })
+defineExpose({ handleEscape, commitWizardStep, settingUp })
 
 // Logs modal functions
 async function openLogsModal(provider) {
