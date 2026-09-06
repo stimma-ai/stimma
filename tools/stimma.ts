@@ -2102,9 +2102,16 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
     console.log("\n[dev all] Received SIGTERM; stopping dev stack...");
     void shutdown(143);
   };
+  const handleSighup = () => {
+    console.log("\n[dev all] Terminal closed (SIGHUP); stopping dev stack...");
+    void shutdown(129);
+  };
 
   Deno.addSignalListener("SIGINT", handleSigint);
   Deno.addSignalListener("SIGTERM", handleSigterm);
+  if (Deno.build.os !== "windows") {
+    Deno.addSignalListener("SIGHUP", handleSighup);
+  }
 
   console.log(`Starting Stimma dev stack (bundle=${bundleId}, sandbox=${sandbox}, backend=:${ports.server}, frontend=:${ports.frontend})`);
   if (runtimeEnv.STIMMA_DISTRIBUTION === "official") {
@@ -2157,6 +2164,9 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
     try {
       Deno.removeSignalListener("SIGINT", handleSigint);
       Deno.removeSignalListener("SIGTERM", handleSigterm);
+      if (Deno.build.os !== "windows") {
+        Deno.removeSignalListener("SIGHUP", handleSighup);
+      }
     } catch {
       // Ignore cleanup failures while exiting.
     }
