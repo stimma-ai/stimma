@@ -67,6 +67,9 @@
         <ComfyUIIcon v-if="isComfy(p)" class="w-6 h-6 text-content-muted" />
         <div class="text-sm text-content">{{ p.provider_name }} · {{ p.status === 'connecting' ? 'connecting' : 'not connected' }}</div>
       </div>
+      <div v-else-if="isMobileShell()" class="flex-1 flex items-center justify-center p-6 text-sm text-content-secondary text-center">
+        Manage this provider from Stimma on your computer.
+      </div>
       <iframe
         v-else
         :ref="setFrame"
@@ -91,6 +94,7 @@ import { useTheme } from '../composables/useTheme'
 import { useViewport } from '../composables/useViewport'
 import { useToasts } from '../composables/useToasts'
 import { getApiBase } from '../apiConfig'
+import { isMobileShell } from '../desktop/mobileBridge'
 import { isComfyUIProvider } from '../utils/toolProviderBrands'
 import { makeGlobalKey } from '../utils/storageKeys'
 import ComfyUIIcon from './tools/ComfyUIIcon.vue'

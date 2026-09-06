@@ -138,6 +138,7 @@ from routes import (
     markers,
     media,
     multi_device as multi_device_routes,
+    mobile_ui,
     media_files,
     models,
     postprocessing,
@@ -187,6 +188,7 @@ app.include_router(media.router)
 app.include_router(models.router)
 app.include_router(markers.router)
 app.include_router(multi_device_routes.router)
+app.include_router(mobile_ui.router)
 app.include_router(tags.router)
 app.include_router(trash.router)
 app.include_router(keywords.router)

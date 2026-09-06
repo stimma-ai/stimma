@@ -20,7 +20,7 @@ import { clearCachedPin, hasCachedPin } from '../../composables/usePinLock'
 import { useFeedback } from '../../composables/useFeedback'
 import { usePrivacyLockdown } from '../../composables/usePrivacyLockdown'
 import { useTelemetry } from '../../composables/useTelemetry'
-import { isDesktop } from '../../desktop'
+import { desktop, isDesktop } from '../../desktop'
 import { isOfficialBuild } from '../../distribution'
 
 defineProps<{ show: boolean }>()
@@ -142,7 +142,7 @@ function sendFeedback() {
   <Sheet :show="serverOpen" title="Server" @close="serverOpen = false">
     <div class="pb-2">
       <template v-if="isDesktop()">
-        <button type="button" class="sheet-row" @click="pickServer(md.LOCAL_DEVICE)">
+        <button v-if="desktop.kind !== 'ios'" type="button" class="sheet-row" @click="pickServer(md.LOCAL_DEVICE)">
           <span class="w-2 h-2 rounded-full flex-shrink-0" :class="md.selfServing.value ? 'bg-accent-hi' : 'bg-content-muted'"></span>
           <span class="flex-1 min-w-0">
             <span class="block truncate text-content">{{ THIS_MACHINE_LABEL }}</span>

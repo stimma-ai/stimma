@@ -32,6 +32,7 @@ PROFILE_EXEMPT_EXACT = [
     "/",               # Root health check (exact match)
 ]
 PROFILE_EXEMPT_PREFIXES = [
+    "/api/mobile-ui/",  # UI package loads before selecting a profile
     "/api/profiles",   # Profile listing and management
     "/api/admin",      # Admin operations
     "/api/auth",       # Authentication (before profile selected)

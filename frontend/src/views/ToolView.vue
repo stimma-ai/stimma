@@ -224,7 +224,7 @@
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
               class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md compact:hidden"
               :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
-              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
+              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Controls primary'"
             >
               <PhotoIcon class="w-5 h-5" />
             </button>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { browserBridge } from './browserBridge.ts'
+import { mobileBridge, isMobileShell, revealMobileInterface } from './mobileBridge.ts'
 import { tauriBridge } from './tauriBridge.ts'
 
 // The full bridge contract. Every implementation must expose exactly these
@@ -67,6 +68,7 @@ const CONTRACT_METHODS = [
 const IMPLEMENTATIONS = [
   ['browser', browserBridge],
   ['tauri', tauriBridge],
+  ['ios', mobileBridge],
 ] as const
 
 for (const [name, bridge] of IMPLEMENTATIONS) {
@@ -125,4 +127,69 @@ test('browser bridge desktop-only operations reject rather than pretend', async 
   await assert.rejects(browserBridge.startNativeDrag(['/tmp/x']))
   await assert.rejects(browserBridge.voiceStart(() => {}))
   await assert.rejects(browserBridge.voiceDownloadModel(() => {}))
+})
+
+
+test('mobile account operations never reach the remote backend', async (t) => {
+  const calls: unknown[] = []
+  const target = new EventTarget()
+  const auth = { ok: true, status: 200, data: { authenticated: true } }
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('Unexpected remote auth request') })
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  t.after(() => {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+  })
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    location: { port: '9876' },
+    webkit: { messageHandlers: { stimma: { async postMessage(message: { method: string }) {
+      calls.push(message)
+      return message.method === 'authStatus' ? auth : null
+    } } } },
+    addEventListener: target.addEventListener.bind(target),
+    removeEventListener: target.removeEventListener.bind(target),
+  } })
+  assert.equal(isMobileShell(), true)
+  assert.equal(await mobileBridge.getBackendPort(), 9876)
+  assert.deepEqual(await mobileBridge.authLocal('GET', '/auth/status'), auth)
+  await mobileBridge.authLocal('POST', '/auth/logout')
+  const result = await mobileBridge.authLocal('POST', '/auth/unknown')
+  assert.equal(result.ok, false)
+  assert.deepEqual(calls, [{ method: 'authStatus', args: {} }, { method: 'logout', args: {} }])
+  await assert.rejects(mobileBridge.openProfileWindow('profile'))
+  await assert.rejects(mobileBridge.mdSetLocalServing(true))
+  assert.equal(await mobileBridge.checkForUpdate(), null)
+  const transitions: string[] = []
+  const unsubscribe = mobileBridge.mdOnConnectionState(state => transitions.push(state))
+  target.dispatchEvent(new CustomEvent('stimma:connection-state', { detail: 'unreachable' }))
+  target.dispatchEvent(new CustomEvent('stimma:connection-state', { detail: 'invalid' }))
+  unsubscribe()
+  target.dispatchEvent(new CustomEvent('stimma:connection-state', { detail: 'ready' }))
+  assert.deepEqual(transitions, ['unreachable'])
+  await assert.rejects(mobileBridge.openExternal('file:///private/file'))
+})
+
+test('mobile loading cover waits for a rendered frame before revealing the app', async (t) => {
+  const calls: string[] = []
+  const frames: FrameRequestCallback[] = []
+  for (const key of ['window', 'requestAnimationFrame']) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key)
+    t.after(() => {
+      if (previous) Object.defineProperty(globalThis, key, previous)
+      else Reflect.deleteProperty(globalThis, key)
+    })
+  }
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    webkit: { messageHandlers: { stimma: { async postMessage(message: { method: string }) {
+      calls.push(message.method)
+    } } } },
+  } })
+  Object.defineProperty(globalThis, 'requestAnimationFrame', { configurable: true, value: (callback: FrameRequestCallback) => frames.push(callback) })
+  const ready = revealMobileInterface()
+  assert.deepEqual(calls, [])
+  frames.shift()!(0)
+  assert.deepEqual(calls, [])
+  frames.shift()!(16)
+  await ready
+  assert.deepEqual(calls, ['interfaceReady'])
 })

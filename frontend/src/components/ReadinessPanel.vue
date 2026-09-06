@@ -160,14 +160,14 @@
                 </div>
                 <div class="relative mt-4 font-brand text-xl font-medium lowercase tracking-[0.12em] text-content">stimma</div>
                 <h1 class="relative mt-5 text-3xl font-semibold tracking-tight text-content">Welcome to Stimma</h1>
-                <p class="relative mt-2 text-sm text-content-secondary">Your workshop is ready.</p>
+                <p class="relative mt-2 text-sm text-content-secondary">Stimma is ready.</p>
               </div>
 
               <!-- Something missing -->
               <div v-else class="relative flex flex-col items-center text-center">
                 <h1 class="text-3xl font-semibold tracking-tight text-content">Setup isn’t finished</h1>
                 <p class="mt-2 max-w-xl text-sm text-content-secondary">
-                  Your workshop isn’t fully equipped. Creation will be limited until setup is finished.
+                  Creation will be limited until setup is finished.
                 </p>
                 <button
                   type="button"

@@ -9,6 +9,7 @@
 
 import type { DesktopBridge, DesktopKind } from './types'
 import { browserBridge } from './browserBridge'
+import { isMobileShell, mobileBridge } from './mobileBridge'
 import { isTauriShell, tauriBridge } from './tauriBridge'
 
 export type { DesktopBridge, DesktopKind, DesktopUpdate } from './types'
@@ -20,6 +21,7 @@ function detectBridge(): DesktopBridge {
     // directly; methods proxy to ipcRenderer.invoke in the preload script.
     return (window as any).stimmaDesktop as DesktopBridge
   }
+  if (isMobileShell()) return mobileBridge
   if (isTauriShell()) {
     return tauriBridge
   }
@@ -29,7 +31,7 @@ function detectBridge(): DesktopBridge {
 /** The active desktop bridge for this window. */
 export const desktop: DesktopBridge = detectBridge()
 
-/** True when running inside a native desktop shell (Tauri or Electron). */
+/** True when running inside a native shell (iOS, Tauri, or Electron). */
 export function isDesktop(): boolean {
   return desktop.kind !== 'browser'
 }

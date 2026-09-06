@@ -184,3 +184,13 @@ dist-headless/
 
 # Phone lane screenshots (CI artifact, regenerated every run)
 frontend/acceptance/phone-shots/
+
+# Native mobile generated artifacts and local signing state
+mobile/ios/.build/
+mobile/ios/Frontend/
+mobile/ios/StimmaMobile.xcodeproj/
+**/xcuserdata/
+
+# Built server UI packages and shell-only frontend
+backend/mobile-ui/
+frontend/dist-mobile/

@@ -571,6 +571,7 @@ Commands:
                       audit for overflow + hit targets, screenshot per route
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   headless package|image|test|smoke|publish  Build and verify the headless distribution
+  mobile ios package|build|run|device|test|test-ui|doctor|screenshot  Build, run, and sign the iOS shell
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
   oss             Regenerate ATTRIBUTION.md dependency tables from the current
@@ -1353,13 +1354,13 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   const target = await detectTargetTriple();
   const ext = Deno.build.os === "windows" ? ".exe" : "";
 
+  console.log("Building server UI package");
+  await run("python3", [join(repoRoot, "tools", "mobile.py"), "ios", "package"]);
+
   console.log("Building portable backend");
   await buildPortableBackend(target);
   await buildWatchdog(target);
   const nativeHelper = await buildStimmaNative();
-
-  console.log("Building frontend");
-  await run("npm", ["run", "build"], { cwd: join(repoRoot, "frontend") });
 
   console.log("Building Electron shell");
   await ensureElectronDeps();
@@ -2235,6 +2236,10 @@ async function main(): Promise<void> {
   const rest = args.slice(2);
 
   switch (command) {
+    case "mobile": {
+      await run("python3", [join(repoRoot, "tools", "mobile.py"), ...args.slice(1)]);
+      break;
+    }
     case "headless": {
       await run("python3", [join(repoRoot, "tools", "headless.py"), ...args.slice(1)]);
       break;

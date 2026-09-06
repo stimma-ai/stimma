@@ -34,8 +34,6 @@ def main():
     with tempfile.TemporaryDirectory(prefix='stimma-headless-smoke-') as tmp:
         root = Path(tmp)
         os.chmod(root, 0o755)
-        data = root / 'data'
-        data.mkdir()
         cert = root / 'cert.pem'
         key = root / 'tls.key'
         run('openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(key), '-out', str(cert),
@@ -77,10 +75,35 @@ def main():
             probe.bind(('127.0.0.1', 0))
             port = str(probe.getsockname()[1])
         name = 'stimma-headless-smoke-' + str(os.getpid())
+        # Keep Unix control sockets on the Linux filesystem, including when
+        # smoke runs against Docker Desktop's macOS shared directories.
+        volume = name + '-data'
         def docker(*command):
             return run('docker', *command, capture_output=True).stdout.strip()
         def status():
             return json.loads(docker('exec', name, 'stimma-server', 'status'))
+        def check_ui_package():
+            # Exercise the packaged routes from the container's loopback interface;
+            # no account credentials or external cloud service are needed.
+            script = '''
+import hashlib, io, json, os, tarfile, urllib.request
+base = 'http://127.0.0.1:' + os.environ['STIMMA_LOCAL_PORT']
+with urllib.request.urlopen(base + '/api/mobile-ui/manifest', timeout=10) as response:
+    manifest = json.load(response)
+assert manifest['formatVersion'] == manifest['bridgeVersion'] == manifest['apiVersion'] == 1
+assert manifest['entrypoint'] == 'index.html'
+with urllib.request.urlopen(base + '/api/mobile-ui/packages/' + manifest['hash'] + '.tar.gz', timeout=10) as response:
+    archive = response.read()
+assert len(archive) == manifest['bytes']
+assert hashlib.sha256(archive).hexdigest() == manifest['hash']
+with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
+    members = package.getmembers()
+    names = [member.name for member in members]
+    assert 'index.html' in names and 'mobile.html' not in names
+    assert any(name.endswith('.js') for name in names)
+    assert sum(member.size for member in members) == manifest['unpackedBytes']
+'''
+            docker('exec', name, 'python3', '-c', script)
         def wait(version):
             deadline = time.monotonic() + 240
             while time.monotonic() < deadline:
@@ -96,17 +119,20 @@ def main():
                 time.sleep(2)
             raise RuntimeError('Container did not become ready')
         try:
-            docker('run', '-d', '--name', name, '--network', 'host', '-v', f'{data}:/data',
+            docker('volume', 'create', volume)
+            docker('run', '-d', '--name', name, '--network', 'host', '-v', f'{volume}:/data',
                    '-v', f'{root}/test.pub:/opt/stimma/updater.pub:ro', '-v', f'{cert}:/opt/stimma/test-ca.pem:ro',
                    '-e', 'SSL_CERT_FILE=/opt/stimma/test-ca.pem', '-e', f'STIMMA_UPDATE_BASE_URL={base}',
                    '-e', f'STIMMA_CLOUD_BASE_URL={base}', '-e', f'STIMMA_LOCAL_PORT={port}', '-e', f"BRANCH={manifest['branch']}", image)
             state = wait('0.0.0-smoke.1')
-            assert state['bootstrapVersion'] == '1.0.0'
+            assert state['bootstrapVersion'] == (ROOT / 'packaging/headless/VERSION').read_text().strip()
+            check_ui_package()
             docker('exec', name, 'bash', '-c', 'ffmpeg -version >/dev/null && python3 --version && git --version && rg --version && jq --version')
             image_id = docker('inspect', name, '--format', '{{.Image}}')
             publish('0.0.0-smoke.2')
             docker('exec', name, 'stimma-server', 'update')
             wait('0.0.0-smoke.2')
+            check_ui_package()
             assert docker('inspect', name, '--format', '{{.Image}}') == image_id
             docker('exec', name, 'stimma-server', 'restart')
             time.sleep(5)
@@ -120,13 +146,17 @@ def main():
             server.server_close()
             docker('restart', '--time', '120', name)
             wait('0.0.0-smoke.2')
-            print('PASS: signed real-package startup, unchanged-image update, restart, base requirement, cached offline boot')
+            check_ui_package()
+            print('PASS: signed real-package startup, UI package integrity, unchanged-image update, restart, base requirement, cached offline boot')
         except Exception:
-            logs = docker('logs', '--tail', '100', name)
-            print(logs)
+            print(docker('inspect', name, '--format', '{{json .State}}'))
+            logs = run('docker', 'logs', '--tail', '100', name, capture_output=True)
+            print(logs.stdout)
+            print(logs.stderr)
             raise
         finally:
             subprocess.run(['docker', 'rm', '-f', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(['docker', 'volume', 'rm', volume], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             server.shutdown()
             server.server_close()
 

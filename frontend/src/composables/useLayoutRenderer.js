@@ -1,5 +1,6 @@
 import { domToPng } from 'modern-screenshot'
 import { useWebSocket } from './useWebSocket'
+import { isMobileShell } from '../desktop/mobileBridge'
 
 /**
  * Layout rendering RPC handler.
@@ -125,6 +126,8 @@ async function _renderOne({ html, width, height, dpr, assets, deadlineMs }) {
 
   // 3. Build iframe
   const iframe = document.createElement('iframe')
+  // Keep DOM access for capture while generated scripts cannot reach the shell.
+  if (isMobileShell()) iframe.setAttribute('sandbox', 'allow-same-origin')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.setAttribute('tabindex', '-1')
   iframe.style.cssText = [

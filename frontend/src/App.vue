@@ -277,6 +277,8 @@ import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
+import { desktop } from './desktop'
+import { revealMobileInterface } from './desktop/mobileBridge'
 import { useMultiDevice } from './composables/useMultiDevice'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
 import {
@@ -1015,7 +1017,9 @@ async function checkStartupPin() {
       // an existing one over to this install before the gate, or the first
       // switch to another server would ask for it a second time.
       if (startupReady) adoptLegacyAcceptance(onboarded)
-      if (startupReady && !onboarded) {
+      // The native phone shell has already authenticated and selected a
+      // configured server. Fresh web storage does not mean a fresh install.
+      if (desktop.kind !== 'ios' && startupReady && !onboarded) {
         await router.replace({ name: 'onboarding' })
         return
       }
@@ -1032,6 +1036,8 @@ async function checkStartupPin() {
     // startup already reflects a device that turned out to be unreachable.
     await initMultiDevice()
     startupPending.value = false
+    await nextTick()
+    void revealMobileInterface()
     if (isLocked.value) {
       await nextTick()
       lockScreenPinInput.value?.focus()
