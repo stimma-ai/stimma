@@ -1,16 +1,21 @@
 <template>
-  <div class="flex h-full flex-col bg-base">
-    <!-- Header (matches the boards/chats landing treatment) -->
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:px-3 compact:py-2">
-      <div class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Stimpacks</h1>
-        <p class="text-sm text-content-tertiary compact:hidden">Stimpacks extend Stimma with new skills and capabilities.</p>
+  <div
+    @dragover.prevent="isDragging = true"
+    @dragleave.prevent="isDragging = false"
+    @drop.prevent="handleDrop"
+  >
+    <div class="mb-3 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h3 class="text-xs font-semibold text-content-secondary">Stimpacks</h3>
+        <p class="mt-1 max-w-xl text-xs text-content-tertiary">
+          Stimpacks extend Stimma with new skills and capabilities. Drop a .md or .zip file here to install one.
+        </p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex shrink-0 items-center gap-1">
         <button
           v-if="canOpenFolder"
           @click="openStimpacksFolder"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
           title="Open the profile's stimpacks folder — packs dropped or edited here load live"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -20,7 +25,7 @@
         </button>
         <button
           @click="showCatalog = true"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs text-accent transition-colors hover:bg-accent/10"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -31,37 +36,32 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="py-20 text-center text-content-muted">
-      <div class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-content-secondary"></div>
+    <div v-if="loading" class="flex justify-center py-12">
+      <div class="h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-content-secondary"></div>
     </div>
 
     <!-- Drag-drop zone + stimpack list -->
-    <div
-      v-else
-      class="flex-1 overflow-y-auto px-6 pb-6"
-      @dragover.prevent="isDragging = true"
-      @dragleave.prevent="isDragging = false"
-      @drop.prevent="handleDrop"
-    >
+    <div v-else>
       <!-- Drag overlay -->
       <div
         v-if="isDragging"
-        class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 py-12"
+        class="flex items-center justify-center rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 py-12"
       >
         <p class="text-sm text-accent">Drop .md or .zip file to install stimpack</p>
       </div>
 
       <!-- Installed stimpacks grid -->
       <template v-else>
-        <div v-if="stimpacks.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5 pt-6">
+        <div v-if="stimpacks.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2.5">
           <div
             v-for="stimpack in stimpacks"
             :key="stimpack.name"
-            class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors bg-surface hover:bg-surface-raised"
+            class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors bg-overlay-faint hover:bg-overlay-subtle"
           >
-            <!-- 3-dots menu (hover-revealed) -->
+            <!-- 3-dots menu (hover-revealed; dropdown is teleported below) -->
             <div class="absolute top-2 right-2">
               <button
+                :ref="el => setMenuButtonRef(stimpack.name, el)"
                 @click.stop="toggleContextMenu(stimpack.name)"
                 class="w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
                 :class="openContextMenu === stimpack.name ? 'opacity-100' : ''"
@@ -70,44 +70,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                 </svg>
               </button>
-              <div
-                v-if="openContextMenu === stimpack.name"
-                @mousedown.stop
-                class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[176px] py-1"
-              >
-                <div
-                  v-if="stimpack.is_dev"
-                  class="px-3 py-2 text-xs text-content-muted"
-                >
-                  Edit in dev repo
-                </div>
-                <button
-                  @click="handleValidateStimpack(stimpack)"
-                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
-                >
-                  Validate
-                </button>
-                <button
-                  v-if="stimpack.tier === 'local' && !stimpack.is_dev"
-                  @click="handlePublishStimpack(stimpack)"
-                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
-                >
-                  Publish to Marketplace
-                </button>
-                <button
-                  @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
-                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
-                >
-                  Download as Zip
-                </button>
-                <button
-                  v-if="!stimpack.is_dev"
-                  @click="handleRemoveStimpack(stimpack)"
-                  class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  Remove
-                </button>
-              </div>
             </div>
 
             <!-- Title + source -->
@@ -149,12 +111,52 @@
           </div>
         </div>
 
-        <div v-else class="flex h-64 flex-col items-center justify-center text-center">
-          <p class="mb-2 text-content-muted">No stimpacks yet</p>
-          <p class="text-sm text-content-muted">Click <strong>Add Stimpack</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
+        <div v-else class="py-8 text-center">
+          <p class="mb-2 text-content-tertiary">No stimpacks yet</p>
+          <p class="text-xs text-content-muted">Click <strong>Add Stimpack</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
         </div>
       </template>
     </div>
+
+    <!-- Stimpack menu dropdown (teleported so the modal's scroll area can't clip it) -->
+    <Teleport to="body">
+      <div
+        v-if="menuStimpack && menuPosition"
+        @mousedown.stop
+        class="fixed z-menu min-w-[176px] rounded-lg border border-edge-subtle bg-surface py-1 shadow-lg"
+        :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
+      >
+        <div v-if="menuStimpack.is_dev" class="px-3 py-2 text-xs text-content-muted">
+          Edit in dev repo
+        </div>
+        <button
+          @click.stop="handleValidateStimpack(menuStimpack)"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+        >
+          Validate
+        </button>
+        <button
+          v-if="menuStimpack.tier === 'local' && !menuStimpack.is_dev"
+          @click.stop="handlePublishStimpack(menuStimpack)"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+        >
+          Publish to Marketplace
+        </button>
+        <button
+          @click.stop="handleDownloadStimpackZip(menuStimpack); closeMenu()"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+        >
+          Download as Zip
+        </button>
+        <button
+          v-if="!menuStimpack.is_dev"
+          @click.stop="handleRemoveStimpack(menuStimpack)"
+          class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          Remove
+        </button>
+      </div>
+    </Teleport>
 
     <!-- Stimpack Library Modal -->
     <Modal
@@ -291,37 +293,83 @@
       @cancel="showPublishConfirm = false; pendingPublish = null"
     />
 
-    <!-- Validation results -->
+    <!-- Validation results: what the agent would load from this pack, plus anything that needs fixing -->
     <Modal
       :show="!!validationResult"
       size="custom"
-      custom-class="w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden"
+      custom-class="w-[560px] max-w-[90vw] max-h-[80vh] flex flex-col overflow-hidden"
       @close="validationResult = null"
     >
       <template #header>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-[13px] font-semibold text-content">Validation</span>
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <h3 class="truncate text-lg font-semibold text-content">{{ validationTarget?.display_name || validationTarget?.name }}</h3>
             <span
-              class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+              class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
               :class="validationResult?.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'"
-            >{{ validationResult?.valid ? 'Valid' : 'Invalid' }}</span>
+            >{{ validationResult?.valid ? 'Valid' : 'Needs fixes' }}</span>
           </div>
           <button
             @click="validationResult = null"
-            class="w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content transition-colors"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-content-tertiary transition-colors hover:bg-surface-raised hover:text-content"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
       </template>
 
-      <div v-if="validationResult" class="flex-1 overflow-y-auto px-5 py-4 font-mono text-xs leading-relaxed">
-        <p v-for="(line, i) in validationResult.report" :key="'r' + i" class="text-content-secondary whitespace-pre-wrap">{{ line }}</p>
-        <p v-for="(line, i) in validationResult.warnings" :key="'w' + i" class="text-amber-400 whitespace-pre-wrap mt-1">warning: {{ line }}</p>
-        <p v-for="(line, i) in validationResult.errors" :key="'e' + i" class="text-red-400 whitespace-pre-wrap mt-1">error: {{ line }}</p>
+      <div v-if="validationResult" class="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+        <section v-if="validationResult.errors.length">
+          <h4 class="text-xs font-semibold text-red-400">Errors</h4>
+          <ul class="mt-2 space-y-1.5">
+            <li v-for="(line, i) in validationResult.errors" :key="'e' + i" class="flex gap-2 text-xs text-content-secondary">
+              <span class="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-red-400"></span>
+              <span>{{ line }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section v-if="validationResult.warnings.length">
+          <h4 class="text-xs font-semibold text-amber-400">Warnings</h4>
+          <ul class="mt-2 space-y-1.5">
+            <li v-for="(line, i) in validationResult.warnings" :key="'w' + i" class="flex gap-2 text-xs text-content-secondary">
+              <span class="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"></span>
+              <span>{{ line }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <template v-if="validationResult.summary">
+          <section>
+            <h4 class="text-xs font-semibold text-content-secondary">Pack</h4>
+            <KeyValueList class="mt-1" :rows="validationSummaryRows" />
+          </section>
+
+          <section>
+            <h4 class="text-xs font-semibold text-content-secondary">
+              {{ validationResult.summary.skills.length === 1 ? '1 skill' : `${validationResult.summary.skills.length} skills` }}
+            </h4>
+            <div class="mt-1 divide-y divide-edge-subtle">
+              <div
+                v-for="skill in validationResult.summary.skills"
+                :key="skill.name"
+                class="flex items-baseline justify-between gap-4 py-2.5"
+              >
+                <div class="min-w-0">
+                  <p class="truncate text-[13px] text-content">{{ skill.display_name || skill.name }}</p>
+                  <p v-if="skill.description" class="mt-0.5 line-clamp-2 text-xs text-content-tertiary">{{ skill.description }}</p>
+                </div>
+                <span
+                  class="shrink-0 text-right text-xs"
+                  :class="skill.chat || skill.flow || skill.tool ? 'text-content-secondary' : 'text-amber-400'"
+                >{{ skillAvailability(skill) }}</span>
+              </div>
+            </div>
+          </section>
+        </template>
+        <p v-else class="text-xs text-content-tertiary">The loader could not read this pack, so there is nothing to show.</p>
       </div>
     </Modal>
 
@@ -330,13 +378,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useStimpacksApi, type Stimpack, type MarketplaceStimpack } from '../../../composables/useStimpacksApi'
+import { useStimpacksApi, type Stimpack, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
 import { getApiBase, isTauri } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
 import Modal from '../../ui/Modal.vue'
+import KeyValueList, { type KeyValueRow } from '../../ui/KeyValueList.vue'
 
 // Avatars proxy through the local backend, which attaches the Cloudflare
 // Access headers dev cloud targets require — a direct cloud URL renders as a
@@ -379,10 +428,38 @@ async function openStimpacksFolder() {
   }
 }
 
-const validationResult = ref<{ valid: boolean; report: string[]; warnings: string[]; errors: string[] } | null>(null)
+const validationResult = ref<StimpackValidation | null>(null)
+const validationTarget = ref<Stimpack | null>(null)
+
+const validationSummaryRows = computed<KeyValueRow[]>(() => {
+  const summary = validationResult.value?.summary
+  if (!summary) return []
+  return [
+    { key: 'name', label: 'Name', value: summary.name },
+    { key: 'author', label: 'Author', value: summary.author || 'none', mono: !!summary.author },
+    { key: 'version', label: 'Version', value: summary.version },
+    { key: 'format', label: 'Format', value: summary.format },
+    {
+      key: 'lib',
+      label: 'Library modules',
+      value: summary.lib_modules.length ? summary.lib_modules.join(', ') : 'none',
+      mono: summary.lib_modules.length > 0,
+    },
+  ]
+})
+
+// Where the agent is offered this skill, in plain words.
+function skillAvailability(skill: StimpackValidationSkill): string {
+  const places: string[] = []
+  if (skill.chat) places.push('Chat')
+  if (skill.flow) places.push('Flows')
+  if (skill.tool) places.push(skill.tool_task_types ? `Tools (${skill.tool_task_types.join(', ')})` : 'Tools')
+  return places.length ? places.join(' · ') : 'Not offered anywhere'
+}
 
 async function handleValidateStimpack(stimpack: Stimpack) {
-  openContextMenu.value = null
+  closeMenu()
+  validationTarget.value = stimpack
   try {
     validationResult.value = await validateStimpack(stimpack.name)
   } catch (err) {
@@ -396,7 +473,7 @@ const pendingPublish = ref<Stimpack | null>(null)
 const publishing = ref(false)
 
 function handlePublishStimpack(stimpack: Stimpack) {
-  openContextMenu.value = null
+  closeMenu()
   pendingPublish.value = stimpack
   showPublishConfirm.value = true
 }
@@ -518,7 +595,7 @@ const showRemoveConfirm = ref(false)
 const pendingAction = ref<{ stimpack: Stimpack } | null>(null)
 
 function handleRemoveStimpack(stimpack: Stimpack) {
-  openContextMenu.value = null
+  closeMenu()
   pendingAction.value = { stimpack }
   showRemoveConfirm.value = true
 }
@@ -548,9 +625,32 @@ function handleDownloadStimpackZip(stimpack: Stimpack) {
   document.body.removeChild(a)
 }
 
-// Context menu
+// Context menu (teleported, positioned off the card's kebab)
+const menuPosition = ref<{ top: number; left: number } | null>(null)
+const menuButtonRefs = new Map<string, HTMLElement>()
+const menuStimpack = computed(() => stimpacks.value.find(s => s.name === openContextMenu.value) || null)
+
+function setMenuButtonRef(name: string, el: any) {
+  if (el) menuButtonRefs.set(name, el as HTMLElement)
+  else menuButtonRefs.delete(name)
+}
+
 function toggleContextMenu(name: string) {
-  openContextMenu.value = openContextMenu.value === name ? null : name
+  if (openContextMenu.value === name) {
+    closeMenu()
+    return
+  }
+  const button = menuButtonRefs.get(name)
+  if (button) {
+    const rect = button.getBoundingClientRect()
+    menuPosition.value = { top: rect.bottom + 4, left: rect.right - 176 } // right edge aligned with the button
+  }
+  openContextMenu.value = name
+}
+
+function closeMenu() {
+  openContextMenu.value = null
+  menuPosition.value = null
 }
 
 // File upload / drag-drop
@@ -587,9 +687,7 @@ async function doUpload(file: File) {
 
 // Click outside handler for context menus
 function handleClickOutside() {
-  if (openContextMenu.value) {
-    openContextMenu.value = null
-  }
+  if (openContextMenu.value) closeMenu()
 }
 
 onMounted(() => {

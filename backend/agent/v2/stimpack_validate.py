@@ -158,6 +158,42 @@ def validate_pack(pack_dir: Path) -> tuple[list[str], list[str], list[str]]:
     return report, warnings, errors
 
 
+def pack_summary(pack_dir: Path) -> dict | None:
+    """Structured view of what the agent would load from ``pack_dir``.
+
+    The same facts ``validate_pack`` prints as report lines, shaped for a UI:
+    pack identity, each skill with the environments it is offered in, and
+    the importable lib modules. ``None`` when the loader can't parse the pack.
+    """
+    info = _parse_stimpack_dir(pack_dir)
+    if info is None:
+        return None
+    modules: set[str] = set()
+    skills = []
+    for skill in info.skills:
+        env = skill.environments
+        modules.update(_skill_lib_modules(skill.dir_path))
+        skills.append({
+            "name": skill.qualified_name,
+            "display_name": skill.display_name,
+            "description": skill.description,
+            "chat": bool(env.chat),
+            "flow": bool(env.flow),
+            "tool": bool(env.tool),
+            "tool_task_types": list(env.tool_task_types) if env.tool and env.tool_task_types is not None else None,
+        })
+    return {
+        "name": info.name,
+        "display_name": info.display_name,
+        "description": info.description,
+        "author": info.manifest.author or "",
+        "version": info.manifest.version,
+        "format": info.manifest.format,
+        "skills": skills,
+        "lib_modules": sorted(modules),
+    }
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__.strip())

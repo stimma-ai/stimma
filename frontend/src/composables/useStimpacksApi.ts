@@ -18,6 +18,38 @@ export interface Skill {
   pack_display_name: string
 }
 
+export interface StimpackValidationSkill {
+  name: string
+  display_name: string
+  description: string
+  chat: boolean
+  flow: boolean
+  tool: boolean
+  /** null = every task type (when tool is true) */
+  tool_task_types: string[] | null
+}
+
+export interface StimpackValidationSummary {
+  name: string
+  display_name: string
+  description: string
+  author: string
+  version: string
+  format: number
+  skills: StimpackValidationSkill[]
+  lib_modules: string[]
+}
+
+export interface StimpackValidation {
+  valid: boolean
+  /** CLI-style report lines (what `stimma stimpacks validate` prints) */
+  report: string[]
+  warnings: string[]
+  errors: string[]
+  /** null when the loader could not parse the pack */
+  summary: StimpackValidationSummary | null
+}
+
 export interface Stimpack {
   name: string
   display_name: string
@@ -108,7 +140,7 @@ export function useStimpacksApi() {
     return response.data.path
   }
 
-  async function validateStimpack(name: string): Promise<{ valid: boolean; report: string[]; warnings: string[]; errors: string[] }> {
+  async function validateStimpack(name: string): Promise<StimpackValidation> {
     const response = await axios.post(`${base()}/${encodeURIComponent(name)}/validate`)
     return response.data
   }

@@ -2794,14 +2794,20 @@ async def get_stimpacks_dir():
 @router.post("/stimpacks/{name}/validate")
 async def validate_stimpack_endpoint(name: str):
     """Run the stimpack validator against an installed pack's directory."""
-    from agent.v2.stimpack_validate import validate_pack
+    from agent.v2.stimpack_validate import pack_summary, validate_pack
     profile_id = get_current_profile()
     installed = _stimpacks_api().list_installed_stimpacks(profile_id=profile_id)
     info = next((s for s in installed if s.name == name), None)
     if not info:
         raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
     report, warnings, errors = validate_pack(info.dir_path)
-    return {"valid": not errors, "report": report, "warnings": warnings, "errors": errors}
+    return {
+        "valid": not errors,
+        "report": report,
+        "warnings": warnings,
+        "errors": errors,
+        "summary": pack_summary(info.dir_path),
+    }
 
 
 @router.get("/skills", response_model=list[SkillResponse])
