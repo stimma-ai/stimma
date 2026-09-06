@@ -90,7 +90,7 @@ function openSearch() {
         <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
       </button>
       <div v-else class="flex-1 min-w-0 px-1">
-        <h1 class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>
+        <h1 v-if="title" class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>
         <p v-if="subtitle" class="truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ subtitle }}</p>
       </div>
 

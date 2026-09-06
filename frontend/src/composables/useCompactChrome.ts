@@ -10,8 +10,10 @@
 import { computed, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 
+// A hub whose screen already says what it is carries no title: Home opens
+// on its greeting, so the bar there is just Menu and Search.
 const HUB_TITLES: Record<string, string> = {
-  home: 'Home',
+  home: '',
   browse: 'All assets',
   search: 'Search',
   trash: 'Trash',
@@ -97,7 +99,7 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
   const title = computed(() => {
     if (routeTitle.value) return routeTitle.value
     const name = typeof route.name === 'string' ? route.name : ''
-    if (HUB_TITLES[name]) return HUB_TITLES[name]
+    if (name in HUB_TITLES) return HUB_TITLES[name]
     if (DETAIL_FALLBACKS[name]) return DETAIL_FALLBACKS[name]
     if (name.startsWith('project-')) return 'Project'
     return 'Stimma'

@@ -10,7 +10,8 @@
  * video tool, an upscaler and a text-to-image tool each get their own row.
  *
  * This is deliberately not the kit Sheet: the Sheet is modal and one-height.
- * Nothing else in the app may use this component (DESIGN.md §1.11).
+ * Two screens use it, the tool view and the image editor, each with its own
+ * `idPrefix`; nothing else may (DESIGN.md §1.11).
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -21,7 +22,22 @@ const props = withDefaults(defineProps<{
   initial?: Level
   /** Pixels the drawer leaves for the header + tab bar at full height. */
   chromeReserve?: number
-}>(), { initial: 'collapsed', chromeReserve: 150 })
+  /**
+   * Prefix for the two teleport-target ids. The tool view keeps the default;
+   * the image editor mounts its own drawer under KeepAlive at the same time,
+   * so the ids must differ or a teleport lands in the wrong screen.
+   */
+  idPrefix?: string
+  /** Extra classes on the scrolling body (the editor stacks its panels there). */
+  bodyClass?: string
+  /**
+   * Pixels of the parent that stay visible above the drawer at full height:
+   * a slice of the hero, plus whatever sibling bar sits under the drawer.
+   */
+  heroReserve?: number
+  /** The half level, as a share of the parent's height. */
+  halfFraction?: number
+}>(), { initial: 'collapsed', chromeReserve: 150, idPrefix: 'tool-drawer', bodyClass: '', heroReserve: 96, halfFraction: 0.55 })
 
 const level = ref<Level>(props.initial)
 const bodyEl = ref<HTMLElement | null>(null)
@@ -32,15 +48,14 @@ const dragPx = ref<number | null>(null)
 // Heights come from the space the drawer actually has (its flex parent:
 // hero + strip + drawer), never from the window, so full height can never
 // push the handle out of view. `heroReserve` is what stays visible above.
-const HERO_RESERVE = 96
 function availableH() {
   const parent = rootEl.value?.parentElement
   return parent ? parent.clientHeight : window.innerHeight - props.chromeReserve
 }
 function heightFor(l: Level): number | null {
   if (l === 'collapsed') return null
-  if (l === 'half') return Math.round(availableH() * 0.55)
-  return availableH() - HERO_RESERVE
+  if (l === 'half') return Math.round(availableH() * props.halfFraction)
+  return availableH() - props.heroReserve
 }
 const style = computed(() => {
   if (dragPx.value !== null) return { height: `${dragPx.value}px`, transition: 'none' }
@@ -66,7 +81,7 @@ function onPointerMove(e: PointerEvent) {
   if (Math.abs(dy) > 4) moved = true
   if (!moved) return
   const collapsedH = collapsedHeight()
-  dragPx.value = Math.max(collapsedH, Math.min(availableH() - HERO_RESERVE, startH + dy))
+  dragPx.value = Math.max(collapsedH, Math.min(availableH() - props.heroReserve, startH + dy))
 }
 function onPointerUp() {
   if (!moved) {
@@ -149,8 +164,8 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
 <template>
   <div
     ref="rootEl"
-    class="tool-drawer flex-none flex flex-col min-h-0 max-h-[calc(100%-96px)] overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
-    :style="style"
+    class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
+    :style="[style, { maxHeight: `calc(100% - ${heroReserve}px)` }]"
     :data-level="level"
   >
     <div
@@ -165,8 +180,9 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
       <span class="w-9 h-1 rounded-full bg-overlay-light"></span>
     </div>
 
-    <!-- Pinned prompt (filled by the tool view's prompt editor teleport). -->
-    <div ref="promptEl" id="tool-drawer-prompt" class="flex-none px-3 pb-2"></div>
+    <!-- Pinned prompt (filled by the tool view's prompt editor teleport, or
+         the #pin slot). -->
+    <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-3 pb-2"><slot name="pin" /></div>
 
     <!-- Group row: only when the drawer is open and the tool has groups. -->
     <div
@@ -187,13 +203,13 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
       >{{ g.label }}</button>
     </div>
 
-    <!-- Body (filled by the tool view's controls teleport). -->
+    <!-- Body (filled by the tool view's controls teleport, or the default slot). -->
     <div
       ref="bodyEl"
-      id="tool-drawer-body"
+      :id="`${idPrefix}-body`"
       class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-safe"
-      :class="level === 'collapsed' ? 'overflow-hidden' : ''"
+      :class="[level === 'collapsed' ? 'overflow-hidden' : '', bodyClass]"
       @scroll.passive="updateActive"
-    ></div>
+    ><slot /></div>
   </div>
 </template>

@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
   <div ref="root" class="relative inline-flex">
     <button
       type="button"
-      class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+      class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap"
       :class="disabled
         ? 'text-content-tertiary/50 cursor-default'
         : open
@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
       <div
         v-if="open"
         ref="panel"
-        class="popover-panel z-menu overflow-y-auto rounded-lg
+        class="popover-panel z-menu fixed overflow-y-auto rounded-lg
                border border-edge-subtle bg-surface shadow-xl p-3"
         :style="style"
         @click="onPanelClick"

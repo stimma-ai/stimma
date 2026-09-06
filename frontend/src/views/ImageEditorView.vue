@@ -22,11 +22,20 @@ import {
   ArrowUturnLeftIcon,
   ArrowUturnRightIcon,
   ArrowsPointingInIcon,
+  ArrowsPointingOutIcon,
+  ChevronDownIcon,
   ChevronUpIcon,
+  DocumentDuplicateIcon,
+  InformationCircleIcon,
   MinusIcon,
   PlusIcon,
+  ViewColumnsIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import Button from '../components/ui/Button.vue'
+import Sheet from '../components/ui/Sheet.vue'
+import ToolDrawer from '../components/compact/ToolDrawer.vue'
+import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
 import Tooltip from '../components/ui/Tooltip.vue'
 import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
@@ -226,6 +235,37 @@ import { useCompactNav } from '../composables/useCompactNav'
 
 const { isCompact } = useViewport()
 const compactNav = useCompactNav()
+
+// -- compact (phone) chrome --------------------------------------------------
+//
+// The desktop editor is toolbars over a canvas beside a sidebar. On a phone
+// the same pieces re-home (DESIGN.md §1.11): the commit bar becomes the
+// header, the sidebar's panels become a bottom drawer, the families become a
+// labelled bar under it, and every popover becomes a sheet. Nothing is
+// renamed and no control exists in only one of the two layouts.
+const editorDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
+const docSheetOpen = ref(false)
+/** Brush work needs a stylus-class device; the steps still render and toggle. */
+const COMPACT_UNAVAILABLE: FamilyId[] = ['retouch', 'paint']
+function onFamilyUnavailable(id: FamilyId) {
+  addToast(`${familyById(id).label} needs a desktop or a stylus. Its steps still show in Edits.`, 'info')
+}
+/** The bar's Edits cell: leave the open family, or raise the stack. */
+function onCompactEdits() {
+  if (family.value) {
+    selectFamily(family.value)
+  } else {
+    sidebarTab.value = 'edits'
+    editorDrawerRef.value?.open(editorDrawerRef.value.level === 'collapsed' ? 'half' : 'collapsed')
+  }
+}
+/** Output and Info live in the drawer at full height, reached from the document sheet. */
+function showCompactPanel(tab: 'edits' | 'output' | 'info') {
+  docSheetOpen.value = false
+  if (family.value) selectFamily(family.value)
+  sidebarTab.value = tab
+  nextTick(() => editorDrawerRef.value?.open('full'))
+}
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -1560,6 +1600,7 @@ function onViewportWheel(event: WheelEvent) {
  * no child canvas or its pointer capture can steal it.
  */
 function startViewPan(event: PointerEvent) {
+  if (event.pointerType === 'touch') { onViewportTouchDown(event); return }
   const isSpaceDrag = event.button === 0 && spacePanHeld.value
   if (!isSpaceDrag) return
 
@@ -1660,6 +1701,7 @@ function endMiddleMousePan(event?: PointerEvent) {
 }
 
 function moveViewPan(event: PointerEvent) {
+  if (event.pointerType === 'touch') { onViewportTouchMove(event); return }
   if (!viewPanning.value) return
   applyViewPanDelta(event)
   event.preventDefault()
@@ -1667,6 +1709,7 @@ function moveViewPan(event: PointerEvent) {
 }
 
 function endViewPan(event: PointerEvent) {
+  if (event.pointerType === 'touch') { onViewportTouchUp(event); return }
   if (!viewPanning.value) return
   if (viewport.value?.hasPointerCapture(event.pointerId)) {
     viewport.value.releasePointerCapture(event.pointerId)
@@ -1675,6 +1718,93 @@ function endViewPan(event: PointerEvent) {
   commitLivePan()
   event.preventDefault()
   event.stopPropagation()
+}
+
+// -- touch: two fingers pan and pinch ---------------------------------------
+//
+// One finger belongs to whatever tool is armed, exactly like the left button.
+// The second finger turns the gesture into a view gesture: any stroke in
+// progress is committed (as middle-mouse does), the pair's centroid pans on the
+// same live path as a drag, and their distance zooms about the centroid. The
+// handlers run in the capture phase on the viewport, so the child canvases
+// never see the second finger.
+const touchPoints = new Map<number, { x: number; y: number }>()
+let pinchActive = false
+let pinchStartDistance = 0
+let pinchStartZoom = 1
+let pinchCentroid = { x: 0, y: 0 }
+
+function touchCentroid() {
+  let x = 0
+  let y = 0
+  for (const point of touchPoints.values()) { x += point.x; y += point.y }
+  const n = touchPoints.size || 1
+  return { x: x / n, y: y / n }
+}
+
+function touchDistance() {
+  const [a, b] = [...touchPoints.values()]
+  if (!a || !b) return 0
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function onViewportTouchDown(event: PointerEvent) {
+  touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  if (touchPoints.size === 2 && !pinchActive) {
+    pinchActive = true
+    paintRef.value?.commitStroke()
+    retouchRef.value?.commitStroke()
+    pinchStartDistance = touchDistance()
+    pinchStartZoom = viewZoom.value
+    pinchCentroid = touchCentroid()
+    viewPanning.value = true
+    beginLivePan()
+    viewport.value?.setPointerCapture(event.pointerId)
+  }
+  if (pinchActive) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
+
+function onViewportTouchMove(event: PointerEvent) {
+  if (!touchPoints.has(event.pointerId)) return
+  touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  if (!pinchActive) return
+  const centroid = touchCentroid()
+  applyViewPanDeltaValue({ x: centroid.x - pinchCentroid.x, y: centroid.y - pinchCentroid.y })
+  pinchCentroid = centroid
+  const distance = touchDistance()
+  if (pinchStartDistance > 0 && distance > 0) {
+    const next = pinchStartZoom * (distance / pinchStartDistance)
+    if (Math.abs(next - viewZoom.value) / viewZoom.value > 0.01) {
+      // Zoom is reactive (it resizes the stage), so the live pan is handed
+      // back to the ref around it and re-seeded from the zoom's result.
+      viewPan.value = { ...livePan }
+      const rect = viewport.value?.getBoundingClientRect()
+      const anchor = rect
+        ? { x: centroid.x - rect.left - rect.width / 2, y: centroid.y - rect.top - rect.height / 2 }
+        : undefined
+      setViewZoom(next, anchor)
+      livePan = { ...viewPan.value }
+      scheduleLivePan()
+    }
+  }
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function onViewportTouchUp(event: PointerEvent) {
+  if (!touchPoints.has(event.pointerId)) return
+  touchPoints.delete(event.pointerId)
+  if (!pinchActive) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (touchPoints.size < 2) {
+    pinchActive = false
+    viewPanning.value = false
+    commitLivePan()
+  }
 }
 
 // -- pen quick brush picker ------------------------------------------------
@@ -1842,6 +1972,30 @@ function previewStalenessOf(opId: string) {
  * any more, because nothing consumes anything.
  */
 const visibleRows = computed(() => [...stackState.value.ops].reverse())
+
+const compactTitle = computed(() => {
+  const item: any = infoItem.value
+  const path: string = item?.asset_title ?? item?.original_filename ?? item?.file_path ?? baseInfo.value?.file_path ?? ''
+  return path.split('/').pop() || 'Edit'
+})
+const compactSubtitle = computed(() => {
+  if (family.value) {
+    const spec = familyById(family.value)
+    const tool = sub.value ? spec.subTools.find(t => t.id === sub.value)?.label : null
+    return tool ? `${spec.label} · ${tool}` : spec.label
+  }
+  const n = visibleRows.value.length
+  const edits = `${n} ${n === 1 ? 'edit' : 'edits'}`
+  return stack.dirtySinceSave.value ? `${edits} · unsaved` : edits
+})
+
+// Opening a family on a phone raises the drawer to its controls; the stack
+// comes back when the family closes.
+watch(family, id => {
+  if (!isCompact.value) return
+  if (id) sidebarTab.value = 'edits'
+  nextTick(() => editorDrawerRef.value?.open('half'))
+})
 
 /** A payload whose geometry has moved it entirely off the frame. */
 const outOfFrame = computed(() => {
@@ -3109,6 +3263,20 @@ const inspectorKind = computed<'annotation' | 'adjust' | 'retouch' | 'model' | n
 })
 
 const showsAdjustInspector = computed(() => inspectorKind.value === 'adjust')
+
+/**
+ * Compact: the drawer is one column, so a family's controls and a step's
+ * Properties share it. With a family open, Properties only show for a step of
+ * that family; on Edits (no family) any selected step's show, as on desktop.
+ */
+const INSPECTOR_FAMILY: Record<string, FamilyId> = {
+  adjust: 'levels', annotation: 'annotate', retouch: 'retouch', model: 'generate',
+}
+const inspectorShown = computed(() =>
+  !isCompact.value
+  || !family.value
+  || (inspectorKind.value !== null && INSPECTOR_FAMILY[inspectorKind.value] === family.value)
+)
 
 /**
  * A thumbnail per look, off the real picture, for the strip.
@@ -8141,6 +8309,8 @@ function clearViewportGestureState() {
   viewPanning.value = false
   middleMousePointerId = null
   nativeTabletPanActive = false
+  touchPoints.clear()
+  pinchActive = false
   if (wasPanning) commitLivePan()
 }
 
@@ -8606,18 +8776,72 @@ watch(
            their labels from the ROW's width — the viewport says nothing about
            this column once the resizable sidebar takes its share. Clipped so a
            still-too-long row can never paint under the sidebar. -->
-      <div class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle compact:h-12 compact:overflow-x-auto compact:gap-2 compact:pl-1">
-        <!-- Compact: the editor is an overlay surface (no app header), so it
-             carries its own back chevron. Desktop leaves via the workspace tab. -->
+      <!-- Compact: the editor is an overlay surface (no app header), so this
+           row is its header, and it carries what the desktop commit bar
+           carries: close, the document (tap: the document sheet), undo, redo,
+           Save. The families move to the bar at the bottom. -->
+      <div
+        v-if="isCompact"
+        class="editor-compact-header flex items-center gap-0.5 px-2 h-[60px] pt-safe shrink-0 border-b border-edge-subtle bg-base"
+      >
         <button
-          v-if="isCompact"
           type="button"
           class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
-          aria-label="Back"
+          aria-label="Close editor"
           @click="compactNav.back()"
         >
-          <ChevronLeftIcon class="w-6 h-6" />
+          <XMarkIcon class="w-6 h-6" />
         </button>
+        <button
+          type="button"
+          class="flex-1 min-w-0 h-11 px-1 flex items-center gap-1 text-left border-none bg-transparent"
+          aria-label="Document options"
+          @click="docSheetOpen = true"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center gap-1.5 min-w-0">
+              <span class="truncate text-[15px] font-semibold tracking-tight text-content leading-tight">{{ compactTitle }}</span>
+              <StatusDot
+                v-if="stack.dirtySinceSave.value"
+                bucket="warning"
+                class="shrink-0"
+                title="Unsaved edits"
+                aria-label="Unsaved edits"
+              />
+            </span>
+            <span class="block truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ compactSubtitle }}</span>
+          </span>
+          <ChevronDownIcon class="w-4 h-4 shrink-0 text-content-tertiary" />
+        </button>
+        <button
+          type="button"
+          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          aria-label="Undo"
+          :disabled="!stack.canUndo.value"
+          @click="stack.undo(); render()"
+        >
+          <ArrowUturnLeftIcon class="w-5 h-5" />
+        </button>
+        <button
+          type="button"
+          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent disabled:opacity-40"
+          aria-label="Redo"
+          :disabled="!stack.canRedo.value"
+          @click="stack.redo(); render()"
+        >
+          <ArrowUturnRightIcon class="w-5 h-5" />
+        </button>
+        <Button
+          class="ml-1 !h-10 !px-4 !text-[13px]"
+          :loading="saving"
+          :disabled="saving || !composite"
+          @click="save(false)"
+        >
+          <i v-if="savingNote">{{ savingNote }}</i>
+          <template v-else>Save</template>
+        </Button>
+      </div>
+      <div v-else class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle">
         <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
         <StatusDot
           v-if="stack.dirtySinceSave.value"
@@ -8634,8 +8858,9 @@ watch(
            a family is open, so the image holds steady and opening a mode
            consumes matte instead of reflowing the picture. -->
       <div class="relative flex-1 min-h-0 flex flex-col">
-      <!-- Toolbar 2: the active family's controls, overlaid on the matte. -->
-      <div class="absolute top-0 left-0 right-0 z-20">
+      <!-- Toolbar 2: the active family's controls, overlaid on the matte.
+           On a phone the same component renders inside the drawer instead. -->
+      <div v-if="!isCompact" class="absolute top-0 left-0 right-0 z-20">
         <EditorSubbar
           v-if="family"
           :family="family"
@@ -8669,6 +8894,31 @@ watch(
         </div>
       </div>
 
+      <!-- Compact: the commit bar's zoom read-out and before/after as glass
+           chips on the matte; pinch zooms, two fingers pan. -->
+      <template v-if="isCompact && !loading">
+        <button
+          type="button"
+          class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
+          :aria-label="`Zoom ${viewZoomLabel}. Fit and recenter`"
+          @click="resetView"
+        >
+          <ArrowsPointingInIcon class="w-4 h-4" />
+          {{ viewZoomLabel }}
+        </button>
+        <button
+          type="button"
+          class="absolute top-2 right-2 z-chrome min-h-11 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 border backdrop-blur disabled:opacity-40"
+          :class="comparing ? 'bg-selection/25 text-selection border-selection/40' : 'bg-black/60 text-white border-white/10'"
+          :aria-pressed="comparing"
+          :disabled="!composite"
+          @click="toggleCompare()"
+        >
+          <ViewColumnsIcon class="w-4 h-4" />
+          Compare
+        </button>
+      </template>
+
       <div v-if="loading" class="flex-1 grid place-items-center">
         <Spinner size="md" />
       </div>
@@ -8680,7 +8930,7 @@ watch(
       <div
         v-else
         ref="viewport"
-        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6"
+        class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
         :class="viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : '')"
         @wheel.prevent="onViewportWheel"
         @pointerdown.capture="startViewPan"
@@ -8919,7 +9169,11 @@ watch(
           :ai-stage="aiSelectStage"
           :ai-action="aiSelectAction"
           :ai-error="aiSelectError"
-          class="absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome"
+          :compact="isCompact"
+          @done="disarmSelect"
+          :class="isCompact
+            ? 'absolute bottom-2 left-2 right-2 z-chrome'
+            : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
           @pointer="activatePointer"
@@ -8939,21 +9193,26 @@ watch(
       <!-- Drag to widen the stack. The panels in here carry real controls, and
            how much room they deserve is the user's call, not a constant. -->
       <div
-        class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors compact:hidden"
+        v-if="!isCompact"
+        class="w-1 shrink-0 cursor-col-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors"
         @pointerdown="startSidebarResize"
       />
-      <!-- Compact: the stack/inspector sits under the canvas as a panel
-           (the full editor is a large-format tool; see DESIGN.md §1.11). -->
+      <!-- Compact: the sidebar's panels are the drawer's content. The aside
+           itself is hidden and its two parts teleport into the drawer below:
+           the panel tabs into the pinned row, the panels into the body. One
+           set of panels, one set of state, two homes (DESIGN.md §1.11). -->
       <aside
         ref="sidebarEl"
-        class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0 compact:!w-full compact:border-l-0 compact:border-t compact:max-h-[42dvh]"
+        class="shrink-0 border-l border-edge-subtle flex flex-col min-h-0 compact:hidden"
         :style="isCompact ? {} : { width: sidebarWidth + 'px' }"
       >
         <!-- Three panels, not three lists. Edits is the stack, Output is the
              terminal stage, and Info is the shared media-information body. -->
+        <Teleport to="#editor-drawer-prompt" :disabled="!isCompact" defer>
         <div
+          v-if="!isCompact || !family"
           class="px-3 h-11 flex items-center gap-1 shrink-0 bg-surface-raised
-                 border-b border-edge-strong"
+                 border-b border-edge-strong compact:bg-transparent compact:border-b-0 compact:px-0 compact:h-auto"
         >
           <template
             v-for="tab in [
@@ -8963,10 +9222,10 @@ watch(
             ]"
             :key="tab.id"
           >
-            <div v-if="tab.id === 'info'" class="flex-1" />
+            <div v-if="tab.id === 'info'" class="flex-1 compact:hidden" />
             <button
               type="button"
-              class="px-2 py-1 text-xs font-medium uppercase tracking-wide rounded-md
+              class="px-2 py-1 text-xs font-medium uppercase tracking-wide rounded-md compact:flex-1 compact:min-h-11 compact:text-[12px]
                      transition-colors focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
               :class="sidebarTab === tab.id
                 ? 'text-content bg-selection/15'
@@ -8982,7 +9241,10 @@ watch(
           </template>
           <Spinner v-if="rendering" size="sm" />
         </div>
+        </Teleport>
 
+        <Teleport to="#editor-drawer-body" :disabled="!isCompact" defer>
+        <div class="contents compact:flex compact:flex-col">
         <OutputPanel
           v-if="sidebarTab === 'output' && stack.doc.value"
           :output="outputStage"
@@ -9034,7 +9296,7 @@ watch(
              behind, and dragenter is unreliable in WKWebView. -->
         <div
           v-else-if="sidebarTab === 'edits'"
-          class="flex-1 overflow-y-auto custom-scrollbar p-1.5"
+          class="flex-1 overflow-y-auto custom-scrollbar p-1.5 compact:order-2 compact:flex-none compact:overflow-visible"
           @keydown="onStackKeydown"
           @dragover.prevent="onListDragOver"
           @drop.prevent="onDrop"
@@ -9105,24 +9367,24 @@ watch(
         <!-- Properties gets two thirds of the sidebar by default: these panels
              carry the active controls, while Edits remains available above. -->
         <div
-          v-if="inspectorKind !== null"
+          v-if="inspectorKind !== null && !isCompact"
           class="h-1 shrink-0 cursor-row-resize bg-edge-subtle/40 hover:bg-accent/40 transition-colors"
           @pointerdown="startPropertiesResize"
         />
         <div
-          v-if="inspectorKind === 'annotation' && selectedShape"
-          class="shrink-0 border-t border-edge-subtle flex flex-col"
-          :style="propertiesPanelStyle"
+          v-if="inspectorKind === 'annotation' && selectedShape && inspectorShown"
+          class="shrink-0 border-t border-edge-subtle flex flex-col compact:order-1 compact:border-t-0"
+          :style="isCompact ? undefined : propertiesPanelStyle"
         >
           <div
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
-                   border-b border-edge-strong"
+                   border-b border-edge-strong compact:hidden"
           >
             <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
               Properties
             </h2>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar compact:overflow-visible">
             <AnnotationInspector
               :shape="selectedShape"
               :shapes="selectedAnnotationShapes"
@@ -9135,19 +9397,19 @@ watch(
         </div>
 
         <div
-          v-else-if="inspectorKind === 'retouch' && selectedRetouchRegion"
-          class="shrink-0 border-t border-edge-subtle flex flex-col"
-          :style="propertiesPanelStyle"
+          v-else-if="inspectorKind === 'retouch' && selectedRetouchRegion && inspectorShown"
+          class="shrink-0 border-t border-edge-subtle flex flex-col compact:order-1 compact:border-t-0"
+          :style="isCompact ? undefined : propertiesPanelStyle"
         >
           <div
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
-                   border-b border-edge-strong"
+                   border-b border-edge-strong compact:hidden"
           >
             <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
               Properties
             </h2>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar compact:overflow-visible">
             <RetouchInspector
               :region="selectedRetouchRegion"
               :selected-component-id="selectedMaskComponentId"
@@ -9174,19 +9436,19 @@ watch(
         </div>
 
         <div
-          v-else-if="inspectorKind === 'model' && selectedModelOp"
-          class="shrink-0 border-t border-edge-subtle flex flex-col"
-          :style="propertiesPanelStyle"
+          v-else-if="inspectorKind === 'model' && selectedModelOp && inspectorShown"
+          class="shrink-0 border-t border-edge-subtle flex flex-col compact:order-1 compact:border-t-0"
+          :style="isCompact ? undefined : propertiesPanelStyle"
         >
           <div
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
-                   border-b border-edge-strong"
+                   border-b border-edge-strong compact:hidden"
           >
             <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
               Properties
             </h2>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar compact:overflow-visible">
             <ModelEditInspector
               :op="selectedModelOp"
               :tool="selectedModelTool"
@@ -9210,19 +9472,19 @@ watch(
              inside it: fixed, outside the scroll region, styled like the
              Edits header rather than like a section within. -->
         <div
-          v-else-if="showsAdjustInspector"
-          class="shrink-0 border-t border-edge-subtle flex flex-col"
-          :style="propertiesPanelStyle"
+          v-else-if="showsAdjustInspector && inspectorShown"
+          class="shrink-0 border-t border-edge-subtle flex flex-col compact:order-1 compact:border-t-0"
+          :style="isCompact ? undefined : propertiesPanelStyle"
         >
           <div
             class="px-3 h-11 flex items-center shrink-0 bg-surface-raised/60
-                   border-b border-edge-strong"
+                   border-b border-edge-strong compact:hidden"
           >
             <h2 class="text-xs font-medium uppercase tracking-wide text-content-secondary">
               Properties
             </h2>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar compact:overflow-visible">
           <AdjustInspector
             :params="adjustInspectorParams"
             :histogram="toneCurveHistogram"
@@ -9249,14 +9511,57 @@ watch(
         <p v-else-if="candidates.lastError.value" class="px-3 py-2 text-xs text-red-400 border-t border-edge-subtle">
           {{ candidates.lastError.value }}
         </p>
+        </div>
+        </Teleport>
       </aside>
+
+      <!-- Compact: the drawer (the sidebar's panels, or the open family's
+           controls above them) and the family bar. Heights come from the
+           column, so the picture always keeps a slice above the handle. -->
+      <template v-if="isCompact">
+        <ToolDrawer
+          ref="editorDrawerRef"
+          id-prefix="editor-drawer"
+          initial="half"
+          :hero-reserve="160"
+          :half-fraction="0.42"
+          body-class="!px-0"
+        >
+          <EditorSubbar
+            v-if="family"
+            compact
+            :family="family"
+            :sub="sub"
+            :state="subbarState"
+            :tool-label="activeToolLabel"
+            :busy="busy"
+            :can-run="canRun"
+            :run-label="iterationOp ? 'Re-run' : null"
+            @sub="selectSub"
+            @set="onSubbarSet"
+            @commit="onSubbarCommit"
+            @run="run"
+            @open-tool-picker="onOpenToolPicker"
+            @refresh-loras="refreshEditorLoras"
+            @upload-loras="uploadEditorLoras"
+          />
+        </ToolDrawer>
+        <EditorToolbar
+          bar
+          :active="family"
+          :unavailable="COMPACT_UNAVAILABLE"
+          @select="selectFamily"
+          @unavailable="onFamilyUnavailable"
+          @edits="onCompactEdits"
+        />
+      </template>
     </div>
 
       <!-- The commit bar. Left is session history, middle is what this document
            IS (which version, whether it has uncommitted work), right is what
            you can do to it. One meaning per control: the chip reports, Revert
            discards, Save commits. -->
-    <footer class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle compact:h-auto compact:min-h-12 compact:pb-safe compact:flex-wrap compact:gap-1">
+    <footer v-if="!isCompact" class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle">
       <Tooltip text="Undo">
         <IconButton :disabled="!stack.canUndo.value" @click="stack.undo(); render()">
           <ArrowUturnLeftIcon class="w-4 h-4" />
@@ -9404,6 +9709,71 @@ watch(
         </div>
       </div>
     </footer>
+
+    <!-- Compact: the document sheet, from the header title. The sidebar's
+         Output and Info tabs, the commit bar's Compare and Revert, and the
+         Save menu's fork, as rows. -->
+    <Sheet v-if="isCompact" :show="docSheetOpen" @close="docSheetOpen = false">
+      <template #header>
+        <div class="min-w-0 py-1">
+          <p class="truncate text-[14px] font-semibold text-content">{{ compactTitle }}</p>
+          <p class="truncate text-[12px] font-mono text-content-tertiary">
+            {{ baseInfo ? `${baseInfo.width} × ${baseInfo.height} · ` : '' }}{{ compactSubtitle }}
+          </p>
+        </div>
+      </template>
+      <button type="button" class="sheet-row w-full text-left" @click="showCompactPanel('output')">
+        <ArrowsPointingOutIcon class="sheet-row-icon" />
+        <span class="flex-1 min-w-0 truncate">Output</span>
+        <span class="sheet-row-detail">{{ outputLabel(outputStage) ?? `${outputInput.width} × ${outputInput.height}` }}</span>
+      </button>
+      <button type="button" class="sheet-row w-full text-left" @click="showCompactPanel('info')">
+        <InformationCircleIcon class="sheet-row-icon" />
+        <span class="flex-1 min-w-0 truncate">Info</span>
+      </button>
+      <button
+        type="button"
+        class="sheet-row w-full text-left disabled:opacity-40"
+        :disabled="!composite"
+        @click="docSheetOpen = false; toggleCompare()"
+      >
+        <ViewColumnsIcon class="sheet-row-icon" />
+        <span class="flex-1 min-w-0 truncate">Compare with original</span>
+        <span v-if="comparing" class="sheet-row-detail">on</span>
+      </button>
+      <button
+        type="button"
+        class="sheet-row w-full text-left disabled:opacity-40"
+        :disabled="saving || !composite"
+        @click="docSheetOpen = false; save(true)"
+      >
+        <DocumentDuplicateIcon class="sheet-row-icon" />
+        <span class="flex-1 min-w-0 truncate">Save as new asset</span>
+      </button>
+      <button
+        type="button"
+        class="sheet-row w-full text-left text-red-400 disabled:opacity-40"
+        :disabled="!canRevert || saving"
+        @click="docSheetOpen = false; confirmingRevert = true"
+      >
+        <ArrowUturnLeftIcon class="sheet-row-icon !text-red-400" />
+        <span class="flex-1 min-w-0 truncate">Revert to last save</span>
+        <span v-if="canRevert" class="sheet-row-detail">{{ revertCount }} {{ revertCount === 1 ? 'edit' : 'edits' }}</span>
+      </button>
+    </Sheet>
+
+    <!-- Compact: the Generate tool picker as a sheet. -->
+    <Sheet v-if="isCompact" :show="toolPickerOpen" title="Tool" @close="toolPickerOpen = false">
+      <ToolPicker
+        :tools="tools"
+        :task-type="activeTaskType"
+        :compatible-task-types="activeCompatibleTaskTypes"
+        :selected-id="activeToolId"
+        width-class="w-full"
+        class="!border-0 !shadow-none !rounded-none !max-h-none"
+        @select="chooseTool"
+      />
+    </Sheet>
 
     <!-- Pen quick brush picker: the SAME picker the toolbar chip opens,
          popped beside the cursor by a stylus side button. -->

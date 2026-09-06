@@ -58,7 +58,20 @@ const props = defineProps<{
   canRun?: boolean
   /** Verb for the run button: an iterating session says "Re-run". */
   runLabel?: string | null
+  /**
+   * Phone layout (DESIGN.md §1.11): the bar lives in the editor's drawer,
+   * and each family's controls become stacked rows that scroll sideways
+   * instead of one wrapping line. Same controls, same events.
+   */
+  compact?: boolean
 }>()
+
+/**
+ * A logical row of the bar. On desktop `contents` dissolves the wrapper so
+ * the chips keep wrapping in the bar's single flex line; on a phone it is a
+ * touch-height row that scrolls sideways.
+ */
+const ROW = 'contents compact:flex compact:items-center compact:gap-1 compact:shrink-0 compact:min-h-11 compact:overflow-x-auto compact:[scrollbar-width:none] compact:-mx-2 compact:px-2'
 
 const emit = defineEmits<{
   sub: [string]
@@ -202,10 +215,12 @@ function chipClass(active: boolean, pending = false) {
        width, not the viewport's — the resizable sidebar makes them unrelated. -->
   <div
     class="@container flex items-center gap-1.5 flex-wrap border-b border-edge-subtle bg-surface px-4 py-2"
+    :class="compact && '!flex-col !items-stretch !flex-nowrap !gap-1 !px-3 !py-1 !border-b-0'"
   >
     <!-- Sub-tools, for the families that have them. Retouch lays its own out:
          its bar is two jobs, not one list. -->
     <template v-if="family.subTools.length && family.id !== 'retouch'">
+      <div :class="ROW">
       <template
         v-for="option in family.subTools"
         :key="option.id"
@@ -215,7 +230,7 @@ function chipClass(active: boolean, pending = false) {
         >
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
             :class="chipClass(sub === option.id, option.pending)"
             :disabled="option.pending"
             :aria-label="option.label"
@@ -226,12 +241,13 @@ function chipClass(active: boolean, pending = false) {
                  wrap; iconed chips drop them and keep their tooltips. -->
             <span
               v-if="!option.icon || option.labeled"
-              :class="option.icon && 'hidden @xl:inline'"
+              :class="option.icon && 'hidden @xl:inline compact:inline'"
             >{{ option.label }}</span>
           </button>
         </Tooltip>
       </template>
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      </div>
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
     </template>
 
     <!-- Retouch's chip row: every tool is a brush; the picker sits with the
@@ -245,7 +261,7 @@ function chipClass(active: boolean, pending = false) {
         <Tooltip :text="option.pending ? 'Not built yet' : option.hint ?? option.label">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
             :class="chipClass(sub === option.id, option.pending)"
             :disabled="option.pending"
             :aria-label="option.label"
@@ -304,7 +320,7 @@ function chipClass(active: boolean, pending = false) {
           v-for="range in ['shadows', 'midtones', 'highlights']"
           :key="range"
           type="button"
-          class="px-2 py-1.5 text-xs rounded-md capitalize"
+          class="px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap capitalize"
           :class="chipClass(state.retouchRange === range)"
           @click="emit('set', { retouchRange: range })"
         >
@@ -326,7 +342,7 @@ function chipClass(active: boolean, pending = false) {
         <template v-if="sub === 'sponge'">
           <button
             type="button"
-            class="px-2 py-1.5 text-xs rounded-md"
+            class="px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap"
             :class="chipClass(state.retouchSaturate)"
             @click="emit('set', { retouchSaturate: true })"
           >
@@ -334,7 +350,7 @@ function chipClass(active: boolean, pending = false) {
           </button>
           <button
             type="button"
-            class="px-2 py-1.5 text-xs rounded-md"
+            class="px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap"
             :class="chipClass(!state.retouchSaturate)"
             @click="emit('set', { retouchSaturate: false })"
           >
@@ -346,25 +362,28 @@ function chipClass(active: boolean, pending = false) {
 
     <!-- Crop ------------------------------------------------------------ -->
     <template v-if="family.id === 'crop'">
+      <div :class="ROW">
       <button
         v-for="preset in CROP_ASPECTS"
         :key="preset.id"
         type="button"
-        class="px-2.5 py-1.5 text-xs rounded-md transition-colors"
+        class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
         :class="chipClass(state.cropAspect === preset.id)"
         @click="emit('set', { cropAspect: preset.id })"
       >
         {{ preset.label }}
       </button>
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      </div>
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <!-- The lollipop on the crop is the primary straightening control; this
            mirrors it for fine values and shows the angle in degrees. -->
       <!-- Shown as the angle the PICTURE turns, which is what the user sees
            and the opposite sign of the crop window's own tilt. -->
-      <label class="flex items-center gap-2 text-xs text-content-tertiary">
+      <div :class="ROW">
+      <label class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:text-[13px]">
         Straighten
         <input
-          type="range" min="-0.7854" max="0.7854" step="0.002" class="w-28"
+          type="range" min="-0.7854" max="0.7854" step="0.002" class="w-28 compact:flex-1 compact:w-auto"
           :value="-(state.rotation ?? 0)"
           @input="emit(
             'set',
@@ -378,20 +397,23 @@ function chipClass(active: boolean, pending = false) {
       <button
         v-if="state.rotation"
         type="button"
-        class="px-2 py-1.5 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle"
+        class="px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap text-content-secondary hover:text-content hover:bg-overlay-subtle"
         @click="emit('set', { rotation: 0 })"
       >
         Reset
       </button>
-      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md" :class="chipClass(false)" @click="emit('set', { rotateQuarter: true })">
+      </div>
+      <div :class="ROW">
+      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap compact:flex-1" :class="chipClass(false)" @click="emit('set', { rotateQuarter: true })">
         Rotate 90°
       </button>
-      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md" :class="chipClass(!!state.flipX)" @click="emit('set', { flipX: !state.flipX })">
+      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap compact:flex-1" :class="chipClass(!!state.flipX)" @click="emit('set', { flipX: !state.flipX })">
         Flip H
       </button>
-      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md" :class="chipClass(!!state.flipY)" @click="emit('set', { flipY: !state.flipY })">
+      <button type="button" class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap compact:flex-1" :class="chipClass(!!state.flipY)" @click="emit('set', { flipY: !state.flipY })">
         Flip V
       </button>
+      </div>
     </template>
 
     <!-- Generate --------------------------------------------------------- -->
@@ -415,12 +437,12 @@ function chipClass(active: boolean, pending = false) {
         <div
           v-if="sub === 'repaint'"
           class="flex min-w-64 flex-1 basis-80 items-center gap-2 rounded-md bg-overlay-subtle px-2.5
-                 border border-transparent focus-within:border-accent"
+                 border border-transparent focus-within:border-accent compact:basis-full compact:min-w-0"
         >
           <textarea
             ref="promptEl"
             rows="1"
-            class="flex-1 min-w-0 py-1.5 text-sm bg-transparent text-content resize-none
+            class="flex-1 min-w-0 py-1.5 text-sm bg-transparent text-content resize-none compact:py-3 compact:text-[15px]
                    overflow-y-auto placeholder:text-content-muted focus-visible:outline-none"
             placeholder="Describe the changes for the selected area"
             :value="state.prompt"
@@ -504,7 +526,7 @@ function chipClass(active: boolean, pending = false) {
         />
 
         <!-- Subject: no prompt, no fake input — the hint is just a sentence. -->
-        <p v-else class="min-w-48 flex-1 basis-64 truncate text-sm text-content-muted">
+        <p v-else class="min-w-48 flex-1 basis-64 truncate text-sm text-content-muted compact:basis-full compact:whitespace-normal compact:min-h-11 compact:flex compact:items-center">
           {{ sub === 'cutout'
             ? 'Makes the background transparent.'
             : 'Select the area to remove, then Run.' }}
@@ -514,11 +536,12 @@ function chipClass(active: boolean, pending = false) {
              cluster to the right edge, and on its own (wrapped) line it sits
              flush left under the subject instead of drifting to the far right
              with dead space beside it. -->
-        <div class="flex min-w-0 max-w-full items-center gap-2">
+        <div class="flex min-w-0 max-w-full items-center gap-2 compact:w-full compact:min-h-11">
           <button
             type="button"
             class="inline-flex min-w-0 max-w-56 items-center gap-1.5 truncate rounded-md px-2 py-1.5
-                   text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content"
+                   text-xs text-content-secondary hover:bg-overlay-subtle hover:text-content
+                   compact:min-h-11 compact:px-3 compact:text-[13px] compact:bg-overlay-subtle compact:flex-1 compact:max-w-none"
             @click="emit('openToolPicker', $event)"
           >
             <span class="truncate">{{ toolLabel || 'No tool' }}</span>
@@ -575,7 +598,7 @@ function chipClass(active: boolean, pending = false) {
       >
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
           :class="chipClass(state.engineId === engine.id, engine.pending)"
           :disabled="engine.pending"
           @click="emit('set', { engineId: engine.id })"
@@ -588,7 +611,7 @@ function chipClass(active: boolean, pending = false) {
         :current="state.paintFillEngineId"
         @select="emit('set', { engineId: $event })"
       />
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <!-- A brush is not a property of the layer it painted, so it hangs off
            the toolbar rather than appearing in the Edits inspector. -->
       <ToolbarPopover
@@ -654,7 +677,7 @@ function chipClass(active: boolean, pending = false) {
         >
           <button
             type="button"
-            class="inline-flex items-center px-2 py-1.5 text-xs rounded-md transition-colors"
+            class="inline-flex items-center px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
             :class="chipClass(state.paintGradientType === option.id)"
             :aria-label="`${option.label} gradient`"
             :aria-pressed="state.paintGradientType === option.id"
@@ -667,7 +690,7 @@ function chipClass(active: boolean, pending = false) {
         <Tooltip text="Reverse gradient colors">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+            class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
             :class="chipClass(state.paintGradientReverse)"
             :aria-pressed="state.paintGradientReverse"
             @click="emit('set', { paintGradientReverse: !state.paintGradientReverse })"
@@ -677,10 +700,10 @@ function chipClass(active: boolean, pending = false) {
           </button>
         </Tooltip>
       </template>
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <button
         type="button"
-        class="px-2.5 py-1.5 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle"
+        class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap text-content-secondary hover:text-content hover:bg-overlay-subtle"
         @click="emit('set', { newLayer: true })"
       >
         New layer
@@ -697,6 +720,7 @@ function chipClass(active: boolean, pending = false) {
          the photographic corrections, and the things that ADD a look. Eleven
          labelled chips in one undifferentiated line is what made this wrap. -->
     <template v-else-if="family.id === 'levels'">
+      <div :class="ROW">
       <!-- The Autos behind one chip. They are three variants of a single act —
            let the histogram decide — and spelled out across the bar they took a
            third of its width for the least specific thing on it.
@@ -725,7 +749,7 @@ function chipClass(active: boolean, pending = false) {
         </p>
       </ToolbarPopover>
 
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <Tooltip
         v-for="edit in PHOTOGRAPHIC_LEVEL_EDITS"
         :key="edit.id"
@@ -733,7 +757,7 @@ function chipClass(active: boolean, pending = false) {
       >
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md
+          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap
                  text-content-secondary hover:text-content hover:bg-overlay-subtle"
           :aria-label="edit.label"
           @click="emit('set', { addLevel: edit.id })"
@@ -744,7 +768,7 @@ function chipClass(active: boolean, pending = false) {
       </Tooltip>
 
       <!-- Effects, Stylize and Looks: the run that ADDS rather than corrects. -->
-      <span class="w-px h-5 bg-edge-subtle mx-1" />
+      <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <Tooltip
         v-for="edit in CREATIVE_LEVEL_EDITS"
         :key="edit.id"
@@ -752,7 +776,7 @@ function chipClass(active: boolean, pending = false) {
       >
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md
+          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap
                  text-content-secondary hover:text-content hover:bg-overlay-subtle"
           :aria-label="edit.label"
           @click="emit('set', { addLevel: edit.id })"
@@ -766,7 +790,7 @@ function chipClass(active: boolean, pending = false) {
            is why it toggles a strip instead of adding a step outright. -->
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors"
+        class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
         :class="chipClass(!!state.looksOpen)"
         :aria-expanded="!!state.looksOpen"
         @click="emit('set', { looksOpen: !state.looksOpen })"
@@ -774,6 +798,7 @@ function chipClass(active: boolean, pending = false) {
         <ToolIcon name="image" />
         Looks
       </button>
+      </div>
 
       <!-- One row that scrolls, rather than wrapping: the strip is a strip,
            and wrapping it would push the canvas down every time it grew.
@@ -824,6 +849,7 @@ function chipClass(active: boolean, pending = false) {
          control is an icon opening a popover. With a shape selected the same
          controls edit it, so the strip doubles as a remote for the selection. -->
     <template v-else-if="family.id === 'annotate'">
+      <div :class="ROW">
       <template v-if="showStroke">
         <!-- Stroke weight -->
         <ToolbarPopover label="" :width="148">
@@ -886,7 +912,7 @@ function chipClass(active: boolean, pending = false) {
           </template>
           <button
             type="button"
-            class="w-full mb-2 px-2 py-1.5 text-xs rounded-md text-left transition-colors"
+            class="w-full mb-2 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap text-left transition-colors"
             :class="!state.annotateFillColor
               ? 'bg-selection/15 text-content'
               : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'"
@@ -955,7 +981,7 @@ function chipClass(active: boolean, pending = false) {
           v-for="style in TEXT_STYLES"
           :key="style.id"
           type="button"
-          class="px-2.5 py-1.5 text-xs rounded-md transition-colors"
+          class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
           :class="chipClass(state.textStyle === style.id)"
           @click="emit('set', { textStyle: style.id })"
         >
@@ -966,7 +992,7 @@ function chipClass(active: boolean, pending = false) {
       <!-- Opacity, inline: one slider does not deserve a popover. -->
       <label
         v-if="sub !== 'redact'"
-        class="flex items-center gap-2 text-xs text-content-tertiary"
+        class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:min-w-[9rem]"
         title="Opacity"
       >
         <svg viewBox="0 0 16 16" class="w-4 h-4" fill="none" stroke="currentColor">
@@ -974,7 +1000,7 @@ function chipClass(active: boolean, pending = false) {
           <path d="M8 2 a6 6 0 0 1 0 12 Z" fill="currentColor" stroke="none" opacity="0.5" />
         </svg>
         <input
-          type="range" min="10" max="100" class="w-20"
+          type="range" min="10" max="100" class="w-20 compact:flex-1 compact:w-auto compact:min-w-16"
           :value="Math.round((state.annotateOpacity ?? 1) * 100)"
             @input="emit(
               'set',
@@ -984,6 +1010,7 @@ function chipClass(active: boolean, pending = false) {
             @change="emit('commit', 'annotation')"
         />
       </label>
+      </div>
     </template>
 
   </div>
