@@ -1,11 +1,18 @@
 <template>
   <div class="max-w-[720px] space-y-6">
     <header>
-      <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
+      <div class="flex items-center gap-3">
+        <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
+        <span class="rounded-md border border-edge px-2 py-0.5 text-xs font-medium text-content-secondary">EXPERIMENTAL</span>
+      </div>
       <p class="mt-2 text-sm leading-relaxed text-content-secondary">
-        MCP (Model Context Protocol) lets AI assistants like Claude, ChatGPT and Cursor use apps on your computer.
-        Turn it on to let an assistant search this profile’s library and run Stimma tools while Stimma is open.
+        MCP (Model Context Protocol) connects an external AI assistant to this profile’s library and creative tools.
+        Let your assistant find media, generate variations and organize the results while Stimma is open.
         <Button variant="link" @click="openGuide">Learn more</Button>
+      </p>
+      <p class="mt-2 text-sm leading-relaxed text-content-secondary">
+        We’re learning how this works for people. Tell us what works and where you get stuck.
+        <Button variant="link" @click="openCommunity">Share feedback</Button>
       </p>
     </header>
 
@@ -262,6 +269,10 @@ async function copy(field, value) {
 async function openGuide() {
   try { await desktop.openExternal('https://docs.stimma.ai/mcp/') }
   catch { error.value = 'Could not open the guide. Visit docs.stimma.ai/mcp for setup instructions.' }
+}
+async function openCommunity() {
+  try { await desktop.openExternal('https://stimma.ai/community') }
+  catch { error.value = 'Could not open the community page. Visit stimma.ai/community to share feedback.' }
 }
 function formatDate(iso) {
   if (!iso) return ''
