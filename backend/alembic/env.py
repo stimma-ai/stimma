@@ -13,6 +13,7 @@ config = context.config
 # add your model's MetaData object here
 # for 'autogenerate' support
 from database import Base
+from mcp_server import models as mcp_models  # register profile MCP tables
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

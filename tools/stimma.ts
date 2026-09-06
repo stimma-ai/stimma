@@ -537,6 +537,7 @@ Flags:
                       cloud; app_branch stays 'dev' on the debug channel)
 
 Commands:
+  mcp install FILE | bridge ALIAS  Install or run a profile MCP connection
   dev frontend    Run Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
   dev backend2    Run Rust backend (default port 9191)
@@ -2217,6 +2218,10 @@ async function main(): Promise<void> {
   const rest = args.slice(2);
 
   switch (command) {
+    case "mcp": {
+      await run("uv", ["run", "--quiet", "python", "-m", "mcp_server.bridge", ...args.slice(1)], { cwd: join(repoRoot, "backend") });
+      break;
+    }
     case "headless": {
       await run("python3", [join(repoRoot, "tools", "headless.py"), ...args.slice(1)]);
       break;

@@ -1636,6 +1636,12 @@ async def create_chat_item(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
+    if request.item_type == 'user_message':
+        from mcp_server.jobs import takeover, execution_caller
+        if execution_caller.get() is None:
+            from core.profile_context import get_current_profile
+            await takeover(get_current_profile(), chat_id)
+
     # Build item_metadata, including attachments if present
     item_metadata = request.item_metadata
     if request.item_type == "user_message" and request.attachments:

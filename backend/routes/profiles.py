@@ -281,6 +281,8 @@ async def set_pin(profile_id: str, request: SetPinRequest):
     # Clear PIN verification cache for this profile
     from core.middleware import clear_pin_cache
     clear_pin_cache(profile_id)
+    from mcp_server.jobs import revoke
+    await revoke(profile_id)
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track(

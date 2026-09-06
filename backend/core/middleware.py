@@ -117,6 +117,10 @@ class ProfileMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
+        if path.startswith('/mcp/'):
+            # The MCP ASGI gateway authenticates and binds its own immutable
+            # profile. Do not inject the REST fallback profile or PIN semantics.
+            return await call_next(request)
 
         # Check if this route is exempt from profile requirements
         is_exempt = (

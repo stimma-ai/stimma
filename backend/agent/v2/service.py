@@ -35,39 +35,46 @@ from .workspace import get_project_workspace, get_workspace_dir
 log = get_logger(__name__)
 
 # Track active executions to prevent concurrent runs on the same chat
-_active_chat_executions: set[int] = set()
-_active_chat_tasks: dict[int, asyncio.Task] = {}
-_interrupt_flags: dict[int, bool] = {}
+_active_chat_executions: set[tuple[str, int]] = set()
+_active_chat_tasks: dict[tuple[str, int], asyncio.Task] = {}
+_interrupt_flags: dict[tuple[str, int], bool] = {}
+
+
+def _chat_key(chat_id: int) -> tuple[str, int]:
+    from core.profile_context import get_current_profile
+    return get_current_profile(), chat_id
 
 def is_execution_active(chat_id: int) -> bool:
     """Check if there's an active agent execution for this chat."""
-    return chat_id in _active_chat_executions
+    return _chat_key(chat_id) in _active_chat_executions
 
 
 def get_active_chat_ids() -> list[int]:
     """Return chat ids with an active agent execution."""
-    return sorted(_active_chat_executions)
+    from core.profile_context import get_current_profile
+    profile_id = get_current_profile()
+    return sorted(chat_id for profile, chat_id in _active_chat_executions if profile == profile_id)
 
 
 def get_active_task(chat_id: int) -> Optional[asyncio.Task]:
     """Return the asyncio task of the active execution for this chat, if any."""
-    return _active_chat_tasks.get(chat_id)
+    return _active_chat_tasks.get(_chat_key(chat_id))
 
 
 def _mark_running(chat_id: int) -> None:
-    _interrupt_flags[chat_id] = False
+    _interrupt_flags[_chat_key(chat_id)] = False
 
 
 def _mark_interrupted(chat_id: int) -> None:
-    _interrupt_flags[chat_id] = True
+    _interrupt_flags[_chat_key(chat_id)] = True
 
 
 def _clear_interrupt(chat_id: int) -> None:
-    _interrupt_flags.pop(chat_id, None)
+    _interrupt_flags.pop(_chat_key(chat_id), None)
 
 
 def _is_interrupted(chat_id: int) -> bool:
-    return bool(_interrupt_flags.get(chat_id))
+    return bool(_interrupt_flags.get(_chat_key(chat_id)))
 
 
 def _max_turns_for_chat(chat: Chat) -> int:
@@ -137,6 +144,8 @@ class _AgentInterrupted(Exception):
 
 
 def _raise_if_interrupted(chat_id: int) -> None:
+    from mcp_server.jobs import check_execution
+    check_execution()
     if _is_interrupted(chat_id):
         raise _AgentInterrupted()
 
@@ -902,15 +911,15 @@ async def run_agent(
     # it does, the frontend has already marked the agent as running, so a
     # silent return would leave it waiting for an agent_stopped that never
     # comes. Broadcast one so the UI recovers.
-    if chat_id in _active_chat_executions:
+    if _chat_key(chat_id) in _active_chat_executions:
         log.warning(f"Chat {chat_id}: Agent already running, skipping")
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "already_running"})
         return
-    _active_chat_executions.add(chat_id)
+    _active_chat_executions.add(_chat_key(chat_id))
     _mark_running(chat_id)
     current_task = asyncio.current_task()
     if current_task:
-        _active_chat_tasks[chat_id] = current_task
+        _active_chat_tasks[_chat_key(chat_id)] = current_task
 
     # Copy any user-selected media into the workspace so the agent can access them
     if selected_media_ids:
@@ -1075,8 +1084,8 @@ async def run_agent(
         _track_agent_turn("failed", error_type=_error_type)
 
     finally:
-        _active_chat_executions.discard(chat_id)
-        _active_chat_tasks.pop(chat_id, None)
+        _active_chat_executions.discard(_chat_key(chat_id))
+        _active_chat_tasks.pop(_chat_key(chat_id), None)
         _clear_interrupt(chat_id)
 
 
@@ -1916,11 +1925,11 @@ async def resume_after_hitl(
         return
 
     # Approved — resume the agentic loop
-    _active_chat_executions.add(chat_id)
+    _active_chat_executions.add(_chat_key(chat_id))
     _mark_running(chat_id)
     current_task = asyncio.current_task()
     if current_task:
-        _active_chat_tasks[chat_id] = current_task
+        _active_chat_tasks[_chat_key(chat_id)] = current_task
     await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
 
     try:
@@ -2036,8 +2045,8 @@ async def resume_after_hitl(
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
     finally:
-        _active_chat_executions.discard(chat_id)
-        _active_chat_tasks.pop(chat_id, None)
+        _active_chat_executions.discard(_chat_key(chat_id))
+        _active_chat_tasks.pop(_chat_key(chat_id), None)
         _clear_interrupt(chat_id)
 
 
@@ -2100,11 +2109,11 @@ async def resume_after_ask_user(
     })
 
     # Re-enter the agentic loop
-    _active_chat_executions.add(chat_id)
+    _active_chat_executions.add(_chat_key(chat_id))
     _mark_running(chat_id)
     current_task = asyncio.current_task()
     if current_task:
-        _active_chat_tasks[chat_id] = current_task
+        _active_chat_tasks[_chat_key(chat_id)] = current_task
     await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
 
     try:
@@ -2139,8 +2148,8 @@ async def resume_after_ask_user(
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
     finally:
-        _active_chat_executions.discard(chat_id)
-        _active_chat_tasks.pop(chat_id, None)
+        _active_chat_executions.discard(_chat_key(chat_id))
+        _active_chat_tasks.pop(_chat_key(chat_id), None)
         _clear_interrupt(chat_id)
 
 
@@ -2152,11 +2161,11 @@ async def interrupt_execution(
     """Interrupt an active v2 execution immediately."""
     chat_id = chat.id
 
-    was_active = chat_id in _active_chat_executions
+    was_active = _chat_key(chat_id) in _active_chat_executions
     _mark_interrupted(chat_id)
-    _active_chat_executions.discard(chat_id)
+    _active_chat_executions.discard(_chat_key(chat_id))
 
-    task = _active_chat_tasks.get(chat_id)
+    task = _active_chat_tasks.get(_chat_key(chat_id))
     if task and not task.done():
         task.cancel()
 

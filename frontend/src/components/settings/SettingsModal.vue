@@ -141,6 +141,10 @@
                 />
               </template>
 
+              <template v-else-if="activeSection === 'mcp'">
+                <McpSection :key="currentProfileId" />
+              </template>
+
               <!-- Agent Section -->
               <template v-else-if="activeSection === 'agent'">
                 <AgentSection />
@@ -215,6 +219,7 @@ import AIServicesSection from './sections/AIServicesSection.vue'
 import ModelPreferencesSection from './sections/ModelPreferencesSection.vue'
 import DeveloperSection from './sections/DeveloperSection.vue'
 import AgentSection from './sections/AgentSection.vue'
+import McpSection from './sections/McpSection.vue'
 import WildcardsSection from './sections/WildcardsSection.vue'
 import PinEntryModal from '../PinEntryModal.vue'
 import Modal from '../ui/Modal.vue'

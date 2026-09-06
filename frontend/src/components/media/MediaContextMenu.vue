@@ -75,6 +75,10 @@
 
       <!-- Normal View Actions -->
       <template v-else>
+        <button v-if="mcpEnabled && targetAssetIds.length && targetAssetIds.length <= 200"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle"
+          @click="shareMcpSelection">Share selection with connected assistants</button>
+        <p v-if="mcpShareStatus" role="status" class="px-3 py-2 text-xs text-content-secondary">{{ mcpShareStatus }}</p>
         <!-- Bare Media (for example a grid cell or chat working result) can be kept explicitly. -->
         <button
           v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0"
@@ -919,6 +923,21 @@ interface GenerateMoreTool {
 const router = useRouter()
 const { tabs: workspaceTabs } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
+const mcpEnabled = ref(false)
+const mcpShareStatus = ref('')
+watch(() => contextMenu.state.value.visible, async (visible) => {
+  if (!visible) return
+  mcpShareStatus.value = ''
+  mcpEnabled.value = false
+  try { mcpEnabled.value = (await axios.get('/api/mcp/settings')).data.enabled }
+  catch { /* MCP stays unavailable when settings cannot be read. */ }
+})
+async function shareMcpSelection() {
+  try {
+    await axios.post('/api/mcp/context', { asset_ids: targetAssetIds.value })
+    mcpShareStatus.value = 'Selection shared for 10 minutes.'
+  } catch { mcpShareStatus.value = 'Could not share this selection.' }
+}
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
 const {

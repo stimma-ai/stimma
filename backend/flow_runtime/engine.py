@@ -1486,6 +1486,9 @@ class FlowRun:
             if self.config.hitl_auto_resolve is not None:
                 try:
                     resolution = self.config.hitl_auto_resolve(eq, resolved_inputs)
+                    import inspect
+                    if inspect.isawaitable(resolution):
+                        resolution = await resolution
                     completion_value = self._hitl_completion_value(eq, resolution)
                 except Exception as exc:
                     self._finalize_failure(eq, str(exc), category=CODE_ERROR)

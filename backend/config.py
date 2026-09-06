@@ -557,6 +557,7 @@ class ProfileConfig(BaseModel):
     lora_denylist: List[str] = []   # Glob patterns - these are denied (allowlist can override)
     wildcards: List[WildcardEntry] = []  # Named wildcard lists for prompt expansion
     prompt_segments: List[PromptSegmentEntry] = []  # Named text blocks for prompt expansion
+    mcp_enabled: bool = False
     pin_hash: Optional[str] = None  # bcrypt hash of profile PIN (None = no PIN required)
     pin_idle_timeout_minutes: int = 30  # Minutes of inactivity before PIN is required again
     agent: ProfileAgentConfig = ProfileAgentConfig()  # Per-profile agent settings
@@ -1354,6 +1355,7 @@ class Settings(BaseSettings):
                     prompt_segments=profile_prompt_segments,
                     lora_allowlist=profile.get('lora_allowlist', []),
                     lora_denylist=profile.get('lora_denylist', []),
+                    mcp_enabled=profile.get('mcp_enabled', False),
                     pin_hash=profile.get('pin_hash'),
                     pin_idle_timeout_minutes=profile.get('pin_idle_timeout_minutes', 30),
                     agent=profile_agent,
