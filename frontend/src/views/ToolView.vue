@@ -319,7 +319,6 @@
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
         <Teleport to="#tool-drawer-body" :disabled="!isCompact" defer>
         <!-- Params-card top row: resolution + markers | auto-trash -->
-        <div data-drawer-group="Output" class="compact:pt-2"></div>
         <div class="flex items-center gap-2 mb-3">
             <ConstrainedResolutionPicker
               v-if="allowedDimensions"
@@ -415,7 +414,6 @@
         <!-- Media Input (images or videos, unified picker). In batch mode the slot
              collapses to a representative stack with a count; the same prep
              controls apply uniformly to every item. -->
-        <div v-if="mediaInputConfig || hasVideoFrames || audioInputConfig" data-drawer-group="Inputs"></div>
         <MediaPicker
           v-if="mediaInputConfig && !hasMask"
           ref="mediaPickerRef"
@@ -530,7 +528,6 @@
         />
 
         <!-- Video Parameters: Duration (for tools using duration param) -->
-        <div v-if="hasDuration || hasFrameCount" data-drawer-group="Video"></div>
         <div v-if="hasDuration" class="mb-6">
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Duration -->
@@ -631,7 +628,6 @@
 
 
         <!-- LoRA Selection (for task types that support it) -->
-        <div v-if="hasLoras" data-drawer-group="LoRAs"></div>
         <LoraPoolPanel
           v-if="hasLoras"
           ref="loraPoolPanelRef"
@@ -649,7 +645,6 @@
 
         <!-- Post-processing chain (auto-runs after each generation when On).
              Not shown for audio tools — no audio post-processing chains exist. -->
-        <div v-if="!outputsAudio" data-drawer-group="Post"></div>
         <PostProcessingPanel
           v-if="!outputsAudio"
           v-model:chain="toolChain"
@@ -658,7 +653,6 @@
         />
 
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
-        <div data-drawer-group="Params"></div>
         <SchemaParamGroup
           :full-tool-id="fullToolIdFromProps"
           :groups="groupedGenericParams"
@@ -1003,9 +997,12 @@
              hero + queue strip. ToolRunControl teleports into the compact header.
              The agent opens as a centred card from a floating button over the hero. -->
         <ToolDrawer v-if="isCompact" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" />
-        <!-- Guarded by stageViewActive: KeepAlive keeps this view alive, and a
-             teleport left mounted would leave Run and Agent in every other hub's header. -->
-        <Teleport v-if="isCompact && stageViewActive" to="#compact-header-actions" defer>
+        <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
+             every tool instance alive, and a teleport left mounted would leave
+             a second Run and Agent in the header (pushing the real ones off the
+             screen) or in every other hub's header. Exactly one instance owns
+             the header at a time (useCompactChrome). -->
+        <Teleport v-if="isCompact && stageViewActive && ownsCompactHeader" to="#compact-header-actions" defer>
           <button
             v-if="!llmUnconfigured"
             type="button"
@@ -1019,7 +1016,6 @@
           <ToolRunControl
             :batch-size="uiState.batchSize"
             :can-submit="canSubmit"
-            :running-count="compactRunningCount"
             :forever-active="uiState.generateForeverMode"
             :concurrency="uiState.generateForeverConcurrency"
             :idle-limit="uiState.generateForeverIdleLimit"
@@ -1130,8 +1126,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
-import { setCompactTitle } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
+import { claimCompactHeader, compactHeaderOwner, releaseCompactHeader, setCompactTitle } from '../composables/useCompactChrome'
 import ToolDrawer from '../components/compact/ToolDrawer.vue'
 import ToolRunControl from '../components/compact/ToolRunControl.vue'
 import { devModeRef, hidePricesRef } from '../appConfig'
@@ -1313,6 +1309,10 @@ function clearStageLive() {
 // applied via watcher.
 const stageVideoRef = ref<HTMLVideoElement | null>(null)
 const stageViewActive = ref(true)
+// Header ownership on compact: claimed on activation, released on deactivation
+// and unmount, so at most one ToolView's Run/Agent controls sit in the header.
+const compactHeaderToken = Symbol('tool-view')
+const ownsCompactHeader = computed(() => compactHeaderOwner.value === compactHeaderToken)
 const stageWindowFocused = ref(typeof document === 'undefined' ? true : document.hasFocus())
 // Fade length at the end of an audible pass, so the return to the muted loop
 // doesn't read as a glitch. The volume floor keeps a slider dragged to the
@@ -3746,8 +3746,6 @@ const canSubmit = computed(() => {
 
 // Job counts from jobs manager
 const allJobs = computed(() => jobsManager?.allJobs.value || [])
-// Jobs still in flight, for the compact Run control's ring + count.
-const compactRunningCount = computed(() => allJobs.value.filter((j: any) => !['completed', 'failed', 'cancelled'].includes(j.status)).length)
 // An empty tool starts with the drawer half-open (the form is the screen);
 // the first result collapses it so the image takes over.
 watch(() => allJobs.value.length, (n, prev) => {
@@ -6983,6 +6981,8 @@ async function handleProfileChanged() {
 }
 
 onMounted(async () => {
+  // Under KeepAlive onActivated claims too; this covers a mount outside it.
+  claimCompactHeader(compactHeaderToken)
   console.log('[ToolView onMounted] Starting', { queryKeys: Object.keys(route.query) })
   await loadTool()
   console.log('[ToolView onMounted] loadTool completed')
@@ -7053,6 +7053,7 @@ onMounted(async () => {
 onActivated(() => {
   console.log('[ToolView onActivated] Component reactivated', { queryKeys: Object.keys(route.query) })
   stageViewActive.value = true
+  claimCompactHeader(compactHeaderToken)
   window.addEventListener('keydown', handleKeyDown)
   syncStageVideoPlayback()
   if (tool.value?.availability !== 'available') {
@@ -7062,6 +7063,7 @@ onActivated(() => {
 
 onDeactivated(() => {
   stageViewActive.value = false
+  releaseCompactHeader(compactHeaderToken)
   syncStageVideoPlayback()
   window.removeEventListener('keydown', handleKeyDown)
   // Tool views are KeepAlive'd, so deactivation does not reach onUnmounted.
@@ -7070,6 +7072,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(async () => {
+  releaseCompactHeader(compactHeaderToken)
   foreverModeSessionId.value++
   workRequestQueue.value = []
   foreverModeBatchSubmitInFlight.value = false

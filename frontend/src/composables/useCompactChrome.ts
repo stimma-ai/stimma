@@ -83,6 +83,22 @@ export function setCompactMenu(items: CompactMenuItem[]) {
   menuItems.value = items
 }
 
+/**
+ * Which screen instance owns the header's action slot (`#compact-header-actions`).
+ * KeepAlive keeps every tool instance mounted, so each claims the slot on
+ * activation and releases it on deactivation; a teleport renders only while
+ * its owner holds the claim, so the header can never carry two Run controls.
+ */
+export const compactHeaderOwner = ref<symbol | null>(null)
+
+export function claimCompactHeader(token: symbol) {
+  compactHeaderOwner.value = token
+}
+
+export function releaseCompactHeader(token: symbol) {
+  if (compactHeaderOwner.value === token) compactHeaderOwner.value = null
+}
+
 export function clearCompactTitle() {
   routeTitle.value = ''
   routeSubtitle.value = ''

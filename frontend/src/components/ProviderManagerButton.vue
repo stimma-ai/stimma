@@ -47,7 +47,10 @@
 
     <!-- Popover on wide; on compact a full-screen sheet with its own back
          row, because a 420px panel hanging off a header icon is not a phone
-         surface. -->
+         surface. The manager is the provider's own responsive UI, proxied
+         through the backend under /api, so it loads in the phone shell too:
+         the shell allows same-origin subframes and only refuses them the
+         native bridge, which a manager never needs. -->
     <div
       v-if="openId === p.provider_id"
       class="bg-surface z-menu overflow-hidden flex flex-col absolute top-[calc(100%+0.5rem)] right-0 w-[420px] border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] compact:fixed compact:inset-0 compact:top-0 compact:w-auto compact:border-0 compact:rounded-none compact:shadow-none compact:pt-safe compact:pb-safe"
@@ -66,9 +69,6 @@
       <div v-if="p.status !== 'connected'" class="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
         <ComfyUIIcon v-if="isComfy(p)" class="w-6 h-6 text-content-muted" />
         <div class="text-sm text-content">{{ p.provider_name }} · {{ p.status === 'connecting' ? 'connecting' : 'not connected' }}</div>
-      </div>
-      <div v-else-if="isMobileShell()" class="flex-1 flex items-center justify-center p-6 text-sm text-content-secondary text-center">
-        Manage this provider from Stimma on your computer.
       </div>
       <iframe
         v-else
@@ -94,7 +94,6 @@ import { useTheme } from '../composables/useTheme'
 import { useViewport } from '../composables/useViewport'
 import { useToasts } from '../composables/useToasts'
 import { getApiBase } from '../apiConfig'
-import { isMobileShell } from '../desktop/mobileBridge'
 import { isComfyUIProvider } from '../utils/toolProviderBrands'
 import { makeGlobalKey } from '../utils/storageKeys'
 import ComfyUIIcon from './tools/ComfyUIIcon.vue'

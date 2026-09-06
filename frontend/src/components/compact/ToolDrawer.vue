@@ -4,16 +4,14 @@
  *
  * Three heights: collapsed (handle + prompt), half, full. Drag the handle or
  * tap it to toggle. The prompt is pinned at the top at every height; the
- * tool's controls scroll beneath it under a sticky row of group names. The
- * groups are whatever the tool renders: any element inside the body that
- * carries `data-drawer-group="Label"` becomes a row entry, in DOM order, so a
- * video tool, an upscaler and a text-to-image tool each get their own row.
+ * tool's controls scroll beneath it as one column, in the order the tool
+ * renders them.
  *
  * This is deliberately not the kit Sheet: the Sheet is modal and one-height.
  * Two screens use it, the tool view and the image editor, each with its own
  * `idPrefix`; nothing else may (DESIGN.md §1.11).
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 type Level = 'collapsed' | 'half' | 'full'
 
@@ -112,52 +110,14 @@ const collapsedPx = ref<number | null>(null)
 let promptObserver: ResizeObserver | null = null
 function measureCollapsed() { collapsedPx.value = collapsedHeight() }
 
-// --- groups: read from the body's data-drawer-group markers
-interface Group { label: string; el: HTMLElement }
-const groups = ref<Group[]>([])
-const activeGroup = ref<string>('')
-let observer: MutationObserver | null = null
-function scanGroups() {
-  const body = bodyEl.value
-  if (!body) return
-  const els = Array.from(body.querySelectorAll<HTMLElement>('[data-drawer-group]'))
-  const seen = new Set<string>()
-  groups.value = els
-    .map((el) => ({ label: el.dataset.drawerGroup || '', el }))
-    .filter((g) => g.label && !seen.has(g.label) && seen.add(g.label))
-  updateActive()
-}
-function updateActive() {
-  const body = bodyEl.value
-  if (!body || groups.value.length === 0) { activeGroup.value = ''; return }
-  const top = body.scrollTop + 12
-  let current = groups.value[0].label
-  for (const g of groups.value) {
-    if (g.el.offsetTop - body.offsetTop <= top) current = g.label
-  }
-  activeGroup.value = current
-}
-function jumpTo(g: Group) {
-  if (level.value === 'collapsed') level.value = 'half'
-  g.el.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  activeGroup.value = g.label
-}
-
 onMounted(() => {
   requestAnimationFrame(measureCollapsed)
   if (promptEl.value && typeof ResizeObserver !== 'undefined') {
     promptObserver = new ResizeObserver(() => measureCollapsed())
     promptObserver.observe(promptEl.value)
   }
-  scanGroups()
-  if (bodyEl.value && typeof MutationObserver !== 'undefined') {
-    observer = new MutationObserver(() => scanGroups())
-    observer.observe(bodyEl.value, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-drawer-group'] })
-  }
 })
-onBeforeUnmount(() => { observer?.disconnect(); promptObserver?.disconnect() })
-
-watch(level, (l) => { if (l !== 'collapsed') requestAnimationFrame(updateActive) })
+onBeforeUnmount(() => { promptObserver?.disconnect() })
 
 defineExpose({ open: (l: Level) => { level.value = l }, level })
 </script>
@@ -185,32 +145,12 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
          the #pin slot). -->
     <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-3 pb-2"><slot name="pin" /></div>
 
-    <!-- Group row: only when the drawer is open and the tool has groups. -->
-    <div
-      v-show="groups.length > 1"
-      class="flex-none flex gap-4 px-4 h-10 items-stretch border-t border-b border-edge-subtle overflow-x-auto"
-      role="tablist"
-    >
-      <button
-        v-for="g in groups"
-        :key="g.label"
-        type="button"
-        role="tab"
-        class="flex items-center whitespace-nowrap text-[13.5px] border-b-2 border-none bg-transparent px-0"
-        :class="activeGroup === g.label ? 'text-content border-b-accent' : 'text-content-tertiary border-b-transparent'"
-        :style="{ borderBottom: activeGroup === g.label ? '2px solid rgb(var(--color-accent-rgb))' : '2px solid transparent' }"
-        :aria-selected="activeGroup === g.label"
-        @click="jumpTo(g)"
-      >{{ g.label }}</button>
-    </div>
-
     <!-- Body (filled by the tool view's controls teleport, or the default slot). -->
     <div
       ref="bodyEl"
       :id="`${idPrefix}-body`"
       class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-safe"
       :class="[level === 'collapsed' ? 'overflow-hidden' : '', bodyClass]"
-      @scroll.passive="updateActive"
     ><slot /></div>
   </div>
 </template>

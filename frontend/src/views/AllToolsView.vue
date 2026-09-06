@@ -1,29 +1,35 @@
 <template>
   <div class="h-full flex flex-col bg-base">
-    <!-- Header row -->
-    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-2">
+    <!-- Header row. Wide: title, provider dropdown, search box. Compact (the
+         "Tools" title is the compact header's): one 44px row — the provider
+         filter chip and a search icon that expands into the box. -->
+    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-1 compact:gap-2">
       <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
-      <div v-else></div>
+      <div v-else class="compact:hidden"></div>
 
-      <div class="flex items-center gap-3 compact:flex-1 compact:gap-2">
-        <!-- Provider filter dropdown -->
-        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative" ref="providerDropdownRef">
+      <div class="flex items-center gap-3 compact:flex-1 compact:gap-1 compact:min-w-0">
+        <!-- Provider filter. Wide: an inline dropdown. Compact / coarse: the
+             kit Sheet — an inline dropdown converted to a sheet would sit
+             inside the app column's stacking context, under the shared sheet
+             backdrop, and no tap would ever reach it. -->
+        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative compact:min-w-0" :class="searchOpen ? 'compact:hidden' : ''" ref="providerDropdownRef">
           <button
             @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors compact:min-h-11"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors compact:min-h-11 compact:max-w-full compact:gap-1.5 compact:px-2"
             :class="activeProviderFilters.size > 0
               ? 'bg-blue-500/15 text-blue-500'
               : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle'"
           >
-            <span :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
-            <svg class="w-4 h-4 transition-transform" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <FunnelIcon class="w-4 h-4 flex-shrink-0 hidden compact:block" />
+            <span class="truncate" :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
+            <svg class="w-4 h-4 flex-shrink-0 transition-transform compact:hidden" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
-          <!-- Dropdown menu -->
+          <!-- Dropdown menu (wide) -->
           <div
-            v-if="providerDropdownOpen"
+            v-if="providerDropdownOpen && !providerSheet"
             class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu min-w-[180px] py-1"
           >
             <button
@@ -68,21 +74,78 @@
           </div>
         </div>
 
-        <!-- Text search -->
-        <div class="relative compact:flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input v-no-autocorrect
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search tools..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
-          />
+        <!-- Text search. Wide: always a box. Compact: a search icon; tapping it
+             expands the box across the row, ✕ clears and collapses. A query
+             keeps the box open so the filter is never hidden while it applies. -->
+        <div class="relative compact:flex-1 compact:min-w-0 compact:flex compact:items-center compact:justify-end compact:gap-1">
+          <button
+            v-if="!searchExpanded"
+            type="button"
+            class="hidden compact:flex w-11 h-11 items-center justify-center rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
+            aria-label="Search tools"
+            @click="openSearch"
+          >
+            <MagnifyingGlassIcon class="w-6 h-6" />
+          </button>
+          <div class="relative compact:flex-1 compact:min-w-0" :class="searchExpanded ? '' : 'compact:hidden'">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input v-no-autocorrect
+              ref="searchInputRef"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search tools..."
+              class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
+              @keydown.escape="closeSearch"
+            />
+          </div>
+          <button
+            v-if="searchExpanded"
+            type="button"
+            class="hidden compact:flex w-11 h-11 flex-shrink-0 items-center justify-center rounded-md text-content-secondary hover:text-content transition-colors"
+            aria-label="Clear search"
+            @click="closeSearch"
+          >
+            <XMarkIcon class="w-6 h-6" />
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Provider filter as a bottom sheet (compact / coarse). Multi-select:
+         rows toggle and the sheet stays; tap outside or the handle to close. -->
+    <Sheet :show="providerDropdownOpen && providerSheet" title="Providers" @close="providerDropdownOpen = false">
+      <div class="pb-2">
+        <button
+          v-for="provider in availableProviders"
+          :key="provider.provider_id"
+          type="button"
+          class="sheet-row"
+          :class="activeProviderFilters.has(provider.provider_id) ? '!text-blue-500' : ''"
+          @click="toggleProviderFilter(provider.provider_id)"
+        >
+          <svg v-if="activeProviderFilters.has(provider.provider_id)" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+          <span v-else class="sheet-row-icon"></span>
+          <span class="truncate" :class="isStimmaCloudTool(provider) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(provider) }}</span>
+        </button>
+        <div class="mx-4 my-1 border-t border-edge-subtle"></div>
+        <button
+          type="button"
+          class="sheet-row"
+          :class="showUnavailable ? '!text-blue-500' : ''"
+          @click="showUnavailable = !showUnavailable"
+        >
+          <svg v-if="showUnavailable" class="sheet-row-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+          <span v-else class="sheet-row-icon"></span>
+          <span>Show unavailable</span>
+        </button>
+      </div>
+    </Sheet>
 
     <!-- Task type filter pills -->
     <div v-if="availableTaskTypes.length > 0" class="px-6 py-3 flex flex-wrap gap-2 border-b border-edge-subtle compact:hidden">
@@ -260,8 +323,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, onActivated, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { useViewport } from '../composables/useViewport'
+import Sheet from '../components/ui/Sheet.vue'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
 import {
@@ -302,9 +368,24 @@ let unsubscribeFromProviderChanges = null
 // Search input ref
 const searchInputRef = ref(null)
 
-// Provider dropdown
+// Provider dropdown. On compact or coarse pointers it renders as the kit Sheet.
 const providerDropdownRef = ref(null)
 const providerDropdownOpen = ref(false)
+const { isCompact, isCoarsePointer } = useViewport()
+const providerSheet = computed(() => isCompact.value || isCoarsePointer.value)
+
+// Compact search: collapsed to an icon until tapped; a live query keeps it open.
+const searchOpen = ref(false)
+const searchExpanded = computed(() => searchOpen.value || !!searchQuery.value)
+function openSearch() {
+  searchOpen.value = true
+  nextTick(() => searchInputRef.value?.focus())
+}
+function closeSearch() {
+  searchQuery.value = ''
+  searchOpen.value = false
+  searchInputRef.value?.blur()
+}
 
 function getSearchKey() {
   return makeProfileKey('allTools', 'searchQuery')
@@ -463,7 +544,7 @@ const availableProviders = computed(() => {
 
 const providerFilterLabel = computed(() => {
   if (activeProviderFilters.value.size === 0) {
-    return 'All Providers'
+    return isCompact.value ? 'All providers' : 'All Providers'
   }
   // Get names of selected providers
   const selectedNames = [...activeProviderFilters.value]
@@ -846,7 +927,9 @@ function handleKeydown(e) {
 }
 
 function handleClickOutside(e) {
-  if (providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
+  // The Sheet teleports to body (outside providerDropdownRef) and dismisses
+  // itself; treating its taps as outside clicks would close it on every pick.
+  if (!providerSheet.value && providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
     providerDropdownOpen.value = false
   }
   // Close the per-tool menu when clicking outside it.
@@ -864,8 +947,8 @@ onMounted(() => {
     loadProviders()
   })
 
-  // Focus search input on mount
-  searchInputRef.value?.focus()
+  // Focus search input on mount (wide only: on a phone that pops the keyboard)
+  if (!isCompact.value) searchInputRef.value?.focus()
 
   // Listen for '/' key to focus search
   document.addEventListener('keydown', handleKeydown)
@@ -876,7 +959,7 @@ onMounted(() => {
 
 onActivated(() => {
   // Focus search input when returning to the page (KeepAlive reactivation)
-  searchInputRef.value?.focus()
+  if (!isCompact.value) searchInputRef.value?.focus()
 })
 
 onUnmounted(() => {

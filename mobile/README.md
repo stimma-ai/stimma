@@ -129,9 +129,10 @@ in both cases.
   Browser JavaScript never receives either credential. The loopback listener
   requires an HttpOnly capability cookie and validates Host and Origin.
 - Native commands accept only the main app document. Generated layout frames
-  disable scripts on iOS. Provider-management web panels remain desktop-only.
-  A WebKit content rule prevents cookie-bearing requests to another loopback
-  port.
+  disable scripts on iOS. Provider-management web panels (ComfyUI, Draw
+  Things) load as same-origin subframes through the `/api/provider-manage/`
+  proxy; they get no native bridge. A WebKit content rule prevents
+  cookie-bearing requests to another loopback port.
 - The phone bypasses desktop onboarding and has no local-server option. Server
   profile PIN checks remain intact. Connection checks run while active and
   after resuming, with one five-second probe at a time. Recovery refreshes
