@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { browserBridge } from './browserBridge.ts'
-import { mobileBridge, isMobileShell, revealMobileInterface } from './mobileBridge.ts'
+import { mobileBridge, isMobileShell, revealMobileInterface, setMobileSlideshowActive } from './mobileBridge.ts'
 import { tauriBridge } from './tauriBridge.ts'
 
 // The full bridge contract. Every implementation must expose exactly these
@@ -167,6 +167,46 @@ test('mobile account operations never reach the remote backend', async (t) => {
   target.dispatchEvent(new CustomEvent('stimma:connection-state', { detail: 'ready' }))
   assert.deepEqual(transitions, ['unreachable'])
   await assert.rejects(mobileBridge.openExternal('file:///private/file'))
+})
+
+test('mobile retry returns the resulting native state without overwriting successful recovery', async (t) => {
+  let state = 'unreachable'
+  const calls: string[] = []
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  t.after(() => {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+  })
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    webkit: { messageHandlers: { stimma: { async postMessage(message: { method: string }) {
+      calls.push(message.method)
+      if (message.method === 'reload') state = 'ready'
+      return { connectionState: state }
+    } } } },
+  } })
+  assert.equal(await mobileBridge.mdRetry(), 'ready')
+  assert.deepEqual(calls, ['reload', 'getState'])
+})
+
+test('slideshow entry and exit update iOS rotation policy, with older-shell compatibility', async t => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  t.after(() => {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+  })
+  const calls: unknown[] = []
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    webkit: { messageHandlers: { stimma: { async postMessage(message: unknown) { calls.push(message) } } } },
+  } })
+  await setMobileSlideshowActive(true)
+  await setMobileSlideshowActive(false)
+  assert.deepEqual(calls, [
+    { method: 'setSlideshowActive', args: { active: true } },
+    { method: 'setSlideshowActive', args: { active: false } },
+  ])
+  const handler = (window as any).webkit.messageHandlers.stimma
+  handler.postMessage = async () => { throw new Error('Unsupported native operation') }
+  await assert.doesNotReject(setMobileSlideshowActive(true))
 })
 
 test('mobile loading cover waits for a rendered frame before revealing the app', async (t) => {

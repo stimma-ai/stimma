@@ -23,14 +23,10 @@
 
     <FeedbackRoot />
 
-  <!-- Connection state, ahead of everything the active device owns — the
-       PIN lock included. A PIN is verified by the server the window is on,
-       so a lock screen over a dead connection can only fail; the connection
-       screen takes over and the lock re-evaluates on the reload that follows
-       a reconnect. The sidebar, browsers, and content of an unreachable
-       backend are undefined, so they must not render at all — v-if, never
-       v-show. -->
-  <ConnectionScreen v-if="connectionState !== 'ready'" />
+  <!-- Mobile retains this workspace through routine transport interruptions.
+       Cold connections and device changes still go through the connection gate;
+       desktop keeps its existing reload-based recovery. -->
+  <ConnectionScreen v-if="showConnectionScreen" />
 
   <!-- Full-screen lock screen when PIN is required -->
   <div v-else-if="isLocked" class="fixed inset-0 z-top bg-surface-overlay">
@@ -279,6 +275,8 @@ import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow }
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
 import { desktop } from './desktop'
+import { useConnectionPresentation } from './composables/useConnectionPresentation'
+import { setMobileSlideshowActive } from './desktop/mobileBridge'
 import { revealMobileInterface } from './desktop/mobileBridge'
 import { useMultiDevice } from './composables/useMultiDevice'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
@@ -335,6 +333,8 @@ const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplac
 import { setWildcards, setSegments } from './composables/useWildcards'
 const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
+watch(slideshowActive, active => { void setMobileSlideshowActive(active) }, { immediate: true })
+onUnmounted(() => { void setMobileSlideshowActive(false) })
 const { setTheme } = useTheme()
 const {
   allTabs, findNextTab, removeTab,
@@ -358,11 +358,8 @@ const settingsSection = ref('folders')
 const settingsStartAtList = ref(false)
 const startupPending = ref(true)
 
-// Connection state is ordinary app state, not a boot precondition: the
-// renderer always has the local proxy to talk to, and main pushes every
-// transition. One screen then covers cold launch, satellite launch, and a
-// mid-session drop.
-const { connectionState, activeDeviceName, init: initMultiDevice } = useMultiDevice()
+const { connectionState, activeDeviceId, activeDeviceName, init: initMultiDevice } = useMultiDevice()
+const { showConnectionScreen } = useConnectionPresentation(connectionState, activeDeviceId, desktop.kind)
 
 function openSettings(section) {
   // No section (the sidebar's gear) = the settings list on compact; desktop
@@ -387,11 +384,10 @@ const lockScreenSubmitting = ref(false)
 const lockScreenPinInput = ref(null)
 const lockScreenProfileDropdownOpen = ref(false)
 
-// A lock screen's half-typed PIN or stale error belongs to the connection it
-// was entered on. Drop both when the device goes away so the lock screen
-// comes back clean after the reconnect reload.
-watch(connectionState, (state) => {
-  if (state !== 'ready' && isLocked.value) {
+// Clear PIN input when leaving this workspace, but retain it during quiet
+// mobile recovery just like other in-progress input. Server PIN checks remain.
+watch(showConnectionScreen, (show) => {
+  if (show && isLocked.value) {
     lockScreenPin.value = ''
     lockScreenError.value = ''
   }

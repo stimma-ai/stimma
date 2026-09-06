@@ -24,6 +24,7 @@
  * returns to the live media queries.
  */
 import { computed, readonly, ref } from 'vue'
+import { isMobileShell } from '../desktop/mobileBridge.ts'
 
 export type ViewportTier = 'compact' | 'medium' | 'wide'
 export type PointerKind = 'coarse' | 'fine'
@@ -34,6 +35,10 @@ const COMPACT_MAX = 767
 const MEDIUM_MAX = 1023
 
 const hasWindow = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+// A landscape phone is still a phone. Changing chrome tiers would destroy
+// App's router/KeepAlive tree (and the slideshow that enabled rotation).
+const nativePhone = hasWindow && isMobileShell()
+  && Math.min(window.screen.width, window.screen.height) < 768
 
 const compactQuery = hasWindow ? window.matchMedia(`(max-width: ${COMPACT_MAX}px)`) : null
 const mediumQuery = hasWindow ? window.matchMedia(`(min-width: ${COMPACT_MAX + 1}px) and (max-width: ${MEDIUM_MAX}px)`) : null
@@ -46,6 +51,7 @@ interface Override { tier?: ViewportTier; pointer?: PointerKind }
 const override = ref<Override>(readOverride())
 
 function readTier(): ViewportTier {
+  if (nativePhone) return 'compact'
   if (compactQuery?.matches) return 'compact'
   if (mediumQuery?.matches) return 'medium'
   return 'wide'

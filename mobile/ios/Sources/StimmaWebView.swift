@@ -85,10 +85,12 @@ struct StimmaWebView: UIViewRepresentable {
         let origin: URL
         weak var webView: WKWebView?
         private let storage: LocalStoragePersistence?
+        private let connectionScreen: Bool
         var lastState = "ready"
         var lastTransportRevision = 0
         init(model: ShellModel, origin: URL, connectionScreen: Bool) {
             self.model = model; self.origin = origin
+            self.connectionScreen = connectionScreen
             if !connectionScreen, let server = model.selected {
                 let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("local-preferences")
@@ -138,6 +140,12 @@ struct StimmaWebView: UIViewRepresentable {
                     let result: Any
                     switch method {
                     case "connectionInfo": result = try connectionInfo()
+                    case "setSlideshowActive":
+                        guard !connectionScreen, let active = args["active"] as? Bool else {
+                            throw ShellError.message("Invalid slideshow state")
+                        }
+                        model.setSlideshowActive(active)
+                        result = NSNull()
                     case "interfaceReady":
                         // A setup sheet must not reveal a still-loading app.
                         if (documentURL.path == "/mobile.html") == (model.selected == nil) {
@@ -250,7 +258,13 @@ struct StimmaWebView: UIViewRepresentable {
             }
         }
 
-        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            if !connectionScreen, model.origin == origin { model.setSlideshowActive(false) }
+        }
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            if !connectionScreen, model.origin == origin { model.setSlideshowActive(false) }
+            webView.reload()
+        }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             guard (error as NSError).code != NSURLErrorCancelled, model.origin == origin else { return }
             model.message = "Connection interrupted. \(error.localizedDescription)"

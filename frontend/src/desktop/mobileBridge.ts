@@ -34,6 +34,12 @@ async function native<T>(method: string, args: Record<string, unknown> = {}): Pr
   return await bridge.postMessage({ method, args }) as T
 }
 
+export async function setMobileSlideshowActive(active: boolean): Promise<void> {
+  if (!isMobileShell() || mobileBridge.kind !== 'ios') return
+  // Older native shells can still use this UI package.
+  await native('setSlideshowActive', { active }).catch(() => {})
+}
+
 export const mobileBridge: DesktopBridge = {
   ...browserBridge,
   kind: 'ios',
@@ -61,7 +67,7 @@ export const mobileBridge: DesktopBridge = {
   },
   async mdRetry() {
     await native('reload')
-    return 'connecting'
+    return (await native<MultiDeviceState>('getState')).connectionState
   },
   mdOnConnectionState(onEvent) {
     const listener = (event: Event) => {

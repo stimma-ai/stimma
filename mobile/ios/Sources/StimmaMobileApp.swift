@@ -4,6 +4,7 @@ import OSLog
 
 @main
 struct StimmaMobileApp: App {
+    @UIApplicationDelegateAdaptor(MobileAppDelegate.self) private var appDelegate
     @StateObject private var model = ShellModel()
     @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
@@ -27,7 +28,10 @@ final class ShellModel: ObservableObject {
     @Published var origin: URL?
     @Published var message: String?
     @Published var busy = false
-    @Published var showConnections = false
+    @Published var showConnections = false {
+        didSet { updateOrientation() }
+    }
+    private var slideshowActive = false
     @Published var revision = UUID()
     @Published var connectionState = "ready"
     @Published var transportRevision = 0
@@ -44,6 +48,14 @@ final class ShellModel: ObservableObject {
     private var checkingConnection = false
     private var connectionProbe: Task<Bool, Error>?
     private var resumePending = false
+    func setSlideshowActive(_ active: Bool) {
+        slideshowActive = active
+        updateOrientation()
+    }
+
+    private func updateOrientation() {
+        MobileAppDelegate.setSlideshowActive(slideshowActive && selected != nil && !showConnections)
+    }
     let clientID: String = {
         if let saved = UserDefaults.standard.string(forKey: "mobile.clientID") { return saved }
         let id = UUID().uuidString
@@ -283,6 +295,7 @@ final class ShellModel: ObservableObject {
             next.connect(host: route.host, port: route.port, fingerprint: pin, session: session)
             transport?.stop()
             transport = next
+            setSlideshowActive(false)
             interfaceReady = false
             activeUIHash = package.hash
             selected = device
@@ -373,6 +386,7 @@ final class ShellModel: ObservableObject {
     }
 
     func disconnect() {
+        setSlideshowActive(false)
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
         restoring = false

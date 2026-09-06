@@ -12,6 +12,17 @@ authentication opens the system browser.
 Requires Xcode with an iOS simulator runtime, XcodeGen, Node/npm, and the normal
 Stimma CLI prerequisites. Minimum iOS version: 17.
 
+The iPhone interface stays in portrait except while slideshow is active, when
+portrait and both landscape orientations are allowed. Leaving slideshow returns
+to portrait. Phone chrome stays compact in landscape so rotation retains the
+same slideshow, current item, and controls. This requires an updated native iOS
+app and server UI package; older shells ignore the optional orientation command.
+
+Once connected, mobile transport interruptions retain the mounted workspace,
+including navigation, open sheets, drafts, and scroll position. Connection status
+remains available in the account/server controls while native recovery retries.
+Cold connections and explicit server changes still use the connection screen.
+
 ```sh
 tools/stimma mobile ios doctor
 tools/stimma mobile ios run --simulator 'iPhone 17 Pro'
