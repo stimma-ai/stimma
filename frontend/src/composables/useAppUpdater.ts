@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { isTauri, getApiBase } from '../apiConfig'
 import { desktop } from '../desktop'
 import type { DesktopUpdate } from '../desktop'
+import { triggerServerUpdateCheck } from '../utils/serverUpdateCheck'
 import { useTelemetry } from './useTelemetry'
 import { isPrivacyLockdownActive, usePrivacyLockdown } from './usePrivacyLockdown'
 
@@ -228,6 +229,10 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
 
   isChecking.value = true
   try {
+    // Keep a connected headless server's available-version state in step with
+    // every real client updater check. This is deliberately best-effort: an
+    // offline or desktop-managed backend must not hold up the client check.
+    void triggerServerUpdateCheck(getApiBase())
     const update = await desktop.checkForUpdate()
     await saveLastCheckedAt()
 
