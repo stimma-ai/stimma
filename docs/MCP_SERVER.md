@@ -1,19 +1,19 @@
 # MCP server
 
-Stimma exposes an authenticated, profile-bound MCP endpoint through the existing backend and a local stdio bridge through `stimma mcp`. The server is disabled by default. Enable it and create a connection in the profile’s **Settings → MCP** section.
+Stimma exposes an authenticated, profile-bound MCP endpoint through the existing backend and a local stdio bridge through `stimma mcp`. The server is disabled by default. Enable it and create a connection in the profile’s **Settings → MCP** section. Settings provides the server URL and a one-time connection key per named connection, and shows when each connection was created and last used. Assistant-specific setup instructions live in the [MCP setup guide](https://docs.stimma.ai/mcp/).
 
 ## Transports and setup
 
 The native endpoint is `/mcp/profiles/{profile_id}`. It implements Streamable HTTP using the official Python MCP SDK. Each request carries `Authorization: Bearer <connection credential>`. Credentials are created through the owner-facing settings API; the server stores their hashes, installation identity and originating profile. MCP requests cannot select another profile through REST headers or query parameters.
 
-The bridge runs on the assistant’s machine:
+The development bridge runs on the assistant’s machine:
 
 ```sh
 stimma mcp install connection.stimma-mcp.json
 stimma mcp bridge connection-alias
 ```
 
-The installer prints an `mcpServers` entry and stores the connection credential in a separate file with mode `0600`. Its argument is a downloaded connection file, not the profile PIN. The bridge requires the Stimma CLI and its Python backend dependencies. It opens authenticated HTTP sessions as needed; transport reconnections do not create new access grants.
+The installer prints an `mcpServers` entry and stores the connection credential in a separate file with mode `0600`. Its argument is a JSON connection object from the settings API, not the profile PIN. This repository CLI is a development utility; end-user setup uses the server URL and key directly with the assistant. The bridge requires the Stimma CLI and its Python backend dependencies. It opens authenticated HTTP sessions as needed; transport reconnections do not create new access grants.
 
 The bridge adds `media_upload` and `media_download`. Upload paths and downloaded result paths belong to the assistant’s machine. Native clients can implement the same authenticated HTTP transfer endpoints. A tool-only HTTP client can use workspace operations and inline previews but needs a transfer integration for full files.
 

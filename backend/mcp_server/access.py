@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import asyncio
+from datetime import datetime
 import base64
 import hashlib
 import hmac
@@ -96,6 +97,11 @@ class Access:
                 raise McpError(
                     "unauthorized", "This assistant connection is not authorized."
                 )
+            # Every request authenticates, so only write "last used" once a minute.
+            now = datetime.utcnow()
+            if not client.last_used_at or (now - client.last_used_at).total_seconds() > 60:
+                client.last_used_at = now
+                await session.commit()
             return Caller(profile_id, client.id, db.db_guid, stamp)
 
     def status(self, caller):

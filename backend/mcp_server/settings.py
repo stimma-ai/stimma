@@ -27,6 +27,11 @@ class Connect(BaseModel):
     name: str = Field(default="Assistant", min_length=1, max_length=80)
 
 
+class Rename(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=80)
+
+
 @router.get("/settings")
 async def settings(session=Depends(get_db_session)):
     profile = get_settings().get_profile(get_current_profile())
@@ -53,11 +58,12 @@ async def settings(session=Depends(get_db_session)):
                     - access.unlocks[profile.id, client.id].last_activity
                     < max(1, profile.pin_idle_timeout_minutes) * 60
                 ),
-                "last_use": access.unlocks[(profile.id, client.id)].last_activity
-                if (profile.id, client.id) in access.unlocks
+                "created_at": client.created_at.isoformat() + "Z",
+                "last_used_at": client.last_used_at.isoformat() + "Z"
+                if client.last_used_at
                 else None,
             }
-            for client in clients
+            for client in sorted(clients, key=lambda c: c.created_at)
         ],
     }
 
@@ -109,6 +115,18 @@ async def connect(body: Connect, session=Depends(get_db_session)):
 async def lock():
     await revoke(get_current_profile())
     return {"locked": True}
+
+
+@router.patch("/clients/{client_id}")
+async def rename(client_id: str, body: Rename, session=Depends(get_db_session)):
+    from fastapi import HTTPException
+
+    client = await session.get(McpClient, client_id)
+    if not client or client.deleted_at or client.installation != installation_id():
+        raise HTTPException(404, "Connection not found.")
+    client.name = body.name.strip() or client.name
+    await session.commit()
+    return {"id": client.id, "name": client.name}
 
 
 @router.delete("/clients/{client_id}")

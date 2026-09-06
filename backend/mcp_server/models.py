@@ -14,6 +14,7 @@ class McpClient(Base):
     credential_hash = Column(String, nullable=False, unique=True)
     installation = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
 
