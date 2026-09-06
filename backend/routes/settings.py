@@ -138,6 +138,7 @@ class ToolProviderResponse(BaseModel):
     type: str  # "builtin", "stdio", "websocket"
     enabled: bool = True
     has_api_key: bool = False
+    has_auth_token: bool = False
     status: str = "unknown"  # Will be populated from provider registry
     error_message: Optional[str] = None  # Connection error message if any
     tool_count: int = 0  # Number of tools from this provider
@@ -408,6 +409,7 @@ class UpdateToolProviderRequest(BaseModel):
     args: Optional[List[str]] = None
     working_dir: Optional[str] = None
     url: Optional[str] = None
+    auth_token: Optional[str] = None
 
 
 class CreateToolProviderRequest(BaseModel):
@@ -421,6 +423,7 @@ class CreateToolProviderRequest(BaseModel):
     working_dir: Optional[str] = None
     # For websocket providers
     url: Optional[str] = None
+    auth_token: Optional[str] = None
 
 
 class UpdateBackgroundWorkRequest(BaseModel):
@@ -651,6 +654,7 @@ async def get_settings_all():
             type=provider_config.type,
             enabled=provider_config.enabled,
             has_api_key=bool(provider_config.api_key),
+            has_auth_token=bool(provider_config.auth_token),
             status=status,
             error_message=error_message,
             tool_count=tool_count,
@@ -1445,6 +1449,8 @@ async def update_tool_provider_endpoint(
         updates["working_dir"] = request.working_dir
     if request.url is not None:
         updates["url"] = request.url
+    if request.auth_token is not None:
+        updates["auth_token"] = request.auth_token
 
     if not updates:
         return {"status": "success", "message": "No changes"}
@@ -1533,6 +1539,8 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
             new_provider["working_dir"] = request.working_dir
     else:  # websocket
         new_provider["url"] = request.url
+        if request.auth_token:
+            new_provider["auth_token"] = request.auth_token
 
     # Add to config
     from config_writer import add_tool_provider
@@ -1550,6 +1558,7 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
         name=request.name or request.id,
         type=request.type,
         enabled=True,
+        has_auth_token=bool(request.auth_token),
         status="disconnected",
         command=request.command if request.type == "stdio" else None,
         url=request.url if request.type == "websocket" else None,

@@ -515,11 +515,15 @@ function handleToolProviderUpdate(payload) {
 async function persistToolProviderUpdate({ providerId, data }) {
   const originalProvider = settings.value?.tool_providers.find(provider => provider.id === providerId)
   const startsConnection = toolProviderUpdateStartsConnection(data)
+  const { auth_token: _authToken, ...visibleData } = data
+  if (Object.prototype.hasOwnProperty.call(data, 'auth_token')) {
+    visibleData.has_auth_token = Boolean(data.auth_token)
+  }
   if (settings.value) {
     settings.value = {
       ...settings.value,
       tool_providers: settings.value.tool_providers.map(provider => provider.id === providerId
-        ? { ...provider, ...data, ...(startsConnection ? { status: 'connecting', error_message: null } : {}) }
+        ? { ...provider, ...visibleData, ...(startsConnection ? { status: 'connecting', error_message: null } : {}) }
         : provider),
     }
   }
@@ -553,6 +557,7 @@ async function persistToolProviderCreate(providerConfig) {
     command: providerConfig.command,
     args: providerConfig.args,
     url: providerConfig.url,
+    has_auth_token: Boolean(providerConfig.auth_token),
   }
   if (settings.value) {
     settings.value = { ...settings.value, tool_providers: [...settings.value.tool_providers, temporaryProvider] }
