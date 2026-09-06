@@ -46,7 +46,7 @@
                 Flows are repeatable creative workflows — define inputs once, then run them again with different settings to generate new assets.
               </p>
               <button
-                class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-content bg-surface-raised transition-colors hover:bg-surface-hover"
+                class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-content bg-surface-raised transition-colors hover:bg-surface-hover compact:min-h-[44px] compact:px-4"
                 @click="createFlow"
               >
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

@@ -1,6 +1,17 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createChat } from '../helpers/app';
 import { settleAnyViewport } from '../helpers/viewport';
+
+async function longPress(page: Page, target: Locator, ms = 650) {
+  const box = await target.boundingBox();
+  if (!box) throw new Error('no box for long-press target');
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await page.waitForTimeout(ms);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
 
 /**
  * Phone lane, navigation model: the desktop sidebar is a drawer behind the
@@ -36,6 +47,25 @@ test.describe('phone lane: drawer navigation', () => {
     await open();
     await expect(drawer).toContainText('Nav stack chat');
     await expect(drawer.getByRole('button', { name: 'Settings' })).toBeVisible();
+
+    // Working-set row: no hover-only close X (it was an invisible target
+    // that swallowed taps). Long-press → the row's sheet; Rename opens the
+    // rename sheet, never an inline field inside the row.
+    // The track is still sliding right after open(); press once it has settled.
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.compact-track')!).transform === 'matrix(1, 0, 0, 1, 0, 0)');
+    const chatRow = drawer.locator('nav button', { hasText: 'Nav stack chat' }).first();
+    await expect(chatRow.locator('xpath=..').locator('button[title], button:has(svg)').filter({ hasNotText: 'Nav stack chat' })).toHaveCount(0);
+    await longPress(page, chatRow);
+    const rowSheet = page.locator('[data-sheet-menu]').last();
+    await expect(rowSheet).toBeVisible({ timeout: 5000 });
+    await rowSheet.getByText('Rename', { exact: true }).click();
+    const renameSheet = page.getByRole('dialog').filter({ has: page.locator('input[type="text"]') });
+    await expect(renameSheet).toBeVisible({ timeout: 5000 });
+    await expect(drawer.locator('input')).toHaveCount(0);
+    await renameSheet.locator('input[type="text"]').fill('Nav stack chat renamed');
+    await renameSheet.getByRole('button', { name: 'Save' }).click();
+    await expect(drawer).toContainText('Nav stack chat renamed', { timeout: 5000 });
+    await expect(renameSheet).toBeHidden();
 
     // A drawer link navigates and closes the drawer.
     await drawer.getByText('Boards', { exact: true }).first().click();
