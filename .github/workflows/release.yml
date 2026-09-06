@@ -3,12 +3,14 @@ run-name: Release - ${{ github.ref_name || inputs.ref || 'manual' }}
 
 on:
   push:
+    branches:
+      - "release/*"
     tags:
       - "v*"
   workflow_dispatch:
     inputs:
       ref:
-        description: Release tag ref, branch, or SHA
+        description: Release tag or release/X.Y.Z branch
         required: true
         default: main
       skip_quality_gate:
@@ -34,9 +36,10 @@ jobs:
     name: Resolve release metadata
     runs-on: ubuntu-latest
     outputs:
-      ref: ${{ steps.meta.outputs.ref }}
+      ref: ${{ steps.source.outputs.ref }}
       version: ${{ steps.meta.outputs.version }}
       channel: ${{ steps.meta.outputs.channel }}
+      automatic: ${{ steps.meta.outputs.automatic }}
 
     steps:
       - name: Resolve metadata
@@ -45,6 +48,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
           INPUT_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
@@ -54,6 +58,16 @@ jobs:
             ref="$INPUT_REF"
             ref_name="${ref#refs/tags/}"
             ref_name="${ref_name#refs/heads/}"
+          fi
+
+          if [[ "$ref_name" =~ ^release/([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            # Pushes test precisely the commit that triggered this run.
+            if [ "$EVENT_NAME" = "push" ]; then ref="$SHA"; fi
+            echo "ref=$ref" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+            echo "automatic=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           if [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
@@ -69,25 +83,69 @@ jobs:
           echo "version=${ref_name#v}" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.ref }}
+      - name: Pin source commit
+        id: source
+        run: echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   quality-gate:
     name: Quality gate
     needs: release-meta
-    if: ${{ !inputs.skip_quality_gate }}
+    if: ${{ needs.release-meta.outputs.automatic == 'true' || !inputs.skip_quality_gate }}
     uses: ./.github/workflows/quality-gate.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
 
+  release-ref:
+    name: Tag tested beta / resolve release
+    needs: [release-meta, quality-gate]
+    if: ${{ always() && needs.release-meta.result == 'success' && (needs.quality-gate.result == 'success' || (inputs.skip_quality_gate && needs.release-meta.outputs.automatic != 'true')) }}
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ needs.release-meta.outputs.ref }}
+      version: ${{ steps.release.outputs.version }}
+      channel: ${{ needs.release-meta.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-meta.outputs.ref }}
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        if: ${{ needs.release-meta.outputs.automatic == 'true' }}
+      - name: Resolve release tag
+        id: release
+        env:
+          AUTOMATIC: ${{ needs.release-meta.outputs.automatic }}
+          VERSION: ${{ needs.release-meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$AUTOMATIC" = "true" ]; then
+            git config user.name stimmant
+            git config user.email stimmant@stimma.ai
+            # Re-running a failed build reuses its existing immutable beta tag.
+            tag="$(git tag --points-at HEAD --list "v${VERSION}-beta.*" | sort -V | tail -n1)"
+            if [ -z "$tag" ]; then
+              tools/stimma tag beta "$VERSION"
+              tag="$(git tag --points-at HEAD --list "v${VERSION}-beta.*" | sort -V | tail -n1)"
+            fi
+            test -n "$tag"
+            VERSION="${tag#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
   macos:
     name: macOS
     needs:
-      - release-meta
+      - release-ref
       - quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    if: ${{ always() && needs.release-ref.result == 'success' && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-macos.yml
     with:
-      ref: ${{ needs.release-meta.outputs.ref }}
-      channel: ${{ needs.release-meta.outputs.channel }}
-      version: ${{ needs.release-meta.outputs.version }}
+      ref: ${{ needs.release-ref.outputs.ref }}
+      channel: ${{ needs.release-ref.outputs.channel }}
+      version: ${{ needs.release-ref.outputs.version }}
       publish_updates: true
       publish_github_release: true
     secrets: inherit
@@ -95,14 +153,14 @@ jobs:
   windows:
     name: Windows
     needs:
-      - release-meta
+      - release-ref
       - quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    if: ${{ always() && needs.release-ref.result == 'success' && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-windows.yml
     with:
-      ref: ${{ needs.release-meta.outputs.ref }}
-      channel: ${{ needs.release-meta.outputs.channel }}
-      version: ${{ needs.release-meta.outputs.version }}
+      ref: ${{ needs.release-ref.outputs.ref }}
+      channel: ${{ needs.release-ref.outputs.channel }}
+      version: ${{ needs.release-ref.outputs.version }}
       publish_updates: true
       publish_github_release: true
     secrets: inherit
@@ -110,14 +168,14 @@ jobs:
   linux:
     name: Linux AppImage x64
     needs:
-      - release-meta
+      - release-ref
       - quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    if: ${{ always() && needs.release-ref.result == 'success' && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
-      ref: ${{ needs.release-meta.outputs.ref }}
-      channel: ${{ needs.release-meta.outputs.channel }}
-      version: ${{ needs.release-meta.outputs.version }}
+      ref: ${{ needs.release-ref.outputs.ref }}
+      channel: ${{ needs.release-ref.outputs.channel }}
+      version: ${{ needs.release-ref.outputs.version }}
       publish_updates: true
       publish_github_release: true
     secrets: inherit
@@ -125,7 +183,7 @@ jobs:
   release-notes:
     name: Publish release notes
     needs:
-      - release-meta
+      - release-ref
       - macos
       - windows
       - linux
@@ -134,7 +192,7 @@ jobs:
     # version's "released" flag flips once the release actually shipped.
     # Notes content is read from main, not the tagged commit — notes edits
     # may land after the promoted commit was tagged.
-    if: ${{ needs.release-meta.outputs.channel == 'production' }}
+    if: ${{ needs.release-ref.outputs.channel == 'production' }}
     runs-on: ubuntu-latest
     env:
       BUCKET: ${{ vars.R2_BUCKET }}
@@ -153,14 +211,14 @@ jobs:
   linux-arm64:
     name: Linux AppImage arm64
     needs:
-      - release-meta
+      - release-ref
       - quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    if: ${{ always() && needs.release-ref.result == 'success' && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
-      ref: ${{ needs.release-meta.outputs.ref }}
-      channel: ${{ needs.release-meta.outputs.channel }}
-      version: ${{ needs.release-meta.outputs.version }}
+      ref: ${{ needs.release-ref.outputs.ref }}
+      channel: ${{ needs.release-ref.outputs.channel }}
+      version: ${{ needs.release-ref.outputs.version }}
       publish_updates: true
       publish_github_release: true
       arch: aarch64
@@ -169,12 +227,12 @@ jobs:
 
   headless:
     name: Headless Linux
-    needs: [release-meta, quality-gate]
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    needs: [release-ref, quality-gate]
+    if: ${{ always() && needs.release-ref.result == 'success' && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/headless-package.yml
     with:
-      ref: ${{ needs.release-meta.outputs.ref }}
-      channel: ${{ needs.release-meta.outputs.channel }}
-      version: ${{ needs.release-meta.outputs.version }}
+      ref: ${{ needs.release-ref.outputs.ref }}
+      channel: ${{ needs.release-ref.outputs.channel }}
+      version: ${{ needs.release-ref.outputs.version }}
       publish_updates: true
     secrets: inherit

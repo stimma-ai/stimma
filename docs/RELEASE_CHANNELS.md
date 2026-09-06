@@ -8,7 +8,7 @@ updater keeps installed apps current.
 | Channel | Bundle ID | How it is built |
 |---------|-----------|-----------------|
 | **Production** | `ai.stimma.stimma` | `stimma tag beta` a version, verify it, then `stimma promote production` |
-| **Beta** | `ai.stimma.stimma.beta` | `stimma tag beta [X.Y.Z]` tags the next beta of the upcoming production version |
+| **Beta** | `ai.stimma.stimma.beta` | Push to `release/X.Y.Z` to test, tag, and publish the next beta; `stimma tag beta [X.Y.Z]` remains available manually |
 | **Canary** | `ai.stimma.stimma.canary` | Automatic — every push to `main` (`.github/workflows/canary.yml`) |
 | **Debug** | `ai.stimma.stimma.debug` | On-demand `build-desktop` dispatch (test builds only), or local dev |
 
@@ -30,6 +30,32 @@ continuous build off `main`, not tag-driven. Production is never tagged
 directly; it is a **promotion** of a beta commit that has already been tested.
 
 ## How a release is triggered
+
+### Stabilizing a release while main advances
+
+Create a `release/X.Y.Z` branch from the selected main commit and work on it in
+a separate worktree. Every push runs the Release workflow's backend lint/tests
+and acceptance gate. Once those pass, CI uses `tools/stimma tag beta X.Y.Z` to
+create the next numbered beta tag and publishes desktop and headless builds.
+The gate and every platform builder use the same pinned source commit.
+Branch builds cannot bypass the quality gate.
+
+Only stabilization fixes belong on the release branch. Bring those fixes into
+main promptly; do not merge ongoing feature work from main into the release.
+Main continues to publish canaries independently. The Release workflow itself
+provides push CI for release branches, avoiding a duplicate CI test run.
+
+CI creates tags with the repository token and performs the builds in the same
+run; the generated tag does not trigger another release run. Re-running a failed
+run reuses its beta tag. Release runs share the existing signing concurrency
+group and do not cancel an in-progress publication; rapid pushes may coalesce
+in GitHub's pending queue.
+
+Keep one active beta train: `stimma promote production` selects the highest
+beta version across the repository. Fetch origin's tags before promotion,
+verify that the selected beta completed all platform builds and passed manual
+testing, then promote it through the CLI. Keep the finalized release notes on
+main too, since production notes are published from main.
 
 There are four ways a desktop build gets produced. All are gated by the
 quality gate before any platform build starts (except an explicit emergency

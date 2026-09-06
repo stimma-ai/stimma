@@ -62,7 +62,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Install Linux build and smoke-test dependencies
         run: |
