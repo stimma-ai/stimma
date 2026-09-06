@@ -1343,6 +1343,9 @@ function channelAppIdentity(channel: string): { bundleId: string; productName: s
   }
 }
 
+/** The system interpreter for the repo's helper scripts: Windows ships `python`, not `python3`. */
+const pythonCommand = Deno.build.os === "windows" ? "python" : "python3";
+
 async function buildStimmaNative(): Promise<string> {
   const dir = join(repoRoot, "native", "stimma-native");
   await run("cargo", ["build", "--release"], { cwd: dir });
@@ -1355,7 +1358,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   const ext = Deno.build.os === "windows" ? ".exe" : "";
 
   console.log("Building server UI package");
-  await run("python3", [join(repoRoot, "tools", "mobile.py"), "ios", "package"]);
+  await run(pythonCommand, [join(repoRoot, "tools", "mobile.py"), "ios", "package"]);
 
   console.log("Building portable backend");
   await buildPortableBackend(target);
@@ -2237,7 +2240,7 @@ async function main(): Promise<void> {
 
   switch (command) {
     case "mobile": {
-      await run("python3", [join(repoRoot, "tools", "mobile.py"), ...args.slice(1)]);
+      await run(pythonCommand, [join(repoRoot, "tools", "mobile.py"), ...args.slice(1)]);
       break;
     }
     case "headless": {
