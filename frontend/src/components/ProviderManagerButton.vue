@@ -15,10 +15,9 @@
       :title="titleFor(p)"
       @click.stop="toggle(p.provider_id)"
     >
-      <!-- Provider-supplied icon (STP presentation.icon, a data URI) rendered
-           as a CSS mask so it takes currentColor and follows the theme. The
-           bundled ComfyUI mark is only a fallback for providers that send none. -->
-      <span v-if="p.icon" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" :style="iconMaskStyle(p.icon)" aria-hidden="true"></span>
+      <!-- PNG app icons keep their colors; SVG marks follow the theme. -->
+      <img v-if="p.icon?.startsWith('data:image/png')" :src="p.icon" alt="" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] object-contain" />
+      <span v-else-if="p.icon" class="block w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" :style="iconMaskStyle(p.icon)" aria-hidden="true"></span>
       <ComfyUIIcon v-else-if="isComfy(p)" class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px]" />
       <span v-else class="w-[15px] h-[15px] compact:w-[22px] compact:h-[22px] rounded-full bg-overlay-light"></span>
       <Spinner
