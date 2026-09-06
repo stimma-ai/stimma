@@ -51,9 +51,16 @@ test.describe('phone lane: detail screens', () => {
     await page.goto(`/tools/${TEST_T2I_TOOL_ID}`);
     await settleAnyViewport(page);
     await promptInput(page).fill(`phone editor ${Date.now()}`);
+    // A fresh sandbox raises the readiness panel once its checks land, which
+    // can be after settle returns on a slow runner; it would sit over Run.
+    const readiness = page.getByTestId('readiness-panel');
+    if (await readiness.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await page.getByTestId('readiness-dismiss').click({ force: true });
+      await expect(readiness).toBeHidden({ timeout: 10000 });
+    }
     const run = page.locator('#compact-header-actions').getByTestId('tool-run-button');
     await expect(run).toBeEnabled({ timeout: 15000 });
-    await run.click();
+    await run.click({ timeout: 30000 });
     const [media] = await waitForGeneratedMedia(page, {});
     expect(media.asset_id, 'generated media carries its asset id').toBeTruthy();
 
