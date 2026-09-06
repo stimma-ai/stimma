@@ -42,7 +42,7 @@ onUnmounted(() => document.removeEventListener('click', closeOutside))
         type="button"
         class="inline-flex min-w-[4.75rem] items-center justify-center gap-1.5 px-2.5 py-1.5
                text-xs font-medium transition-colors hover:bg-accent/90
-               disabled:cursor-not-allowed"
+               disabled:cursor-not-allowed compact:min-h-11 compact:px-4 compact:text-[13px]"
         :disabled="disabled || loading"
         @click="emit('run')"
       >
@@ -53,7 +53,7 @@ onUnmounted(() => document.removeEventListener('click', closeOutside))
         v-if="variations !== false"
         type="button"
         class="grid w-7 place-items-center border-l border-white/20 transition-colors
-               hover:bg-accent/90 disabled:cursor-not-allowed"
+               hover:bg-accent/90 disabled:cursor-not-allowed compact:w-11"
         :disabled="disabled || loading"
         aria-label="Choose variations"
         :aria-expanded="open"

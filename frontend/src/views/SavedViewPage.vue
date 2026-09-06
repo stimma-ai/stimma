@@ -108,6 +108,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import BrowseGridView from './BrowseGridView.vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { setCompactTitle } from '../composables/useCompactChrome'
 import { useTabNavigation } from '../composables/useTabNavigation'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
 import Modal from '../components/ui/Modal.vue'
@@ -290,6 +291,7 @@ async function loadSavedView() {
   try {
     const view = await getSavedView(savedViewId.value)
     savedViewName.value = view.name
+    setCompactTitle(view.name || 'Saved view')
 
     // Apply saved filters
     const savedFilters = normalizeBrowseFilters({

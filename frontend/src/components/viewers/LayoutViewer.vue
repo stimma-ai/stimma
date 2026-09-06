@@ -15,6 +15,7 @@
       <iframe
         ref="iframeRef"
         :srcdoc="htmlContent"
+        :sandbox="isMobileShell() ? 'allow-same-origin' : undefined"
         :style="iframeStyle"
         class="border-0 origin-top-left"
         scrolling="no"
@@ -27,6 +28,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
+import { isMobileShell } from '../../desktop/mobileBridge'
 import { getApiBase } from '../../apiConfig'
 
 const props = defineProps({

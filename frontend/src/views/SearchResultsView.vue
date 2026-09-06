@@ -12,7 +12,17 @@
     />
 
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
-      <div class="max-w-[960px] mx-auto px-8 py-8">
+      <div class="max-w-[960px] mx-auto px-8 py-8 compact:px-4 compact:py-3">
+        <!-- Compact viewports have no omnibox; the query field lives here. -->
+        <form v-if="isCompact" class="mb-4" @submit.prevent="submitCompactQuery">
+          <input
+            v-model="compactQuery"
+            type="search"
+            enterkeyhint="search"
+            placeholder="Search assets, boards, chats, flows, tools"
+            class="w-full min-h-11 bg-overlay-subtle rounded-md px-3 py-2 text-[15px] text-content placeholder:text-content-muted border border-transparent focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
+          />
+        </form>
         <!-- Header (landing-page scale) -->
         <div class="flex items-center gap-2.5">
           <h1 class="text-xl font-semibold leading-none text-content">
@@ -88,7 +98,7 @@
               <span class="text-[11px] text-content-muted/70">{{ toolResults.length }}</span>
               <router-link
                 :to="{ name: 'all-tools', query: { q } }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -121,7 +131,7 @@
               <router-link
                 v-if="section.viewAll"
                 :to="section.viewAll"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -239,7 +249,7 @@
               <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
             <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
@@ -275,6 +285,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, h, defineComponent, onActivated, type PropType } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import EmptyState from '../components/EmptyState.vue'
@@ -325,6 +336,13 @@ const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
 
 const q = computed(() => String(route.query.q || '').trim())
+const { isCompact } = useViewport()
+const compactQuery = ref(q.value)
+watch(q, (v) => { compactQuery.value = v })
+function submitCompactQuery() {
+  const next = compactQuery.value.trim()
+  router.replace({ query: { ...route.query, q: next || undefined } })
+}
 
 // Project scope carried from the omnibox chip (?project=). Removable here too.
 const scopeProjectId = computed<number | null>(() => {

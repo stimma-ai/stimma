@@ -439,7 +439,7 @@ const previewTint = computed(() =>
           <Tooltip v-if="maskTarget.removable" text="Remove the mask — apply to the whole image">
             <IconButton
               variant="danger"
-              class="opacity-0 group-hover/mask:opacity-100 focus-visible:opacity-100"
+              class="opacity-0 group-hover/mask:opacity-100 focus-visible:opacity-100 coarse:opacity-100"
               @click.stop="emit('removeMask', maskTarget.id)"
             >
               <TrashIcon class="w-3.5 h-3.5" />
@@ -622,7 +622,7 @@ const previewTint = computed(() =>
     <!-- Control cluster: one group, centered on the square like the title, so
          the controls sit on the title's line and not above it. The only
          control that costs anything is a button. -->
-    <div :class="[ROW_COLUMN_INLINE, 'shrink-0']">
+    <div :class="[ROW_COLUMN_INLINE, 'shrink-0 coarse:[&_button]:w-11 coarse:[&_button]:h-11']">
     <!-- Resample hides at rest because it costs money — but when the amber
          advisory says a resample is the ANSWER (stale input, or mask
          coverage the samples never painted), the answer must be visible. -->
@@ -635,7 +635,7 @@ const previewTint = computed(() =>
       <IconButton
         :class="advisory
           ? 'text-amber-400/90 hover:text-amber-300'
-          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'"
+          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 coarse:opacity-100'"
         :disabled="resampling"
         @click.stop="emit('resample')"
       >

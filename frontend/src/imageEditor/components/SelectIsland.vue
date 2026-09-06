@@ -22,6 +22,8 @@
  * the canvas back explicitly, while ungrouped tools retain their old toggle.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import Sheet from '../../components/ui/Sheet.vue'
 import Spinner from '../../components/ui/Spinner.vue'
 import Tooltip from '../../components/ui/Tooltip.vue'
 import PaintToolIcon from '../../components/generation/PaintToolIcon.vue'
@@ -71,6 +73,12 @@ const props = defineProps<{
   aiAction?: 'find' | 'subject' | 'background' | 'sky' | 'canvas' | null
   /** The last smart-selection failure, shown until the next request/input. */
   aiError?: string | null
+  /**
+   * Phone layout (DESIGN.md §1.11): the island becomes a glass button on the
+   * matte that opens a sheet of the tools, and an armed tool's parameters
+   * become a strip over the bottom of the matte instead of a raised panel.
+   */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -86,7 +94,16 @@ const emit = defineEmits<{
   gradientAdjusting: [boolean]
   aiSelect: [{ prompt: string } | { intent: 'subject' | 'background' | 'sky' }]
   aiCancel: []
+  /** Compact strip's Done: put the tool down, keep the selection and the family. */
+  done: []
 }>()
+
+/** The compact tool sheet. */
+const sheetOpen = ref(false)
+function pickCompactTool(id: SelectToolId) {
+  sheetOpen.value = false
+  emit('choose', id)
+}
 
 const toolById = Object.fromEntries(SELECT_TOOLS.map(tool => [tool.id, tool]))
 const armedTool = computed(() => (props.armed ? toolById[props.armed] : null))
@@ -360,7 +377,237 @@ function buttonClass(active: boolean, enabled = true) {
   <!-- The host positions this root (absolute over the matte); that same
        positioning is what the raised panel's `absolute bottom-full` anchors
        to, so the wrapper must NOT add a position class of its own. -->
-  <div class="w-max">
+  <div :class="compact ? 'w-auto' : 'w-max'">
+  <template v-if="compact">
+    <!-- Armed: the tool's parameters, laid flat as a strip. The same set the
+         raised panel shows on desktop; Done hands the canvas back. -->
+    <div
+      v-if="armed"
+      class="rounded-xl bg-surface/95 backdrop-blur border border-edge-subtle shadow-lg px-3 py-1.5 flex flex-col"
+    >
+      <template v-if="armed === 'object'">
+        <div class="relative transition-opacity" :class="aiProgressVisible ? 'opacity-60' : ''">
+          <input
+            ref="aiInput"
+            v-model="aiPrompt"
+            type="text"
+            placeholder="Describe what to select, or tap it…"
+            aria-label="Describe what to select"
+            class="w-full min-h-11 pl-3 pr-11 text-[15px] rounded-md bg-overlay-subtle text-content
+                   placeholder:text-content-tertiary border outline-none transition-colors"
+            :class="shownAiError ? 'border-red-400/70' : 'border-transparent focus:border-accent'"
+            :disabled="aiBusy"
+            @input="shownAiError = null"
+            @keydown.enter.prevent="submitAiPrompt"
+          />
+          <button
+            v-if="aiPrompt.trim()"
+            type="button"
+            class="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md
+                   flex items-center justify-center bg-accent text-white"
+            aria-label="Find"
+            :disabled="aiBusy"
+            @click="submitAiPrompt"
+          >
+            <ToolIcon name="cornerDownLeft" :size="15" />
+          </button>
+        </div>
+        <div class="min-h-11 flex items-center gap-1.5 pt-1.5">
+          <template v-if="!aiProgressVisible">
+            <button
+              v-for="intent in (['subject', 'background', 'sky'] as const)"
+              :key="intent"
+              type="button"
+              class="flex-1 min-h-11 flex items-center justify-center gap-1.5 rounded-md text-[13px] font-medium
+                     bg-overlay-subtle text-content-secondary capitalize"
+              :disabled="aiBusy"
+              @click="selectIntent(intent)"
+            >
+              <ToolIcon :name="intent === 'subject' ? 'person' : intent === 'background' ? 'image' : 'sun'" :size="15" />
+              {{ intent }}
+            </button>
+          </template>
+          <template v-else>
+            <Spinner size="sm" />
+            <span class="flex-1 min-w-0 truncate text-[13px] text-content-secondary">{{ aiStatusLabel }}</span>
+            <button
+              type="button"
+              class="min-h-11 px-3 text-[13px] font-medium rounded-md text-content-secondary"
+              @click="emit('aiCancel')"
+            >
+              Cancel
+            </button>
+          </template>
+          <button
+            v-if="!aiProgressVisible"
+            type="button"
+            class="min-h-11 px-3 text-[13px] font-semibold rounded-md text-accent-hi"
+            @click="emit('done')"
+          >
+            Done
+          </button>
+        </div>
+        <p v-if="shownAiError && !aiBusy" role="alert" class="pt-1 text-xs text-red-400">
+          {{ shownAiError }}
+        </p>
+      </template>
+
+      <template v-else>
+        <div class="flex items-center gap-1 min-h-11">
+          <span class="flex items-center gap-1.5 text-[13px] font-medium text-content">
+            <ToolIcon v-if="armedTool" :name="armedTool.icon" :size="16" class="text-accent-hi" />
+            {{ armedTool?.label }}
+          </span>
+          <span class="flex-1" />
+          <button
+            v-if="hasSelection"
+            type="button"
+            class="min-h-11 px-2.5 text-[13px] rounded-md text-content-secondary"
+            @click="emit('invert')"
+          >
+            Invert
+          </button>
+          <button
+            v-if="hasSelection"
+            type="button"
+            class="min-h-11 px-2.5 text-[13px] rounded-md text-content-secondary"
+            @click="emit('clear')"
+          >
+            Deselect
+          </button>
+          <button
+            type="button"
+            class="min-h-11 px-3 text-[13px] font-semibold rounded-md text-accent-hi"
+            @click="emit('done')"
+          >
+            Done
+          </button>
+        </div>
+        <label
+          v-for="slider in panelSliders"
+          :key="slider.label"
+          class="flex items-center gap-2 min-h-11 text-[13px] text-content-secondary"
+        >
+          <span class="w-20 shrink-0">{{ slider.label }}</span>
+          <input
+            type="range" class="flex-1 min-w-0 h-11"
+            :min="slider.min" :max="slider.max"
+            :value="slider.value"
+            @pointerdown="beginSliderAdjustment(slider)"
+            @input="setSliderValue(slider, Number(($event.target as HTMLInputElement).value))"
+            @change="finishSliderAdjustment(slider)"
+            @pointerup="finishSliderAdjustment(slider)"
+            @pointercancel="finishSliderAdjustment(slider)"
+            @blur="finishSliderAdjustment(slider)"
+          />
+          <span class="w-12 text-right font-mono text-[12px] tabular-nums text-content">{{ slider.readout }}{{ slider.unit }}</span>
+        </label>
+        <label
+          v-if="armed === 'wand'"
+          class="flex items-center gap-2 min-h-11 text-[13px] text-content-secondary"
+        >
+          <input
+            type="checkbox"
+            class="accent-accent w-5 h-5"
+            :checked="antialias"
+            @change="emit('set', { antialias: ($event.target as HTMLInputElement).checked })"
+          />
+          Anti-alias
+        </label>
+      </template>
+    </div>
+
+    <!-- Idle: one glass button on the matte, plus the selection's own verbs
+         once there is one. Selection is WHERE; the family bar is WHAT. -->
+    <div v-else class="flex items-center gap-1.5">
+      <button
+        type="button"
+        class="min-h-11 pl-2.5 pr-3 rounded-lg bg-black/60 backdrop-blur border text-[12.5px] font-medium flex items-center gap-1.5"
+        :class="hasSelection ? 'text-accent-hi border-accent/40' : 'text-white border-white/10'"
+        aria-label="Select"
+        @click="sheetOpen = true"
+      >
+        <ToolIcon :name="hasSelection && lastUsed ? toolById[lastUsed].icon : 'lasso'" :size="16" />
+        {{ hasSelection ? 'Selection' : 'Select' }}
+      </button>
+      <template v-if="hasSelection">
+        <button
+          type="button"
+          class="min-h-11 px-3 rounded-lg bg-black/60 backdrop-blur border border-white/10 text-white text-[12.5px] font-medium"
+          @click="emit('invert')"
+        >
+          Invert
+        </button>
+        <button
+          type="button"
+          class="min-h-11 px-3 rounded-lg bg-black/60 backdrop-blur border border-white/10 text-white text-[12.5px] font-medium"
+          @click="emit('clear')"
+        >
+          Deselect
+        </button>
+      </template>
+    </div>
+
+    <Sheet :show="sheetOpen" title="Select" @close="sheetOpen = false">
+      <div class="grid grid-cols-3 gap-2 px-4 pb-3">
+        <button
+          v-for="tool in SELECT_TOOLS"
+          :key="tool.id"
+          type="button"
+          class="h-16 rounded-lg flex flex-col items-center justify-center gap-1 text-[11px] font-medium"
+          :class="armed === tool.id ? 'bg-accent/15 text-accent-hi' : 'bg-overlay-subtle text-content-secondary'"
+          :data-select-tool="tool.id"
+          @click="pickCompactTool(tool.id)"
+        >
+          <ToolIcon :name="tool.icon" :size="20" />
+          {{ tool.label }}
+        </button>
+      </div>
+      <div class="px-4 pb-2">
+        <div class="flex rounded-md bg-overlay-subtle p-0.5" role="radiogroup" aria-label="Combine mode">
+          <button
+            v-for="option in SELECTION_MODES"
+            :key="option.id"
+            type="button"
+            role="radio"
+            class="flex-1 min-h-11 text-[13px] rounded"
+            :class="(combineOverride ?? combine) === option.id
+              ? 'bg-selection/15 text-content font-medium'
+              : 'text-content-tertiary'"
+            :aria-checked="combine === option.id"
+            :disabled="!combineEnabled"
+            @click="emit('set', { combine: option.id })"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+      <button type="button" class="sheet-row w-full text-left" @click="sheetOpen = false; emit('pointer')">
+        <ToolIcon name="mousePointer" class="sheet-row-icon" :size="20" />
+        <span class="flex-1">Select objects</span>
+      </button>
+      <button type="button" class="sheet-row w-full text-left disabled:opacity-40" :disabled="!hasSelection" @click="emit('invert')">
+        <ToolIcon name="selectionSubtract" class="sheet-row-icon" :size="20" />
+        <span class="flex-1">Invert selection</span>
+      </button>
+      <button type="button" class="sheet-row w-full text-left disabled:opacity-40" :disabled="!hasSelection" @click="morphSelection(1)">
+        <PaintToolIcon name="maskExpand" class="sheet-row-icon" />
+        <span class="flex-1">Expand selection</span>
+        <span class="sheet-row-detail">{{ edgeAmount }} px</span>
+      </button>
+      <button type="button" class="sheet-row w-full text-left disabled:opacity-40" :disabled="!hasSelection" @click="morphSelection(-1)">
+        <PaintToolIcon name="maskContract" class="sheet-row-icon" />
+        <span class="flex-1">Contract selection</span>
+        <span class="sheet-row-detail">{{ edgeAmount }} px</span>
+      </button>
+      <button type="button" class="sheet-row w-full text-left disabled:opacity-40" :disabled="!hasSelection" @click="sheetOpen = false; emit('clear')">
+        <XMarkIcon class="sheet-row-icon" />
+        <span class="flex-1">Deselect</span>
+      </button>
+    </Sheet>
+  </template>
+
+  <template v-else>
   <!-- The armed tool's panel, raised over the island. One home for every
        parameter: the Object tool brings its prompt, everything else brings
        its sliders. Disarming folds it away. -->
@@ -704,5 +951,6 @@ function buttonClass(active: boolean, enabled = true) {
       Deselect
     </button>
   </div>
+  </template>
   </div>
 </template>

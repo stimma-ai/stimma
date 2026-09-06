@@ -150,7 +150,7 @@
             <div class="space-y-4">
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Name <span class="text-content-muted">(optional)</span></span>
-                <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" placeholder="Studio Mac" />
+                <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" placeholder="Home server" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>

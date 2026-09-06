@@ -23,6 +23,11 @@ def package(version, branch):
     if platform.system() != 'Linux':
         raise SystemExit('Build headless packages on Linux')
     target = subprocess.check_output(['rustc', '-Vv'], text=True).split('host: ')[1].splitlines()[0]
+    # Ship the same frontend snapshot the mobile shell can fetch from this server.
+    run('npm', '--prefix', 'frontend', 'ci')
+    run('npm', '--prefix', 'frontend', 'run', 'build',
+        env=dict(os.environ, STIMMA_DISTRIBUTION='official', STIMMA_MOBILE_SHELL='0'))
+    run('python3', 'tools/build_ui_package.py', 'frontend/dist', 'backend/mobile-ui')
     run('bash', 'scripts/build-portable-backend.sh', env=dict(os.environ, STIMMA_DISTRIBUTION='official'))
     source = ROOT / 'src-tauri/binaries' / f'stimma-backend-{target}'
     import shutil

@@ -12,7 +12,7 @@
         </div>
       </slot>
     </div>
-    <div v-else class="flex flex-col gap-0.5">
+    <div v-else class="flex flex-col gap-0.5 jobs-results">
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
@@ -85,7 +85,7 @@
              four of them to roughly the footprint of one finished image. The
              Stage rail is already narrow enough that its tiles never dominate,
              so it stays single-column. -->
-        <div :class="compactOverlays ? 'flex flex-col gap-0.5' : 'grid grid-cols-2 gap-0.5'">
+        <div class="jobs-rail" :class="compactOverlays ? 'flex flex-col gap-0.5' : 'grid grid-cols-2 gap-0.5'">
         <LiveJobTile
           v-for="item in tileActiveItems"
           :key="item.key"

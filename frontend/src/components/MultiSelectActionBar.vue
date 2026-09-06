@@ -1,7 +1,7 @@
 <template>
   <Transition name="slide-up">
-    <div v-if="visible" class="multi-select-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome max-w-[800px] w-fit bg-surface backdrop-blur-xl border border-edge-subtle rounded-lg shadow-lg">
-      <div class="action-bar-content flex items-center relative gap-4 px-5 py-3">
+    <div v-if="visible" class="multi-select-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome max-w-[800px] w-fit bg-surface backdrop-blur-xl border border-edge-subtle rounded-lg shadow-lg compact:left-3 compact:right-3 compact:translate-x-0 compact:w-auto compact:max-w-none compact:bottom-[calc(5.5rem+var(--safe-bottom))]">
+      <div class="action-bar-content flex items-center relative gap-4 px-5 py-3 compact:gap-2 compact:px-3 compact:py-2 compact:overflow-x-auto">
         <!-- Selection controls (left) -->
         <div class="selection-info flex-shrink-0 flex items-center gap-2">
           <!-- Clear selection button (X) -->
@@ -22,12 +22,12 @@
               class="text-sm font-medium text-content whitespace-nowrap"
               @dblclick="$emit('invert-selection')"
             >
-              <span class="font-mono tabular-nums">{{ selectedCount }}</span><span v-if="totalCount > 0"> of <span class="font-mono tabular-nums">{{ totalCount }}</span></span> selected
+              <span class="font-mono tabular-nums">{{ selectedCount }}</span><span v-if="totalCount > 0" class="compact:hidden"> of <span class="font-mono tabular-nums">{{ totalCount }}</span></span> selected
             </span>
           </Tooltip>
 
           <!-- Select All button -->
-          <Tooltip v-if="totalCount > 0 && !isAllSelected" text="Select all">
+          <Tooltip v-if="totalCount > 0 && !isAllSelected" text="Select all" class="compact:hidden">
             <button
               @click="$emit('select-all')"
               class="px-2.5 py-1 border border-edge-subtle rounded text-xs font-medium text-content-tertiary hover:bg-overlay-subtle hover:border-edge hover:text-content transition-colors"
@@ -38,7 +38,7 @@
         </div>
 
         <!-- Actions (center) -->
-        <div class="actions flex items-center gap-2 mx-auto">
+        <div class="actions flex items-center gap-2 mx-auto compact:gap-1 compact:mx-0 compact:ml-auto">
           <!-- Trash view actions -->
           <template v-if="isTrashView">
             <!-- Find Similar (trash) -->

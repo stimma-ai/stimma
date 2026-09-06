@@ -94,14 +94,14 @@
         <div v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0" class="border-t border-edge-subtle my-1"></div>
 
         <!-- Marker toggles row -->
-        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle">
+        <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle coarse:gap-2 coarse:px-3">
           <button
             v-for="marker in markers"
             :key="marker.id"
             @click="handleToggleMarker(marker)"
             :title="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             :class="[
-              'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
+              'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
               hasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'
             ]"
           >
@@ -143,6 +143,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('board', $event)"
+          @click.stop="openSubmenu('board', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -230,6 +231,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('project', $event)"
+          @click.stop="openSubmenu('project', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -329,6 +331,7 @@
           v-if="!isMultiple && !isGrid && !isSprite"
           class="relative"
           @mouseenter="openSubmenu('generate', $event)"
+          @click.stop="openSubmenu('generate', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -490,6 +493,7 @@
           v-if="!hasGridInSelection"
           class="relative"
           @mouseenter="openSubmenu('tool', $event)"
+          @click.stop="openSubmenu('tool', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -542,6 +546,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('chat', $event)"
+          @click.stop="openSubmenu('chat', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button
@@ -607,6 +612,7 @@
         <div
           class="relative"
           @mouseenter="openSubmenu('flow', $event)"
+          @click.stop="openSubmenu('flow', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
           <button

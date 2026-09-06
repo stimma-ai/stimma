@@ -1,6 +1,7 @@
 <template>
   <div class="flex flex-col h-full bg-base relative">
     <!-- Control Strip (top bar) - suppressed when embedded -->
+    <RenameSheet :show="renameOpen" :name="chat?.name || ''" label="Rename chat" @close="renameOpen = false" @save="renameChatFromStrip" />
     <ChatControlStrip
       v-if="!embedded"
       :chat-name="chat?.name || ''"
@@ -17,10 +18,11 @@
     />
 
     <!-- Content area: artifact stage (standalone only) + chat column -->
-    <div class="flex flex-1 min-h-0">
+    <div class="flex flex-1 min-h-0 relative">
       <template v-if="!embedded">
         <ArtifactStage
           v-if="artifactStage.stageOpen.value"
+          class="compact:absolute compact:inset-0 compact:z-chrome"
           :asset="artifactStage.asset.value"
           :revisions="artifactStage.revisions.value"
           :viewed-revision-id="artifactStage.viewedRevisionId.value"
@@ -37,18 +39,18 @@
         />
         <div
           v-if="artifactStage.stageOpen.value"
-          class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors"
+          class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
           @mousedown="artifactStage.startResize"
         />
       </template>
 
-    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="!embedded && artifactStage.stageOpen.value ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
+    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="!embedded && artifactStage.stageOpen.value && !isCompact ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
       <!-- Chat + Settings horizontal row -->
-      <div class="flex flex-1 min-h-0">
+      <div class="flex flex-1 min-h-0 relative">
         <!-- Main chat area -->
         <div class="flex-1 flex flex-col min-w-0">
     <!-- Chat Messages Area -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar" ref="messagesContainer">
+    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar compact:p-3" ref="messagesContainer">
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -1360,6 +1362,7 @@
         <!-- Settings Panel (toggle visibility from header) — suppressed when embedded -->
         <ChatSettingsPanel
           v-if="chat && !embedded"
+          class="compact:absolute compact:inset-0 compact:z-chrome compact:border-l-0"
           :chat-id="chat.id"
           :visible="settingsPanelVisible"
         />
@@ -1385,6 +1388,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed } from 'vue'
+import { useViewport } from '../composables/useViewport'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatControlStrip from '../components/chat/ChatControlStrip.vue'
 import ChatSettingsPanel from '../components/chat/ChatSettingsPanel.vue'
@@ -1480,6 +1486,7 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const { isCompact } = useViewport()
 const router = useRouter()
 const { getMediaItem, getThumbnailUrl } = useMediaApi()
 const { listSkills: listSkillsApi } = useStimpacksApi()
@@ -5508,6 +5515,19 @@ watch(wsConnected, (connected, wasConnected) => {
     console.log('[WebSocket] Reconnected, syncing agent status')
     syncAgentStatus()
   }
+})
+
+// Compact header title follows the chat name (cleared per route by App.vue).
+const renameOpen = ref(false)
+watch([() => route.query.rename, () => chat.value?.id], ([flag, id]) => {
+  if (props.embedded || flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+}, { immediate: true })
+watch(() => chat.value?.name, (name) => {
+  if (props.embedded) return
+  setCompactTitle(name || 'Chat')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
 })
 </script>
 

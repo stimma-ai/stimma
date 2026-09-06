@@ -22,6 +22,7 @@ import axios from 'axios'
 import { useSettingsApi } from './useSettingsApi'
 import { fetchCloudAccount } from './useCloudAccount'
 import { getApiBase } from '../apiConfig'
+import { desktop } from '../desktop'
 
 // Global reactive state (shared across all components)
 const readiness = ref(null) // { ready, has_agent_llm, has_generation, missing, wizard_version, wizard_seen_version } | null while unknown
@@ -85,6 +86,9 @@ async function checkStartupReadiness() {
 }
 
 const shouldShowPanel = computed(() => {
+  // The phone is a client of an already configured computer, not an install
+  // that can provision its own providers or local storage.
+  if (desktop.kind === 'ios') return false
   if (forceShowForDev.value) return true
   if (dismissedForSession.value) return false
   const r = readiness.value

@@ -80,7 +80,10 @@ watch(() => props.show, async (show) => {
     previouslyFocused = document.activeElement as HTMLElement | null
     window.addEventListener('keydown', onKeydown)
     await nextTick()
-    cardRef.value?.focus()
+    // A modal that focused one of its own fields (PIN entry, rename) keeps
+    // that focus; the card only takes it when nothing inside has it yet.
+    const card = cardRef.value
+    if (card && !card.contains(document.activeElement)) card.focus()
   } else {
     window.removeEventListener('keydown', onKeydown)
     previouslyFocused?.focus?.()
@@ -100,7 +103,7 @@ onBeforeUnmount(() => {
         v-if="show"
         ref="layerRef"
         data-modal-layer
-        class="fixed inset-0 flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm coarse:cursor-pointer"
         :class="zClass"
         @click.self="onBackdropClick"
       >
@@ -108,7 +111,7 @@ onBeforeUnmount(() => {
         <div
           ref="cardRef"
           tabindex="-1"
-          class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4"
+          class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4 compact:mx-3 compact:w-[calc(100%-1.5rem)] compact:max-w-none compact:max-h-[92dvh] compact:overflow-y-auto"
           :class="cardSizeClass"
         >
           <div v-if="$slots.header" class="px-6 py-4 border-b border-edge">

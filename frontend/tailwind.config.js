@@ -1,5 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Hover styles only where the primary pointer can hover. On a phone the
+  // first tap would otherwise "hover" a tile (revealing its checkbox) and
+  // iOS Safari withholds the click until a second tap.
+  future: { hoverOnlyWhenSupported: true },
   darkMode: ['selector', '[data-theme="dark"]'],
   content: [
     "./index.html",
@@ -185,5 +189,16 @@ export default {
       },
     },
   },
-  plugins: [require('@tailwindcss/typography'), require('@tailwindcss/container-queries')],
+  plugins: [
+    require('@tailwindcss/typography'),
+    require('@tailwindcss/container-queries'),
+    // Viewport variants bound to useViewport.ts (DESIGN.md §1.11), not to raw
+    // media queries, so the dev/test override (?viewport=compact) and the
+    // chrome agree. `compact:` = phones (< 768px); `coarse:` = touch pointer.
+    function ({ addVariant }) {
+      addVariant('compact', '[data-viewport="compact"] &')
+      addVariant('not-compact', '[data-viewport]:not([data-viewport="compact"]) &')
+      addVariant('coarse', '[data-pointer="coarse"] &')
+    },
+  ],
 }

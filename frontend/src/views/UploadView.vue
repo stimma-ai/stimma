@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex-1 flex flex-col items-center p-6 overflow-hidden"
+    class="flex-1 flex flex-col items-center p-6 overflow-hidden compact:p-3"
     @dragenter="handleDragEnter"
     @dragleave="handleDragLeave"
     @dragover.prevent
@@ -50,7 +50,8 @@
 
       <div class="text-center">
         <h2 class="text-lg font-medium text-content mb-1">
-          {{ isDragging ? 'Drop to upload' : 'Drag files here to upload' }}
+          <span class="compact:hidden">{{ isDragging ? 'Drop to upload' : 'Drag files here to upload' }}</span>
+          <span class="hidden compact:inline">Add photos and videos</span>
         </h2>
         <p class="text-sm text-content-tertiary">
           Images and videos will be imported

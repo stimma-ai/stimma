@@ -131,6 +131,66 @@
     <router-view />
   </div>
 
+  <!-- Compact chrome (phones): header + content + tab bar. DESIGN.md §1.11.
+       The sidebar and top bar do not exist here; their contents live in the
+       header's account sheet, the Workspace hub, and the Library scope. -->
+  <div
+    v-else-if="isCompact"
+    v-scroll-guard
+    class="compact-shell w-full h-[100dvh] overflow-hidden bg-black relative"
+    :class="{ 'is-dragging': drawerDragging }"
+    :style="{ '--drawer-x': `${drawerX}px` }"
+  >
+    <SettingsModal
+      :show="settingsOpen"
+      :initial-section="settingsSection"
+      :start-at-list="settingsStartAtList"
+      @close="closeSettings"
+    />
+    <!-- One track holds the drawer and the app side by side and is the only
+         thing that moves: a single transform, so the two can never animate
+         apart (two elements each transitioning their own transform drifted on
+         iOS WebKit). The drawer is the desktop sidebar, same zones (library
+         links, the working set, footer); it pushes the app aside rather than
+         floating over it. The header's menu button and a drag open it; a tap
+         on the pushed app or any navigation closes it. -->
+    <div class="compact-track absolute inset-y-0 left-0 flex">
+      <NavigationSidebar
+        :is-open="sidebarOpen"
+        :is-mobile="true"
+        @close="closeSidebar"
+        @open-settings="openSettings($event)"
+        @open-account="sidebarOpen = false; accountSheetOpen = true"
+      />
+      <!-- The app, pushed aside by the drawer; a tap on it while pushed closes the drawer. -->
+      <div
+        class="compact-pushed h-full flex flex-col bg-base relative"
+        @touchstart.passive="onCompactTouchStart"
+        @touchmove.passive="onCompactTouchMove"
+        @touchend.passive="onCompactTouchEnd"
+        @touchcancel.passive="onCompactTouchEnd"
+      >
+      <div v-if="sidebarOpen" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
+      <!-- v-show, not v-if, under the slideshow: views teleport controls into
+           this header, and a remount would strand them in the old element. -->
+      <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" @open-settings="openSettings($event)" @open-menu="openSidebar" />
+      <ProjectScopeBar
+        v-if="projectChrome.project && !slideshowActive && !compactOverlay"
+        :project="projectChrome.project"
+        :active-name="projectChrome.activeRouteName"
+      />
+      <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
+        <router-view v-slot="{ Component, route }">
+          <KeepAlive :max="20">
+            <component :is="Component" :key="getComponentKey(route)" />
+          </KeepAlive>
+        </router-view>
+      </div>
+      </div>
+    </div>
+    <AccountSheet :show="accountSheetOpen" @close="accountSheetOpen = false" @open-settings="(s) => { accountSheetOpen = false; openSettings(s) }" />
+  </div>
+
   <!-- Normal app with sidebar and topbar -->
   <div v-else v-scroll-guard class="w-full h-screen flex overflow-hidden bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
@@ -196,6 +256,12 @@ const vScrollGuard = {
   unmounted(el) { el.removeEventListener('scroll', el.__scrollGuard) },
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
+import { useViewport } from './composables/useViewport'
+import { clearCompactTitle } from './composables/useCompactChrome'
+import { installCompactNav } from './composables/useCompactNav'
+import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
+import CompactHeader from './components/compact/CompactHeader.vue'
+import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
@@ -212,6 +278,8 @@ import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
+import { desktop } from './desktop'
+import { revealMobileInterface } from './desktop/mobileBridge'
 import { useMultiDevice } from './composables/useMultiDevice'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
 import {
@@ -283,8 +351,11 @@ const {
 } = useAppUpdater()
 const { initReleaseNotes } = useReleaseNotes()
 const sidebarOpen = ref(false)
+const accountSheetOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
+// Compact: an empty section means "the settings list", a named one lands inside it.
+const settingsStartAtList = ref(false)
 const startupPending = ref(true)
 
 // Connection state is ordinary app state, not a boot precondition: the
@@ -293,8 +364,11 @@ const startupPending = ref(true)
 // mid-session drop.
 const { connectionState, activeDeviceName, init: initMultiDevice } = useMultiDevice()
 
-function openSettings(section = 'folders') {
-  settingsSection.value = section
+function openSettings(section) {
+  // No section (the sidebar's gear) = the settings list on compact; desktop
+  // ignores startAtList and lands on Folders as it always has.
+  settingsStartAtList.value = !section
+  settingsSection.value = section || 'folders'
   settingsOpen.value = true
 }
 
@@ -304,7 +378,6 @@ function closeSettings() {
   // through both BYOAI steps — recheck what they configured in there.
   void refreshReadiness()
 }
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
 // Lock screen state
 const isLocked = ref(false)
@@ -477,8 +550,21 @@ async function resolveProjectChrome() {
   }
 }
 
-// Sidebar is always visible (no collapsing)
-const isMobile = computed(() => false)
+// Chrome mode comes from the one viewport source of truth (useViewport):
+// wide = sidebar + top bar exactly as before; compact = the sidebar becomes
+// an overlay and the compact chrome takes over. On a desktop-sized window
+// isCompact is false and nothing here changes.
+const { isCompact } = useViewport()
+const isMobile = isCompact
+// Overlay routes (onboarding, image editor) take the whole screen on compact.
+const compactOverlay = computed(() => route.meta?.surface === 'overlay')
+// A detail view's title must not outlive its route.
+watch(() => route.fullPath, () => clearCompactTitle())
+installCompactNav(router)
+// Without the sidebar nothing would turn a visited tool/chat/board into a
+// workspace tab (and tool state lives on the tab's instance), so the compact
+// chrome runs the same route → tab logic itself.
+installWorkspaceTabRoutes(route, () => isCompact.value)
 
 function openSidebar() {
   sidebarOpen.value = true
@@ -488,13 +574,65 @@ function closeSidebar() {
   sidebarOpen.value = false
 }
 
-function handleResize() {
-  windowWidth.value = window.innerWidth
-  // Auto-close sidebar when switching to desktop
-  if (!isMobile.value) {
-    sidebarOpen.value = false
-  }
+// The drawer follows the finger: a horizontal drag anywhere on the app
+// reveals it (right) or puts it away (left); on release it snaps by distance
+// and speed. Vertical intent, horizontal scrollers and the slideshow are
+// left alone.
+const DRAWER_W = 276
+const drawerDragging = ref(false)
+const drawerDragX = ref(0)
+const drawerX = computed(() => drawerDragging.value ? drawerDragX.value : (sidebarOpen.value ? 0 : -DRAWER_W))
+let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0
+function onCompactTouchStart(e) {
+  const t = e.touches[0]
+  if (!t || e.touches.length > 1) { dragIntent = 'no'; return }
+  const el = e.target
+  const blocked = el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
+  dragIntent = blocked ? 'no' : null
+  dragStartX = dragLastX = t.clientX; dragStartY = t.clientY; dragStartT = dragLastT = Date.now()
 }
+function onCompactTouchMove(e) {
+  if (dragIntent === 'no') return
+  const t = e.touches[0]
+  if (!t) return
+  const dx = t.clientX - dragStartX
+  const dy = t.clientY - dragStartY
+  if (dragIntent === null) {
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+    if (Math.abs(dy) > Math.abs(dx)) { dragIntent = 'no'; return }
+    // A right-drag inside something that scrolls sideways is that thing's.
+    if (!sidebarOpen.value) {
+      let n = e.target
+      while (n && n !== e.currentTarget) {
+        if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX) && n.scrollLeft > 0) { dragIntent = 'no'; return }
+        n = n.parentElement
+      }
+    }
+    dragIntent = 'drawer'
+    drawerDragging.value = true
+  }
+  const base = sidebarOpen.value ? 0 : -DRAWER_W
+  drawerDragX.value = Math.max(-DRAWER_W, Math.min(0, base + dx))
+  dragLastX = t.clientX; dragLastT = Date.now()
+}
+function onCompactTouchEnd(e) {
+  if (dragIntent !== 'drawer') { dragIntent = null; return }
+  const t = e.changedTouches[0]
+  const vx = t ? (t.clientX - dragLastX) / Math.max(1, Date.now() - dragLastT) : 0
+  const x = drawerDragX.value
+  const open = vx > 0.35 ? true : vx < -0.35 ? false : x > -DRAWER_W / 2
+  drawerDragging.value = false
+  sidebarOpen.value = open
+  dragIntent = null
+}
+
+// Any navigation closes the drawer (the sidebar's own links already ask for it).
+watch(() => route.fullPath, () => { if (isCompact.value) sidebarOpen.value = false })
+
+// Auto-close the overlay sidebar when the viewport grows back to wide.
+watch(isCompact, (compact) => {
+  if (!compact) sidebarOpen.value = false
+})
 
 // Re-sync cloud state whenever the app regains focus. This is the general case
 // of returning from an external browser flow — most importantly completing a
@@ -880,7 +1018,9 @@ async function checkStartupPin() {
       // an existing one over to this install before the gate, or the first
       // switch to another server would ask for it a second time.
       if (startupReady) adoptLegacyAcceptance(onboarded)
-      if (startupReady && !onboarded) {
+      // The native phone shell has already authenticated and selected a
+      // configured server. Fresh web storage does not mean a fresh install.
+      if (desktop.kind !== 'ios' && startupReady && !onboarded) {
         await router.replace({ name: 'onboarding' })
         return
       }
@@ -897,6 +1037,8 @@ async function checkStartupPin() {
     // startup already reflects a device that turned out to be unreachable.
     await initMultiDevice()
     startupPending.value = false
+    await nextTick()
+    void revealMobileInterface()
     if (isLocked.value) {
       await nextTick()
       lockScreenPinInput.value?.focus()
@@ -1097,7 +1239,6 @@ onMounted(async () => {
   window.addEventListener('scroll', rootGuard, { passive: true })
   document.getElementById('app')?.addEventListener('scroll', rootGuard, { passive: true })
 
-  window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('pin-auto-locked', handleAutoLock)
   window.addEventListener('open-settings', handleOpenSettings)
@@ -1119,7 +1260,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopServerUpdater()
-  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('pin-auto-locked', handleAutoLock)
   window.removeEventListener('open-settings', handleOpenSettings)

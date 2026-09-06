@@ -14,6 +14,7 @@
       @reject="onSlideshowReject"
       @unapprove="onSlideshowUnapprove"
     />
+    <RenameSheet :show="renameOpen" :name="flow?.name || ''" label="Rename flow" @close="renameOpen = false" @save="renameFlow" />
 
     <Modal :show="showCodeIntroModal" size="md" @close="dismissCodeIntro">
       <template #header>
@@ -43,7 +44,7 @@
     </Modal>
 
     <!-- Control strip -->
-    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3">
+    <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3 compact:flex-wrap compact:px-3">
       <!-- Left: name + meta -->
       <div class="flex items-center gap-3 min-w-0 flex-shrink">
         <template v-if="editingName">
@@ -60,7 +61,7 @@
           <button
             v-if="flow?.name"
             class="text-sm font-semibold text-content hover:text-accent transition-colors truncate max-w-[200px]"
-            @click="startEditName"
+            @click="!isCompact && startEditName()"
             :title="flow.name"
           >
             {{ flow.name }}
@@ -68,7 +69,7 @@
           <button
             v-else
             class="text-sm font-semibold italic text-content-muted hover:text-content-secondary transition-colors truncate max-w-[200px]"
-            @click="startEditName"
+            @click="!isCompact && startEditName()"
           >
             Name this flow...
           </button>
@@ -121,7 +122,7 @@
         />
         <button
           v-if="showStartButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
           title="Start"
           @click="doPlay"
         >
@@ -131,7 +132,7 @@
         </button>
         <button
           v-if="showPauseButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
           title="Pause"
           @click="doPause"
         >
@@ -141,7 +142,7 @@
         </button>
         <button
           v-if="showResumeButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
+          class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
           title="Resume"
           @click="doPlay"
         >
@@ -299,7 +300,7 @@
         <div class="relative" ref="menuContainerRef">
           <button
             @click="toggleMenu"
-            class="w-8 h-8 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+            class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
             title="More options"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -348,7 +349,7 @@
     </div>
 
     <!-- Main row: (main column + resize handle) wrapper + chat sidebar -->
-    <div class="flex flex-1 min-h-0">
+    <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
         <!-- View tabs subheader -->
@@ -404,7 +405,7 @@
             <div class="relative" ref="tabMenuContainerRef">
               <button
                 @click="toggleTabMenu"
-                class="w-8 h-8 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
                 title="More options"
                 aria-label="More options"
               >
@@ -705,14 +706,14 @@
           <!-- Resize handle (inside left wrapper so the tab subheader's border extends across it) -->
           <div
             v-if="chatPanelOpen"
-            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors"
+            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
             @mousedown="startChatResize"
           />
         </div>
       </div>
 
       <!-- Chat sidebar (open by default) -->
-      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface" :style="{ width: chatPanelWidth + 'px' }">
+      <div v-if="chatPanelOpen" class="flex-shrink-0 border-l border-edge-subtle flex flex-col bg-surface compact:absolute compact:inset-0 compact:z-chrome compact:!w-full compact:border-l-0" :style="isCompact ? {} : { width: chatPanelWidth + 'px' }">
 
         <div class="flex-1 min-h-0 flex flex-col">
           <div v-if="chatLoading" class="flex-1 flex items-center justify-center text-[12px] text-content-muted">
@@ -762,6 +763,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, provide, type WatchStopHandle } from 'vue'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import RenameSheet from '../components/compact/RenameSheet.vue'
+import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
@@ -798,6 +802,7 @@ import Button from '../components/ui/Button.vue'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
+const { isCompact } = useViewport()
 const router = useRouter()
 const { fetchProvidersAndTools } = useProvidersApi()
 const api = useFlowsApi()
@@ -1947,7 +1952,8 @@ watch(() => state.flow.value?.program_hash, () => {
 // --- Chat sidebar (embedded ChatView scoped to this flow) ---
 // Open by default — a non-technical user needs the chat visible to understand
 // that they drive the flow through conversation.
-const chatPanelOpen = ref(true)
+// Phones: the chat panel is a full-screen overlay, so it starts closed.
+const chatPanelOpen = ref(!isCompact.value)
 const chatPanelWidth = ref(420)
 const CHAT_MIN_WIDTH = 280
 const CHAT_MAX_WIDTH = 700
@@ -2300,4 +2306,20 @@ watch(() => state.tasks.value.map(t => t.task_id).join(','), (_new) => {
     focusedTaskId.value = ids[0]
   }
 })
+
+const renameOpen = ref(false)
+async function renameFlow(name: string) {
+  if (!flow.value) return
+  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+}
+watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
+  if (flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+  else startEditName()
+}, { immediate: true })
+watch(() => flow.value?.name, (name) => {
+  setCompactTitle(name || 'Flow')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
+}, { immediate: true })
 </script>

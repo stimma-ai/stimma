@@ -1,4 +1,7 @@
 import { ref, computed, watch, nextTick, onUnmounted, type Ref } from 'vue'
+import { useViewport } from './useViewport'
+
+const { isCoarsePointer } = useViewport()
 
 const PADDING = 8
 
@@ -136,6 +139,11 @@ export function useContextMenuPosition(
   })
 
   const menuStyle = computed(() => {
+    // Coarse pointers get a bottom sheet instead of a menu at the finger
+    // (DESIGN.md §1.11): every context menu in the app goes through here,
+    // so one branch converts all of them. Row sizing comes from the
+    // [data-sheet-menu] rules in style.css.
+    if (isCoarsePointer.value) return SHEET_MENU_STYLE
     const style: Record<string, string> = anchorBottom.value
       ? { left: `${adjustedX.value}px`, bottom: `${adjustedY.value}px` }
       : { top: `${adjustedY.value}px`, left: `${adjustedX.value}px` }
@@ -146,7 +154,96 @@ export function useContextMenuPosition(
     return style
   })
 
+  watch([visible, menuRef], ([shown, el]) => {
+    if (shown && el && isCoarsePointer.value) el.setAttribute('data-sheet-menu', '')
+  }, { flush: 'post' })
+  useSheetBackdrop(visible)
+
   return { menuStyle, reposition }
+}
+
+/**
+ * One shared backdrop under whatever sheet menu is open. A tap on it reaches
+ * document as an outside click (which is how every menu closes) and never
+ * reaches the tile or row underneath, so dismissing a sheet cannot open a
+ * slideshow. Sheets stack (submenus), so it is reference counted.
+ */
+let backdropEl: HTMLElement | null = null
+let backdropUsers = 0
+function acquireSheetBackdrop() {
+  backdropUsers += 1
+  if (backdropEl) return
+  const el = document.createElement('div')
+  el.setAttribute('data-sheet-backdrop', '')
+  el.style.cssText = 'position:fixed;inset:0;z-index:219;background:var(--sheet-backdrop);cursor:pointer;'
+  // The tap bubbles to document as an outside click, which is how menus
+  // close. A menu that only listens for Escape (or missed the click) is
+  // still open a tick later: send it Escape. One tap, one dismissal, for
+  // every sheet, whatever it listens to.
+  el.addEventListener('click', () => {
+    setTimeout(() => {
+      if (!backdropEl) return
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))
+    }, 0)
+  })
+  document.body.appendChild(el)
+  backdropEl = el
+}
+function releaseSheetBackdrop() {
+  backdropUsers = Math.max(0, backdropUsers - 1)
+  if (backdropUsers === 0 && backdropEl) {
+    backdropEl.remove()
+    backdropEl = null
+  }
+}
+function useSheetBackdrop(visible: Ref<boolean>) {
+  let held = false
+  watch(visible, (shown) => {
+    if (shown && isCoarsePointer.value && !held) { acquireSheetBackdrop(); held = true }
+    else if (!shown && held) { releaseSheetBackdrop(); held = false }
+  }, { immediate: true })
+  onUnmounted(() => { if (held) { releaseSheetBackdrop(); held = false } })
+}
+
+/**
+ * Menus that style.css converts into sheets (inline `.z-menu` dropdowns that
+ * never go through this composable) get the same tap-to-dismiss backdrop:
+ * watch the DOM for them and hold the shared backdrop while any is open. A
+ * tap on the backdrop is an outside click, which is how those menus close.
+ */
+export function installSheetBackdropObserver() {
+  if (typeof document === 'undefined' || !isCoarsePointer.value) return
+  const SEL = '.z-menu.fixed:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0):not([data-context-menu]), .z-menu.absolute:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0):not([data-context-menu]), .z-submenu.fixed:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0), .z-submenu.absolute:not([data-sheet-menu]):not([data-sheet-layer]):not(.inset-0)'
+  let held = false
+  const isLive = (el: Element) => {
+    if (/-leave-active/.test(el.className)) return false
+    const cs = getComputedStyle(el)
+    return cs.display !== 'none' && cs.visibility !== 'hidden'
+  }
+  const sync = () => {
+    const open = [...document.querySelectorAll(SEL)].some(isLive)
+    if (open && !held) { acquireSheetBackdrop(); held = true }
+    else if (!open && held) { releaseSheetBackdrop(); held = false }
+  }
+  new MutationObserver(sync).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+}
+
+/** Bottom-sheet placement for menus on coarse pointers. */
+export const SHEET_MENU_STYLE: Record<string, string> = {
+  position: 'fixed',
+  left: '0px',
+  right: '0px',
+  bottom: '0px',
+  top: 'auto',
+  width: '100%',
+  minWidth: '0',
+  maxHeight: 'var(--sheet-menu-max-h)',
+  overflowY: 'auto',
+  borderRadius: 'var(--sheet-radius) var(--sheet-radius) 0 0',
+  paddingTop: 'var(--sheet-pad-top)',
+  paddingBottom: 'calc(0.5rem + var(--safe-bottom))',
+  // The rest of the sheet grammar (handle, backdrop, slide-up, row sizing)
+  // lives in style.css under [data-sheet-menu].
 }
 
 /**
@@ -166,6 +263,11 @@ export function useAnchoredMenuPosition(
   let appliedCap: number | null = null
 
   function reposition() {
+    if (isCoarsePointer.value) {
+      style.value = { ...SHEET_MENU_STYLE }
+      menuRef.value?.setAttribute('data-sheet-menu', '')
+      return
+    }
     const el = menuRef.value
     const anchor = anchorRect.value
     if (!el || !anchor || !visible.value) return
@@ -202,6 +304,8 @@ export function useAnchoredMenuPosition(
   useRepositionTriggers(menuRef, visible, reposition, () => {
     appliedCap = null
   })
+
+  useSheetBackdrop(visible)
 
   return { menuStyle: style, reposition }
 }
@@ -340,6 +444,12 @@ export function useSubmenuPosition(
   let appliedCap: number | null = null
 
   function reposition() {
+    if (isCoarsePointer.value) {
+      pos.value = { ...SHEET_MENU_STYLE }
+      bridgeStyle.value = { display: 'none' }
+      submenuRef.value?.setAttribute('data-sheet-menu', '')
+      return
+    }
     const parent = parentMenuRef.value
     const trigger = triggerRect.value
     if (!parent || !trigger) {

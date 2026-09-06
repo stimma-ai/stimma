@@ -13,6 +13,8 @@ try {
   // not a git checkout (e.g. source tarball) — omit the hash
 }
 
+const mobileShell = process.env.STIMMA_MOBILE_SHELL === '1'
+
 const backendPort = process.env.STIMMA_BACKEND_PORT || '9191'
 const frontendPort = parseInt(process.env.STIMMA_FRONTEND_PORT || '9192', 10)
 
@@ -62,6 +64,12 @@ const distributionAliases = [
 
 export default defineConfig(() => ({
   plugins: [vue()],
+  build: {
+    outDir: mobileShell ? 'dist-mobile' : 'dist',
+    rollupOptions: {
+      input: mobileShell ? { mobile: resolve(__dirname, 'mobile.html') } : { app: resolve(__dirname, 'index.html') },
+    },
+  },
   define: {
     __STIMMA_DISTRIBUTION__: JSON.stringify(distribution),
     __STIMMA_COMMIT__: JSON.stringify(commitHash),

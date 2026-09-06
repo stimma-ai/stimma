@@ -18,6 +18,7 @@ import { onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProjectRoute } from '../composables/useProjectRoute'
+import { setCompactTitle } from '../composables/useCompactChrome'
 
 const route = useRoute()
 const { getProject } = useMediaApi()
@@ -46,4 +47,16 @@ watch(
 
 onMounted(loadProject)
 watch(() => route.params.id, loadProject)
+
+// Phones: the header carries the project's name on every project screen.
+// App.vue clears the title on each navigation (pre-flush); this re-applies
+// it after, and follows a rename.
+watch(
+  () => [project.value?.name, route.fullPath],
+  () => {
+    if (!project.value || !String(route.name || '').startsWith('project-')) return
+    setCompactTitle(project.value.name || 'Project')
+  },
+  { immediate: true, flush: 'post' }
+)
 </script>

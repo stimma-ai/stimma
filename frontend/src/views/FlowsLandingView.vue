@@ -1,12 +1,12 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle">
-      <h1 class="text-xl font-semibold leading-none text-content">Flows</h1>
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5 compact:hidden">
+      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">Flows</h1>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 compact:flex-1 compact:justify-between">
         <button
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary compact:min-h-11 compact:px-3"
           @click="createFlow"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -14,7 +14,7 @@
           </svg>
           <span>New</span>
         </button>
-        <div class="relative">
+        <div class="relative compact:flex-1">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
@@ -22,7 +22,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search flows..."
-            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48 compact:w-full compact:min-h-11"
           />
         </div>
       </div>
@@ -38,7 +38,7 @@
 
       <template v-else>
         <!-- Unified list -->
-        <div v-if="displayed.length === 0" class="px-6 py-16 text-center">
+        <div v-if="displayed.length === 0" class="px-6 py-16 text-center compact:h-full compact:py-0 compact:flex compact:flex-col compact:justify-center">
           <template v-if="flows.length === 0">
             <div class="mx-auto max-w-md space-y-2">
               <p class="text-content-secondary text-sm">No flows yet.</p>
@@ -46,7 +46,7 @@
                 Flows are repeatable creative workflows — define inputs once, then run them again with different settings to generate new assets.
               </p>
               <button
-                class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-content bg-surface-raised transition-colors hover:bg-surface-hover"
+                class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-content bg-surface-raised transition-colors hover:bg-surface-hover compact:min-h-[44px] compact:px-4"
                 @click="createFlow"
               >
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -76,6 +76,7 @@
       </template>
     </div>
 
+    <RenameSheet :show="renameTarget !== null" :name="renameTarget?.name || ''" label="Rename flow" @close="renameTarget = null" @save="renameFromSheet" />
     <EntityContextMenu
       @open="handleContextMenuOpen"
       @delete="handleContextMenuDelete"
@@ -86,11 +87,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted , watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
+import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
+import RenameSheet from '../components/compact/RenameSheet.vue'
+import { useViewport } from '../composables/useViewport'
 import { useFlowsApi, type Flow } from '../composables/useFlowsApi'
 
 import { useWebSocket } from '../composables/useWebSocket'
@@ -102,6 +106,7 @@ const router = useRouter()
 const api = useFlowsApi()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
+const { isCompact } = useViewport()
 const { addToast } = useToasts()
 
 const props = defineProps<{ projectId?: number | null }>()
@@ -179,7 +184,15 @@ function handleContextMenuDelete(_entityType: string, entityId: number) {
 }
 
 function handleContextMenuRename(_entityType: string, entityId: number) {
+  if (isCompact.value) { renameTarget.value = flows.value.find(r => r.id === entityId) || null; return }
   renamingId.value = entityId
+}
+
+const renameTarget = ref<Flow | null>(null)
+async function renameFromSheet(name: string) {
+  const flow = renameTarget.value
+  renameTarget.value = null
+  if (flow) await handleInlineRename(flow, name)
 }
 
 async function handleContextMenuMoveToProject(_entityType: string, entityId: number, projectId: number | null) {
@@ -288,4 +301,9 @@ onUnmounted(() => {
   for (const u of unsubs) { try { u() } catch {} }
   unsubs.length = 0
 })
+
+// Compact header: the hub's create action is the header plus button.
+const compactCreate = { label: 'New flow', run: () => createFlow() }
+onMounted(() => setCompactPrimaryAction(compactCreate))
+onActivated(() => setCompactPrimaryAction(compactCreate))
 </script>

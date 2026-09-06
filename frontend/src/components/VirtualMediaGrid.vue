@@ -220,6 +220,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } from 'vue'
+import { useViewport } from '../composables/useViewport'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -458,6 +459,7 @@ const GRID_GAP_PX = 2
 const GRID_SIDE_PADDING_PX = GRID_GAP_PX * 2 // split across left+right edges
 const ROW_VERTICAL_GUTTER_PX = GRID_GAP_PX
 const GRID_THUMBNAIL_SIZE = 512
+const { isCompact } = useViewport()
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
 const bufferSize = ref(1200) // Render buffer
@@ -502,9 +504,17 @@ function calculateItemsPerRow() {
 
   // clientWidth excludes scrollbar, then we remove row horizontal padding (px-2)
   const scrollerWidth = scrollerEl ? scrollerEl.clientWidth : window.innerWidth
+  // A hidden grid (KeepAlive'd view in the background, slideshow over it)
+  // measures 0 wide. Computing from that yields one full-width column, and
+  // the ResizeObserver then sees "no change" when the real width returns —
+  // the occasional wrong-size grid. Keep the last good layout instead.
+  if (scrollerWidth <= 0) return false
+  lastCalculatedWidth = scrollerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
-  const minItemWidth = 200
+  // Phones: three across (DESIGN.md §1.11 media grids); the 200px minimum
+  // would leave a single column at 390px.
+  const minItemWidth = isCompact.value ? 110 : 200
   const gap = GRID_GAP_PX
 
   // Calculate how many items fit: floor((width + gap) / (minWidth + gap))
@@ -912,10 +922,21 @@ function handleRightClick(item, event) {
   if (item) {
     const assetId = assetIdOf(item)
     const mediaId = mediaIdOf(item)
-    contextTargetId.value = assetId  // Track which Asset is being targeted
 
     // Check if clicked item is in the current selection
     const inSelection = props.selectedItemIds.includes(assetId)
+
+    // Touch: a long-press (the synthetic contextmenu from utils/longPress)
+    // selects the tile and enters selection mode; a tap is navigation. A
+    // long-press on a tile that is already selected opens the sheet for the
+    // selection, so every action stays one press away.
+    if (event?.stimmaSynthetic && !inSelection) {
+      emit('toggle-selection', assetId, item._gridIndex)
+      lastClickedIndex.value = item._gridIndex
+      return
+    }
+
+    contextTargetId.value = assetId  // Track which Asset is being targeted
 
     if (inSelection && props.selectedItemIds.length > 1) {
       // Operating on multiple selected items
@@ -1618,6 +1639,8 @@ let resizeTimeout
 let handleResize
 let resizeObserver
 let lastObservedWidth = 0
+// Width the current itemsPerRow was computed from; 0 until the first real layout.
+let lastCalculatedWidth = 0
 let resizeObserverProcessing = false
 
 // Initialize
@@ -1674,7 +1697,7 @@ onMounted(async () => {
       for (const entry of entries) {
         const newWidth = entry.contentRect.width
         // Only process if width actually changed by more than 1px
-        if (newWidth > 0 && Math.abs(newWidth - lastObservedWidth) > 1) {
+        if (newWidth > 0 && (Math.abs(newWidth - lastObservedWidth) > 1 || Math.abs(newWidth - lastCalculatedWidth) > 1)) {
           resizeObserverProcessing = true
           lastObservedWidth = newWidth
 
@@ -1820,6 +1843,13 @@ onDeactivated(() => {
 // Restore scroll position when component is reactivated (navigating back)
 onActivated(async () => {
   await nextTick()
+  // Coming back to a view whose grid was sized while hidden (or never sized).
+  const el = scroller.value?.$el
+  if (el && el.clientWidth > 0 && Math.abs(el.clientWidth - lastCalculatedWidth) > 1) {
+    const changed = calculateItemsPerRow()
+    buildRows()
+    if (changed) { loadedPages.value.clear(); buildRows(); loadPage(0) }
+  }
   // Prefer sessionStorage (most recently updated) over in-memory value
   const storedScroll = loadScrollFromStorage()
   const scrollToRestore = storedScroll ?? savedScrollPosition.value

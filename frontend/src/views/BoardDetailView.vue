@@ -9,23 +9,25 @@
       @close="exitSlideshow"
       @update:current-media-id="updateCurrentMediaId"
     />
+    <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
-    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3">
+    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
       <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
-          v-if="isEditingBoardName || editedName"
+          v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none"
+          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none compact:min-h-11"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
           @keydown.esc.prevent="cancelBoardNameEdit"
         />
+        <span v-else-if="editedName" class="min-w-0 truncate text-lg font-semibold text-content compact:hidden">{{ editedName }}</span>
         <button
           v-else
           class="bg-transparent text-left text-lg font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
-          @click="startBoardNameEdit"
+          @click="!isCompact && startBoardNameEdit()"
         >
           Name this board...
         </button>
@@ -33,7 +35,7 @@
       <div class="relative">
         <button
           ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content"
+          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content compact:h-11 compact:w-11"
           title="Board actions"
           @click="toggleBoardMenu"
         >
@@ -60,7 +62,7 @@
       </div>
     </div>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto px-6 py-5 compact:px-2 compact:py-3" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
       <div v-if="loading" class="py-20 text-center text-content-muted">Loading board...</div>
       <div v-else-if="!board" class="py-20 text-center text-content-muted">Board not found.</div>
       <TransitionGroup v-else tag="div" class="space-y-5">
@@ -334,6 +336,9 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
+import { useViewport } from '../composables/useViewport'
+import RenameSheet from '../components/compact/RenameSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
@@ -1889,6 +1894,26 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('resize', measureWidth)
 })
+
+const { isCompact } = useViewport()
+const renameOpen = ref(false)
+async function renameBoard(name) {
+  if (!board.value) return
+  editedName.value = name
+  board.value = await updateBoard(board.value.id, { name })
+}
+// Arriving with ?rename=1 (row menu → Rename): compact opens the sheet,
+// desktop starts the inline edit. The flag is consumed once.
+watch([() => route.query.rename, () => board.value?.id], ([flag, id]) => {
+  if (flag !== '1' || !id) return
+  router.replace({ query: { ...route.query, rename: undefined } })
+  if (isCompact.value) renameOpen.value = true
+  else startBoardNameEdit()
+}, { immediate: true })
+watch(() => board.value?.name, (name) => {
+  setCompactTitle(name || 'Board')
+  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
+}, { immediate: true })
 </script>
 
 <style scoped>

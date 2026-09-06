@@ -9,6 +9,8 @@ export const TEST_UPSCALE_TOOL_URL = `/tools/${TEST_UPSCALE_TOOL_ID}`;
 
 type MediaItem = {
   id: number;
+  /** The Asset the media is the head of; what the image editor route takes. */
+  asset_id?: number;
   file_hash?: string;
   file_path?: string;
   width?: number;
@@ -679,11 +681,11 @@ export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: numb
   throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms${suffix}`);
 }
 
-function promptInput(page: Page) {
+export function promptInput(page: Page) {
   return page.locator('.cm-content[contenteditable="true"]').first();
 }
 
-async function continueWithoutAccountIfNeeded(page: Page) {
+export async function continueWithoutAccountIfNeeded(page: Page) {
   const shell = page.getByText('All Assets', { exact: true }).first();
   const getStarted = page.getByRole('button', { name: 'Get started' }).first();
   const deadline = Date.now() + 30000;

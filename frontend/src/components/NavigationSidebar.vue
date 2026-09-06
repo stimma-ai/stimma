@@ -11,22 +11,17 @@
       </defs>
     </svg>
 
-    <!-- Mobile overlay backdrop -->
-    <Transition name="fade">
+    <!-- Sidebar. Phones: a drawer that stays mounted as the first cell of
+         App.vue's compact track (drawer + app side by side); the track rides
+         --drawer-x, so the drawer and the pushed app move as one element. -->
+    <Transition :name="isMobile ? '' : ''">
       <div
-        v-if="isOpen && isMobile"
-        class="fixed inset-0 bg-overlay-backdrop z-modal"
-        @click="$emit('close')"
-      ></div>
-    </Transition>
-
-    <!-- Sidebar -->
-    <Transition :name="isMobile ? 'slide' : ''">
-      <div
-        v-if="!isMobile || isOpen"
+        v-if="true"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'fixed top-0 left-0 z-modal shadow-[2px_0_10px_rgba(0,0,0,0.3)] w-[276px]' : 'relative'"
+        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
+        :aria-hidden="isMobile && !isOpen ? 'true' : undefined"
+        :inert="isMobile && !isOpen ? true : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
         <div v-if="isTauriMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
@@ -229,17 +224,6 @@
             <span>Tools</span>
           </button>
 
-          <!-- Stimpacks landing link -->
-          <button
-            @click="handleNavClick('stimpacks')"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="activeTab === 'stimpacks' ? '!bg-overlay-hover !text-content' : ''"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-            </svg>
-            <span>Stimpacks</span>
-          </button>
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
           <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3">
@@ -322,7 +306,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -377,14 +361,14 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="startInlineRename(tab)">
+                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       <span class="truncate text-[13px] text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
@@ -654,7 +638,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -709,14 +693,14 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="startInlineRename(tab)">
+                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
                       <span class="truncate text-[13px] text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
@@ -875,8 +859,10 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
               </span>
-              <!-- Close button (appears on hover) -->
-              <Tooltip text="Close" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <!-- Close button (appears on hover). Not on phones: there is no
+                   hover to reveal it, so it was an invisible 44px target at the
+                   end of every row that swallowed taps; the row's sheet closes. -->
+              <Tooltip v-if="!isMobile" text="Close" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   @click.stop="closeTab(tab.id)"
                   class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light"
@@ -919,7 +905,8 @@
           <template v-if="showAccountChip">
             <Tooltip text="Stimma account" class="flex-1 min-w-0">
               <button
-                @click="openAccountSettings"
+                @click="isMobile ? $emit('open-account') : openAccountSettings()"
+                aria-label="Stimma account"
                 class="w-full flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
               >
                 <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
@@ -982,6 +969,8 @@
 
     <!-- Workspace Tabs Context Menu -->
     <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @rename-tab="handleRenameTabFromContextMenu" @refresh="loadPinnedTools" />
+    <!-- Phones rename from a sheet; inline editing in a drawer row is confusing. -->
+    <RenameSheet v-if="isMobile" :show="renameSheetOpen" :name="renameSheet?.name || ''" :label="renameSheet?.label" @close="renameSheetOpen = false" @save="saveRenameFromSheet" />
 
     <!-- Flow-tab drop targets: pops out flush against the sidebar edge,
          centered on the tab. Pull right onto a target and release. -->
@@ -1059,6 +1048,7 @@ import { desktop } from '../desktop'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
+import RenameSheet from './compact/RenameSheet.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
 import Tooltip from './ui/Tooltip.vue'
@@ -1079,7 +1069,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat'])
+const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat', 'open-account'])
 
 // Platform detection
 const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
@@ -1101,7 +1091,8 @@ const { on, connected: wsConnected } = useWebSocket()
 // forces the signed-out treatment for screenshots.
 const { isAuthenticated, user } = useAuth()
 const { cloudUser, fetchCloudAccount, formatBalance } = useCloudAccount()
-const showAccountChip = computed(() => isAuthenticated.value && !hideAccountRef.value)
+// The phone's account menu is also its disconnect/sign-out escape path.
+const showAccountChip = computed(() => desktop.kind === 'ios' || (isAuthenticated.value && !hideAccountRef.value))
 
 const accountName = computed(() => {
   const email = user.value?.email || ''
@@ -2213,8 +2204,28 @@ function handleTabReorderDragEnd() {
 
 // ==================== Inline rename ====================
 
+// Phones: every rename goes through one sheet (DESIGN.md §1.11); the row
+// never turns into a text field.
+const renameSheet = ref<{ tabId: string, tabType: string, entityId: string, name: string, label: string } | null>(null)
+// Open state lives apart from the target: the sheet emits close before save.
+const renameSheetOpen = ref(false)
+const RENAME_LABELS: Record<string, string> = { chat: 'Rename chat', board: 'Rename board', flow: 'Rename flow', project: 'Rename project', tool: 'Rename tool window' }
+function openRenameSheet(tabId: string, tabType: string, entityId: string, name: string) {
+  renameSheet.value = { tabId, tabType, entityId, name, label: RENAME_LABELS[tabType] || 'Rename' }
+  renameSheetOpen.value = true
+}
+function saveRenameFromSheet(name: string) {
+  const target = renameSheet.value
+  renameSheetOpen.value = false
+  if (!target) return
+  editingItem.value = { tabId: target.tabId, tabType: target.tabType, entityId: target.entityId }
+  editingName.value = name
+  saveRename()
+}
+
 function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'flow' | 'project', entityId: string, currentName: string) {
   const tabId = `${tabType}:${entityId}`
+  if (props.isMobile) { openRenameSheet(tabId, tabType, entityId, currentName); return }
   editingItem.value = { tabId, tabType, entityId }
   editingName.value = currentName
   nextTick(() => {
@@ -2233,6 +2244,10 @@ function handleRenameTabFromContextMenu(tabId: string) {
 
 function startInlineRename(tab: WorkspaceTab) {
   if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow' && tab.type !== 'tool' && tab.type !== 'project') return
+  if (props.isMobile) {
+    openRenameSheet(tab.id, tab.type, tab.entityId, tab.type === 'tool' ? (tab.customName || '') : (tab.displayName || ''))
+    return
+  }
   editingItem.value = { tabId: tab.id, tabType: tab.type, entityId: tab.entityId }
   // Tool instances: edit the custom name (window title), starting empty when
   // the tab still shows the plain tool name.

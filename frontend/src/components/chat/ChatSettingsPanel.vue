@@ -1,7 +1,7 @@
 <template>
   <div
     class="flex-shrink-0 bg-base border-l border-edge flex flex-col transition-all duration-300 overflow-hidden"
-    :class="isVisible ? 'w-80 opacity-100' : 'w-0 opacity-0 pointer-events-none'"
+    :class="isVisible ? 'w-80 opacity-100 compact:w-full' : 'w-0 opacity-0 pointer-events-none'"
   >
     <!-- Full panel content -->
     <div class="flex-1 flex flex-col overflow-hidden">
