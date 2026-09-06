@@ -889,7 +889,7 @@ async def product_upload(client, data, filename="product.jpg", staged=False):
 
 
 @pytest.mark.parametrize("kind", ["jpeg", "wav"])
-async def test_external_file_roundtrip_preserves_bytes_lineage_and_asset_count(mcp_http, kind):
+async def test_external_file_roundtrip_preserves_bytes_lineage_and_asset_count(mcp_http, kind, monkeypatch):
     import io
     import wave
     from database import Asset, MediaLineage, MediaOwner, MediaItem
@@ -900,6 +900,11 @@ async def test_external_file_roundtrip_preserves_bytes_lineage_and_asset_count(m
     second = await product_upload(mcp_http, product_image_bytes("blue"))
     data = product_image_bytes("purple")
     if kind == "wav":
+        # This tests preservation of extracted metadata, not ffprobe itself.
+        # Backend CI deliberately runs without the optional media executables.
+        monkeypatch.setattr("media_scanner.get_audio_metadata", lambda path: {
+            "sample_rate": 8000, "channels": 1, "duration": 0.1,
+        })
         stream = io.BytesIO()
         with wave.open(stream, "wb") as audio:
             audio.setnchannels(1)
