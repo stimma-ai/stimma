@@ -35,15 +35,21 @@ docker compose up -d</pre>
   </section>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useServerUpdater } from '../../../composables/useServerUpdater'
 import Button from '../../ui/Button.vue'
 import UpdatePill from '../../ui/UpdatePill.vue'
 import Spinner from '../../ui/Spinner.vue'
 import StatusDot from '../../ui/StatusDot.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
-const { server, serverName, serverAvailable, serverBusy, baseRequired, baseAvailable, statusLabel, error, act } = useServerUpdater()
+const { server, connected, serverName, serverAvailable, serverBusy, baseRequired, baseAvailable, statusLabel, error, act } = useServerUpdater()
 const showDocker = ref(false)
 const confirmRestart = ref(false)
+let automaticCheckStarted = false
+watch([connected, server, serverBusy], ([isConnected, currentServer, isBusy]) => {
+  if (automaticCheckStarted || !isConnected || !currentServer?.headless || isBusy) return
+  automaticCheckStarted = true
+  void act('check')
+}, { immediate: true })
 function restart() { confirmRestart.value = false; void act('restart') }
 </script>
