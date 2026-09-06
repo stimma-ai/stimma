@@ -147,27 +147,29 @@
       :start-at-list="settingsStartAtList"
       @close="closeSettings"
     />
-    <!-- The desktop sidebar, as a drawer: same component, same zones (library
-         links, the working set, footer). It pushes the app aside rather than
-         floating over it; the header's menu button and an edge swipe open it,
-         a tap on the pushed app or any navigation closes it. -->
-    <NavigationSidebar
-      :is-open="sidebarOpen"
-      :is-mobile="true"
-      @close="closeSidebar"
-      @open-settings="openSettings($event)"
-      @open-account="sidebarOpen = false; accountSheetOpen = true"
-    />
-    <AccountSheet :show="accountSheetOpen" @close="accountSheetOpen = false" @open-settings="(s) => { accountSheetOpen = false; openSettings(s) }" />
-    <!-- The app, pushed aside by the drawer. It keeps the screen's rounded
-         corner as it slides, and a tap on it while pushed closes the drawer. -->
-    <div
-      class="compact-pushed h-full flex flex-col bg-base relative"
-      @touchstart.passive="onCompactTouchStart"
-      @touchmove.passive="onCompactTouchMove"
-      @touchend.passive="onCompactTouchEnd"
-      @touchcancel.passive="onCompactTouchEnd"
-    >
+    <!-- One track holds the drawer and the app side by side and is the only
+         thing that moves: a single transform, so the two can never animate
+         apart (two elements each transitioning their own transform drifted on
+         iOS WebKit). The drawer is the desktop sidebar, same zones (library
+         links, the working set, footer); it pushes the app aside rather than
+         floating over it. The header's menu button and a drag open it; a tap
+         on the pushed app or any navigation closes it. -->
+    <div class="compact-track absolute inset-y-0 left-0 flex">
+      <NavigationSidebar
+        :is-open="sidebarOpen"
+        :is-mobile="true"
+        @close="closeSidebar"
+        @open-settings="openSettings($event)"
+        @open-account="sidebarOpen = false; accountSheetOpen = true"
+      />
+      <!-- The app, pushed aside by the drawer; a tap on it while pushed closes the drawer. -->
+      <div
+        class="compact-pushed h-full flex flex-col bg-base relative"
+        @touchstart.passive="onCompactTouchStart"
+        @touchmove.passive="onCompactTouchMove"
+        @touchend.passive="onCompactTouchEnd"
+        @touchcancel.passive="onCompactTouchEnd"
+      >
       <div v-if="sidebarOpen" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
       <!-- v-show, not v-if, under the slideshow: views teleport controls into
            this header, and a remount would strand them in the old element. -->
@@ -184,7 +186,9 @@
           </KeepAlive>
         </router-view>
       </div>
+      </div>
     </div>
+    <AccountSheet :show="accountSheetOpen" @close="accountSheetOpen = false" @open-settings="(s) => { accountSheetOpen = false; openSettings(s) }" />
   </div>
 
   <!-- Normal app with sidebar and topbar -->

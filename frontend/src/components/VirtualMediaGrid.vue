@@ -918,10 +918,21 @@ function handleRightClick(item, event) {
   if (item) {
     const assetId = assetIdOf(item)
     const mediaId = mediaIdOf(item)
-    contextTargetId.value = assetId  // Track which Asset is being targeted
 
     // Check if clicked item is in the current selection
     const inSelection = props.selectedItemIds.includes(assetId)
+
+    // Touch: a long-press (the synthetic contextmenu from utils/longPress)
+    // selects the tile and enters selection mode; a tap is navigation. A
+    // long-press on a tile that is already selected opens the sheet for the
+    // selection, so every action stays one press away.
+    if (event?.stimmaSynthetic && !inSelection) {
+      emit('toggle-selection', assetId, item._gridIndex)
+      lastClickedIndex.value = item._gridIndex
+      return
+    }
+
+    contextTargetId.value = assetId  // Track which Asset is being targeted
 
     if (inSelection && props.selectedItemIds.length > 1) {
       // Operating on multiple selected items

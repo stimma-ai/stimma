@@ -11,14 +11,14 @@
       </defs>
     </svg>
 
-    <!-- Sidebar. Phones: a drawer that stays mounted and rides --drawer-x
-         (set by App.vue: -276px closed, 0 open, anything between while a
-         finger drags it), so the drawer and the pushed app move as one. -->
+    <!-- Sidebar. Phones: a drawer that stays mounted as the first cell of
+         App.vue's compact track (drawer + app side by side); the track rides
+         --drawer-x, so the drawer and the pushed app move as one element. -->
     <Transition :name="isMobile ? '' : ''">
       <div
         v-if="true"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'compact-drawer fixed top-0 left-0 z-modal w-[276px] !h-[100dvh] pt-safe' : 'relative'"
+        :class="isMobile ? 'compact-drawer relative w-[276px] !h-full pt-safe' : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
         :aria-hidden="isMobile && !isOpen ? 'true' : undefined"
         :inert="isMobile && !isOpen ? true : undefined"

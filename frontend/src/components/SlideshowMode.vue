@@ -4,7 +4,7 @@
     @touchstart.passive="onSlideshowTouchStart"
     @touchend.passive="onSlideshowTouchEnd"
     data-drop-zone
-    :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
+    :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
     @drop.prevent
   >
@@ -336,6 +336,7 @@
 
     <!-- Close button -->
     <button
+      v-if="!(slideshowCompact && compactImmersive)"
       class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
       :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
       @click="handleCloseClick"
@@ -350,8 +351,8 @@
     <!-- Media display -->
     <div
       ref="mediaContainer"
-      class="flex-1 flex items-center justify-center relative transition-all duration-300"
-      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid) ? `${STRIP_HEIGHT}px` : '0px', paddingBottom: slideshowCompact ? `${COMPACT_BAR_CLEARANCE}px` : '0px', paddingTop: slideshowCompact ? 'var(--safe-top, 0px)' : '0px' }"
+      class="flex-1 flex items-center justify-center relative transition-all duration-300 compact:min-h-0"
+      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid && !slideshowCompact) ? `${STRIP_HEIGHT}px` : '0px', paddingTop: slideshowCompact ? 'var(--safe-top, 0px)' : '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -557,7 +558,7 @@
 
       <!-- Previous button (left side) -->
       <button
-        v-if="!focusMode && !isViewingSource && canGoPrevious"
+        v-if="!focusMode && !isViewingSource && canGoPrevious && !slideshowCompact"
         @click.stop="userPrevious"
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
@@ -575,7 +576,7 @@
 
       <!-- Next button (right side) -->
       <button
-        v-if="!focusMode && !isViewingSource && canGoNext"
+        v-if="!focusMode && !isViewingSource && canGoNext && !slideshowCompact"
         @click.stop="userNext"
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
@@ -607,9 +608,9 @@
     <!-- Image Strip (shows thumbnails from current dataset, or single source image when viewing source) -->
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
-      v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid"
-      :class="fullscreen ? 'fixed' : 'absolute'"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1 compact:pb-safe"
+      v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid && !(slideshowCompact && compactImmersive)"
+      :class="slideshowCompact ? 'relative order-2 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1"
       :style="{
         height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
@@ -641,7 +642,7 @@
           </div>
           <!-- Marker badges -->
           <MarkerBadges
-            v-if="currentItem.markers && currentItem.markers.length > 0"
+            v-if="currentItem.markers && currentItem.markers.length > 0 && !slideshowCompact"
             :markers="currentItem.markers"
             class="absolute bottom-1 left-1"
           />
@@ -682,7 +683,7 @@
           </div>
           <!-- Marker badges -->
           <MarkerBadges
-            v-if="item.markers && item.markers.length > 0"
+            v-if="item.markers && item.markers.length > 0 && !slideshowCompact"
             :markers="item.markers"
             class="absolute bottom-1 left-1"
           />
@@ -745,7 +746,7 @@
             </div>
             <!-- Marker badges -->
             <MarkerBadges
-              v-if="item.markers && item.markers.length > 0"
+              v-if="item.markers && item.markers.length > 0 && !slideshowCompact"
               :markers="item.markers"
               class="absolute bottom-1 left-1"
             />
@@ -818,26 +819,31 @@
       </div>
     </div>
 
-    <!-- Control Bar (default: vertical, upper-left; user-draggable) -->
+    <!-- Control Bar. Desktop: a floating pill (default vertical, upper-left;
+         user-draggable). Phones: a fixed full-width strip at the bottom edge
+         that takes its own space below the picture, not a bubble over it. -->
     <div
+      v-if="!(slideshowCompact && compactImmersive)"
       ref="controlBar"
       :class="[
-        'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
-        { 'cursor-grabbing !transition-none': isDragging },
-        { '!bg-black/60': isHovered },
-        { 'cursor-grab': !isDragging },
-        { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' }
+        slideshowCompact
+          ? 'slideshow-control-bar relative order-3 w-full shrink-0 flex items-center justify-center bg-surface-elevated border-t border-edge-subtle z-chrome select-none px-1 pb-safe overflow-x-auto'
+          : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
+        { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
+        { '!bg-black/60': isHovered && !slideshowCompact },
+        { 'cursor-grab': !isDragging && !slideshowCompact },
+        { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' && !slideshowCompact }
       ]"
-      v-show="!(slideshowCompact && showSidebar)"
-      :style="controlBarStyle"
-      @mousedown="startDrag"
+      :style="slideshowCompact ? undefined : controlBarStyle"
+      @mousedown="!slideshowCompact && startDrag($event)"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
-      title="Drag to reposition"
+      :title="slideshowCompact ? undefined : 'Drag to reposition'"
     >
-      <!-- Compact: play · counter · markers · info · more. Shuffle, loop,
-           interval, mute, lineage and the filmstrip toggle live in the More
-           sheet; Focus mode does not exist here (the phone is always focused). -->
+      <!-- Compact: play · counter · markers · full screen · info · more.
+           Shuffle, loop, interval, mute, lineage and the filmstrip toggle live
+           in the More sheet. Full screen hides every piece of chrome; a tap on
+           the picture brings it back. -->
       <template v-if="slideshowCompact">
         <button
           @click="toggleSlideshow"
@@ -864,6 +870,9 @@
             <span class="w-6 h-6 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
         </template>
+        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen">
+          <ArrowsPointingOutIcon class="w-6 h-6" />
+        </button>
         <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info">
           <InformationCircleIcon class="w-6 h-6" />
         </button>
@@ -1118,9 +1127,12 @@
          Filmstrip scrubber: the track is a frame-strip montage of the video with a
          live playhead, same treatment as the prep frame picker. Toggle with V. -->
     <div
-      v-if="isVideo && showVideoTransport"
-      class="absolute z-chrome flex items-center gap-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] select-none w-[620px]"
-      :style="transportBarStyle"
+      v-if="isVideo && showVideoTransport && !(slideshowCompact && compactImmersive)"
+      :class="slideshowCompact
+        ? 'relative order-1 w-full shrink-0 bg-surface-elevated border-t border-edge-subtle px-2 py-1.5'
+        : 'absolute bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[620px]'"
+      class="z-chrome flex items-center gap-2 select-none"
+      :style="slideshowCompact ? undefined : transportBarStyle"
       @mousedown.stop
       @dblclick.stop
     >
@@ -1545,8 +1557,9 @@ const { isCompact: slideshowCompact } = useViewport()
 // Phones always take the whole screen: inline embedding (chat, tool, flow) is a desktop layout.
 const fullscreen = computed(() => !props.inline || slideshowCompact.value)
 const compactMoreOpen = ref(false)
-// Height the picture keeps clear of the bottom control bar on compact.
-const COMPACT_BAR_CLEARANCE = 64
+// Phones: full screen = only the picture. Entered from the strip's button or
+// a tap on the picture; a tap brings the chrome back.
+const compactImmersive = ref(false)
 // Phones start in the image; the info panel is a swipe-up/tap-away overlay.
 const showSidebar = ref(!slideshowCompact.value)
 
@@ -4657,10 +4670,13 @@ function handleTouchEnd(event) {
   }
 }
 
-// Double-tap to reset zoom
+// Double-tap to reset zoom; on phones a single tap toggles full screen once
+// the double-tap window has passed without a second tap.
 let lastTapTime = 0
+let singleTapTimer = null
 function handleDoubleTap(event) {
   const now = Date.now()
+  if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   if (now - lastTapTime < 300) {
     // Double tap detected
     if (zoomScale.value > 1) {
@@ -4682,6 +4698,12 @@ function handleDoubleTap(event) {
     lastTapTime = 0
   } else {
     lastTapTime = now
+    if (slideshowCompact.value && zoomScale.value <= 1) {
+      singleTapTimer = setTimeout(() => {
+        singleTapTimer = null
+        compactImmersive.value = !compactImmersive.value
+      }, 300)
+    }
   }
 }
 
@@ -5883,6 +5905,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   mediaPreloadEpoch++
   decodedImageCache.clear()
   warmedVideoCache.clear()
@@ -6494,7 +6517,6 @@ async function toggleMarker(markerId) {
 .compact-bar-btn {
   @apply bg-transparent border-none text-white/80 cursor-pointer w-11 h-11 p-0 flex items-center justify-center rounded-md;
 }
-[data-viewport="compact"] .slideshow-control-bar { padding: 4px 6px; gap: 2px; }
 
 /* Sidebar scrollbar styling */
 .sidebar-scroll::-webkit-scrollbar {

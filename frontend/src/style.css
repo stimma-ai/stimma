@@ -926,18 +926,24 @@ select option {
 /* Phone drawer (DESIGN.md §1.11 Chrome): one curve for the drawer and the
    pushed app, both riding --drawer-x; no transition while a finger drags. */
 .compact-shell { --drawer-ease: cubic-bezier(0.32, 0.72, 0, 1); --drawer-ms: 340ms; }
-.compact-drawer {
+/* The track is drawer + app side by side, 276px wider than the screen; it is
+   the one element that moves. */
+.compact-track {
+  width: calc(100% + 276px);
   transform: translateX(var(--drawer-x, -276px));
   transition: transform var(--drawer-ms) var(--drawer-ease);
   will-change: transform;
 }
+.compact-drawer { width: 276px; flex: 0 0 276px; }
 .compact-pushed {
-  transform: translateX(calc(var(--drawer-x, -276px) + 276px));
-  transition: transform var(--drawer-ms) var(--drawer-ease);
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
+  /* Stays the containing block for fixed descendants (it was before, via its
+     own transform), so in-app fixed overlays fill the app, not the track. */
   will-change: transform;
 }
-.compact-shell.is-dragging .compact-drawer, .compact-shell.is-dragging .compact-pushed { transition: none; }
+.compact-shell.is-dragging .compact-track { transition: none; }
 /* The drawer's rows were sized for the desktop rail; on a phone every row and
    control is a touch target. Scoped to the drawer so desktop does not move. */
 .compact-drawer nav > button, .compact-drawer nav > div > button, .compact-drawer nav .group > button { min-height: 44px; }

@@ -1,5 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Hover styles only where the primary pointer can hover. On a phone the
+  // first tap would otherwise "hover" a tile (revealing its checkbox) and
+  // iOS Safari withholds the click until a second tap.
+  future: { hoverOnlyWhenSupported: true },
   darkMode: ['selector', '[data-theme="dark"]'],
   content: [
     "./index.html",

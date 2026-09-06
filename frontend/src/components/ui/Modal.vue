@@ -80,7 +80,10 @@ watch(() => props.show, async (show) => {
     previouslyFocused = document.activeElement as HTMLElement | null
     window.addEventListener('keydown', onKeydown)
     await nextTick()
-    cardRef.value?.focus()
+    // A modal that focused one of its own fields (PIN entry, rename) keeps
+    // that focus; the card only takes it when nothing inside has it yet.
+    const card = cardRef.value
+    if (card && !card.contains(document.activeElement)) card.focus()
   } else {
     window.removeEventListener('keydown', onKeydown)
     previouslyFocused?.focus?.()

@@ -90,7 +90,11 @@ test.describe('phone lane: media touch paths', () => {
     const tile = `[data-testid="media-grid-item-${media.id}"]`;
     await expect(page.locator(tile)).toBeVisible({ timeout: 30000 });
 
-    // Long-press → the media context menu as a bottom sheet.
+    // Long-press selects the tile (selection mode); a second long-press on
+    // the selected tile opens the media context menu as a bottom sheet.
+    await longPress(page, tile);
+    await expect(page.locator(tile)).toHaveClass(/\bselected\b/, { timeout: 5000 });
+    await expect(page.locator('[data-context-menu][data-sheet-menu]')).toHaveCount(0);
     await longPress(page, tile);
     const menu = page.locator('[data-context-menu][data-sheet-menu]');
     await expect(menu).toBeVisible({ timeout: 5000 });
@@ -101,6 +105,8 @@ test.describe('phone lane: media touch paths', () => {
     expect(hits.small, `context sheet rows under 44px: ${hits.small.map((s) => `${s.el} ${s.w}×${s.h}`).join(', ')}`).toHaveLength(0);
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden({ timeout: 5000 });
+    // Escape also clears the selection, so the next tap navigates.
+    await expect(page.locator(tile)).not.toHaveClass(/\bselected\b/);
 
     // Tap → slideshow, no info panel, header hidden.
     await page.locator(tile).tap();
