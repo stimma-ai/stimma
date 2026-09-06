@@ -240,6 +240,8 @@ final class MobileTransport: @unchecked Sendable {
     private let shellFrontend: URL
     private let queue = DispatchQueue(label: "ai.stimma.mobile.transport")
     private var listener: NWListener?
+    private var retiringListeners: [ObjectIdentifier: NWListener] = [:]
+    private var listenerShutdownWaiters: [CheckedContinuation<Void, Never>] = []
     private var origin: URL?
     private struct Target { let host: String; let port: UInt16; let fingerprint: String; let session: String; var tls = true }
     private var target: Target?
@@ -250,7 +252,16 @@ final class MobileTransport: @unchecked Sendable {
     }
 
     func start() async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
+        // cancel() is asynchronous. Wait for the old listener's cancellation
+        // callback before rebinding its port, including rapid background/resume.
+        await withCheckedContinuation { continuation in
+            queue.async {
+                if self.retiringListeners.isEmpty { continuation.resume() }
+                else { self.listenerShutdownWaiters.append(continuation) }
+            }
+        }
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 if self.listener != nil, let origin = self.origin { continuation.resume(returning: origin); return }
                 do {
@@ -264,6 +275,14 @@ final class MobileTransport: @unchecked Sendable {
                     var resolved = false
                     listener.stateUpdateHandler = { [weak listener] state in
                         guard let listener else { return }
+                        if case .cancelled = state {
+                            self.retiringListeners.removeValue(forKey: ObjectIdentifier(listener))
+                            if self.retiringListeners.isEmpty {
+                                let waiters = self.listenerShutdownWaiters
+                                self.listenerShutdownWaiters.removeAll()
+                                for waiter in waiters { waiter.resume() }
+                            }
+                        }
                         guard self.listener === listener else {
                             if !resolved { resolved = true; continuation.resume(throwing: CancellationError()) }
                             return
@@ -324,7 +343,11 @@ final class MobileTransport: @unchecked Sendable {
     /// deliberately; retain the target, package, cookie, and loopback port.
     func suspend() {
         queue.sync {
-            listener?.cancel(); listener = nil
+            if let listener {
+                retiringListeners[ObjectIdentifier(listener)] = listener
+                listener.cancel()
+                self.listener = nil
+            }
             for peer in Array(peers.values) { peer.close() }
         }
     }
