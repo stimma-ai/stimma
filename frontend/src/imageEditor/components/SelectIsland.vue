@@ -490,7 +490,7 @@ function buttonClass(active: boolean, enabled = true) {
         >
           <span class="w-20 shrink-0">{{ slider.label }}</span>
           <input
-            type="range" class="flex-1 min-w-0"
+            type="range" class="flex-1 min-w-0 h-11"
             :min="slider.min" :max="slider.max"
             :value="slider.value"
             @pointerdown="beginSliderAdjustment(slider)"

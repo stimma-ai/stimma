@@ -100,7 +100,8 @@ function onPointerUp() {
   dragPx.value = null
 }
 function collapsedHeight(): number {
-  const handle = 28
+  // The handle row is a touch target (44px) that tucks 8px under the prompt.
+  const handle = 36
   const prompt = promptEl.value?.getBoundingClientRect().height ?? 0
   return handle + prompt
 }
@@ -169,7 +170,7 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
     :data-level="level"
   >
     <div
-      class="flex-none h-7 flex items-center justify-center touch-none cursor-grab"
+      class="flex-none h-11 -mb-2 flex items-center justify-center touch-none cursor-grab"
       role="button"
       aria-label="Toggle controls"
       @pointerdown="onPointerDown"

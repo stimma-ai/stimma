@@ -850,6 +850,16 @@ select option {
 }
 [data-viewport="compact"] .jobs-rail > * { width: 3.5rem; flex: none; }
 
+/* The image editor's phone drawer: the desktop inspectors render inside it
+   unchanged, so their controls are brought up to touch size here rather than
+   one component at a time (DESIGN.md §1.11 touch targets). */
+[data-viewport="compact"] .editor-drawer-body input[type="range"] { height: 44px; }
+[data-viewport="compact"] .editor-drawer-body input[type="checkbox"] { width: 24px; height: 24px; margin: 10px; }
+[data-viewport="compact"] .editor-drawer-body button { min-height: 44px; min-width: 44px; }
+[data-viewport="compact"] .editor-drawer-body input[type="number"],
+[data-viewport="compact"] .editor-drawer-body input[type="text"],
+[data-viewport="compact"] .editor-drawer-body select { min-height: 44px; }
+
 /* Coarse pointers: there are no floating menus, only sheets. Menus that go
    through useContextMenuPosition get data-sheet-menu; the Sheet component's
    own full-screen layer carries data-sheet-layer, and any inset-0 box at the

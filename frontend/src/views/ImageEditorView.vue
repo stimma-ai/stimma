@@ -245,6 +245,8 @@ const compactNav = useCompactNav()
 // renamed and no control exists in only one of the two layouts.
 const editorDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
 const docSheetOpen = ref(false)
+/** At full height only a slice of the picture shows; the glass chips get out of its way. */
+const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
 /** Brush work needs a stylus-class device; the steps still render and toggle. */
 const COMPACT_UNAVAILABLE: FamilyId[] = ['retouch', 'paint']
 function onFamilyUnavailable(id: FamilyId) {
@@ -8375,6 +8377,8 @@ function detachToolCatalogListener() {
 }
 
 async function hydrateEditorExtras() {
+  // The compact header names the document; desktop only needs this on Info.
+  if (isCompact.value) void loadEditorMediaInfo()
   void stack.hydrateHistory()
     .then(() => { savedCursor.value = stack.openedCursor.value })
     .catch(() => {
@@ -8832,7 +8836,7 @@ watch(
           <ArrowUturnRightIcon class="w-5 h-5" />
         </button>
         <Button
-          class="ml-1 !h-10 !px-4 !text-[13px]"
+          class="ml-1 !h-11 !px-4 !text-[13px]"
           :loading="saving"
           :disabled="saving || !composite"
           @click="save(false)"
@@ -8896,7 +8900,7 @@ watch(
 
       <!-- Compact: the commit bar's zoom read-out and before/after as glass
            chips on the matte; pinch zooms, two fingers pan. -->
-      <template v-if="isCompact && !loading">
+      <template v-if="isCompact && !loading && !drawerFull">
         <button
           type="button"
           class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
@@ -9172,7 +9176,7 @@ watch(
           :compact="isCompact"
           @done="disarmSelect"
           :class="isCompact
-            ? 'absolute bottom-2 left-2 right-2 z-chrome'
+            ? ['absolute bottom-2 left-2 right-2 z-chrome', drawerFull && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
@@ -9525,7 +9529,7 @@ watch(
           initial="half"
           :hero-reserve="160"
           :half-fraction="0.42"
-          body-class="!px-0"
+          body-class="!px-0 editor-drawer-body"
         >
           <EditorSubbar
             v-if="family"

@@ -9,6 +9,8 @@ export const TEST_UPSCALE_TOOL_URL = `/tools/${TEST_UPSCALE_TOOL_ID}`;
 
 type MediaItem = {
   id: number;
+  /** The Asset the media is the head of; what the image editor route takes. */
+  asset_id?: number;
   file_hash?: string;
   file_path?: string;
   width?: number;
