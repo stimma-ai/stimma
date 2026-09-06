@@ -291,6 +291,7 @@ transform = {
 }
 content_common = {
     "source_ref": REF,
+    "note": string("What you did and why, in one line, e.g. 'Desaturated with ImageMagick for the print version'. Shown in the asset's lineage and version history.", maxLength=500),
     "target_asset_ref": REF,
     "expected_current_revision": REF,
     "project_ref": REF,
@@ -329,7 +330,7 @@ content_variants = [
     ),
 ]
 TOOLS["content_update"] = (
-    "Save an image or a text/SVG/Markdown document as an asset. For an image, source_ref is library media (for example a file you uploaded via upload_url) and transforms may be empty or resize/crop/rotate/flip. To publish as a new revision of an existing asset, pass target_asset_ref and its expected_current_revision; otherwise a new asset is created.",
+    "Save an image or a text/SVG/Markdown document as an asset. For an image, source_ref is library media (for example a file you uploaded via upload_url) and transforms may be empty or resize/crop/rotate/flip. To publish as a new revision of an existing asset, pass target_asset_ref and its expected_current_revision; otherwise a new asset is created. Always give a note saying what you did; it becomes the version's description.",
     {"type": "object", "oneOf": content_variants},
     True,
 )

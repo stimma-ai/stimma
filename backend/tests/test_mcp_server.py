@@ -858,8 +858,13 @@ async def test_upload_link_then_revise_without_a_key(mcp_http):
         "transforms": [],
         "target_asset_ref": first.json()["asset_ref"],
         "expected_current_revision": original["revision"]["id"],
+        "note": "Desaturated locally for the print version",
         "request_key": "revise-from-upload",
     })))
     assert revised["state"] == "succeeded", revised
     assert revised["result"]["asset_ref"] == first.json()["asset_ref"]
     assert revised["result"]["revision_ref"] != original["revision"]["id"]
+    # The assistant's note is the version's description and heads the lineage.
+    current = body(await rpc(mcp_http, "assets_get", {"refs": [first.json()["asset_ref"]]}))["items"][0]
+    assert current["revision"]["note"] == "Desaturated locally for the print version"
+    assert current["media"]["generation_metadata"]["prompt"] == "Desaturated locally for the print version"

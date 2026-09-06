@@ -84,10 +84,14 @@ async def update(caller, args, session, chat):
 
                 content, _ = prepare_text(content)
             path.write_text(content)
+    # The assistant's own account of the change is the record: it heads the
+    # lineage entry (as the prompt) and labels the version.
+    note = (args.get("note") or "").strip()
     provenance = {
         "task_type": "edit",
-        "tool_id": "stimma:mcp-content",
-        "parameters": {"format": args["format"]},
+        "tool_id": "stimma:assistant-edit",
+        "prompt": note,
+        "parameters": {"format": args["format"], **({"note": note} if note else {})},
         "source_media_ids": [source.id] if source else [],
     }
     saved = await save_workspace_file(
@@ -123,7 +127,7 @@ async def update(caller, args, session, chat):
             asset_id=asset.id,
             media_id=result["media_id"],
             parent_revision_id=expected,
-            note="MCP edit",
+            note=note or "Edited by a connected assistant",
         )
     else:
         asset = await create_asset_from_media(
