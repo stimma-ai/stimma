@@ -1,0 +1,46 @@
+name: iOS checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/ios/**'
+      - 'frontend/src/desktop/mobileBridge.ts'
+      - 'tools/mobile.py'
+      - '.github/workflows/mobile-ios.yml'
+  pull_request:
+    paths:
+      - 'mobile/ios/**'
+      - 'frontend/src/desktop/mobileBridge.ts'
+      - 'tools/mobile.py'
+      - '.github/workflows/mobile-ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install frontend test dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npm exec -- playwright install chromium
+      - name: Run mobile regression checks
+        run: tools/stimma mobile ios test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Compile iOS shell
+        run: tools/stimma mobile ios build --unsigned-device

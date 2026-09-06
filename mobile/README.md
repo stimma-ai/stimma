@@ -100,6 +100,15 @@ Disconnect closes the remote transport, clears the remembered server and returns
 to server selection while retaining account sign-in. Sign out also removes the
 phone's saved account credentials. Neither action signs the server itself out.
 
+The shell saves `localStorage` preferences in Application Support, separately for
+each account and server. Profile selection, theme, saved routes, and other local
+preferences are restored at document start, before the UI reads them, even when
+the loopback port or UI package changes. Writes and deletions are saved as they
+happen; reloads receive the latest snapshot. Disconnect and sign-out retain these
+preferences for that account/server. Cookies, `sessionStorage`, IndexedDB, and
+other WebView data remain temporary. Preferences lost by older shells cannot be
+recovered; this fix requires rebuilding the native iOS app.
+
 `tools/stimma mobile ios test` checks the bridge contract and runs disposable
 TLS/HTTP/WebSocket fixtures. It covers wrong-pin rejection, upload streaming,
 media byte ranges, bidirectional WebSockets, callback-independent native
@@ -107,6 +116,10 @@ credential injection, cookie/origin restrictions, and invalid request framing. A
 and verify state validation, single delivery, and complete HTTP responses.
 Package tests cover corruption, unsafe archives, compatibility, cache hits,
 cancellation, atomic replacement, and eviction.
+Local preference tests cover file persistence and account/server isolation, plus
+document-start restoration and Web Storage mutations in Chromium. Install the
+frontend dependencies and Playwright Chromium before running this lane. The
+`iOS checks` workflow runs these checks on macOS and compiles the iOS shell.
 
 `tools/stimma mobile ios test-ui --simulator 'iPhone 16 Pro'` additionally runs
 XCTest against the app. Its library test expects an isolated backend on port

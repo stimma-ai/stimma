@@ -6,12 +6,12 @@ struct StimmaWebView: UIViewRepresentable {
     let origin: URL
     var connectionScreen = false
 
-    func makeCoordinator() -> Coordinator { Coordinator(model: model, origin: origin) }
+    func makeCoordinator() -> Coordinator { Coordinator(model: model, origin: origin, connectionScreen: connectionScreen) }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        // Each connected server gets its own storage. Generated documents never
-        // receive the native bridge; every native call checks the calling frame.
+        // Session data stays temporary. localStorage is restored separately by
+        // account/server because this transport's origin changes on reconnect.
         configuration.websiteDataStore = .nonPersistent()
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
@@ -27,6 +27,15 @@ struct StimmaWebView: UIViewRepresentable {
         webView.isInspectable = _isDebugAssertConfiguration()
         webView.allowsBackForwardNavigationGestures = true
         context.coordinator.webView = webView
+        do {
+            try context.coordinator.installStorageScript(configuration.userContentController)
+        } catch {
+            Task { @MainActor in
+                model.message = "Could not restore local preferences. \(error.localizedDescription)"
+                model.showConnections = true
+            }
+            return webView
+        }
         if let transport = model.transport,
            let cookie = HTTPCookie(properties: [
             .domain: "127.0.0.1", .path: "/", .name: transport.cookieName,
@@ -71,8 +80,26 @@ struct StimmaWebView: UIViewRepresentable {
         let model: ShellModel
         let origin: URL
         weak var webView: WKWebView?
+        private let storage: LocalStoragePersistence?
         var lastState = "ready"
-        init(model: ShellModel, origin: URL) { self.model = model; self.origin = origin }
+        init(model: ShellModel, origin: URL, connectionScreen: Bool) {
+            self.model = model; self.origin = origin
+            if !connectionScreen, let server = model.selected {
+                let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("local-preferences")
+                storage = LocalStoragePersistence(directory: directory,
+                    accountID: model.auth.user?.id ?? "simulator", serverID: server.deviceId)
+            } else { storage = nil }
+        }
+
+        func installStorageScript(_ controller: WKUserContentController) throws {
+            guard let storage else { return }
+            let source = try LocalStoragePersistence.script(values: storage.load(), origin: origin)
+            // Update the seed after every save as well, so reloads and WebContent
+            // process recovery cannot replay the WebView's original preferences.
+            controller.removeAllUserScripts()
+            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage,
@@ -88,6 +115,19 @@ struct StimmaWebView: UIViewRepresentable {
                 return
             }
             let args = body["args"] as? [String: Any] ?? [:]
+            if method == "saveLocalStorage" {
+                // Handle in delivery order, before async navigation operations.
+                // The coordinator owns the scope; JS cannot choose another server.
+                do {
+                    guard let storage, let values = args["values"] as? [String: String] else {
+                        throw ShellError.message("Invalid local preferences")
+                    }
+                    try storage.save(values)
+                    try installStorageScript(userContentController)
+                    replyHandler(NSNull(), nil)
+                } catch { replyHandler(nil, error.localizedDescription) }
+                return
+            }
             Task { @MainActor in
                 do {
                     let result: Any
