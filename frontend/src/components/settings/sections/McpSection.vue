@@ -137,7 +137,7 @@ import { copyToClipboard } from '../../../utils/clipboard'
 import Button from '../../ui/Button.vue'
 import Modal from '../../ui/Modal.vue'
 
-const suggestions = ['Claude Desktop', 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok', 'OpenCode', 'Pi']
+const suggestions = ['Claude Desktop', 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok', 'OpenCode']
 
 const { isRemote, activeDeviceName } = useMultiDevice()
 
