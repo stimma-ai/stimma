@@ -148,7 +148,12 @@ in both cases.
   cookie-bearing requests to another loopback port.
 - The phone bypasses desktop onboarding and has no local-server option. Server
   profile PIN checks remain intact. Connection checks run while active and
-  after resuming, with one five-second probe at a time. Recovery refreshes
+  after resuming, with one five-second probe at a time through the same local
+  listener, pinned upstream, and session used by the WebView. Backgrounding
+  closes transport sockets; foregrounding recreates the listener on the same
+  port and explicitly reconnects the UI WebSocket after the probe succeeds.
+  This resume fix requires an updated native iOS app and server UI package.
+  Recovery refreshes
   discovery and reestablishes the server session without replacing the page
   or its current UI package. Select a server explicitly or relaunch the app
   to pick up a new UI package.

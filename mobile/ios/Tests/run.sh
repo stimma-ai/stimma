@@ -3,7 +3,7 @@ set -euo pipefail
 mobile_tests_dir="$(cd "$(dirname "$0")" && pwd)"
 mobile_test_build="$(mktemp -d "${TMPDIR:-/tmp}/stimma-mobile-tests.XXXXXX")"
 trap 'rm -rf "$mobile_test_build"' EXIT
-node --test "$mobile_tests_dir/local_storage.test.mjs"
+node --test "$mobile_tests_dir/local_storage.test.mjs" "$mobile_tests_dir/../../../frontend/tests/websocketResume.test.mjs"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/LocalStoragePersistence.swift" "$mobile_tests_dir/LocalStorageChecks.swift" -o "$mobile_test_build/local-storage-checks"
 "$mobile_test_build/local-storage-checks"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/MobileTransport.swift" "$mobile_tests_dir/TransportChecks.swift" -o "$mobile_test_build/transport-checks"

@@ -131,8 +131,12 @@ export function useWebSocket() {
     }
 
     if (ws.value) {
-      ws.value.close()
+      const previous = ws.value
       ws.value = null
+      // An intentional replacement must not let a delayed close event clear
+      // the new socket or schedule a second reconnect after iOS resumes.
+      previous.onopen = previous.onmessage = previous.onerror = previous.onclose = null
+      previous.close()
     }
 
     connected.value = false
@@ -312,6 +316,18 @@ export function useWebSocket() {
   }
 }
 
+// Native transport recovery can leave WebKit reporting a suspended socket as
+// OPEN. Replace it explicitly; onopen performs the normal data resynchronization.
+function handleTransportResumed() {
+  if (!isInitialized) return
+  const socket = useWebSocket()
+  socket.disconnect()
+  socket.connect()
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('stimma:transport-resumed', handleTransportResumed)
+}
+
 // HMR handling - preserve handlers across module reload
 if (import.meta.hot) {
   // Restore handlers from previous module if available
@@ -323,6 +339,7 @@ if (import.meta.hot) {
   }
 
   import.meta.hot.dispose((data) => {
+    window.removeEventListener('stimma:transport-resumed', handleTransportResumed)
     // Save handlers for the next module version
     data.eventHandlers = eventHandlers
 

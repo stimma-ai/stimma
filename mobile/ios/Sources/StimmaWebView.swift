@@ -68,6 +68,10 @@ struct StimmaWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        if context.coordinator.lastTransportRevision != model.transportRevision {
+            context.coordinator.lastTransportRevision = model.transportRevision
+            uiView.evaluateJavaScript("window.dispatchEvent(new Event('stimma:transport-resumed'))")
+        }
         if context.coordinator.lastState != model.connectionState {
             context.coordinator.lastState = model.connectionState
             let state = ["ready", "connecting", "unreachable"].contains(model.connectionState) ? model.connectionState : "unreachable"
@@ -82,6 +86,7 @@ struct StimmaWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         private let storage: LocalStoragePersistence?
         var lastState = "ready"
+        var lastTransportRevision = 0
         init(model: ShellModel, origin: URL, connectionScreen: Bool) {
             self.model = model; self.origin = origin
             if !connectionScreen, let server = model.selected {

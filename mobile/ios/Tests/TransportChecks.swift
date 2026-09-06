@@ -32,6 +32,13 @@ struct TransportChecks {
         try await check("/", status: 403, authorized: false)
         try await check("/", status: 200)
         try await check("/library", status: 200)
+        for _ in 0..<3 {
+            transport.suspend()
+            let resumedOrigin = try await transport.start()
+            precondition(resumedOrigin == origin, "Resume must preserve the WebView origin")
+            try await check("/library", status: 200)
+            try await check("/", status: 403, authorized: false)
+        }
         try await check("/missing.js", status: 404)
         try await check("/api/test", status: 503)
         try await check("/", status: 403, requestOrigin: "https://example.com")
@@ -91,7 +98,23 @@ struct TransportChecks {
         guard case .string("ok") = try await socket.receive() else { fatalError("WebSocket greeting failed") }
         try await socket.send(.string("echo-me"))
         guard case .string("echo-me") = try await socket.receive() else { fatalError("WebSocket duplex failed") }
-        socket.cancel(with: .normalClosure, reason: nil)
+        // A suspended OPEN tunnel must close, while a fresh HTTP request and
+        // WebSocket work on the SAME origin with the SAME capability cookie.
+        transport.suspend()
+        let resumedOrigin = try await transport.start()
+        precondition(resumedOrigin == origin)
+        do { _ = try await socket.receive(); fatalError("Suspended tunnel stayed open") } catch {}
+        let healthy = try await transport.checkConnection()
+        precondition(healthy, "Resume probe must traverse the local proxy")
+        request.setValue(nil, forHTTPHeaderField: "Range")
+        let (resumed, resumedResponse) = try await client.data(for: request)
+        precondition((resumedResponse as! HTTPURLResponse).statusCode == 200 && String(data: resumed, encoding: .utf8) == "fixture-ok")
+        let resumedSocket = client.webSocketTask(with: websocketRequest)
+        resumedSocket.resume()
+        guard case .string("ok") = try await resumedSocket.receive() else { fatalError("Resumed WebSocket greeting failed") }
+        try await resumedSocket.send(.string("after-resume"))
+        guard case .string("after-resume") = try await resumedSocket.receive() else { fatalError("Resumed WebSocket duplex failed") }
+        resumedSocket.cancel(with: .normalClosure, reason: nil)
         transport.connect(host: "127.0.0.1", port: port, fingerprint: String(repeating: "0", count: 64), session: "fixture-session")
         request.timeoutInterval = 2
         do { _ = try await client.data(for: request); fatalError("Proxy accepted incorrect certificate pin") } catch {}

@@ -171,7 +171,7 @@ enum PinnedHTTP {
         }
     }
 
-    private static func boundedRequest(_ request: URLRequest, fingerprint: String?, maximumResponseBytes: Int, timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
+    fileprivate static func boundedRequest(_ request: URLRequest, fingerprint: String?, maximumResponseBytes: Int, timeout: TimeInterval) async throws -> (Data, HTTPURLResponse) {
         guard maximumResponseBytes >= 0, timeout.isFinite, timeout > 0 else { throw TransportError.invalidRequest }
         try Task.checkCancellation()
         let config = URLSessionConfiguration.ephemeral
@@ -252,30 +252,50 @@ final class MobileTransport: @unchecked Sendable {
     func start() async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                if let origin = self.origin { continuation.resume(returning: origin); return }
+                if self.listener != nil, let origin = self.origin { continuation.resume(returning: origin); return }
                 do {
                     let parameters = NWParameters.tcp
-                    parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+                    // Keep the WebView origin and capability cookie across suspension.
+                    parameters.allowLocalEndpointReuse = true
+                    let port = (self.origin?.port).flatMap { NWEndpoint.Port(rawValue: UInt16($0)) } ?? .any
+                    parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: port)
                     let listener = try NWListener(using: parameters)
                     self.listener = listener
                     var resolved = false
-                    listener.stateUpdateHandler = { state in
+                    listener.stateUpdateHandler = { [weak listener] state in
+                        guard let listener else { return }
+                        guard self.listener === listener else {
+                            if !resolved { resolved = true; continuation.resume(throwing: CancellationError()) }
+                            return
+                        }
                         switch state {
                         case .ready:
                             guard !resolved, let port = listener.port else { return }; resolved = true
                             let origin = URL(string: "http://127.0.0.1:\(port.rawValue)")!
                             self.origin = origin; continuation.resume(returning: origin)
                         case .failed(let error):
+                            self.listener = nil
+                            listener.cancel()
                             if !resolved { resolved = true; continuation.resume(throwing: error) }
+                        case .cancelled:
+                            self.listener = nil
+                            if !resolved { resolved = true; continuation.resume(throwing: CancellationError()) }
                         default: break
                         }
                     }
-                    listener.newConnectionHandler = { connection in
-                        guard self.peers.count < 96 else { connection.cancel(); return }
+                    listener.newConnectionHandler = { [weak listener] connection in
+                        guard let listener, self.listener === listener, self.peers.count < 96 else { connection.cancel(); return }
                         let peer = Peer(connection, owner: self)
                         self.peers[peer.id] = peer; peer.start()
                     }
                     listener.start(queue: self.queue)
+                    self.queue.asyncAfter(deadline: .now() + 5) {
+                        guard !resolved else { return }
+                        resolved = true
+                        if self.listener === listener { self.listener = nil }
+                        listener.cancel()
+                        continuation.resume(throwing: URLError(.timedOut))
+                    }
                 } catch { continuation.resume(throwing: error) }
             }
         }
@@ -299,6 +319,28 @@ final class MobileTransport: @unchecked Sendable {
         }
     }
     #endif
+
+    /// iOS may invalidate network resources while suspended. Discard them
+    /// deliberately; retain the target, package, cookie, and loopback port.
+    func suspend() {
+        queue.sync {
+            listener?.cancel(); listener = nil
+            for peer in Array(peers.values) { peer.close() }
+        }
+    }
+
+    /// Exercise the SAME listener, pinned upstream and session as the WebView.
+    /// A direct server probe cannot detect a dead local listener or peer pool.
+    func checkConnection() async throws -> Bool {
+        try Task.checkCancellation()
+        let address = try await start()
+        try Task.checkCancellation()
+        var request = URLRequest(url: address.appendingPathComponent("api/profiles"))
+        request.setValue("\(cookieName)=\(cookieValue)", forHTTPHeaderField: "Cookie")
+        let (_, response) = try await PinnedHTTP.boundedRequest(request, fingerprint: nil,
+            maximumResponseBytes: 1_048_576, timeout: 5)
+        return response.statusCode == 200
+    }
 
     func stop() {
         queue.sync {

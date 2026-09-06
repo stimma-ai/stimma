@@ -42,6 +42,26 @@ final class ShellUITests: XCTestCase {
         add(screenshot)
     }
 
+    func testLibraryLoadsAfterBackgroundResume() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--local-backend-port", "9480"]
+        app.launch()
+        let browse = app.webViews.links["View all"]
+        XCTAssertTrue(browse.waitForExistence(timeout: 30), app.debugDescription)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(browse.waitForExistence(timeout: 15), app.debugDescription)
+        browse.tap()
+        let assets = app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'assets'")).firstMatch
+        XCTAssertTrue(assets.waitForExistence(timeout: 30), app.debugDescription)
+        // A second resume must preserve the open browser rather than reload Home.
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(assets.waitForExistence(timeout: 15), app.debugDescription)
+        app.webViews.buttons["Menu"].tap()
+        XCTAssertTrue(app.webViews.buttons["Stimma account"].waitForExistence(timeout: 5))
+    }
+
     func testRealLibraryLoadsInWebView() {
         let app = XCUIApplication()
         app.launchArguments = ["--local-backend-port", "9480"]

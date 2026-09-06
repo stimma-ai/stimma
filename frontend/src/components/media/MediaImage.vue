@@ -7,6 +7,7 @@
     - Context menu integration (enabled by default when mediaId is provided)
   -->
   <AppImage
+    class="[&_img]:[-webkit-touch-callout:none]"
     :src="imageSrc"
     :alt="alt"
     :contain="contain"

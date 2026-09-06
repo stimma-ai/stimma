@@ -765,6 +765,15 @@
 
         <div class="border-t border-edge-subtle my-1"></div>
 
+        <button
+          v-if="!isMultiple && nativeShareSupported"
+          @click="handleNativeShare"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <ArrowUpTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
+          <span>Share…</span>
+        </button>
+
         <!-- Share (single item only) -->
         <button
           v-if="!isMultiple"
@@ -774,7 +783,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
             <path d="M13 4.5a2.5 2.5 0 1 1 .702 1.737L6.97 9.604a2.518 2.518 0 0 1 0 .792l6.733 3.367a2.5 2.5 0 1 1-.671 1.341l-6.733-3.367a2.5 2.5 0 1 1 0-3.475l6.733-3.366A2.52 2.52 0 0 1 13 4.5Z" />
           </svg>
-          <span>Share</span>
+          <span>Share to Stimma Cloud</span>
         </button>
 
         <!-- Print -->
@@ -853,6 +862,8 @@
       @close="showExportModal = false"
     />
 
+    <NativeShareDialog v-if="nativeShareMediaId" :media-id="nativeShareMediaId" @close="nativeShareMediaId = null" />
+
     <!-- Share Dialog -->
     <ShareDialog
       v-model="showShareDialog"
@@ -877,6 +888,10 @@ import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import ShareDialog from '../ShareDialog.vue'
+import NativeShareDialog from '../NativeShareDialog.vue'
+import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
+import { desktop } from '../../desktop'
+import { supportsNativeShare } from '../../utils/nativeShare'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import ToolIcon from '../tools/ToolIcon.vue'
@@ -2024,6 +2039,16 @@ async function sendToFlowInput(flow: Flow, field: FlowMediaInputField) {
     console.error('Failed to set flow input:', err)
     addToast('Failed to set flow input', 'warning')
   }
+}
+
+const nativeShareSupported = supportsNativeShare(desktop.kind)
+const nativeShareMediaId = ref<number | null>(null)
+
+function handleNativeShare() {
+  const id = targetMediaIds.value[0]
+  if (!id) return
+  nativeShareMediaId.value = id
+  contextMenu.hide()
 }
 
 async function handleShareToCloud() {

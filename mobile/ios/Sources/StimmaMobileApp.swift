@@ -12,6 +12,7 @@ struct StimmaMobileApp: App {
                 .preferredColorScheme(.dark)
                 .task { await model.restore() }
                 .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { model.suspendConnection() }
                     if phase == .active { Task { await model.checkConnection() } }
                 }
         }
@@ -29,6 +30,7 @@ final class ShellModel: ObservableObject {
     @Published var showConnections = false
     @Published var revision = UUID()
     @Published var connectionState = "ready"
+    @Published var transportRevision = 0
     @Published var restoring = true
     @Published var interfaceReady = false
     private(set) var transport: MobileTransport?
@@ -40,6 +42,8 @@ final class ShellModel: ObservableObject {
     private var monitor: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
     private var checkingConnection = false
+    private var connectionProbe: Task<Bool, Error>?
+    private var resumePending = false
     let clientID: String = {
         if let saved = UserDefaults.standard.string(forKey: "mobile.clientID") { return saved }
         let id = UUID().uuidString
@@ -123,6 +127,7 @@ final class ShellModel: ObservableObject {
                 selected = MobileDevice(deviceId: "simulator", name: "Simulator test library", routes: [], certFingerprint: nil, serving: false)
                 origin = url
                 activeUIHash = package.hash
+                startMonitor()
                 message = nil
             } catch {
                 message = error.localizedDescription
@@ -181,6 +186,8 @@ final class ShellModel: ObservableObject {
     }
 
     func connect(_ device: MobileDevice, recovering: Bool = false) async {
+        connectionProbe?.cancel(); connectionProbe = nil
+        checkingConnection = false
         connectionTask?.cancel()
         let generation = UUID()
         connectionGeneration = generation
@@ -247,11 +254,17 @@ final class ShellModel: ObservableObject {
             // Resolve package updates on explicit selection or the next app launch.
             if recovering, selected?.deviceId == device.deviceId, let transport, activeUIHash != nil {
                 transport.connect(host: route.host, port: route.port, fingerprint: pin, session: session)
+                guard try await transport.checkConnection() else {
+                    throw ShellError.message("The local connection could not reach the server.")
+                }
+                guard connectionGeneration == generation, !Task.isCancelled else { return }
                 selected = device
                 activeRoute = route
                 activeSession = session
                 message = nil
                 connectionState = "ready"
+                resumePending = false
+                transportRevision += 1
                 return
             }
             let package = try await resolveUI { path, limit in
@@ -307,24 +320,50 @@ final class ShellModel: ObservableObject {
         }
     }
 
+    func suspendConnection() {
+        guard selected != nil else { return }
+        connectionGeneration = UUID()
+        connectionTask?.cancel(); connectionTask = nil
+        connectionProbe?.cancel(); connectionProbe = nil
+        checkingConnection = false
+        busy = false
+        resumePending = true
+        connectionState = "connecting"
+        transport?.suspend()
+    }
+
     func checkConnection() async {
         guard !busy, !checkingConnection, UIApplication.shared.applicationState == .active,
-              let selected, let route = activeRoute, let pin = selected.certFingerprint,
-              let session = activeSession else { return }
-        checkingConnection = true
-        defer { checkingConnection = false }
-        var url = URLComponents()
-        url.scheme = "https"; url.host = route.host; url.port = route.port; url.path = "/api/profiles"
-        guard let address = url.url else { return }
+              let selected, let transport else { return }
         let generation = connectionGeneration
+        checkingConnection = true
+        defer {
+            if generation == connectionGeneration {
+                checkingConnection = false
+                connectionProbe = nil
+            }
+        }
+        let probe = Task { try await transport.checkConnection() }
+        connectionProbe = probe
         do {
-            let (_, response) = try await PinnedHTTP.request(url: address, fingerprint: pin, session: session, timeout: 5)
-            guard generation == connectionGeneration else { return }
-            if response.statusCode == 200 { connectionState = "ready"; return }
+            let ready = try await withTaskCancellationHandler {
+                try await probe.value
+            } onCancel: { probe.cancel() }
+            guard generation == connectionGeneration, !Task.isCancelled else { return }
+            if ready {
+                message = nil
+                connectionState = "ready"
+                if resumePending { resumePending = false; transportRevision += 1 }
+                return
+            }
         } catch { if generation != connectionGeneration { return } }
         connectionState = "unreachable"
         guard !Task.isCancelled else { return }
-        await connect(selected, recovering: true)
+        transport.suspend()
+        // Release the probe gate before connect() changes the generation.
+        checkingConnection = false
+        connectionProbe = nil
+        if activeRoute != nil { await connect(selected, recovering: true) }
     }
 
     func logout() {
@@ -338,6 +377,9 @@ final class ShellModel: ObservableObject {
         connectionTask?.cancel(); connectionTask = nil
         restoring = false
         interfaceReady = false
+        connectionProbe?.cancel(); connectionProbe = nil
+        checkingConnection = false
+        resumePending = false
         monitor?.cancel(); monitor = nil
         activeRoute = nil; activeSession = nil; activeUIHash = nil
         busy = false
