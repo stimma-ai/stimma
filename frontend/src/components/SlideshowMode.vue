@@ -618,8 +618,8 @@
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
       v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid && !(slideshowCompact && compactImmersive)"
-      :class="slideshowCompact ? 'relative order-2 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1"
+      :class="slideshowCompact ? 'relative order-3 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:bg-slideshow-matt compact:backdrop-blur-none compact:border-t-0 compact:py-1 compact:pb-safe"
       :style="{
         height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
@@ -633,7 +633,7 @@
           :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -671,7 +671,7 @@
         >
           <div
             class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
-            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
+            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
           >
             <MediaImage
               :media-id="mediaIdOf(item)"
@@ -710,6 +710,7 @@
         :item-width="STRIP_ROW"
         :item-height="STRIP_ROW"
         :item-gap="slideshowCompact ? 6 : 8"
+        :gutter="4"
         :height="STRIP_ROW + 16"
         :chunk-size="50"
         :buffer-size="10"
@@ -733,7 +734,7 @@
             <div
               v-else-if="item.file_hash"
               class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
-              :class="index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
+              :class="index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
             >
               <MediaImage
                 :media-id="mediaIdOf(item)"
@@ -836,7 +837,7 @@
       ref="controlBar"
       :class="[
         slideshowCompact
-          ? 'slideshow-control-bar relative order-3 w-full shrink-0 flex items-center justify-center bg-surface-elevated border-t border-edge-subtle z-chrome select-none px-1 pb-safe overflow-x-auto'
+          ? 'slideshow-control-bar relative order-2 w-full shrink-0 h-[52px] flex items-center bg-slideshow-matt z-chrome select-none px-1.5'
           : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
         { '!bg-black/60': isHovered && !slideshowCompact },
@@ -854,19 +855,24 @@
            in the More sheet. Full screen hides every piece of chrome; a tap on
            the picture brings it back. -->
       <template v-if="slideshowCompact">
-        <button
-          @click="toggleSlideshow"
-          :class="['compact-bar-btn', { '!text-live': isPlaying }]"
-          :aria-label="isPlaying ? 'Pause' : 'Play slideshow'"
-        >
-          <PauseIcon v-if="isPlaying" class="w-6 h-6" />
-          <PlayIcon v-else class="w-6 h-6" />
-        </button>
-        <div class="text-[13px] font-semibold text-white tabular-nums px-1 whitespace-nowrap">
-          <template v-if="isViewingGrid && currentGridView">{{ gridLinearPosition }} / {{ gridTotalCells }}</template>
-          <template v-else>{{ effectiveIndex + 1 }} / {{ effectiveTotalCount }}</template>
+        <!-- Cluster 1 — the show: play, counter (denominator dimmed) -->
+        <div class="flex items-center">
+          <button
+            @click="toggleSlideshow"
+            :class="['compact-bar-btn', { '!text-live': isPlaying }]"
+            :aria-label="isPlaying ? 'Pause' : 'Play slideshow'"
+          >
+            <PauseIcon v-if="isPlaying" class="w-6 h-6" />
+            <PlayIcon v-else class="w-6 h-6" />
+          </button>
+          <div class="font-mono text-[13px] font-semibold text-white/80 tabular-nums px-1 whitespace-nowrap">
+            <template v-if="isViewingGrid && currentGridView">{{ gridLinearPosition }} <span class="text-white/45">/ {{ gridTotalCells }}</span></template>
+            <template v-else>{{ effectiveIndex + 1 }} <span class="text-white/45">/ {{ effectiveTotalCount }}</span></template>
+          </div>
         </div>
-        <template v-if="availableMarkers.length > 0 && currentItem">
+        <div class="flex-1"></div>
+        <!-- Cluster 2 — this image: its markers, in marker order -->
+        <div v-if="availableMarkers.length > 0 && currentItem" class="flex items-center">
           <button
             v-for="marker in availableMarkers"
             :key="marker.id"
@@ -878,16 +884,20 @@
           >
             <span class="w-6 h-6 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
-        </template>
-        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen">
-          <ArrowsPointingOutIcon class="w-6 h-6" />
-        </button>
-        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info">
-          <InformationCircleIcon class="w-6 h-6" />
-        </button>
-        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More">
-          <EllipsisHorizontalIcon class="w-6 h-6" />
-        </button>
+        </div>
+        <div class="flex-1"></div>
+        <!-- Cluster 3 — open: full screen, info, more -->
+        <div class="flex items-center">
+          <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen">
+            <ArrowsPointingOutIcon class="w-6 h-6" />
+          </button>
+          <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info">
+            <InformationCircleIcon class="w-6 h-6" />
+          </button>
+          <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More">
+            <EllipsisHorizontalIcon class="w-6 h-6" />
+          </button>
+        </div>
       </template>
       <template v-else>
       <!-- Cluster 1 — Playback: shuffle · play/pause · loop · interval · volume -->
@@ -1138,7 +1148,7 @@
     <div
       v-if="isVideo && showVideoTransport && !(slideshowCompact && compactImmersive)"
       :class="slideshowCompact
-        ? 'relative order-1 w-full shrink-0 bg-surface-elevated border-t border-edge-subtle px-2 py-1.5'
+        ? 'relative order-1 w-full shrink-0 bg-slideshow-matt px-2 py-1'
         : 'absolute bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[620px]'"
       class="z-chrome flex items-center gap-2 select-none"
       :style="slideshowCompact ? undefined : transportBarStyle"
