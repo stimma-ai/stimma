@@ -193,6 +193,24 @@ test('forwards to a TLS upstream whose certificate matches the pin', { skip }, a
   await closeUpstream(up)
 })
 
+test('does not apply the free-socket TTL to an active slow response', { skip }, async () => {
+  const dir = tmpDir()
+  const id = selfSigned(dir, 'slow-response')
+  const up = await tlsUpstream(id, (_req, res) => {
+    setTimeout(() => res.end('eventually'), 3200)
+  })
+
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: up.port, tls: true, certFingerprint: id.fingerprint })
+
+  const res = await get(port, '/api/prompt/suggest-categories')
+  assert.equal(res.status, 200)
+  assert.equal(res.body, 'eventually')
+
+  stopProxy()
+  await closeUpstream(up)
+})
+
 test('reports a serving-gate session rejection separately from route failure', { skip }, async () => {
   const dir = tmpDir()
   const id = selfSigned(dir, 'expired-session')

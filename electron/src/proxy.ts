@@ -78,8 +78,34 @@ const HOP_BY_HOP = new Set([
  * the pool on its youngest sockets for the same reason.
  */
 const FREE_SOCKET_TTL_MS = 3000
-const POOL: http.AgentOptions = { keepAlive: true, maxSockets: 64, timeout: FREE_SOCKET_TTL_MS, scheduling: 'lifo' }
-const agent = new http.Agent(POOL)
+const POOL: http.AgentOptions = { keepAlive: true, maxSockets: 64, scheduling: 'lifo' }
+
+function keepSocketAliveForIdleTtl(socket: stream.Duplex): void {
+  // AgentOptions.timeout is an inactivity timeout for *active* sockets too.
+  // Prompt/LLM endpoints routinely take longer than this TTL without sending
+  // response bytes, so apply the timeout only after the socket enters the
+  // free pool and clear it as soon as the socket is assigned again.
+  ;(socket as net.Socket).setTimeout(FREE_SOCKET_TTL_MS)
+}
+
+function reuseIdleSocket(socket: stream.Duplex): void {
+  ;(socket as net.Socket).setTimeout(0)
+}
+
+class IdleTtlAgent extends http.Agent {
+  override keepSocketAlive(socket: stream.Duplex): boolean {
+    const keep = super.keepSocketAlive(socket)
+    if (keep) keepSocketAliveForIdleTtl(socket)
+    return keep
+  }
+
+  override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {
+    reuseIdleSocket(socket)
+    super.reuseSocket(socket, req)
+  }
+}
+
+const agent = new IdleTtlAgent(POOL)
 
 /**
  * Verify a peer certificate against a pinned SHA-256 of its DER.
@@ -179,6 +205,17 @@ class PinnedAgent extends https.Agent {
 
   override createConnection(options: http.ClientRequestArgs, callback?: ConnectionCallback): undefined {
     return this.connect(options, callback)
+  }
+
+  override keepSocketAlive(socket: stream.Duplex): boolean {
+    const keep = super.keepSocketAlive(socket)
+    if (keep) keepSocketAliveForIdleTtl(socket)
+    return keep
+  }
+
+  override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {
+    reuseIdleSocket(socket)
+    super.reuseSocket(socket, req)
   }
 }
 
