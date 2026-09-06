@@ -16,6 +16,7 @@ from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
+from config import get_settings
 from core.profile_context import get_current_profile
 from database import GenerationJob, PinnedTool, ToolState, MediaItem
 from core.dependencies import get_db_session
@@ -159,6 +160,7 @@ class TestConnectionRequest(BaseModel):
     working_dir: Optional[str] = None  # For stdio
     url: Optional[str] = None  # For websocket
     auth_token: Optional[str] = None  # For websocket
+    provider_id: Optional[str] = None  # Use the configured token without exposing it
 
 
 class TestConnectionResponse(BaseModel):
@@ -235,13 +237,23 @@ async def test_connection(request: TestConnectionRequest):
     """
     from providers.jsonrpc import test_provider_connection
 
+    auth_token = request.auth_token
+    if request.provider_id and auth_token is None:
+        configured = next(
+            (provider for provider in get_settings().tool_providers if provider.id == request.provider_id),
+            None,
+        )
+        if configured is None:
+            raise HTTPException(status_code=404, detail="Tool provider not found")
+        auth_token = configured.auth_token
+
     result = await test_provider_connection(
         provider_type=request.type,
         command=request.command,
         args=request.args,
         working_dir=request.working_dir,
         url=request.url,
-        auth_token=request.auth_token,
+        auth_token=auth_token,
         timeout=10.0,
     )
 

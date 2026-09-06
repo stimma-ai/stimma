@@ -487,7 +487,10 @@ async def watch_config_file():
                                 # Check if connection-critical settings changed
                                 connection_changed = False
                                 if new_config.type == "websocket":
-                                    connection_changed = old_config.url != new_config.url
+                                    connection_changed = (
+                                        old_config.url != new_config.url or
+                                        old_config.auth_token != new_config.auth_token
+                                    )
                                 elif new_config.type == "stdio":
                                     connection_changed = (
                                         old_config.command != new_config.command or

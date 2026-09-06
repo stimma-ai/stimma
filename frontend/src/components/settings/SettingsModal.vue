@@ -477,11 +477,15 @@ function handleSegmentsUpdate(promptSegments) {
 async function handleToolProviderUpdate({ providerId, data }) {
   const originalProvider = settings.value?.tool_providers.find(provider => provider.id === providerId)
   const startsConnection = toolProviderUpdateStartsConnection(data)
+  const { auth_token: _authToken, ...visibleData } = data
+  if (Object.prototype.hasOwnProperty.call(data, 'auth_token')) {
+    visibleData.has_auth_token = Boolean(data.auth_token)
+  }
   // Update local state
   if (settings.value) {
     const providers = settings.value.tool_providers.map(p =>
       p.id === providerId
-        ? { ...p, ...data, ...(startsConnection ? { status: 'connecting', error_message: null } : {}) }
+        ? { ...p, ...visibleData, ...(startsConnection ? { status: 'connecting', error_message: null } : {}) }
         : p
     )
     settings.value = { ...settings.value, tool_providers: providers }
@@ -512,6 +516,7 @@ async function handleToolProviderCreate(providerConfig) {
     command: providerConfig.command,
     args: providerConfig.args,
     url: providerConfig.url,
+    has_auth_token: Boolean(providerConfig.auth_token),
   }
   if (settings.value) {
     settings.value = {

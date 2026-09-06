@@ -274,7 +274,7 @@
         </div>
         <div>
           <label class="mb-1 block text-xs text-content-tertiary">Token <span class="text-content-muted">(optional)</span></label>
-          <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
+          <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? ''" :placeholder="selectedProvider.has_auth_token ? 'Token saved' : ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content placeholder:font-sans placeholder:text-content-muted focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
         </div>
         <div class="flex justify-end">
           <button type="button" :disabled="testing" class="text-[13px] text-accent-hi hover:text-accent disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
@@ -355,10 +355,11 @@
           <div>
             <label class="mb-1 block text-xs text-content-tertiary">Token</label>
             <input
-              :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''"
+              :value="getEditValue(selectedProvider.id, 'auth_token') ?? ''"
+              :placeholder="selectedProvider.has_auth_token ? 'Token saved' : ''"
               type="password"
               autocomplete="off"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content placeholder:font-sans placeholder:text-content-muted focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'auth_token')"
             />
@@ -1376,7 +1377,9 @@ async function testExistingProvider(provider) {
       if (provider.working_dir) body.working_dir = provider.working_dir
     } else {
       body.url = provider.url
-      if (provider.auth_token) body.auth_token = provider.auth_token
+      const editedToken = getEditValue(provider.id, 'auth_token')
+      if (editedToken) body.auth_token = editedToken
+      else body.provider_id = provider.id
     }
     const response = await fetch('/api/tools/test-connection', {
       method: 'POST',
@@ -1459,6 +1462,8 @@ function saveInlineEdit(providerId, field) {
     originalValue = serializeArgs(provider.args) ?? ''
   } else if (field === 'api_key') {
     originalValue = provider.api_key ?? '${GEMINI_API_KEY}'
+  } else if (field === 'auth_token') {
+    originalValue = provider.has_auth_token ? '__saved_token__' : ''
   } else {
     originalValue = provider[field] ?? ''
   }
