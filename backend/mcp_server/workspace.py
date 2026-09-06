@@ -10,10 +10,12 @@ from sqlalchemy import select
 from database import Asset, AssetRevision, MediaItem
 from .access import access, McpError
 from .operations import Binding, present
+from core.logging import get_logger
+
+log = get_logger(__name__)
 
 query_binding = Binding("assets", "browse_assets", "asset")
 lineage_binding = Binding("media_files", "get_media_lineage_tree", "media")
-search_binding = Binding("search", "global_search", None)
 
 
 async def refresh_custom_tools():
@@ -31,6 +33,7 @@ async def tool_descriptor(caller, ref):
     tool_id = access.resolve(caller, ref, "tool")
     if tool_id.startswith("user-tools:"):
         await refresh_custom_tools()
+    await ProviderRegistry().wait_for_discovery()
     value = ProviderRegistry().get_tool(tool_id)
     if not value:
         raise McpError(
@@ -56,6 +59,8 @@ def tool_version(descriptor):
 async def tools_search(caller, query, task_type, offset, session):
     from providers.registry import ProviderRegistry
     from agent.v2.permissions import get_stp_permission_decision
+
+    await ProviderRegistry().wait_for_discovery()
     from database import Chat
 
     await refresh_custom_tools()
@@ -70,6 +75,7 @@ async def tools_search(caller, query, task_type, offset, session):
         matches.append(
             {
                 "tool_ref": access.ref(caller, "tool", tool_id),
+                "tool_id": tool_id,
                 "name": tool.name,
                 "description": tool.description,
                 "task_types": tool.task_types,
@@ -100,22 +106,29 @@ async def tools_inspect(caller, ref):
 
 
 async def tool_parameters(caller, descriptor, parameters, session):
-    # Provider schemas retain their own types. Only negotiated media fields may
-    # resolve refs into server paths; arbitrary paths/URLs are never accepted.
+    # Provider schemas retain their own types, so validate what the assistant
+    # sent (refs are strings) before media fields are swapped for what the
+    # executor wants. Only fields the schema marks as media inputs resolve
+    # refs; arbitrary paths or URLs are never accepted.
     import jsonschema
 
+    jsonschema.validate(parameters, descriptor.parameter_schema)
     result = dict(parameters)
     for name, schema in (descriptor.parameter_schema.get("properties") or {}).items():
-        if "x-accept-media" not in schema or name not in result:
+        if name not in result:
+            continue
+        picker = schema.get("x-control") == "image_picker"
+        if "x-accept-media" not in schema and not picker:
             continue
         many = isinstance(result[name], list)
         values = result[name] if many else [result[name]]
         resolved = []
         for ref in values:
             media = await media_row(caller, ref, session)
-            resolved.append(str(media.file_path))
+            # Image pickers take library media ids (exact lineage); other
+            # media fields take the file path the provider reads.
+            resolved.append(media.id if picker else str(media.file_path))
         result[name] = resolved if many else resolved[0]
-    jsonschema.validate(result, descriptor.parameter_schema)
     return result
 
 
@@ -162,7 +175,7 @@ async def preview(caller, reference, session):
     if not path.is_file():
         raise McpError(
             "preview_unavailable",
-            "This format requires a renderer or complete bundle export.",
+            "No inline preview for this format; download it with media_export.",
         )
     if row.file_format.lower() in ("png", "jpg", "jpeg", "webp", "gif", "bmp"):
         from PIL import Image, ImageOps
@@ -189,12 +202,12 @@ async def preview(caller, reference, session):
     ):
         if path.stat().st_size > 128 * 1024:
             raise McpError(
-                "transfer_required", "Download this document through the bridge."
+                "transfer_required", "This document is too large to show inline; download it with media_export."
             )
         return [TextContent(type="text", text=path.read_text())]
     raise McpError(
         "preview_unavailable",
-        "Download this media through the bridge to inspect it locally.",
+        "No inline preview for this format; download it with media_export.",
     )
 
 
@@ -292,144 +305,19 @@ async def catalog(caller, kind, offset, session):
     }
 
 
-async def flow_candidate(caller, value, shape, session):
-    """Expose typed media choices as read-only previews until the run ends."""
-    from flow_dsl.shapes import Scalar, ListShape, DictShape, TupleShape
+def _where(exc):
+    import os, traceback
 
-    if isinstance(shape, Scalar) and shape.kind == "media" and isinstance(value, int):
-        row = await session.get(MediaItem, value)
-        if row is None:
-            return {"available": False}
-        reference = (
-            access.ref(
-                caller, "context_media", json.dumps([row.id, row.ephemeral_run_id])
-            )
-            if row.ephemeral_run_id
-            else access.ref(caller, "media", row.id)
-        )
-        return {"preview_ref": reference}
-    if isinstance(shape, ListShape) and isinstance(value, list):
-        return [
-            await flow_candidate(caller, item, shape.element, session) for item in value
-        ]
-    if isinstance(shape, DictShape) and isinstance(value, dict):
-        return {
-            key: await flow_candidate(caller, item, shape.field_map.get(key), session)
-            for key, item in value.items()
-        }
-    if isinstance(shape, TupleShape) and isinstance(value, (list, tuple)):
-        return [
-            await flow_candidate(
-                caller,
-                item,
-                shape.elements[index] if index < len(shape.elements) else None,
-                session,
-            )
-            for index, item in enumerate(value)
-        ]
-    return present(caller, value)
+    frames = traceback.extract_tb(exc.__traceback__)
+    return f"{os.path.basename(frames[-1].filename)}:{frames[-1].lineno}" if frames else "?"
 
 
-async def execute_flow(caller, args, session, chat):
-    from database import Flow
-    from flow_runtime import get_flow_program_path
-    from flow_runtime.oneshot import run_flow_once
-    from upload_service import UploadService
-    from .jobs import check_execution
+def _public_reason(exc):
+    import re
 
-    flow_id = int(access.resolve(caller, args["flow_ref"], "flow"))
-    flow = await session.get(Flow, flow_id)
-    if not flow or flow.deleted_at:
-        raise McpError("not_found", "Flow is unavailable.")
-    program = get_flow_program_path(flow_id).read_text()
-    if hashlib.sha256(program.encode()).hexdigest() != args["program_version"]:
-        raise McpError("schema_changed", "Inspect the Flow program again.")
-
-    async def ask(eq, inputs):
-        import asyncio, uuid
-        from database import ChatItem
-        from agent.v2.tool_permission_gate import _PENDING
-
-        request_id = f"mcp-flow:{caller.profile_id}:{uuid.uuid4().hex}"
-        future = asyncio.get_running_loop().create_future()
-        _PENDING[request_id] = future
-        metadata = {
-            "type": "mcp_flow",
-            "prompt": eq.definition.get("instructions") or eq.key,
-            "candidates": present(caller, inputs.get("candidates", []), "media"),
-            "v2_tool_args": {"_inprocess_request_id": request_id},
-            "decision_type": eq.definition.get("hitl_type"),
-        }
-        from database_registry import get_database_registry
-
-        async with (
-            get_database_registry()
-            .get_database(caller.profile_id)
-            .async_session_maker() as question_session
-        ):
-            from flow_dsl.shapes import ListShape
-
-            shape = getattr(
-                eq.definition.get("_dynamic", {}).get("candidates"), "shape", None
-            )
-            if isinstance(shape, ListShape):
-                shape = shape.element
-            metadata["candidates"] = [
-                await flow_candidate(caller, candidate, shape, question_session)
-                for candidate in inputs.get("candidates", [])
-            ]
-            if "asset" in inputs:
-                metadata["asset"] = await flow_candidate(
-                    caller,
-                    inputs["asset"],
-                    getattr(
-                        eq.definition.get("_dynamic", {}).get("asset"), "shape", None
-                    ),
-                    question_session,
-                )
-            question_session.add(
-                ChatItem(
-                    chat_id=chat.id,
-                    item_type="hitl_request",
-                    item_metadata=json.dumps(metadata),
-                )
-            )
-            await question_session.commit()
-        try:
-            response = await future
-            check_execution()
-            if eq.definition.get("hitl_type") == "approve":
-                return bool(response.get("approved"))
-            candidates = inputs.get("candidates", [])
-            indices = response.get("choice_indices", [])
-            if not indices or any(i < 0 or i >= len(candidates) for i in indices):
-                raise McpError(
-                    "invalid_selection", "Choose one or more advertised candidates."
-                )
-            selected = [candidates[i] for i in indices]
-            return selected[0] if int(eq.definition.get("count", 1)) == 1 else selected
-        finally:
-            _PENDING.pop(request_id, None)
-
-    output = await run_flow_once(
-        flow_id=flow_id,
-        program_text=program,
-        inputs=args.get("inputs", json.loads(flow.inputs or "{}")),
-        project_id=flow.project_id,
-        hitl_resolver=ask,
-    )
-    results = []
-    for name, value in output.outputs.items():
-        for media in value.media:
-            row, _ = await UploadService(caller.profile_id).upload_file(
-                media.data, f"{name}.{media.file_format}", project_id=flow.project_id
-            )
-            results.append(
-                {"name": name, "media_ref": access.ref(caller, "media", row.id)}
-            )
-        if not value.media:
-            results.append({"name": name, "value": present(caller, value.value)})
-    return {"outputs": results}
+    text = str(exc).strip() or type(exc).__name__
+    text = re.sub(r"(/[\w.\-]+){2,}", "<path>", text)
+    return text[:300]
 
 
 async def execute_tools(caller, args, session, chat, job):
@@ -464,7 +352,7 @@ async def execute_tools(caller, args, session, chat, job):
         tool_id, _, descriptor = await tool_descriptor(caller, step["tool_ref"])
         if tool_version(descriptor) != step["schema_version"]:
             raise McpError(
-                "schema_changed", "Inspect the changed tool before starting new work."
+                "schema_changed", "This tool's schema changed. Call tools_inspect again and use the new schema_version."
             )
         raw = dict(step["parameters"])
         if step.get("input_from_previous"):
@@ -497,13 +385,24 @@ async def execute_tools(caller, args, session, chat, job):
 
             known = isinstance(exc, ToolPermissionDenied)
             code = "forbidden" if known else "execution_outcome_unknown"
+            log.warning(
+                "MCP tools_run item failed",
+                tool=tool_id,
+                index=index,
+                error=type(exc).__name__,
+                location=_where(exc),
+            )
             manifest["items"].append(
                 {
                     "index": index,
                     "state": "failed" if known else "interrupted",
                     "error": {
                         "code": code,
-                        "message": "Execution stopped; inspect retained results before starting more work.",
+                        # The reason, with server paths removed, so the caller
+                        # can fix its call instead of guessing. An unknown
+                        # outcome still means: do not simply resubmit.
+                        "message": _public_reason(exc)
+                        + ("" if known else " Check the job's retained results before running this again."),
                     },
                 }
             )
@@ -515,49 +414,3 @@ async def execute_tools(caller, args, session, chat, job):
         await session.commit()
     return manifest
 
-
-async def chat_history(caller, reference, after, session):
-    from database import Chat, ChatItem
-
-    chat_id = int(access.resolve(caller, reference, "chat"))
-    chat = await session.get(Chat, chat_id)
-    if not chat or chat.deleted_at:
-        raise McpError("not_found", "Chat is unavailable.")
-    rows = (
-        await session.scalars(
-            select(ChatItem)
-            .where(
-                ChatItem.chat_id == chat_id,
-                ChatItem.id > after,
-                ChatItem.item_type.in_(
-                    [
-                        "user_message",
-                        "assistant_message",
-                        "media_display",
-                        "hitl_request",
-                        "hitl_response",
-                        "error",
-                    ]
-                ),
-            )
-            .order_by(ChatItem.id)
-            .limit(100)
-        )
-    ).all()
-    return {
-        "items": [
-            present(
-                caller,
-                {
-                    "id": row.id,
-                    "type": row.item_type,
-                    "text": row.message_text,
-                    "media_ids": json.loads(row.media_ids or "[]"),
-                    "asset_ids": json.loads(row.asset_ids or "[]"),
-                },
-                "chat_item",
-            )
-            for row in rows
-        ],
-        "next_cursor": rows[-1].id if rows else after,
-    }

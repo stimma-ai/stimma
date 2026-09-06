@@ -177,7 +177,10 @@ test('forwards to a TLS upstream whose certificate matches the pin', { skip }, a
   const id = selfSigned(dir, 'device')
   const up = await tlsUpstream(id, (req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ auth: req.headers.authorization ?? null }))
+    res.end(JSON.stringify({
+      auth: req.headers.authorization ?? null,
+      session: req.headers['x-stimma-device-session'] ?? null,
+    }))
   })
 
   const port = await startProxy(dir)
@@ -185,9 +188,28 @@ test('forwards to a TLS upstream whose certificate matches the pin', { skip }, a
 
   const res = await get(port, '/api/settings')
   assert.equal(res.status, 200)
-  // The bearer reaches the device only once the pin has held.
+  // The session reaches the device only once the pin has held.
   assert.equal(JSON.parse(res.body).auth, 'Bearer sess-1')
+  assert.equal(JSON.parse(res.body).session, 'sess-1')
   assert.equal(up.requests.length, 1)
+
+  stopProxy()
+  await closeUpstream(up)
+})
+
+test('does not apply the free-socket TTL to an active slow response', { skip }, async () => {
+  const dir = tmpDir()
+  const id = selfSigned(dir, 'slow-response')
+  const up = await tlsUpstream(id, (_req, res) => {
+    setTimeout(() => res.end('eventually'), 3200)
+  })
+
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: up.port, tls: true, certFingerprint: id.fingerprint })
+
+  const res = await get(port, '/api/prompt/suggest-categories')
+  assert.equal(res.status, 200)
+  assert.equal(res.body, 'eventually')
 
   stopProxy()
   await closeUpstream(up)

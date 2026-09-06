@@ -440,6 +440,11 @@
                       </span>
                     </div>
                     <span
+                      v-if="getChatMetadata(tab.entityId)?.mcp_driven"
+                      class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                      title="Driven by a connected assistant over MCP"
+                    >MCP</span>
+                    <span
                       v-if="getChatProjectName(tab.entityId)"
                       class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
@@ -458,6 +463,11 @@
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
+                    <span
+                      v-if="getChatMetadata(tab.entityId)?.mcp_driven"
+                      class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                      title="Driven by a connected assistant over MCP"
+                    >MCP</span>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
                       class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
@@ -772,6 +782,11 @@
                       </span>
                     </div>
                     <span
+                      v-if="getChatMetadata(tab.entityId)?.mcp_driven"
+                      class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                      title="Driven by a connected assistant over MCP"
+                    >MCP</span>
+                    <span
                       v-if="getChatProjectName(tab.entityId)"
                       class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
@@ -790,6 +805,11 @@
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
+                    <span
+                      v-if="getChatMetadata(tab.entityId)?.mcp_driven"
+                      class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                      title="Driven by a connected assistant over MCP"
+                    >MCP</span>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
                       class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
@@ -1218,7 +1238,7 @@ type BoardMetadata = {
 }
 
 const boardMetadata = ref<Map<string, BoardMetadata>>(new Map())
-const chatMetadata = ref<Map<string, { thumbnail_media_id: number | null, last_message: string, project_id: number | null }>>(new Map())
+const chatMetadata = ref<Map<string, { thumbnail_media_id: number | null, last_message: string, project_id: number | null, mcp_driven?: boolean }>>(new Map())
 const projectNames = ref<Map<string, string>>(new Map())
 
 // Drag-drop state
@@ -1495,7 +1515,8 @@ async function loadChatMetadata(chatId: string, force = false) {
       chatMetadata.value.set(chatId, {
         thumbnail_media_id: preview.thumbnail_media_id || null,
         last_message: preview.last_message || '',
-        project_id: preview.project_id ?? null
+        project_id: preview.project_id ?? null,
+        mcp_driven: !!preview.mcp_driven
       })
       // Trigger reactivity
       chatMetadata.value = new Map(chatMetadata.value)

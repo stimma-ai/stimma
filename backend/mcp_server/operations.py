@@ -5,6 +5,7 @@ import copy
 import importlib
 import inspect
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, get_type_hints
 from fastapi.encoders import jsonable_encoder
@@ -13,7 +14,7 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 from .access import access, McpError
 
-ACCESS_HELP = " If locked, use access_open with a PIN explicitly supplied by the user; never guess. Retry a lost mutation response with the same request_key."
+ACCESS_HELP = " If a call returns profile_locked, the profile has a PIN: ask the user for it and call access_open. If a write's response is lost, retry it with the same request_key."
 
 ID_KINDS = {
     "asset_id": "asset",
@@ -37,10 +38,12 @@ ID_KINDS = {
     "expected_revision_id": "revision",
     "board_id": "board",
     "board_ids": "board",
+    "to_section_id": "section",
     "project_id": "project",
     "project_ids": "project",
     "chat_id": "chat",
     "flow_id": "flow",
+    "parent_id": "flow",
     "preset_id": "preset",
     "view_id": "view",
     "section_id": "section",
@@ -105,6 +108,69 @@ NESTED_KINDS = {
 }
 
 
+PUBLIC_NAMES = {"q": "query"}
+
+# Plain-language help for route fields whose names alone would make a model
+# guess. Applied wherever the route's own model says nothing.
+FIELD_DESCRIPTIONS = {
+    "query": "Free-text search.",
+    "page": "1-based page number.",
+    "page_size": "Results per page.",
+    "offset": "Skip this many results.",
+    "limit": "Maximum results to return.",
+    "after": "Only events after this cursor (from next_cursor).",
+    "caption_query": "Match against the automatic image caption.",
+    "prompt_query": "Match against the generation prompt.",
+    "media_types": "Comma-separated: image, video, audio, document.",
+    "excluded_media_types": "Comma-separated media types to leave out.",
+    "resolutions": "Comma-separated size classes, e.g. 1k,2k,4k.",
+    "keywords": "Comma-separated keywords the asset must have.",
+    "excluded_keywords": "Comma-separated keywords to leave out.",
+    "is_generated": "Only assets made by a generation tool.",
+    "is_imported": "Only assets imported from files.",
+    "is_unused": "Only assets not used as input elsewhere.",
+    "has_project": "Only assets that belong to a project.",
+    "tool_ids": "Comma-separated tool ids (provider:tool, as in tool details) that made the asset.",
+    "excluded_tool_ids": "Comma-separated tool ids to leave out.",
+    "created_after": "ISO date or datetime.",
+    "created_before": "ISO date or datetime.",
+    "show_expiring": "Only assets scheduled to expire.",
+    "exclude_expiring": "Leave out assets scheduled to expire.",
+    "similar_to": "Rank by visual similarity to this asset.",
+    "similar_face_to": "Rank by face similarity to this asset.",
+    "similar_to_text": "Rank by similarity to this text.",
+    "similarity_threshold": "0-1; higher is stricter.",
+    "min_mp": "Minimum megapixels.",
+    "max_mp": "Maximum megapixels.",
+    "random_seed": "Seed for a stable random ordering.",
+    "keyword_limit": "How many top keywords to return.",
+    "tag_limit": "How many top tags to return.",
+    "tool_limit": "How many top tools to return.",
+    "include_deleted": "Include trashed items.",
+    "nsfw_override": "Publish even if flagged as adult content.",
+    "hitl_policies": "Per-question policy for the frozen tool: which questions it may answer itself.",
+    "output_map": "Which Flow outputs become the tool's outputs, by name.",
+    "memory": "Long-lived notes the agent keeps for this project.",
+    "direction": "up or down.",
+    "filters": "The saved library filter, in the same shape as an assets_query call.",
+    "pin": "The profile PIN the user gave you.",
+    "add": "true to add, false to remove.",
+}
+
+
+def public_key(key):
+    """What a model sees for a field: *_ref for ids that carry references,
+    and a few plain names in place of abbreviations."""
+    if key in PUBLIC_NAMES:
+        return PUBLIC_NAMES[key]
+    if key in ID_KINDS:
+        if key.endswith("_ids"):
+            return key[:-4] + "_refs"
+        if key.endswith("_id"):
+            return key[:-3] + "_ref"
+    return key
+
+
 def present(caller, value, kind=None):
     value = jsonable_encoder(value)
     if isinstance(value, list):
@@ -124,14 +190,32 @@ def present(caller, value, kind=None):
             continue
         entity = ID_KINDS.get(key) or (kind if key == "id" else None)
         if entity and item is not None:
+            # Inputs ask for *_ref; outputs say *_ref. One vocabulary.
+            name = public_key(key)
             if isinstance(item, list):
-                output[key] = [access.ref(caller, entity, ident) for ident in item]
+                output[name] = [access.ref(caller, entity, ident) for ident in item]
             elif isinstance(item, (str, int)):
-                output[key] = access.ref(caller, entity, item)
+                output[name] = access.ref(caller, entity, item)
             else:
-                output[key] = present(caller, item, entity)
+                output[name] = present(caller, item, entity)
         else:
-            output[key] = present(caller, item, NESTED_KINDS.get(key, kind))
+            # A null reference field keeps its public name too.
+            output[public_key(key) if entity else key] = present(
+                caller, item, NESTED_KINDS.get(key, kind)
+            )
+    media_id = value.get("id") if kind == "media" else value.get("media_id")
+    if not isinstance(media_id, int) and isinstance(value.get("media"), dict):
+        media_id = value["media"].get("id")
+    if isinstance(media_id, int) and "download_url" not in output:
+        # The file itself, one GET away, wherever media shows up: asset
+        # details, job results, lineage. Nothing to look up afterwards.
+        from .transfers import download_link
+        from .access import McpError
+
+        try:
+            output["download_url"] = download_link(caller, media_id)[0]
+        except McpError:
+            pass
     return output
 
 
@@ -193,7 +277,7 @@ def public_schema(schema):
                 else {"type": ["string", "null"] if nullable else "string"}
             )
             node["description"] = (
-                f"Opaque {ID_KINDS[key]} reference returned by Stimma; never a numeric database ID."
+                f"Opaque {ID_KINDS[key]} reference returned by Stimma, copied exactly; never a number."
             )
             return
         if node.get("type") == "object" and "properties" in node:
@@ -220,6 +304,18 @@ def public_schema(schema):
     return schema
 
 
+def _strip_titles(node):
+    if isinstance(node, dict):
+        return {
+            k: _strip_titles(v)
+            for k, v in node.items()
+            if k != "title" and not (k == "description" and v == "")
+        }
+    if isinstance(node, list):
+        return [_strip_titles(v) for v in node]
+    return node
+
+
 @dataclass
 class Binding:
     module: str
@@ -228,6 +324,8 @@ class Binding:
     write: bool = False
     _model: Any = None
     _fn: Any = None
+    _nested: Any = None
+    _public_to_internal: Any = None
 
     def load(self):
         if self._model:
@@ -252,7 +350,68 @@ class Binding:
         )
 
     def schema(self):
+        """The schema a model sees: one flat object per action.
+
+        The route's ``request`` body model is inlined, id fields are named
+        ``*_ref`` (they carry references, never numbers) and Pydantic titles,
+        which are internal function and class names, are dropped. They were
+        the loudest words in the schema and they misled: a model shown
+        ``Mcp_add_board_items`` next to ``action: add`` invents ``add_items``.
+        """
         self.load()
+        schema = self._public_schema()
+        definitions = schema.pop("$defs", {})
+        # Route bodies arrive as one nested model under request/data/body.
+        # Inline them: a model should see fields, not a wrapper to guess at.
+        self._nested = {}
+        for wrapper in list(schema["properties"]):
+            prop = schema["properties"][wrapper]
+            if "$ref" not in prop:
+                continue
+            body = definitions.get(prop["$ref"].rsplit("/", 1)[-1], {})
+            if body.get("type") != "object" or "properties" not in body:
+                continue
+            if set(body["properties"]) & (set(schema["properties"]) - {wrapper}):
+                continue
+            schema["properties"].pop(wrapper)
+            if wrapper in schema.get("required", []):
+                schema["required"].remove(wrapper)
+            self._nested[wrapper] = set(body["properties"])
+            for key, inner in body["properties"].items():
+                schema["properties"][key] = inner
+            schema.setdefault("required", []).extend(body.get("required", []))
+        self._public_to_internal = {}
+        renamed = {}
+        for key, prop in schema["properties"].items():
+            name = public_key(key)
+            self._public_to_internal[name] = key
+            if isinstance(prop, dict) and not prop.get("description") and name in FIELD_DESCRIPTIONS:
+                prop["description"] = FIELD_DESCRIPTIONS[name]
+            renamed[name] = prop
+        schema["properties"] = renamed
+        schema["required"] = [public_key(k) for k in schema.get("required", [])]
+        still_used = {
+            m.rsplit("/", 1)[-1] for m in re.findall(r'"#/\$defs/([^"]+)"', json.dumps(schema))
+        }
+        if still_used:
+            schema["$defs"] = {k: v for k, v in definitions.items() if k in still_used}
+        return _strip_titles(schema)
+
+    def unflatten(self, args):
+        """Public (flat, *_ref) arguments back to the route's own shape."""
+        self.schema()
+        internal = {wrapper: {} for wrapper in self._nested}
+        for key, value in args.items():
+            name = self._public_to_internal.get(key, key)
+            for wrapper, keys in self._nested.items():
+                if name in keys:
+                    internal[wrapper][name] = value
+                    break
+            else:
+                internal[name] = value
+        return internal
+
+    def _public_schema(self):
         schema = public_schema(self._model.model_json_schema())
         if self.function == "browse_assets":
             for name in ("source_refs", "excluded_source_refs"):
@@ -261,20 +420,11 @@ class Binding:
                     "items": {"type": "string"},
                     "maxItems": 100,
                 }
-        if self.function == "restore_asset_revision_route":
-            schema["properties"]["expected_current_revision"] = {"type": "string"}
-            schema.setdefault("required", []).append("expected_current_revision")
-        if self.function == "update_flow_program":
-            schema["properties"]["program_version"] = {
-                "type": "string",
-                "description": "SHA256 version returned by flows_get program.",
-            }
-            schema.setdefault("required", []).append("program_version")
         return schema
 
     async def run(self, caller, args, session):
         self.load()
-        args = dict(args)
+        args = self.unflatten(dict(args))
         if self.function == "browse_assets":
             from config import get_settings
 
@@ -299,43 +449,6 @@ class Binding:
                     args[internal] = ",".join(
                         folders[identifier] for identifier in identifiers
                     )
-        if self.function == "restore_asset_revision_route":
-            from database import Asset
-
-            asset_id = int(access.resolve(caller, args["asset_id"], "asset"))
-            expected = int(
-                access.resolve(
-                    caller, args.pop("expected_current_revision"), "revision"
-                )
-            )
-            asset = await session.get(Asset, asset_id)
-            if not asset or asset.current_revision_id != expected:
-                raise McpError(
-                    "revision_conflict",
-                    "The current revision changed; read it again before restoring.",
-                )
-        if self.function == "update_flow_program":
-            import hashlib
-            from flow_runtime import get_flow_program_path
-            from database import Flow
-
-            flow_id = int(access.resolve(caller, args["flow_id"], "flow"))
-            flow = await session.get(Flow, flow_id)
-            if not flow or flow.execution_state == "running":
-                raise McpError(
-                    "control_changed",
-                    "Pause the Flow in Stimma before editing its program.",
-                )
-            expected = args.pop("program_version")
-            path = get_flow_program_path(flow_id)
-            actual = hashlib.sha256(
-                (path.read_text() if path.exists() else "").encode()
-            ).hexdigest()
-            if actual != expected:
-                raise McpError(
-                    "revision_conflict",
-                    "The Flow program changed. Read it again before editing.",
-                )
         original = self._model.model_json_schema()
         parsed = self._model.model_validate(
             decode(caller, args, schema=original, definitions=original.get("$defs", {}))
@@ -352,23 +465,26 @@ FAMILIES: dict[str, tuple[str, dict[str, Binding]]] = {}
 
 
 def family(name, description, module, kind, reads=(), writes=()):
+    """Entries are (action, route function) or (action, route function, kind)
+    when an action returns a different entity than the family's own."""
     bindings = {}
     for write, entries in [(False, reads), (True, writes)]:
-        for action, fn in entries:
-            bindings[action] = Binding(module, fn, kind, write)
+        for entry in entries:
+            action, fn, *rest = entry
+            bindings[action] = Binding(module, fn, rest[0] if rest else kind, write)
     FAMILIES[name] = description, bindings
 
 
 family(
     "boards_get",
-    "Inspect boards, sections and membership. Removing membership preserves Assets.",
+    "Inspect boards, their sections and what is on them.",
     "boards",
     "board",
     [("list", "get_boards"), ("detail", "get_board")],
 )
 family(
     "boards_update",
-    "Organize boards and sections with explicit membership operations.",
+    "Organize work on boards: create, rename, trash or restore a board; create, rename, reorder or delete its sections; add assets to a board or a section, move them between sections, or remove them. Removing from a board never deletes the asset.",
     "boards",
     "board",
     writes=[
@@ -376,9 +492,9 @@ family(
         ("update", "update_board"),
         ("trash", "delete_board"),
         ("restore", "restore_board"),
-        ("section_create", "create_board_section"),
-        ("section_update", "update_board_section"),
-        ("section_delete", "delete_board_section"),
+        ("section_create", "create_board_section", "section"),
+        ("section_update", "update_board_section", "section"),
+        ("section_delete", "delete_board_section", "section"),
         ("section_reorder", "reorder_board_sections"),
         ("add", "add_board_items"),
         ("remove", "bulk_remove_board_items"),
@@ -387,214 +503,51 @@ family(
 )
 family(
     "projects_get",
-    "Inspect projects and their workspace context.",
+    "List projects and read their context.",
     "projects",
     "project",
     [("list", "list_projects"), ("detail", "get_project")],
 )
 family(
     "projects_update",
-    "Create or edit project context and model choices. Tool permissions cannot be widened.",
+    "Create or edit a project's context and model choices.",
     "projects",
     "project",
     writes=[
         ("create", "create_project"),
         ("update", "update_project"),
-        ("delete", "delete_project"),
     ],
-)
-family(
-    "saved_views_get",
-    "Read saved browser filters.",
-    "saved_views",
-    "view",
-    [("list", "get_saved_views"), ("detail", "get_saved_view")],
-)
-family(
-    "saved_views_update",
-    "Save and organize browser filter definitions.",
-    "saved_views",
-    "view",
-    writes=[
-        ("create", "create_saved_view"),
-        ("update", "update_saved_view"),
-        ("delete", "delete_saved_view"),
-        ("reorder", "reorder_saved_view"),
-    ],
-)
-family(
-    "presets_get",
-    "Inspect saved tool settings without executing them or changing usage.",
-    "presets",
-    "preset",
-    [("list", "list_presets"), ("detail", "get_preset"), ("stats", "get_preset_stats")],
-)
-family(
-    "presets_update",
-    "Create, edit, duplicate or remove tool presets.",
-    "presets",
-    "preset",
-    writes=[
-        ("create", "create_preset"),
-        ("update", "update_preset"),
-        ("delete", "delete_preset"),
-        ("duplicate", "duplicate_preset"),
-    ],
-)
-family(
-    "revisions_list",
-    "Inspect immutable saved revisions of an Asset.",
-    "assets",
-    "revision",
-    [("list", "list_asset_revisions")],
-)
-family(
-    "revisions_restore",
-    "Restore a historical revision as the current saved revision.",
-    "assets",
-    "asset",
-    writes=[("restore", "restore_asset_revision_route")],
-)
-family(
-    "assets_trash",
-    "Move Assets to Trash without immediately deleting their files.",
-    "assets",
-    "asset",
-    writes=[("trash", "trash_assets")],
-)
-family(
-    "assets_restore",
-    "Restore trashed Assets.",
-    "assets",
-    "asset",
-    writes=[("restore", "restore_assets")],
 )
 family(
     "assets_update",
-    "Update Asset expiration, project membership or explicitly promote retained contextual media.",
+    "Change assets: trash or restore them, add or remove a marker or tags, clear an expiration, or move them into or out of a project. Markers come from catalog_get.",
     "assets",
     "asset",
     writes=[
+        ("trash", "trash_assets"),
+        ("restore", "restore_assets"),
+        ("markers", "bulk_asset_markers"),
+        ("tags", "bulk_asset_tags"),
         ("clear_expiration", "clear_asset_expiration"),
-        ("add_project", "add_assets_to_project"),
-        ("remove_project", "remove_asset_from_project"),
-        ("promote", "promote_contextual_media"),
+        ("add_to_project", "add_assets_to_project"),
+        ("remove_from_project", "remove_asset_from_project"),
     ],
-)
-family(
-    "markers_update",
-    "Explicit marker assignment or removal. Inspect the catalog first; unknown markers are not created.",
-    "assets",
-    "asset",
-    writes=[("assign", "bulk_asset_markers")],
-)
-family(
-    "tags_update",
-    "Add or remove user tags on Assets.",
-    "assets",
-    "asset",
-    writes=[("assign", "bulk_asset_tags")],
-)
-family(
-    "containers_get",
-    "Inspect container members, preserving linked Asset versus embedded Media semantics.",
-    "assets",
-    "asset",
-    [("members", "container_member_summary")],
-)
-family(
-    "containers_update",
-    "Promote container members or explode the container; exploding trashes the container.",
-    "assets",
-    "asset",
-    writes=[
-        ("promote", "promote_container_members"),
-        ("explode", "explode_container_asset"),
-    ],
-)
-family(
-    "assets_facets",
-    "Count matches by browser facet without an agent.",
-    "assets",
-    None,
-    [("counts", "get_asset_filter_counts"), ("keywords", "get_asset_top_keywords")],
-)
-family(
-    "contextual_media_get",
-    "Inspect retained chat, Flow and editor intermediates without promoting them into All Assets.",
-    "assets",
-    "media",
-    [("list", "list_contextual_media")],
 )
 family(
     "chats_get",
-    "Read visible chat history or list chats. Execution and private model traces are separate.",
+    "List chats or read a chat's name, project and dates. Not its messages.",
     "chats",
     "chat",
     [("list", "list_chats"), ("detail", "get_chat")],
 )
 family(
     "chats_update",
-    "Manage chat metadata or fork an existing chat; these operations do not start the agent.",
+    "Rename or trash a chat. Chat contents are not reachable here; use agent_start to have Stimma work in a new chat.",
     "chats",
     "chat",
     writes=[
-        ("create", "create_chat"),
         ("update", "update_chat"),
-        ("fork", "fork_chat"),
-        ("branch", "branch_chat"),
         ("trash", "delete_chat"),
-        ("restore", "restore_chat"),
-    ],
-)
-family(
-    "flows_get",
-    "Inspect reusable Flow definitions. Use flows_run for known workflows or delegate authoring to agent_start.",
-    "flows",
-    "flow",
-    [
-        ("list", "list_flows"),
-        ("detail", "get_flow"),
-        ("program", "get_flow_program"),
-        ("equations", "list_equations"),
-        ("trace", "get_equation_trace"),
-    ],
-)
-family(
-    "flows_update",
-    "Create, fork or edit a reusable Flow. Program changes can invalidate and resume computation.",
-    "flows",
-    "flow",
-    writes=[
-        ("create", "create_flow"),
-        ("fork", "fork_flow"),
-        ("update", "update_flow"),
-        ("program", "update_flow_program"),
-        ("trash", "delete_flow"),
-        ("restore", "restore_flow"),
-    ],
-)
-family(
-    "custom_tools_get",
-    "Inspect profile-owned tools frozen from Flows.",
-    "user_tools",
-    "custom_tool",
-    [
-        ("list", "list_user_tools"),
-        ("detail", "get_user_tool"),
-        ("defaults", "freeze_defaults"),
-    ],
-)
-family(
-    "custom_tools_update",
-    "Freeze a Flow or edit, refresh and remove its custom tool definition.",
-    "user_tools",
-    "custom_tool",
-    writes=[
-        ("freeze", "freeze_flow"),
-        ("update", "patch_user_tool"),
-        ("resync", "resync_user_tool"),
-        ("delete", "delete_user_tool"),
     ],
 )
 
@@ -610,21 +563,25 @@ def descriptors():
         for action, binding in variants.items():
             schema = binding.schema()
             definitions.update(schema.pop("$defs", {}))
-            schema["properties"]["action"] = {"const": action, "type": "string"}
-            schema.setdefault("required", []).append("action")
+            schema["properties"] = {
+                "action": {"const": action, "type": "string"},
+                **schema["properties"],
+            }
+            schema.setdefault("required", []).insert(0, "action")
             if binding.write:
                 schema["properties"]["request_key"] = {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
+                    "description": "Your own id for this request, any short unique string. Retry a lost response with the same value; use a new value for new work.",
                 }
                 schema["required"].append("request_key")
             schemas.append(schema)
         result.append(
             Tool(
                 name=name,
-                description=description + ACCESS_HELP,
-                inputSchema={"type": "object", "oneOf": schemas, "$defs": definitions},
+                description=f"{description} Actions: {', '.join(variants)}.",
+                inputSchema={"type": "object", "oneOf": schemas, **({"$defs": definitions} if definitions else {})},
                 annotations=ToolAnnotations(
                     readOnlyHint=not write,
                     destructiveHint=write,
@@ -636,26 +593,4 @@ def descriptors():
     return result
 
 
-family(
-    "assets_delete_permanently",
-    "Preview or permanently delete trashed Assets using Stimma’s durable deletion service. Deleting files is irreversible.",
-    "assets",
-    "asset",
-    [("preview", "get_asset_deletion_preview")],
-    [("delete", "permanently_delete_assets")],
-)
-family(
-    "share_publish",
-    "Explicitly publish selected media using Stimma’s existing identity and content checks. Never needed for ordinary file delivery.",
-    "share",
-    "media",
-    writes=[("publish", "share_media")],
-)
 
-family(
-    "containers_create",
-    "Create a set of linked Assets or embedded exact Media. Specify exactly one member list.",
-    "media",
-    "asset",
-    writes=[("create", "create_set_from_media")],
-)

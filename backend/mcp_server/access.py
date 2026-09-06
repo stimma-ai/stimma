@@ -95,7 +95,7 @@ class Access:
             ).scalar_one_or_none()
             if not client:
                 raise McpError(
-                    "unauthorized", "This assistant connection is not authorized."
+                    "unauthorized", "This connection key is not valid for this profile; it may have been removed in Stimma."
                 )
             # Every request authenticates, so only write "last used" once a minute.
             now = datetime.utcnow()
@@ -104,30 +104,51 @@ class Access:
                 await session.commit()
             return Caller(profile_id, client.id, db.db_guid, stamp)
 
-    def status(self, caller):
+    def _grant(self, caller, stamp):
+        unlock = Unlock(stamp, time.time(), secrets.token_urlsafe(18))
+        self.unlocks[caller.key] = unlock
+        return unlock
+
+    def _live(self, caller):
+        """The current grant, or None. A profile without a PIN has nothing to
+        unlock, so it is granted on first use and never idles out: the lock is
+        the PIN's, not a ceremony of its own. Locking still revokes the grant
+        (and the work bound to it); the next call simply gets a fresh one."""
         profile, _, stamp = self.stamp(caller.profile_id)
         unlock = self.unlocks.get(caller.key)
+        if unlock and unlock.stamp != stamp:
+            unlock = None
+        if stamp != caller.stamp:
+            return profile, None
+        if not profile.pin_hash:
+            return profile, unlock or self._grant(caller, stamp)
         timeout = max(1, profile.pin_idle_timeout_minutes) * 60
-        unlocked = bool(
-            unlock
-            and unlock.stamp == stamp == caller.stamp
-            and time.time() - unlock.last_activity < timeout
-        )
+        if unlock and time.time() - unlock.last_activity >= timeout:
+            unlock = None
+        return profile, unlock
+
+    def status(self, caller):
+        profile, unlock = self._live(caller)
+        requires_pin = bool(profile.pin_hash)
+        timeout = max(1, profile.pin_idle_timeout_minutes) * 60
         return {
-            "locked": not unlocked,
-            "requires_pin": bool(profile.pin_hash),
-            "expires_at": unlock.last_activity + timeout if unlocked else None,
+            "locked": unlock is None,
+            "requires_pin": requires_pin,
+            "expires_at": unlock.last_activity + timeout
+            if unlock and requires_pin
+            else None,
         }
 
     def require(self, caller, *, activity=True):
-        if self.status(caller)["locked"]:
+        _, unlock = self._live(caller)
+        if unlock is None:
             raise McpError(
                 "profile_locked",
-                "Unlock this profile with access_open using the PIN supplied by the user.",
+                "This profile is protected by a PIN. Ask the user for it and call access_open with it; never guess.",
             )
         if activity:
-            self.unlocks[caller.key].last_activity = time.time()
-        return self.unlocks[caller.key]
+            unlock.last_activity = time.time()
+        return unlock
 
     async def open(self, caller, pin=None):
         async with self.pin_locks.setdefault(caller.profile_id, asyncio.Lock()):
@@ -156,16 +177,10 @@ class Access:
                         "The PIN was not accepted. Ask the user; do not guess or retry it.",
                     )
             self.failures.pop(caller.profile_id, None)
-            self.unlocks[caller.key] = Unlock(
-                stamp, time.time(), secrets.token_urlsafe(18)
-            )
+            self._grant(caller, stamp)
             return self.status(caller)
 
     def lock(self, profile_id, client_id=None):
-        if client_id is None:
-            from .ui_context import clear
-
-            clear(profile_id)
         for key in list(self.unlocks):
             if key[0] == profile_id and (client_id is None or key[1] == client_id):
                 self.unlocks.pop(key, None)

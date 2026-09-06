@@ -887,10 +887,17 @@ async def get_chat_preview(
         except (json.JSONDecodeError, TypeError):
             continue
 
+    try:
+        mcp_driven = bool((json.loads(chat.generation_settings or "{}") or {}).get("mcp_origin"))
+    except (TypeError, ValueError):
+        mcp_driven = False
     return {
         'project_id': chat.project_id,
         'thumbnail_media_id': thumbnail_media_id,
         'last_message': last_message[:200] if last_message else '',
+        # Started by a connected assistant over MCP; the UI marks these so the
+        # person can tell their own chats from an agent's.
+        'mcp_driven': mcp_driven,
     }
 
 

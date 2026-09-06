@@ -20,6 +20,11 @@
         {{ chatName }}
       </span>
       <span
+        v-if="mcpDriven && !editingName"
+        class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+        title="Driven by a connected assistant over MCP"
+      >MCP</span>
+      <span
         v-else
         @click="startEditName"
         class="text-sm font-medium text-content-muted italic cursor-pointer hover:text-content-secondary"
@@ -154,6 +159,7 @@ import { devModeRef } from '../../appConfig'
 
 interface Props {
   chatName?: string
+  mcpDriven?: boolean
   chatId: number
   viewMode: 'raw' | 'chat'
   settingsPanelVisible: boolean
@@ -161,6 +167,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   chatName: '',
+  mcpDriven: false,
   settingsPanelVisible: true,
 })
 

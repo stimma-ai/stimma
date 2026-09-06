@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 import json
+import os
+import traceback
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 import jsonschema
@@ -11,6 +13,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Tool, ToolAnnotations, TextContent, CallToolResult
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from core.logging import get_logger
 from core.profile_context import ProfileScope
 from database_registry import get_database_registry
 from .access import access, McpError
@@ -23,7 +26,12 @@ protect_sdk_logs()
 
 server = Server(
     "Stimma",
-    instructions="Operate the bound creative workspace. Use direct tools for known searches, organization and exact tool execution. Delegate creative judgment or iteration to agent_start. Inspect lineage before reproducing a multi-step result. Poll jobs_get for accepted work; never resubmit to get progress."
+    instructions="This server is one Stimma profile: its media library, generation tools, projects, boards and chats. "
+    "Typical flow: tools_search, then tools_inspect, then tools_run to generate; or agent_start to have Stimma's own agent do the creative work from a brief. "
+    "Both return a job. Poll jobs_get until state is succeeded or failed; never resubmit to check progress. "
+    "If jobs_get reports input_required, the job is waiting on you: answer with interaction_respond (relay permission questions to the user). "
+    "Results carry asset and media refs. Use media_read for a quick look and media_export for a download link that works with a plain GET or in a browser. "
+    "To bring a file you made or edited locally into the library, POST it to the upload_url from workspace_get; then content_update can publish it as a new revision of an existing asset."
     + ACCESS_HELP,
 )
 manager = StreamableHTTPSessionManager(
@@ -53,42 +61,34 @@ def array(items, maximum=200):
 
 
 KEY = string(
-    "Retry identity. Reuse after a lost response; change for intentionally new work.",
+    "Your own id for this request, any short unique string. If the response is lost, retry with the same value and you get the same result; use a new value for new work.",
     minLength=1,
     maxLength=128,
 )
-REF = string("Opaque reference returned by Stimma.")
+REF = string("Opaque reference returned by Stimma, e.g. asset:…, media:…, job:…. Copy it exactly; never invent one.")
 TOOLS = {
     "workspace_get": (
-        "Inspect this connection’s lock status and bound profile.",
+        "Show which profile this connection is bound to and whether it needs a PIN (requires_pin). Also returns upload_url, a link for putting a local file into the library with a plain POST. Cheap; call it first.",
         obj({}),
         False,
     ),
     "access_open": (
-        "Unlock this configured client with the PIN explicitly supplied by the user. Never guess or retry a failed PIN.",
+        "Unlock a PIN-protected profile with a PIN the user gave you. Never guess or retry a rejected PIN. Not needed when workspace_get reports requires_pin false.",
         obj({"pin": string(maxLength=72)}),
         True,
     ),
     "access_lock": (
-        "Lock this configured client across all its transport sessions and cancel its external jobs.",
+        "Lock this connection again and cancel any jobs it started. Only meaningful on a PIN-protected profile.",
         obj({}),
         True,
     ),
-    "chat_history": (
-        "Read visible chat messages and saved media references, with checkpoint references for a deliberate fork.",
-        obj(
-            {"chat_ref": REF, "after": {"type": "integer", "minimum": 0, "default": 0}},
-            ["chat_ref"],
-        ),
-        False,
-    ),
     "assets_get": (
-        "Inspect exact Assets without changing them.",
+        "Get full details for specific assets by ref.",
         obj({"refs": array(REF)}, ["refs"]),
         False,
     ),
     "catalog_get": (
-        "Discover marker/tag/source/skill/format catalogs.",
+        "List this profile's markers, tags, sources, skills, formats or saved views.",
         obj(
             {
                 "kind": {
@@ -108,7 +108,7 @@ TOOLS = {
         False,
     ),
     "tools_search": (
-        "Find available permitted provider tools by description or task type.",
+        "Find generation tools available in this profile (text-to-image, image-to-image, video, audio…) by name or task type. Returns tool_refs for tools_inspect and tools_run.",
         obj(
             {
                 "query": string(),
@@ -119,12 +119,12 @@ TOOLS = {
         False,
     ),
     "tools_inspect": (
-        "Inspect a tool’s current input/output schemas and version before executing it.",
+        "Get a tool's parameter schema and its schema_version. Call this before tools_run; the run needs that schema_version.",
         obj({"tool_ref": REF}, ["tool_ref"]),
         False,
     ),
     "tools_run": (
-        "Run an exact provider tool without the planning agent. Uses normal spend permissions. Returns a durable job; poll jobs_get.",
+        "Run one generation tool with explicit parameters. Returns a job: poll jobs_get until succeeded or failed. If the state is input_required (usually a permission question), answer it with interaction_respond or the job will wait forever. Results carry the new asset and media refs.",
         obj(
             {
                 "tool_ref": REF,
@@ -138,10 +138,10 @@ TOOLS = {
         True,
     ),
     "agent_start": (
-        "Delegate creative judgment, technique selection, visual review or iteration to the existing Stimma agent. Creates a visible chat and durable job.",
+        "Have Stimma's own agent do creative work from a brief: it picks tools, generates, reviews and iterates in a chat the user can see. Returns a job; poll jobs_get and answer any input_required. Prefer tools_run when you already know the exact tool and parameters.",
         obj(
             {
-                "brief": string(minLength=1, maxLength=32000),
+                "brief": string("What to make, in plain language, as you would tell a designer.", minLength=1, maxLength=32000),
                 "media_refs": array(REF),
                 "project_ref": REF,
                 "request_key": KEY,
@@ -151,7 +151,7 @@ TOOLS = {
         True,
     ),
     "agent_continue": (
-        "Continue the same delegated chat after its current turn. Follow-ups use ordinary permissions.",
+        "Send a follow-up message to a chat started by agent_start, once its current turn has finished.",
         obj(
             {
                 "job_ref": REF,
@@ -164,7 +164,7 @@ TOOLS = {
         True,
     ),
     "jobs_get": (
-        "Retrieve job status, visible events and outstanding questions. Polling does not extend PIN unlock.",
+        "Get a job's state (queued, running, input_required, succeeded, failed, cancelled), its result and the question it is waiting on, if any. When state is input_required, answer with interaction_respond; the job does not continue until you do.",
         obj(
             {"job_ref": REF, "after": {"type": "integer", "minimum": 0, "default": 0}},
             ["job_ref"],
@@ -172,22 +172,22 @@ TOOLS = {
         False,
     ),
     "jobs_cancel": (
-        "Cancel external work. Cancellation is not a rollback or refund.",
+        "Cancel a job. Work a provider already finished is not undone or refunded.",
         obj({"job_ref": REF}, ["job_ref"]),
         True,
     ),
     "interaction_respond": (
-        "Answer the exact outstanding question. Put permission questions to the human; this server trusts the connected assistant to relay their answer. No blanket approval.",
+        "Answer the question a job is waiting on (the interaction in jobs_get). For a permission request, ask the user and relay their decision as approved true/false. For a choice, give choice_indices. For a free-text question, give answer. Copy job_ref, controller_version and interaction_ref from the latest jobs_get.",
         obj(
             {
                 "job_ref": REF,
                 "controller_version": {"type": "integer", "minimum": 1},
                 "interaction_ref": REF,
-                "version": {"const": 1},
+                "version": {"const": 1, "description": "Optional; always 1."},
                 "response": obj(
                     {
-                        "approved": {"type": "boolean"},
-                        "answer": string(maxLength=32000),
+                        "approved": {"type": "boolean", "description": "For permission questions: the user's decision."},
+                        "answer": string("For free-text questions.", maxLength=32000),
                         "choice_indices": array({"type": "integer", "minimum": 0}),
                     }
                 ),
@@ -197,7 +197,6 @@ TOOLS = {
                 "job_ref",
                 "controller_version",
                 "interaction_ref",
-                "version",
                 "response",
                 "request_key",
             ],
@@ -205,36 +204,12 @@ TOOLS = {
         True,
     ),
     "media_read": (
-        "See a bounded preview or structured document directly in the tool result. Does not promote media or open an editor.",
+        "Look at media inline: an image preview (up to 1024px) or a small text document. For the full-resolution file use media_export.",
         obj({"ref": REF}, ["ref"]),
         False,
     ),
     "media_export": (
-        "Request an authenticated original or complete bundle download. The local bridge saves it on the assistant’s machine. Never publishes publicly.",
-        obj({"ref": REF}, ["ref"]),
-        False,
-    ),
-    "flows_run": (
-        "Run a known Flow once with its inspected program version. Decisions remain pending until answered; no automatic first-candidate selection.",
-        obj(
-            {
-                "flow_ref": REF,
-                "program_version": string(),
-                "inputs": {"type": "object"},
-                "project_ref": REF,
-                "request_key": KEY,
-            },
-            ["flow_ref", "program_version", "request_key"],
-        ),
-        True,
-    ),
-    "ui_context_get": (
-        "Read the selection explicitly shared from Stimma’s context menu. Returns no ambient desktop state; snapshots expire after ten minutes.",
-        obj({}),
-        False,
-    ),
-    "ui_open": (
-        "Return a profile-aware link to review an entity in Stimma. Does not silently switch a desktop window.",
+        "Get a download link for the original file (a ZIP for a directory). The link needs no key or headers: curl -o it, or open it in a browser. It is bound to this connection and stops working at the UTC time in its expires parameter (4 hours); nothing is written to disk for you.",
         obj({"ref": REF}, ["ref"]),
         False,
     ),
@@ -268,15 +243,12 @@ TOOLS["agent_start"][1]["properties"].update(
         "interaction": {
             "enum": ["ask_when_needed", "unattended"],
             "default": "ask_when_needed",
+            "description": "unattended: the agent avoids asking questions where it can. Tool permission requests still arrive via jobs_get either way.",
         },
-        "source_chat": obj(
-            {"chat_ref": REF, "mode": {"const": "fork"}, "checkpoint_ref": REF},
-            ["chat_ref", "mode", "checkpoint_ref"],
-        ),
     }
 )
 TOOLS["tools_options"] = (
-    "Search a tool’s paginated parameter options after inspecting its schema.",
+    "Search the allowed values of a tool parameter that has many options (models, LoRAs, presets…).",
     obj(
         {
             "tool_ref": REF,
@@ -357,26 +329,9 @@ content_variants = [
     ),
 ]
 TOOLS["content_update"] = (
-    "Save image transforms or a structured document. Supply target_asset_ref and expected_current_revision to revise an existing Asset; otherwise create a new Asset. Does not modify a working editor stack.",
+    "Save an image or a text/SVG/Markdown document as an asset. For an image, source_ref is library media (for example a file you uploaded via upload_url) and transforms may be empty or resize/crop/rotate/flip. To publish as a new revision of an existing asset, pass target_asset_ref and its expected_current_revision; otherwise a new asset is created.",
     {"type": "object", "oneOf": content_variants},
     True,
-)
-
-TOOLS["assets_select"] = (
-    "Snapshot all matching Assets and exact revisions for stable bulk work. New matches arriving later are excluded.",
-    obj({"query": workspace.query_binding.schema()}, ["query"]),
-    False,
-)
-TOOLS["selections_get"] = (
-    "Read a page of a stable selection’s pinned targets. Any unlocked connection on this profile can recover it.",
-    obj(
-        {
-            "selection_ref": REF,
-            "offset": {"type": "integer", "minimum": 0, "default": 0},
-        },
-        ["selection_ref"],
-    ),
-    False,
 )
 
 TOOLS["tools_run"][1]["properties"].update(
@@ -399,7 +354,7 @@ TOOLS["tools_run"][1]["properties"].update(
     }
 )
 TOOLS["jobs_retry"] = (
-    "Retry only explicitly failed items from a tool batch. Successful items are preserved; unknown dispatch outcomes are never automatically repeated.",
+    "Retry the failed items of a tools_run batch. Items that succeeded are kept; items whose outcome is unknown are not retried.",
     obj({"job_ref": REF, "request_key": KEY}, ["job_ref", "request_key"]),
     True,
 )
@@ -411,23 +366,20 @@ def catalog():
     global _catalog
     if _catalog is None:
         result = descriptors()
+        from .operations import _strip_titles
+
         for name, (description, schema, write) in TOOLS.items():
             result.append(
                 Tool(
                     name=name,
-                    description=description
-                    + (
-                        ACCESS_HELP
-                        if name not in ("access_open", "access_lock")
-                        else ""
-                    ),
-                    inputSchema=schema,
+                    description=description,
+                    inputSchema=_strip_titles(schema),
                     annotations=ToolAnnotations(
                         readOnlyHint=not write,
                         destructiveHint=write,
                         idempotentHint=name != "access_open",
                         openWorldHint=name
-                        in ("agent_start", "agent_continue", "tools_run", "flows_run"),
+                        in ("agent_start", "agent_continue", "tools_run"),
                     ),
                 )
             )
@@ -435,23 +387,18 @@ def catalog():
             (
                 "assets_query",
                 workspace.query_binding,
-                "Find and count Assets using browser filters. Use this directly for known criteria, not an agent.",
+                "Search the library: find and count assets by text, tags, markers, source, date and more.",
             ),
             (
                 "lineage_get",
                 workspace.lineage_binding,
-                "Inspect the bounded Media derivation graph before reproducing or varying a result.",
-            ),
-            (
-                "entities_search",
-                workspace.search_binding,
-                "Search named chats, Flows, boards, projects and presets.",
+                "See how a piece of media was made: its sources, the tool and parameters used, and what was derived from it.",
             ),
         ]:
             result.append(
                 Tool(
                     name=name,
-                    description=description + ACCESS_HELP,
+                    description=description,
                     inputSchema=binding.schema(),
                     annotations=ToolAnnotations(readOnlyHint=True),
                 )
@@ -465,9 +412,46 @@ async def list_tools():
     return list(catalog().values())
 
 
+def coerce_scalars(value, schema):
+    """Read "1" as 1 and "true" as true where the schema wants a number or bool.
+
+    Assistants routinely quote numbers they copied out of a previous result.
+    Rejecting `"version": "1"` teaches them nothing and stalls the job; the
+    intent is unambiguous, so accept it. Anything else is left for the
+    validator to name.
+    """
+    if not isinstance(schema, dict):
+        return value
+    if isinstance(value, dict) and isinstance(schema.get("properties"), dict):
+        return {
+            key: coerce_scalars(item, schema["properties"].get(key))
+            for key, item in value.items()
+        }
+    if isinstance(value, list) and "items" in schema:
+        return [coerce_scalars(item, schema["items"]) for item in value]
+    if isinstance(value, str):
+        kind = schema.get("type")
+        const = schema.get("const")
+        wants_int = kind == "integer" or (kind is None and isinstance(const, int) and not isinstance(const, bool))
+        wants_number = kind == "number" or (kind is None and isinstance(const, float))
+        wants_bool = kind == "boolean" or isinstance(const, bool)
+        text = value.strip()
+        if wants_int and text.lstrip("-").isdigit():
+            return int(text)
+        if wants_number:
+            try:
+                return float(text)
+            except ValueError:
+                return value
+        if wants_bool and text.lower() in ("true", "false"):
+            return text.lower() == "true"
+    return value
+
+
 async def dispatch(caller, name, arguments):
     if name not in catalog():
         raise McpError("unknown_tool", "Unknown tool.")
+    arguments = coerce_scalars(arguments, catalog()[name].inputSchema)
     jsonschema.validate(arguments, catalog()[name].inputSchema)
     if name == "access_open":
         return await access.open(caller, arguments.get("pin"))
@@ -477,19 +461,20 @@ async def dispatch(caller, name, arguments):
     if name == "workspace_get":
         from config import get_settings
 
+        from .transfers import upload_link, HOW_TO_UPLOAD
+
         profile = get_settings().get_profile(caller.profile_id)
-        return {
-            "profile_name": profile.name,
-            "profile_id": profile.id,
-            **access.status(caller),
-            "connection_boundary": "configured client credential + profile",
-            "transfer": "authenticated HTTP; packaged bridge handles local files",
-        }
+        status = access.status(caller)
+        result = {"profile_name": profile.name, "profile_id": profile.id, **status}
+        if not status["locked"]:
+            result["upload_url"] = upload_link(caller)
+            result["how_to_upload"] = HOW_TO_UPLOAD
+        return result
     access.require(caller, activity=name != "jobs_get")
     db = get_database_registry().get_database(caller.profile_id)
     args = dict(arguments)
     with ProfileScope(caller.profile_id):
-        if name in ("agent_start", "tools_run", "flows_run", "content_update"):
+        if name in ("agent_start", "tools_run", "content_update"):
             return await jobs.accept(caller, name, args.pop("request_key"), args)
         if name == "jobs_get":
             return await jobs.get(caller, args["job_ref"], args.get("after", 0))
@@ -514,16 +499,6 @@ async def dispatch(caller, name, arguments):
             _, variants = FAMILIES[name]
             binding = variants[args.pop("action")]
             key = args.pop("request_key", None)
-            if binding.write and name in (
-                "custom_tools_update",
-                "flows_update",
-                "assets_delete_permanently",
-                "share_publish",
-                "containers_create",
-            ):
-                return await jobs.accept(
-                    caller, f"bound:{name}:{arguments['action']}", key, args
-                )
             if binding.write:
                 return await jobs.mutate(
                     caller,
@@ -533,29 +508,8 @@ async def dispatch(caller, name, arguments):
                     lambda session: binding.run(caller, args, session),
                 )
             async with db.async_session_maker() as session:
-                value = await binding.run(caller, args, session)
-                if name == "flows_get" and binding.function == "get_flow_program":
-                    import hashlib
-
-                    value["program_version"] = hashlib.sha256(
-                        value["code"].encode()
-                    ).hexdigest()
-                return value
+                return await binding.run(caller, args, session)
         async with db.async_session_maker() as session:
-            if name == "assets_select":
-                from .selections import create
-
-                return await create(caller, args["query"], session)
-            if name == "selections_get":
-                from .selections import read
-
-                return await read(
-                    caller, args["selection_ref"], args.get("offset", 0), session
-                )
-            if name == "chat_history":
-                return await workspace.chat_history(
-                    caller, args["chat_ref"], args.get("after", 0), session
-                )
             if name == "assets_get":
                 return await workspace.assets_get(caller, args["refs"], session)
             if name == "catalog_get":
@@ -586,10 +540,9 @@ async def dispatch(caller, name, arguments):
                 )
             if name == "tools_inspect":
                 return await workspace.tools_inspect(caller, args["tool_ref"])
-            if name in ("assets_query", "entities_search", "lineage_get"):
+            if name in ("assets_query", "lineage_get"):
                 binding = {
                     "assets_query": workspace.query_binding,
-                    "entities_search": workspace.search_binding,
                     "lineage_get": workspace.lineage_binding,
                 }[name]
                 return await binding.run(caller, args, session)
@@ -599,30 +552,63 @@ async def dispatch(caller, name, arguments):
                 from .transfers import offer
 
                 return await offer(caller, args["ref"], session)
-            if name == "ui_context_get":
-                from .ui_context import read
-
-                return read(caller)
-            if name == "ui_open":
-                kind = args["ref"].split(":", 1)[0]
-                routes = {
-                    "asset": "edit-image",
-                    "board": "boards",
-                    "project": "projects",
-                    "chat": "chat",
-                    "flow": "flows",
-                }
-                if kind not in routes:
-                    raise McpError(
-                        "unsupported_handoff", "This entity has no standalone UI route."
-                    )
-                identifier = access.resolve(caller, args["ref"], kind)
-                return {
-                    "path": f"/{routes[kind]}/{identifier}",
-                    "profile_id": caller.profile_id,
-                    "delivery": "link_only",
-                }
     raise McpError("unknown_tool", "Unknown tool.")
+
+
+log = get_logger(__name__)
+
+
+def client_origin(request):
+    """The origin the assistant reached us through, for URLs we hand back.
+
+    Behind the desktop relay the request's own Host is the device's loopback
+    listener, which the assistant cannot reach; the relay forwards the address
+    it was called on instead.
+    """
+    host = request.headers.get("x-forwarded-host") or request.url.netloc
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    return f"{scheme}://{host}"
+
+
+def schema_problem(exc):
+    """Name the field and the constraint it broke, without echoing the input.
+
+    Input values can include PINs, so only schema-side facts and key names
+    appear here. "controller_version: must satisfy type \"integer\"" is what
+    an assistant needs to fix its call; "does not match" is not.
+    """
+    where = "/".join(str(part) for part in exc.absolute_path) or "arguments"
+    if exc.validator == "required":
+        present = exc.instance if isinstance(exc.instance, dict) else {}
+        missing = [key for key in exc.validator_value if key not in present]
+        return f"{where}: missing required {', '.join(missing)}."
+    if exc.validator == "additionalProperties":
+        known = set(exc.schema.get("properties", {}))
+        extra = sorted(k for k in exc.instance if k not in known)
+        return f"{where}: unexpected {', '.join(extra)}."
+    if exc.validator == "oneOf":
+        # Action families: say which actions exist, or, when the action is
+        # known, what is wrong inside that one variant. Dumping every variant
+        # is not an error message.
+        variants = exc.validator_value
+        actions = {
+            v.get("properties", {}).get("action", {}).get("const"): v for v in variants
+        }
+        actions.pop(None, None)
+        chosen = exc.instance.get("action") if isinstance(exc.instance, dict) else None
+        if actions and chosen not in actions:
+            return f"{where}: unknown action; use one of {', '.join(actions)}."
+        if chosen in actions:
+            resolver = jsonschema.validators.validator_for(exc.schema)
+            inner = resolver(
+                {**actions[chosen], "$defs": exc.schema.get("$defs", {})}
+            )
+            first = next(iter(inner.iter_errors(exc.instance)), None)
+            if first is not None:
+                first.absolute_path.extendleft(reversed(list(exc.absolute_path)))
+                return f"action {chosen}: " + schema_problem(first)
+        return f"{where}: must match one of the {len(variants)} accepted shapes."
+    return f"{where}: must satisfy {exc.validator} {json.dumps(exc.validator_value)}."
 
 
 @server.call_tool(validate_input=False)
@@ -643,13 +629,23 @@ async def call_tool(name, arguments):
         )
     except McpError as exc:
         result = {"code": exc.code, "message": exc.message}
-    except (jsonschema.ValidationError, ValueError):
-        # ValidationError repr contains rejected input, including PINs. Never log it.
+    except jsonschema.ValidationError as exc:
+        # The repr contains the rejected input, including PINs. Never log it.
         result = {
             "code": "invalid_arguments",
-            "message": "Arguments do not match the advertised schema.",
+            "message": "Arguments do not match the advertised schema. "
+            + schema_problem(exc),
         }
-    except Exception:
+    except Exception as exc:
+        # Type and location only: exception messages can carry input values.
+        # Without this line a failure is undiagnosable from either side.
+        frame = traceback.extract_tb(exc.__traceback__)[-1]
+        log.warning(
+            "MCP tool failed",
+            tool=name,
+            error=type(exc).__name__,
+            location=f"{os.path.basename(frame.filename)}:{frame.lineno}",
+        )
         result = {
             "code": "operation_failed",
             "message": "The operation failed. Inspect the workspace and retry only when safe.",
@@ -684,13 +680,34 @@ class Gateway:
                     "conflicting_profile",
                     "Use only the profile bound in the MCP endpoint.",
                 )
+            if (
+                len(suffix) == 2
+                and suffix[0] == "download"
+                and request.method in ("GET", "HEAD")
+            ):
+                from .transfers import download
+
+                with ProfileScope(profile_id):
+                    response = await download(profile_id, suffix[1])
+                    await response(scope, receive, send)
+                return
+            if len(suffix) == 2 and suffix[0] == "upload" and request.method == "POST":
+                from .transfers import upload
+
+                with ProfileScope(profile_id):
+                    response = await upload(profile_id, suffix[1], request)
+                    await response(scope, receive, send)
+                return
             bearer = request.headers.get("authorization", "")
             if not bearer.startswith("Bearer ") or len(bearer) > 256:
                 raise McpError(
-                    "unauthorized", "Configure this assistant connection in Stimma."
+                    "unauthorized", "Missing or invalid connection key. Create a connection in Stimma under Settings → MCP and send its key as a Bearer token."
                 )
             caller = await access.authenticate(profile_id, bearer[7:])
             scope["mcp_caller"] = caller
+            from .transfers import request_origin
+
+            request_origin.set(client_origin(request))
             if suffix and suffix != [""]:
                 from .transfers import handle
 

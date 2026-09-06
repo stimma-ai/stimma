@@ -29,7 +29,7 @@ def check_execution():
         _, _, stamp = access.stamp(caller.profile_id)
         if stamp != caller.stamp or caller.key in _revoked:
             raise McpError(
-                "access_revoked", "External execution authority was revoked."
+                "access_revoked", "This connection was locked or removed, so its jobs were cancelled."
             )
 
 
@@ -144,7 +144,7 @@ async def accept(caller, name, key, args):
                     if tool_version(descriptor) != step["schema_version"]:
                         raise McpError(
                             "schema_changed",
-                            "Inspect the changed tool before starting new work.",
+                            "This tool's schema changed. Call tools_inspect again and use the new schema_version.",
                         )
                     for field, schema in descriptor.parameter_schema.get(
                         "properties", {}
@@ -212,31 +212,6 @@ async def accept(caller, name, key, args):
                 throttle="off",
                 generation_settings=json.dumps({"mcp_origin": caller.client_id}),
             )
-            if args.get("source_chat"):
-                source_id = int(
-                    access.resolve(caller, args["source_chat"]["chat_ref"], "chat")
-                )
-                checkpoint = int(
-                    access.resolve(
-                        caller, args["source_chat"]["checkpoint_ref"], "chat_item"
-                    )
-                )
-                source = await session.get(Chat, source_id)
-                item = await session.get(ChatItem, checkpoint)
-                if (
-                    not source
-                    or source.deleted_at
-                    or not item
-                    or item.chat_id != source.id
-                ):
-                    raise McpError(
-                        "not_found", "The source chat checkpoint is unavailable."
-                    )
-                chat.original_chatitem_id = checkpoint
-                chat.additional_instructions = source.additional_instructions
-                chat.model_slug = source.model_slug
-                chat.agent_tool_config = source.agent_tool_config
-                chat.project_id = project_id or source.project_id
             session.add(chat)
             await session.flush()
             job = McpOperation(
@@ -392,12 +367,6 @@ async def run(caller, job_id, *, response=None, message=None):
                     binding = FAMILIES[family][1][action]
                     value = await binding.run(caller, args, session)
                     job.result_json = json.dumps(value)
-                elif job.operation == "flows_run":
-                    from .workspace import execute_flow
-
-                    job.result_json = json.dumps(
-                        await execute_flow(caller, args, session, chat)
-                    )
                 check_execution()
                 await session.refresh(job, ["state"])
                 if job.state not in ("cancelled", "control_changed"):
@@ -572,7 +541,7 @@ async def control(
             ):
                 raise McpError(
                     "control_changed",
-                    "Control has changed. Retrieve the job before continuing.",
+                    "The job changed since you last read it. Call jobs_get and use the new controller_version.",
                 )
             pending = await pending_interaction(session, job.chat_id)
             if interaction_ref:
@@ -586,7 +555,7 @@ async def control(
                     )
             elif pending:
                 raise McpError(
-                    "input_required", "Answer the outstanding interaction first."
+                    "input_required", "This job is waiting on a question; answer it with interaction_respond first."
                 )
             active = _tasks.get((caller.profile_id, job_id))
             inprocess = (
@@ -671,7 +640,7 @@ async def cancel(caller, job_ref):
         if not job:
             raise McpError("not_found", "Job is unavailable.")
         if job.state == "control_changed":
-            raise McpError("control_changed", "The desktop controls this chat now.")
+            raise McpError("control_changed", "The user took over this chat in Stimma; you can no longer drive it.")
         if job.state in ("succeeded", "failed", "cancelled", "interrupted"):
             return envelope(caller, job)
         task = _tasks.get((caller.profile_id, job_id))
@@ -711,7 +680,7 @@ async def takeover(profile_id, chat_id):
                 select(McpOperation).where(
                     McpOperation.chat_id == chat_id,
                     McpOperation.operation.in_(
-                        ["agent_start", "tools_run", "flows_run"]
+                        ["agent_start", "tools_run"]
                     ),
                 )
             )

@@ -159,7 +159,20 @@ async def _configured_decision(
         ).scalar_one_or_none()
         if chat is None:
             return "allow"
-        return await get_stp_permission_decision(tool_id, chat, session)
+        decision = await get_stp_permission_decision(tool_id, chat, session)
+        if decision == "ask" and _mcp_driven(chat):
+            # Over MCP the "human" behind the card is the assistant's user, who
+            # already asked for the work; every assistant approves its own
+            # question. The connection key is the consent. Explicit denies hold.
+            return "allow"
+        return decision
+
+
+def _mcp_driven(chat) -> bool:
+    try:
+        return bool((json.loads(chat.generation_settings or "{}") or {}).get("mcp_origin"))
+    except (TypeError, ValueError):
+        return False
 
 
 async def ensure_tool_permission(

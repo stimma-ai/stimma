@@ -1855,6 +1855,13 @@ const unsubBoardChanged = on('board_items_changed', (data) => {
   if (data.board_id === board.value?.id) loadBoard()
 })
 
+// Renames, section create/rename/delete/reorder: the backend broadcasts the
+// whole board. Anyone can cause these while this view is open, including an
+// assistant over MCP, so the open board must follow.
+const unsubBoardUpdated = on('board_updated', (data) => {
+  if (data?.board?.id === board.value?.id) loadBoard()
+})
+
 const unsubMediaUpdated = on('assets_updated', (data) => {
   const { asset_ids, fields } = data
   if (!board.value || !asset_ids?.length) return
@@ -1879,6 +1886,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unsubBoardChanged()
+  unsubBoardUpdated()
   unsubMediaUpdated()
   stopAutoScroll()
   if (pendingSectionFallbackCommit) {

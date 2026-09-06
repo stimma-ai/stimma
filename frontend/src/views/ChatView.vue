@@ -5,6 +5,7 @@
     <ChatControlStrip
       v-if="!embedded"
       :chat-name="chat?.name || ''"
+      :mcp-driven="!!chat?.generation_settings?.mcp_origin"
       :chat-id="chatId"
       :view-mode="viewMode"
       :settings-panel-visible="settingsPanelVisible"

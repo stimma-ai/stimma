@@ -21,10 +21,14 @@ test('MCP setup exposes usable connection details without developer tooling', as
   const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/mcp/clients') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Create & show key', exact: true }).click();
   const { connection } = await (await responsePromise).json();
-  expect(connection.endpoint).toContain(`/mcp/profiles/${connection.profile_id}`);
+  expect(connection.path).toBe(`/mcp/profiles/${connection.profile_id}`);
+  expect(connection.endpoint).toContain(connection.path);
   await expect(page.getByText('Claude Desktop is ready to connect')).toBeVisible();
   await page.getByRole('button', { name: 'Copy URL', exact: true }).click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(connection.endpoint);
+  // In the browser lane this is the backend's own address; inside the Electron
+  // shell it is the proxy origin. Either way it is what a person would paste.
+  const serverUrl = await page.evaluate(() => navigator.clipboard.readText());
+  expect(serverUrl).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:\\d+${connection.path}$`));
   await page.getByRole('button', { name: 'Copy key', exact: true }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(connection.credential);
   await expect(page.getByText(connection.credential, { exact: true })).not.toBeVisible();
@@ -37,7 +41,7 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await expect(page.getByText(connection.credential, { exact: true })).toHaveCount(0);
 
   // The copied URL and credential must authenticate a real MCP session.
-  const mcp = await page.request.post(connection.endpoint, {
+  const mcp = await page.request.post(serverUrl, {
     headers: { Authorization: `Bearer ${connection.credential}`, Accept: 'application/json, text/event-stream' },
     data: { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'acceptance', version: '1' } } },
   });
@@ -57,7 +61,7 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await page.getByRole('button', { name: 'Options for Claude on laptop' }).click();
   await page.getByRole('menuitem', { name: 'Remove connection' }).click();
   await expect(page.getByText('No assistants connected yet')).toBeVisible();
-  const revoked = await page.request.post(connection.endpoint, {
+  const revoked = await page.request.post(serverUrl, {
     headers: { Authorization: `Bearer ${connection.credential}`, Accept: 'application/json, text/event-stream' },
     data: { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
   });

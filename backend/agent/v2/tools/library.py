@@ -1432,6 +1432,11 @@ async def save_workspace_file(
             task_type=provenance.get("task_type") or "code",
             source=metadata_source,
             tool_id=provenance.get("tool_id"),
+            generator=provenance.get("generator"),
+            model=provenance.get("model"),
+            prompt=provenance.get("prompt") or "",
+            negative_prompt=provenance.get("negative_prompt") or "",
+            prompt_metadata=provenance.get("prompt_metadata"),
             parameters=build_parameters(
                 provenance_params,
                 **({"seed": seed} if seed is not None else {}),

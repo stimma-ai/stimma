@@ -10,6 +10,7 @@ from sqlalchemy import select
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from config import get_settings
+from core.listener import port as loopback_port
 from .access import access, installation_id
 from .models import McpClient
 from .jobs import revoke
@@ -98,15 +99,22 @@ async def connect(body: Connect, session=Depends(get_db_session)):
     )
     session.add(client)
     await session.commit()
+    # ``endpoint`` is this backend's own loopback listener, which only helps a
+    # caller on the same machine (dev). The desktop app
+    # joins ``path`` to its own origin instead: the shell's loopback proxy,
+    # which forwards to whichever install the window is on. That is the only
+    # address that works when the app is driving a remote Stimma Server,
+    # whose backend listens on loopback behind a TLS device gate.
+    path = f"/mcp/profiles/{profile_id}"
     return {
         "id": client.id,
         "name": client.name,
         "connection": {
             "version": 1,
-            "alias": f"{profile_id}-{client.id[:8]}",
             "profile_id": profile_id,
             "credential": credential,
-            "endpoint": f"http://127.0.0.1:{get_settings().server.port}/mcp/profiles/{profile_id}",
+            "path": path,
+            "endpoint": f"http://127.0.0.1:{loopback_port()}{path}",
         },
     }
 
@@ -138,24 +146,3 @@ async def disconnect(client_id: str, session=Depends(get_db_session)):
         await revoke(get_current_profile(), client_id)
     return {"disconnected": True}
 
-
-class ShareContext(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    asset_ids: list[int] = Field(min_length=1, max_length=200)
-
-
-@router.post("/context")
-async def share_context(body: ShareContext, session=Depends(get_db_session)):
-    from .ui_context import share
-    from .access import McpError
-    from fastapi import HTTPException
-
-    try:
-        result = await share(get_current_profile(), body.asset_ids, session)
-        return {
-            "shared": True,
-            "count": len(result["targets"]),
-            "expires_at": result["expires_at"],
-        }
-    except McpError as exc:
-        raise HTTPException(409, exc.message) from None

@@ -460,3 +460,57 @@ async def test_library_save_broadcasts_asset_identity(
     assert created[0]["asset_id"] == result["asset_id"]
     assert created[0]["media_id"] == result["media_id"]
     assert created[0]["revision_id"] is not None
+
+
+async def test_library_save_of_tool_result_keeps_the_providers_metadata(
+    db_session, tmp_path, monkeypatch
+):
+    """Whichever surface ran the tool (tool view, agent, Flow, MCP), the saved
+    copy must say the same thing the provider recorded: prompt, model,
+    generator and every parameter. Anything less breaks lineage."""
+    from PIL import Image
+    from database import MediaItem
+    from agent.v2.code_runtime import StimmaSDK, ToolResult
+
+    library_module = importlib.import_module("agent.v2.tools.library")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(
+        library_module, "_get_default_folder", lambda workspace_dir=None: str(tmp_path / "out")
+    )
+    async def quiet(*args, **kwargs):
+        return None
+    monkeypatch.setattr("utils.websocket.ws_manager.broadcast", quiet)
+
+    result_file = workspace / "result.png"
+    Image.new("RGB", (8, 8), "blue").save(result_file)
+    async with db_session() as session:
+        origin = await create_media_item(session, file_path=result_file)
+        origin.generation_metadata = json.dumps({
+            "version": 3, "source": "stimma", "task_type": "text-to-image",
+            "tool_id": "stimma-cloud:flux2-klein-9b", "generator": "stimma-cloud",
+            "model": "Flux.2 Klein 9B", "prompt": "a bulldog on a london street",
+            "negative_prompt": "blurry",
+            "parameters": {"width": 1024, "height": 1024, "seed": 7, "steps": 4},
+            "prompt_metadata": None, "source_inputs": [], "lineage_trace": [],
+            "generated_at": "2026-09-06T00:00:00Z",
+        })
+        await session.commit()
+        sdk = StimmaSDK(
+            session=session, chat_id=None, workspace_dir=workspace,
+            project_workspace_dir=workspace, interrupt_checker=lambda: False,
+        )
+        saved = await sdk.library.save(ToolResult(
+            path=result_file, seed=7, tool_name="stimma-cloud:flux2-klein-9b",
+            parameters={"steps": 4, "seed": 7}, media_id=origin.id,
+            task_type="text-to-image",
+        ))
+        copy = await session.get(MediaItem, saved["media_id"])
+        meta = json.loads(copy.generation_metadata)
+
+    assert meta["prompt"] == "a bulldog on a london street"
+    assert meta["negative_prompt"] == "blurry"
+    assert meta["model"] == "Flux.2 Klein 9B"
+    assert meta["generator"] == "stimma-cloud"
+    assert meta["tool_id"] == "stimma-cloud:flux2-klein-9b"
+    assert meta["parameters"]["width"] == 1024 and meta["parameters"]["seed"] == 7

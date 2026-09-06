@@ -78,8 +78,34 @@ const HOP_BY_HOP = new Set([
  * the pool on its youngest sockets for the same reason.
  */
 const FREE_SOCKET_TTL_MS = 3000
-const POOL: http.AgentOptions = { keepAlive: true, maxSockets: 64, timeout: FREE_SOCKET_TTL_MS, scheduling: 'lifo' }
-const agent = new http.Agent(POOL)
+const POOL: http.AgentOptions = { keepAlive: true, maxSockets: 64, scheduling: 'lifo' }
+
+function keepSocketAliveForIdleTtl(socket: stream.Duplex): void {
+  // AgentOptions.timeout is an inactivity timeout for *active* sockets too.
+  // Prompt/LLM endpoints routinely take longer than this TTL without sending
+  // response bytes, so apply the timeout only after the socket enters the
+  // free pool and clear it as soon as the socket is assigned again.
+  ;(socket as net.Socket).setTimeout(FREE_SOCKET_TTL_MS)
+}
+
+function reuseIdleSocket(socket: stream.Duplex): void {
+  ;(socket as net.Socket).setTimeout(0)
+}
+
+class IdleTtlAgent extends http.Agent {
+  override keepSocketAlive(socket: stream.Duplex): boolean {
+    const keep = super.keepSocketAlive(socket)
+    if (keep) keepSocketAliveForIdleTtl(socket)
+    return keep
+  }
+
+  override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {
+    reuseIdleSocket(socket)
+    super.reuseSocket(socket, req)
+  }
+}
+
+const agent = new IdleTtlAgent(POOL)
 
 /**
  * Verify a peer certificate against a pinned SHA-256 of its DER.
@@ -179,6 +205,17 @@ class PinnedAgent extends https.Agent {
 
   override createConnection(options: http.ClientRequestArgs, callback?: ConnectionCallback): undefined {
     return this.connect(options, callback)
+  }
+
+  override keepSocketAlive(socket: stream.Duplex): boolean {
+    const keep = super.keepSocketAlive(socket)
+    if (keep) keepSocketAliveForIdleTtl(socket)
+    return keep
+  }
+
+  override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {
+    reuseIdleSocket(socket)
+    super.reuseSocket(socket, req)
   }
 }
 
@@ -325,20 +362,36 @@ function stripHopByHop(headers: http.IncomingHttpHeaders): http.OutgoingHttpHead
 }
 
 /**
+ * Carries the device session on remote hops. A named header rather than
+ * Authorization so a caller's own bearer survives: an MCP assistant on this
+ * machine is told to use this proxy as its server URL and authenticates with
+ * its connection key, which the device — not the proxy — checks.
+ */
+export const DEVICE_SESSION_HEADER = 'x-stimma-device-session'
+
+/**
  * Strip hop-by-hop headers and anything named by Connection, then re-point
  * Host at the upstream. Everything else (Range, X-Profile-ID, X-Profile-PIN,
- * Origin, conditional-request headers) passes through untouched.
+ * Origin, Authorization, conditional-request headers) passes through untouched.
  */
 export function forwardHeaders(
   headers: http.IncomingHttpHeaders,
   upstream: ProxyTarget,
 ): http.OutgoingHttpHeaders {
   const out = stripHopByHop(headers)
+  // The device needs the address callers actually use (this proxy) when it
+  // hands out URLs, e.g. MCP download links; its own Host is loopback there.
+  if (headers.host) out['x-forwarded-host'] = headers.host
   out.host = `${upstream.host}:${upstream.port}`
   // The renderer never holds this. Injecting it here is the whole reason the
   // proxy exists: <img> and <video> cannot set headers, so remote media would
   // otherwise be unauthenticated or need a cache-busting query token.
-  if (upstream.session) out.authorization = `Bearer ${upstream.session}`
+  if (upstream.session) {
+    out[DEVICE_SESSION_HEADER] = upstream.session
+    // Devices predating the named header read the session from Authorization.
+    // Fill it in only when the caller sent no bearer of its own.
+    if (!out.authorization) out.authorization = `Bearer ${upstream.session}`
+  }
   return out
 }
 

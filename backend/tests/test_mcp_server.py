@@ -116,10 +116,20 @@ async def test_credentials_origin_profile_headers(mcp_http):
     assert response.status_code == 404
 
 
-async def test_unlock_is_per_credential_and_survives_reconnect(mcp_http, mcp_app):
+async def test_pinless_profile_is_open_without_ceremony(mcp_http, mcp_app):
+    """No PIN, nothing to unlock: an assistant must never be told to call
+    access_open first. Locking still revokes the live grant (and the work
+    bound to it), but the next call is simply granted again."""
+    from mcp_server.access import access
+
+    status = body(await rpc(mcp_http, "workspace_get"))
+    assert status["locked"] is False and status["requires_pin"] is False
+    assert not (await rpc(mcp_http, "assets_query"))["isError"]
+    before = access.unlocks["default", "one"].grant
     await rpc(mcp_http, "access_lock")
-    locked = await rpc(mcp_http, "assets_query")
-    assert locked["isError"] and body(locked)["code"] == "profile_locked"
+    assert not (await rpc(mcp_http, "assets_query"))["isError"]
+    assert access.unlocks["default", "one"].grant != before
+    # access_open stays harmless for assistants that call it anyway.
     assert body(await rpc(mcp_http, "access_open"))["locked"] is False
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=mcp_app),
@@ -128,14 +138,15 @@ async def test_unlock_is_per_credential_and_survives_reconnect(mcp_http, mcp_app
     ) as other:
         assert body(await rpc(other, "workspace_get"))["locked"] is False
         other.headers["Authorization"] = "Bearer test-credential-two"
-        assert body(await rpc(other, "workspace_get"))["locked"] is True
+        assert body(await rpc(other, "workspace_get"))["locked"] is False
+        assert not (await rpc(other, "assets_query"))["isError"]
 
 
 async def test_synchronous_create_receipt_is_atomic_and_retryable(mcp_http):
     await rpc(mcp_http, "access_open")
     args = {
         "action": "create",
-        "request": {"name": "MCP retry board"},
+        "name": "MCP retry board",
         "request_key": "board-retry",
     }
     first = await rpc(mcp_http, "boards_update", args)
@@ -143,11 +154,11 @@ async def test_synchronous_create_receipt_is_atomic_and_retryable(mcp_http):
     second = await rpc(mcp_http, "boards_update", args)
     assert body(first) == body(second)
     conflict = await rpc(
-        mcp_http, "boards_update", {**args, "request": {"name": "Changed"}}
+        mcp_http, "boards_update", {**args, "name": "Changed"}
     )
     assert body(conflict)["code"] == "request_key_conflict"
     result = await rpc(
-        mcp_http, "boards_get", {"action": "detail", "board_id": body(first)["id"]}
+        mcp_http, "boards_get", {"action": "detail", "board_ref": body(first)["id"]}
     )
     assert not result.get("isError"), result
     assert body(result)["name"] == "MCP retry board"
@@ -159,7 +170,6 @@ async def test_query_and_catalog_schema(mcp_http):
         ("assets_query", {}),
         ("catalog_get", {"kind": "markers"}),
         ("projects_get", {"action": "list"}),
-        ("entities_search", {"q": "MCP"}),
     ]:
         result = await rpc(mcp_http, name, args)
         assert not result.get("isError"), (name, result)
@@ -168,8 +178,8 @@ async def test_query_and_catalog_schema(mcp_http):
         "projects_update",
         {
             "action": "update",
-            "project_id": "1",
-            "request": {"agent_tool_config": {"allowed_tools": ["*"]}},
+            "project_ref": "1",
+            "agent_tool_config": {"allowed_tools": ["*"]},
             "request_key": "bad",
         },
     )
@@ -193,11 +203,21 @@ async def test_pin_expiry_and_revocation(mcp_http, monkeypatch):
         profile, "pin_hash", bcrypt.hashpw(b"1234", bcrypt.gensalt(rounds=4)).decode()
     )
     assert body(await rpc(mcp_http, "workspace_get"))["locked"]
+    locked = await rpc(mcp_http, "assets_query")
+    assert locked["isError"] and body(locked)["code"] == "profile_locked"
+    assert "PIN" in body(locked)["message"]
     result = await rpc(mcp_http, "access_open", {"pin": "1234"})
     assert not body(result)["locked"]
     unlock = access.unlocks["default", "one"]
     unlock.last_activity -= 3600
     assert body(await rpc(mcp_http, "workspace_get"))["locked"]
+    # Other credentials on the same PIN-protected profile unlock separately.
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_http._transport.app),
+        base_url="http://test",
+        headers={**dict(mcp_http.headers), "Authorization": "Bearer test-credential-two"},
+    ) as other:
+        assert body(await rpc(other, "workspace_get"))["locked"] is True
     monkeypatch.setattr(profile, "pin_hash", None)
 
 
@@ -268,13 +288,28 @@ async def test_upload_preview_download_range_and_relock(mcp_http):
     assert preview["content"][0]["type"] == "image"
     export = body(await rpc(mcp_http, "media_export", {"ref": refs["media_ref"]}))
     url = "/mcp/profiles/default/download/" + quote(export["transfer_handle"], safe="")
-    downloaded = await mcp_http.get(url)
-    assert downloaded.status_code == 200, downloaded.text
-    assert downloaded.content == data.getvalue()
+    assert export["download_url"].startswith("http://test" + url + "?expires=")
+    assert export["download_url"].endswith("Z")
+    # The link is the credential: no Authorization header, as curl or a
+    # browser would send it. A tampered link is refused.
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_http._transport.app), base_url="http://test"
+    ) as anonymous:
+        downloaded = await anonymous.get(url)
+        assert downloaded.status_code == 200, downloaded.text
+        assert downloaded.content == data.getvalue()
+        assert (await anonymous.get(url[:-4] + "0000")).status_code == 403
     partial = await mcp_http.get(url, headers={"Range": "bytes=0-9"})
     assert partial.status_code == 206
     assert partial.content == data.getvalue()[:10]
     assets = body(await rpc(mcp_http, "assets_get", {"refs": [refs["asset_ref"]]}))
+    # Asset details carry the link inline, so no export step is needed.
+    inline = assets["items"][0]["download_url"]
+    assert inline.startswith("http://test/mcp/profiles/default/download/")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_http._transport.app), base_url="http://test"
+    ) as anonymous:
+        assert (await anonymous.get(inline)).content == data.getvalue()
     assert assets["items"][0]["revision"]["id"].startswith("revision:")
     assert "file_path" not in json.dumps(assets)
     await rpc(mcp_http, "access_lock")
@@ -292,20 +327,16 @@ async def test_marker_assignment_accepts_refs(mcp_http):
     marker = markers["items"][0]
     from mcp_server.server import catalog
 
-    schema = catalog()["markers_update"].inputSchema
+    schema = catalog()["assets_update"].inputSchema
     # The same schema used by the host names every action-specific field.
     result = await rpc(
         mcp_http,
-        "markers_update",
+        "assets_update",
         {
-            "action": "assign",
-            "request": {
-                "asset_ids": [
-                    asset["asset_id"] if "asset_id" in asset else asset["id"]
-                ],
-                "marker_id": marker["id"],
-                "add": True,
-            },
+            "action": "markers",
+            "asset_refs": [asset["asset_ref"] if "asset_ref" in asset else asset["id"]],
+            "marker_ref": marker["id"],
+            "add": True,
             "request_key": "marker-add",
         },
     )
@@ -418,7 +449,7 @@ async def wait_job(client, accepted):
     return body(await rpc(client, "jobs_get", {"job_ref": accepted["job_ref"]}))
 
 
-async def test_saved_edit_and_selection_pins_revision(mcp_http):
+async def test_saved_edit_pins_revision(mcp_http):
     await rpc(mcp_http, "access_open")
     accepted = body(
         await rpc(
@@ -430,12 +461,6 @@ async def test_saved_edit_and_selection_pins_revision(mcp_http):
     first = await wait_job(mcp_http, accepted)
     assert first["state"] == "succeeded", first
     refs = first["result"]
-    selected = body(await rpc(mcp_http, "assets_select", {"query": {}}))
-    before = body(
-        await rpc(
-            mcp_http, "selections_get", {"selection_ref": selected["selection_ref"]}
-        )
-    )
     args = {
         "format": "markdown",
         "text": "# Revised",
@@ -448,12 +473,6 @@ async def test_saved_edit_and_selection_pins_revision(mcp_http):
     )
     assert revised["state"] == "succeeded", revised
     assert revised["result"]["revision_ref"] != refs["revision_ref"]
-    after = body(
-        await rpc(
-            mcp_http, "selections_get", {"selection_ref": selected["selection_ref"]}
-        )
-    )
-    assert before == after
     args.update(text="# Stale", request_key="stale-revision")
     conflict = await wait_job(
         mcp_http, body(await rpc(mcp_http, "content_update", args))
@@ -526,169 +545,6 @@ async def test_unknown_provider_outcome_is_retained_and_not_retried(
     )
     assert body(retry)["code"] == "retry_unavailable"
     assert calls == ["first", "second"]
-
-
-async def test_stdio_bridge_roundtrip_and_private_install(
-    mcp_app, tmp_path, monkeypatch, capsys
-):
-    import os, socket, sys
-    import uvicorn
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    from mcp_server.bridge import install, config_path
-    from mcp_server.access import installation_id
-    from mcp_server.models import McpClient
-    from database_registry import get_database_registry
-
-    credential = "test-only-bridge-credential-with-sufficient-length"
-    async with (
-        get_database_registry().get_database("default").async_session_maker() as session
-    ):
-        session.add(
-            McpClient(
-                id="bridge-test",
-                name="Bridge test",
-                credential_hash=hashlib.sha256(credential.encode()).hexdigest(),
-                installation=installation_id(),
-            )
-        )
-        await session.commit()
-    listener = socket.socket()
-    listener.bind(("127.0.0.1", 0))
-    port = listener.getsockname()[1]
-    config = {
-        "alias": "test",
-        "credential": credential,
-        "endpoint": f"http://127.0.0.1:{port}/mcp/profiles/default",
-        "download_directory": str(tmp_path / "downloads"),
-    }
-    bootstrap = tmp_path / "connection.json"
-    bootstrap.write_text(json.dumps(config))
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    install(bootstrap)
-    assert config_path("test").stat().st_mode & 0o777 == 0o600
-    assert credential not in capsys.readouterr().out
-    server = uvicorn.Server(
-        uvicorn.Config(mcp_app, lifespan="off", access_log=False, log_level="error")
-    )
-    task = asyncio.create_task(server.serve(sockets=[listener]))
-    while not server.started:
-        await asyncio.sleep(0.01)
-    try:
-        params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "mcp_server.bridge", "bridge", "test"],
-            env=dict(os.environ),
-        )
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as client:
-                await client.initialize()
-                names = {t.name for t in (await client.list_tools()).tools}
-                assert {"media_upload", "media_download", "agent_start"} <= names
-                opened = await client.call_tool("access_open", {})
-                assert not opened.isError
-                from PIL import Image
-
-                source = tmp_path / "bridge.png"
-                Image.new("RGB", (4, 4), "blue").save(source)
-                uploaded = await client.call_tool("media_upload", {"path": str(source)})
-                assert not uploaded.isError, uploaded
-                downloaded = await client.call_tool(
-                    "media_download", {"ref": uploaded.structuredContent["media_ref"]}
-                )
-                assert not downloaded.isError, downloaded
-                from pathlib import Path
-
-                assert (
-                    Path(downloaded.structuredContent["path"]).read_bytes()
-                    == source.read_bytes()
-                )
-    finally:
-        server.should_exit = True
-        await task
-        listener.close()
-
-
-async def test_ui_selection_requires_explicit_share_and_lock_clears_it(mcp_http):
-    from mcp_server.access import access
-
-    await rpc(mcp_http, "access_open")
-    assert not body(await rpc(mcp_http, "ui_context_get"))["shared"]
-    item = body(await rpc(mcp_http, "assets_query"))["items"][0]
-    reference = item.get("asset_id") or item["id"]
-    caller = await access.authenticate("default", "test-credential-one")
-    identifier = int(access.resolve(caller, reference, "asset"))
-    response = await mcp_http.post(
-        "/api/mcp/context",
-        json={"asset_ids": [identifier]},
-        headers={"X-Profile-ID": "default"},
-    )
-    assert response.status_code == 200, response.text
-    shared = body(await rpc(mcp_http, "ui_context_get"))
-    assert shared["shared"] and shared["targets"][0]["asset_ref"] == reference
-    await mcp_http.post("/api/mcp/lock", headers={"X-Profile-ID": "default"})
-    await rpc(mcp_http, "access_open")
-    assert not body(await rpc(mcp_http, "ui_context_get"))["shared"]
-
-
-async def test_flow_runs_real_scalar_program(mcp_http, monkeypatch):
-    from mcp_server import workspace
-
-    original = workspace.execute_flow
-    errors = []
-
-    async def capture(*args):
-        try:
-            return await original(*args)
-        except Exception as exc:
-            errors.append(repr(exc))
-            raise
-
-    monkeypatch.setattr(workspace, "execute_flow", capture)
-    from core.profile_context import ProfileScope
-    from database import Flow
-    from database_registry import get_database_registry
-    from flow_runtime import create_flow_directory, get_flow_program_path
-    from mcp_server.access import access
-
-    program = """from stimma.flow import flow, output, code, phase
-@flow(name="MCP scalar", outputs={"result": output("str")})
-def program():
-    with phase("Greeting"):
-        return code(lambda: "Hello from Flow", inputs={}, output_type="text")
-"""
-    caller = await access.authenticate("default", "test-credential-one")
-    with ProfileScope("default"):
-        async with (
-            get_database_registry()
-            .get_database("default")
-            .async_session_maker() as session
-        ):
-            flow = Flow(name="MCP scalar")
-            session.add(flow)
-            await session.flush()
-            create_flow_directory(flow.id)
-            get_flow_program_path(flow.id).write_text(program)
-            await session.commit()
-            ref = access.ref(caller, "flow", flow.id)
-    await rpc(mcp_http, "access_open")
-    started = body(
-        await rpc(
-            mcp_http,
-            "flows_run",
-            {
-                "flow_ref": ref,
-                "program_version": hashlib.sha256(program.encode()).hexdigest(),
-                "request_key": "scalar-flow",
-            },
-        )
-    )
-    result = await wait_job(mcp_http, started)
-    assert result["state"] == "succeeded", (result, errors)
-    assert not errors, errors
-    assert result["result"]["outputs"] == [
-        {"name": "result", "value": "Hello from Flow"}
-    ]
 
 
 async def test_second_profile_database_and_custom_tool_cache_are_isolated(
@@ -809,144 +665,201 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
     assert delivered == ["Committed before broadcast"]
 
 
-async def test_flow_selection_waits_for_exact_response(mcp_http, monkeypatch):
+@pytest.mark.asyncio
+async def test_new_connection_reports_path_and_real_loopback_port(mcp_app, monkeypatch):
+    """The app joins ``path`` to its own origin (the shell's proxy, which also
+    reaches a remote server); ``endpoint`` must name the port actually bound,
+    not the config preference the shell overrides with --port 0."""
+    from core import listener
+
+    monkeypatch.setattr(listener, "_port", 43210)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_app),
+        base_url="http://test",
+        headers={"X-Profile-ID": "default"},
+    ) as client:
+        response = await client.post("/api/mcp/clients", json={"name": "Claude Desktop"})
+        assert response.status_code == 200, response.text
+        connection = response.json()["connection"]
+        assert connection["path"] == "/mcp/profiles/default"
+        assert connection["endpoint"] == "http://127.0.0.1:43210/mcp/profiles/default"
+        await client.delete(f"/api/mcp/clients/{response.json()['id']}")
+
+
+async def test_tool_permission_ask_is_allow_over_mcp_and_deny_holds(mcp_http, monkeypatch):
+    """The connection key is the consent: a tool that would ask in the app runs
+    straight through for an MCP-driven chat. An explicit deny still blocks."""
+    from types import SimpleNamespace
+    from sqlalchemy.ext.asyncio import async_sessionmaker
     from mcp_server import workspace
-
-    original = workspace.execute_flow
-    errors = []
-
-    async def capture(*args):
-        try:
-            return await original(*args)
-        except Exception as exc:
-            errors.append(repr(exc))
-            raise
-
-    monkeypatch.setattr(workspace, "execute_flow", capture)
-    from core.profile_context import ProfileScope
-    from database import Flow
-    from database_registry import get_database_registry
-    from flow_runtime import create_flow_directory, get_flow_program_path
     from mcp_server.access import access
-    from mcp_server import jobs
+    from agent.v2 import tool_permission_gate
+    from agent.v2.code_runtime import StimmaSDK
 
-    program = """from stimma.flow import flow, output, code, phase, hitl
-@flow(name="MCP selection", outputs={"result": output("str")})
-def program():
-    with phase("Choose"):
-        candidates = code(lambda: ["first", "second"], inputs={}, output_type="list[str]")
-        return hitl.select(candidates, count=1, instructions="Choose the second option")
-"""
-    caller = await access.authenticate("default", "test-credential-one")
-    with ProfileScope("default"):
-        async with (
-            get_database_registry()
-            .get_database("default")
-            .async_session_maker() as session
-        ):
-            flow = Flow(name="MCP selection")
-            session.add(flow)
-            await session.flush()
-            create_flow_directory(flow.id)
-            get_flow_program_path(flow.id).write_text(program)
-            await session.commit()
-            ref = access.ref(caller, "flow", flow.id)
-    await rpc(mcp_http, "access_open")
-    accepted = body(
-        await rpc(
-            mcp_http,
-            "flows_run",
-            {
-                "flow_ref": ref,
-                "program_version": hashlib.sha256(program.encode()).hexdigest(),
-                "request_key": "flow-choice",
-            },
-        )
+    descriptor = SimpleNamespace(
+        parameter_schema={"type": "object", "properties": {"prompt": {"type": "string"}}},
+        output_schema={},
+        metadata={},
     )
-    try:
-        async with asyncio.timeout(5):
-            while True:
-                result = body(
-                    await rpc(mcp_http, "jobs_get", {"job_ref": accepted["job_ref"]})
-                )
-                assert result["state"] not in ("succeeded", "failed"), errors
-                if result["state"] == "input_required":
-                    break
-                await asyncio.sleep(0.01)
-        history = body(
-            await rpc(mcp_http, "chat_history", {"chat_ref": accepted["chat_ref"]})
-        )
-        assert history["items"] and history["items"][-1]["type"] == "hitl_request"
-        args = {
-            "job_ref": accepted["job_ref"],
-            "controller_version": result["controller_version"],
-            "interaction_ref": result["interaction"]["ref"],
-            "version": 1,
-            "response": {"choice_indices": [1]},
-            "request_key": "choose-second",
-        }
-        response = await rpc(mcp_http, "interaction_respond", args)
-        assert not response.get("isError"), response
-        assert body(await rpc(mcp_http, "interaction_respond", args)) == body(response)
-        result = await wait_job(mcp_http, accepted)
-        assert result["state"] == "succeeded", result
-        assert result["result"]["outputs"][0]["value"] == "second"
-        args["request_key"] = "stale-question"
-        assert (
-            body(await rpc(mcp_http, "interaction_respond", args))["code"]
-            == "control_changed"
-        )
-    finally:
-        for task in list(jobs._tasks.values()):
-            task.cancel()
-        await asyncio.gather(*list(jobs._tasks.values()), return_exceptions=True)
 
+    async def descriptor_for(*args):
+        return "test:gated", None, descriptor
 
-async def test_flow_candidate_preview_is_temporary_and_read_only(mcp_http):
-    from mcp_server.workspace import flow_candidate
-    from mcp_server.access import access
-    from database import MediaItem
-    from database_registry import get_database_registry
-    from flow_dsl.shapes import Scalar
-    from PIL import Image
-    import io
+    monkeypatch.setattr(workspace, "tool_descriptor", descriptor_for)
+    decision = {"value": "ask"}
 
-    data = io.BytesIO()
-    Image.new("RGB", (4, 4), "green").save(data, format="PNG")
-    await rpc(mcp_http, "access_open")
-    uploaded = (
-        await mcp_http.post(
-            "/mcp/profiles/default/upload",
-            content=data.getvalue(),
-            headers={"X-Filename": "candidate.png"},
+    async def configured(*args, **kwargs):
+        return decision["value"]
+
+    monkeypatch.setattr(tool_permission_gate, "get_stp_permission_decision", configured)
+
+    async def dispatch(self, tool_id, *args, **kwargs):
+        await tool_permission_gate.ensure_tool_permission(
+            chat_id=self.chat_id,
+            tool_id=tool_id,
+            kwargs=kwargs["_params_dict"],
+            run_cache={},
+            session_maker=async_sessionmaker(self.session.bind, expire_on_commit=False),
         )
-    ).json()
+        return {"text": "generated"}
+
+    monkeypatch.setattr(StimmaSDK, "_dispatch_tool", dispatch)
     caller = await access.authenticate("default", "test-credential-one")
-    async with (
-        get_database_registry().get_database("default").async_session_maker() as session
-    ):
-        media = await session.get(
-            MediaItem, int(access.resolve(caller, uploaded["media_ref"], "media"))
-        )
-        media.ephemeral_run_id = "test-candidate-run"
-        await session.commit()
-        try:
-            candidate = await flow_candidate(caller, media.id, Scalar("media"), session)
-            result = await rpc(
-                mcp_http, "media_read", {"ref": candidate["preview_ref"]}
-            )
-            assert (
-                not result.get("isError") and result["content"][0]["type"] == "image"
-            ), result
-            assert (
-                await rpc(mcp_http, "media_export", {"ref": candidate["preview_ref"]})
-            )["isError"]
-            # Reusing a payload for another run cannot reuse this preview authority.
-            media.ephemeral_run_id = "different-run"
-            await session.commit()
-            assert (
-                await rpc(mcp_http, "media_read", {"ref": candidate["preview_ref"]})
-            )["isError"]
-        finally:
-            media.ephemeral_run_id = None
-            await session.commit()
+
+    def run(key):
+        return rpc(mcp_http, "tools_run", {
+            "tool_ref": access.ref(caller, "tool", "test:gated"),
+            "schema_version": workspace.tool_version(descriptor),
+            "parameters": {},
+            "batch": [{"prompt": "a dog"}],
+            "request_key": key,
+        })
+
+    result = await wait_job(mcp_http, body(await run("gated-ask")))
+    assert result["state"] == "succeeded", result
+
+    decision["value"] = "deny"
+    result = await wait_job(mcp_http, body(await run("gated-deny")))
+    assert result["state"] == "failed", result
+    assert result["result"]["items"][0]["error"]["code"] == "forbidden"
+
+
+
+async def test_surface_is_the_product_surface(mcp_app):
+    """An assistant gets the library, generation, and organization. Not Flows,
+    custom tools, chat contents, presets, saved views or public sharing."""
+    from mcp_server.server import catalog
+
+    offered = catalog()
+    assert {"tools_run", "agent_start", "assets_query", "assets_update", "boards_update", "content_update", "media_export"} <= set(offered)
+    for gone in ("flows_run", "flows_update", "custom_tools_update", "chat_history", "ui_context_get",
+                 "share_publish", "presets_update", "saved_views_get", "assets_select", "entities_search",
+                 "markers_update", "assets_trash", "containers_create"):
+        assert gone not in offered, gone
+    actions = lambda n: {v["properties"]["action"]["const"] for v in offered[n].inputSchema["oneOf"]}
+    assert actions("boards_update") == {"create", "update", "trash", "restore", "section_create", "section_update", "section_delete", "section_reorder", "add", "remove", "move"}
+    assert actions("chats_update") == {"update", "trash"}
+    assert actions("projects_update") == {"create", "update"}
+    assert "markers" in actions("assets_update") and "promote" not in actions("assets_update")
+    for tool in offered.values():
+        assert "profile_locked" not in tool.description
+    assert len(offered) <= 30
+
+
+async def test_tools_run_resolves_image_refs_and_names_failures(mcp_http, monkeypatch):
+    """A provider image picker takes library media ids. The assistant sends the
+    opaque media ref it was given; the executor must receive the id, not the
+    ref, and a failing run must say why instead of "unknown outcome"."""
+    import io
+    from types import SimpleNamespace
+    from PIL import Image
+    from mcp_server import workspace
+    from mcp_server.access import access
+    from agent.v2.code_runtime import StimmaSDK
+
+    image = Image.new("RGB", (8, 8), "green")
+    data = io.BytesIO()
+    image.save(data, format="PNG")
+    upload = await mcp_http.post(
+        "/mcp/profiles/default/upload",
+        content=data.getvalue(),
+        headers={"X-Filename": "source.png", "Content-Type": "application/octet-stream"},
+    )
+    media_ref = upload.json()["media_ref"]
+    caller = await access.authenticate("default", "test-credential-one")
+    media_id = int(access.resolve(caller, media_ref, "media"))
+
+    descriptor = SimpleNamespace(
+        parameter_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "input_images": {"type": "array", "items": {"type": "string"}, "x-control": "image_picker"},
+            },
+            "required": ["prompt"],
+        },
+        output_schema={},
+        metadata={},
+    )
+
+    async def descriptor_for(*args):
+        return "test:i2i", None, descriptor
+
+    monkeypatch.setattr(workspace, "tool_descriptor", descriptor_for)
+    seen = []
+
+    async def dispatch(self, tool_id, *args, **kwargs):
+        seen.append(kwargs["_params_dict"])
+        raise RuntimeError("provider said: bad input at /srv/stimma/media/1.png")
+
+    monkeypatch.setattr(StimmaSDK, "_dispatch_tool", dispatch)
+    accepted = body(await rpc(mcp_http, "tools_run", {
+        "tool_ref": access.ref(caller, "tool", "test:i2i"),
+        "schema_version": workspace.tool_version(descriptor),
+        "parameters": {"prompt": "sticker", "input_images": [media_ref]},
+        "request_key": "i2i-run",
+    }))
+    result = await wait_job(mcp_http, accepted)
+    assert seen and seen[0]["input_images"] == [media_id]
+    item = result["result"]["items"][0]
+    assert item["state"] == "interrupted"
+    assert "provider said: bad input" in item["error"]["message"]
+    assert "/srv/" not in item["error"]["message"]
+
+
+async def test_upload_link_then_revise_without_a_key(mcp_http):
+    """An assistant edits locally and publishes a revision: POST to the upload
+    link with no key, then content_update onto the existing asset."""
+    import io
+    from PIL import Image
+
+    status = body(await rpc(mcp_http, "workspace_get"))
+    assert status["upload_url"].startswith("http://test/mcp/profiles/default/upload/")
+    assert "expires=" in status["upload_url"]
+
+    def png(color):
+        data = io.BytesIO()
+        Image.new("RGB", (8, 8), color).save(data, format="PNG")
+        return data.getvalue()
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mcp_http._transport.app), base_url="http://test"
+    ) as anonymous:
+        first = await anonymous.post(status["upload_url"], content=png("red"), headers={"X-Filename": "v1.png"})
+        assert first.status_code == 200, first.text
+        second = await anonymous.post(status["upload_url"], content=png("gray"), headers={"X-Filename": "v2.png"})
+        assert second.status_code == 200, second.text
+        bad = await anonymous.post(status["upload_url"][:-30] + "x" * 30, content=b"x")
+        assert bad.status_code in (403, 404)
+    original = body(await rpc(mcp_http, "assets_get", {"refs": [first.json()["asset_ref"]]}))["items"][0]
+    revised = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", {
+        "format": "image",
+        "source_ref": second.json()["media_ref"],
+        "transforms": [],
+        "target_asset_ref": first.json()["asset_ref"],
+        "expected_current_revision": original["revision"]["id"],
+        "request_key": "revise-from-upload",
+    })))
+    assert revised["state"] == "succeeded", revised
+    assert revised["result"]["asset_ref"] == first.json()["asset_ref"]
+    assert revised["result"]["revision_ref"] != original["revision"]["id"]

@@ -5,7 +5,7 @@ import http from 'node:http'
 import net from 'node:net'
 import path from 'node:path'
 
-import { forwardHeaders, getProxyPort, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
+import { DEVICE_SESSION_HEADER, forwardHeaders, getProxyPort, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
 import { makeScratchDir } from './scratch.mjs'
 
 const scratchCleanups = new Set<() => void>()
@@ -95,6 +95,26 @@ test('forwardHeaders drops hop-by-hop headers and re-points Host', () => {
   assert.equal(out['x-profile-id'], 'profile-abc123')
   assert.equal(out.range, 'bytes=0-1023')
   assert.equal(out.origin, 'app://stimma')
+})
+
+test('forwardHeaders carries the device session separately and keeps the caller\'s bearer', () => {
+  const remote = { host: '10.0.0.5', port: 8443, tls: true, session: 'sess-1' }
+
+  // The renderer sends no bearer: older devices read the session from Authorization.
+  const renderer = forwardHeaders({ host: '127.0.0.1:1111' }, remote)
+  assert.equal(renderer[DEVICE_SESSION_HEADER], 'sess-1')
+  assert.equal(renderer.authorization, 'Bearer sess-1')
+
+  // An MCP assistant on this machine authenticates with its own key, which
+  // must reach the device — the proxy is the server URL it was given.
+  const assistant = forwardHeaders({ host: '127.0.0.1:1111', authorization: 'Bearer mcp-key' }, remote)
+  assert.equal(assistant[DEVICE_SESSION_HEADER], 'sess-1')
+  assert.equal(assistant.authorization, 'Bearer mcp-key')
+
+  // The local backend has no session; nothing is injected.
+  const local = forwardHeaders({ host: '127.0.0.1:1111', authorization: 'Bearer mcp-key' }, { host: '127.0.0.1', port: 4242 })
+  assert.equal(local[DEVICE_SESSION_HEADER], undefined)
+  assert.equal(local.authorization, 'Bearer mcp-key')
 })
 
 test('503s with no target rather than failing the connection', async () => {

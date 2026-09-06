@@ -814,6 +814,7 @@ async def lifespan(app: FastAPI):
             log.info("initializing tool providers")
             from providers import ProviderRegistry
             provider_registry = ProviderRegistry.get_instance()
+            provider_registry.begin_discovery()
 
             from backend_registry import get_backend_registry
             backend_registry = get_backend_registry()
@@ -876,6 +877,9 @@ async def lifespan(app: FastAPI):
                 log.info("jsonrpc providers initialized", count=jsonrpc_count)
         except Exception:
             log.exception("tool provider initialization failed (non-fatal)")
+        finally:
+            from providers import ProviderRegistry
+            ProviderRegistry.get_instance().finish_discovery()
 
     # Wrap entire startup in try/except to ensure exceptions are logged
     # (FastAPI/Starlette can swallow lifespan exceptions silently)

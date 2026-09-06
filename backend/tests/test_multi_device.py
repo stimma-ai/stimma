@@ -371,6 +371,71 @@ async def test_serving_gate_marks_only_its_own_session_rejections(monkeypatch):
     assert server.SESSION_INVALID_HEADER in start["headers"]
 
 
+@pytest.mark.asyncio
+async def test_serving_gate_reads_the_session_from_its_own_header(monkeypatch):
+    """The proxy carries the device session in a named header so a caller's
+    own bearer — an MCP connection key — reaches the app untouched. A bare
+    bearer still works for older proxies and mobile clients."""
+    monkeypatch.setattr(
+        server, "verify_session", lambda token: {"ok": True} if token == "device-session" else None
+    )
+    seen, sent = [], []
+
+    async def inner_app(scope, _receive, send):
+        seen.append(scope["headers"])
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    gate = server.ServingGate(inner_app, lambda: "server-device")
+    await gate(
+        {
+            "type": "http",
+            "path": "/mcp/profiles/p1",
+            "method": "POST",
+            "headers": [
+                (b"authorization", b"Bearer mcp-key"),
+                (server.DEVICE_SESSION_HEADER, b"device-session"),
+            ],
+        },
+        receive,
+        send,
+    )
+    assert sent[0]["status"] == 200
+    assert (b"authorization", b"Bearer mcp-key") in seen[0]
+
+    sent.clear()
+    await gate(
+        {
+            "type": "http",
+            "path": "/api/settings",
+            "method": "GET",
+            "headers": [(b"authorization", b"Bearer device-session")],
+        },
+        receive,
+        send,
+    )
+    assert sent[0]["status"] == 200
+
+    sent.clear()
+    await gate(
+        {
+            "type": "http",
+            "path": "/mcp/profiles/p1",
+            "method": "POST",
+            "headers": [(b"authorization", b"Bearer mcp-key")],
+        },
+        receive,
+        send,
+    )
+    assert sent[0]["status"] == 401
+
+
 # --- port allocation ---------------------------------------------------------
 #
 # Port assignment must never be something a developer or user debugs. Several

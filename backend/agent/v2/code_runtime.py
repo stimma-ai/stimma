@@ -830,7 +830,30 @@ class StimmaLibraryAPI:
                 "parameters": item.parameters,
                 "seed": item.seed,
                 "source_media_ids": item.input_media_ids,
+                "prompt": item.prompt or (item.parameters or {}).get("prompt") or "",
             }
+            # The provider already recorded the whole story on its own result
+            # (prompt, model, generator, every parameter). The library copy must
+            # say exactly the same thing, whichever surface asked for the run:
+            # tool view, agent, Flow or MCP all land here.
+            if item.media_id is not None:
+                origin = await self._sdk.session.get(MediaItem, item.media_id)
+                origin_gen = {}
+                if origin is not None and origin.generation_metadata:
+                    try:
+                        origin_gen = json.loads(origin.generation_metadata)
+                    except (TypeError, json.JSONDecodeError):
+                        origin_gen = {}
+                if origin_gen:
+                    provenance["parameters"] = {
+                        **(origin_gen.get("parameters") or {}),
+                        **(item.parameters or {}),
+                    }
+                    for key in ("prompt", "negative_prompt", "model", "generator", "prompt_metadata"):
+                        if origin_gen.get(key) and not provenance.get(key):
+                            provenance[key] = origin_gen[key]
+                    provenance["task_type"] = origin_gen.get("task_type") or provenance["task_type"]
+                    provenance["tool_id"] = origin_gen.get("tool_id") or provenance["tool_id"]
             # Build lineage_trace and structured source_inputs from input sources
             if item.input_media_ids:
                 base = await self._sdk._build_edit_provenance(item.input_media_ids)

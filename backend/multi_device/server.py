@@ -41,6 +41,11 @@ PING_PATH = "/multi-device/ping"
 # Lets the connecting proxy distinguish a gate rejection from an ordinary
 # application-level 401 and refresh the device session without guessing.
 SESSION_INVALID_HEADER = (b"x-stimma-session-invalid", b"1")
+# The connecting proxy carries the device session here so the request's own
+# Authorization header (an MCP connection key from an assistant on the
+# connecting machine, say) reaches the app intact. A bearer is still accepted
+# for older proxies and for mobile clients that talk to this listener directly.
+DEVICE_SESSION_HEADER = b"x-stimma-device-session"
 
 _server_task: Optional[asyncio.Task] = None
 _server = None
@@ -108,6 +113,13 @@ def _bearer(headers: list[tuple[bytes, bytes]]) -> Optional[str]:
     return None
 
 
+def _session_token(headers: list[tuple[bytes, bytes]]) -> Optional[str]:
+    for name, value in headers:
+        if name.lower() == DEVICE_SESSION_HEADER:
+            return value.decode("latin-1").strip() or None
+    return _bearer(headers)
+
+
 class ServingGate:
     """ASGI wrapper enforcing session auth on every request and socket."""
 
@@ -139,7 +151,7 @@ class ServingGate:
                 await self._bootstrap(scope, receive, send)
                 return
 
-            if not verify_session(_bearer(scope.get("headers", []))):
+            if not verify_session(_session_token(scope.get("headers", []))):
                 await _send_json(
                     send,
                     401,
@@ -156,7 +168,7 @@ class ServingGate:
             # Same credential as HTTP. Browsers cannot set headers on a
             # WebSocket handshake, but the connecting side is our own proxy,
             # which can.
-            if not verify_session(_bearer(scope.get("headers", []))):
+            if not verify_session(_session_token(scope.get("headers", []))):
                 await send({"type": "websocket.close", "code": 1008})
                 return
             await self.app(scope, receive, send)

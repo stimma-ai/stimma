@@ -135,6 +135,11 @@
                   {{ chat.name }}
                 </span>
                 <span
+                  v-if="chat.generation_settings?.mcp_origin"
+                  class="shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
+                  title="Driven by a connected assistant over MCP"
+                >MCP</span>
+                <span
                   v-else
                   @click="onNameTap(chat, $event)"
                   class="text-[14px] text-content-muted italic truncate cursor-pointer hover:text-content-secondary"

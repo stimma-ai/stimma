@@ -16,7 +16,7 @@
     <label class="flex cursor-pointer items-center justify-between gap-6 py-1">
       <span>
         <span class="block text-sm text-content">Allow assistants to connect to this profile</span>
-        <span class="mt-1 block text-xs text-content-tertiary">Assistants can only reach Stimma while it’s running on this computer.</span>
+        <span class="mt-1 block text-xs text-content-tertiary">{{ reachNote }}</span>
       </span>
       <span class="relative inline-flex shrink-0 items-center">
         <input type="checkbox" role="switch" aria-label="Allow assistants to connect to this profile" class="peer sr-only" :checked="state.enabled" :disabled="busy || loading" @change="setEnabled($event.target.checked)" />
@@ -44,9 +44,12 @@
           <div>
             <p class="mb-1.5 text-xs text-content-tertiary">Server URL</p>
             <div class="flex h-9 items-center gap-1 rounded-md border border-edge bg-base pl-3 pr-1">
-              <code class="min-w-0 flex-1 truncate font-mono text-xs text-content select-text">{{ currentSetup.connection.endpoint }}</code>
-              <Button variant="ghost" size="sm" @click="copy('url', currentSetup.connection.endpoint)">{{ copied === 'url' ? 'Copied' : 'Copy URL' }}</Button>
+              <code class="min-w-0 flex-1 truncate font-mono text-xs text-content select-text">{{ serverUrl(currentSetup.connection) }}</code>
+              <Button variant="ghost" size="sm" @click="copy('url', serverUrl(currentSetup.connection))">{{ copied === 'url' ? 'Copied' : 'Copy URL' }}</Button>
             </div>
+            <p v-if="isRemote" class="mt-1.5 text-xs leading-relaxed text-content-tertiary" data-testid="mcp-relay-note">
+              This address is on this computer, not {{ activeDeviceName }}. Stimma forwards it to {{ activeDeviceName }} while it’s open, so the assistant never needs to reach the server directly.
+            </p>
           </div>
           <div>
             <p class="mb-1.5 text-xs text-content-tertiary">Key <span class="text-content-muted">(use as a Bearer token)</span></p>
@@ -125,15 +128,32 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import axios from 'axios'
-import { getApiBase } from '../../../apiConfig'
+import { getApiBase, getBackendOrigin } from '../../../apiConfig'
+import { useMultiDevice } from '../../../composables/useMultiDevice'
 import { desktop } from '../../../desktop'
 import { copyToClipboard } from '../../../utils/clipboard'
 import Button from '../../ui/Button.vue'
 import Modal from '../../ui/Modal.vue'
 
 const suggestions = ['Claude Desktop', 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok', 'OpenCode', 'Pi']
+
+const { isRemote, activeDeviceName } = useMultiDevice()
+
+const reachNote = computed(() => isRemote.value
+  ? `Assistants connect through this computer. Stimma has to be open and connected to ${activeDeviceName.value} for them to reach it.`
+  : 'Assistants can only reach Stimma while it’s running on this computer.')
+
+// The URL an assistant on this machine can actually open. In the desktop app
+// that is the shell's loopback proxy, which forwards to whichever install the
+// window is on — the only route to a remote server, whose backend listens on
+// loopback behind the TLS device gate. Outside the shell (dev, acceptance)
+// the backend's own address is on this machine and works as-is.
+function serverUrl(connection) {
+  const origin = getBackendOrigin()
+  return origin && connection.path ? `${origin}${connection.path}` : connection.endpoint
+}
 
 const state = ref({ enabled: false, clients: [] })
 const error = ref('')

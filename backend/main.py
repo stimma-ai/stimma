@@ -249,6 +249,11 @@ if __name__ == "__main__":
             s.bind(('127.0.0.1', 0))
             port = s.getsockname()[1]
 
+    # Remember the real port: config only holds the preference, and the MCP
+    # setup card must not hand out a number nothing is listening on.
+    from core.listener import set_port
+    set_port(port)
+
     # Output port in a parseable format for Tauri to read
     # This MUST be printed before uvicorn starts to ensure Tauri can parse it
     print(f"STIMMA_BACKEND_PORT={port}", flush=True)

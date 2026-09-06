@@ -50,7 +50,34 @@ class ProviderRegistry:
         # that were parked in WAITING_FOR_TOOL once their tool reappears.
         self._tools_changed_subscribers: List[Callable[[], None]] = []
         self._lock = asyncio.Lock()
+        # Startup discovery: set once the initial pass over configured
+        # providers has finished (successfully or not). Lookups that must
+        # not race a fresh launch wait on it; nothing waits when discovery
+        # was never started (tests, tools).
+        self._discovery_started = False
+        self._discovered = asyncio.Event()
         self._initialized = True
+
+    def begin_discovery(self) -> None:
+        self._discovery_started = True
+        self._discovered.clear()
+
+    def finish_discovery(self) -> None:
+        self._discovered.set()
+
+    async def wait_for_discovery(self, timeout: float = 30.0) -> None:
+        """Block until the startup provider pass is done, or the timeout.
+
+        Right after launch the tool list is empty for a few seconds while
+        remote providers connect. Reporting a tool as unavailable in that
+        window is wrong and sends callers chasing a bug that is not there.
+        """
+        if not self._discovery_started or self._discovered.is_set():
+            return
+        try:
+            await asyncio.wait_for(self._discovered.wait(), timeout)
+        except asyncio.TimeoutError:
+            pass
 
     def _visible_tools(self):
         from core.profile_context import get_current_profile
