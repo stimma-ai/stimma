@@ -10,10 +10,11 @@ export const TEXT_FORMATS = ['md']
 export const VECTOR_FORMATS = ['svg']
 export const SET_FORMATS = ['stimmaset.json']
 export const GRID_FORMATS = ['stimmagrid.json']
+export const SPRITE_FORMATS = ['stimmasprite.json']
 export const LAYOUT_FORMATS = ['stimmalayout']
-export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...LAYOUT_FORMATS]
+export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...SPRITE_FORMATS, ...LAYOUT_FORMATS]
 
-export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'layout'
+export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'sprite' | 'layout'
 
 export interface MediaItem {
   file_format: string
@@ -30,6 +31,7 @@ export function getMediaType(item: MediaItem): MediaType {
   if (format === 'svg') return 'vector'
   if (format === 'stimmaset.json') return 'set'
   if (format === 'stimmagrid.json') return 'grid'
+  if (format === 'stimmasprite.json') return 'sprite'
   if (format === 'stimmalayout') return 'layout'
   if (AUDIO_FORMATS.includes(format)) return 'audio'
   if (VIDEO_FORMATS.includes(format)) return 'video'
@@ -62,6 +64,10 @@ export function isAudio(item: MediaItem): boolean {
  */
 export function isLayout(item: MediaItem): boolean {
   return LAYOUT_FORMATS.includes(item.file_format?.toLowerCase())
+}
+
+export function isSprite(item: MediaItem): boolean {
+  return SPRITE_FORMATS.includes(item.file_format?.toLowerCase())
 }
 
 export function isVector(item: MediaItem): boolean {
@@ -144,6 +150,15 @@ export function getBadgeConfig(item: MediaItem): BadgeConfig | null {
         bgColor: 'bg-gray-500/15',
         borderColor: 'border-gray-500/50',
         label: 'SVG'
+      }
+    // Same monochrome grammar as vector: film-frame glyph + label.
+    case 'sprite':
+      return {
+        icon: 'film',
+        color: 'text-gray-400',
+        bgColor: 'bg-gray-500/15',
+        borderColor: 'border-gray-500/50',
+        label: 'Sprite'
       }
     case 'layout':
       return {

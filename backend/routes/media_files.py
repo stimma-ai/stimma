@@ -54,7 +54,7 @@ ID_KEYED_CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -185,6 +185,7 @@ THEME_PALETTES = {
         'text_bg': '#1e293b', 'text_title': '#f1f5f9', 'text_separator': '#475569', 'text_body': '#94a3b8',
         'audio_bg': '#1a1a2e', 'audio_fallback_icon': '#9333ea',
         'placeholder_set_bg': '#1a1a2e', 'placeholder_grid_bg': '#1a1a2e', 'placeholder_default_bg': '#1f2937',
+        'sprite_bg': '#07090d', 'sprite_strip_bg': '#000000', 'sprite_strip_cell': '#161a22',
     },
     'light': {
         'set_bg': '#f4f4f5', 'set_card_border': '#d4d4d8',
@@ -192,6 +193,7 @@ THEME_PALETTES = {
         'text_bg': '#f1f5f9', 'text_title': '#1e293b', 'text_separator': '#cbd5e1', 'text_body': '#475569',
         'audio_bg': '#f0f0ff', 'audio_fallback_icon': '#7c3aed',
         'placeholder_set_bg': '#f0f0ff', 'placeholder_grid_bg': '#f0f0ff', 'placeholder_default_bg': '#f1f5f9',
+        'sprite_bg': '#e4e4e7', 'sprite_strip_bg': '#d4d4d8', 'sprite_strip_cell': '#f4f4f5',
     },
 }
 
@@ -732,6 +734,110 @@ def _generate_set_preview(
     except Exception as e:
         log.warning(f"Failed to generate set preview for {file_path}: {e}")
         return _generate_placeholder_thumbnail(size, 'set', palette=palette)
+
+
+def _sprite_frames(path: str, count: int) -> list:
+    """Up to ``count`` RGBA frames sampled evenly across an animated image."""
+    from PIL import ImageSequence
+
+    frames = []
+    with Image.open(path) as im:
+        for frame in ImageSequence.Iterator(im):
+            frames.append(frame.convert('RGBA'))
+    if not frames:
+        return []
+    if len(frames) <= count:
+        return frames
+    step = (len(frames) - 1) / max(1, count - 1)
+    return [frames[round(i * step)] for i in range(count)]
+
+
+def _fit_rgba(img: Image.Image, box_w: int, box_h: int, *, pixelated: bool) -> Image.Image:
+    """Scale an RGBA image to fit a box, cropped to its opaque bounds first."""
+    bbox = img.getbbox()
+    if bbox:
+        img = img.crop(bbox)
+    scale = min(box_w / max(1, img.width), box_h / max(1, img.height))
+    target = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+    # Integer upscales stay crisp for pixel art; everything else gets area averaging.
+    resample = Image.Resampling.NEAREST if pixelated and scale >= 1 else Image.Resampling.LANCZOS
+    return img.resize(target, resample)
+
+
+def _generate_sprite_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
+    """Portrait (or first idle frame) on a matte with a four-frame filmstrip footer.
+
+    The filmstrip is what says "this is animated" in a static tile. Mirrors the
+    approved SpritePlayer mock's browser-tile treatment.
+    """
+    import json
+
+    from sprite_document import parse_sprite_document, sprite_thumbnail_sources
+
+    palette = palette or THEME_PALETTES['dark']
+
+    try:
+        content = normalized_content
+        if content is None:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = json.load(f)
+        doc = parse_sprite_document(content) or {}
+        sources = sprite_thumbnail_sources(doc)
+        hero_path, anim_path = sources['hero'], sources['animation']
+        if not hero_path and not anim_path:
+            if sources['pending']:
+                raise ContainerMembersPending(file_path)
+            return _generate_placeholder_thumbnail(size, 'sprite', palette=palette)
+
+        style = str(doc.get('style') or '').lower()
+        pixelated = any(token in style for token in ('pixel', '8-bit', '16-bit', '1-bit', 'retro'))
+        strip_h = max(12, size // 6)
+        frames = _sprite_frames(anim_path, 4) if anim_path else []
+
+        canvas = Image.new('RGB', (size, size), palette['sprite_bg'])
+        hero_area_h = size - (strip_h if frames else 0)
+        hero = None
+        if hero_path:
+            with Image.open(hero_path) as im:
+                hero = im.convert('RGBA')
+        elif frames:
+            hero = frames[0]
+        if hero is not None:
+            margin = max(2, size // 16)
+            fitted = _fit_rgba(hero, size - 2 * margin, hero_area_h - 2 * margin, pixelated=pixelated)
+            x = (size - fitted.width) // 2
+            y = (hero_area_h - fitted.height) // 2
+            canvas.paste(fitted, (x, y), fitted)
+
+        if frames:
+            from PIL import ImageDraw
+
+            draw = ImageDraw.Draw(canvas)
+            draw.rectangle([0, size - strip_h, size, size], fill=palette['sprite_strip_bg'])
+            gap = max(1, size // 96)
+            cell_w = (size - gap * (len(frames) + 1)) // len(frames)
+            cell_h = strip_h - 2 * gap
+            for i, frame in enumerate(frames):
+                cx = gap + i * (cell_w + gap)
+                cy = size - strip_h + gap
+                draw.rectangle([cx, cy, cx + cell_w, cy + cell_h], fill=palette['sprite_strip_cell'])
+                fitted = _fit_rgba(frame, cell_w - 2, cell_h - 2, pixelated=pixelated)
+                canvas.paste(
+                    fitted,
+                    (cx + (cell_w - fitted.width) // 2, cy + (cell_h - fitted.height) // 2),
+                    fitted,
+                )
+        return canvas
+    except ContainerMembersPending:
+        raise
+    except Exception as e:
+        log.warning(f"Failed to generate sprite preview for {file_path}: {e}")
+        return _generate_placeholder_thumbnail(size, 'sprite', palette=palette)
 
 
 def _generate_grid_preview(
@@ -1451,10 +1557,16 @@ async def get_media_face_positions(
 
 async def _normalized_thumbnail_content(session, item: MediaItem) -> dict | None:
     """Resolve container members before thumbnail work leaves the DB thread."""
-    if item.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+    if item.file_format not in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json"}:
         return None
     from container_service import get_normalized_container_content
 
+    if item.file_format == "stimmasprite.json":
+        # Falls back to id/hash resolution when the sprite is not materialized
+        # as a container yet (scanned file, members not populated).
+        from sprite_document import resolved_sprite_content_for_media
+
+        return await resolved_sprite_content_for_media(session, item)
     return await get_normalized_container_content(
         session,
         container_media=item,
@@ -1515,6 +1627,16 @@ def _generate_thumbnail_sync(
 
         if format_lower == 'stimmagrid.json':
             img = _generate_grid_preview(
+                file_path,
+                size,
+                palette=palette,
+                normalized_content=normalized_content,
+            )
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmasprite.json':
+            img = _generate_sprite_preview(
                 file_path,
                 size,
                 palette=palette,

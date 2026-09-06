@@ -13,8 +13,100 @@
 
           <div class="px-6 py-5 space-y-5">
 
+            <!-- Sprite targets: grouped Engines / Generic / Preview, same radio grammar. -->
+            <template v-if="mediaCategory === 'sprite'">
+              <div v-for="group in SPRITE_FORMAT_GROUPS" :key="group.label" class="space-y-2">
+                <p class="text-xs font-semibold text-content-secondary">{{ group.label }}</p>
+                <div class="grid grid-cols-3 gap-1.5" role="radiogroup" :aria-label="`${group.label} export format`">
+                  <label v-for="fmt in group.formats" :key="fmt.value" class="cursor-pointer">
+                    <input v-model="format" type="radio" name="export-format" :value="fmt.value" class="peer sr-only">
+                    <span
+                      :class="[
+                        'flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60',
+                        format === fmt.value
+                          ? 'bg-accent/15 text-accent'
+                          : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
+                      ]"
+                    >
+                      {{ fmt.label }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <p v-if="spriteFormatHint" class="text-xs text-content-tertiary">{{ spriteFormatHint }}</p>
+
+              <div v-if="spriteUsesGeometry" class="border-t border-edge-subtle" />
+
+              <div v-if="spriteUsesGeometry" class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-content-secondary">Scale</label>
+                <div class="flex gap-1">
+                  <button
+                    v-for="n in [1, 2, 3, 4]"
+                    :key="n"
+                    type="button"
+                    @click="spriteScale = n"
+                    :class="[
+                      'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+                      spriteScale === n
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
+                    ]"
+                  >
+                    {{ n }}x
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="spriteUsesGeometry" class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-content-secondary">Trim to content</label>
+                <input v-model="spriteTrim" type="checkbox" class="accent-accent">
+              </div>
+
+              <div v-if="spriteUsesSheetOptions" class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-content-secondary">Edge bleed</label>
+                <div class="flex items-center gap-1.5">
+                  <input
+                    v-model.number="spriteExtrude"
+                    type="number"
+                    min="0"
+                    max="8"
+                    step="1"
+                    class="w-16 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
+                  >
+                  <span class="text-xs text-content-tertiary">px</span>
+                </div>
+              </div>
+
+              <div v-if="format === 'frames'" class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-content-secondary">Image format</label>
+                <div class="flex gap-1">
+                  <button
+                    v-for="opt in ['png', 'webp', 'jpg']"
+                    :key="opt"
+                    type="button"
+                    @click="spriteImageFormat = opt"
+                    :class="[
+                      'px-2.5 py-1 rounded text-xs font-medium uppercase transition-colors',
+                      spriteImageFormat === opt
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
+                    ]"
+                  >
+                    {{ opt }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="spriteUsesBackground" class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-content-secondary">Background</label>
+                <input v-model="spriteBackground" type="color" class="h-7 w-10 bg-transparent border border-surface-raised rounded cursor-pointer">
+              </div>
+
+              <p v-if="spriteError" class="text-xs text-red-400">{{ spriteError }}</p>
+            </template>
+
             <!-- Formats are a grid so every choice stays legible at modal width. -->
-            <div class="space-y-2">
+            <div v-if="mediaCategory !== 'sprite'" class="space-y-2">
               <p class="text-xs font-semibold text-content-secondary">Format</p>
               <div
                 class="grid grid-cols-3 gap-1.5"
@@ -469,6 +561,7 @@ const mediaCategory = computed(() => {
   for (const item of props.mediaItems) {
     const fmt = (item.file_format || '').toLowerCase()
     if (fmt === 'stimmalayout') categories.add('layout')
+    else if (fmt === 'stimmasprite.json') categories.add('sprite')
     else if (fmt === 'svg') categories.add('vector')
     else if (IMAGE_FORMATS.includes(fmt)) categories.add('image')
     else if (VIDEO_FORMATS.includes(fmt)) categories.add('video')
@@ -555,7 +648,76 @@ const layoutDerivedHeight = computed(() => {
   return Math.round(layoutCustomWidth.value * layoutAspect.value)
 })
 
+// Sprite targets mirror backend/sprite_export.py EXPORT_TARGETS, grouped for the dialog.
+const SPRITE_FORMAT_GROUPS = [
+  { label: 'Engines', formats: [
+    { label: 'Phaser / Pixi', value: 'atlas-hash' },
+    { label: 'Atlas (array)', value: 'atlas-array' },
+    { label: 'Godot', value: 'godot' },
+    { label: 'Unity', value: 'unity' },
+    { label: 'Unreal', value: 'unreal' },
+    { label: 'GameMaker', value: 'gamemaker' },
+    { label: 'RPG Maker', value: 'rpgmaker' },
+    { label: 'Defold', value: 'defold' },
+    { label: 'libGDX', value: 'libgdx' },
+    { label: 'Cocos2d', value: 'cocos2d' },
+  ] },
+  { label: 'Generic', formats: [
+    { label: 'Frames', value: 'frames' },
+    { label: 'Grid sheet', value: 'grid-sheet' },
+    { label: 'Strips', value: 'strips' },
+    { label: 'Stills', value: 'stills' },
+  ] },
+  { label: 'Preview', formats: [
+    { label: 'GIF', value: 'gif' },
+    { label: 'WebP', value: 'webp' },
+    { label: 'APNG', value: 'apng' },
+    { label: 'MP4', value: 'mp4' },
+  ] },
+]
+
+const SPRITE_FORMAT_HINTS = {
+  'atlas-hash': 'Sheet PNG + TexturePacker JSON hash. Phaser, PixiJS, Cocos Creator.',
+  'atlas-array': 'Sheet PNG + TexturePacker JSON array.',
+  godot: 'Sheet PNG + SpriteFrames .tres for Godot 4.',
+  unity: 'Sheet PNG + atlas JSON + an Editor script that slices and builds AnimationClips.',
+  unreal: 'Sheet PNG + .paper2dsprites for Paper2D flipbooks.',
+  gamemaker: 'One horizontal strip per animation, named name_stripN.png.',
+  rpgmaker: '$Name.png 3×4 charset. Needs the walk facing south, west, east and north.',
+  defold: '.atlas text plus per-frame PNGs with fps and playback mode.',
+  libgdx: 'Sheet PNG + libGDX .atlas pack file.',
+  cocos2d: 'Sheet PNG + .plist in the TexturePacker cocos2d format.',
+  frames: 'Zip of per-frame images with alpha, one folder per animation.',
+  'grid-sheet': 'One uniform-cell sheet per animation plus a sidecar JSON.',
+  strips: 'One horizontal strip PNG per animation.',
+  stills: 'The base cut-out and portrait as PNGs.',
+  gif: 'Animated GIF per animation (1-bit transparency).',
+  webp: 'Animated lossless WebP per animation.',
+  apng: 'Animated PNG per animation, alpha preserved.',
+  mp4: 'Preview clip per animation on a background colour. Needs FFmpeg.',
+}
+
+const spriteScale = ref(1)
+const spriteTrim = ref(false)
+const spriteExtrude = ref(1)
+const spriteBackground = ref('#202020')
+const spriteImageFormat = ref('png')
+const spriteError = ref('')
+
+const spriteFormatHint = computed(() => SPRITE_FORMAT_HINTS[format.value] || '')
+const spriteUsesBackground = computed(() => (
+  format.value === 'mp4' || (format.value === 'frames' && spriteImageFormat.value === 'jpg')
+))
+const spriteUsesSheetOptions = computed(() => (
+  ['atlas-hash', 'atlas-array', 'godot', 'unity', 'unreal', 'libgdx', 'cocos2d', 'defold'].includes(format.value)
+))
+const spriteUsesGeometry = computed(() => !['stills'].includes(format.value))
+
 const availableFormats = computed(() => {
+  if (mediaCategory.value === 'sprite') {
+    return SPRITE_FORMAT_GROUPS.flatMap(group => group.formats)
+  }
+
   if (mediaCategory.value === 'vector') {
     return [
       { label: 'SVG', value: 'svg' },
@@ -623,7 +785,7 @@ const iconPlatformHint = computed(() => ({
 const isClipboardExport = computed(() => mediaCategory.value === 'vector' && format.value === 'html')
 
 const isOriginalExport = computed(() => {
-  if (mediaCategory.value === 'layout' || mediaCategory.value === 'vector') return false
+  if (mediaCategory.value === 'layout' || mediaCategory.value === 'vector' || mediaCategory.value === 'sprite') return false
   return format.value === 'original'
     && resizeMode.value === 'none'
     && !stripMetadata.value
@@ -699,7 +861,14 @@ watch(() => props.show, (newVal) => {
     layoutFetchedWidth.value = 0
     layoutFetchedHeight.value = 0
     copied.value = false
-    if (mediaCategory.value === 'vector') {
+    if (mediaCategory.value === 'sprite') {
+      format.value = 'atlas-hash'
+      spriteScale.value = 1
+      spriteTrim.value = false
+      spriteExtrude.value = 1
+      spriteImageFormat.value = 'png'
+      spriteError.value = ''
+    } else if (mediaCategory.value === 'vector') {
       format.value = 'svg'
       codeVariant.value = 'inline'
       iconPlatform.value = 'icon-macos'
@@ -748,7 +917,9 @@ async function handleExport() {
   exporting.value = true
 
   try {
-    if (mediaCategory.value === 'vector') {
+    if (mediaCategory.value === 'sprite') {
+      await handleSpriteExport()
+    } else if (mediaCategory.value === 'vector') {
       await handleVectorExport()
     } else if (mediaCategory.value === 'layout') {
       await handleLayoutExport()
@@ -845,6 +1016,46 @@ async function handleVectorExport() {
 
   const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
   let filename = 'svg-export'
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="([^"]+)"/)
+    if (match) filename = match[1]
+  }
+
+  await downloadFromResponse(response.data, filename)
+}
+
+async function handleSpriteExport() {
+  const mediaId = props.mediaIds[0]
+  spriteError.value = ''
+  const body = {
+    format: format.value,
+    scale: spriteScale.value,
+    trim: spriteTrim.value,
+    extrude: spriteUsesSheetOptions.value ? spriteExtrude.value : 0,
+    image_format: spriteImageFormat.value,
+  }
+  if (spriteUsesBackground.value) body.background = spriteBackground.value
+
+  let response
+  try {
+    response = await axios.post(
+      `${getApiBase()}/media/${mediaId}/sprite-export`,
+      body,
+      { responseType: 'blob' }
+    )
+  } catch (error) {
+    // The writer explains what the sprite is missing (e.g. RPG Maker directions).
+    const blob = error?.response?.data
+    let detail = ''
+    if (blob && typeof blob.text === 'function') {
+      try { detail = JSON.parse(await blob.text())?.detail || '' } catch { /* not JSON */ }
+    }
+    spriteError.value = detail || 'Export failed.'
+    throw error
+  }
+
+  const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
+  let filename = 'sprite-export'
   if (contentDisposition) {
     const match = contentDisposition.match(/filename="([^"]+)"/)
     if (match) filename = match[1]

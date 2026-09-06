@@ -1414,6 +1414,7 @@ function formatFileFormat(format) {
   const formatMap = {
     'stimmaset.json': 'Set',
     'stimmagrid.json': 'Grid',
+    'stimmasprite.json': 'Sprite',
     'md': 'Markdown',
     'txt': 'Text'
   }

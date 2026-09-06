@@ -1,4 +1,8 @@
-"""Normalized container operations for sets and grids."""
+"""Normalized container operations for sets, grids, and sprites.
+
+Sets and grids hold members by position; sprites hold members by role (see
+``sprite_document``). All three share the revision/member model here.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +23,18 @@ from asset_service import (
 )
 from database import Asset, AssetRevision, ContainerMember, MediaOwner
 from database import MediaItem
+from sprite_document import (
+    CONTAINER_FORMATS,
+    SPRITE_FORMAT,
+    attach_resolved,
+    container_type_for_format,
+    iter_sprite_refs,
+    media_payload,
+    parse_sprite_document,
+    sprite_member_specs,
+)
+
+CONTAINER_TYPES = {"set", "grid", "sprite"}
 
 
 async def _assert_no_link_cycle(
@@ -226,8 +242,8 @@ async def create_container_asset_from_media(
     idempotency_key: str | None = None,
 ) -> Asset:
     """Create one container Asset; embedded cells remain Media, not Assets."""
-    if container_type not in {"set", "grid"}:
-        raise AssetServiceError("Container type must be set or grid")
+    if container_type not in CONTAINER_TYPES:
+        raise AssetServiceError("Container type must be set, grid, or sprite")
     if title is None:
         title = await container_payload_title(session, media_id=media_id)
     asset = await create_asset_from_media(
@@ -262,7 +278,7 @@ async def commit_container_revision(
 ) -> AssetRevision:
     """Commit an immutable structural snapshot and advance the container head."""
     asset = await session.get(Asset, asset_id)
-    if asset is None or asset.asset_type not in {"set", "grid"}:
+    if asset is None or asset.asset_type not in CONTAINER_TYPES:
         raise AssetServiceError("Asset is not a container")
     revision = await commit_revision(
         session,
@@ -336,8 +352,8 @@ async def get_normalized_container_content(
     *,
     container_media: MediaItem,
 ) -> dict[str, Any] | None:
-    """Project normalized membership into the legacy set/grid content shape."""
-    if container_media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+    """Project normalized membership into the set/grid/sprite content shape."""
+    if container_media.file_format not in CONTAINER_FORMATS:
         return None
     revision = await session.scalar(
         select(AssetRevision).where(
@@ -407,6 +423,27 @@ async def get_normalized_container_content(
             "markers": [],
             "tags": [],
         }
+
+    if container_media.file_format == SPRITE_FORMAT:
+        # Sprite members are keyed by role (member.title); project them back onto
+        # the document's references so every ref carries a ``resolved`` block.
+        by_role: dict[str, dict[str, Any] | None] = {}
+        for entry in members:
+            media = media_by_id.get(entry["media_id"])
+            if media is None or media.deleted_at is not None or entry["unavailable"]:
+                by_role[entry["title"] or ""] = None
+                continue
+            by_role[entry["title"] or ""] = media_payload(
+                media,
+                asset_id=entry["linked_asset_id"],
+                saved_asset_id=saved_asset_by_media.get(media.id),
+                revision_id=entry["revision_id"],
+            )
+        doc = parse_sprite_document(base) or {"type": "sprite", "version": 1, "animations": []}
+        doc["title"] = base.get("title")
+        result = attach_resolved(doc, by_role)
+        result.setdefault("version", 1)
+        return result
 
     result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
     result.setdefault("version", 1)
@@ -613,17 +650,24 @@ async def infer_structured_member_specs(
     *,
     container_media: MediaItem,
 ) -> list[dict[str, Any]]:
-    """Resolve a legacy set/grid manifest into linked or embedded members.
+    """Resolve a container manifest into linked or embedded members.
 
-    Existing Assets become live links. Bare Media remains exact embedded
-    content, which is the expected shape for newly generated agent grids.
+    Sets and grids: existing Assets become live links, bare Media remains exact
+    embedded content (the expected shape for newly generated agent grids).
+    Sprites: every reference is an exact embedded member keyed by role — the
+    document is a recipe and pins specific artifacts.
     """
-    if container_media.file_format not in {'stimmaset.json', 'stimmagrid.json'}:
-        raise AssetServiceError("Media is not a set or grid")
+    if container_media.file_format not in CONTAINER_FORMATS:
+        raise AssetServiceError("Media is not a set, grid, or sprite")
     try:
         payload = json.loads(container_media.raw_metadata or '{}')
     except (json.JSONDecodeError, TypeError) as exc:
         raise AssetServiceError("Container manifest is invalid") from exc
+    if container_media.file_format == SPRITE_FORMAT:
+        doc = parse_sprite_document(payload)
+        if doc is None:
+            raise AssetServiceError("Sprite document is invalid")
+        return await sprite_member_specs(session, doc)
     records = payload.get('items') if container_media.file_format == 'stimmaset.json' else payload.get('cells')
     if not isinstance(records, list):
         raise AssetServiceError("Container manifest has no members")

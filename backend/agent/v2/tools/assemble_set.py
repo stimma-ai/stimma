@@ -89,7 +89,7 @@ async def assemble_set(
 
     # Validate no structured media types (no nesting)
     for mid, item in media_items_by_id.items():
-        if item.file_format in ('stimmaset.json', 'stimmagrid.json'):
+        if item.file_format in ('stimmaset.json', 'stimmagrid.json', 'stimmasprite.json'):
             return f"Error: Cannot add structured media to a set (item {mid} is a {item.file_format})"
 
     # Build set file path

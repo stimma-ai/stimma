@@ -430,6 +430,15 @@
           class="absolute inset-0"
         />
 
+        <!-- Sprite player: full-bleed stage with its own floating transport -->
+        <SpritePlayer
+          v-else-if="isSprite"
+          :key="`sprite-${displayItem?.id}-${refreshKey}`"
+          :media-id="mediaIdOf(displayItem)"
+          overlay
+          class="absolute inset-0"
+        />
+
         <!-- Video -->
         <!-- MSE presents repeated A/V fragments on one forward-moving timeline,
              so loop boundaries never trigger a media-element seek. -->
@@ -1240,8 +1249,8 @@ import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
-import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType } from '../utils/mediaTypes'
-import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer } from './viewers'
+import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType } from '../utils/mediaTypes'
+import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
@@ -2046,6 +2055,11 @@ const isLayout = computed(() => {
 const isVector = computed(() => {
   if (!displayItem.value) return false
   return isVectorType(displayItem.value)
+})
+
+const isSprite = computed(() => {
+  if (!displayItem.value) return false
+  return isSpriteType(displayItem.value)
 })
 
 // Navigation availability (handles set view mode)
@@ -4412,7 +4426,7 @@ function handleWheel(event) {
   if (!mediaContainerRef.value?.contains(event.target)) return
 
   // Only zoom for images and videos, let other types (text, sets, grids) scroll naturally
-  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value) return
+  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value) return
 
   event.preventDefault()
 

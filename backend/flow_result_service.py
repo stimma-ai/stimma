@@ -12,6 +12,7 @@ from asset_association_service import (
     mirror_media_associations_to_asset,
 )
 from asset_service import AssetServiceError, acquire_media_owner, create_asset_from_media
+from sprite_document import container_type_for_format
 from container_service import create_container_asset_from_media, infer_structured_member_specs
 from database import MediaItem, MediaOwner
 
@@ -79,14 +80,15 @@ async def finalize_flow_media_result(
 
     asset_ids: list[int] = []
     for media in media_items:
-        if media.file_format in {"stimmaset.json", "stimmagrid.json"}:
+        container_type = container_type_for_format(media.file_format)
+        if container_type is not None:
             members = await infer_structured_member_specs(
                 session, container_media=media
             )
             asset = await create_container_asset_from_media(
                 session,
                 media_id=media.id,
-                container_type="set" if media.file_format == "stimmaset.json" else "grid",
+                container_type=container_type,
                 members=members,
                 origin_type="flow_output",
                 origin_id=root_id,

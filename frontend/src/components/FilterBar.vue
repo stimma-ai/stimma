@@ -108,7 +108,7 @@
              :key="mediaType"
              :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
              @click="toggleExcludeMediaType(mediaType)">
-          <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', vectors: 'SVG', sets: 'Sets', grids: 'Grids', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
+          <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', vectors: 'SVG', sets: 'Sets', grids: 'Grids', sprites: 'Sprites', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -862,7 +862,7 @@ const topKeywords = ref([])
 const tags = ref([])  // All available tags with counts
 const folders = ref([])
 const filterCounts = ref({
-  media_type: { images: 0, videos: 0, audio: 0, text: 0, vectors: 0, sets: 0, grids: 0, layouts: 0 },
+  media_type: { images: 0, videos: 0, audio: 0, text: 0, vectors: 0, sets: 0, grids: 0, sprites: 0, layouts: 0 },
   resolution: { small: 0, medium: 0, large: 0 },
   folders: {},
   keywords: {},
@@ -1185,6 +1185,7 @@ const mediaTypeOptions = [
   { value: 'vectors', label: 'SVG' },
   { value: 'sets', label: 'Sets' },
   { value: 'grids', label: 'Grids' },
+  { value: 'sprites', label: 'Sprites' },
   { value: 'layouts', label: 'Layouts' },
 ]
 const resolutionOptions = [
@@ -2429,7 +2430,7 @@ async function handleProfileChanged() {
   folders.value = []
   projects.value = []
   filterCounts.value = {
-    media_type: { images: 0, videos: 0, audio: 0, text: 0, vectors: 0, sets: 0, grids: 0, layouts: 0 },
+    media_type: { images: 0, videos: 0, audio: 0, text: 0, vectors: 0, sets: 0, grids: 0, sprites: 0, layouts: 0 },
     resolution: { small: 0, medium: 0, large: 0 },
     folders: {},
     keywords: {},
