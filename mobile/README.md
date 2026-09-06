@@ -95,6 +95,11 @@ plain-HTTP shortcut is compiled out of physical-device and Release builds.
 It cannot choose a non-loopback host. This test library is not a substitute for
 validating account login and Tailscale.
 
+The iOS account menu includes **Disconnect from server** and **Sign out**.
+Disconnect closes the remote transport, clears the remembered server and returns
+to server selection while retaining account sign-in. Sign out also removes the
+phone's saved account credentials. Neither action signs the server itself out.
+
 `tools/stimma mobile ios test` checks the bridge contract and runs disposable
 TLS/HTTP/WebSocket fixtures. It covers wrong-pin rejection, upload streaming,
 media byte ranges, bidirectional WebSockets, callback-independent native

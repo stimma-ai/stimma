@@ -24,6 +24,10 @@ export async function revealMobileInterface(): Promise<void> {
   await native('interfaceReady').catch(() => {})
 }
 
+export function disconnectMobileServer(): Promise<void> {
+  return native('disconnect')
+}
+
 async function native<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
   const bridge = handler()
   if (!bridge) throw new Error('The mobile shell is unavailable')

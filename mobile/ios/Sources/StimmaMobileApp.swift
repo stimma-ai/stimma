@@ -328,6 +328,12 @@ final class ShellModel: ObservableObject {
     }
 
     func logout() {
+        auth.logout()
+        devices = []
+        disconnect()
+    }
+
+    func disconnect() {
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
         restoring = false
@@ -339,8 +345,6 @@ final class ShellModel: ObservableObject {
         transport = nil
         origin = nil
         selected = nil
-        devices = []
-        auth.logout()
         UserDefaults.standard.removeObject(forKey: "mobile.selectedServer")
         message = nil
         showConnections = false

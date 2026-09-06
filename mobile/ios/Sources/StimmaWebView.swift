@@ -132,6 +132,10 @@ struct StimmaWebView: UIViewRepresentable {
                         replyHandler(NSNull(), nil)
                         model.logout()
                         return
+                    case "disconnect":
+                        replyHandler(NSNull(), nil)
+                        model.disconnect()
+                        return
                     case "openExternal":
                         guard let value = args["url"] as? String, let url = URL(string: value),
                               ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {

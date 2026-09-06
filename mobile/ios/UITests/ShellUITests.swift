@@ -56,5 +56,13 @@ final class ShellUITests: XCTestCase {
         XCTAssertTrue(browse.waitForExistence(timeout: 30), app.debugDescription)
         browse.tap()
         XCTAssertTrue(app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'assets'")).firstMatch.waitForExistence(timeout: 30), app.debugDescription)
+        app.webViews.buttons["Menu"].tap()
+        let account = app.webViews.buttons["Stimma account"]
+        XCTAssertTrue(account.waitForExistence(timeout: 5))
+        account.tap()
+        XCTAssertTrue(app.webViews.buttons["Sign out"].waitForExistence(timeout: 5))
+        app.webViews.buttons["Disconnect from server"].tap()
+        XCTAssertTrue(app.webViews.buttons["Sign in"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.webViews.links["View all"].exists)
     }
 }

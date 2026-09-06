@@ -8,7 +8,7 @@
 import { computed, ref } from 'vue'
 import {
   ChatBubbleBottomCenterTextIcon, Cog6ToothIcon, ServerStackIcon, UserCircleIcon, ChevronRightIcon,
-  CheckIcon, LockClosedIcon, LockOpenIcon,
+  CheckIcon, LockClosedIcon, LockOpenIcon, ArrowRightOnRectangleIcon, LinkSlashIcon,
 } from '@heroicons/vue/24/outline'
 import Sheet from '../ui/Sheet.vue'
 import { useAuth } from '../../composables/useAuth'
@@ -22,6 +22,7 @@ import { usePrivacyLockdown } from '../../composables/usePrivacyLockdown'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { desktop, isDesktop } from '../../desktop'
 import { isOfficialBuild } from '../../distribution'
+import { disconnectMobileServer } from '../../desktop/mobileBridge'
 
 defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: []; openSettings: [section: string] }>()
@@ -42,6 +43,21 @@ const canSendFeedback = computed(() => isOfficialBuild() && !privacyLockdownActi
 
 const serverOpen = ref(false)
 const profileOpen = ref(false)
+const sessionActionPending = ref(false)
+const sessionActionError = ref('')
+
+async function endMobileSession(signOut: boolean) {
+  if (sessionActionPending.value) return
+  sessionActionPending.value = true
+  sessionActionError.value = ''
+  try {
+    if (signOut) await desktop.authLocal('POST', '/auth/logout')
+    else await disconnectMobileServer()
+    emit('close')
+  } catch {
+    sessionActionError.value = 'Could not close the connection. Please try again.'
+  } finally { sessionActionPending.value = false }
+}
 
 const serverDot = computed(() => {
   if (md.connectionState.value !== 'ready') return 'bg-red-500'
@@ -133,6 +149,17 @@ function sendFeedback() {
         <ChatBubbleBottomCenterTextIcon class="sheet-row-icon" />
         <span class="flex-1 min-w-0 truncate text-content">Send feedback</span>
       </button>
+    </div>
+    <div v-if="desktop.kind === 'ios'" class="border-t border-edge-subtle">
+      <button type="button" class="sheet-row" :disabled="sessionActionPending" @click="endMobileSession(false)">
+        <LinkSlashIcon class="sheet-row-icon" />
+        <span class="flex-1 text-content">Disconnect from server</span>
+      </button>
+      <button type="button" class="sheet-row" :disabled="sessionActionPending" @click="endMobileSession(true)">
+        <ArrowRightOnRectangleIcon class="sheet-row-icon" />
+        <span class="flex-1 text-content">Sign out</span>
+      </button>
+      <p v-if="sessionActionError" class="px-4 pb-3 text-sm text-content-secondary" role="alert">{{ sessionActionError }}</p>
     </div>
   </Sheet>
 

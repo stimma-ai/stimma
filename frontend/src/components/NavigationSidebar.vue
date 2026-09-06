@@ -906,6 +906,7 @@
             <Tooltip text="Stimma account" class="flex-1 min-w-0">
               <button
                 @click="isMobile ? $emit('open-account') : openAccountSettings()"
+                aria-label="Stimma account"
                 class="w-full flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
               >
                 <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
@@ -1090,7 +1091,8 @@ const { on, connected: wsConnected } = useWebSocket()
 // forces the signed-out treatment for screenshots.
 const { isAuthenticated, user } = useAuth()
 const { cloudUser, fetchCloudAccount, formatBalance } = useCloudAccount()
-const showAccountChip = computed(() => isAuthenticated.value && !hideAccountRef.value)
+// The phone's account menu is also its disconnect/sign-out escape path.
+const showAccountChip = computed(() => desktop.kind === 'ios' || (isAuthenticated.value && !hideAccountRef.value))
 
 const accountName = computed(() => {
   const email = user.value?.email || ''
