@@ -1,18 +1,20 @@
 <template>
-  <Modal
+  <!-- Wide: a submenu-tier Modal. Compact / coarse: the kit bottom Sheet
+       (DESIGN.md §1.11) — full width, safe-area padded, search pinned in the
+       header, rows at touch height. One body, two shells. -->
+  <component
+    :is="asSheet ? Sheet : Modal"
     :show="true"
-    submenu
-    size="custom"
-    custom-class="w-[760px] max-w-[95vw] max-h-[70vh] flex flex-col"
+    v-bind="asSheet ? { title: 'Add LoRA' } : { submenu: true, size: 'custom', customClass: 'w-[760px] max-w-[95vw] max-h-[70vh] flex flex-col' }"
     @close="$emit('close')"
   >
     <template #header>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <h3 class="text-lg font-semibold text-content">Add LoRA</h3>
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <h3 class="font-semibold text-content truncate" :class="asSheet ? 'text-[14px]' : 'text-lg'">Add LoRA</h3>
           <Spinner v-if="isRefreshing || isUploading" size="md" />
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
           <input
             ref="fileInputRef"
             type="file"
@@ -25,27 +27,44 @@
             v-if="uploadConfig"
             @click="fileInputRef?.click()"
             type="button"
-            class="text-xs font-semibold text-content-secondary hover:text-accent transition-colors"
+            class="text-xs font-semibold text-content-secondary hover:text-accent transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md"
           >Upload</button>
           <button
             @click="$emit('toggle-raw')"
             type="button"
             :class="[
-              'text-xs font-semibold transition-colors',
+              'text-xs font-semibold transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md',
               showRaw ? 'text-accent' : 'text-content-secondary hover:text-content'
             ]"
           >Raw</button>
-          <IconButton @click="$emit('close')">
+          <IconButton v-if="!asSheet" @click="$emit('close')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
             </svg>
           </IconButton>
         </div>
       </div>
+      <!-- Sheet: the search field is pinned under the title; the list scrolls beneath it. -->
+      <div v-if="asSheet" class="pt-2 pb-1">
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+          </svg>
+          <input v-no-autocorrect
+            ref="searchInput"
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search LoRAs..."
+            class="w-full min-h-11 pl-10 pr-4 py-2 bg-overlay-subtle rounded-md border border-transparent text-content text-sm placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none transition-colors [&::-webkit-search-cancel-button]:appearance-none"
+            @keydown.enter="addSelected"
+            @keydown.escape="$emit('close')"
+          />
+        </div>
+      </div>
     </template>
 
-    <!-- Search Input -->
-    <div class="p-4 border-b border-edge-subtle">
+    <!-- Search Input (wide) -->
+    <div v-if="!asSheet" class="p-4 border-b border-edge-subtle">
       <div class="relative">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -69,10 +88,11 @@
       </div>
     </div>
 
-    <!-- Results List -->
+    <!-- Results List. In the Sheet the shell scrolls; in the Modal this box does. -->
     <div
       :class="[
-        'relative flex-1 custom-scrollbar overflow-y-auto py-1 min-h-[200px]',
+        'relative py-1',
+        asSheet ? 'min-h-[40dvh]' : 'flex-1 custom-scrollbar overflow-y-auto min-h-[200px]',
         isDraggingFile ? 'bg-accent/5' : ''
       ]"
       @dragover.prevent="onFileDragOver"
@@ -108,21 +128,23 @@
         @click="addLora(lora)"
         type="button"
         :class="[
-          'w-full px-4 py-2 text-left transition-colors flex items-center justify-between gap-2',
+          'w-full px-4 py-2 coarse:min-h-11 text-left transition-colors flex items-center justify-between gap-3',
           isInPool(lora.path)
             ? 'bg-accent-selection/15 text-accent-selection'
-            : index === selectedIndex
+            : index === selectedIndex && !asSheet
               ? 'bg-overlay-subtle text-content'
               : 'hover:bg-overlay-subtle text-content-secondary'
         ]"
         @mouseenter="selectedIndex = index"
       >
-        <span v-if="showRaw" class="text-sm min-w-0">
+        <span v-if="showRaw" class="text-sm min-w-0 flex-1">
           <span class="truncate block">{{ getRawFileName(lora.path) }}</span>
           <span v-if="getDirectoryPath(lora.path)" class="text-[10px] text-content-muted truncate block">{{ getDirectoryPath(lora.path) }}</span>
         </span>
-        <span v-else class="text-sm flex items-center gap-1.5 min-w-0">
-          <span class="font-medium truncate">{{ smartNames[lora.path]?.primary || getRawDisplayName(lora.path) }}</span>
+        <!-- Name first, tag chips after; on a narrow row the chips wrap under
+             the name instead of pushing past the edge. -->
+        <span v-else class="text-sm flex flex-wrap items-center gap-x-1.5 gap-y-1 min-w-0 flex-1">
+          <span class="font-medium truncate max-w-full">{{ smartNames[lora.path]?.primary || getRawDisplayName(lora.path) }}</span>
           <span
             v-for="chip in (smartNames[lora.path]?.secondary || '').split(' ').filter(Boolean)"
             :key="chip"
@@ -151,7 +173,7 @@
         </svg>
       </button>
     </div>
-  </Modal>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -159,7 +181,9 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { LoraPoolItem, LoraOption } from '../../composables/useLoraPool'
 import { computeDisplayNames, getRawDisplayName, getRawFileName, getDirectoryPath } from '../../composables/useLoraDisplayNames'
 import { addToast } from '../../composables/useToasts'
+import { useViewport } from '../../composables/useViewport'
 import Modal from '../ui/Modal.vue'
+import Sheet from '../ui/Sheet.vue'
 import IconButton from '../ui/IconButton.vue'
 import Spinner from '../ui/Spinner.vue'
 import ProgressBar from '../ui/ProgressBar.vue'
@@ -198,6 +222,9 @@ const emit = defineEmits<{
   (e: 'toggle-raw'): void
   (e: 'upload', files: File[]): void
 }>()
+
+const { isCompact, isCoarsePointer } = useViewport()
+const asSheet = computed(() => isCompact.value || isCoarsePointer.value)
 
 const searchQuery = ref('')
 const selectedIndex = ref(0)
@@ -364,11 +391,14 @@ watch(filteredLoras, () => {
   selectedIndex.value = 0
 })
 
-// Auto-focus and trigger refresh on mount
+// Auto-focus (wide only: on a phone the keyboard would cover the list before
+// the user has seen it) and trigger refresh on mount
 onMounted(() => {
-  nextTick(() => {
-    searchInput.value?.focus()
-  })
+  if (!asSheet.value) {
+    nextTick(() => {
+      searchInput.value?.focus()
+    })
+  }
   emit('refresh-loras')
 })
 </script>

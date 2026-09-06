@@ -4,10 +4,11 @@
  *
  * Tap runs with the current batch size. Long-press opens the run sheet
  * (batch stepper, Forever mode toggle button, its two settings). Forever
- * armed: magenta ∞, tap stops. Running: a progress ring with the remaining
- * count; tap queues another run, as on desktop. The badge always shows the
- * batch size, so ×4 is never a surprise. The sheet has no Run button of its
- * own: it is settings, and Run is the control you long-pressed.
+ * armed: magenta ∞, tap stops. While jobs run the button stays a plain Run,
+ * as on desktop: progress lives in the filmstrip, and a tap queues another
+ * run. The badge shows the batch size, so ×4 is never a surprise. The sheet
+ * has no Run button of its own: it is settings, and Run is the control you
+ * long-pressed.
  */
 import { computed, ref } from 'vue'
 import Sheet from '../ui/Sheet.vue'
@@ -15,12 +16,11 @@ import Sheet from '../ui/Sheet.vue'
 const props = withDefaults(defineProps<{
   batchSize: number
   canSubmit: boolean
-  runningCount?: number
   foreverActive: boolean
   concurrency: number
   idleLimit: number
   isMac?: boolean
-}>(), { runningCount: 0, isMac: false })
+}>(), { isMac: false })
 
 const emit = defineEmits<{
   run: []
@@ -49,9 +49,7 @@ function onClick() {
   if (props.canSubmit) emit('run')
 }
 
-const state = computed<'idle' | 'running' | 'forever'>(() =>
-  props.foreverActive ? 'forever' : props.runningCount > 0 ? 'running' : 'idle',
-)
+const state = computed<'idle' | 'forever'>(() => (props.foreverActive ? 'forever' : 'idle'))
 
 function step(delta: number) {
   const next = Math.min(50, Math.max(1, props.batchSize + delta))
@@ -73,7 +71,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     data-testid="tool-run-button"
     class="relative w-11 h-11 rounded-[10px] flex items-center justify-center border-none transition-colors select-none"
     :class="[
-      state === 'forever' ? 'bg-live text-white' : state === 'running' ? 'bg-surface-raised text-accent-hi' : 'bg-accent text-white',
+      state === 'forever' ? 'bg-live text-white' : 'bg-accent text-white',
       !canSubmit && state === 'idle' ? 'opacity-45' : '',
     ]"
     :aria-label="state === 'forever' ? 'Stop forever mode' : `Run ×${batchSize}`"
@@ -84,15 +82,13 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @contextmenu.prevent
     @click="onClick"
   >
-    <span v-if="state === 'running'" class="absolute inset-[3px] rounded-lg border-2 border-accent-hi/25 border-t-accent-hi animate-spin" aria-hidden="true"></span>
     <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18.2 8.5c-2 0-3.4 1.6-4.6 3.5-1.2 1.9-2.6 3.5-4.6 3.5a3.5 3.5 0 0 1 0-7c2 0 3.4 1.6 4.6 3.5 1.2 1.9 2.6 3.5 4.6 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
-    <svg v-else-if="state === 'running'" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
     <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
     <span
-      v-if="state === 'running' ? runningCount > 0 : batchSize > 1"
+      v-if="batchSize > 1"
       class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
       :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
-    >{{ state === 'running' ? runningCount : `×${batchSize}` }}</span>
+    >×{{ batchSize }}</span>
   </button>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">

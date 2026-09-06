@@ -36,8 +36,9 @@
         @click.stop="$emit('remove')"
         @pointerdown.stop
         type="button"
-        class="shrink-0 w-4 h-4 flex items-center justify-center text-content-muted/50 hover:!text-red-500 rounded transition-colors"
+        class="shrink-0 w-4 h-4 flex items-center justify-center text-content-muted/50 hover:!text-red-500 rounded transition-colors coarse:w-11 coarse:h-11 coarse:-my-3 coarse:-mr-2"
         title="Remove group"
+        aria-label="Remove group"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -121,6 +122,7 @@ function cancelRename() {
 function onHeaderPointerDown(event: PointerEvent) {
   if (event.button !== 0) return
   if (isEditing.value) return
+  if (event.pointerType === 'touch') return // touch scrolls; drag is mouse-only
   event.preventDefault() // Prevent text selection during drag
   emit('group-drag-intent', event, props.group.id)
 }

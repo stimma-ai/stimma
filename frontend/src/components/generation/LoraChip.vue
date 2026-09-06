@@ -2,6 +2,7 @@
   <div
     :class="[
       'group flex items-start gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
+      'coarse:items-center coarse:min-h-11 coarse:py-0',
       unavailable ? 'opacity-60' : item.enabled ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
@@ -9,15 +10,16 @@
     @contextmenu.stop.prevent="$emit('contextmenu', $event)"
   >
     <!-- Enable dot -->
-    <div class="shrink-0 w-3 flex items-center justify-center mt-[5px]">
+    <div class="shrink-0 w-3 flex items-center justify-center mt-[5px] coarse:mt-0">
       <div v-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
       <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
     </div>
 
-    <!-- Name + secondary chips -->
+    <!-- Name + secondary chips. On compact the chips wrap under the name
+         rather than pushing it (and the weight) past the edge. -->
     <div class="flex-1 min-w-0" :title="unavailable ? item.lora + ' — not available for this tool' : item.lora">
-      <div class="flex items-center gap-1">
-        <span :class="['truncate text-[13px]', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
+      <div class="flex items-center gap-1 compact:flex-wrap compact:gap-y-0.5">
+        <span :class="['truncate text-[13px] compact:max-w-full', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
         <span
           v-for="chip in secondaryChips"
           :key="chip"
@@ -30,14 +32,17 @@
     </div>
 
     <!-- Weight cluster: − value + (hover reveals the steppers), ✕ far right.
-         The whole row drags (root pointerdown); no grab handle needed. -->
+         The whole row drags (root pointerdown, mouse only); no grab handle
+         needed. On coarse pointers there is no hover: the steppers go (the
+         value opens its slider sheet on tap) and ✕ is always visible at
+         touch size. -->
     <button
       @click.stop="decrementWeight"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity coarse:hidden"
     >−</button>
-    <span @pointerdown.stop @click.stop class="shrink-0 mt-[2px]">
+    <span @pointerdown.stop @click.stop class="shrink-0 mt-[2px] coarse:mt-0 coarse:min-h-11 coarse:px-1 coarse:flex coarse:items-center">
       <ScrubValue
         :model-value="item.weight"
         @update:model-value="emitWeight"
@@ -51,14 +56,15 @@
       @click.stop="incrementWeight"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity coarse:hidden"
     >+</button>
     <button
       @click.stop="$emit('remove')"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity coarse:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0 coarse:-mr-2"
       title="Remove"
+      aria-label="Remove"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
         <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -128,6 +134,9 @@ const suppressClick = ref(false)
 
 function onPointerDown(event: PointerEvent) {
   if (event.button !== 0) return // Left click only
+  // Touch drag is not attempted (DESIGN.md §1.11): a finger on the row must
+  // scroll the drawer, and a pointerdown we preventDefault'd would fight it.
+  if (event.pointerType === 'touch') return
   event.preventDefault() // Prevent text selection during drag
   suppressClick.value = false
   emit('drag-intent', event, props.item.lora, props.groupId)

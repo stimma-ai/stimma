@@ -7,7 +7,7 @@
         v-if="enabledCount > 0"
         @click="disableAll"
         type="button"
-        class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors"
+        class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
         title="Disable all LoRAs (keeps the list)"
       >Clear all</button>
       <div class="ml-auto flex items-center gap-0.5">
@@ -15,8 +15,9 @@
           v-if="availableLoras.length > 0 || uploadConfig"
           @click="showModal = true"
           type="button"
-          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+          class="w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
           title="Add LoRA"
+          aria-label="Add LoRA"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -26,8 +27,9 @@
           v-if="hasAnyItems"
           @click="toggleFilter"
           type="button"
-          :class="['w-6 h-6 flex items-center justify-center rounded-md transition-colors', filterOpen ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          :class="['w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md transition-colors', filterOpen ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
           title="Filter pool"
+          aria-label="Filter pool"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
@@ -37,15 +39,16 @@
           v-if="hasAnyItems"
           @click="showRaw = !showRaw"
           type="button"
-          :class="['h-6 px-1.5 flex items-center justify-center rounded-md font-mono text-[9px] tracking-wide transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          :class="['h-6 px-1.5 coarse:h-11 coarse:min-w-11 coarse:px-2 flex items-center justify-center rounded-md font-mono text-[9px] tracking-wide transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
           title="Show raw file names"
         >RAW</button>
         <div v-if="hasAnyItems" class="relative">
           <button
             @click.stop="onHeaderMenuClick"
             type="button"
-            class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+            class="w-6 h-6 coarse:w-11 coarse:h-11 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
             title="More options"
+            aria-label="More options"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
@@ -72,10 +75,10 @@
         v-model="filterQuery"
         type="text"
         placeholder="Filter pool…"
-        class="flex-1 min-w-0 bg-transparent border-0 outline-none text-xs text-content placeholder:text-content-muted select-text"
+        class="flex-1 min-w-0 bg-transparent border-0 outline-none text-xs text-content placeholder:text-content-muted select-text coarse:min-h-11"
         @keydown.escape="toggleFilter"
       />
-      <button @click="toggleFilter" type="button" class="text-content-muted hover:text-content-secondary">
+      <button @click="toggleFilter" type="button" class="text-content-muted hover:text-content-secondary coarse:w-11 coarse:h-11 coarse:-mr-2 flex items-center justify-center" aria-label="Close filter">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
         </svg>
@@ -431,6 +434,7 @@ function onChipDragIntent(event: PointerEvent, loraPath: string, groupId: string
 
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
+  document.addEventListener('pointercancel', onPointerUp)
 }
 
 // ── Group drag ──────────────────────────────────────────────
@@ -445,6 +449,7 @@ function onGroupDragIntent(event: PointerEvent, groupId: string) {
 
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
+  document.addEventListener('pointercancel', onPointerUp)
 }
 
 // ── Shared pointer handlers ─────────────────────────────────
@@ -486,6 +491,7 @@ function onPointerMove(event: PointerEvent) {
 function onPointerUp(_event: PointerEvent) {
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
+  document.removeEventListener('pointercancel', onPointerUp)
 
   if (drag.active) {
     if (drag.type === 'chip') {
@@ -727,6 +733,7 @@ const displayGroups = computed(() => {
 onUnmounted(() => {
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
+  document.removeEventListener('pointercancel', onPointerUp)
 })
 
 // ── Context menu ────────────────────────────────────────────
