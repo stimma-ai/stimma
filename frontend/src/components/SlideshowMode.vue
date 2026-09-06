@@ -609,8 +609,8 @@
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
       v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid && !(slideshowCompact && compactImmersive)"
-      :class="slideshowCompact ? 'relative order-2 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1"
+      :class="slideshowCompact ? 'relative order-3 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:py-1 compact:pb-safe"
       :style="{
         height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
@@ -701,6 +701,7 @@
         :item-width="STRIP_ROW"
         :item-height="STRIP_ROW"
         :item-gap="slideshowCompact ? 6 : 8"
+        :gutter="4"
         :height="STRIP_ROW + 16"
         :chunk-size="50"
         :buffer-size="10"
@@ -827,7 +828,7 @@
       ref="controlBar"
       :class="[
         slideshowCompact
-          ? 'slideshow-control-bar relative order-3 w-full shrink-0 flex items-center justify-center bg-surface-elevated border-t border-edge-subtle z-chrome select-none px-1 pb-safe overflow-x-auto'
+          ? 'slideshow-control-bar relative order-2 w-full shrink-0 flex items-center justify-center bg-surface-elevated border-t border-edge-subtle z-chrome select-none px-1 overflow-x-auto'
           : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
         { '!bg-black/60': isHovered && !slideshowCompact },

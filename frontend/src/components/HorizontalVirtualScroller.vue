@@ -7,11 +7,16 @@
       @wheel="handleWheel"
       :style="{ height: `${height}px` }"
     >
+      <!-- Content sits centred in the row with a small gutter each side so a
+           selection ring (which draws outside the item box) is never clipped
+           at the row's top edge or at the first/last item. -->
       <div
         class="scroll-content"
         :style="{
-          width: `${totalWidth}px`,
-          height: `${itemHeight}px`
+          width: `${totalWidth + gutter}px`,
+          height: `${itemHeight}px`,
+          marginTop: `${Math.max(0, (height - itemHeight) / 2)}px`,
+          marginLeft: `${gutter}px`
         }"
       >
         <div
@@ -70,6 +75,12 @@ const props = defineProps({
   itemGap: {
     type: Number,
     default: 12
+  },
+  // Breathing room at the row's start and end (px), for rings drawn outside
+  // the first and last item
+  gutter: {
+    type: Number,
+    default: 0
   },
   // Container height
   height: {
