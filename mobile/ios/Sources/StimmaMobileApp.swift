@@ -78,7 +78,7 @@ final class ShellModel: ObservableObject {
     private func checkedPackageResponse(_ value: (Data, HTTPURLResponse)) throws -> Data {
         guard value.1.statusCode == 200 else {
             if [404, 503].contains(value.1.statusCode) {
-                throw ShellError.message("This server has no mobile interface package. Update Stimma on your computer.")
+                throw ShellError.message("This server has no mobile interface package. Update your Stimma Server.")
             }
             throw ShellError.message("Could not download the server interface (HTTP \(value.1.statusCode)).")
         }

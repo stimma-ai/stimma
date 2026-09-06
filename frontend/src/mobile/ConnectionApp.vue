@@ -32,6 +32,7 @@ let restoreTimer: ReturnType<typeof setTimeout> | undefined
 watch(() => Boolean(info.value && !info.value.restoring), async (ready) => {
   if (!ready) return
   await nextTick()
+  await document.fonts.load('500 42px "General Sans"', 'stimma').catch(() => {})
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
   await native('interfaceReady').catch(() => {})
 })
@@ -136,7 +137,7 @@ onUnmounted(() => { mounted = false; clearTimeout(timer); clearTimeout(restoreTi
       <section class="flex flex-1 flex-col justify-center pb-12" aria-labelledby="welcome-title">
         <div class="mb-10 flex items-center gap-3.5">
           <img src="/logo.svg" alt="" width="52" height="52" class="h-[52px] w-[52px] shrink-0">
-          <span class="font-brand text-[42px] font-semibold leading-none tracking-tight">stimma</span>
+          <span class="font-brand text-[42px] font-medium leading-none tracking-[0.12em]">stimma</span>
         </div>
 
         <template v-if="!info?.authenticated">
@@ -144,19 +145,19 @@ onUnmounted(() => { mounted = false; clearTimeout(timer); clearTimeout(restoreTi
             Stimma,<br>wherever you are.
           </h1>
           <p class="mt-5 max-w-[290px] text-[16px] leading-relaxed text-content-secondary">
-            Create, explore, and pick up where you left off. Connect to Stimma running on your computer.
+            Create, explore, and pick up where you left off. Connect to your Stimma Server.
           </p>
           <Button class="mt-9 min-h-[52px] w-full text-[16px]" :loading="pending" :disabled="!info" @click="act('signIn')">
             {{ pending ? 'Signing in…' : 'Sign in' }}
           </Button>
           <p class="mt-4 text-center text-xs leading-relaxed text-content-tertiary">
-            Use the same account as Stimma on your computer.
+            Use the same account as your Stimma Server.
           </p>
         </template>
 
         <template v-else>
           <h1 id="welcome-title" class="font-brand text-[30px] font-medium leading-tight tracking-tight">Connect to your Stimma Server</h1>
-          <p class="mt-3 text-[15px] leading-relaxed text-content-secondary">Choose the computer you want to work with.</p>
+          <p class="mt-3 text-[15px] leading-relaxed text-content-secondary">Choose the server you want to connect to.</p>
 
           <div v-if="devices.length" class="mt-7 divide-y divide-edge-subtle">
             <button
@@ -176,11 +177,11 @@ onUnmounted(() => { mounted = false; clearTimeout(timer); clearTimeout(restoreTi
             </button>
           </div>
           <p v-else-if="!pending" class="mt-7 text-[15px] leading-relaxed text-content-secondary">
-            No computers are sharing yet. Open Stimma on your computer and turn on remote access, then refresh.
+            No servers are available yet. Enable remote access on your Stimma Server, then refresh.
           </p>
-          <div v-else class="mt-7 flex items-center gap-3 text-sm text-content-secondary" role="status"><Spinner /> Finding your computers…</div>
+          <div v-else class="mt-7 flex items-center gap-3 text-sm text-content-secondary" role="status"><Spinner /> Finding your servers…</div>
           <Button variant="secondary" class="mt-5 min-h-12 w-full" :loading="operation === 'refreshDevices'" :disabled="pending" @click="act('refreshDevices')">Refresh</Button>
-          <p class="mt-5 text-xs leading-relaxed text-content-tertiary">Keep your computer awake and connected. If you use Tailscale, connect it on this phone too.</p>
+          <p class="mt-5 text-xs leading-relaxed text-content-tertiary">Keep your server running and connected. If you use Tailscale, connect it on this phone too.</p>
         </template>
 
         <div v-if="message" class="mt-6 text-sm leading-relaxed text-content-secondary" role="alert">

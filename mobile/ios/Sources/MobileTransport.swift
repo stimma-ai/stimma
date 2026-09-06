@@ -18,7 +18,7 @@ enum PinnedHTTPError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .responseTooLarge: return "The server returned a response that is too large."
-        case .noReachableRoute: return "Could not reach this computer. Check that Stimma is running, the computer is awake, and Tailscale is connected on both devices."
+        case .noReachableRoute: return "Could not reach this server. Check that your Stimma Server is running and Tailscale is connected on both devices."
         }
     }
 }

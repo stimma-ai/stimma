@@ -45,7 +45,7 @@ private enum MobileAuthError: LocalizedError {
 @MainActor
 final class MobileAuth: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     @Published var user: MobileUser?
-    @Published var status = "Sign in to find your computers"
+    @Published var status = "Sign in to find your servers"
     @Published var error: String?
     let cloudURL = URL(string: "https://stimma.ai")!
     private let authSession: URLSession = {
