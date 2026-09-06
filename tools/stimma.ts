@@ -1198,6 +1198,64 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
     ) && name.endsWith(".dist-info");
   });
 
+  // python-build-standalone's install_only archive is intentionally broad: it
+  // includes debugger symbols, compiler inputs, CPython's own test extensions,
+  // and the complete Tcl/Tk GUI stack. Stimma embeds Python strictly as an
+  // application runtime, so none of those files are loaded in production.
+  // Keep this pruning explicit and Windows-only; the ordinary source/wheel
+  // layout remains intact for imports, multiprocessing, and native extensions.
+  console.log("Pruning development-only files from portable Python...");
+  const pythonDir = join(outputDir, "python");
+  const pythonLib = join(pythonDir, "Lib");
+  const pythonDlls = join(pythonDir, "DLLs");
+  const beforeRuntimePrune = await dirSize(outputDir);
+
+  for (const path of [
+    join(pythonDir, "include"),
+    join(pythonDir, "libs"),
+    join(pythonDir, "tcl"),
+    join(pythonLib, "idlelib"),
+    join(pythonLib, "tkinter"),
+    join(pythonLib, "turtledemo"),
+    join(pythonLib, "test"),
+  ]) {
+    await Deno.remove(path, { recursive: true }).catch(() => {});
+  }
+  for (const path of [join(pythonLib, "turtle.py")]) {
+    await Deno.remove(path).catch(() => {});
+  }
+  await removeMatching(outputDir, (_path, entry) => {
+    if (!entry.isFile) return false;
+    const name = entry.name.toLowerCase();
+    return name.endsWith(".pdb");
+  });
+  await removeMatching(pythonDlls, (_path, entry) => {
+    if (!entry.isFile) return false;
+    const name = entry.name.toLowerCase();
+    return name === "_tkinter.pyd" ||
+      name === "tcl86t.dll" ||
+      name === "tk86t.dll" ||
+      name === "_ctypes_test.pyd" ||
+      /^_test.*\.pyd$/.test(name);
+  });
+
+  const forbiddenRuntimeEntries = [
+    join(pythonDir, "include"),
+    join(pythonDir, "libs"),
+    join(pythonDir, "tcl"),
+    join(pythonLib, "tkinter"),
+  ];
+  for (const path of forbiddenRuntimeEntries) {
+    if (await pathExists(path)) {
+      throw new Error(`Portable Python prune failed; forbidden runtime entry remains: ${path}`);
+    }
+  }
+  const afterRuntimePrune = await dirSize(outputDir);
+  console.log(
+    `Portable Python prune removed ${beforeRuntimePrune.files - afterRuntimePrune.files} files, ` +
+      `${((beforeRuntimePrune.bytes - afterRuntimePrune.bytes) / 1024 / 1024).toFixed(1)}MB`,
+  );
+
   console.log("Copying backend source...");
   const excludeDirs = new Set([
     ".venv",
@@ -1229,6 +1287,11 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   console.log("Copying app-level runtime files...");
   await Deno.copyFile(join(repoRoot, "prompts.yaml"), join(outputDir, "prompts.yaml"));
 
+  console.log("Verifying runtime-sensitive package imports...");
+  await run(pythonExe, [join(repoRoot, "scripts", "verify_python_runtime.py"), outputDir], {
+    cwd: outputDir,
+  });
+
   console.log("Precompiling the backend startup import graph...");
   await run(pythonExe, [join(repoRoot, "scripts", "precompile_python_startup.py"), outputDir], {
     cwd: outputDir,
@@ -1240,7 +1303,8 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   // Tauri shell's compile-time value can override.
   const distribution = Deno.env.get("STIMMA_DISTRIBUTION") === "official" ? "official" : "dev";
   console.log(`Baking STIMMA_DISTRIBUTION=${distribution} into launchers...`);
-  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%\r\nif not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=${distribution}\r\n"%~dp0python\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
+  const windowsPython = `%~dp0python`;
+  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%\r\nif not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=${distribution}\r\nif not defined STIMMA_PYTHON_DIR set "STIMMA_PYTHON_DIR=${windowsPython}"\r\n"%STIMMA_PYTHON_DIR%\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
   const runSh = `#!/bin/bash\nDIR="$(cd "$(dirname "$0")" && pwd)"\nexport PYTHONUTF8=1\nexport PYTHONPATH="$DIR:$DIR/backend\${PYTHONPATH:+:$PYTHONPATH}"\nexport STIMMA_DISTRIBUTION="\${STIMMA_DISTRIBUTION:-${distribution}}"\nexec "$DIR/python/python.exe" "$DIR/backend/main.py" "$@"\n`;
   await Deno.writeTextFile(join(outputDir, "run.cmd"), runCmd);
   await Deno.writeTextFile(join(outputDir, "run.sh"), runSh);
@@ -1260,6 +1324,53 @@ async function buildPortableBackend(target: string): Promise<void> {
     return;
   }
   await run("bash", [join(repoRoot, "scripts", "build-portable-backend.sh")], { cwd: repoRoot });
+}
+
+type ElectronBackendResources = {
+  backendDir: string;
+  pythonRuntimeArchive?: string;
+};
+
+async function prepareElectronBackendResources(target: string): Promise<ElectronBackendResources> {
+  const portableBackend = join(repoRoot, "src-tauri", "binaries", `stimma-backend-${target}`);
+  if (Deno.build.os !== "windows") return { backendDir: portableBackend };
+
+  const stagingRoot = join(repoRoot, "build-experimental", `electron-backend-${target}`);
+  const backendDir = join(stagingRoot, "stimma-backend");
+  const archiveDir = join(stagingRoot, "runtime");
+  await Deno.remove(stagingRoot, { recursive: true }).catch(() => {});
+  await Deno.mkdir(archiveDir, { recursive: true });
+
+  console.log("Packaging portable Python as a deterministic runtime archive...");
+  const pythonDir = join(portableBackend, "python");
+  const pythonExe = join(pythonDir, "python.exe");
+  await run(pythonExe, [join(repoRoot, "scripts", "package_python_runtime.py"), pythonDir, archiveDir]);
+
+  const archives: string[] = [];
+  for await (const entry of Deno.readDir(archiveDir)) {
+    if (entry.isFile && /^stimma-python-runtime-[a-f0-9]{64}\.tar\.xz$/.test(entry.name)) {
+      archives.push(join(archiveDir, entry.name));
+    }
+  }
+  if (archives.length !== 1) {
+    throw new Error(`Expected exactly one packaged Python runtime, found ${archives.length}`);
+  }
+
+  // Keep the app/backend source loose and directly replaceable, but move the
+  // stable 400+ MB Python environment behind one installer entry. At runtime
+  // Electron extracts the archive once into a versioned ordinary directory.
+  await copyDirFiltered(portableBackend, backendDir, (relativePath, entry) => {
+    const firstSegment = relativePath.replaceAll("\\", "/").split("/")[0];
+    return entry.isDirectory && firstSegment === "python";
+  });
+
+  const staged = await dirSize(backendDir);
+  const archive = await Deno.stat(archives[0]);
+  console.log(
+    `Electron backend transport: ${staged.files} loose files, ${(staged.bytes / 1024 / 1024).toFixed(1)}MB; ` +
+      `Python runtime archive ${(archive.size / 1024 / 1024).toFixed(1)}MB`,
+  );
+  return { backendDir, pythonRuntimeArchive: archives[0] };
 }
 
 async function ensurePlatformResourceMapping(target: string): Promise<void> {
@@ -1411,6 +1522,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
 
   console.log("Building portable backend");
   await buildPortableBackend(target);
+  const backendResources = await prepareElectronBackendResources(target);
   await buildWatchdog(target);
   const drawThingsSidecar = await ensureDrawThingsSidecar(target);
   const nativeHelper = await buildStimmaNative();
@@ -1447,6 +1559,9 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   const builderConfig: Record<string, unknown> = {
     appId: bundleId,
     productName,
+    // Chromium ships 50+ locale packs by default. Stimma's desktop shell and
+    // UI are currently English-only, so retain the fallback locale alone.
+    electronLanguages: ["en-US"],
     // Electron Builder's legacy AppImage toolset requires libfuse.so.2 at
     // runtime. Current distributions such as Arch ship FUSE 3 only; the
     // static runtime mounts without the removed host libfuse2 library.
@@ -1472,7 +1587,13 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
     },
     extraResources: [
       { from: "../frontend/dist", to: "frontend" },
-      { from: `../src-tauri/binaries/stimma-backend-${target}`, to: "stimma-backend" },
+      { from: backendResources.backendDir, to: "stimma-backend" },
+      ...(backendResources.pythonRuntimeArchive
+        ? [{
+          from: backendResources.pythonRuntimeArchive,
+          to: backendResources.pythonRuntimeArchive.split(/[\\/]/).pop(),
+        }]
+        : []),
       { from: `../src-tauri/binaries/stimma-watchdog-${target}${ext}`, to: `stimma-watchdog${ext}` },
       { from: nativeHelper, to: `stimma-native${ext}` },
       // Windows/Linux system-tray icon (macOS has no tray; harmless there).

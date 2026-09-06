@@ -22,6 +22,7 @@ const electronBinary = createRequire(path.join(electronRoot, 'package.json'))('e
 const installedExe = process.argv[2]
 const feedDir = process.argv[3]
 const expectedVersion = process.argv[4]
+const updaterCacheDirName = process.env.STIMMA_TEST_UPDATER_CACHE_DIR || 'stimma-shell-updater'
 if (!installedExe || !feedDir || !expectedVersion) {
   throw new Error('usage: node windows-installed-update.e2e.mjs <installed.exe> <feed-dir> <expected-version>')
 }
@@ -103,8 +104,11 @@ function updaterInstallerRunning() {
   const result = spawnSync('powershell.exe', [
     '-NoProfile',
     '-Command',
-    '$p=Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$env:LOCALAPPDATA\\stimma-shell-updater\\pending\\*Setup*.exe" }; if($p){"yes"}',
-  ], { encoding: 'utf8' })
+    '$p=Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$env:LOCALAPPDATA\\$env:STIMMA_TEST_UPDATER_CACHE_DIR\\pending\\*Setup*.exe" }; if($p){"yes"}',
+  ], {
+    encoding: 'utf8',
+    env: { ...process.env, STIMMA_TEST_UPDATER_CACHE_DIR: updaterCacheDirName },
+  })
   return result.status === 0 && result.stdout.trim() === 'yes'
 }
 

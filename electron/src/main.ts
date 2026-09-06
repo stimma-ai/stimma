@@ -19,6 +19,7 @@ import { initDevices, setConnectionStateListener } from './devices'
 import { startProxy, stopProxy } from './proxy'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
+import { preparePythonRuntime } from './pythonRuntime'
 import { WindowRegistry } from './registry'
 import { installTray } from './tray'
 import { initWindowState } from './windowState'
@@ -47,8 +48,23 @@ app.setPath('userData', path.join(identity.dataDir, 'chromium'))
 initLog(identity.dataDir)
 log.info('stimma', `Starting Electron shell (bundle=${identity.bundleId}, sandbox=${identity.sandbox}, dev=${identity.dev})`)
 
+// The NSIS installer invokes the freshly installed executable in this hidden
+// mode so Python extraction is part of installation rather than first launch.
+// Keep the normal startup path as a fallback for portable/developer installs.
+if (process.argv.includes('--prepare-python-runtime')) {
+  void app.whenReady().then(async () => {
+    try {
+      const runtime = await preparePythonRuntime(identity)
+      if (!runtime) throw new Error('Packaged Python runtime archive not found')
+      log.info('python-runtime', `Installer preparation complete: ${runtime}`)
+      app.exit(0)
+    } catch (error) {
+      log.error('python-runtime', `Installer preparation failed: ${String(error)}`)
+      app.exit(1)
+    }
+  })
 // One app instance per sandbox (the lock is scoped by userData).
-if (!app.requestSingleInstanceLock()) {
+} else if (!app.requestSingleInstanceLock()) {
   log.info('stimma', 'Another instance owns this sandbox; focusing it and exiting.')
   app.exit(0)
 } else {
@@ -79,7 +95,10 @@ if (!app.requestSingleInstanceLock()) {
   setConnectionStateListener((connState) => broadcastConnectionState(connState))
 
   void startProxy(identity.dataDir).catch((e) => log.error('proxy', `Failed to start: ${e}`))
-  startBackend(identity, app.getVersion())
+  void startBackend(identity, app.getVersion()).catch((error) => {
+    log.error('python-runtime', `Unable to prepare or start backend: ${String(error)}`)
+    app.quit()
+  })
 
   app.on('before-quit', () => {
     shutdownBackend()

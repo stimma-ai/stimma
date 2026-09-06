@@ -19,4 +19,13 @@
   Delete "$INSTDIR\uninstall.exe"
   Delete "$INSTDIR\stimma-watchdog.exe"
   RMDir /r "$INSTDIR\stimma-backend"
+
+  ; Run the same hash verification, lock, temporary extraction, and atomic
+  ; rename used by the normal launch fallback. The mode creates no window and
+  ; exits as soon as the shared runtime is ready.
+  DetailPrint "Preparing Python runtime..."
+  ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --prepare-python-runtime' $0
+  ${If} $0 != 0
+    DetailPrint "Python runtime preparation failed with exit code $0; Stimma will retry on launch."
+  ${EndIf}
 !macroend

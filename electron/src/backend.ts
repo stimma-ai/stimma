@@ -13,6 +13,7 @@ import readline from 'node:readline'
 import type { AppIdentity } from './identity'
 import { log } from './log'
 import { setLocalBackendPort } from './devices'
+import { preparePythonRuntime } from './pythonRuntime'
 
 let backendPort: number | null = null
 let watchdogPid: number | null = null
@@ -61,7 +62,7 @@ function watchdogPath(): string {
   return base + '.exe'
 }
 
-export function startBackend(identity: AppIdentity, appVersion: string): void {
+export async function startBackend(identity: AppIdentity, appVersion: string): Promise<void> {
   if (identity.dev) {
     setBackendPort(identity.devBackendPort)
     log.info('stimma', `Dev mode: using external backend on port ${backendPort}`)
@@ -70,6 +71,8 @@ export function startBackend(identity: AppIdentity, appVersion: string): void {
 
   fs.mkdirSync(identity.dataDir, { recursive: true })
   fs.mkdirSync(identity.cacheDir, { recursive: true })
+
+  const pythonRuntimeDir = await preparePythonRuntime(identity)
 
   const watchdog = watchdogPath()
   log.info('stimma', `Bundle ID: ${identity.bundleId}`)
@@ -97,6 +100,7 @@ export function startBackend(identity: AppIdentity, appVersion: string): void {
         STIMMA_CACHE_DIR: identity.cacheDir,
         STIMMA_DISTRIBUTION: identity.distribution,
         STIMMA_APP_VERSION: appVersion,
+        ...(pythonRuntimeDir ? { STIMMA_PYTHON_DIR: pythonRuntimeDir } : {}),
         // Prevent the bundled Python from writing .pyc files into the
         // (code-signed) app bundle at runtime, which invalidates the macOS
         // signature seal and triggers "app is damaged".
