@@ -19,8 +19,15 @@
         <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-6 compact:pb-10">
           <!-- Soft ambient halo, centered behind the greeting + prompt -->
           <div
-            class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2"
+            class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2 compact:hidden"
             style="background: radial-gradient(50% 60% at 45% 40%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(45% 55% at 58% 55%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
+          ></div>
+          <!-- Phones: the same halo pinned to the top of the app so it runs
+               under the compact header instead of being clipped at the
+               scroll edge right beneath it. -->
+          <div
+            class="pointer-events-none hidden compact:block fixed inset-x-0 top-0 h-[440px]"
+            style="background: radial-gradient(60% 55% at 45% 42%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(55% 50% at 58% 52%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
           ></div>
 
           <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-7 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
