@@ -27,11 +27,12 @@ protect_sdk_logs()
 server = Server(
     "Stimma",
     instructions="This server is one Stimma profile: its media library, generation tools, projects, boards and chats. "
-    "Typical flow: tools_search, then tools_inspect, then tools_run to generate; or agent_start to have Stimma's own agent do the creative work from a brief. "
-    "Both return a job. Poll jobs_get until state is succeeded or failed; never resubmit to check progress. "
+    "Use tools_search, tools_inspect and tools_run when you know the operation; use agent_start when you want Stimma to choose tools and creatively iterate from a brief. "
+    "Both return a job. Poll jobs_get until a terminal state; never resubmit to check progress. "
     "If jobs_get reports input_required, the job is waiting on you: answer with interaction_respond (relay permission questions to the user). "
     "Results carry asset and media refs. Use media_read for a quick look and media_export for a download link that works with a plain GET or in a browser. "
-    "To bring a file you made or edited locally into the library, POST it to the upload_url from workspace_get; then content_update can publish it as a new revision of an existing asset."
+    "Download original files into your project before using them elsewhere: download URLs expire and are not hosting URLs. "
+    "To save an external edit, POST to upload_url with X-Stimma-Stage: true, then content_update with format file, source_ref for the uploaded bytes and source_refs for the library inputs you used."
     + ACCESS_HELP,
 )
 manager = StreamableHTTPSessionManager(
@@ -138,7 +139,7 @@ TOOLS = {
         True,
     ),
     "agent_start": (
-        "Have Stimma's own agent do creative work from a brief: it picks tools, generates, reviews and iterates in a chat the user can see. Returns a job; poll jobs_get and answer any input_required. Prefer tools_run when you already know the exact tool and parameters.",
+        "Have Stimma's own agent do creative work from a brief: it picks tools, generates, reviews and iterates in a chat the user can see. Supply relevant context from your other systems in the brief. Returns a job; poll jobs_get and answer any input_required. The result identifies final outputs and includes the agent's completion summary and limitations. Prefer tools_run when you already know the exact tool and parameters.",
         obj(
             {
                 "brief": string("What to make, in plain language, as you would tell a designer.", minLength=1, maxLength=32000),
@@ -164,7 +165,7 @@ TOOLS = {
         True,
     ),
     "jobs_get": (
-        "Get a job's state (queued, running, input_required, succeeded, failed, cancelled), its result and the question it is waiting on, if any. When state is input_required, answer with interaction_respond; the job does not continue until you do.",
+        "Get a job's state and result. Delegated results contain outputs explicitly marked final by the agent, a summary including reported limitations, and shortfalls detected from the requested count. Succeeded means execution ended, not creative approval. Terminal states include succeeded, failed, cancelled, interrupted and control_changed. When state is input_required, answer with interaction_respond; the job does not continue until you do. Use next_cursor as after to read only new events.",
         obj(
             {"job_ref": REF, "after": {"type": "integer", "minimum": 0, "default": 0}},
             ["job_ref"],
@@ -291,6 +292,10 @@ transform = {
 }
 content_common = {
     "source_ref": REF,
+    "source_refs": {
+        **array(REF),
+        "description": "Library inputs used to make this content, in source order. Independent of source_ref, which supplies the file bytes. Omit to use source_ref as the provenance source.",
+    },
     "note": string("What you did and why, in one line, e.g. 'Desaturated with ImageMagick for the print version'. Shown in the asset's lineage and version history.", maxLength=500),
     "target_asset_ref": REF,
     "expected_current_revision": REF,
@@ -298,6 +303,10 @@ content_common = {
     "request_key": KEY,
 }
 content_variants = [
+    obj(
+        {**content_common, "format": {"const": "file"}},
+        ["format", "source_ref", "request_key"],
+    ),
     obj(
         {
             **content_common,
@@ -330,7 +339,7 @@ content_variants = [
     ),
 ]
 TOOLS["content_update"] = (
-    "Save an image or a text/SVG/Markdown document as an asset. For an image, source_ref is library media (for example a file you uploaded via upload_url) and transforms may be empty or resize/crop/rotate/flip. To publish as a new revision of an existing asset, pass target_asset_ref and its expected_current_revision; otherwise a new asset is created. Always give a note saying what you did; it becomes the version's description.",
+    "Save content as an asset or revision. Use format file and source_ref to save uploaded image/video/audio/SVG media without re-encoding (SVG retains normal sanitization). Stage an upload with X-Stimma-Stage: true to avoid an intermediate library asset. source_refs names the original library inputs used in an external edit or composite; note explains the change. Format image applies resize/crop/rotate/flip transforms. SVG/Markdown/layout accept text. To revise, pass target_asset_ref and its expected_current_revision; otherwise create a new asset. Always give a note.",
     {"type": "object", "oneOf": content_variants},
     True,
 )
@@ -338,6 +347,7 @@ TOOLS["content_update"] = (
 TOOLS["tools_run"][1]["properties"].update(
     {
         "batch": array({"type": "object"}, 200),
+        "batch_labels": {**array(string("Your label for this batch item, e.g. France.", maxLength=200), 200), "description": "Optional labels in the same order and number as batch. Returned on successes, failures and retries; labels are never sent to the generation tool."},
         "chain": array(
             obj(
                 {
@@ -388,7 +398,7 @@ def catalog():
             (
                 "assets_query",
                 workspace.query_binding,
-                "Search the library: find and count assets by text, tags, markers, source, date and more.",
+                "Find and count library assets. Scope to a known project first. Use similar_to_text for visual appearance, caption_query for caption words and prompt_query for generation instructions. Tags, markers and board sections carry explicit organization or approval; similarity and recency do not imply approval. Preview a shortlist with media_read before choosing inputs.",
             ),
             (
                 "lineage_get",

@@ -3,8 +3,9 @@
 from pathlib import Path
 import json
 import uuid
-from sqlalchemy import text
-from database import Asset
+from datetime import datetime
+from sqlalchemy import select, text
+from database import Asset, AssetRevision, MediaItem, MediaLineage, MediaOwner
 from .access import access, McpError
 from .workspace import media_row
 
@@ -19,7 +20,11 @@ async def update(caller, args, session, chat):
     source = None
     if args.get("source_ref"):
         source = await media_row(caller, args["source_ref"], session)
-    if args["format"] == "image":
+    passthrough = args["format"] == "file" or (args["format"] == "image" and not args["transforms"])
+    if passthrough:
+        if source is None or not Path(source.file_path).is_file():
+            raise McpError("invalid_arguments", "Saving a file requires a reference to an available media file.")
+    elif args["format"] == "image":
         if source is None:
             raise McpError(
                 "invalid_arguments",
@@ -87,30 +92,57 @@ async def update(caller, args, session, chat):
     # The assistant's own account of the change is the record: it heads the
     # lineage entry (as the prompt) and labels the version.
     note = (args.get("note") or "").strip()
+    sources = [await media_row(caller, ref, session) for ref in args.get("source_refs", [])]
+    source_ids = list(dict.fromkeys(
+        [row.id for row in sources] if "source_refs" in args else [source.id] if source else []
+    ))
     provenance = {
         "task_type": "edit",
         "tool_id": "stimma:assistant-edit",
         "prompt": note,
-        "parameters": {"format": args["format"], **({"note": note} if note else {})},
-        "source_media_ids": [source.id] if source else [],
+        "parameters": {
+            "format": args["format"],
+            **({"note": note} if note else {}),
+            **({"transforms": args["transforms"]} if args["format"] == "image" else {}),
+        },
+        "source_media_ids": source_ids,
     }
-    saved = await save_workspace_file(
-        session,
-        str(path),
-        folder,
-        None,
-        provenance=provenance,
-        project_id=chat.project_id,
-        metadata_source="mcp",
-        materialize_asset=False,
-    )
-    if saved.startswith("Error:"):
-        raise McpError("save_failed", "Could not save the edited document.")
-    result = json.loads(saved)
+    if not passthrough:
+        saved = await save_workspace_file(
+            session, str(path), folder, None, provenance=provenance,
+            project_id=chat.project_id, metadata_source="mcp", materialize_asset=False,
+        )
+        if saved.startswith("Error:"):
+            raise McpError("save_failed", "Could not save the edited document.")
+        result = json.loads(saved)
     # The shared save helper finishes ingestion first. Lock and compare the
     # current revision in the transaction that acquires the new saved revision.
     await session.commit()
     await session.execute(text("BEGIN IMMEDIATE"))
+    if passthrough:
+        # New immutable provenance identity over the same stored bytes, as in
+        # revision restoration. Do not decode images or discard AV metadata.
+        from generation_metadata import build_parameters, dump_generation_metadata
+        from utils.lineage import propagate_tool_lineage
+
+        excluded = {"id", "indexed_date", "deleted_at", "deletion_pending_at", "ephemeral_run_id", "random_sort_value", "auto_delete_at"}
+        media = MediaItem(**{
+            column.name: getattr(source, column.name)
+            for column in MediaItem.__table__.columns if column.name not in excluded
+        })
+        media.tool_id = provenance["tool_id"]
+        media.extracted_prompt = note
+        media.generation_metadata = dump_generation_metadata(
+            task_type="edit", source="mcp", tool_id=media.tool_id, prompt=note,
+            parameters=build_parameters(provenance["parameters"]),
+            source_inputs=[{"media_id": mid, "role": "source"} for mid in source_ids],
+        )
+        session.add(media)
+        await session.flush()
+        for index, mid in enumerate(source_ids):
+            session.add(MediaLineage(media_id=media.id, source_media_id=mid, source_order=index, task_type="edit", relationship_type="derived"))
+        await propagate_tool_lineage(session, media.id, source_ids, own_tool_id=media.tool_id)
+        result = {"media_id": media.id}
     if args.get("target_asset_ref"):
         asset_id = int(access.resolve(caller, args["target_asset_ref"], "asset"))
         expected = int(
@@ -133,15 +165,26 @@ async def update(caller, args, session, chat):
         asset = await create_asset_from_media(
             session, media_id=result["media_id"], origin_type="mcp_edit"
         )
-        from database import AssetRevision
-
         revision = await session.get(AssetRevision, asset.current_revision_id)
+        revision.note = note or "Saved by a connected assistant"
+    if chat.project_id is not None:
+        from asset_association_service import attach_asset_to_project
+
+        await attach_asset_to_project(session, chat.project_id, asset.id)
+    if source:
+        # A successfully saved revision now retains the bytes. Release only
+        # provisional upload ownership, never an existing library Asset.
+        for owner in await session.scalars(select(MediaOwner).where(
+            MediaOwner.media_id == source.id, MediaOwner.root_kind == "upload",
+            MediaOwner.role == "provisional", MediaOwner.deleted_at.is_(None),
+        )):
+            owner.deleted_at = datetime.utcnow()
     await session.commit()
     from utils.websocket import ws_manager
 
     await ws_manager.broadcast(
-        "asset_current_revision_changed",
-        {"asset_id": asset.id, "revision_id": revision.id},
+        "asset_current_revision_changed" if args.get("target_asset_ref") else "asset_created",
+        {"asset_id": asset.id, "revision_id": revision.id, "media_id": result["media_id"]},
     )
     return {
         "asset_ref": access.ref(caller, "asset", asset.id),

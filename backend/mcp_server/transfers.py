@@ -84,9 +84,10 @@ def upload_link(caller):
 HOW_TO_UPLOAD = (
     "POST the file body to upload_url, no key or headers needed beyond the filename: "
     "curl -X POST --data-binary @<file> -H 'X-Filename: <name.ext>' '<upload_url>'. "
-    "The response has asset_ref and media_ref. To publish it as a new revision of an existing asset, "
-    "call content_update with format image, source_ref set to that media_ref, transforms [], "
-    "target_asset_ref and its expected_current_revision. The link stops working at the UTC time in its expires parameter."
+    "For an edit or composite, add -H 'X-Stimma-Stage: true' to retain the upload without creating a library asset. "
+    "Then call content_update with format file, source_ref set to the returned media_ref, source_refs naming the original library inputs, and a note. "
+    "Add target_asset_ref and expected_current_revision to revise an existing asset. Without the stage header, uploads create a new asset immediately. "
+    "The link stops working at the UTC time in its expires parameter."
 )
 
 
@@ -112,6 +113,9 @@ async def upload(profile_id, handle_text, request):
 
 async def _store_upload(caller, db, request):
     filename = Path(unquote(request.headers.get("x-filename", "upload"))).name
+    stage = request.headers.get("x-stimma-stage", "false").lower()
+    if stage not in ("true", "false"):
+        raise McpError("invalid_arguments", "X-Stimma-Stage must be true or false.")
     from upload_service import UploadService
 
     service = UploadService(caller.profile_id)
@@ -122,17 +126,17 @@ async def _store_upload(caller, db, request):
             raise McpError("upload_too_large", "Upload exceeds 512 MiB.")
         content.extend(chunk)
     access.require(caller)
-    media, _ = await service.upload_file(bytes(content), filename)
+    media, _ = await service.upload_file(bytes(content), filename, materialize_asset=stage != "true")
     async with db.async_session_maker() as session:
         from asset_service import create_asset_from_media
 
-        asset = await create_asset_from_media(session, media_id=media.id)
+        asset = None if stage == "true" else await create_asset_from_media(session, media_id=media.id)
         await session.commit()
         return JSONResponse(
             {
-                "asset_ref": access.ref(caller, "asset", asset.id),
+                **({"asset_ref": access.ref(caller, "asset", asset.id)} if asset else {}),
                 "media_ref": access.ref(caller, "media", media.id),
-                "sha256": hashlib.sha256(content).hexdigest(),
+                "sha256": media.file_hash,
             }
         )
 

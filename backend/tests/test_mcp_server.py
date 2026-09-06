@@ -868,3 +868,251 @@ async def test_upload_link_then_revise_without_a_key(mcp_http):
     current = body(await rpc(mcp_http, "assets_get", {"refs": [first.json()["asset_ref"]]}))["items"][0]
     assert current["revision"]["note"] == "Desaturated locally for the print version"
     assert current["media"]["generation_metadata"]["prompt"] == "Desaturated locally for the print version"
+
+
+def product_image_bytes(color="red", format="JPEG"):
+    import io
+    from PIL import Image
+
+    stream = io.BytesIO()
+    Image.new("RGB", (24, 16), color).save(stream, format=format)
+    return stream.getvalue()
+
+
+async def product_upload(client, data, filename="product.jpg", staged=False):
+    status = body(await rpc(client, "workspace_get"))
+    response = await client.post(status["upload_url"], content=data, headers={
+        "X-Filename": filename, "X-Stimma-Stage": str(staged).lower(),
+    })
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize("kind", ["jpeg", "wav"])
+async def test_external_file_roundtrip_preserves_bytes_lineage_and_asset_count(mcp_http, kind):
+    import io
+    import wave
+    from database import Asset, MediaLineage, MediaOwner, MediaItem
+    from database_registry import get_database_registry
+    from mcp_server.access import access
+
+    first = await product_upload(mcp_http, product_image_bytes("red"))
+    second = await product_upload(mcp_http, product_image_bytes("blue"))
+    data = product_image_bytes("purple")
+    if kind == "wav":
+        stream = io.BytesIO()
+        with wave.open(stream, "wb") as audio:
+            audio.setnchannels(1)
+            audio.setsampwidth(2)
+            audio.setframerate(8000)
+            audio.writeframes(b"\x00\x01" * 800)
+        data = stream.getvalue()
+    db = get_database_registry().get_database("default")
+    async with db.async_session_maker() as session:
+        count = await session.scalar(select(func.count()).select_from(Asset))
+    staged = await product_upload(mcp_http, data, f"external.{kind}", staged=True)
+    assert "asset_ref" not in staged
+    async with db.async_session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(Asset)) == count
+    args = {
+        "format": "file", "source_ref": staged["media_ref"],
+        "source_refs": [first["media_ref"], second["media_ref"]],
+        "note": "Combined two campaign references externally",
+        "request_key": f"external-{kind}",
+    }
+    saved = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", args)))
+    assert saved["state"] == "succeeded", saved
+    refs = saved["result"]
+    link = body(await rpc(mcp_http, "media_export", {"ref": refs["media_ref"]}))
+    downloaded = await mcp_http.get(link["download_url"])
+    assert downloaded.content == data
+    assert downloaded.headers["x-content-sha256"] == staged["sha256"]
+    detail = body(await rpc(mcp_http, "assets_get", {"refs": [refs["asset_ref"]]}))["items"][0]
+    assert detail["media"]["file_format"] == kind
+    assert detail["revision"]["note"] == args["note"]
+    caller = await access.authenticate("default", "test-credential-one")
+    mid = int(access.resolve(caller, refs["media_ref"], "media"))
+    uploaded_mid = int(access.resolve(caller, staged["media_ref"], "media"))
+    async with db.async_session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(Asset)) == count + 1
+        parents = list(await session.scalars(select(MediaLineage.source_media_id).where(
+            MediaLineage.media_id == mid,
+        ).order_by(MediaLineage.source_order)))
+        assert parents == [int(access.resolve(caller, item["media_ref"], "media")) for item in (first, second)]
+        assert await session.scalar(select(MediaOwner.id).where(
+            MediaOwner.media_id == uploaded_mid, MediaOwner.root_kind == "upload", MediaOwner.deleted_at.is_(None),
+        )) is None
+        saved_media = await session.get(MediaItem, mid)
+        uploaded_media = await session.get(MediaItem, uploaded_mid)
+        assert saved_media.storage_object_id == uploaded_media.storage_object_id
+        if kind == "wav":
+            assert saved_media.audio_sample_rate == 8000
+            assert saved_media.audio_channels == 1
+            assert saved_media.duration == uploaded_media.duration
+    duplicate = body(await rpc(mcp_http, "content_update", args))
+    assert duplicate["job_ref"] == saved["job_ref"]
+
+    replacement = await product_upload(mcp_http, data, f"revision.{kind}", staged=True)
+    revision_args = {**args, "source_ref": replacement["media_ref"],
+        "target_asset_ref": refs["asset_ref"], "expected_current_revision": refs["revision_ref"],
+        "request_key": f"external-revision-{kind}"}
+    revised = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", revision_args)))
+    assert revised["state"] == "succeeded", revised
+    assert revised["result"]["asset_ref"] == refs["asset_ref"]
+    async with db.async_session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(Asset)) == count + 1
+    conflict_upload = await product_upload(mcp_http, data, f"conflict.{kind}", staged=True)
+    conflict = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", {
+        **revision_args, "source_ref": conflict_upload["media_ref"], "request_key": f"external-conflict-{kind}",
+    })))
+    assert conflict["result"]["code"] == "revision_conflict", conflict
+    async with db.async_session_maker() as session:
+        assert await session.scalar(select(MediaOwner.id).where(
+            MediaOwner.media_id == int(access.resolve(caller, conflict_upload["media_ref"], "media")),
+            MediaOwner.root_kind == "upload", MediaOwner.deleted_at.is_(None),
+        )) is not None
+
+
+async def test_image_transforms_record_exact_operations(mcp_http):
+    uploaded = await product_upload(mcp_http, product_image_bytes())
+    transforms = [{"action": "crop", "box": [0, 0, 12, 16]}, {"action": "rotate", "degrees": 90}]
+    result = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", {
+        "format": "image", "source_ref": uploaded["media_ref"], "transforms": transforms,
+        "note": "Cropped and rotated for the placement", "request_key": "transform-provenance",
+    })))
+    assert result["state"] == "succeeded", result
+    item = body(await rpc(mcp_http, "assets_get", {"refs": [result["result"]["asset_ref"]]}))["items"][0]
+    assert (item["media"]["width"], item["media"]["height"]) == (16, 12)
+    assert item["media"]["generation_metadata"]["parameters"]["transforms"] == transforms
+
+
+async def test_five_country_batch_retry_and_external_edit(mcp_http, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from PIL import Image
+    from agent.v2.code_runtime import StimmaSDK, ToolResult
+    from agent.v2.tool_permission_gate import ToolPermissionDenied
+    from mcp_server import workspace
+    from mcp_server.access import access
+
+    countries = ["France", "Germany", "Japan", "Canada", "Brazil"]
+    descriptor = SimpleNamespace(parameter_schema={"type": "object", "properties": {"prompt": {"type": "string"}}}, output_schema={}, metadata={})
+    async def descriptor_for(*args):
+        return "test:country-ad", None, descriptor
+    monkeypatch.setattr(workspace, "tool_descriptor", descriptor_for)
+    calls = []
+    async def dispatch(self, tool_id, **kwargs):
+        params = kwargs["_params_dict"]
+        assert set(params) == {"prompt"}
+        country = params["prompt"]
+        calls.append(country)
+        if country == "Japan" and calls.count(country) == 1:
+            raise ToolPermissionDenied("Permission denied before dispatch")
+        path = tmp_path / f"{country}.png"
+        Image.new("RGB", (24, 16), "green").save(path)
+        return ToolResult(path=path, tool_name=tool_id, parameters=params)
+    monkeypatch.setattr(StimmaSDK, "_dispatch_tool", dispatch)
+    caller = await access.authenticate("default", "test-credential-one")
+    args = {"tool_ref": access.ref(caller, "tool", "test:country-ad"),
+        "schema_version": workspace.tool_version(descriptor), "parameters": {},
+        "batch": [{"prompt": country} for country in countries], "batch_labels": countries,
+        "request_key": "five-country-smoke"}
+    invalid = body(await rpc(mcp_http, "tools_run", {**args, "batch_labels": ["France"]}))
+    assert invalid["code"] == "invalid_arguments"
+    assert calls == []
+    result = await wait_job(mcp_http, body(await rpc(mcp_http, "tools_run", args)))
+    assert result["state"] == "failed", result
+    items = result["result"]["items"]
+    assert [item["label"] for item in items] == countries
+    assert [item["state"] for item in items] == ["succeeded", "succeeded", "failed", "succeeded", "succeeded"]
+    retried = await wait_job(mcp_http, body(await rpc(mcp_http, "jobs_retry", {
+        "job_ref": result["job_ref"], "request_key": "five-country-retry",
+    })))
+    assert retried["state"] == "succeeded", retried
+    assert calls == countries + ["Japan"]
+    retry_item = retried["result"]["items"][0]
+    assert (retry_item["label"], retry_item["original_index"]) == ("Japan", 2)
+    assert retried["result"]["retry_of"] == result["job_ref"]
+    source = items[0]["output"]
+    original = await mcp_http.get(body(await rpc(mcp_http, "media_export", {"ref": source["media_ref"]}))["download_url"])
+    import io
+    with Image.open(io.BytesIO(original.content)) as image:
+        edited = io.BytesIO()
+        image.resize((48, 32)).save(edited, format="JPEG")
+    upload = await product_upload(mcp_http, edited.getvalue(), "France-banner.jpg", staged=True)
+    saved = await wait_job(mcp_http, body(await rpc(mcp_http, "content_update", {
+        "format": "file", "source_ref": upload["media_ref"], "source_refs": [source["media_ref"]],
+        "note": "Prepared France placement externally", "request_key": "five-country-save",
+    })))
+    assert saved["state"] == "succeeded", saved
+    final_file = await mcp_http.get(body(await rpc(mcp_http, "media_export", {"ref": saved["result"]["media_ref"]}))["download_url"])
+    assert final_file.content == edited.getvalue()
+
+
+async def test_delegated_receipt_excludes_intermediates_and_resets_on_followup(mcp_http, monkeypatch):
+    import agent
+    from database import ChatItem
+    from mcp_server.access import access
+
+    first = await product_upload(mcp_http, product_image_bytes("red"))
+    second = await product_upload(mcp_http, product_image_bytes("blue"))
+    caller = await access.authenticate("default", "test-credential-one")
+    mids = [int(access.resolve(caller, item["media_ref"], "media")) for item in (first, second)]
+    calls = 0
+    async def fake_run(**kwargs):
+        nonlocal calls
+        session, chat = kwargs["session"], kwargs["chat"]
+        assert "unmet requirements" in kwargs["user_message"]
+        if calls == 0:
+            session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="intermediate", media_ids=json.dumps([mids[1]])))
+            session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="final", media_ids=json.dumps([mids[0]])))
+            summary = "France is ready. Germany could not be finished."
+        else:
+            session.add(ChatItem(chat_id=chat.id, item_type="media_display", show_role="final", media_ids=json.dumps([mids[1]])))
+            summary = "Germany is now ready."
+        session.add(ChatItem(chat_id=chat.id, item_type="assistant_message", message_text=summary))
+        calls += 1
+        await session.commit()
+    monkeypatch.setattr(agent, "run_agent", fake_run)
+    result = await wait_job(mcp_http, body(await rpc(mcp_http, "agent_start", {
+        "brief": "Make localized ads", "deliverables": {"count": 2}, "request_key": "delegated-receipt",
+    })))
+    assert result["state"] == "succeeded", result
+    receipt = result["result"]
+    assert [item["media_ref"] for item in receipt["outputs"]] == [first["media_ref"]]
+    assert receipt["summary"] == "France is ready. Germany could not be finished."
+    assert receipt["shortfalls"] == ["Requested 2 outputs; the agent marked 1 final."]
+    continued = await wait_job(mcp_http, body(await rpc(mcp_http, "agent_continue", {
+        "job_ref": result["job_ref"], "controller_version": result["controller_version"],
+        "message": "Finish Germany", "request_key": "delegated-receipt-followup",
+    })))
+    assert continued["state"] == "succeeded", continued
+    assert [item["media_ref"] for item in continued["result"]["outputs"]] == [second["media_ref"]]
+    assert continued["result"]["shortfalls"] == []
+
+
+async def test_delegated_failure_retains_final_outputs(mcp_http, monkeypatch):
+    import agent
+    from database import ChatItem
+    from mcp_server.access import access
+
+    uploaded = await product_upload(mcp_http, product_image_bytes())
+    caller = await access.authenticate("default", "test-credential-one")
+    mid = int(access.resolve(caller, uploaded["media_ref"], "media"))
+
+    async def fake_run(**kwargs):
+        kwargs["session"].add(ChatItem(
+            chat_id=kwargs["chat"].id, item_type="media_display",
+            show_role="final", media_ids=json.dumps([mid]),
+        ))
+        await kwargs["session"].commit()
+        raise RuntimeError("simulated interruption after saving the first output")
+
+    monkeypatch.setattr(agent, "run_agent", fake_run)
+    result = await wait_job(mcp_http, body(await rpc(mcp_http, "agent_start", {
+        "brief": "Make two variants", "deliverables": {"count": 2},
+        "request_key": "delegate-partial-failure",
+    })))
+    assert result["state"] == "failed", result
+    assert result["result"]["code"] == "execution_failed"
+    assert [item["media_ref"] for item in result["result"]["outputs"]] == [uploaded["media_ref"]]
+    assert result["result"]["shortfalls"] == ["Requested 2 outputs; the agent marked 1 final."]

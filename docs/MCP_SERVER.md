@@ -34,33 +34,43 @@ The surface below is deliberately small: an external agent that makes assets wit
 | `agent_start`, `agent_continue` | Delegate creative work to Stimma's agent in a chat the connection created; such chats are tagged and shown as MCP-driven in the app |
 | `assets_query`, `assets_get`, `lineage_get`, `media_read`, `media_export` | Search, details with download links, provenance, inline previews, downloads |
 | `assets_update` | trash, restore, markers, tags, clear_expiration, add_to_project, remove_from_project |
-| `content_update` | Save an edited image or a document as a new revision with lineage |
+| `content_update` | Save an external file, transformed image or document as an asset or revision with lineage |
 | `catalog_get`, `projects_get`, `projects_update`, `boards_get`, `boards_update` | Markers, tags and sources; projects (create, update); boards with sections (create, update, trash, restore, section_create, section_update, section_delete, section_reorder, add, remove, move) |
 | `chats_get`, `chats_update` | List, read metadata, rename and trash chats. No chat contents, no messages into chats |
 
-Deliberately not offered, and not implemented in this package: Flows and custom tools, chat contents and forking, saved views, presets, containers, contextual media, entity search, stable selections, facets, permanent deletion, revision management, public sharing and shared-selection snapshots. Those are inside-Stimma activities.
+Deliberately not offered: Flow control, custom-tool authoring, arbitrary chat contents and forking, saved-view editing, presets, container editing, contextual media, entity search, stable selections, facets, permanent deletion, revision browsing/restoration, public sharing and shared-selection snapshots. Those are inside-Stimma activities. Existing permitted tools remain discoverable, including installed user tools; `catalog_get` can list saved views.
 
 `tools_run` calls the same SDK dispatch and permission gate used by the agent, without an LLM planning turn. For MCP-driven chats the gate treats a tool's "ask" default as allow: the connection key is the consent, and the assistant would only approve its own question. Explicit denies in tool permissions still block. Media inputs and schema versions are checked before acceptance. Batches retain per-item results. Chains can bind the previous saved media output to a declared media input. The server does not infer an output binding from an arbitrary parameter name.
 
 `agent_start` records the brief, reference roles, selected skills and deliverables in a normal chat. It reuses the existing agent, project context, model resolution and permissions. Permission questions are relayed to the connected assistant, which is trusted to obtain the human’s answer. Responses apply once and cannot change persistent permission policy through MCP arguments.
 
-`flows_run` uses the existing one-shot Flow runner with its runtime safeguards. Human selection callbacks wait for an explicit response instead of automatically choosing a candidate. This endpoint executes a separate run; it does not take over a Flow already running in the editor.
+Choose `tools_run` for a known operation and parameters; choose `agent_start` when Stimma should select tools and creatively iterate. The external assistant can supply business context from other connected systems in its brief.
+
+For library discovery, scope to a known project or inspect a board first. `similar_to_text` searches visual appearance, `caption_query` matches captions and `prompt_query` matches generation instructions. Tags, markers and board sections can record explicit approval; visual similarity and recency cannot establish approval. Use `media_read` to inspect a shortlist.
 
 There is no separate MCP budget, cumulative spend allocation or renewal protocol. Existing agent/runtime safeguards, tool permissions and cancellation remain in effect.
 
 ## Receipts and recovery
 
-`mcp_operations` stores durable task acceptance, mutation receipts and selection snapshots. Synchronous database mutations use a transaction that commits the change and its receipt together. Request identity includes the configured client, operation and request key. Reusing a key with changed input returns `request_key_conflict`.
+`mcp_operations` stores durable task acceptance and mutation receipts. Synchronous database mutations use a transaction that commits the change and its receipt together. Request identity includes the configured client, operation and request key. Reusing a key with changed input returns `request_key_conflict`.
 
 Long-running or filesystem-affecting operations return a durable job before execution. Retrying acceptance retrieves that job rather than launching it again. The job links its ordinary chat, controller version, visible events and retained result manifest. Follow-ups and question responses require the current controller version and their own retry key.
 
 Work whose backend execution disappears is marked interrupted when recovered. Unknown provider outcomes are retained and excluded from automatic retries. A batch retry selects only explicitly failed items; it preserves successful outputs. No operation receipt is a promise that an external provider supports transactional rollback or exactly-once billing.
 
-Stable selection snapshots expire after 24 hours and record Asset, revision and Media references. Desktop context snapshots are separate: the user chooses **Share selection with connected assistants** from the media context menu, and the snapshot expires after ten minutes. Ordinary desktop selection changes do not expose ambient UI state.
+`tools_run` accepts optional `batch_labels`, one string per item in `batch`. Every attempted item echoes its label on success or failure. Labels are bookkeeping and never provider parameters. A retry runs only confirmed failures, echoes their labels and `original_index`, and links to the original receipt through `retry_of`; successful original outputs stay in the original job. `index` is local to each job's batch.
+
+Delegated results contain `outputs` (exact Asset, revision and Media refs explicitly shown as final), `summary` (the agent's closing message, including reported limitations), and `shortfalls` (reported errors and a missing-output-count notice when applicable). Intermediate displays are excluded. A later final revision of the same asset supersedes its earlier final display within the turn. A follow-up starts a new result for that turn. These receipts report work; they do not verify creative quality or approve deliverables. `succeeded` means execution ended.
+
+Poll `jobs_get` with `after` set to the previous `next_cursor` for incremental events. Stop polling at `succeeded`, `failed`, `cancelled`, `interrupted` or `control_changed`; respond to `input_required` using `interaction_respond`.
 
 ## Transfers
 
-Uploads work like downloads: `workspace_get` returns an `upload_url`, a signed link bound to the connection, and a plain `POST` of the file body (with an `X-Filename` header) creates a new asset and returns its refs; `content_update` can then publish that media as a new revision of an existing asset. Uploads enter the existing upload and Asset services and never select a server destination directory. Downloads are plain `GET` links: every asset and media object presented to an assistant carries a `download_url`, and `media_export` returns one on demand. The link is a signed handle bound to the connection and its current unlock grant, expires after four hours (the UTC expiry is repeated as an `expires` query parameter so an assistant can read it off the URL) and stops working after relocking, so it needs no key or headers and can be opened in a browser. It is built on the origin the request arrived through (the desktop relay forwards its own address in `X-Forwarded-Host`). Directory media is delivered as a complete ZIP bundle, with symlinks rejected. Downloads support byte ranges and include a SHA-256 checksum header.
+`workspace_get` returns an `upload_url`, a signed link bound to the connection. POST the file body with an `X-Filename` header. A normal upload creates an asset immediately. For external edits or composites, add `X-Stimma-Stage: true`: the upload is retained provisionally, returns a `media_ref`, and creates no intermediate library asset.
+
+Save that upload using `content_update` with `format: "file"` and `source_ref` for its bytes. `source_refs` independently identifies the library inputs used to make it, in source order; omitting this field uses `source_ref` as the provenance source. Supply a `note` describing the edit. Add `target_asset_ref` and `expected_current_revision` to publish a revision, or omit them to create an asset. Successful saves release provisional upload ownership. Conflicting revisions leave the upload available for recovery. Files retain their stored bytes, format and media metadata; SVG uploads retain the app's standard sanitization. `format: "image"` applies explicit transforms and records the exact transform list in provenance; an empty list also preserves bytes.
+
+Uploads enter the existing upload and Asset services and never select a server destination directory. Downloads are plain `GET` links: asset details and media objects carry `download_url`, and `media_export` returns one on demand from any result's `media_ref`. The link is bound to the connection and its current unlock grant, expires after four hours (also shown as a UTC `expires` query parameter) and stops working after relocking. No key or headers are needed. Download files into the external project before integrating them: these links are temporary transfers, not permanent hosting URLs. Links use the desktop relay's origin. Directory media is delivered as a complete ZIP bundle, with symlinks rejected. Downloads support byte ranges and include a SHA-256 checksum header.
 
 Inline image previews are bounded to 1024 pixels on the longest edge. Small SVG, Markdown, text and JSON documents can be returned as text. Other formats use original-file delivery.
 
@@ -74,4 +84,4 @@ tools/stimma test backend
 tools/stimma test acceptance
 ```
 
-`backend/tests/test_mcp_server.py` covers native MCP discovery, upload and link download, credential and profile boundaries, idle expiry, PIN redaction, atomic retries, interrupted jobs, saved-edit conflicts, stable selections, direct batch recovery, Flow execution and desktop takeover. The acceptance lane exercises the existing application with fake providers in an isolated sandbox.
+`backend/tests/test_mcp_server.py` covers native MCP discovery, staged uploads and downloads, credential and profile boundaries, idle expiry, PIN redaction, atomic retries, interrupted jobs, external-edit lineage, saved-edit conflicts, labeled batch recovery, delegated output receipts and desktop takeover. The acceptance lane exercises the existing application with fake providers in an isolated sandbox.

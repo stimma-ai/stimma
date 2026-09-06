@@ -345,9 +345,14 @@ async def execute_tools(caller, args, session, chat, job):
     ]
     if args.get("chain"):
         steps.extend(args["chain"])
-    manifest = {"items": []}
+    manifest = {"items": [], **({"retry_of": args["_retry_of"]} if args.get("_retry_of") else {})}
     previous = None
     for index, step in enumerate(steps):
+        identity = {
+            "index": index,
+            "original_index": args.get("_batch_indices", list(range(len(steps))))[index],
+            **({"label": args["batch_labels"][index]} if "batch_labels" in args else {}),
+        }
         check_execution()
         tool_id, _, descriptor = await tool_descriptor(caller, step["tool_ref"])
         if tool_version(descriptor) != step["schema_version"]:
@@ -378,7 +383,7 @@ async def execute_tools(caller, args, session, chat, job):
             else:
                 output = present(caller, output)
             manifest["items"].append(
-                {"index": index, "state": "succeeded", "output": output}
+                {**identity, "state": "succeeded", "output": output}
             )
         except Exception as exc:
             from agent.v2.tool_permission_gate import ToolPermissionDenied
@@ -394,7 +399,7 @@ async def execute_tools(caller, args, session, chat, job):
             )
             manifest["items"].append(
                 {
-                    "index": index,
+                    **identity,
                     "state": "failed" if known else "interrupted",
                     "error": {
                         "code": code,
@@ -413,4 +418,3 @@ async def execute_tools(caller, args, session, chat, job):
         job.result_json = json.dumps(manifest)
         await session.commit()
     return manifest
-

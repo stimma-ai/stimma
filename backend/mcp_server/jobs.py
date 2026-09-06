@@ -127,9 +127,18 @@ async def accept(caller, name, key, args):
             if name == "content_update" and args.get("source_ref"):
                 source = await media_row(caller, args["source_ref"], session)
                 payload["source_ref"] = access.ref(caller, "media", source.id)
+            if name == "content_update" and "source_refs" in args:
+                payload["source_refs"] = [
+                    access.ref(caller, "media", (await media_row(caller, ref, session)).id)
+                    for ref in args["source_refs"]
+                ]
             if name == "tools_run":
                 if args.get("batch") and args.get("chain"):
                     raise McpError("invalid_arguments", "Choose a batch or a chain.")
+                if "batch_labels" in args and (
+                    not args.get("batch") or len(args["batch_labels"]) != len(args["batch"])
+                ):
+                    raise McpError("invalid_arguments", "batch_labels must have one label for each batch item.")
                 payload = json.loads(json.dumps(args))
                 steps = [
                     {
@@ -341,6 +350,7 @@ async def run(caller, job_id, *, response=None, message=None):
                             )
                         if args.get("interaction") == "unattended":
                             brief += "\nWork unattended where possible. Park on essential questions and permissions."
+                    brief += "\nMark the deliverables you produced with show(role='final'). End with a concise completion summary that states any unmet requirements or limitations."
                     await run_agent(
                         chat=chat,
                         user_message=brief,
@@ -397,6 +407,8 @@ async def run(caller, job_id, *, response=None, message=None):
                         if pending
                         else "succeeded"
                     )
+                    if job.operation == "agent_start":
+                        job.result_json = json.dumps(await agent_result(caller, session, job))
                     job.updated_at = datetime.utcnow()
                     await session.commit()
         except asyncio.CancelledError:
@@ -420,12 +432,56 @@ async def run(caller, job_id, *, response=None, message=None):
                 _callers.pop((caller.profile_id, job_id), None)
 
 
+async def agent_result(caller, session, job):
+    """Report explicit final displays from this turn, never guess from prose."""
+    from database import AssetRevision, MediaItem
+
+    args = json.loads(job.input_json)
+    items = list(await session.scalars(select(ChatItem).where(
+        ChatItem.chat_id == job.chat_id,
+        ChatItem.id > args.get("_turn_start_after", 0),
+        ChatItem.item_type.in_(["media_display", "assistant_message", "error"]),
+    ).order_by(ChatItem.id)))
+    finals = {}
+    summary = ""
+    shortfalls = []
+    for item in items:
+        if item.item_type == "assistant_message" and item.message_text:
+            summary = item.message_text
+        if item.item_type == "error" and item.message_text:
+            shortfalls.append(item.message_text)
+        if item.item_type != "media_display" or item.show_role != "final":
+            continue
+        mids = json.loads(item.media_ids or "[]") or ([item.media_id] if item.media_id else [])
+        for mid in mids:
+            revision = await session.scalar(select(AssetRevision).where(
+                AssetRevision.primary_media_id == mid, AssetRevision.deleted_at.is_(None),
+            ))
+            media = await session.get(MediaItem, mid)
+            if not revision or not media or media.deleted_at:
+                continue
+            # A later final revision of the same asset supersedes its earlier
+            # display within this turn; independent deliverables all remain.
+            finals[revision.asset_id] = {
+                "asset_ref": access.ref(caller, "asset", revision.asset_id),
+                "revision_ref": access.ref(caller, "revision", revision.id),
+                "media_ref": access.ref(caller, "media", mid),
+                "format": media.file_format, "width": media.width, "height": media.height,
+            }
+    expected = args.get("deliverables", {}).get("count")
+    if job.state != "input_required" and expected and len(finals) < expected:
+        shortfalls.append(f"Requested {expected} outputs; the agent marked {len(finals)} final.")
+    return {"outputs": list(finals.values()), "summary": summary, "shortfalls": shortfalls}
+
+
 async def set_state(caller, job_id, state, result=None):
     db = get_database_registry().get_database(caller.profile_id)
     async with db.async_session_maker() as session:
         job = await session.get(McpOperation, job_id)
         if job and job.state != "control_changed":
             job.state, job.updated_at = state, datetime.utcnow()
+            if job.operation == "agent_start":
+                result = {**(result or {}), **await agent_result(caller, session, job)}
             if result:
                 job.result_json = json.dumps(result)
             await session.commit()
@@ -447,6 +503,7 @@ async def get(caller, job_ref, after=0):
                 {
                     "code": "execution_outcome_unknown",
                     "message": "The backend restarted. Inspect retained outputs; work was not replayed.",
+                    **(await agent_result(caller, session, job) if job.operation == "agent_start" else {}),
                 }
             )
             await session.commit()
@@ -584,6 +641,14 @@ async def control(
                     "Only delegated agent jobs accept conversation follow-ups.",
                 )
             if message:
+                payload = json.loads(job.input_json)
+                payload["_turn_start_after"] = await session.scalar(
+                    select(func.coalesce(func.max(ChatItem.id), 0)).where(ChatItem.chat_id == job.chat_id)
+                )
+                # The original count belongs to the first brief, not a refinement.
+                payload.pop("deliverables", None)
+                job.input_json = json.dumps(payload)
+                job.result_json = None
                 session.add(
                     ChatItem(
                         chat_id=job.chat_id,
@@ -737,5 +802,9 @@ async def retry(caller, job_ref, key):
             )
         batches = args.get("batch") or [args["parameters"]]
         args["batch"] = [batches[i] for i in failed]
+        if "batch_labels" in args:
+            args["batch_labels"] = [args["batch_labels"][i] for i in failed]
+        indices = args.get("_batch_indices", list(range(len(batches))))
+        args["_batch_indices"] = [indices[i] for i in failed]
         args["_retry_of"] = job_ref
     return await accept(caller, "tools_run", key, args)
