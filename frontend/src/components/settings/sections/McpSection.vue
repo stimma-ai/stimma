@@ -4,43 +4,35 @@
       <div class="flex items-center gap-3">
         <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
         <span class="rounded-md border border-edge px-2 py-0.5 text-xs font-medium text-content-secondary">EXPERIMENTAL</span>
+        <a href="https://docs.stimma.ai/mcp/" target="_blank" rel="noopener noreferrer" class="ml-auto shrink-0 text-sm text-accent-hi hover:text-accent" @click.prevent="openGuide">Learn more ↗</a>
       </div>
       <p class="mt-2 text-sm leading-relaxed text-content-secondary">
-        MCP (Model Context Protocol) connects an external AI assistant to this profile’s library and creative tools.
-        Let your assistant find media, generate variations and organize the results while Stimma is open.
-        <Button variant="link" @click="openGuide">Learn more</Button>
+        Stimma’s built-in agent is the first choice for most creative work. Use MCP (Model Context Protocol)
+        to bring this profile’s library and creative tools into another agent’s environment, such as a coding
+        agent or an assistant connected to your other systems.
       </p>
       <p class="mt-2 text-sm leading-relaxed text-content-secondary">
-        We’re learning how this works for people. Tell us what works and where you get stuck.
-        <Button variant="link" @click="openCommunity">Share feedback</Button>
+        We’re still learning how this works for people. Please let us know how it goes and where you get stuck.
       </p>
     </header>
 
     <p v-if="error" role="alert" class="text-sm text-red-400">{{ error }}</p>
 
-    <div class="border-t border-edge-subtle" />
-
-    <label class="flex cursor-pointer items-center justify-between gap-6 py-1">
-      <span>
-        <span class="block text-sm text-content">Allow assistants to connect to this profile</span>
-        <span class="mt-1 block text-xs text-content-tertiary">{{ reachNote }}</span>
-      </span>
+    <label class="flex cursor-pointer items-center justify-between gap-6 py-2.5">
+      <span class="text-sm text-content">{{ enableLabel }}</span>
       <span class="relative inline-flex shrink-0 items-center">
-        <input type="checkbox" role="switch" aria-label="Allow assistants to connect to this profile" class="peer sr-only" :checked="state.enabled" :disabled="busy || loading" @change="setEnabled($event.target.checked)" />
+        <input type="checkbox" role="switch" :aria-label="enableLabel" class="peer sr-only" :checked="state.enabled" :disabled="busy || loading" @change="setEnabled($event.target.checked)" />
         <span class="peer h-5 w-9 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-disabled:opacity-50" />
       </span>
     </label>
 
     <section aria-labelledby="mcp-connections-heading" :class="!state.enabled && 'pointer-events-none opacity-40'" :aria-disabled="!state.enabled">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h4 id="mcp-connections-heading" class="text-sm font-semibold text-content">Connections</h4>
-          <p class="mt-1 text-xs text-content-tertiary">Each assistant gets its own key. Remove one to cut off that assistant only.</p>
-        </div>
-        <Button :disabled="busy || !state.enabled" @click="showNamePrompt = true">New connection</Button>
+      <div class="flex items-center justify-between gap-4">
+        <h4 id="mcp-connections-heading" class="text-sm font-semibold text-content">Connections</h4>
+        <Button size="sm" :disabled="busy || !state.enabled" @click="showNamePrompt = true">+ New</Button>
       </div>
 
-      <div v-if="currentSetup" class="mt-4 rounded-lg border border-edge bg-overlay-subtle p-5" data-testid="mcp-new-connection">
+      <div v-if="currentSetup" class="mt-4 space-y-3 py-2.5" data-testid="mcp-new-connection">
         <h5 class="text-sm font-semibold text-content">{{ currentSetup.name }} is ready to connect</h5>
         <p class="mt-1 text-xs leading-relaxed text-content-secondary">
           Paste these into your assistant’s MCP settings.
@@ -68,31 +60,29 @@
           </div>
         </div>
         <div class="mt-4 flex items-center justify-between gap-4">
-          <p class="text-xs text-content-tertiary">Not sure where these go? <Button variant="link" size="sm" @click="openGuide">Learn more</Button></p>
+          <p class="text-xs text-content-tertiary">Not sure where these go? <a href="https://docs.stimma.ai/mcp/" target="_blank" rel="noopener noreferrer" class="text-accent-hi hover:text-accent" @click.prevent="openGuide">Learn more ↗</a></p>
           <Button @click="finishSetup">Done</Button>
         </div>
       </div>
 
-      <div v-else-if="!state.clients.length" class="mt-4 rounded-lg border border-dashed border-edge px-6 py-6 text-center">
+      <div v-else-if="!state.clients.length" class="mt-4 py-2.5">
         <p class="text-sm text-content">No assistants connected yet</p>
-        <p class="mt-1 text-xs text-content-tertiary">Click <em>New connection</em>, give it a name like “Claude Desktop”, and you’ll get a URL and key to paste into that assistant.</p>
+        <p class="mt-1 text-xs text-content-tertiary">Click <em>+ New</em>, give it a name like “Claude Desktop”, and you’ll get a URL and key to give your assistant.</p>
       </div>
 
-      <div v-if="state.clients.length" class="mt-4 overflow-visible rounded-lg border border-edge-subtle">
-        <div class="grid grid-cols-[1fr_140px_140px_36px] items-center gap-3 rounded-t-lg bg-overlay-subtle px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-content-muted">
-          <span>Name</span><span>Created</span><span>Last used</span><span />
-        </div>
-        <div v-for="client in state.clients" :key="client.id" class="grid grid-cols-[1fr_140px_140px_36px] items-center gap-3 border-t border-edge-subtle px-4 py-3" data-testid="mcp-connection-row">
+      <div v-if="state.clients.length" class="mt-2 divide-y divide-edge-subtle">
+        <div v-for="client in state.clients" :key="client.id" class="flex items-center justify-between gap-3 py-2.5" data-testid="mcp-connection-row">
           <div class="flex min-w-0 items-center gap-2.5">
             <span class="h-2 w-2 shrink-0 rounded-full" :class="client.unlocked ? 'bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,.18)]' : 'bg-content-muted'" aria-hidden="true" />
             <div class="min-w-0">
               <p class="truncate text-sm text-content">{{ client.name }}</p>
-              <p v-if="client.unlocked" class="text-xs text-content-tertiary">Active now</p>
+              <p class="mt-0.5 text-xs text-content-tertiary">
+                Created {{ formatDate(client.created_at) }} ·
+                {{ client.unlocked ? 'Active now' : client.last_used_at ? `Last used ${formatRelative(client.last_used_at)}` : 'Never used' }}
+              </p>
             </div>
           </div>
-          <span class="text-xs text-content-secondary">{{ formatDate(client.created_at) }}</span>
-          <span class="text-xs" :class="client.last_used_at ? 'text-content-secondary' : 'text-content-muted'">{{ client.last_used_at ? formatRelative(client.last_used_at) : 'Never' }}</span>
-          <div class="relative justify-self-end">
+          <div class="relative shrink-0">
             <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md text-content-tertiary hover:bg-overlay-subtle hover:text-content" :aria-label="`Options for ${client.name}`" aria-haspopup="menu" :aria-expanded="menuFor === client.id" @click.stop="menuFor = menuFor === client.id ? '' : client.id">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg>
             </button>
@@ -144,13 +134,12 @@ import { copyToClipboard } from '../../../utils/clipboard'
 import Button from '../../ui/Button.vue'
 import Modal from '../../ui/Modal.vue'
 
+const props = defineProps({ hasMultipleProfiles: Boolean })
+const enableLabel = computed(() => `Enable MCP Server${props.hasMultipleProfiles ? ' for this profile' : ''}`)
+
 const suggestions = ['Claude Desktop', 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok', 'OpenCode']
 
 const { isRemote, activeDeviceName } = useMultiDevice()
-
-const reachNote = computed(() => isRemote.value
-  ? `Assistants connect through this computer. Stimma has to be open and connected to ${activeDeviceName.value} for them to reach it.`
-  : 'Assistants can only reach Stimma while it’s running on this computer.')
 
 // The URL an assistant on this machine can actually open. In the desktop app
 // that is the shell's loopback proxy, which forwards to whichever install the
@@ -269,10 +258,6 @@ async function copy(field, value) {
 async function openGuide() {
   try { await desktop.openExternal('https://docs.stimma.ai/mcp/') }
   catch { error.value = 'Could not open the guide. Visit docs.stimma.ai/mcp for setup instructions.' }
-}
-async function openCommunity() {
-  try { await desktop.openExternal('https://stimma.ai/community') }
-  catch { error.value = 'Could not open the community page. Visit stimma.ai/community to share feedback.' }
 }
 function formatDate(iso) {
   if (!iso) return ''

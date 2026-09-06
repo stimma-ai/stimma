@@ -7,15 +7,15 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await page.goto('/browse');
   await waitForShell(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'MCP', exact: true }).click();
-  const enabled = page.getByRole('switch', { name: 'Allow assistants to connect to this profile' });
+  await page.getByRole('button', { name: 'MCP EXPERIMENTAL', exact: true }).click();
+  const enabled = page.getByRole('switch', { name: /^Enable MCP Server(?: for this profile)?$/ });
   await expect(enabled).not.toBeChecked();
   await enabled.click({ force: true });
   await expect(enabled).toBeChecked();
   await expect(page.getByText('No assistants connected yet')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('mcp-settings.png') });
 
-  await page.getByRole('button', { name: 'New connection', exact: true }).click();
+  await page.getByRole('button', { name: '+ New', exact: true }).click();
   const name = page.getByRole('textbox', { name: 'Connection name' });
   await name.fill('Claude Desktop');
   const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/mcp/clients') && response.request().method() === 'POST');

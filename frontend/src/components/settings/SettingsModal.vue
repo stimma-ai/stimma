@@ -155,7 +155,7 @@
               </template>
 
               <template v-else-if="activeSection === 'mcp'">
-                <McpSection :key="currentProfileId" />
+                <McpSection :key="currentProfileId" :has-multiple-profiles="(settings?.profiles?.length || 0) > 1" />
               </template>
 
               <!-- Agent Section -->

@@ -44,8 +44,11 @@
           ? 'bg-overlay-light text-content'
           : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
       >
-        <component :is="section.icon" class="w-5 h-5" />
-        <span>{{ section.label }}</span>
+        <component :is="section.icon" class="w-5 h-5 shrink-0" />
+        <span class="flex min-w-0 flex-1 items-center justify-between gap-1">
+          <span>{{ section.label }}</span>
+          <span v-if="section.id === 'mcp'" class="text-[9px] font-medium text-content-secondary">EXPERIMENTAL</span>
+        </span>
       </button>
 
       <!-- Global sections -->
