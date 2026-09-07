@@ -127,7 +127,7 @@ import { useMediaPlayback, useManagedMediaElement } from '../../composables/useM
 import { desktop } from '../../desktop'
 import { mobileForeground, mobileAutoplayAllowed, allowMobilePlayback } from '../../composables/useMobilePlaybackLifecycle'
 
-const systemVolume = desktop.kind === 'ios'
+const systemVolume = ['ios', 'android'].includes(desktop.kind)
 
 const props = defineProps({
   src: {

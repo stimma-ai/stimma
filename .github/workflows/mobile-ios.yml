@@ -5,13 +5,21 @@ on:
     branches: [main]
     paths:
       - 'mobile/ios/**'
-      - 'frontend/src/desktop/mobileBridge.ts'
+      - 'frontend/src/desktop/mobile*.ts'
+      - 'frontend/src/utils/mobile*.ts'
+      - 'frontend/src/utils/nativeShare.ts'
+      - 'frontend/src/composables/useMobilePlaybackLifecycle.js'
+      - 'frontend/tests/mobileReadiness*'
       - 'tools/mobile.py'
       - '.github/workflows/mobile-ios.yml'
   pull_request:
     paths:
       - 'mobile/ios/**'
-      - 'frontend/src/desktop/mobileBridge.ts'
+      - 'frontend/src/desktop/mobile*.ts'
+      - 'frontend/src/utils/mobile*.ts'
+      - 'frontend/src/utils/nativeShare.ts'
+      - 'frontend/src/composables/useMobilePlaybackLifecycle.js'
+      - 'frontend/tests/mobileReadiness*'
       - 'tools/mobile.py'
       - '.github/workflows/mobile-ios.yml'
   workflow_dispatch:

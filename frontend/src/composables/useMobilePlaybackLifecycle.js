@@ -29,6 +29,7 @@ if (mobile) {
     nativeActive.value = event.detail === true
     if (!nativeActive.value) pauseMedia()
   })
+  window.addEventListener('stimma:media-interruption', pauseMedia)
   window.addEventListener('stimma:connection-state', event => {
     connected.value = event.detail === 'ready'
   })

@@ -1016,7 +1016,7 @@ async function checkStartupPin() {
       if (startupReady) adoptLegacyAcceptance(onboarded)
       // The native phone shell has already authenticated and selected a
       // configured server. Fresh web storage does not mean a fresh install.
-      if (desktop.kind !== 'ios' && startupReady && !onboarded) {
+      if (!['ios', 'android'].includes(desktop.kind) && startupReady && !onboarded) {
         await router.replace({ name: 'onboarding' })
         return
       }

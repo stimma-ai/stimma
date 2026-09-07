@@ -1,13 +1,97 @@
 # Stimma mobile
 
-The iOS app is a native Swift/WKWebView client for an existing Stimma Server.
-It bundles only welcome, login, server selection, and recovery. The main UI is
+The iOS and Android apps are native WebView clients for an existing Stimma Server.
+Each bundles only welcome, login, server selection, and recovery. The main UI is
 downloaded from the selected server and cached on the phone; no Python backend
 runs on the phone.
 Welcome and server selection use the shared Vue components and styling; only
 authentication opens the system browser.
 
 ## Development
+
+### Android
+
+Requires JDK 17, Android SDK platform/build tools 36, platform-tools, and an
+Android emulator image. The Kotlin shell targets API 36 and supports API 28+;
+Android System WebView must support the origin-aware WebMessage API. The CLI
+downloads a checksum-verified Gradle 9.1.0 distribution into ignored build storage.
+Set `ANDROID_HOME` and `JAVA_HOME` when using nonstandard SDK/JDK locations.
+
+```sh
+tools/stimma mobile android doctor
+tools/stimma mobile android build
+tools/stimma mobile android run --simulator Stimma_API_36
+tools/stimma mobile android test
+tools/stimma mobile android lint
+tools/stimma mobile android test-ui --skip-frontend --local-backend-port 9480
+```
+
+Create an API 36 virtual device with Android Studio's Device Manager or
+`avdmanager` before `run`. Builds use the debug application ID
+`ai.stimma.mobile.debug` and the local Android debug signing key. No Play Store
+upload, release signing, or Android Studio installation is needed. APK output
+is `android/app/build/outputs/apk/debug/app-debug.apk`. `--skip-frontend` skips
+rebundling the shared connection UI. `screenshot --output FILE` captures the emulator.
+
+Sign in through Chrome Custom Tabs, using your server's account. The localhost
+callback validates state and single delivery; Firebase refresh credentials are
+encrypted with an Android Keystore AES-GCM key in backup-excluded native storage.
+Production discovery is always `https://stimma.ai`. No account credentials enter
+the WebView. LAN/Tailscale routes use the registry's SHA-256 certificate pin and
+device identity before native remote-session bootstrap.
+
+The Android WebView uses an ephemeral loopback origin with an HttpOnly capability
+cookie. Host, Origin, request framing, frame destinations, and cookie checks
+guard the HTTP/upload/media/WebSocket proxy. CSP and WebView request blocking
+prevent cross-port cookie leakage. Native commands require the trusted main
+document's exact origin. Generated layouts cannot run scripts. External links
+open Custom Tabs; file uploads use the system picker, and exports use the share sheet.
+
+Transient recovery retains the page and package. Android Back
+dismisses the top sheet or slideshow first, then navigates page history. At the root it backgrounds the app. Rotation retains the WebView. Activity recreation
+rebuilds the page against the retained connection, and process restart restores
+the remembered server with a fresh package compatibility check. Foreground health
+checks pause while backgrounded; this is not a background-transfer service.
+
+The phone stays in portrait outside slideshow. Slideshow allows sensor rotation
+without recreating the activity or WebView. System bars, display cutouts, and the
+keyboard reserve space around the interface. Playing slideshows keep the display
+awake only while the app and slideshow are visible; pause/exit restores auto-lock.
+Backgrounding and headphone disconnection pause media, and sound requires a new
+Play gesture. Audio controls use the phone's system volume.
+
+Preferences persist per account and server and restore before page scripts run,
+even after changing loopback ports. Provider-management frames load through the
+same-origin proxy and cannot directly call the native bridge. Android uses the
+same server UI package for safe areas, expandable drawers, gallery swipes, and
+unified board/chat/flow headers as iOS.
+
+Android share cancellation returns false. Choosing a receiving app reports a
+successful handoff; Android does not report whether that app ultimately saves
+or sends the file. Exports have the same 64 MiB limit as iOS, checked before
+allocating bridge bytes. Generated assets, Gradle output, APKs, and local signing
+files remain ignored. The Android checks workflow builds a development APK
+artifact and runs native protocol, shared phone behavior, and lint checks.
+
+For an already running, isolated host backend, `run --local-backend-port 9480`
+sets up `adb reverse` and connects through emulator loopback. The shortcut
+requires both a debug build and emulator hardware; it never reads another app's
+credentials. Build that server's UI package with `mobile ios package` first.
+The package format is shared by both platforms.
+
+`test` covers archive attacks/corruption/cache reuse, TLS pins, redirects, HTTP
+framing/origin checks, streaming uploads, byte ranges, WebSockets, and callback
+state/replay. `test-ui` runs those checks on Android plus native credential
+storage, activity recreation, and a real Chrome localhost callback. A disposable
+downloaded-interface fixture verifies rotation, pause/resume, Back, provider
+frames, and preferences across fresh ports without a host backend. Supplying
+`--local-backend-port` also checks the downloaded UI and page retention on resume.
+Complete Chrome's first-run screen once before the browser callback test.
+Use a separate test AVD for instrumentation when another emulator is signed in.
+`--device emulator-5556 --simulator Stimma_API_36_Tests` selects that emulator;
+the CLI can boot it when needed. `--device` also selects the screenshot target.
+
+### iOS
 
 Requires Xcode with an iOS simulator runtime, XcodeGen, Node/npm, and the normal
 Stimma CLI prerequisites. Minimum iOS version: 17.
@@ -106,6 +190,13 @@ launches the app. Never commit account details, team overrides, credentials,
 or provisioning profiles. This command builds a development app; it does not
 upload to TestFlight or submit to the App Store.
 
+For the usual local workflow, the CLI discovers the connected physical iPhone
+and installed Apple development certificate automatically:
+
+```sh
+tools/stimma dev ios
+```
+
 ## Isolated simulator validation
 
 A Debug simulator build can use an isolated loopback backend:
@@ -191,7 +282,7 @@ in both cases.
   an update before this shell can connect; UI packages cannot add native APIs.
 - Uploads require Content-Length and are limited to 1 GiB. Share-sheet exports
   currently pass bytes through the bridge and are limited to 64 MiB. Native
-  dictation, background transfers, push notifications, and Android are not
+  dictation, background transfers, and push notifications are not
   implemented.
 - Bootstrap uses URLSession with pinned TLS and local-network ATS permission.
   Literal LAN/Tailscale IP routes are the current target; fully qualified host

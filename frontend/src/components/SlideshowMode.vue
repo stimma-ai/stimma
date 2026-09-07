@@ -3935,7 +3935,7 @@ let volumeHoverTimer = null
 // isn't room above the speaker button (~150px popup + margin).
 const volumePopupOpensDown = ref(false)
 function onVolumeHoverEnter() {
-  if (desktop.kind === 'ios') return
+  if (['ios', 'android'].includes(desktop.kind)) return
   if (!isVideo.value) return
   if (volumeHoverTimer) {
     clearTimeout(volumeHoverTimer)

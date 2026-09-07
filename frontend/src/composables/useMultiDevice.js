@@ -26,7 +26,7 @@ export const SERVER_DOCS_URL = 'https://stimma.ai/link/remote-access'
  * more server to choose between. The hostname is a subtitle, not the label.
  */
 export const THIS_MACHINE_LABEL = (() => {
-  if (desktop.kind === 'ios') return 'This device'
+  if (['ios', 'android'].includes(desktop.kind)) return 'This device'
   const platform = typeof navigator !== 'undefined' ? navigator.platform.toUpperCase() : ''
   if (platform.includes('MAC')) return 'This Mac'
   if (platform.includes('LINUX')) return 'This Machine'

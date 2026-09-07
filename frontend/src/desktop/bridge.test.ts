@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { browserBridge } from './browserBridge.ts'
 import { mobileBridge, isMobileShell, revealMobileInterface, setMobileSlideshowActive } from './mobileBridge.ts'
+import { mobileNative } from './mobileNative.ts'
 import { tauriBridge } from './tauriBridge.ts'
 
 // The full bridge contract. Every implementation must expose exactly these
@@ -70,6 +71,31 @@ const IMPLEMENTATIONS = [
   ['tauri', tauriBridge],
   ['ios', mobileBridge],
 ] as const
+
+test('Android bridge correlates native replies and preserves native-only authentication', async () => {
+  const previous = globalThis.window
+  const requests: any[] = []
+  const port = {
+    onmessage: null as ((event: { data: string }) => void) | null,
+    postMessage(message: string) { requests.push(JSON.parse(message)) },
+  }
+  globalThis.window = { stimmaAndroid: port } as any
+  try {
+    assert.equal(isMobileShell(), true)
+    assert.equal(mobileBridge.kind, 'android')
+    const first = mobileNative('connectionInfo')
+    const second = mobileNative('getState')
+    port.onmessage!({ data: JSON.stringify({ id: requests[1].id, result: { connectionState: 'ready' } }) })
+    port.onmessage!({ data: JSON.stringify({ id: requests[0].id, result: { authenticated: true } }) })
+    assert.deepEqual(await first, { authenticated: true })
+    assert.deepEqual(await second, { connectionState: 'ready' })
+    const failure = mobileNative('unsupported')
+    port.onmessage!({ data: JSON.stringify({ id: requests[2].id, error: 'Unsupported command' }) })
+    await assert.rejects(failure, /Unsupported command/)
+    assert.equal((await mobileBridge.authLocal('POST', '/auth/account')).status, 501)
+    assert.equal(requests.length, 3)
+  } finally { globalThis.window = previous }
+})
 
 for (const [name, bridge] of IMPLEMENTATIONS) {
   test(`${name} bridge implements the full desktop contract`, () => {

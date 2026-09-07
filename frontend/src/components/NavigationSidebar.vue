@@ -1112,7 +1112,7 @@ const { on, connected: wsConnected } = useWebSocket()
 const { isAuthenticated, user } = useAuth()
 const { cloudUser, fetchCloudAccount, formatBalance } = useCloudAccount()
 // The phone's account menu is also its disconnect/sign-out escape path.
-const showAccountChip = computed(() => desktop.kind === 'ios' || (isAuthenticated.value && !hideAccountRef.value))
+const showAccountChip = computed(() => ['ios', 'android'].includes(desktop.kind) || (isAuthenticated.value && !hideAccountRef.value))
 
 const accountName = computed(() => {
   const email = user.value?.email || ''

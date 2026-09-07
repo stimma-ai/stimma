@@ -1,0 +1,5 @@
+<resources>
+    <string name="update_webview">Update Android System WebView to open Stimma.</string>
+    <string name="connecting">Connecting to your Stimma Server…</string>
+    <string name="choose_server">Choose another server</string>
+</resources>

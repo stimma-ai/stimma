@@ -30,6 +30,18 @@ Stimma does **not** bundle FFmpeg. Video features use an FFmpeg installation
 already present on your system, and the build pipeline actively verifies
 that no FFmpeg or restricted codec libraries ship in the app.
 
+## Android native shell
+
+The Android shell also bundles these Apache-2.0 libraries and their supporting
+AndroidX/Kotlin modules. Versions are declared in `mobile/android/app/build.gradle.kts`.
+
+| Project | Use | License |
+|---|---|---|
+| [AndroidX](https://android.googlesource.com/platform/frameworks/support/) | Activity, lifecycle, WebKit, Custom Tabs, core, and supporting Android components | Apache-2.0 |
+| [Kotlin](https://github.com/JetBrains/kotlin), [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | Kotlin runtime and native asynchronous operations | Apache-2.0 |
+| [OkHttp](https://github.com/square/okhttp), [Okio](https://github.com/square/okio) | Native HTTP and byte streams | Apache-2.0 |
+| [JetBrains annotations](https://github.com/JetBrains/java-annotations), [JSpecify](https://github.com/jspecify/jspecify) | Runtime dependency annotations | Apache-2.0 |
+
 ## Vendored source code
 
 | Project | Used for | License |

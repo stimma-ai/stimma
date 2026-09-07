@@ -6,10 +6,10 @@ import { checkMobileDownloadSize, MOBILE_SHARE_LIMIT, saveDownloadBlob } from '.
 import { recoveredImageUrl } from '../src/utils/imageRecovery.js'
 import { shareFile } from '../src/utils/nativeShare.ts'
 
-test('native share cancellation leaves the dialog open like Web Share cancellation', async () => {
+for (const phoneKind of ['ios', 'android']) test(`${phoneKind}: native share cancellation leaves the dialog open like Web Share cancellation`, async () => {
   const file = new File(['image'], 'image.png', { type: 'image/png' })
-  await assert.rejects(shareFile(file, { kind: 'ios', saveToDownloads: async () => false }, {}), { name: 'AbortError' })
-  assert.equal(await shareFile(file, { kind: 'ios', saveToDownloads: async () => true }, {}), true)
+  await assert.rejects(shareFile(file, { kind: phoneKind, saveToDownloads: async () => false }, {}), { name: 'AbortError' })
+  assert.equal(await shareFile(file, { kind: phoneKind, saveToDownloads: async () => true }, {}), true)
 })
 
 function swipeFixture() {
@@ -80,20 +80,20 @@ test('suspension freezes remaining dwell across duplicate notifications and long
   assert.equal(dwell.elapsed(), 0, 'new media shown while hidden gets a full dwell')
 })
 
-test('oversized phone export fails before reading or bridging bytes', async () => {
+for (const phoneKind of ['ios', 'android']) test(`${phoneKind}: oversized phone export fails before reading or bridging bytes`, async () => {
   let allocated = false, bridged = false
   const blob = { size: MOBILE_SHARE_LIMIT + 1, arrayBuffer: () => { allocated = true } }
-  await assert.rejects(saveDownloadBlob(blob, 'video.mp4', { kind: 'ios', saveToDownloads: () => { bridged = true } }), /64 MB/)
+  await assert.rejects(saveDownloadBlob(blob, 'video.mp4', { kind: phoneKind, saveToDownloads: () => { bridged = true } }), /64 MB/)
   assert.equal(allocated, false); assert.equal(bridged, false)
-  assert.doesNotThrow(() => checkMobileDownloadSize(MOBILE_SHARE_LIMIT, 'ios'))
+  assert.doesNotThrow(() => checkMobileDownloadSize(MOBILE_SHARE_LIMIT, phoneKind))
   assert.doesNotThrow(() => checkMobileDownloadSize(MOBILE_SHARE_LIMIT + 1, 'electron'))
 })
 
-test('failed/cancelled exports reject; only successful saves resolve true', async () => {
+for (const phoneKind of ['ios', 'android']) test(`${phoneKind}: failed/cancelled exports reject; only successful saves resolve true`, async () => {
   const blob = new Blob(['hello'])
-  await assert.rejects(saveDownloadBlob(blob, 'test.txt', { kind: 'ios', saveToDownloads: async () => false }), /not saved/)
-  await assert.rejects(saveDownloadBlob(blob, 'test.txt', { kind: 'ios', saveToDownloads: async () => { throw new Error('share unavailable') } }), /share unavailable/)
-  assert.equal(await saveDownloadBlob(blob, 'test.txt', { kind: 'ios', saveToDownloads: async () => true }), true)
+  await assert.rejects(saveDownloadBlob(blob, 'test.txt', { kind: phoneKind, saveToDownloads: async () => false }), /not saved/)
+  await assert.rejects(saveDownloadBlob(blob, 'test.txt', { kind: phoneKind, saveToDownloads: async () => { throw new Error('share unavailable') } }), /share unavailable/)
+  assert.equal(await saveDownloadBlob(blob, 'test.txt', { kind: phoneKind, saveToDownloads: async () => true }), true)
 })
 
 test('image recovery bypasses failed URL caches without changing fragments or local blobs', () => {

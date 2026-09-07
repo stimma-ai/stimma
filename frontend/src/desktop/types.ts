@@ -8,7 +8,7 @@
  * `__TAURI_INTERNALS__` directly — only bridge implementations may.
  */
 
-export type DesktopKind = 'tauri' | 'electron' | 'ios' | 'browser'
+export type DesktopKind = 'tauri' | 'electron' | 'ios' | 'android' | 'browser'
 
 /** Progress events streamed while the voice model downloads. */
 export type VoiceDownloadEvent =

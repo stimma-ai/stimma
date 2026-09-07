@@ -1,6 +1,6 @@
 /** File sharing only: library URLs may be private or local to this device. */
 export function supportsNativeShare(kind: string, nav: Pick<Navigator, 'share' | 'canShare'> = navigator): boolean {
-  return kind === 'ios' || (typeof nav.share === 'function' && typeof nav.canShare === 'function')
+  return ['ios', 'android'].includes(kind) || (typeof nav.share === 'function' && typeof nav.canShare === 'function')
 }
 
 export function shareFile(
@@ -8,7 +8,7 @@ export function shareFile(
   bridge: { kind: string; saveToDownloads: (name: string, bytes: Uint8Array) => Promise<boolean> },
   nav: Pick<Navigator, 'share' | 'canShare'> = navigator,
 ): Promise<unknown> {
-  if (bridge.kind === 'ios') {
+  if (['ios', 'android'].includes(bridge.kind)) {
     if (file.size > 64 * 1024 * 1024) return Promise.reject(new Error('This file is too large for the share sheet (64 MB maximum).'))
     return file.arrayBuffer().then(async bytes => {
       const completed = await bridge.saveToDownloads(file.name, new Uint8Array(bytes))

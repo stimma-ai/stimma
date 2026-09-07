@@ -1,20 +1,11 @@
-/** iOS WKWebView shell. Account credentials stay behind the native bridge. */
+/** Native phone shell. Account credentials stay behind the native bridge. */
 import { browserBridge } from './browserBridge.ts'
 import { checkMobileDownloadSize } from '../utils/mobileDownload.ts'
+import { mobileNative as native, mobilePlatform } from './mobileNative.ts'
 import type { ConnectionState, DesktopBridge, DeviceRecord, LocalAuthResponse, MultiDeviceState } from './types'
 
-type NativeHandler = {
-  postMessage(message: { method: string; args: Record<string, unknown> }): Promise<unknown>
-}
-
-function handler(): NativeHandler | undefined {
-  if (typeof window === 'undefined') return undefined
-  return (window as unknown as { webkit?: { messageHandlers?: { stimma?: NativeHandler } } })
-    .webkit?.messageHandlers?.stimma
-}
-
 export function isMobileShell(): boolean {
-  return typeof handler()?.postMessage === 'function'
+  return mobilePlatform() !== undefined
 }
 
 /** Release the shell's loading cover only after Vue has rendered the app. */
@@ -29,20 +20,14 @@ export function disconnectMobileServer(): Promise<void> {
   return native('disconnect')
 }
 
-async function native<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-  const bridge = handler()
-  if (!bridge) throw new Error('The mobile shell is unavailable')
-  return await bridge.postMessage({ method, args }) as T
-}
-
 export async function setMobileSlideshowActive(active: boolean): Promise<void> {
-  if (!isMobileShell() || mobileBridge.kind !== 'ios') return
+  if (!isMobileShell()) return
   // Older native shells can still use this UI package.
   await native('setSlideshowActive', { active }).catch(() => {})
 }
 
 export async function setMobileKeepAwake(active: boolean): Promise<void> {
-  if (!isMobileShell() || mobileBridge.kind !== 'ios') return
+  if (!isMobileShell()) return
   await native('setKeepAwake', { active }).catch(() => {})
 }
 
@@ -58,7 +43,7 @@ export function createMobileKeepAwakeLease(): (active: boolean) => Promise<void>
 
 export const mobileBridge: DesktopBridge = {
   ...browserBridge,
-  kind: 'ios',
+  get kind() { return mobilePlatform() ?? 'ios' },
   async getBackendPort() {
     const port = Number(window.location.port)
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -69,10 +54,10 @@ export const mobileBridge: DesktopBridge = {
   async relaunch() { await native('reload') },
   mdGetState() { return native<MultiDeviceState>('getState') },
   mdRefreshDevices() { return native<DeviceRecord[]>('refreshDevices') },
-  async mdLocalStatus() { return { serving: false, platform: 'ios' } },
+  async mdLocalStatus() { return { serving: false, platform: mobilePlatform() } },
   async mdSetLocalServing(enabled) {
     if (enabled) throw new Error('This phone connects to a computer and cannot serve a library')
-    return { serving: false, platform: 'ios' }
+    return { serving: false, platform: mobilePlatform() }
   },
   async mdRenameLocal() { throw new Error('This phone does not offer a server') },
   async mdForgetDevice() { throw new Error('Manage your computers in Stimma on desktop') },
@@ -112,7 +97,7 @@ export const mobileBridge: DesktopBridge = {
   },
   async openAuthUrl() { await native('showConnections') },
   async saveToDownloads(filename, data) {
-    checkMobileDownloadSize(data.byteLength, 'ios')
+    checkMobileDownloadSize(data.byteLength, mobileBridge.kind)
     return await native<boolean>('share', { filename, bytes: Array.from(data) })
   },
 }

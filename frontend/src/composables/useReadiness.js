@@ -88,7 +88,7 @@ async function checkStartupReadiness() {
 const shouldShowPanel = computed(() => {
   // The phone is a client of an already configured computer, not an install
   // that can provision its own providers or local storage.
-  if (desktop.kind === 'ios') return false
+  if (['ios', 'android'].includes(desktop.kind)) return false
   if (forceShowForDev.value) return true
   if (dismissedForSession.value) return false
   const r = readiness.value

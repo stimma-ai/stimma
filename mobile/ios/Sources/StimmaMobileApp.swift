@@ -118,7 +118,6 @@ final class ShellModel: ObservableObject {
 
     func restore() async {
         let generation = connectionGeneration
-        defer { restoring = false }
         #if DEBUG && targetEnvironment(simulator)
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--auth-network-check") {
@@ -126,6 +125,7 @@ final class ShellModel: ObservableObject {
                 try await auth.checkAuthNetwork()
                 message = "Auth network check passed"
             } catch { message = error.localizedDescription }
+            restoring = false
             return
         }
         if let index = arguments.firstIndex(of: "--keychain-check"), arguments.indices.contains(index + 1) {
@@ -133,6 +133,7 @@ final class ShellModel: ObservableObject {
                 try auth.checkKeychain(stage: arguments[index + 1])
                 message = "Keychain check passed"
             } catch { message = error.localizedDescription }
+            restoring = false
             return
         }
         if let index = arguments.firstIndex(of: "--local-backend-port"),
@@ -160,18 +161,28 @@ final class ShellModel: ObservableObject {
                 message = error.localizedDescription
                 try? await startInterface()
             }
+            restoring = false
             return
         }
         #endif
         do { try await startInterface() }
-        catch { message = error.localizedDescription; return }
-        guard auth.hasSavedSession else { return }
+        catch { message = error.localizedDescription; restoring = false; return }
+        guard auth.hasSavedSession else { restoring = false; return }
+        let rememberedServerID = UserDefaults.standard.string(forKey: "mobile.selectedServer")
         await refresh()
         guard restoring, generation == connectionGeneration, !Task.isCancelled else { return }
-        if let id = UserDefaults.standard.string(forKey: "mobile.selectedServer"),
+        if let id = rememberedServerID,
            let device = devices.first(where: { $0.deviceId == id }) {
             await connect(device)
+            if selected?.deviceId == id, connectionState == "ready" { restoring = false }
+            return
         }
+        if rememberedServerID != nil {
+            if message == nil { message = "Your saved Stimma Server is not currently available." }
+            connectionState = "unreachable"
+            return
+        }
+        restoring = false
     }
 
     func cancelRestore() {
@@ -447,7 +458,7 @@ struct ShellView: View {
                 ZStack {
                     Color(red: 11/255, green: 14/255, blue: 20/255).ignoresSafeArea()
                     VStack(spacing: 24) {
-                        if model.origin == nil, let message = model.message {
+                        if model.connectionState == "unreachable", let message = model.message {
                             Text(message).font(.subheadline).padding()
                         } else {
                             ProgressView().tint(.gray).accessibilityLabel("Connecting to your Stimma Server")

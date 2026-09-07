@@ -72,6 +72,7 @@ function isTopmostLayer(): boolean {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && isTopmostLayer()) {
+    e.preventDefault()
     e.stopPropagation()
     close()
   }

@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import Button from '../components/ui/Button.vue'
 import Spinner from '../components/ui/Spinner.vue'
+import { mobileNative as native } from '../desktop/mobileNative'
 
 interface Device { deviceId: string; name: string; serving: boolean }
 interface ConnectionInfo {
@@ -36,14 +37,6 @@ watch(() => Boolean(info.value && !info.value.restoring), async (ready) => {
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
   await native('interfaceReady').catch(() => {})
 })
-
-async function native<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-  const handler = (window as unknown as {
-    webkit?: { messageHandlers?: { stimma?: { postMessage: (value: unknown) => Promise<T> } } }
-  }).webkit?.messageHandlers?.stimma
-  if (!handler) throw new Error('Open Stimma on your phone to connect to your Stimma Server.')
-  return handler.postMessage({ method, args })
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong. Please try again.'
@@ -111,11 +104,17 @@ function openLegal(page: 'terms' | 'privacy') {
 
 onMounted(async () => {
   mounted = true
+  window.addEventListener('stimma:connection-info', readInfo)
   restoreTimer = setTimeout(() => { slowRestore.value = true }, 4500)
   await readInfo()
   schedule()
 })
-onUnmounted(() => { mounted = false; clearTimeout(timer); clearTimeout(restoreTimer) })
+onUnmounted(() => {
+  mounted = false
+  window.removeEventListener('stimma:connection-info', readInfo)
+  clearTimeout(timer)
+  clearTimeout(restoreTimer)
+})
 </script>
 
 <template>

@@ -235,7 +235,7 @@ const router = createRouter({
 // (tool, project), else a freshly minted one. Callers that want an explicit
 // fresh instance pass ?instance themselves.
 router.beforeEach(async (to) => {
-  if (desktop.kind === 'ios' && to.name === 'onboarding') return { name: 'home', replace: true }
+  if (['ios', 'android'].includes(desktop.kind) && to.name === 'onboarding') return { name: 'home', replace: true }
   if (to.name !== 'tool' || to.query.instance) return true
   const { whenTabsReady, useWorkspaceTabs } = await import('../composables/useWorkspaceTabs')
   // Don't hang tool navigation forever if settings never load (e.g. backend

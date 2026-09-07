@@ -34,6 +34,8 @@ test('server updates live on Stimma Server and start immediately from the top ba
   const card = page.getByRole('region', { name: 'Server status' });
   await expect(card.getByText('1.2.4', { exact: true })).toBeVisible();
   await expect(card.getByText('1.0.0', { exact: true })).toBeVisible();
+  // Opening server settings performs its own automatic update check.
+  await expect.poll(() => actions).toEqual(['update', 'check']);
   server.availableVersion = '1.2.5';
   await card.getByRole('button', { name: 'Check for updates', exact: true }).click();
   await card.getByRole('button', { name: 'Update server', exact: true }).click();
@@ -41,7 +43,7 @@ test('server updates live on Stimma Server and start immediately from the top ba
   await card.getByRole('button', { name: 'Restart server…', exact: true }).click();
   await expect(page.getByText('Connected clients will briefly disconnect.')).toBeVisible();
   await page.getByRole('button', { name: 'Restart server', exact: true }).click();
-  await expect.poll(() => actions).toEqual(['update', 'check', 'update', 'restart']);
+  await expect.poll(() => actions).toEqual(['update', 'check', 'check', 'update', 'restart']);
   await expect(card.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   server.bootstrapUpdateRequired = true;
   server.bootstrapUpdateAvailable = true;

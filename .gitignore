@@ -188,6 +188,19 @@ frontend/acceptance/phone-shots/
 
 # Native mobile generated artifacts and local signing state
 mobile/ios/.build/
+mobile/android/.gradle/
+mobile/android/.build/
+mobile/android/**/build/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/
+mobile/android/.kotlin/
+mobile/android/**/local.properties
+mobile/android/**/key.properties
+mobile/android/**/keystore.properties
+mobile/android/**/*.jks
+mobile/android/**/*.keystore
+mobile/android/**/*.apk
+mobile/android/**/*.aab
 mobile/ios/Frontend/
 mobile/ios/StimmaMobile.xcodeproj/
 **/xcuserdata/

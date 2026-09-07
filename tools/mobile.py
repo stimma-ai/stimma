@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 IOS = ROOT / 'mobile' / 'ios'
@@ -27,6 +28,49 @@ def capture(args):
     return subprocess.check_output([str(a) for a in args], text=True)
 
 
+def apple_team():
+    configured = os.environ.get('STIMMA_APPLE_TEAM')
+    if configured:
+        return configured
+    try:
+        certificates = subprocess.run(
+            ['security', 'find-certificate', '-a', '-c', 'Apple Development', '-p'],
+            check=True, capture_output=True,
+        ).stdout
+        subject = subprocess.run(
+            ['openssl', 'x509', '-noout', '-subject', '-nameopt', 'RFC2253'],
+            input=certificates, check=True, capture_output=True,
+        ).stdout.decode(errors='replace')
+        fields = dict(
+            part.strip().split('=', 1)
+            for part in subject.removeprefix('subject=').split(',')
+            if '=' in part
+        )
+        if fields.get('OU'):
+            return fields['OU']
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        pass
+    return None
+
+
+def connected_iphone():
+    with tempfile.NamedTemporaryFile(suffix='.json') as result:
+        run(['xcrun', 'devicectl', 'list', 'devices', '--json-output', result.name, '--quiet'])
+        payload = json.load(result)
+    devices = [
+        device for device in payload.get('result', {}).get('devices', [])
+        if device.get('hardwareProperties', {}).get('deviceType') == 'iPhone'
+        and device.get('hardwareProperties', {}).get('reality') == 'physical'
+        and device.get('connectionProperties', {}).get('tunnelState') == 'connected'
+    ]
+    if not devices:
+        raise SystemExit('No connected physical iPhone found. Connect and unlock the phone, then try again.')
+    if len(devices) > 1:
+        names = ', '.join(device.get('deviceProperties', {}).get('name', 'iPhone') for device in devices)
+        raise SystemExit(f'Multiple connected iPhones found ({names}). Use --device DEVICE_ID.')
+    return devices[0]['identifier']
+
+
 def build(args, device=False):
     if not args.skip_frontend:
         frontend = ROOT / 'frontend'
@@ -44,11 +88,11 @@ def build(args, device=False):
            '-destination', 'generic/platform=iOS' if device else 'generic/platform=iOS Simulator',
            '-derivedDataPath', BUILD, 'build']
     if device:
-        team = args.team or os.environ.get('STIMMA_APPLE_TEAM')
+        team = args.team or apple_team()
         if args.unsigned_device:
             cmd += ['CODE_SIGNING_ALLOWED=NO']
         elif not team:
-            raise SystemExit('Use --team TEAM_ID or set STIMMA_APPLE_TEAM for device signing.')
+            raise SystemExit('No Apple development team found. Use --team TEAM_ID or set STIMMA_APPLE_TEAM.')
         else:
             cmd += [f'DEVELOPMENT_TEAM={team}', '-allowProvisioningUpdates', '-allowProvisioningDeviceRegistration']
     else:
@@ -80,9 +124,9 @@ def simulator(requested):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Build and run the native Stimma iOS shell')
-    parser.add_argument('platform', choices=['ios'])
-    parser.add_argument('action', choices=['build', 'run', 'device', 'doctor', 'screenshot', 'test', 'test-ui', 'package'])
+    parser = argparse.ArgumentParser(description='Build and run the native Stimma mobile shells')
+    parser.add_argument('platform', choices=['ios', 'android'])
+    parser.add_argument('action', choices=['build', 'run', 'device', 'doctor', 'screenshot', 'test', 'test-ui', 'package', 'lint'])
     parser.add_argument('--skip-frontend', action='store_true')
     parser.add_argument('--simulator', help='Simulator name or UDID')
     parser.add_argument('--device', help='Physical device identifier')
@@ -91,6 +135,12 @@ def main():
     parser.add_argument('--local-backend-port', type=int, help='Simulator Debug only: isolated loopback test backend')
     parser.add_argument('--unsigned-device', action='store_true', help='Build only: compile for physical iOS without signing')
     args = parser.parse_args()
+    if args.platform == 'android':
+        from mobile_android import android_main
+        android_main(args)
+        return
+    if args.action == 'lint':
+        parser.error('lint is currently available for Android only')
     if args.unsigned_device and args.action != 'build':
         parser.error('--unsigned-device is only valid with build')
     if args.action == 'package':
@@ -131,11 +181,20 @@ def main():
             launch += ['--local-backend-port', str(args.local_backend_port)]
         run(launch)
     elif args.action == 'device':
-        if not args.device:
-            print('Device build ready. Supply --device to install and launch.')
-            return
-        run(['xcrun', 'devicectl', 'device', 'install', 'app', '--device', args.device, app])
-        run(['xcrun', 'devicectl', 'device', 'process', 'launch', '--device', args.device, 'ai.stimma.mobile'])
+        device = args.device or connected_iphone()
+        run(['xcrun', 'devicectl', 'device', 'install', 'app', '--device', device, app])
+        launch = subprocess.run(
+            ['xcrun', 'devicectl', 'device', 'process', 'launch', '--device', device, 'ai.stimma.mobile'],
+            text=True, capture_output=True,
+        )
+        if launch.returncode == 0:
+            print(launch.stdout, end='')
+        elif 'Locked' in launch.stderr or 'could not be, unlocked' in launch.stderr:
+            print('iOS app installed. Unlock the phone and open Stimma to launch it.')
+        else:
+            sys.stdout.write(launch.stdout)
+            sys.stderr.write(launch.stderr)
+            raise SystemExit(launch.returncode)
 
 
 if __name__ == '__main__':

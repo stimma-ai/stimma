@@ -1,7 +1,7 @@
 export const MOBILE_SHARE_LIMIT = 64 * 1024 * 1024
 
 export function checkMobileDownloadSize(size: number, kind: string): void {
-  if (kind === 'ios' && size > MOBILE_SHARE_LIMIT) {
+  if (['ios', 'android'].includes(kind) && size > MOBILE_SHARE_LIMIT) {
     throw new Error('This file exceeds the 64 MB phone export limit. Choose a smaller export or export it from Stimma on your computer.')
   }
 }

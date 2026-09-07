@@ -150,7 +150,7 @@ function sendFeedback() {
         <span class="flex-1 min-w-0 truncate text-content">Send feedback</span>
       </button>
     </div>
-    <div v-if="desktop.kind === 'ios'" class="border-t border-edge-subtle">
+    <div v-if="['ios', 'android'].includes(desktop.kind)" class="border-t border-edge-subtle">
       <button type="button" class="sheet-row" :disabled="sessionActionPending" @click="endMobileSession(false)">
         <LinkSlashIcon class="sheet-row-icon" />
         <span class="flex-1 text-content">Disconnect from server</span>
@@ -169,7 +169,7 @@ function sendFeedback() {
   <Sheet :show="serverOpen" title="Server" @close="serverOpen = false">
     <div class="pb-2">
       <template v-if="isDesktop()">
-        <button v-if="desktop.kind !== 'ios'" type="button" class="sheet-row" @click="pickServer(md.LOCAL_DEVICE)">
+        <button v-if="!['ios', 'android'].includes(desktop.kind)" type="button" class="sheet-row" @click="pickServer(md.LOCAL_DEVICE)">
           <span class="w-2 h-2 rounded-full flex-shrink-0" :class="md.selfServing.value ? 'bg-accent-hi' : 'bg-content-muted'"></span>
           <span class="flex-1 min-w-0">
             <span class="block truncate text-content">{{ THIS_MACHINE_LABEL }}</span>
@@ -245,4 +245,3 @@ function sendFeedback() {
     </div>
   </Sheet>
 </template>
-

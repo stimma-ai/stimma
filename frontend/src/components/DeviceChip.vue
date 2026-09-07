@@ -74,7 +74,7 @@
              this?" without competing with the answer to "where am I?". -->
         <div class="py-1">
           <DeviceRow
-            v-if="desktop.kind !== 'ios'"
+            v-if="!['ios', 'android'].includes(desktop.kind)"
             :label="THIS_MACHINE_LABEL"
             :detail="selfDetail"
             :channel="selfChannel"
@@ -146,7 +146,7 @@
               </li>
             </ol>
             <div class="mt-3 flex items-center gap-2">
-              <Button v-if="desktop.kind !== 'ios'" size="sm" @click="openServerSettings">Serve from {{ THIS_MACHINE_LABEL }}</Button>
+              <Button v-if="!['ios', 'android'].includes(desktop.kind)" size="sm" @click="openServerSettings">Serve from {{ THIS_MACHINE_LABEL }}</Button>
               <Button size="sm" variant="ghost" @click="openDocs">Learn more ↗</Button>
             </div>
           </template>

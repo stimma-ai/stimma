@@ -23,12 +23,17 @@ async function fixture(t) {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.setContent('<style>.test-tile{width:100px;height:100px;position:relative;overflow:hidden}.test-tile img{width:100%;height:100%}.test-tile svg{width:32px;height:32px}</style><div id="app"></div>')
-  await page.evaluate(() => {
+  await page.evaluate(phoneKind => {
     window.nativeCalls = []
     // Scripted test calls are not a physical user's Play gesture.
     Object.defineProperty(navigator, 'userActivation', { configurable: true, value: { isActive: false } })
-    window.webkit = { messageHandlers: { stimma: { postMessage: async message => { window.nativeCalls.push(message) } } } }
-  })
+    if (phoneKind === 'ios') window.webkit = { messageHandlers: { stimma: { postMessage: async message => { window.nativeCalls.push(message) } } } }
+    else window.stimmaAndroid = { postMessage: value => {
+      const message = JSON.parse(value)
+      window.nativeCalls.push(message)
+      queueMicrotask(() => window.stimmaAndroid.onmessage({ data: JSON.stringify({ id: message.id, result: null }) }))
+    } }
+  }, process.env.STIMMA_TEST_MOBILE_PLATFORM ?? 'ios')
   await page.addScriptTag({ content: script })
   assert.deepEqual(errors, [], 'fixture should load without script errors')
   return page
