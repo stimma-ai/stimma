@@ -69,7 +69,7 @@ export function preserveConnectingToolProviderStatuses(
   freshProviders: ToolProviderStatus[],
 ): ToolProviderStatus[] {
   const previousById = new Map(previousProviders.map(provider => [provider.id, provider]))
-  return freshProviders.map(provider => {
+  const merged = freshProviders.map(provider => {
     const previous = previousById.get(provider.id)
     if (
       previous?.status === 'connecting'
@@ -80,4 +80,12 @@ export function preserveConnectingToolProviderStatuses(
     }
     return provider
   })
+  // A provider created moments ago can be missing from the next settings
+  // read until the backend's config watcher reloads. Keep the optimistic
+  // entry so guided setup screens don't blink back to their initial state.
+  const freshIds = new Set(freshProviders.map(provider => provider.id))
+  for (const previous of previousProviders) {
+    if (previous.status === 'connecting' && !freshIds.has(previous.id)) merged.push(previous)
+  }
+  return merged
 }

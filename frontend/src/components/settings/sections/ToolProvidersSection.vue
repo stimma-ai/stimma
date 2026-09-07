@@ -468,7 +468,7 @@
           <ul class="space-y-1.5 text-sm leading-6 text-content-tertiary">
             <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Image models</span> such as FLUX.2 Klein, Z-Image Turbo, Qwen Image, and SDXL.</span></li>
             <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Video models</span> such as LTX-2.3 and Wan 2.2, from text or from an image.</span></li>
-            <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Already use the Draw Things app?</span> Stimma shares its model folder, so the models you have downloaded are ready to use.</span></li>
+            <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Already use the Draw Things app?</span> Using Draw Things through Stimma reads the same model folder, so the models you have downloaded are ready to use.</span></li>
           </ul>
 
           <div v-if="!drawThingsSetupProvider">

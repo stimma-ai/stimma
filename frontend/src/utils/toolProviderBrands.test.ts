@@ -54,3 +54,9 @@ test('assigns a stable id for the bundled engine', () => {
   assert.deepEqual(nextDrawThingsIdentity([]), { id: 'drawthings', name: 'Draw Things' })
   assert.deepEqual(nextDrawThingsIdentity([{ id: 'drawthings' }]), { id: 'drawthings-2', name: 'Draw Things 2' })
 })
+
+test('keeps a just-created provider until the backend reports it', () => {
+  const previous = [{ id: 'drawthings', status: 'connecting', enabled: true }]
+  assert.deepEqual(preserveConnectingToolProviderStatuses(previous, []), previous)
+  assert.deepEqual(preserveConnectingToolProviderStatuses([{ id: 'old', status: 'connected' }], []), [])
+})
