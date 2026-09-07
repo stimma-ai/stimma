@@ -3,6 +3,7 @@ import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { getApiBase } from '../apiConfig'
 import { useTauriDownload } from './useTauriDownload'
 import { useTheme } from './useTheme'
+import { addToast } from './useToasts'
 
 // Use dynamic API base - will be '/api' in dev, 'http://127.0.0.1:PORT/api' in Tauri
 function getAPIBase() {
@@ -553,6 +554,7 @@ export function useMediaApi() {
       await downloadFromResponse(response.data, filename)
     } catch (error) {
       console.error('[useMediaApi] Download failed:', error)
+      addToast(error instanceof Error ? error.message : 'Download failed. Please try again.', 'error')
       throw error
     }
   }

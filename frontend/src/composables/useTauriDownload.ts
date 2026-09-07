@@ -8,6 +8,7 @@
 
 import { ref } from 'vue'
 import { isDesktop, desktop } from '../desktop'
+import { checkMobileDownloadSize, saveDownloadBlob } from '../utils/mobileDownload'
 
 // Kept as a ref for existing template consumers; resolved synchronously now
 // that shell detection no longer needs an IPC probe.
@@ -22,16 +23,13 @@ async function ensureInitialized(): Promise<void> {
  */
 async function saveToDownloads(data: Uint8Array, filename: string): Promise<boolean> {
   if (!isDesktop()) {
-    console.error('[useTauriDownload] Cannot save: not in the desktop app')
-    return false
+    throw new Error('File saving is unavailable outside the app.')
   }
 
-  try {
-    return await desktop.saveToDownloads(filename, data)
-  } catch (e) {
-    console.error('[useTauriDownload] Failed to save file:', e)
-    return false
-  }
+  checkMobileDownloadSize(data.byteLength, desktop.kind)
+  const saved = await desktop.saveToDownloads(filename, data)
+  if (!saved) throw new Error('The file was not saved. Please try exporting again.')
+  return true
 }
 
 /**
@@ -56,19 +54,9 @@ async function downloadFromResponse(
   responseData: Blob,
   filename: string
 ): Promise<boolean> {
-  try {
-    if (isDesktop()) {
-      const arrayBuffer = await responseData.arrayBuffer()
-      const data = new Uint8Array(arrayBuffer)
-      return await saveToDownloads(data, filename)
-    } else {
-      triggerBrowserDownload(responseData, filename)
-      return true
-    }
-  } catch (e) {
-    console.error('[useTauriDownload] Download from response failed:', e)
-    return false
-  }
+  if (isDesktop()) return await saveDownloadBlob(responseData, filename, desktop)
+  triggerBrowserDownload(responseData, filename)
+  return true
 }
 
 /**

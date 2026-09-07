@@ -1,5 +1,6 @@
 /** iOS WKWebView shell. Account credentials stay behind the native bridge. */
 import { browserBridge } from './browserBridge.ts'
+import { checkMobileDownloadSize } from '../utils/mobileDownload.ts'
 import type { ConnectionState, DesktopBridge, DeviceRecord, LocalAuthResponse, MultiDeviceState } from './types'
 
 type NativeHandler = {
@@ -38,6 +39,21 @@ export async function setMobileSlideshowActive(active: boolean): Promise<void> {
   if (!isMobileShell() || mobileBridge.kind !== 'ios') return
   // Older native shells can still use this UI package.
   await native('setSlideshowActive', { active }).catch(() => {})
+}
+
+export async function setMobileKeepAwake(active: boolean): Promise<void> {
+  if (!isMobileShell() || mobileBridge.kind !== 'ios') return
+  await native('setKeepAwake', { active }).catch(() => {})
+}
+
+const wakeRequests = new Set<symbol>()
+export function createMobileKeepAwakeLease(): (active: boolean) => Promise<void> {
+  const owner = Symbol('slideshow')
+  return active => {
+    if (active) wakeRequests.add(owner)
+    else wakeRequests.delete(owner)
+    return setMobileKeepAwake(wakeRequests.size > 0)
+  }
 }
 
 export const mobileBridge: DesktopBridge = {
@@ -95,5 +111,8 @@ export const mobileBridge: DesktopBridge = {
     await native('openExternal', { url: parsed.href })
   },
   async openAuthUrl() { await native('showConnections') },
-  saveToDownloads(filename, data) { return native<boolean>('share', { filename, bytes: Array.from(data) }) },
+  async saveToDownloads(filename, data) {
+    checkMobileDownloadSize(data.byteLength, 'ios')
+    return await native<boolean>('share', { filename, bytes: Array.from(data) })
+  },
 }

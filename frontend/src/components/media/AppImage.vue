@@ -110,6 +110,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { enqueueThumbnail, type ThumbnailQueueHandle } from '../../composables/useThumbnailQueue'
+import { subscribeImageRecovery, recoveredImageUrl } from '../../utils/imageRecovery'
 
 interface Props {
   src?: string
@@ -198,6 +199,9 @@ const naturalHeight = ref(0)
 const containerWidth = ref(0)
 const containerHeight = ref(0)
 const displaySrc = ref(props.src || '')
+const recoveryRevision = ref(0)
+const sourceForLoad = computed(() => recoveredImageUrl(props.src || '', recoveryRevision.value))
+let stopRecovery: (() => void) | undefined
 let preloadRequestId = 0
 let resizeObserver: ResizeObserver | null = null
 
@@ -251,6 +255,11 @@ const contentStyle = computed(() => {
 })
 
 onMounted(() => {
+  stopRecovery = subscribeImageRecovery({
+    element: () => containerRef.value,
+    failed: () => error.value || retryTimer !== null,
+    retry: () => { recoveryRevision.value++ },
+  })
   // Only contain mode needs container measurements; cover mode fills via
   // object-cover, so we avoid attaching observers to the (many) grid images.
   if (!props.contain || !containerRef.value || typeof ResizeObserver === 'undefined') return
@@ -265,6 +274,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopRecovery?.()
   clearRetryTimer()
   queueHandle?.cancel()
   queueHandle = null
@@ -273,7 +283,8 @@ onBeforeUnmount(() => {
 })
 
 // Reset state when src changes. Optionally keep old image visible until next src is ready.
-watch(() => props.src, (nextSrc) => {
+watch(sourceForLoad, (nextSrc) => {
+  const requestId = ++preloadRequestId
   const normalizedSrc = nextSrc || ''
 
   // A genuinely new source starts its retry budget fresh.
@@ -312,7 +323,6 @@ watch(() => props.src, (nextSrc) => {
     return
   }
 
-  const requestId = ++preloadRequestId
   const preload = new Image()
   preload.onload = () => {
     if (requestId !== preloadRequestId) return
@@ -374,7 +384,7 @@ function handleError(event: Event) {
   // Free the admission slot either way; auto-retries are rare, backoff-spaced,
   // and always for a visible tile, so they reload outside the queue.
   queueHandle?.done()
-  const baseSrc = props.src || ''
+  const baseSrc = sourceForLoad.value
   if (props.retryOnError && baseSrc && retryCount < props.maxRetries) {
     retryCount += 1
     // Backoff: 0.4s, 0.8s, 1.6s, 3.2s — covers the on-demand render window

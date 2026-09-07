@@ -2,8 +2,6 @@
   <div
     ref="overlay"
     class="[&_img]:[-webkit-touch-callout:none] [&_video]:[-webkit-touch-callout:none]"
-    @touchstart.passive="onSlideshowTouchStart"
-    @touchend.passive="onSlideshowTouchEnd"
     data-drop-zone
     :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
@@ -338,8 +336,8 @@
     <!-- Close button -->
     <button
       v-if="!(slideshowCompact && compactImmersive)"
-      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
-      :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
+      class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all compact:transition-colors hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
+      :style="{ right: slideshowCompact ? 'calc(var(--safe-right, 0px) + 12px)' : (showSidebar && !focusMode) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
       @click="handleCloseClick"
       title="Close slideshow"
     >✕</button>
@@ -395,6 +393,7 @@
         @touchstart="handleTouchStart"
         @touchmove="handleTouchMove"
         @touchend="handleTouchEnd"
+        @touchcancel="cancelSlideshowTouch"
         @click="handleDoubleTap"
       >
         <!-- Audio player -->
@@ -405,7 +404,7 @@
           :media-id="mediaIdOf(displayItem)"
           :title="displayItem.vlm_caption"
           :duration="displayItem.duration"
-          autoplay
+          :autoplay="mobileAutoplayAllowed"
         />
 
         <!-- Markdown viewer -->
@@ -459,7 +458,7 @@
           :poster="getThumbnailUrl(displayItem.file_hash, 1024, { mode: 'fit' })"
           :muted="isMuted"
           @contextmenu="handleContextMenu($event, displayItem)"
-          autoplay
+          :autoplay="mobileAutoplayAllowed"
           playsinline
           :class="[
             'w-full h-full object-contain select-none',
@@ -499,7 +498,7 @@
           <img
             v-else
             :key="`img-${displayItem?.id}-${refreshKey}`"
-            :src="getMediaFileUrl(displayItem.file_hash)"
+            :src="recoveredImageUrl(getMediaFileUrl(displayItem.file_hash), imageRecoveryRevision)"
             :alt="displayItem.vlm_caption"
             fetchpriority="high"
             :class="['w-full h-full select-none', hasExactDimensions ? '' : 'object-contain']"
@@ -507,6 +506,7 @@
             @dragstart="handleDragStart"
             @dragend="handleDragEnd"
             @load="handleMediaLoad"
+            @error="imageLoadFailed = true"
           />
         </div>
       </div>
@@ -618,11 +618,13 @@
     <!-- Image Strip (shows thumbnails from current dataset, or single source image when viewing source) -->
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
-      v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid && !(slideshowCompact && compactImmersive)"
+      v-if="visibleImageStrip"
       :class="slideshowCompact ? 'relative order-3 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
       class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:bg-slideshow-matt compact:backdrop-blur-none compact:border-t-0 compact:py-1 compact:pb-safe"
       :style="{
-        height: `${STRIP_HEIGHT}px`,
+        paddingLeft: slideshowCompact ? 'calc(var(--safe-left, 0px) + 8px)' : undefined,
+        paddingRight: slideshowCompact ? 'calc(var(--safe-right, 0px) + 8px)' : undefined,
+        height: slideshowCompact ? `calc(${STRIP_HEIGHT}px + var(--safe-bottom, 0px))` : `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
       }"
     >
@@ -838,14 +840,19 @@
       ref="controlBar"
       :class="[
         slideshowCompact
-          ? 'slideshow-control-bar relative order-2 w-full shrink-0 h-[52px] flex items-center bg-slideshow-matt z-chrome select-none px-1.5'
+          ? 'slideshow-control-bar relative order-2 w-full shrink-0 min-h-[52px] flex items-center bg-slideshow-matt z-chrome select-none'
           : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
         { '!bg-black/60': isHovered && !slideshowCompact },
         { 'cursor-grab': !isDragging && !slideshowCompact },
         { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' && !slideshowCompact }
       ]"
-      :style="slideshowCompact ? undefined : controlBarStyle"
+      :style="slideshowCompact ? {
+        paddingLeft: 'calc(var(--safe-left, 0px) + 6px)',
+        paddingRight: 'calc(var(--safe-right, 0px) + 6px)',
+        paddingBottom: visibleImageStrip ? undefined : 'var(--safe-bottom, 0px)',
+        minHeight: visibleImageStrip ? '52px' : 'calc(52px + var(--safe-bottom, 0px))',
+      } : controlBarStyle"
       @mousedown="!slideshowCompact && startDrag($event)"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
@@ -1153,7 +1160,10 @@
         ? 'relative order-1 w-full shrink-0 bg-slideshow-matt px-2 py-1'
         : 'absolute bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[620px]'"
       class="z-chrome flex items-center gap-2 select-none"
-      :style="slideshowCompact ? undefined : transportBarStyle"
+      :style="slideshowCompact ? {
+        paddingLeft: 'calc(var(--safe-left, 0px) + 8px)',
+        paddingRight: 'calc(var(--safe-right, 0px) + 8px)',
+      } : transportBarStyle"
       @mousedown.stop
       @dblclick.stop
     >
@@ -1298,6 +1308,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
+import { createSlideshowSwipe } from '../utils/slideshowSwipe'
+import { createSlideshowDwell } from '../utils/slideshowDwell'
+import { subscribeImageRecovery, recoveredImageUrl } from '../utils/imageRecovery'
+import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobilePlayback } from '../composables/useMobilePlaybackLifecycle'
+import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
 import { useViewport } from '../composables/useViewport'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -1516,7 +1531,8 @@ const isAtomicTransition = ref(false)
 const FOLLOW_MIN_DWELL_MS = 1500
 // performance.now() timestamp when the currently-displayed item was shown. Drives
 // the dwell floor for both follow-catch-up and the manual Play timer.
-let currentShownAt = 0
+const slideshowDwell = createSlideshowDwell()
+const updateNativeKeepAwake = createMobileKeepAwakeLease()
 // Pending dwell/floor timer (setTimeout handle) and serialization guard for the
 // async preload+swap step. There is only ever one of each in flight.
 let dwellTimer = null
@@ -1590,18 +1606,16 @@ const compactImmersive = ref(false)
 // Phones start in the image; the info panel is a swipe-up/tap-away overlay.
 const showSidebar = ref(!slideshowCompact.value)
 
-// Touch: horizontal swipe = previous/next, vertical swipe up = info panel.
-let touchStartX = 0, touchStartY = 0, touchStartT = 0
-function onSlideshowTouchStart(e) {
-  const t = e.touches[0]; if (!t) return
-  touchStartX = t.clientX; touchStartY = t.clientY; touchStartT = Date.now()
-}
-function onSlideshowTouchEnd(e) {
-  const t = e.changedTouches[0]; if (!t) return
-  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY
-  if (Date.now() - touchStartT > 800) return
-  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? next() : previous(); return }
-  if (dy < -80 && Math.abs(dy) > Math.abs(dx) * 1.5 && slideshowCompact.value) showSidebar.value = true
+const slideshowSwipe = createSlideshowSwipe({
+  canNavigate: () => zoomScale.value <= 1 && pictureGesturesEnabled(),
+  navigate: direction => {
+    if (direction === 'next') next()
+    else if (direction === 'previous') previous()
+    else if (slideshowCompact.value) showSidebar.value = true
+  },
+})
+function pictureGesturesEnabled() {
+  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value
 }
 // Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
 const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'vertical'))
@@ -1613,6 +1627,7 @@ const STRIP_HEIGHT = slideshowCompact.value ? 66 : 136
 const STRIP_ROW = slideshowCompact.value ? 52 : 104
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
+const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
 // Markers and boards state
 const availableMarkers = ref([])
 const mediaProjects = ref([])
@@ -1806,6 +1821,10 @@ const currentDurationIndex = ref(savedSettings.durationIndex ?? 3) // Default to
 const slideshowTimer = ref(null)
 
 const videoElement = ref(null)
+const imageLoadFailed = ref(false)
+const imageRecoveryRevision = ref(0)
+let stopImageRecovery = null
+let resumeVideoPending = false
 let msePlayback = null
 let slideshowViewActive = true
 let deactivatedVideoState = null
@@ -1817,7 +1836,7 @@ useManagedMediaElement(videoElement)
 const showVideoTransport = ref(savedSettings.showVideoTransport ?? true)
 const videoCurrentTime = ref(0)
 const videoDuration = ref(0)
-const videoPaused = ref(false)
+const videoPaused = ref(true)
 const videoFps = ref(0)
 const transportStripReady = ref(false)
 const transportStripFailed = ref(false)
@@ -1845,7 +1864,7 @@ watch(
     element.muted = isMuted.value
     element.volume = volume.value
     const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
-      shouldPlay: () => slideshowViewActive,
+      shouldPlay: () => slideshowViewActive && mobileAutoplayAllowed.value,
       onBoundary: () => {
         if (videoAdvanceArmed.value) onVideoEnded()
       },
@@ -1868,7 +1887,7 @@ watch(
         msePlayback = null
         element.src = getMediaFileUrl(fileHash)
         element.loop = false
-        if (slideshowViewActive) void element.play().catch(() => {})
+        if (slideshowViewActive && mobileAutoplayAllowed.value) void element.play().catch(() => {})
       },
       onMaintenanceError: (error) => {
         if (msePlayback === playback) {
@@ -2596,7 +2615,7 @@ function mediaUpdatePatch(fields = [], media = {}) {
 // id, so they never reset zoom or restart the dwell clock here.
 watch(() => itemIdentity(displayItem.value), (newId, oldId) => {
   if (newId == null || newId === oldId) return
-  currentShownAt = performance.now()
+  slideshowDwell.shown()
   resetZoom()
   scheduleAdvance()
 })
@@ -3716,6 +3735,7 @@ function trackControl(control) {
 
 function toggleSlideshow() {
   if (preventClick.value) return
+  allowMobilePlayback()
   isPlaying.value = !isPlaying.value
   trackControl(isPlaying.value ? 'play' : 'pause')
   scheduleAdvance()
@@ -3857,6 +3877,7 @@ let volumeHoverTimer = null
 // isn't room above the speaker button (~150px popup + margin).
 const volumePopupOpensDown = ref(false)
 function onVolumeHoverEnter() {
+  if (desktop.kind === 'ios') return
   if (!isVideo.value) return
   if (volumeHoverTimer) {
     clearTimeout(volumeHoverTimer)
@@ -3946,6 +3967,7 @@ function toggleVideoTransport() {
 }
 
 function toggleVideoPlayback() {
+  allowMobilePlayback()
   const v = videoElement.value
   if (!v) return
   if (v.paused) {
@@ -4623,6 +4645,8 @@ function getTouchCenter(touches) {
 }
 
 function handleTouchStart(event) {
+  if (!pictureGesturesEnabled()) return
+  slideshowSwipe.start(event)
   if (event.touches.length === 2) {
     // Pinch start
     event.preventDefault()
@@ -4641,6 +4665,8 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
+  if (!pictureGesturesEnabled()) return
+  slideshowSwipe.move(event)
   if (event.touches.length === 2) {
     // Pinch zoom
     event.preventDefault()
@@ -4690,6 +4716,8 @@ function handleTouchMove(event) {
 }
 
 function handleTouchEnd(event) {
+  if (!pictureGesturesEnabled()) return
+  slideshowSwipe.end(event)
   if (event.touches.length < 2) {
     touchStartDistance.value = 0
 
@@ -4709,6 +4737,8 @@ function handleTouchEnd(event) {
 let lastTapTime = 0
 let singleTapTimer = null
 function handleDoubleTap(event) {
+  if (!pictureGesturesEnabled()) return
+  if (slideshowSwipe.suppressClick() || event.target?.closest?.('button, a, input, [role="slider"], [data-slideshow-interactive]')) return
   const now = Date.now()
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   if (now - lastTapTime < 300) {
@@ -4739,6 +4769,11 @@ function handleDoubleTap(event) {
       }, 300)
     }
   }
+}
+
+function cancelSlideshowTouch(event) {
+  slideshowSwipe.cancel()
+  handleTouchEnd(event)
 }
 
 // Reconcile the slideshow total against the parent's authoritative count after a
@@ -5487,6 +5522,7 @@ function playActiveNow() {
 // Re-validate at fire time — conditions may have changed during a dwell wait, an
 // async preload, or a video playthrough (user navigated, entered a sub-view, etc).
 function shouldStillAdvance(action) {
+  if (!slideshowViewActive || !mobileAdvanceReady.value) return false
   if (isViewingSet.value || isViewingGrid.value || isViewingSource.value) return false
   if (action === performFollowStep) return followActiveNow()
   if (action === performPlayNext) return playActiveNow()
@@ -5500,6 +5536,7 @@ function shouldStillAdvance(action) {
 function scheduleAdvance() {
   if (dwellTimer) { clearTimeout(dwellTimer); dwellTimer = null }
   videoAdvanceArmed.value = false
+  if (!slideshowViewActive || !mobileAdvanceReady.value) return
 
   // No auto-advance while a sub-view is open — arrivals still pin underneath, but
   // the view must never change out from under the user.
@@ -5517,7 +5554,7 @@ function scheduleAdvance() {
     return
   }
 
-  const elapsed = performance.now() - currentShownAt
+  const elapsed = slideshowDwell.elapsed()
   const remaining = Math.max(0, floorMs - elapsed)
 
   if (isVideo.value) {
@@ -5543,6 +5580,7 @@ function scheduleAdvance() {
 
 // An armed video must be playing to reach the next logical MSE boundary.
 function ensureVideoPlaying() {
+  if (!mobileAutoplayAllowed.value) return
   const el = videoElement.value
   if (!el) return
   try {
@@ -5554,6 +5592,7 @@ function ensureVideoPlaying() {
 // Fired by the MSE controller at a logical loop boundary while armed. Perform the
 // queued advance if it is still valid; otherwise continue looping and re-arm.
 function onVideoEnded() {
+  if (!mobileAutoplayAllowed.value || !mobileAdvanceReady.value) return
   videoAdvanceArmed.value = false
   if (shouldStillAdvance(performFollowStep)) {
     performFollowStep()
@@ -5575,6 +5614,7 @@ function onVideoEnded() {
 // Keep looping while no slideshow advance is armed; once armed, the same end
 // becomes the handoff point to the next item.
 function handleNativeVideoEnded() {
+  if (!mobileAutoplayAllowed.value || !mobileAdvanceReady.value) return
   if (msePlayback) return
   if (videoAdvanceArmed.value) {
     onVideoEnded()
@@ -5697,7 +5737,7 @@ async function performFollowStep() {
   } finally {
     isAtomicTransition.value = false
     stepInFlight = false
-    // On a swap, the displayItem identity watch stamps currentShownAt and re-arms.
+    // On a swap, the displayItem identity watch stamps the dwell start and re-arms.
     // On an abort/give-up (no swap), re-arm here so we retry on the next tick.
     if (!swapped) scheduleAdvance()
   }
@@ -5705,15 +5745,56 @@ async function performFollowStep() {
 
 // Manual Play timer step: walk toward older items (wraps with loopEnabled).
 function performPlayNext() {
-  if (!playActiveNow()) return
+  if (!shouldStillAdvance(performPlayNext)) return
   next()
   // Re-arm with a fresh dwell. For an item change the displayItem watch also re-arms
   // (idempotent); for a no-op (e.g. single-item loop) this avoids a busy loop.
-  currentShownAt = performance.now()
+  slideshowDwell.shown()
   scheduleAdvance()
 }
 
 // Lifecycle
+watch(mobileAdvanceReady, ready => {
+  if (ready) slideshowDwell.resume()
+  else slideshowDwell.pause()
+  scheduleAdvance()
+}, { immediate: true, flush: 'sync' })
+
+watch(mobileForeground, foreground => {
+  if (foreground) return
+  slideshowSwipe.cancel()
+  if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
+  if (isVideo.value && videoElement.value) {
+    deactivatedVideoState = {
+      fileHash: displayItem.value?.file_hash,
+      logicalTime: msePlayback?.logicalCurrentTime ?? videoElement.value.currentTime ?? 0,
+    }
+    resumeVideoPending = true
+  }
+  // An image presentation resumes its remaining dwell. Media waits for Play;
+  // neither the manual timer nor follow mode may restart sound on wake.
+  if (isVideo.value || isAudio.value) {
+    isPlaying.value = false
+    followStream.value = false
+  }
+}, { flush: 'sync' })
+
+function updateKeepAwake() {
+  void updateNativeKeepAwake(slideshowViewActive && mobileAdvanceReady.value && (isPlaying.value || (isVideo.value && !videoPaused.value)))
+}
+watch([isPlaying, isVideo, videoPaused, mobileAdvanceReady], updateKeepAwake)
+
+function recoverVideoAfterResume() {
+  if (!resumeVideoPending || !slideshowViewActive || !mobileForeground.value) return
+  resumeVideoPending = false
+  refreshKey.value++
+}
+
+watch(() => displayItem.value?.file_hash, () => {
+  imageLoadFailed.value = false
+  imageRecoveryRevision.value = 0
+})
+
 // Global keyboard shortcuts for slideshow
 useGlobalKeyboardShortcuts({
   onKeydown: handleKeydown
@@ -5836,6 +5917,12 @@ function handleMediaUpdatedWs(data) {
 }
 
 onMounted(async () => {
+  stopImageRecovery = subscribeImageRecovery({
+    element: () => mediaContainerRef.value,
+    failed: () => imageLoadFailed.value,
+    retry: () => { imageLoadFailed.value = false; imageRecoveryRevision.value++ },
+  })
+  window.addEventListener('stimma:media-reconnected', recoverVideoAfterResume)
   // Reset any stale loading states from previous mount
   setViewLoading.value = false
 
@@ -5920,7 +6007,7 @@ onMounted(async () => {
 
   // Initialize the advance engine: stamp the initial dwell and arm the scheduler
   // (the displayItem identity watch will re-stamp/re-arm once the first item loads).
-  currentShownAt = performance.now()
+  slideshowDwell.shown()
   scheduleAdvance()
 
   // Fetch available markers
@@ -5939,6 +6026,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopImageRecovery?.()
+  window.removeEventListener('stimma:media-reconnected', recoverVideoAfterResume)
+  void updateNativeKeepAwake(false)
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   mediaPreloadEpoch++
   decodedImageCache.clear()
@@ -5984,6 +6074,9 @@ onUnmounted(() => {
 onDeactivated(() => {
   mediaPreloadEpoch++
   slideshowViewActive = false
+  slideshowDwell.pause()
+  stopSlideshowTimer()
+  void updateNativeKeepAwake(false)
   document.body.classList.remove('slideshow-focus-mode')
   cleanupCursorTimeout()
   // WebKit can return a KeepAlive-cached MSE video with a dead compositor
@@ -6015,6 +6108,9 @@ onDeactivated(() => {
 // and slideshow state are still present.
 onActivated(() => {
   slideshowViewActive = true
+  if (mobileAdvanceReady.value) slideshowDwell.resume()
+  updateKeepAwake()
+  scheduleAdvance()
   if (isVideo.value && deactivatedVideoState) {
     refreshKey.value++
   } else {
@@ -6116,6 +6212,11 @@ function parseLandmarks(landmarksStr) {
 // pixels actually landing on screen. Rapid nav guard: bail if the user has
 // already moved on to a different item by the time decode() settles.
 function handleMediaLoad(event) {
+  imageLoadFailed.value = false
+  if (event?.target && event.target === videoElement.value && !msePlayback && deactivatedVideoState?.fileHash === displayItem.value?.file_hash) {
+    event.target.currentTime = deactivatedVideoState.logicalTime
+    deactivatedVideoState = null
+  }
   const img = event?.target
   const itemId = itemIdentity(displayItem.value)
   const finish = () => {

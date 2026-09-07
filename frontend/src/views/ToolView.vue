@@ -1208,6 +1208,7 @@ import { useScopedVideoPlayback, useManagedMediaElement } from '../composables/u
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
+import { mobileAutoplayAllowed } from '../composables/useMobilePlaybackLifecycle'
 import {
   AIPromptEditor,
   ConstrainedResolutionPicker,
@@ -1590,7 +1591,7 @@ let stageMsePlayback: MseLoopPlayback | null = null
 let stageNativePlayback = false
 let clearStageNativeListeners: (() => void) | null = null
 function stageVideoIsForeground(): boolean {
-  return shouldPlayStageVideo({
+  return mobileAutoplayAllowed.value && shouldPlayStageVideo({
     viewActive: stageViewActive.value,
     layoutMode: layoutMode.value,
     slideshowActive: slideshowState.active,

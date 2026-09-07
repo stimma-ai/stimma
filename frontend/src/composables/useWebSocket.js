@@ -67,6 +67,7 @@ export function useWebSocket() {
         // On first launch the frontend may mount before the backend is ready, causing initial
         // data fetches to fail. Firing this on every connect ensures state gets populated.
         handleMessage({ event: 'websocket_reconnected', data: {} })
+        window.dispatchEvent(new Event('stimma:media-reconnected'))
       }
 
       ws.value.onmessage = (event) => {

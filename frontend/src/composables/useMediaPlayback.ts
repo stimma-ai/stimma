@@ -22,6 +22,8 @@
  */
 import { ref, watch, onBeforeUnmount, onDeactivated, type Ref } from 'vue'
 import { makeProfileKey } from '../utils/storageKeys'
+import { mobileAutoplayAllowed } from './useMobilePlaybackLifecycle.js'
+import { isMobileShell } from '../desktop/mobileBridge.ts'
 
 const videoMuted = ref(true)
 const videoVolume = ref(0.5)
@@ -176,6 +178,23 @@ export function useScopedVideoPlayback(scope: string): VideoPlaybackChannel {
 
 const registeredElements = new Set<HTMLMediaElement>()
 
+if (isMobileShell()) {
+  window.addEventListener('stimma:media-reconnected', () => {
+    for (const element of registeredElements) {
+      // MSE owners rebuild their own timelines. Ordinary failed media can be
+      // reloaded while retaining its playhead, but must stay paused on return.
+      if (!element.error || element.currentSrc.startsWith('blob:') || !element.isConnected) continue
+      const time = element.currentTime
+      element.autoplay = false
+      element.pause()
+      element.addEventListener('loadedmetadata', () => {
+        if (Number.isFinite(time)) element.currentTime = time
+      }, { once: true })
+      element.load()
+    }
+  })
+}
+
 function isAudible(el: HTMLMediaElement): boolean {
   return !el.muted && el.volume > 0
 }
@@ -195,6 +214,7 @@ export function teardownMediaElement(el: HTMLMediaElement) {
 
 function onRegisteredPlay(e: Event) {
   const el = e.target as HTMLMediaElement
+  if (!mobileAutoplayAllowed.value) { el.pause(); return }
   for (const other of [...registeredElements]) {
     if (other === el) continue
     // Anything registered but no longer in the document is a ghost — stop it

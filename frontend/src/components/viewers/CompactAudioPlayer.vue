@@ -78,6 +78,7 @@
 import { ref, computed, watch, watchEffect, onUnmounted } from 'vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaPlayback, useManagedMediaElement } from '../../composables/useMediaPlayback'
+import { allowMobilePlayback } from '../../composables/useMobilePlaybackLifecycle'
 
 const props = defineProps<{
   src: string
@@ -138,6 +139,7 @@ watch(isPlaying, (playing) => {
 })
 
 function togglePlay() {
+  allowMobilePlayback()
   const a = audioRef.value
   if (!a) return
   if (isPlaying.value) a.pause()

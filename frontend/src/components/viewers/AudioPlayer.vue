@@ -98,7 +98,7 @@
         @click="toggleAudioMute"
         class="w-8 h-8 rounded-full text-content-tertiary flex items-center justify-center hover:text-content transition-colors"
       >
-        <svg v-if="!isMuted && volume > 0" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg v-if="!isMuted && (systemVolume || volume > 0)" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
         </svg>
         <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -106,6 +106,7 @@
         </svg>
       </button>
       <input
+        v-if="!systemVolume"
         type="range"
         :value="volume"
         @input="handleVolumeInput"
@@ -114,6 +115,7 @@
         step="0.1"
         class="w-20 accent-accent"
       />
+      <span v-if="systemVolume" class="text-xs text-content-tertiary">Use phone volume buttons</span>
     </div>
   </div>
 </template>
@@ -122,6 +124,10 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaPlayback, useManagedMediaElement } from '../../composables/useMediaPlayback'
+import { desktop } from '../../desktop'
+import { mobileForeground, mobileAutoplayAllowed, allowMobilePlayback } from '../../composables/useMobilePlaybackLifecycle'
+
+const systemVolume = desktop.kind === 'ios'
 
 const props = defineProps({
   src: {
@@ -171,6 +177,7 @@ const pendingAutoplay = ref(false)
 const effectiveDuration = computed(() => props.duration || duration.value)
 
 function togglePlay() {
+  allowMobilePlayback()
   if (audioRef.value) {
     if (isPlaying.value) {
       audioRef.value.pause()
@@ -241,7 +248,7 @@ function handleDurationChange() {
 
 function handleCanPlay() {
   canPlay.value = true
-  if (pendingAutoplay.value) {
+  if (pendingAutoplay.value && mobileAutoplayAllowed.value) {
     pendingAutoplay.value = false
     audioRef.value?.play()
   }
@@ -255,19 +262,23 @@ function formatTime(seconds) {
 }
 
 // Apply the global audio channel to the element (persistence lives in useMediaPlayback)
+watch(mobileForeground, foreground => {
+  if (!foreground) pendingAutoplay.value = false
+}, { flush: 'sync' })
+
 watch(volume, (v) => {
-  if (audioRef.value) {
+  if (audioRef.value && !systemVolume) {
     audioRef.value.volume = v
   }
 })
 
 onMounted(() => {
   // Set initial volume from saved preference
-  if (audioRef.value) {
+  if (audioRef.value && !systemVolume) {
     audioRef.value.volume = volume.value
   }
 
-  if (props.autoplay) {
+  if (props.autoplay && mobileAutoplayAllowed.value) {
     if (canPlay.value && audioRef.value) {
       // Already ready, play immediately
       audioRef.value.play()

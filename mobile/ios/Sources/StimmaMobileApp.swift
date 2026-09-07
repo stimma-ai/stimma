@@ -13,6 +13,7 @@ struct StimmaMobileApp: App {
                 .preferredColorScheme(.dark)
                 .task { await model.restore() }
                 .onChange(of: scenePhase) { _, phase in
+                    model.setAppActive(phase == .active)
                     if phase == .background { model.suspendConnection() }
                     if phase == .active { Task { await model.checkConnection() } }
                 }
@@ -32,6 +33,8 @@ final class ShellModel: ObservableObject {
         didSet { updateOrientation() }
     }
     private var slideshowActive = false
+    private var keepAwakeRequested = false
+    private var appActive = true
     @Published var revision = UUID()
     @Published var connectionState = "ready"
     @Published var transportRevision = 0
@@ -50,11 +53,23 @@ final class ShellModel: ObservableObject {
     private var resumePending = false
     func setSlideshowActive(_ active: Bool) {
         slideshowActive = active
+        if !active { keepAwakeRequested = false }
+        updateOrientation()
+    }
+
+    func setKeepAwake(_ active: Bool) {
+        keepAwakeRequested = active
+        updateOrientation()
+    }
+
+    func setAppActive(_ active: Bool) {
+        appActive = active
         updateOrientation()
     }
 
     private func updateOrientation() {
         MobileAppDelegate.setSlideshowActive(slideshowActive && selected != nil && !showConnections)
+        UIApplication.shared.isIdleTimerDisabled = keepAwakeRequested && slideshowActive && appActive && selected != nil && !showConnections
     }
     let clientID: String = {
         if let saved = UserDefaults.standard.string(forKey: "mobile.clientID") { return saved }

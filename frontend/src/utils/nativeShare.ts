@@ -10,7 +10,11 @@ export function shareFile(
 ): Promise<unknown> {
   if (bridge.kind === 'ios') {
     if (file.size > 64 * 1024 * 1024) return Promise.reject(new Error('This file is too large for the share sheet (64 MB maximum).'))
-    return file.arrayBuffer().then(bytes => bridge.saveToDownloads(file.name, new Uint8Array(bytes)))
+    return file.arrayBuffer().then(async bytes => {
+      const completed = await bridge.saveToDownloads(file.name, new Uint8Array(bytes))
+      if (!completed) throw new DOMException('Sharing was cancelled.', 'AbortError')
+      return true
+    })
   }
   if (!supportsNativeShare(bridge.kind, nav) || !nav.canShare({ files: [file] })) {
     return Promise.reject(new Error('This browser cannot share this file. Use Export to save it instead.'))

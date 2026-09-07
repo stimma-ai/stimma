@@ -115,6 +115,42 @@ test.describe('phone lane: media touch paths', () => {
     await shot(page, 'slideshow');
     expectNoOverflow(await auditHorizontalOverflow(page), 'slideshow');
 
+    // Native phones keep this chrome tier while rotating. Pin it here so the
+    // browser lane can exercise both landscape safe areas on the real view.
+    await page.evaluate(async () => {
+      const { setViewportOverride } = await import('/src/composables/useViewport.ts');
+      setViewportOverride({ tier: 'compact', pointer: 'coarse' });
+      (window as any).slideshowImageBeforeRotation = document.querySelector('img[fetchpriority="high"]');
+    });
+    for (const [left, right] of [[44, 0], [0, 44]]) {
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.evaluate(({ left, right }) => {
+        document.documentElement.style.setProperty('--safe-left', `${left}px`);
+        document.documentElement.style.setProperty('--safe-right', `${right}px`);
+        document.documentElement.style.setProperty('--safe-bottom', '21px');
+      }, { left, right });
+      await expect(page.getByTitle('Close slideshow', { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.querySelector('img[fetchpriority="high"]') === (window as any).slideshowImageBeforeRotation)).toBe(true);
+      const close = await page.getByTitle('Close slideshow', { exact: true }).boundingBox();
+      expect(close!.x + close!.width).toBeLessThanOrEqual(844 - right);
+      const buttons = await page.locator('.slideshow-control-bar button').evaluateAll(elements => elements.map(el => {
+        const box = el.getBoundingClientRect(); return { left: box.left, right: box.right };
+      }));
+      expect(buttons.every(box => box.left >= left && box.right <= 844 - right)).toBe(true);
+    }
+    // Hiding the strip must not put the remaining controls on the home indicator.
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('button', { name: /Filmstrip/ }).click();
+    const play = await page.getByRole('button', { name: 'Play slideshow', exact: true }).boundingBox();
+    expect(play!.y + play!.height).toBeLessThanOrEqual(390 - 21);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('button', { name: /Filmstrip/ }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      for (const key of ['--safe-left', '--safe-right', '--safe-bottom']) document.documentElement.style.removeProperty(key);
+      delete (window as any).slideshowImageBeforeRotation;
+    });
+
     // Swipe up → info sheet.
     await swipe(page, [195, 600], [195, 300]);
     await expect(page.locator('[data-testid="media-info-panel"]')).toBeVisible({ timeout: 5000 });

@@ -23,6 +23,20 @@ including navigation, open sheets, drafts, and scroll position. Connection statu
 remains available in the account/server controls while native recovery retries.
 Cold connections and explicit server changes still use the connection screen.
 
+Backgrounding or an interruption pauses audio/video; returning does not restart
+sound until the user plays it. Image slideshows freeze their remaining dwell time
+while hidden or reconnecting. Active slideshow playback keeps the phone awake;
+pausing or leaving restores normal auto-lock. These native lifecycle and idle
+controls require an updated iOS shell as well as the server UI package.
+
+Slideshow controls respect landscape safe areas, including when the filmstrip is
+hidden. Picture swipes navigate without capturing filmstrip scrolling, scrubbing,
+or pinch/zoom gestures. iPhone audio uses the physical volume buttons. Failed
+visible images retry when the media connection returns; offscreen failures wait
+until visible. Native file sharing is limited to 64 MiB: larger exports show an
+error and can be reduced or exported from a computer. Cancelling a share never
+reports a successful export.
+
 ```sh
 tools/stimma mobile ios doctor
 tools/stimma mobile ios run --simulator 'iPhone 17 Pro'

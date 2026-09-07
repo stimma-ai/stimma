@@ -457,6 +457,8 @@
 
           </div>
 
+    <p v-if="exportError" role="alert" class="mt-3 text-sm text-red-500">{{ exportError }}</p>
+
     <template #footer>
       <Button variant="secondary" @click="$emit('close')">
         {{ isClipboardExport ? 'Close' : 'Cancel' }}
@@ -513,6 +515,7 @@ const scalePercent = ref(50)
 const stripMetadata = ref(false)
 const videoResolution = ref('original')
 const exporting = ref(false)
+const exportError = ref('')
 const copied = ref(false)
 
 // Layout-specific state
@@ -914,6 +917,7 @@ onBeforeUnmount(() => {
 
 async function handleExport() {
   if (exporting.value) return
+  exportError.value = ''
   exporting.value = true
 
   try {
@@ -981,6 +985,7 @@ async function handleExport() {
     if (!isClipboardExport.value) emit('close')
   } catch (error) {
     console.error('[ExportModal] Export failed:', error)
+    exportError.value = error instanceof Error ? error.message : 'Export failed. Please try again.'
   } finally {
     exporting.value = false
   }

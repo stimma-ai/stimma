@@ -97,7 +97,23 @@ struct StimmaWebView: UIViewRepresentable {
                 storage = LocalStoragePersistence(directory: directory,
                     accountID: model.auth.user?.id ?? "simulator", serverID: server.deviceId)
             } else { storage = nil }
+            super.init()
+            NotificationCenter.default.addObserver(self, selector: #selector(pauseForInterruption), name: UIApplication.willResignActiveNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(resumeInterface), name: UIApplication.didBecomeActiveNotification, object: nil)
         }
+
+        @objc private func pauseForInterruption() {
+            // Native pausing covers subframes and does not depend on the JS
+            // event being delivered before the WebContent process suspends.
+            webView?.pauseAllMediaPlayback(completionHandler: nil)
+            webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('stimma:app-active', {detail:false}))")
+        }
+
+        @objc private func resumeInterface() {
+            webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('stimma:app-active', {detail:true}))")
+        }
+
+        deinit { NotificationCenter.default.removeObserver(self) }
 
         func installStorageScript(_ controller: WKUserContentController) throws {
             guard let storage else { return }
@@ -145,6 +161,12 @@ struct StimmaWebView: UIViewRepresentable {
                             throw ShellError.message("Invalid slideshow state")
                         }
                         model.setSlideshowActive(active)
+                        result = NSNull()
+                    case "setKeepAwake":
+                        guard !connectionScreen, let active = args["active"] as? Bool else {
+                            throw ShellError.message("Invalid playback state")
+                        }
+                        model.setKeepAwake(active)
                         result = NSNull()
                     case "interfaceReady":
                         // A setup sheet must not reveal a still-loading app.
@@ -208,11 +230,25 @@ struct StimmaWebView: UIViewRepresentable {
                         let file = directory.appendingPathComponent(safeName)
                         try Data(values).write(to: file, options: .atomic)
                         let activity = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-                        activity.completionWithItemsHandler = { _, _, _, _ in try? FileManager.default.removeItem(at: directory) }
-                        guard let presenter = webView?.window?.rootViewController else { throw ShellError.message("Cannot open share sheet") }
+                        guard var presenter = webView?.window?.rootViewController else {
+                            try? FileManager.default.removeItem(at: directory)
+                            throw ShellError.message("Cannot open share sheet")
+                        }
+                        while let presented = presenter.presentedViewController { presenter = presented }
+                        guard !presenter.isBeingDismissed else {
+                            try? FileManager.default.removeItem(at: directory)
+                            throw ShellError.message("Please close the current sheet and try exporting again.")
+                        }
                         activity.popoverPresentationController?.sourceView = webView
-                        presenter.present(activity, animated: true)
-                        result = true
+                        // Resolve after the user completes or cancels sharing;
+                        // presenting a sheet alone is not a successful export.
+                        result = await withCheckedContinuation { continuation in
+                            activity.completionWithItemsHandler = { _, completed, _, _ in
+                                try? FileManager.default.removeItem(at: directory)
+                                continuation.resume(returning: completed)
+                            }
+                            presenter.present(activity, animated: true)
+                        }
                     default: throw ShellError.message("Unsupported native operation")
                     }
                     replyHandler(result, nil)
