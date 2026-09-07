@@ -282,7 +282,10 @@ that a desktop-sized window never trips.
   (slideshow, compare, image editor, PIN lock, connection screen) hide the
   header; an overlay carries its own back control. The header keeps
   mounting under the slideshow (v-show) because views teleport controls
-  into it. A view never renders its own navigation chrome.
+  into it. A view never renders its own navigation chrome. Detail pages
+  show the entity name in that header, with tap-to-rename where supported and
+  one entity-options drawer. Desktop title rows and their menus are hidden on
+  compact; execution controls may remain in a content toolbar.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.
@@ -296,7 +299,9 @@ that a desktop-sized window never trips.
 - **Menus and modals.** The ContextMenu shell renders a bottom sheet on
   coarse pointers; submenus stack as a second sheet with a back caret.
   Modal renders as a full-screen sheet on compact. Both keep their z-tier.
-  No sheet components outside the kit.
+  No sheet components outside the kit. Interactive provider managers use the
+  kit Sheet's expandable mode: open at 75dvh, drag or tap the handle to expand
+  to the top safe area, and keep iframe content mounted while resizing.
 - **One sheet, one dismissal.** Every bottom sheet on a coarse pointer comes
   from one of exactly two places: the kit `Sheet` component (its own
   full-screen layer, `data-sheet-layer`, is the backdrop) or the global
@@ -313,7 +318,8 @@ that a desktop-sized window never trips.
   12px, `--sheet-font` 14px, `--sheet-font-detail` 12px mono,
   `--sheet-icon` 20px, `--sheet-radius` 12px, handle 32×4 at 6px,
   `--sheet-pad-top` 16px, `--sheet-menu-max-h` 62dvh (menus),
-  `--sheet-panel-max-h` 85dvh (pickers, info, forms), `--sheet-backdrop`.
+  `--sheet-panel-max-h` 85dvh (pickers, info, forms), `--sheet-drawer-h` 75dvh
+  (expandable drawers), `--sheet-backdrop`.
   Rows are `.sheet-row` (icon first, `.sheet-row-icon`; trailing fact in
   `.sheet-row-detail`; group label `.sheet-section`). Sheets never show a
   scrollbar: the content overflows and the user tugs it. Sheets are dense,

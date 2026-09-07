@@ -25,7 +25,7 @@ const emit = defineEmits<{ openSettings: [section: string]; openMenu: [] }>()
 
 const route = useRoute()
 const router = useRouter()
-const { isHub, title, subtitle, primaryAction, menuItems } = useCompactChrome(route)
+const { isHub, title, subtitle, titleAction, primaryAction, menuItems } = useCompactChrome(route)
 const backgroundWork = useBackgroundWork()
 const { hasActiveWork, progressTitle } = backgroundWork
 onMounted(() => backgroundWork.start())
@@ -88,6 +88,9 @@ function openSearch() {
           <span v-if="subtitle" class="block truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ subtitle }}</span>
         </span>
         <ChevronDownIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
+      </button>
+      <button v-else-if="titleAction" type="button" class="flex-1 min-w-0 h-11 px-1 text-left border-none bg-transparent" :aria-label="`Rename ${title}`" @click="titleAction()">
+        <h1 class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>
       </button>
       <div v-else class="flex-1 min-w-0 px-1">
         <h1 v-if="title" class="truncate text-[17px] font-semibold tracking-tight text-content leading-tight">{{ title }}</h1>

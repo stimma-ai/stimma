@@ -53,11 +53,13 @@
          through the backend under /api, so it loads in the phone shell too:
          the shell allows same-origin subframes and only refuses them the
          native bridge, which a manager never needs. -->
-    <div
+    <component
+      :is="isCompact ? Sheet : 'div'"
       v-if="openId === p.provider_id"
-      class="bg-surface z-menu overflow-hidden flex flex-col absolute top-[calc(100%+0.5rem)] right-0 w-[420px] border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] compact:fixed compact:inset-0 compact:top-0 compact:w-auto compact:border-0 compact:rounded-none compact:shadow-none compact:pt-safe compact:pb-safe"
+      v-bind="isCompact ? { show: true, expandable: true, contentClass: 'flex flex-col overflow-hidden' } : {}"
+      :class="isCompact ? undefined : 'bg-surface z-menu overflow-hidden flex flex-col absolute top-[calc(100%+0.5rem)] right-0 w-[420px] border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)]'"
       :style="isCompact ? undefined : { height: popoverHeight }"
-      @click.stop
+      @close="close"
     >
       <div v-if="isCompact" class="flex-none h-12 flex items-center gap-1 px-2 border-b border-edge-subtle">
         <button type="button" class="w-11 h-11 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Back" @click="close">
@@ -76,13 +78,13 @@
         v-else
         :ref="setFrame"
         :src="frameSrc(p)"
-        class="flex-1 w-full border-0 bg-surface transition-opacity duration-150"
+        class="flex-1 min-h-0 w-full border-0 bg-surface transition-opacity duration-150"
         :class="frameReady ? 'opacity-100' : 'opacity-0'"
         :title="`${p.provider_name} manager`"
         referrerpolicy="no-referrer"
         @load="onFrameLoad"
       ></iframe>
-    </div>
+    </component>
   </div>
   </div>
   <span v-if="managed.length && showSeparator" class="w-px h-[18px] mx-1 bg-edge-subtle" aria-hidden="true"></span>
@@ -100,6 +102,7 @@ import { isComfyUIProvider } from '../utils/toolProviderBrands'
 import { makeGlobalKey } from '../utils/storageKeys'
 import ComfyUIIcon from './tools/ComfyUIIcon.vue'
 import Spinner from './ui/Spinner.vue'
+import Sheet from './ui/Sheet.vue'
 
 type ManagedProvider = Provider
 
@@ -205,6 +208,7 @@ function close() { openId.value = null }
 function dismissHint() { hintDismissed.value = true; localStorage.setItem(HINT_KEY, '1') }
 
 function onDocClick(e: MouseEvent) {
+  if (isCompact.value) return // The teleported Sheet owns outside-tap dismissal.
   const t = e.target as HTMLElement | null
   if (t && t.closest && t.closest('.provider-manager')) return
   close()

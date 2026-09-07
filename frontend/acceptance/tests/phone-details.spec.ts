@@ -157,11 +157,26 @@ test.describe('phone lane: detail screens', () => {
     test(`settings › ${section} fits a phone`, async ({ page }) => {
       await page.goto('/home');
       await settleAnyViewport(page);
+      // Desktop browser emulation otherwise reports zero iPhone safe insets.
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty('--safe-top', '59px');
+        document.documentElement.style.setProperty('--safe-bottom', '34px');
+      });
       await page.getByRole('button', { name: 'Menu' }).click();
       await page.locator('.navigation-sidebar').getByRole('button', { name: 'Settings', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
       await page.getByRole('button', { name: section }).first().click();
       await page.waitForTimeout(600);
+      const layer = page.locator('[data-modal-layer]').last();
+      const heading = await layer.locator('h2').first().boundingBox();
+      const close = await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox();
+      expect(heading!.y).toBeGreaterThanOrEqual(59);
+      expect(close!.y).toBeGreaterThanOrEqual(59);
+      const scrollArea = await layer.locator('[data-settings-content]').boundingBox();
+      expect(scrollArea!.y + scrollArea!.height).toBeLessThanOrEqual(page.viewportSize()!.height - 34);
+      // Scrolling the section must never move the header into the status bar.
+      await layer.locator('[data-settings-content]').evaluate(el => { el.scrollTop = el.scrollHeight });
+      expect((await layer.getByRole('button', { name: 'Close', exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(59);
       const slug = section.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       await page.screenshot({ path: `acceptance/phone-shots/settings-${slug}.png` });
       const overflow = await auditHorizontalOverflow(page);

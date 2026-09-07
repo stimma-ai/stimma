@@ -11,7 +11,7 @@
           v-model="searchQuery"
           type="text"
           placeholder="Find a project"
-          class="w-full bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 pl-7 text-xs text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
+          class="w-full compact:min-h-11 bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 pl-7 text-xs text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
         />
       </div>
     </div>
@@ -21,7 +21,7 @@
       <button
         v-if="mode === 'move'"
         :disabled="creating"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        class="w-full compact:min-h-11 px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="handleCreateProject"
       >
         <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -33,7 +33,7 @@
       <!-- "No Project" option (move mode only) -->
       <button
         v-if="mode === 'move'"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        class="w-full compact:min-h-11 px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="$emit('select', null)"
       >
         <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -56,7 +56,7 @@
         v-for="project in filteredProjects"
         :key="project.id"
         :disabled="addingToProjectId === project.id"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        class="w-full compact:min-h-11 px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="handleProjectClick(project)"
       >
         <!-- Archive box icon -->

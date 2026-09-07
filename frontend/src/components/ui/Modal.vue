@@ -111,16 +111,16 @@ onBeforeUnmount(() => {
         <div
           ref="cardRef"
           tabindex="-1"
-          class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4 compact:mx-3 compact:w-[calc(100%-1.5rem)] compact:max-w-none compact:max-h-[92dvh] compact:overflow-y-auto"
+          class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4 compact:mx-3 compact:w-[calc(100%-1.5rem)] compact:max-w-none compact:max-h-[min(92dvh,calc(100dvh-2*max(var(--safe-top,0px),var(--safe-bottom,0px))))] compact:overflow-y-auto"
           :class="cardSizeClass"
         >
-          <div v-if="$slots.header" class="px-6 py-4 border-b border-edge">
+          <div v-if="$slots.header" class="shrink-0 px-6 py-4 border-b border-edge">
             <slot name="header" />
           </div>
 
           <slot />
 
-          <div v-if="$slots.footer" class="px-6 py-4 border-t border-edge flex gap-3 justify-end">
+          <div v-if="$slots.footer" class="shrink-0 px-6 py-4 border-t border-edge flex gap-3 justify-end">
             <slot name="footer" />
           </div>
         </div>

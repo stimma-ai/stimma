@@ -2,7 +2,7 @@
   <Modal
     :show="show"
     size="custom"
-    custom-class="w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden compact:!w-full compact:!max-w-none compact:!h-[100dvh] compact:!max-h-none compact:!mx-0 compact:!rounded-none compact:!border-0"
+    custom-class="w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden compact:!w-full compact:!max-w-none compact:!h-[100dvh] compact:!max-h-none compact:!mx-0 compact:!rounded-none compact:!border-0 compact:pt-safe compact:pb-safe compact:pl-safe compact:pr-safe"
     :close-on-esc="false"
     @close="close"
   >
@@ -44,7 +44,7 @@
       />
 
       <!-- Main content area -->
-      <div v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
+      <div data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />

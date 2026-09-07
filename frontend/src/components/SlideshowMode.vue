@@ -396,6 +396,9 @@
         @touchcancel="cancelSlideshowTouch"
         @click="handleDoubleTap"
       >
+        <div v-if="galleryPreview" class="absolute inset-0 pointer-events-none bg-slideshow-matt" :style="galleryPreviewStyle" aria-hidden="true">
+          <img :src="getMediaFileUrl(galleryPreview.file_hash)" class="w-full h-full object-contain" alt="" />
+        </div>
         <!-- Audio player -->
         <AudioPlayer
           v-if="isAudio"
@@ -484,7 +487,8 @@
             displayItem.has_alpha !== false && mediaLoaded && hasExactDimensions ? 'bg-checker' : 'bg-slideshow-matt',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
           ]"
-          :style="checkerOverlayStyle"
+          :style="[checkerOverlayStyle, galleryPictureStyle]"
+          data-gallery-picture
           @contextmenu="handleContextMenu($event, displayItem)"
         >
           <canvas
@@ -1606,13 +1610,66 @@ const compactImmersive = ref(false)
 // Phones start in the image; the info panel is a swipe-up/tap-away overlay.
 const showSidebar = ref(!slideshowCompact.value)
 
+const galleryOffset = ref(0)
+const gallerySettling = ref(false)
+const galleryPreview = ref(null)
+const galleryDirection = ref(1)
+let galleryTimer = null
+let galleryResetTimer = null
+const galleryTransition = computed(() => gallerySettling.value ? 'transform 200ms ease-out' : 'none')
+const galleryPictureStyle = computed(() => ({
+  transform: `translate(${panX.value + galleryOffset.value}px, ${panY.value}px) scale(${zoomScale.value})`,
+  transition: galleryTransition.value,
+}))
+const galleryPreviewStyle = computed(() => ({
+  transform: `translateX(${galleryOffset.value + galleryDirection.value * (mediaContainerRef.value?.clientWidth || 0)}px)`,
+  transition: galleryTransition.value,
+}))
+function resetGalleryDrag() {
+  clearTimeout(galleryTimer)
+  clearTimeout(galleryResetTimer)
+  galleryOffset.value = 0
+  gallerySettling.value = false
+  galleryPreview.value = null
+}
+function dragGallery(dx) {
+  if (gallerySettling.value || !slideshowCompact.value || getMediaType(displayItem.value) !== 'image') return
+  const direction = dx < 0 ? 1 : -1
+  galleryDirection.value = direction
+  const index = isViewingSet.value ? setViewIndex.value + direction : currentIndex.value + direction
+  const candidate = isViewingSet.value ? currentSetView.value?.items[index] : itemAtDisplayIndex(getActualIndex(index))
+  galleryPreview.value = candidate && getMediaType(candidate) === 'image' ? candidate : null
+  const available = direction === 1 ? canGoNext.value : canGoPrevious.value
+  galleryOffset.value = available ? dx : dx * 0.25
+}
+function releaseGallery(direction) {
+  if (direction || gallerySettling.value) return
+  gallerySettling.value = true
+  galleryOffset.value = 0
+  galleryTimer = setTimeout(resetGalleryDrag, 200)
+}
+function navigateGallery(direction) {
+  if (direction === 'info') { if (slideshowCompact.value) showSidebar.value = true; return }
+  const advance = () => direction === 'next' ? next() : previous()
+  if (!slideshowCompact.value || getMediaType(displayItem.value) !== 'image') { advance(); return }
+  if (!(direction === 'next' ? canGoNext.value : canGoPrevious.value)) { releaseGallery(null); return }
+  // Both pictures share the same translation, so the next photo follows the
+  // finger into view and finishes at centre before we change the selection.
+  if (!galleryOffset.value) dragGallery(direction === 'next' ? -1 : 1)
+  gallerySettling.value = true
+  galleryOffset.value = (direction === 'next' ? -1 : 1) * (mediaContainerRef.value?.clientWidth || 0)
+  galleryTimer = setTimeout(() => {
+    advance()
+    // displayItem may wait on an uncached page/image. Keep the preview in
+    // place until that handoff; if it fails, return to the current picture.
+    galleryResetTimer = setTimeout(resetGalleryDrag, 1500)
+  }, 200)
+}
 const slideshowSwipe = createSlideshowSwipe({
-  canNavigate: () => zoomScale.value <= 1 && pictureGesturesEnabled(),
-  navigate: direction => {
-    if (direction === 'next') next()
-    else if (direction === 'previous') previous()
-    else if (slideshowCompact.value) showSidebar.value = true
-  },
+  canNavigate: () => zoomScale.value <= 1 && pictureGesturesEnabled() && !gallerySettling.value,
+  navigate: navigateGallery,
+  drag: dragGallery,
+  release: releaseGallery,
 })
 function pictureGesturesEnabled() {
   return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value
@@ -2615,6 +2672,7 @@ function mediaUpdatePatch(fields = [], media = {}) {
 // id, so they never reset zoom or restart the dwell clock here.
 watch(() => itemIdentity(displayItem.value), (newId, oldId) => {
   if (newId == null || newId === oldId) return
+  resetGalleryDrag()
   slideshowDwell.shown()
   resetZoom()
   scheduleAdvance()
@@ -5763,6 +5821,7 @@ watch(mobileAdvanceReady, ready => {
 watch(mobileForeground, foreground => {
   if (foreground) return
   slideshowSwipe.cancel()
+  resetGalleryDrag()
   if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null }
   if (isVideo.value && videoElement.value) {
     deactivatedVideoState = {
@@ -6026,6 +6085,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  resetGalleryDrag()
   stopImageRecovery?.()
   window.removeEventListener('stimma:media-reconnected', recoverVideoAfterResume)
   void updateNativeKeepAwake(false)
@@ -6072,6 +6132,7 @@ onUnmounted(() => {
 // Also clean up focus mode when deactivated by KeepAlive (e.g., navigating away)
 // This is needed because the parent view uses KeepAlive, so onUnmounted won't fire
 onDeactivated(() => {
+  resetGalleryDrag()
   mediaPreloadEpoch++
   slideshowViewActive = false
   slideshowDwell.pause()

@@ -13,11 +13,16 @@ const props = withDefaults(defineProps<{
   title?: string
   /** Height cap as a viewport fraction; content scrolls inside. */
   maxHeight?: string
+  /** Large interactive drawers can snap between a roomy and full height. */
+  expandable?: boolean
+  contentClass?: string
   closeOnBackdrop?: boolean
 }>(), {
   title: '',
   maxHeight: 'var(--sheet-panel-max-h)',
   closeOnBackdrop: true,
+  expandable: false,
+  contentClass: '',
 })
 
 const emit = defineEmits<{ close: [] }>()
@@ -25,7 +30,38 @@ const emit = defineEmits<{ close: [] }>()
 const panelRef = ref<HTMLElement | null>(null)
 const layerRef = ref<HTMLElement | null>(null)
 
-const panelStyle = computed(() => ({ maxHeight: props.maxHeight }))
+const expanded = ref(false)
+const dragHeight = ref<number | null>(null)
+let drag: { id: number; y: number; height: number } | null = null
+let ignoreClickUntil = 0
+const availableHeight = 'calc(100dvh - var(--safe-top, 0px))'
+const panelStyle = computed(() => ({
+  maxHeight: props.expandable ? availableHeight : `min(${props.maxHeight}, ${availableHeight})`,
+  height: props.expandable ? dragHeight.value !== null ? `${dragHeight.value}px` : expanded.value ? availableHeight : 'var(--sheet-drawer-h)' : undefined,
+}))
+function startResize(event: PointerEvent) {
+  if (!event.isPrimary || event.button !== 0 || !panelRef.value) return
+  drag = { id: event.pointerId, y: event.clientY, height: panelRef.value.getBoundingClientRect().height }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+function resize(event: PointerEvent) {
+  if (!drag || drag.id !== event.pointerId) return
+  dragHeight.value = Math.max(160, drag.height + drag.y - event.clientY)
+}
+function finishResize(event: PointerEvent) {
+  if (!drag || drag.id !== event.pointerId) return
+  const dy = event.clientY - drag.y
+  if (Math.abs(dy) > 8) ignoreClickUntil = Date.now() + 400
+  if (dy < -40) expanded.value = true
+  else if (dy > 40 && expanded.value) expanded.value = false
+  else if (dy > 100) close()
+  drag = null
+  dragHeight.value = null
+}
+function cancelResize() { drag = null; dragHeight.value = null }
+function toggleSize() {
+  if (Date.now() >= ignoreClickUntil) expanded.value = !expanded.value
+}
 
 function close() { emit('close') }
 
@@ -43,6 +79,8 @@ function onKeydown(e: KeyboardEvent) {
 
 watch(() => props.show, async (show) => {
   if (show) {
+    expanded.value = false
+    cancelResize()
     window.addEventListener('keydown', onKeydown)
     await nextTick()
     panelRef.value?.focus()
@@ -69,11 +107,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           ref="panelRef"
           tabindex="-1"
           role="dialog"
-          class="sheet-panel relative flex flex-col bg-surface border-t border-edge shadow-2xl outline-none pb-safe cursor-auto"
+          class="sheet-panel relative flex flex-col bg-surface border-t border-edge shadow-2xl outline-none pb-safe pl-safe pr-safe cursor-auto"
           style="border-radius: var(--sheet-radius) var(--sheet-radius) 0 0"
           :style="panelStyle"
+          :class="expandable && dragHeight === null ? 'transition-[height] duration-200 motion-reduce:transition-none' : ''"
         >
-          <div class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
+          <button v-if="expandable" type="button" class="flex-none h-11 w-full flex items-center justify-center touch-none cursor-ns-resize border-0 bg-transparent text-content-secondary" :aria-label="expanded ? 'Collapse drawer' : 'Expand drawer'" :aria-expanded="expanded" @pointerdown="startResize" @pointermove="resize" @pointerup="finishResize" @pointercancel="cancelResize" @click="toggleSize">
+            <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
+          </button>
+          <div v-else class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
             <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
           </div>
           <div v-if="title || $slots.header" class="flex-none px-4 pt-1 pb-1">
@@ -81,7 +123,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <h2 class="text-[14px] font-semibold text-content">{{ title }}</h2>
             </slot>
           </div>
-          <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar" :class="contentClass">
             <slot />
           </div>
         </div>

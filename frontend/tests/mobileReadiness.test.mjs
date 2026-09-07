@@ -57,6 +57,15 @@ test('a slow drag does not navigate; vertical swipe opens info', () => {
   assert.deepEqual(f.calls, ['info'])
 })
 
+test('an active gallery drag can be held before releasing', () => {
+  const f = swipeFixture()
+  f.swipe.start(f.event([f.touch(200)]))
+  f.swipe.move(f.event([f.touch(100)]))
+  f.tick(1500)
+  f.swipe.end(f.event([], [f.touch(20)]))
+  assert.deepEqual(f.calls, ['next'])
+})
+
 test('suspension freezes remaining dwell across duplicate notifications and long sleep', () => {
   let now = 0
   const dwell = createSlideshowDwell(() => now)

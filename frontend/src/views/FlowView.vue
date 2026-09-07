@@ -14,6 +14,9 @@
       @reject="onSlideshowReject"
       @unapprove="onSlideshowUnapprove"
     />
+    <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
+      <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="flow?.project_id" @select="moveToProject" />
+    </Sheet>
     <RenameSheet :show="renameOpen" :name="flow?.name || ''" label="Rename flow" @close="renameOpen = false" @save="renameFlow" />
 
     <Modal :show="showCodeIntroModal" size="md" @close="dismissCodeIntro">
@@ -46,7 +49,7 @@
     <!-- Control strip -->
     <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3 compact:flex-wrap compact:px-3">
       <!-- Left: name + meta -->
-      <div class="flex items-center gap-3 min-w-0 flex-shrink">
+      <div class="flex items-center gap-3 min-w-0 flex-shrink compact:hidden">
         <template v-if="editingName">
           <input
             ref="nameInputEl"
@@ -297,7 +300,7 @@
         </div>
 
         <!-- 3-dot Menu -->
-        <div class="relative" ref="menuContainerRef">
+        <div class="relative compact:hidden" ref="menuContainerRef">
           <button
             @click="toggleMenu"
             class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
@@ -762,9 +765,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, provide, type WatchStopHandle } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, provide, type WatchStopHandle } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import RenameSheet from '../components/compact/RenameSheet.vue'
+import Sheet from '../components/ui/Sheet.vue'
+import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -2318,8 +2323,21 @@ watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
   if (isCompact.value) renameOpen.value = true
   else startEditName()
 }, { immediate: true })
-watch(() => flow.value?.name, (name) => {
-  setCompactTitle(name || 'Flow')
-  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
-}, { immediate: true })
+const moveProjectOpen = ref(false)
+async function moveToProject(projectId: number | null) {
+  try { await state.updateMetadata({ project_id: projectId }); moveProjectOpen.value = false }
+  catch { addToast('Could not move the flow', 'error') }
+}
+function updateCompactHeader() {
+  if (route.name !== 'flow' || String(route.params.id) !== String(flow.value?.id)) return
+  setCompactTitle(flow.value?.name || 'Name this flow…', '', () => { renameOpen.value = true })
+  setCompactMenu([
+    { label: 'Rename', run: () => { renameOpen.value = true } },
+    { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
+    { label: 'Make a copy', run: doCopy },
+    { label: 'Delete', run: handleDelete, destructive: true },
+  ])
+}
+watch([() => flow.value?.id, () => flow.value?.name], updateCompactHeader, { immediate: true })
+onActivated(updateCompactHeader)
 </script>

@@ -61,8 +61,10 @@ export const HUB_ROOTS: Record<HubId, string> = {
 
 const routeTitle = ref<string>('')
 const routeSubtitle = ref<string>('')
+const titleAction = ref<(() => void) | null>(null)
 
-export function setCompactTitle(title: string, subtitle = '') {
+export function setCompactTitle(title: string, subtitle = '', action: (() => void) | null = null) {
+  titleAction.value = action
   routeTitle.value = title
   routeSubtitle.value = subtitle
 }
@@ -102,6 +104,7 @@ export function releaseCompactHeader(token: symbol) {
 export function clearCompactTitle() {
   routeTitle.value = ''
   routeSubtitle.value = ''
+  titleAction.value = null
   primaryAction.value = null
   menuItems.value = []
 }
@@ -121,5 +124,5 @@ export function useCompactChrome(route: RouteLocationNormalizedLoaded) {
     return 'Stimma'
   })
   const subtitle = computed(() => routeSubtitle.value)
-  return { surface, isHub, title, subtitle, primaryAction, menuItems }
+  return { surface, isHub, title, subtitle, titleAction, primaryAction, menuItems }
 }

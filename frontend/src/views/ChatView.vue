@@ -1,9 +1,12 @@
 <template>
   <div class="flex flex-col h-full bg-base relative">
     <!-- Control Strip (top bar) - suppressed when embedded -->
+    <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
+      <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="chat?.project_id" @select="moveToProject" />
+    </Sheet>
     <RenameSheet :show="renameOpen" :name="chat?.name || ''" label="Rename chat" @close="renameOpen = false" @save="renameChatFromStrip" />
     <ChatControlStrip
-      v-if="!embedded"
+      v-if="!embedded && !isCompact"
       :chat-name="chat?.name || ''"
       :mcp-driven="!!chat?.generation_settings?.mcp_origin"
       :chat-id="chatId"
@@ -1392,6 +1395,8 @@ import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watc
 import { useViewport } from '../composables/useViewport'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import RenameSheet from '../components/compact/RenameSheet.vue'
+import Sheet from '../components/ui/Sheet.vue'
+import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatControlStrip from '../components/chat/ChatControlStrip.vue'
 import ChatSettingsPanel from '../components/chat/ChatSettingsPanel.vue'
@@ -5525,11 +5530,31 @@ watch([() => route.query.rename, () => chat.value?.id], ([flag, id]) => {
   router.replace({ query: { ...route.query, rename: undefined } })
   if (isCompact.value) renameOpen.value = true
 }, { immediate: true })
-watch(() => chat.value?.name, (name) => {
-  if (props.embedded) return
-  setCompactTitle(name || 'Chat')
-  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
-})
+const moveProjectOpen = ref(false)
+async function moveToProject(projectId) {
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId }) })
+    if (!response.ok) throw new Error('Move failed')
+    chat.value = await response.json()
+    moveProjectOpen.value = false
+  } catch { addToast('Could not move the chat', 'error') }
+}
+function updateCompactHeader() {
+  if (props.embedded || route.name !== 'chat' || String(route.params.id) !== String(chat.value?.id)) return
+  setCompactTitle(chat.value?.name || 'Name this chat…', '', () => { renameOpen.value = true })
+  setCompactMenu([
+    { label: 'Rename', run: () => { renameOpen.value = true } },
+    { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
+    { label: 'Make a copy', run: cloneChat },
+    { label: 'Settings', run: toggleSettingsPanel },
+    { label: 'Switch view', run: toggleView },
+    { label: 'Copy raw messages', run: copyAllRawMessages },
+    { label: 'Clear messages', run: clearChat, destructive: true },
+    { label: 'Delete', run: confirmDelete, destructive: true },
+  ])
+}
+watch([() => chat.value?.id, () => chat.value?.name], updateCompactHeader)
+onActivated(updateCompactHeader)
 </script>
 
 <style scoped>

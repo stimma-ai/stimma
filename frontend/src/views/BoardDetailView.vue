@@ -9,9 +9,13 @@
       @close="exitSlideshow"
       @update:current-media-id="updateCurrentMediaId"
     />
+    <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
+      <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="board?.project_id" @select="moveBoardToProject" />
+    </Sheet>
+    <AssetSelectionSheet :show="addAssetsSection !== null" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
     <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
-    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
+    <div v-show="!isCompact && !slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
       <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
           v-if="isEditingBoardName || (editedName && !isCompact)"
@@ -96,20 +100,21 @@
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-md bg-overlay-subtle px-1.5 text-left text-xs font-semibold text-content-secondary outline-none"
+                class="compact:min-h-11 rounded-md bg-overlay-subtle px-1.5 text-left text-xs font-semibold text-content-secondary outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
               />
               <button
                 v-else
-                class="min-w-0 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
+                class="min-w-0 compact:min-h-11 compact:min-w-11 compact:px-2 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
                 <span v-else class="font-normal italic text-content-muted">Name this section…</span>
               </button>
             </div>
+            <button v-if="isCompact && (section.items || []).length" class="min-h-11 min-w-11 px-2 text-xs text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
             <span class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
           </div>
 
@@ -123,7 +128,10 @@
             <div
               v-if="!(layoutRows[section.id] || []).length"
               class="flex h-[116px] items-center justify-center text-xs text-content-muted"
-            >Drop assets here</div>
+            >
+              <button v-if="isCompact" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <span v-else>Drop assets here</span>
+            </div>
             <div class="space-y-0.5">
               <div
                 v-for="(row, rowIndex) in sectionDragCollapsed ? (layoutRows[section.id] || []).slice(0, 1) : (layoutRows[section.id] || [])"
@@ -335,10 +343,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, onActivated, reactive, ref, watch } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
 import RenameSheet from '../components/compact/RenameSheet.vue'
+import Sheet from '../components/ui/Sheet.vue'
+import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
+import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
@@ -377,6 +388,7 @@ const {
 } = useMediaApi()
 const {
   getAssetBrowserItem,
+  addToBoard,
   trashMany: bulkDeleteMedia,
   bulkMarker: bulkMarkerOperation,
   bulkMoveBoardItems,
@@ -1908,7 +1920,8 @@ const renameOpen = ref(false)
 async function renameBoard(name) {
   if (!board.value) return
   editedName.value = name
-  board.value = await updateBoard(board.value.id, { name })
+  try { board.value = await updateBoard(board.value.id, { name }) }
+  catch { addToast('Could not rename the board', 'error') }
 }
 // Arriving with ?rename=1 (row menu → Rename): compact opens the sheet,
 // desktop starts the inline edit. The flag is consumed once.
@@ -1918,10 +1931,37 @@ watch([() => route.query.rename, () => board.value?.id], ([flag, id]) => {
   if (isCompact.value) renameOpen.value = true
   else startBoardNameEdit()
 }, { immediate: true })
-watch(() => board.value?.name, (name) => {
-  setCompactTitle(name || 'Board')
-  setCompactMenu([{ label: 'Rename', run: () => { renameOpen.value = true } }])
-}, { immediate: true })
+const moveProjectOpen = ref(false)
+const addAssetsSection = ref(null)
+const addingAssets = ref(false)
+async function moveBoardToProject(projectId) {
+  try {
+    board.value = await updateBoard(board.value.id, { project_id: projectId })
+    moveProjectOpen.value = false
+  } catch { addToast('Could not move the board', 'error') }
+}
+async function addSectionAssets(assetIds) {
+  if (addingAssets.value || addAssetsSection.value === null) return
+  addingAssets.value = true
+  try {
+    await addToBoard(board.value.id, assetIds, addAssetsSection.value)
+    addAssetsSection.value = null
+    await loadBoard()
+  } catch { addToast('Could not add assets to the section', 'error') }
+  finally { addingAssets.value = false }
+}
+function updateCompactHeader() {
+  if (route.name !== 'board-detail' || String(route.params.id) !== String(board.value?.id)) return
+  setCompactTitle(board.value?.name || 'Name this board…', '', () => { renameOpen.value = true })
+  setCompactMenu([
+    { label: 'Open', run: () => { scrollerRef.value?.scrollTo({ top: 0 }) } },
+    { label: 'Rename', run: () => { renameOpen.value = true } },
+    { label: 'Move to project', run: () => { moveProjectOpen.value = true } },
+    { label: 'Delete', destructive: true, run: handleBoardMenuDeleteBoard },
+  ])
+}
+watch([() => board.value?.id, () => board.value?.name], updateCompactHeader, { immediate: true })
+onActivated(updateCompactHeader)
 </script>
 
 <style scoped>

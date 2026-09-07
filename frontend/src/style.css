@@ -758,6 +758,7 @@ select option {
   --sheet-pad-top: 16px;      /* room for the handle */
   --sheet-menu-max-h: 62dvh;  /* menus */
   --sheet-panel-max-h: 85dvh; /* pickers, info, forms */
+  --sheet-drawer-h: 75dvh;    /* interactive, expandable drawers */
   --sheet-backdrop: rgba(7, 9, 15, 0.55);
 }
 /* A row in any sheet. Buttons or divs; the first child is the icon. */
