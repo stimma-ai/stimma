@@ -320,7 +320,7 @@ const chatChips = [
   { label: 'vLLM', text: 'vLLM', tileClass: 'bg-[#2a3140] text-[7px] font-extrabold text-[#fcbf49]' },
   { label: '+ more', more: true },
 ]
-const genChipsBase = [
+const genChips = [
   { label: 'FLUX', svg: MODEL_MARK_SVGS.bfl },
   { label: 'Nano Banana', svg: MODEL_MARK_SVGS['nano-banana'], color: '#f9d13a' },
   { label: 'Kling', text: 'K', tileClass: 'border border-edge-strong bg-black text-[10px] font-extrabold text-[#00e676]' },
@@ -336,10 +336,6 @@ const genChipsBase = [
   { label: 'Grok Imagine', svg: MODEL_MARK_SVGS.grok },
   { label: '+ dozens more', more: true },
 ]
-// Draw Things ships inside the macOS app: lead with "on this Mac" there.
-const genChips = computed(() => (settings.value?.available_sidecars || []).includes('drawthings')
-  ? [{ label: 'Draw Things · on this Mac', img: '/drawthings.png' }, ...genChipsBase]
-  : genChipsBase)
 
 const WizardBrandChip = defineComponent({
   props: { chip: { type: Object, required: true }, side: { type: String, default: 'chat' } },
@@ -348,9 +344,7 @@ const WizardBrandChip = defineComponent({
       if (props.chip.more) {
         return h('span', { class: 'rounded-lg border border-dashed border-edge px-2.5 py-1 text-[11px] text-content-tertiary' }, props.chip.label)
       }
-      const tile = props.chip.img
-        ? h('img', { src: props.chip.img, alt: '', draggable: false, class: 'h-5 w-5 shrink-0 rounded-[5px] object-cover' })
-        : props.chip.svg
+      const tile = props.chip.svg
         ? h('span', {
             class: 'flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-overlay-subtle [&_svg]:h-[13px] [&_svg]:w-[13px]',
             style: props.chip.color ? { color: props.chip.color } : { color: '#e8eaf0' },
