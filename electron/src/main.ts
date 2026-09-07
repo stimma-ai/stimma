@@ -19,7 +19,7 @@ import { initDevices, setConnectionStateListener } from './devices'
 import { startProxy, stopProxy } from './proxy'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
-import { preparePythonRuntime } from './pythonRuntime'
+import { preparePythonRuntime, removeObsoleteRuntimeArchives } from './pythonRuntime'
 import { WindowRegistry } from './registry'
 import { installTray } from './tray'
 import { initWindowState } from './windowState'
@@ -56,6 +56,7 @@ if (process.argv.includes('--prepare-python-runtime')) {
     try {
       const runtime = await preparePythonRuntime(identity)
       if (!runtime) throw new Error('Packaged Python runtime archive not found')
+      await removeObsoleteRuntimeArchives()
       log.info('python-runtime', `Installer preparation complete: ${runtime}`)
       app.exit(0)
     } catch (error) {

@@ -22,6 +22,7 @@ export interface PackagedMetadata {
   productName?: string
   stimmaBundleId?: string
   stimmaUpdateUrl?: string
+  stimmaPythonRuntimeArchive?: string
 }
 
 export function readPackagedMetadata(appPath: string): PackagedMetadata {

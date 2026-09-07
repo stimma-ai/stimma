@@ -2,21 +2,34 @@ import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { AppIdentity } from './identity'
+import { readPackagedMetadata, type AppIdentity } from './identity'
 import { log } from './log'
-import { parsePythonRuntimeArchive } from './pythonRuntimeName'
+import { parsePythonRuntimeArchive, selectPythonRuntimeArchive } from './pythonRuntimeName'
 
 const LOCK_STALE_MS = 10 * 60 * 1000
 const LOCK_WAIT_MS = 10 * 60 * 1000
 
 function runtimeArchive(): { path: string; sha256: string } | null {
   if (process.platform !== 'win32') return null
-  const matches = fs.readdirSync(process.resourcesPath)
-    .map((name) => ({ name, sha256: parsePythonRuntimeArchive(name) }))
-    .filter((entry): entry is { name: string; sha256: string } => entry.sha256 !== null)
-  if (matches.length === 0) return null // Backward-compatible loose runtime.
-  if (matches.length !== 1) throw new Error(`Expected one Python runtime archive, found ${matches.length}`)
-  return { path: path.join(process.resourcesPath, matches[0].name), sha256: matches[0].sha256 }
+  const metadata = readPackagedMetadata(path.join(process.resourcesPath, 'app.asar'))
+  const selected = selectPythonRuntimeArchive(fs.readdirSync(process.resourcesPath), metadata.stimmaPythonRuntimeArchive)
+  if (!selected) return null // Backward-compatible loose runtime.
+  return { path: path.join(process.resourcesPath, selected.name), sha256: selected.sha256 }
+}
+
+// Only installer preparation calls this, after the selected runtime is ready.
+// An interrupted uninstall can leave previous transport archives in resources.
+// Extracted runtimes remain untouched: another sandbox may still be using them.
+export async function removeObsoleteRuntimeArchives(): Promise<void> {
+  const current = runtimeArchive()
+  if (!current) return
+  for (const name of await fs.promises.readdir(process.resourcesPath)) {
+    const filename = path.join(process.resourcesPath, name)
+    if (parsePythonRuntimeArchive(name) && filename !== current.path) {
+      await fs.promises.unlink(filename)
+      log.info('python-runtime', `Removed obsolete transport archive: ${name}`)
+    }
+  }
 }
 
 function runtimeBaseDir(identity: AppIdentity): string {

@@ -172,9 +172,11 @@ src-tauri/icons/.generated/
 electron/node_modules/
 electron/dist/
 electron/out/
+electron/out-real-canary-test*/
 electron/.generated-builder.json
 !electron/build/
 electron/build/*
+!electron/build/stop-installation.ps1
 !electron/build/installer.nsh
 
 # Native helper

@@ -6,6 +6,30 @@
 ; customInit runs after electron-builder's multi-user setup chooses the
 ; default %LOCALAPPDATA%\Programs path (and after it reads a previous Electron
 ; install location), so this assignment is the authoritative final location.
+!macro customCheckAppRunning
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\stimma-stop-installation.ps1 "${BUILD_RESOURCES_DIR}\stop-installation.ps1"
+  nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\stimma-stop-installation.ps1" -InstallDirectory "$INSTDIR" -Check'
+  Pop $0
+  ${If} $0 == 0
+    ${IfNot} ${isUpdated}
+      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK +2
+      Quit
+    ${EndIf}
+    nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\stimma-stop-installation.ps1" -InstallDirectory "$INSTDIR"'
+    Pop $0
+    ${If} $0 != 0
+      MessageBox MB_OK|MB_ICONEXCLAMATION "$(appCannotBeClosed)" /SD IDOK
+      SetErrorLevel 2
+      Quit
+    ${EndIf}
+  ${ElseIf} $0 != 1
+    MessageBox MB_OK|MB_ICONEXCLAMATION "Unable to check running Stimma processes. Please close Stimma and retry installation." /SD IDOK
+    SetErrorLevel 2
+    Quit
+  ${EndIf}
+!macroend
+
 !macro customInit
   StrCpy $INSTDIR "$LOCALAPPDATA\${PRODUCT_NAME}"
 !macroend

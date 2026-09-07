@@ -1574,6 +1574,9 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       version,
       productName,
       stimmaBundleId: bundleId,
+      ...(backendResources.pythonRuntimeArchive
+        ? { stimmaPythonRuntimeArchive: backendResources.pythonRuntimeArchive.split(/[\\/]/).pop() }
+        : {}),
       desktopName: `${bundleId}.desktop`,
       // Update feed base for electron-updater's generic provider. Only baked
       // when release CI provides a base URL; dev/local builds stay updater-off.

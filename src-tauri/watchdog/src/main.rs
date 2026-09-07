@@ -112,6 +112,17 @@ fn main() {
     log(&format!("Args: {:?}", args.backend_args));
     log(&format!("My PID: {}, Parent PID: {}", process::id(), parent_pid));
 
+    // The installer can terminate us before parent_monitor runs. A Windows
+    // job owns the entire descendant tree, including cmd.exe, Python, and
+    // multiprocessing workers, even if an intermediate process has exited.
+    // Enrol ourselves BEFORE spawning anything so children inherit the job
+    // without a spawn/assignment race. Only this process owns the job handle.
+    #[cfg(windows)]
+    if let Err(error) = own_process_tree() {
+        eprintln!("Unable to supervise backend process tree: {error}");
+        process::exit(1);
+    }
+
     thread::spawn(move || {
         parent_monitor(parent_pid);
     });
@@ -197,6 +208,44 @@ fn main() {
                 thread::sleep(RESTART_DELAY);
             }
         }
+    }
+}
+
+#[cfg(windows)]
+fn own_process_tree() -> io::Result<()> {
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        System::{
+            JobObjects::{
+                AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+                SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            },
+            Threading::GetCurrentProcess,
+        },
+    };
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &limits as *const _ as *const _,
+            std::mem::size_of_val(&limits) as u32,
+        ) == 0
+            || AssignProcessToJobObject(job, GetCurrentProcess()) == 0
+        {
+            let error = io::Error::last_os_error();
+            CloseHandle(job);
+            return Err(error);
+        }
+        // Intentionally retain the non-inheritable handle until process exit.
+        // Windows closes it even on TerminateProcess, killing all descendants.
+        Ok(())
     }
 }
 
