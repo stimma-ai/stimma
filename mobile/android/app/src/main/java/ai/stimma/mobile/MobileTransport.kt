@@ -164,6 +164,11 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
     private val permits = Semaphore(32)
     private val sockets = Collections.synchronizedSet(mutableSetOf<Socket>())
     @Volatile var target: PinnedServer? = null
+    @Volatile private var suspended = false
+    fun setForeground(active: Boolean) {
+        suspended = !active
+        if (!active) interruptConnections()
+    }
     @Volatile private var inlineScriptHashes = ""
     @Volatile var directory: File? = null
         set(value) {
@@ -219,7 +224,7 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
         require(path.split('/').none { it == ".." || it == "." } && '\\' !in path && path.none { it.code < 32 })
         val remote = target
         if (path == "/health" || path == "/api" || path.startsWith("/api/") || path == "/ws" || path.startsWith("/ws/")) {
-            check(remote != null)
+            check(remote != null && !suspended)
             proxy(socket, input, request, remote)
             return
         }
@@ -259,6 +264,7 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
         remote.socket().use { upstream ->
             sockets.add(upstream)
             try {
+                check(!suspended && !local.isClosed)
                 val websocket = request.single("upgrade")?.lowercase() == "websocket"
                 if (websocket) require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
                 val output = upstream.getOutputStream()

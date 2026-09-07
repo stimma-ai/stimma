@@ -53,6 +53,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         private set
     private var generation = 0
     private var started = false
+    private var appActive = false
     private val discoveryMutex = Mutex()
     private val healthMutex = Mutex()
     private var activeHash: String? = null
@@ -240,14 +241,17 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         coroutineContext.ensureActive()
         val next = MobileTransport { getApplication<Application>().assets.open(it) }
         next.directory = directory; next.target = remote
+        next.setForeground(appActive)
         val previous = main
         main = next; activeHash = directory.parentFile!!.name
         previous?.close()
     }
 
     fun foreground(active: Boolean) {
+        appActive = active
+        main?.setForeground(active)
         health?.cancel(); health = null
-        if (!active) { main?.interruptConnections(); return }
+        if (!active) return
         health = viewModelScope.launch {
             var resumed = false
             while (true) {

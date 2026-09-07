@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream = AudioManager.STREAM_MUSIC
         ContextCompat.registerReceiver(this, events,
             IntentFilter(shareAction).apply { addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY) },
             ContextCompat.RECEIVER_NOT_EXPORTED)

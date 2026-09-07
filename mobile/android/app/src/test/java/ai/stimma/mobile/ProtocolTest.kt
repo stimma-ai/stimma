@@ -186,6 +186,31 @@ class ProtocolTest {
         }
     }
 
+    @Test fun backgroundBlocksUpstreamRequestsAndResumeRetainsOrigin() {
+        MockWebServer().use { upstream ->
+            upstream.start()
+            MobileTransport { "ok".byteInputStream() }.use { transport ->
+                val remote = PinnedServer("127.0.0.1", upstream.port, null, "native", true)
+                transport.target = remote
+                val original = transport.origin
+                fun request(): String = Socket("127.0.0.1", transport.port).use { socket ->
+                    socket.soTimeout = 3000
+                    socket.getOutputStream().write("GET /api/profiles HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: ${transport.cookie.substringBefore(';')}\r\n\r\n".toByteArray())
+                    "HTTP/1.1 ${HttpHead.read(socket.getInputStream()).target}"
+                }
+                transport.setForeground(false)
+                repeat(2) { assertTrue(request().startsWith("HTTP/1.1 403")) }
+                assertEquals(0, upstream.requestCount)
+                assertSame(remote, transport.target)
+                transport.setForeground(true)
+                upstream.enqueue(MockResponse().setBody("[]").setHeader("Connection", "close"))
+                assertTrue(request().startsWith("HTTP/1.1 200"))
+                assertEquals(1, upstream.requestCount)
+                assertEquals(original, transport.origin)
+            }
+        }
+    }
+
     @Test fun proxyStreamsUploadsRangesAndBidirectionalWebSocketsWithoutBrowserCredentials() {
         val upstream = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         val executor = Executors.newSingleThreadExecutor()

@@ -51,7 +51,9 @@ Transient recovery retains the page and package. Android Back
 dismisses the top sheet or slideshow first, then navigates page history. At the root it backgrounds the app. Rotation retains the WebView. Activity recreation
 rebuilds the page against the retained connection, and process restart restores
 the remembered server with a fresh package compatibility check. Foreground health
-checks pause while backgrounded; this is not a background-transfer service.
+checks pause while backgrounded. Existing streams close and new upstream requests
+are blocked until foregrounding; the page and local address remain intact. This
+is not a background-transfer service.
 
 The phone stays in portrait outside slideshow. Slideshow allows sensor rotation
 without recreating the activity or WebView. System bars, display cutouts, and the

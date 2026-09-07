@@ -85,7 +85,7 @@ class ReadinessTest {
 
     @Test fun rotationSleepBackAndProviderFramesKeepTheMountedPage() = fixture { scenario ->
         var original: MainActivity? = null
-        scenario.onActivity { original = it; assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, it.requestedOrientation) }
+        scenario.onActivity { original = it; assertEquals(android.media.AudioManager.STREAM_MUSIC, it.volumeControlStream); assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, it.requestedOrientation) }
         evaluate(scenario, "history.pushState({},'', '/board/test');window.draft='kept';window.drawer=true;window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer){e.preventDefault();drawer=false}})")
         command(scenario, "setSlideshowActive", "{active:true}")
         command(scenario, "setKeepAwake", "{active:true}")
