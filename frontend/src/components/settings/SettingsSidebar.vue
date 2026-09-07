@@ -45,9 +45,9 @@
           : 'text-content-tertiary hover:text-content hover:bg-overlay-hover'"
       >
         <component :is="section.icon" class="w-5 h-5 shrink-0" />
-        <span class="flex min-w-0 flex-1 items-center justify-between gap-1">
+        <span class="flex min-w-0 flex-1 items-center gap-2">
           <span>{{ section.label }}</span>
-          <span v-if="section.id === 'mcp'" class="text-[9px] font-medium text-content-secondary">EXPERIMENTAL</span>
+          <span v-if="section.id === 'mcp'" class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[8px] font-normal leading-none text-content-tertiary">EXPERIMENTAL</span>
         </span>
       </button>
 

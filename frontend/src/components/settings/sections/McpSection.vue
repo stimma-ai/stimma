@@ -3,7 +3,7 @@
     <header>
       <div class="flex items-center gap-3">
         <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
-        <span class="rounded-md border border-edge px-2 py-0.5 text-xs font-medium text-content-secondary">EXPERIMENTAL</span>
+        <span class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[8px] font-normal leading-none text-content-tertiary">EXPERIMENTAL</span>
         <a href="https://docs.stimma.ai/mcp/" target="_blank" rel="noopener noreferrer" class="ml-auto shrink-0 text-sm text-accent-hi hover:text-accent" @click.prevent="openGuide">Learn more ↗</a>
       </div>
       <p class="mt-2 text-sm leading-relaxed text-content-secondary">
@@ -32,7 +32,7 @@
         <Button size="sm" :disabled="busy || !state.enabled" @click="showNamePrompt = true">+ New</Button>
       </div>
 
-      <div v-if="currentSetup" class="mt-4 space-y-3 py-2.5" data-testid="mcp-new-connection">
+      <div v-if="currentSetup" class="mt-4 space-y-3 rounded-lg border border-edge p-4" data-testid="mcp-new-connection">
         <h5 class="text-sm font-semibold text-content">{{ currentSetup.name }} is ready to connect</h5>
         <p class="text-xs text-content-secondary">Copy the setup request and paste it into your coding agent.</p>
         <Button size="sm" @click="copySetupRequest">{{ copied === 'request' ? 'Copied' : 'Copy setup request' }}</Button>
