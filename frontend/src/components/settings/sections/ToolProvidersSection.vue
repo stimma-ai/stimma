@@ -63,7 +63,7 @@
         <ToolProviderBrandIcon kind="drawthings" />
         <div class="min-w-0 flex-1">
           <div class="text-[13px] text-content">Draw Things</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">Generate images and video on this Mac. Free and private.</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Generate images and video on this Mac.</div>
         </div>
         <div class="min-w-20 shrink-0 text-right text-xs text-accent-hi">Configure</div>
         <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -306,7 +306,7 @@
       </template>
 
       <div v-else-if="isDrawThingsProvider(selectedProvider)" class="max-w-2xl space-y-5">
-        <p class="text-sm leading-6 text-content-tertiary">Runs the Draw Things engine on this Mac. Nothing leaves your computer. Download models and follow activity from the Draw Things button in the top bar.</p>
+        <p class="text-sm leading-6 text-content-tertiary">Draw Things runs on this Mac. Download models and follow activity from the Draw Things button in the top bar.</p>
       </div>
 
       <div v-else-if="isComfyUIProvider(selectedProvider)" class="max-w-2xl space-y-5">
@@ -464,7 +464,7 @@
 
       <template v-if="addMode === 'drawthings'">
         <div class="space-y-5">
-          <p class="text-sm leading-6 text-content-tertiary">Stimma works with Draw Things, the open-source generation engine for Apple silicon. Images and video are made on this Mac: no account, no credits, and nothing leaves your computer.</p>
+          <p class="text-sm leading-6 text-content-tertiary">Stimma works with Draw Things, the open-source generation engine for Apple silicon. Images and video are made on this Mac.</p>
           <ul class="space-y-1.5 text-sm leading-6 text-content-tertiary">
             <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Image models</span> such as FLUX.2 Klein, Z-Image Turbo, Qwen Image, and SDXL.</span></li>
             <li class="flex gap-2.5"><span class="text-content-muted">·</span><span><span class="text-content">Video models</span> such as LTX-2.3 and Wan 2.2, from text or from an image.</span></li>
@@ -472,7 +472,7 @@
           </ul>
 
           <div v-if="!drawThingsSetupProvider">
-            <button type="button" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90" @click="enableDrawThings">{{ drawThingsInstalled ? 'Enable Draw Things' : 'Install Draw Things' }}</button>
+            <button type="button" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90" @click="enableDrawThings">{{ drawThingsInstalled ? 'Enable Draw Things' : 'Set up Draw Things' }}</button>
           </div>
           <template v-else>
             <div class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(drawThingsSetupProvider)">
@@ -1205,9 +1205,9 @@ const drawThingsSetupStatusLabel = computed(() => {
   if (!provider) return ''
   if (provider.status === 'connected') {
     if (drawThingsEngine.value.state === 'ready') return 'Draw Things is ready'
-    return drawThingsInstalled.value ? 'Starting Draw Things…' : 'Installing Draw Things…'
+    return 'Setting up Draw Things…'
   }
-  if (isProviderConnecting(provider)) return 'Starting Draw Things…'
+  if (isProviderConnecting(provider)) return 'Setting up Draw Things…'
   return providerConnectionStatus(provider)
 })
 
