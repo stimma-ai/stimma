@@ -34,8 +34,10 @@
 
       <div v-if="currentSetup" class="mt-4 space-y-3 py-2.5" data-testid="mcp-new-connection">
         <h5 class="text-sm font-semibold text-content">{{ currentSetup.name }} is ready to connect</h5>
+        <p class="text-xs text-content-secondary">Copy the setup request and paste it into your coding agent.</p>
+        <Button size="sm" @click="copySetupRequest">{{ copied === 'request' ? 'Copied' : 'Copy setup request' }}</Button>
         <p class="mt-1 text-xs leading-relaxed text-content-secondary">
-          Paste these into your assistant’s MCP settings.
+          For manual setup, use the URL and key below.
           <span class="text-amber-400">The key is shown only once.</span>
           If you lose it, remove this connection and make a new one.
         </p>
@@ -252,8 +254,24 @@ async function copy(field, value) {
     clearTimeout(copiedTimer)
     copiedTimer = setTimeout(() => { copied.value = '' }, 3000)
   } else {
-    error.value = field === 'key' ? 'Could not copy. Reveal the key to select and copy it manually.' : 'Could not copy. Select the URL and copy it manually.'
+    error.value = field === 'request'
+      ? 'Could not copy the request. Use Copy URL and Copy key to give the connection details to your agent.'
+      : field === 'key' ? 'Could not copy. Reveal the key to select and copy it manually.' : 'Could not copy. Select the URL and copy it manually.'
   }
+}
+function copySetupRequest() {
+  const connection = currentSetup.value?.connection
+  if (!connection) return
+  return copy('request', `Set up Stimma as an MCP server for yourself on this computer.
+Use your personal configuration and preserve my existing settings.
+
+Server name: stimma
+Transport: Streamable HTTP
+Server URL: ${serverUrl(connection)}
+Authorization header: Bearer ${connection.credential}
+
+Tell me when it’s ready and whether I need to start a new session.
+Setup guide: https://docs.stimma.ai/mcp/`)
 }
 async function openGuide() {
   try { await desktop.openExternal('https://docs.stimma.ai/mcp/') }

@@ -2,6 +2,7 @@ import { expect, test } from '../helpers/testbed';
 import { waitForShell } from '../helpers/app';
 
 test('MCP setup exposes usable connection details without developer tooling', async ({ page, context }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 1100 });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.addLocatorHandler(page.getByTestId('readiness-dismiss'), async dismiss => { await dismiss.click(); });
   await page.goto('/browse');
@@ -17,18 +18,23 @@ test('MCP setup exposes usable connection details without developer tooling', as
 
   await page.getByRole('button', { name: '+ New', exact: true }).click();
   const name = page.getByRole('textbox', { name: 'Connection name' });
-  await name.fill('Claude Desktop');
+  await name.fill('Claude Code');
   const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/mcp/clients') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Create & show key', exact: true }).click();
   const { connection } = await (await responsePromise).json();
   expect(connection.path).toBe(`/mcp/profiles/${connection.profile_id}`);
   expect(connection.endpoint).toContain(connection.path);
-  await expect(page.getByText('Claude Desktop is ready to connect')).toBeVisible();
+  await expect(page.getByText('Claude Code is ready to connect')).toBeVisible();
   await page.getByRole('button', { name: 'Copy URL', exact: true }).click();
   // In the browser lane this is the backend's own address; inside the Electron
   // shell it is the proxy origin. Either way it is what a person would paste.
   const serverUrl = await page.evaluate(() => navigator.clipboard.readText());
   expect(serverUrl).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:\\d+${connection.path}$`));
+  await page.getByRole('button', { name: 'Copy setup request', exact: true }).click();
+  const setupRequest = await page.evaluate(() => navigator.clipboard.readText());
+  expect(setupRequest).toContain(`Server URL: ${serverUrl}`);
+  expect(setupRequest).toContain(`Authorization header: Bearer ${connection.credential}`);
+  expect(setupRequest).toContain('Transport: Streamable HTTP');
   await page.getByRole('button', { name: 'Copy key', exact: true }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(connection.credential);
   await expect(page.getByText(connection.credential, { exact: true })).not.toBeVisible();
@@ -37,6 +43,16 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await page.getByRole('button', { name: 'Hide', exact: true }).click();
   await expect(page.getByText(/Stimma CLI|connection file|Lock external access|isn’t supported|Streamable HTTP|PIN/)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('mcp-created.png') });
+  await expect(page.getByRole('button', { name: 'Copy key', exact: true })).toBeVisible();
+  const settingsModal = page.locator('[data-modal-layer] > [tabindex="-1"]').filter({
+    has: page.getByRole('heading', { name: 'Settings', exact: true }),
+  });
+  const bounds = await settingsModal.boundingBox();
+  if (!bounds) throw new Error('Settings modal is not visible');
+  await page.screenshot({
+    path: testInfo.outputPath('mcp-setup-request.png'),
+    clip: { x: bounds.x - 20, y: bounds.y - 20, width: bounds.width + 40, height: bounds.height + 40 },
+  });
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText(connection.credential, { exact: true })).toHaveCount(0);
 
@@ -49,10 +65,10 @@ test('MCP setup exposes usable connection details without developer tooling', as
   expect(await mcp.text()).toContain('serverInfo');
 
   // The row shows the name plus created / last-used, and supports rename.
-  const row = page.getByTestId('mcp-connection-row').filter({ hasText: 'Claude Desktop' });
+  const row = page.getByTestId('mcp-connection-row').filter({ hasText: 'Claude Code' });
   await expect(row).toBeVisible();
   await expect(row).not.toContainText('Never', { timeout: 15000 });
-  await row.getByRole('button', { name: 'Options for Claude Desktop' }).click();
+  await row.getByRole('button', { name: 'Options for Claude Code' }).click();
   await page.getByRole('menuitem', { name: 'Rename…' }).click();
   await page.getByRole('textbox', { name: 'Connection name' }).fill('Claude on laptop');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
