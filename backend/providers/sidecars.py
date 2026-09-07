@@ -133,6 +133,11 @@ class SidecarProcess:
         state = sidecar_state_dir(self.name)
         if state:
             env.setdefault("STIMMA_DRAWTHINGS_STATE", str(state))
+        # Hand the sidecar the FFmpeg Stimma already found, so video output
+        # works from a packaged app whose PATH is minimal. Nothing is downloaded.
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg:
+            env.setdefault("STIMMA_DRAWTHINGS_FFMPEG", ffmpeg)
         self._process = await asyncio.create_subprocess_exec(
             str(path),
             "--websocket",

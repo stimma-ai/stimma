@@ -1012,7 +1012,7 @@ async function buildWatchdog(target: string): Promise<void> {
 // Draw Things sidecar: the standalone STP provider from stimma-ai/stimma-drawthings,
 // bundled into the macOS app so "generate on this Mac" is one click in setup.
 // Pinned to a release; bump when a new adapter release should ship.
-const DRAWTHINGS_SIDECAR_VERSION = "0.5.0";
+const DRAWTHINGS_SIDECAR_VERSION = "0.5.1";
 
 async function ensureDrawThingsSidecar(target: string): Promise<string | null> {
   if (Deno.build.os !== "darwin") return null;
