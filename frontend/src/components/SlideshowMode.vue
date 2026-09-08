@@ -1767,6 +1767,7 @@ const itemsCache = ref(new Map())
 // Canonical current heads keyed by stable Asset id. This also covers the rare
 // fixed-items slideshow, whose readonly prop cannot be patched in place.
 const assetHeadOverrides = ref(new Map())
+const directItemUpdates = ref(new Map())
 const markerUpdateTrigger = ref(0) // Force re-render when markers change
 const loadingPages = ref(new Map()) // Maps page number to loading promise
 let pageProviderCacheRevision = 0
@@ -2123,9 +2124,11 @@ const baseCurrentItem = computed(() => {
 })
 
 function withAssetHeadOverride(item) {
-  if (!item || !hasAssetIdentity(item)) return item
-  const head = assetHeadOverrides.value.get(assetIdOf(item))
-  return head ? { ...item, ...head } : item
+  if (!item) return item
+  const head = hasAssetIdentity(item) ? assetHeadOverrides.value.get(assetIdOf(item)) : null
+  const resolved = head ? { ...item, ...head } : item
+  const updates = props.items && directItemUpdates.value.get(itemPayloadId(resolved))
+  return updates ? { ...resolved, ...updates } : resolved
 }
 
 // currentItem respects view stacks - shows appropriate item based on context
@@ -2449,16 +2452,15 @@ watch(currentItem, (newItem) => {
     return
   }
 
-  // Generate-forever only: if we're already showing this exact image, skip reassignment
-  // so we don't reset mediaLoaded and flash a reload. Page refetches during streaming
-  // return fresh object instances with the same id/hash. Scoped to autoAdvanceOnNew so
-  // other views still pick up in-place updates (e.g. caption/metadata) for the same item.
+  // Metadata edits and refreshed projections keep the same media element.
+  // Publish their new fields without clearing mediaLoaded: an unchanged src
+  // will not emit another load event to clear that loading state.
   if (
-    props.autoAdvanceOnNew &&
     newItem && displayItem.value &&
     itemIdentity(newItem) === itemIdentity(displayItem.value) &&
     newItem.file_hash === displayItem.value.file_hash
   ) {
+    displayItem.value = newItem
     return
   }
 
@@ -2484,7 +2486,10 @@ function applyDisplayItem(newItem) {
     displayItem.value &&
     itemIdentity(newItem) === itemIdentity(displayItem.value) &&
     newItem.file_hash === displayItem.value.file_hash
-  ) return
+  ) {
+    displayItem.value = newItem
+    return
+  }
   mediaLoaded.value = false
   displayItem.value = newItem
   if (newItem.file_hash) preloadDragPreview(getThumbnailUrl(newItem.file_hash, 128))
@@ -2492,6 +2497,23 @@ function applyDisplayItem(newItem) {
 
 function applyMediaPatchToLocalState(mediaId, updates) {
   if (!mediaId || !updates || Object.keys(updates).length === 0) return
+
+  // Head projections win over page/shared caches when resolving currentItem.
+  // Patch them too, or the successful edit is hidden by the old snapshot.
+  for (const [assetId, head] of assetHeadOverrides.value) {
+    if (itemPayloadId(head) === mediaId) {
+      assetHeadOverrides.value.set(assetId, { ...head, ...updates })
+    }
+  }
+
+  // Nested slideshows may receive readonly items instead of an owned cache.
+  // Keep their edits locally without mutating the parent's props.
+  if (props.items) {
+    directItemUpdates.value.set(mediaId, {
+      ...directItemUpdates.value.get(mediaId),
+      ...updates,
+    })
+  }
 
   let cacheChanged = false
   const newCache = new Map(itemsCache.value)
@@ -2506,10 +2528,13 @@ function applyMediaPatchToLocalState(mediaId, updates) {
   }
 
   if (props.mediaList?.updateItem) {
-    const identity = currentItem.value && itemPayloadId(currentItem.value) === mediaId
-      ? itemIdentity(currentItem.value)
-      : mediaId
-    props.mediaList.updateItem(identity, updates)
+    // A response can arrive after navigation. Match payload ids to browser
+    // identities in the cache; the two id namespaces are independent.
+    for (const item of props.mediaList.itemsCache.value.values()) {
+      if (itemPayloadId(item) === mediaId) {
+        props.mediaList.updateItem(itemIdentity(item), updates)
+      }
+    }
   }
 
   if (itemPayloadId(displayItem.value) === mediaId) {
@@ -2557,6 +2582,7 @@ const assetHeadRefreshTokens = new Map()
 function applyAssetHeadToLocalState(assetId, projection) {
   if (!assetId || !projection) return
   const normalized = normalizeAssetHead(assetId, projection)
+  directItemUpdates.value.delete(itemPayloadId(normalized))
   reconciledAssetHeads.set(assetId, assetHeadSignature(normalized))
   assetHeadOverrides.value = new Map(assetHeadOverrides.value).set(assetId, normalized)
   invalidateMetadataCache(assetId)
@@ -6671,6 +6697,7 @@ async function toggleMarker(markerId) {
   const isActive = isMarkerActive(markerId)
   const mediaId = currentPayloadId.value
   const assetId = currentAssetId.value
+  const previousMarkers = currentItem.value.markers || []
 
   try {
     let response
@@ -6689,8 +6716,8 @@ async function toggleMarker(markerId) {
     // Use markers from toggle response (avoids a separate GET request)
     const updatedMarkers = response?.data?.markers || response?.markers || (
       isActive
-        ? (currentItem.value.markers || []).filter((marker) => marker.id !== markerId)
-        : [...(currentItem.value.markers || []), availableMarkers.value.find((marker) => marker.id === markerId)].filter(Boolean)
+        ? previousMarkers.filter((marker) => marker.id !== markerId)
+        : [...previousMarkers, availableMarkers.value.find((marker) => marker.id === markerId)].filter(Boolean)
     )
 
     applyMediaPatchToLocalState(mediaId, {
