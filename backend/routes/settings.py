@@ -2606,16 +2606,7 @@ async def update_agent_settings(request: AgentSettingsUpdate):
     agent_config = settings.get_agent_for_profile(current_profile_id)
 
     # Build updated agent config (profile-level, no llm_params)
-    agent_data = {
-        "additional_instructions": agent_config.additional_instructions,
-        "memory": agent_config.memory,
-        "tool_config": {
-            "allowed_tools": agent_config.tool_config.allowed_tools,
-            "denied_tools": agent_config.tool_config.denied_tools,
-            "v2_permissions": agent_config.tool_config.v2_permissions,
-        },
-        "models": agent_config.models.model_dump(),
-    }
+    agent_data = agent_config.model_dump()
 
     # Apply updates
     if request.additional_instructions is not None:
