@@ -584,14 +584,11 @@ async def _add_to_global_stp_permission(stp_tool_id: str, approved: bool) -> Non
         if stp_tool_id in allowed:
             allowed.remove(stp_tool_id)
 
-    agent_data = {
-        "additional_instructions": agent_config.additional_instructions,
-        "tool_config": {
-            "allowed_tools": allowed,
-            "denied_tools": denied,
-                        "v2_permissions": dict(agent_config.tool_config.v2_permissions),
-        },
-    }
+    # This write replaces the whole section. Preserve models, memory, and any
+    # future agent settings when changing only a tool permission.
+    agent_data = agent_config.model_dump()
+    agent_data["tool_config"]["allowed_tools"] = allowed
+    agent_data["tool_config"]["denied_tools"] = denied
 
     patch_profile_section(profile_id, "agent", agent_data)
     reload_settings()

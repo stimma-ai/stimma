@@ -68,15 +68,9 @@ async def save_memory(
         profile_id = get_current_profile()
         agent_config = get_settings().get_agent_for_profile(profile_id)
 
-        agent_data = {
-            "additional_instructions": agent_config.additional_instructions,
-            "memory": content,
-            "tool_config": {
-                "allowed_tools": agent_config.tool_config.allowed_tools,
-                "denied_tools": agent_config.tool_config.denied_tools,
-                "v2_permissions": agent_config.tool_config.v2_permissions,
-            },
-        }
+        # Replacing the section must not reset the user's model selections.
+        agent_data = agent_config.model_dump()
+        agent_data["memory"] = content
 
         try:
             patch_profile_section(profile_id, "agent", agent_data)
