@@ -155,7 +155,7 @@
             </div>
 
             <!-- CLIP Phase -->
-            <div class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
+            <div v-if="isPhaseEnabled('clip')" class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
                   Visual Indexing
@@ -184,7 +184,7 @@
             </div>
 
             <!-- Face Detection Phase -->
-            <div class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
+            <div v-if="isPhaseEnabled('face_detection')" class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
                   Face Analysis
@@ -213,7 +213,7 @@
             </div>
 
             <!-- Visual Analysis Phase (captions + keywords) -->
-            <div v-if="captioningEnabledRef" class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
+            <div v-if="isPhaseEnabled('vlm_caption')" class="mb-4 pb-4 border-b border-surface-raised last:mb-0 last:pb-0 last:border-b-0">
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
                   Visual Analysis
@@ -780,9 +780,13 @@ function hasPendingWork(phase) {
   return total > completed
 }
 
+function isPhaseEnabled(phase) {
+  return stats.value[phase]?.enabled ?? (phase !== 'vlm_caption' || captioningEnabledRef.value)
+}
+
 const activePhases = computed(() => {
   return Object.entries(stats.value)
-    .filter(([key]) => key !== 'vlm_caption' || captioningEnabledRef.value)
+    .filter(([key]) => isPhaseEnabled(key))
     .map(([, phase]) => phase)
 })
 

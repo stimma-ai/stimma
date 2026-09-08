@@ -24,7 +24,7 @@ from core.profile_context import get_current_profile
 from database_registry import get_database_registry
 from models.api_models import StatsResponse
 from config import get_settings
-from background_work_filters import media_eligible_for_background_work
+from background_work_filters import background_phase_enabled, media_eligible_for_background_work
 from utils.query_builder import build_filtered_query, VIDEO_FORMATS, IMAGE_FORMATS, RESOLUTION_MAP
 from utils.similarity import filter_media_query_by_face_similarity, parse_similarity_ids
 from tool_display import resolve_tool_display_metadata
@@ -207,13 +207,14 @@ async def get_processing_stats(session: AsyncSession = Depends(get_db_session)):
     ingestion = get_ingestion()
 
     base_filter = media_eligible_for_background_work()
+    settings = get_settings()
 
     stats = {}
     for phase in PHASES:
         status_col = f"{phase}_status"
         version_col = f"{phase}_config_version"
 
-        phase_stats = {}
+        phase_stats = {'enabled': background_phase_enabled(settings, phase)}
 
         # Get current config version
         current_version = ingestion.config_mgr.get_version(phase) if ingestion else None

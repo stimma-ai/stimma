@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import Asset, AssetRevision, MediaItem
 from database_registry import get_database_registry
 from config import get_settings
-from background_work_filters import media_eligible_for_background_work
+from background_work_filters import background_phase_enabled, media_eligible_for_background_work
 
 log = get_logger(__name__)
 
@@ -394,6 +394,9 @@ async def monitor_processing_stats(ws_manager):
             phase_stats = {}
             for phase in BROADCAST_PHASES:
                 phase_stats[phase] = {status: 0 for status in ['pending', 'processing', 'completed', 'failed']}
+                # Include enabled state so toggling a phase refreshes clients
+                # even when none of the database counters changed.
+                phase_stats[phase]['enabled'] = background_phase_enabled(settings, phase)
 
             for profile in settings.profiles:
                 # Skip profiles not in registry (may have been removed)
