@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from database import Chat
+from database import Chat, ChatItem
 from agent.v2 import tool_permission_gate as gate
 from agent.v2.permissions import get_stp_permission_decision
 from agent.v2.tool_permission_gate import (
@@ -209,3 +209,62 @@ async def test_gate_ask_interrupt_cleans_registry(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert not is_pending_permission(gate._request_id(10, "p:t"))  # finally-block cleaned up
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("approved", [False, True])
+async def test_human_response_restores_running_before_resuming_turn(
+    monkeypatch, session, test_chat, approved,
+):
+    """Allow and Deny must restore Stop, even when the resumed turn finishes immediately."""
+    from routes import chats
+
+    request_id = gate._request_id(test_chat.id, "p:t")
+    future = asyncio.get_running_loop().create_future()
+    monkeypatch.setattr(gate, "_PENDING", {request_id: future})
+    session.add(ChatItem(
+        chat_id=test_chat.id,
+        item_type="hitl_request",
+        item_metadata=json.dumps({
+            "type": "v2_tool_permission",
+            "v2_tool_args": {"tool_id": "p:t", "_inprocess_request_id": request_id},
+        }),
+    ))
+    await session.commit()
+
+    events = []
+
+    class WebSocketRecorder:
+        async def broadcast(self, event, data):
+            events.append((event, data))
+            # Real broadcasts yield to the resumed agent task.
+            await asyncio.sleep(0)
+
+    ws = WebSocketRecorder()
+    monkeypatch.setattr(chats, "ws_manager", ws)
+
+    async def finish_turn():
+        decision = await future
+        await ws.broadcast("agent_stopped", {"chat_id": test_chat.id, "reason": "completed"})
+        return decision
+
+    task = asyncio.create_task(finish_turn())
+    try:
+        result = await chats.submit_human_response(
+            test_chat.id,
+            chats.HITLResponseRequest(approved=approved, scope="once"),
+            session,
+        )
+        assert result == {"success": True}
+        assert await asyncio.wait_for(task, timeout=1) == {"approved": approved, "scope": "once"}
+        assert [event for event, _ in events] == [
+            "chat_item_created", "agent_started", "agent_stopped",
+        ]
+        response_item = events[0][1]["item"]
+        assert response_item["item_type"] == "hitl_response"
+        assert response_item["item_metadata"]["approved"] is approved
+        assert events[1][1] == {"chat_id": test_chat.id}
+    finally:
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
