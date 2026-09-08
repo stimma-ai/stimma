@@ -1264,3 +1264,32 @@ async def test_branded_add_fails_if_provider_removed_a_model(monkeypatch):
             models_route.ProviderCreateRequest(kind="openai", api_key="secret")
         )
     assert "Provider does not offer" in caught.value.detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("effort_off", ["reasoning", "empty", "answer"])
+async def test_profile_classifies_the_verified_off_method(monkeypatch, effort_off):
+    import llm
+    from llm_http import _Obj
+
+    async def completion(*_args, **kwargs):
+        extra = kwargs.get("extra_body") or {}
+        is_off_probe = extra.get("reasoning_effort") == "none"
+        message = {"content": "Hidden work</think>answer"}
+        if is_off_probe and effort_off == "empty":
+            message = {"content": ""}
+        elif is_off_probe and effort_off == "answer":
+            message = {"content": "answer"}
+        if kwargs.get("tools"):
+            message["tool_calls"] = [{"id": "call1", "function": {"name": "get_weather", "arguments": "{}"}}]
+        return llm._normalize_response(_Obj({
+            "choices": [{"message": message, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10},
+        }))
+
+    monkeypatch.setattr(llm, "llm_completion", completion)
+    _, detected = await settings_route._profile_endpoint(
+        LLMEndpointConfig(url="http://localhost:1234/v1", model="test", max_context_tokens=1024)
+    )
+    assert detected.reasoning_method == "reasoning_effort"
+    assert detected.reasoning_mode == ("toggleable" if effort_off == "answer" else "always")

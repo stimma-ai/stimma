@@ -2050,13 +2050,15 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
     if reasoning_on and reasoning_method == "reasoning_effort" and is_local and not is_openrouter:
         try:
             effort_off_check = await _think_probe({"reasoning_effort": "none"})
-            effort_has_off = not effort_off_check.thinking
+            effort_has_off = bool(effort_off_check.content) and not effort_off_check.thinking
         except Exception:
             effort_has_off = False
+        reasoning_off = not effort_has_off
         if not effort_has_off:
             try:
                 off_check = await _think_probe({"chat_template_kwargs": {"enable_thinking": False}})
-                if not off_check.thinking:
+                if off_check.content and not off_check.thinking:
+                    reasoning_off = False
                     reasoning_method = "enable_thinking"
                     detected_reasoning_levels = []
             except Exception:

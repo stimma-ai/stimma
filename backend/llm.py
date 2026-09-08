@@ -132,36 +132,46 @@ _SPECIAL_TOKENS_RE = re.compile(
 )
 
 
+_THINKING_TAG_RE = re.compile(
+    r'<(/?)(?:' + '|'.join(_THINKING_TAGS) + r')>', re.IGNORECASE,
+)
+
+
+def _split_thinking_content(text: str) -> tuple[str, Optional[str]]:
+    """Separate tagged reasoning, including a template-prefilled opening tag.
+
+    An unmatched closer means the template supplied the opener: everything
+    before it is reasoning. An unclosed opener means generation ended while
+    reasoning, so that suffix must never become answer text.
+    """
+    if not text:
+        return text, None
+    visible: list[str] = []
+    reasoning: list[str] = []
+    depth = 0
+    cursor = 0
+    for match in _THINKING_TAG_RE.finditer(text):
+        segment = text[cursor:match.start()]
+        if match.group(1):
+            if depth == 0:
+                reasoning.extend(visible)
+                visible.clear()
+            reasoning.append(segment)
+            depth = max(0, depth - 1)
+        else:
+            (reasoning if depth else visible).append(segment)
+            depth += 1
+        cursor = match.end()
+    (reasoning if depth else visible).append(text[cursor:])
+    content = _SPECIAL_TOKENS_RE.sub('', ''.join(visible))
+    content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content).strip()
+    thinking = ''.join(reasoning).strip() or None
+    return content, thinking
+
+
 def strip_thinking_tags(text: str) -> str:
-    """Strip thinking tags and special tokens from content."""
-    if not text:
-        return text
-    text = _SPECIAL_TOKENS_RE.sub('', text)
-    for tag in _THINKING_TAGS:
-        text = re.sub(rf'<{tag}>.*?</{tag}>', '', text, flags=re.IGNORECASE | re.DOTALL)
-        # Handle malformed/nested tags
-        lower = text.lower()
-        first_open = lower.find(f'<{tag}>')
-        last_close = lower.rfind(f'</{tag}>')
-        if first_open != -1 and last_close > first_open:
-            text = text[:first_open] + text[last_close + len(f'</{tag}>'):]
-        # Drop orphan tags — a reasoning model can stream the opener to the
-        # thinking channel and leak a bare closer (or vice-versa) into content,
-        # which the paired/nested handling above never catches.
-        text = re.sub(rf'</?{tag}>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
-    return text.strip()
-
-
-def _extract_thinking_from_content(text: str) -> Optional[str]:
-    """Extract thinking content from tags if present."""
-    if not text:
-        return None
-    for tag in _THINKING_TAGS:
-        m = re.search(rf'<{tag}>(.*?)</{tag}>', text, flags=re.IGNORECASE | re.DOTALL)
-        if m and m.group(1).strip():
-            return m.group(1).strip()
-    return None
+    """Return answer text only, excluding complete or partial reasoning blocks."""
+    return _split_thinking_content(text)[0]
 
 
 def _stringify_message_content(content: Any) -> str:
@@ -257,25 +267,31 @@ def _normalize_response(raw_response) -> LLMResponse:
 
     # --- Content & thinking ---
     raw_content = getattr(message, 'content', None) or ""
-    thinking = _extract_reasoning_field(message) or _extract_thinking_from_content(raw_content)
-    content = strip_thinking_tags(raw_content)
+    content, tagged_thinking = _split_thinking_content(raw_content)
+    thinking = _extract_reasoning_field(message)
+    # Recover answer text misplaced in a reasoning field only when an explicit
+    # closing boundary identifies it. Formatting changes alone are not evidence.
+    if thinking:
+        closers = [match for match in _THINKING_TAG_RE.finditer(thinking) if match.group(1)]
+        if closers:
+            boundary = closers[-1].end()
+            recovered, trailing_thinking = _split_thinking_content(thinking[boundary:])
+            if not content:
+                content = recovered
+            thinking = _THINKING_TAG_RE.sub('', thinking[:boundary]).strip()
+            if trailing_thinking:
+                thinking = "\n".join(filter(None, [thinking, trailing_thinking]))
+            thinking = thinking or None
+    if tagged_thinking:
+        thinking = (
+            thinking + "\n" + tagged_thinking
+            if thinking and thinking != tagged_thinking
+            else tagged_thinking
+        )
 
-    # Some providers put everything in 'reasoning' with <think> tags wrapping
-    # thinking and actual content after. Only use reasoning as content if it has tags.
-    if not raw_content and thinking and '<think>' in thinking.lower():
-        content = strip_thinking_tags(thinking)
-
-    # Minimax duplicates thinking into both content and reasoning fields.
-    # If content matches reasoning, it's thinking — not a real response.
+    # Some providers duplicate the reasoning field into content.
     if content and thinking and content.strip() == thinking.strip():
         content = ""
-
-    # Fallback: if content is empty but we have thinking, try to extract
-    # from the reasoning field (broken provider behavior)
-    if not content and thinking:
-        extracted = strip_thinking_tags(thinking)
-        if extracted and extracted != thinking:
-            content = extracted
 
     # --- Tool calls ---
     tool_calls = []
@@ -788,12 +804,6 @@ async def llm_complete_text(
     )
     if resp.content:
         return resp.content
-
-    # Fallback: try to extract from thinking
-    if resp.thinking:
-        extracted = strip_thinking_tags(resp.thinking)
-        if extracted and extracted != resp.thinking:
-            return extracted
 
     budget_exhausted = resp.finish_reason == FinishReason.LENGTH and bool(resp.thinking)
     log.warning(
