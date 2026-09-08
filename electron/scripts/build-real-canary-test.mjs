@@ -1,6 +1,7 @@
 // Package a local fix with the REAL Canary identity and install location.
 // Reuse the staged backend/frontend from the CLI's generated builder config.
-// This does not publish a release or exercise update-feed delivery.
+// This does not publish a release. Set STIMMA_UPDATE_BASE_URL to exercise a
+// real feed with the normal in-app update button (the default is updater-off).
 import { build, Platform } from 'electron-builder'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -12,10 +13,16 @@ if (config.appId !== 'ai.stimma.stimma.canary' || config.productName !== 'Stimma
   throw new Error('Generate a Canary builder config first; this helper must not target another channel')
 }
 const version = process.argv[2]
-if (!version || !/^\d+\.\d+\.\d+-canary\.\d+-test\.\d+$/.test(version)) {
-  throw new Error('Usage: node scripts/build-real-canary-test.mjs X.Y.Z-canary.N-test.N [output-directory]')
+if (!version || !/^\d+\.\d+\.\d+-canary\.\d+\.test\.\d+$/.test(version)) {
+  throw new Error('Usage: node scripts/build-real-canary-test.mjs X.Y.Z-canary.N.test.N [output-directory]')
 }
 config.extraMetadata.version = version
+if (process.env.STIMMA_UPDATE_BASE_URL) {
+  const base = process.env.STIMMA_UPDATE_BASE_URL.replace(/\/$/, '')
+  const url = `${base}/stimma/canary/windows-x86_64/`
+  config.extraMetadata.stimmaUpdateUrl = url
+  config.publish = [{ provider: 'generic', url }]
+}
 const archives = config.extraResources.filter(r => /^stimma-python-runtime-[a-f0-9]{64}\.tar\.xz$/.test(r.to))
 if (archives.length !== 1) throw new Error('Expected exactly one staged Python runtime archive')
 config.extraMetadata.stimmaPythonRuntimeArchive = archives[0].to

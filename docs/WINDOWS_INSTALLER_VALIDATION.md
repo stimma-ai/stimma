@@ -105,8 +105,8 @@ cd src-tauri/watchdog
 cargo build --release
 cd ../../electron
 npm run build
-node scripts/build-real-canary-test.mjs 1.0.14-canary.972-test.2 out-real-canary-test
-node scripts/build-real-canary-test.mjs 1.0.14-canary.972-test.3 out-real-canary-test-3
+node scripts/build-real-canary-test.mjs 1.0.14-canary.972.test.2 out-real-canary-test
+node scripts/build-real-canary-test.mjs 1.0.14-canary.972.test.3 out-real-canary-test-3
 npm run test:unit
 npm run test:watchdog-windows
 ```
@@ -115,6 +115,44 @@ The helper reuses staged backend/frontend resources and preserves the real
 Canary identity/location. It does not publish anything. A local build without
 an update-feed URL does not test feed delivery or the in-app update button;
 manually running its installer tests replacement and process cleanup.
+
+For in-app validation, set `STIMMA_UPDATE_BASE_URL=https://updates.stimma.ai`
+when invoking the helper, and build the frontend with its normal Canary update
+endpoint enabled. Keep the test build's numeric Canary component below the
+published target. Use `canary.981.test.1`, **not** `canary.981-test.1`: the latter
+makes `981-test` a nonnumeric semver identifier that sorts after numeric `982`,
+and downgrade protection correctly refuses the update.
+
+## In-app update regression (2026-09-07)
+
+Manual installer replacement did not cover the user's actual workflow. On
+published 979, the actual `Update this PC` button failed with `No update
+available` despite repeated successful checks finding 982. On Windows the UI
+retains an update handle without downloading yet. A repeated check returns a
+duplicate handle; closing it incorrectly erased Electron's shared availability.
+The UI then retained a button pointing at no available update. Replacing a
+staged version could trigger the same problem when closing the superseded handle.
+
+Electron handle closure is now a no-op: only an update check changes shared
+availability. Downloaded state remains independent. Failed user-initiated
+installation or relaunch now shows a persistent error toast, also broadcast to
+other profile windows so the originating window sees a failure.
+
+Required proof is the actual UI workflow on the normal installation and
+published feed: let an update become available, perform repeated checks
+(including an unchanged scheduled check), click the top-bar `Update this PC`,
+observe download/installer/relaunch, and verify the new executable version and
+backend readiness. Installer-only tests and an immediate first-check click are
+not substitutes for this sequence.
+
+First live result: fixed `981.test.1` found published 982 at 00:49:37,
+00:50:41, and 00:51:05 UTC on September 8 (the latter two via About-page
+navigation). Clicking the top-bar button at 00:51:49 downloaded 982 by
+00:51:56 and launched the cached installer with `--updated --force-run`.
+The physical executable became 982 and backend startup completed at 00:52:28;
+the normal application UI was verified after relaunch. No installer was
+manually launched for that transition. The unpublished starting build had no
+remote blockmap, so the updater correctly fell back to a full download.
 
 The watchdog regression deliberately kills only the watchdog (without
 `taskkill /T`) and asserts both backend and grandchild die. Runtime selection

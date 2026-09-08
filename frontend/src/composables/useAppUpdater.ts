@@ -5,6 +5,7 @@ import { desktop } from '../desktop'
 import type { DesktopUpdate } from '../desktop'
 import { triggerServerUpdateCheck } from '../utils/serverUpdateCheck'
 import { useTelemetry } from './useTelemetry'
+import { addToast } from './useToasts'
 import { isPrivacyLockdownActive, usePrivacyLockdown } from './usePrivacyLockdown'
 
 const { track } = useTelemetry()
@@ -121,6 +122,8 @@ if (updaterChannel) {
       void restartToApply()
     } else if (message.type === 'check' && isUpdaterOwner) {
       void checkForUpdates(message.trigger ?? 'manual')
+    } else if (message.type === 'update-error' && typeof message.message === 'string') {
+      addToast(message.message, 'error', 0)
     } else if (message.type === 'policy') {
       // Keep every window's in-memory policy in step with a change made in
       // any of them (the preference itself is stored once, backend-side).
@@ -131,6 +134,13 @@ if (updaterChannel) {
   }
   // A window created after the owner last broadcast needs the current state.
   updaterChannel.postMessage({ type: 'request-state' })
+}
+
+function reportUpdateFailure(message: string): void {
+  addToast(message, 'error', 0)
+  // Actions can originate in a different profile window. Show the failure
+  // there as well, rather than only logging it in the updater-owner window.
+  updaterChannel?.postMessage({ type: 'update-error', message })
 }
 
 async function getPreference<T>(key: string): Promise<T | null> {
@@ -359,6 +369,7 @@ async function downloadAndInstallUpdate(): Promise<void> {
   } catch (error) {
     console.error('[updater] Download/install failed:', error)
     downloading.value = false
+    reportUpdateFailure('Could not install the update. Your current version is still running. Please try again or check for updates in Settings.')
   }
 }
 
@@ -386,6 +397,7 @@ async function restartToApply(): Promise<void> {
       // Leave the staged state intact so the button stays actionable.
       console.error('[updater] Download/install failed:', error)
       downloading.value = false
+      reportUpdateFailure('Could not install the update. Your current version is still running. Please try again or check for updates in Settings.')
       return
     }
     // The passive installer relaunches; relaunch() is a fallback for the rare
@@ -402,6 +414,8 @@ async function relaunchApp(): Promise<void> {
     await desktop.relaunch()
   } catch (error) {
     console.error('[updater] Failed to relaunch app:', error)
+    downloading.value = false
+    reportUpdateFailure('Could not restart Stimma to finish the update. Please quit and reopen Stimma.')
   }
 }
 

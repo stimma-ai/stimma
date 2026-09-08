@@ -176,8 +176,8 @@ export async function updaterDownloadAndInstall(): Promise<void> {
 
 export function updaterClose(): void {
   // The Tauri resource-lifecycle close has no electron-updater equivalent.
-  // Deliberately do NOT clear `downloaded`: the renderer closes its handle
-  // after staging, and a staged package must still apply on relaunch.
+  // Do not clear availability OR downloaded state: the renderer closes
+  // duplicate handles from periodic checks while retaining the original.
   state.closeAvailableHandle()
 }
 

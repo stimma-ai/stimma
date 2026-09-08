@@ -26,7 +26,10 @@ export class UpdaterState {
   }
 
   closeAvailableHandle(): void {
-    this.available = null
+    // Electron has one process-wide updater, not Tauri's per-check resources.
+    // Closing a renderer handle (including a duplicate from a scheduled check)
+    // must not invalidate another handle still displayed by the UI. Only a
+    // subsequent check changes availability; closing does not own that state.
   }
 
   hasDownloadedUpdate(): boolean {
