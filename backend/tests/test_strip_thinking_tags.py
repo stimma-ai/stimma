@@ -9,11 +9,11 @@ from llm import strip_thinking_tags
 
 
 def test_orphan_closing_tag_is_removed():
-    assert "</think>" not in strip_thinking_tags("Done.</think>Found it — ComfyUI.")
+    assert strip_thinking_tags("Done.</think>Found it — ComfyUI.") == "Found it — ComfyUI."
 
 
 def test_orphan_opening_tag_is_removed():
-    assert "<think>" not in strip_thinking_tags("<think>reasoning leaked here")
+    assert strip_thinking_tags("<think>reasoning leaked here") == ""
 
 
 def test_well_formed_pair_still_stripped():
@@ -26,4 +26,4 @@ def test_plain_text_untouched():
 
 def test_all_known_tag_variants():
     for tag in ("think", "thinking", "thought", "analysis", "reasoning"):
-        assert strip_thinking_tags(f"visible</{tag}>") == "visible"
+        assert strip_thinking_tags(f"hidden</{tag}>visible") == "visible"
