@@ -148,9 +148,13 @@ function hasPendingWork(phase) {
   return getTotalForPhase(phase) > (p.completed || 0)
 }
 
+function isPhaseEnabled(phase) {
+  return stats.value[phase]?.enabled ?? (phase !== 'vlm_caption' || captioningEnabledRef.value)
+}
+
 const activePhases = computed(() =>
   Object.entries(stats.value)
-    .filter(([key]) => key !== 'vlm_caption' || captioningEnabledRef.value)
+    .filter(([key]) => isPhaseEnabled(key))
     .map(([, phase]) => phase),
 )
 const totalPending = computed(() => activePhases.value.reduce((s, p) => s + (p.pending || 0), 0))
@@ -298,7 +302,7 @@ export function useBackgroundWork() {
     failedOpen, failedPhase, failedItems, loadingFailed, retrying, trashing,
     failedTitle: computed(() => PHASE_NAMES[failedPhase.value] || failedPhase.value),
     start, fetchStats, fetchPauseStatus, togglePause, triggerRescan, retryDeletion,
-    getTotalForPhase, getProgressPercent, hasPendingWork,
+    getTotalForPhase, getProgressPercent, hasPendingWork, isPhaseEnabled,
     dismissSystemWarning, openSystemWarningAction,
     showFailedItems, closeFailedItems, retryAll, retryItem, trashAll,
   }

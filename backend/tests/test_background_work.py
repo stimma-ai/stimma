@@ -19,6 +19,68 @@ from tests.helpers.media import create_media_item
 from asset_service import create_asset_from_media
 
 
+async def test_processing_stats_preserve_backlog_and_report_live_enabled_flags(db_session):
+    from routes.processing import get_processing_stats
+
+    settings = SimpleNamespace(
+        clip=SimpleNamespace(enabled=False),
+        face_detection=SimpleNamespace(enabled=False),
+        captioning=SimpleNamespace(enabled=False),
+    )
+    async with db_session() as session:
+        await create_media_item(session, clip_status="pending", face_detection_status="pending")
+        await session.commit()
+        with patch("routes.processing.get_settings", return_value=settings), patch(
+            "ingestion.get_ingestion", return_value=None
+        ):
+            disabled = (await get_processing_stats(session))["phase_stats"]
+            assert disabled["metadata"]["enabled"] is True
+            for phase in ("clip", "face_detection", "vlm_caption"):
+                assert disabled[phase]["enabled"] is False
+            assert disabled["clip"]["pending"] > 0
+            assert disabled["face_detection"]["pending"] > 0
+
+            settings.clip.enabled = True
+            settings.captioning.enabled = True
+            enabled = (await get_processing_stats(session))["phase_stats"]
+            assert enabled["clip"]["enabled"] is True
+            assert enabled["vlm_caption"]["enabled"] is True
+            assert enabled["face_detection"]["enabled"] is False
+            assert enabled["clip"]["pending"] == disabled["clip"]["pending"]
+
+
+async def test_processing_monitor_broadcasts_enabled_changes_without_counter_changes():
+    import asyncio
+    from utils.background_tasks import monitor_processing_stats
+
+    settings = SimpleNamespace(
+        profiles=[],
+        clip=SimpleNamespace(enabled=False),
+        face_detection=SimpleNamespace(enabled=False),
+        captioning=SimpleNamespace(enabled=False),
+    )
+    ticks = 0
+
+    async def tick(_seconds):
+        nonlocal ticks
+        ticks += 1
+        if ticks == 3:
+            settings.clip.enabled = True
+        if ticks == 4:
+            raise asyncio.CancelledError
+
+    ws = SimpleNamespace(broadcast=AsyncMock())
+    with patch("utils.background_tasks.get_settings", return_value=settings), patch(
+        "utils.background_tasks.get_database_registry"
+    ), patch("utils.background_tasks.asyncio.sleep", side_effect=tick):
+        await monitor_processing_stats(ws)
+
+    snapshots = [call.args[1]["phase_stats"] for call in ws.broadcast.call_args_list]
+    assert len(snapshots) == 2  # The unchanged second poll stays quiet.
+    assert snapshots[0]["clip"]["enabled"] is False
+    assert snapshots[1]["clip"]["enabled"] is True
+
+
 class TestEnabledFlagChecks:
     """Tests for enabled flag checks in ingestion processing phases.
 

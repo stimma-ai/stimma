@@ -14,6 +14,14 @@ from database import (
 ACTIVE_DELETE_STATUSES = ("queued", "running", "checkpointing", "failed")
 
 
+def background_phase_enabled(settings, phase: str) -> bool:
+    """Whether queued work in a phase is enabled by the current settings."""
+    if phase == "metadata":
+        return True
+    section = "captioning" if phase == "vlm_caption" else phase
+    return getattr(settings, section).enabled
+
+
 def media_eligible_for_background_work():
     """Return the canonical filter for Media that background work may process.
 

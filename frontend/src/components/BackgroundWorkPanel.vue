@@ -208,14 +208,13 @@ import Spinner from './ui/Spinner.vue'
 import Modal from './ui/Modal.vue'
 import { useBackgroundWork } from '../composables/useBackgroundWork'
 import { useMediaApi } from '../composables/useMediaApi'
-import { captioningEnabledRef } from '../appConfig'
 import { formatEta } from '../utils/timeFormat'
 
 const {
   stats, systemWarnings, statsLoading, isPaused, rescanning, retryingDeletion,
   deleteSummary, deleteProgressPercent, deleteTotalCount, deleteDoneCount, deleteOperationLabel,
   failedOpen, failedItems, loadingFailed, retrying, trashing, failedTitle,
-  togglePause, triggerRescan, retryDeletion, getTotalForPhase, getProgressPercent, hasPendingWork,
+  togglePause, triggerRescan, retryDeletion, getTotalForPhase, getProgressPercent, hasPendingWork, isPhaseEnabled,
   dismissSystemWarning, openSystemWarningAction, showFailedItems, closeFailedItems, retryAll, retryItem, trashAll,
 } = useBackgroundWork()
 const { getThumbnailUrl } = useMediaApi()
@@ -224,8 +223,8 @@ const phases = computed(() => [
   { id: 'metadata', label: 'Processing Media', pausable: false },
   { id: 'clip', label: 'Visual Indexing', pausable: true },
   { id: 'face_detection', label: 'Face Analysis', pausable: true },
-  ...(captioningEnabledRef.value ? [{ id: 'vlm_caption', label: 'Visual Analysis', pausable: true }] : []),
-])
+  { id: 'vlm_caption', label: 'Visual Analysis', pausable: true },
+].filter((phase) => isPhaseEnabled(phase.id)))
 
 function getFileName(path) {
   return String(path || '').split('/').pop()
