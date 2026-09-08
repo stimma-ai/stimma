@@ -2124,7 +2124,6 @@ async def submit_human_response(
                 from agent.v2.permissions import apply_stp_permission
                 await apply_stp_permission(tool_id, scope, approved, chat)
                 await session.commit()
-            resolve_pending_permission(inprocess_id, {"approved": approved, "scope": scope})
             # Record the response so the card renders as resolved (not still actionable).
             resp_item = ChatItem(
                 chat_id=chat_id,
@@ -2137,6 +2136,11 @@ async def submit_human_response(
                 "chat_id": chat_id,
                 "item": resp_item.to_dict(),
             })
+            # Both decisions resume the parked turn. Restore the running controls
+            # before releasing it, so a fast completion cannot be followed by a
+            # stale agent_started event that leaves the UI running forever.
+            await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
+            resolve_pending_permission(inprocess_id, {"approved": approved, "scope": scope})
             return {"success": True}
 
     # Resume agent with the response
