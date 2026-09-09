@@ -26,7 +26,7 @@
 
     <!-- Thumbnail grid (hidden when empty) -->
     <div
-      v-if="displayData.previews && displayData.previews.length > 0"
+      v-if="previewTiles.length > 0"
       class="mt-3"
     >
       <div
@@ -34,26 +34,32 @@
         class="flex flex-wrap gap-1.5 overflow-hidden transition-[max-height] duration-200"
         :style="{ maxHeight: expanded ? 'none' : '102px' }"
       >
-        <div
-          v-for="mediaId in displayData.previews"
-          :key="mediaId"
-          class="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent/50 transition-all"
-          @click="$emit('view-image', mediaId)"
+        <button
+          v-for="tile in previewTiles"
+          :key="tile.key"
+          :disabled="!tile.mediaId"
+          :title="`Option ${tile.option}${tile.mediaId ? '' : ` · ${tile.status}`}`"
+          :aria-label="`Option ${tile.option}${tile.mediaId ? '' : ` · ${tile.status}`}`"
+          class="relative w-12 h-12 flex-shrink-0 rounded-media overflow-hidden bg-matte enabled:cursor-pointer enabled:hover:ring-2 enabled:hover:ring-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 transition-colors"
+          @click="$emit('view-image', tile.mediaId)"
         >
           <MediaImage
-            :media-id="mediaId"
+            v-if="tile.mediaId"
+            :media-id="tile.mediaId"
             container-class="w-full h-full"
             img-class="w-full h-full object-cover"
             loading="lazy"
           />
-        </div>
+          <span v-else class="text-content-tertiary text-[10px]">{{ tile.status }}</span>
+          <span class="absolute bottom-0 left-0 bg-matte/80 px-1 text-content-secondary text-[10px] font-mono tabular-nums">{{ tile.option }}</span>
+        </button>
       </div>
       <button
         v-if="hasOverflow"
         class="mt-1.5 text-xs text-content-tertiary hover:text-content-secondary transition-colors"
         @click="expanded = !expanded"
       >
-        {{ expanded ? 'Show less' : `Show all ${displayData.previews.length}` }}
+        {{ expanded ? 'Show less' : `Show all ${previewTiles.length}` }}
       </button>
     </div>
   </div>
@@ -64,6 +70,7 @@ import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { MediaImage } from '../media'
 import ProgressBar from '../ui/ProgressBar.vue'
 import { dotClass } from '../../utils/statusColors'
+import { progressPreviewTiles } from '../../utils/chatMedia'
 
 const props = defineProps({
   displayData: {
@@ -85,6 +92,7 @@ defineEmits(['view-image'])
 const expanded = ref(false)
 const gridRef = ref(null)
 const hasOverflow = ref(false)
+const previewTiles = computed(() => progressPreviewTiles(props.displayData))
 
 const progressPercent = computed(() => {
   if (!props.displayData.total) return 0
@@ -115,5 +123,5 @@ function checkOverflow() {
 
 onMounted(() => nextTick(checkOverflow))
 
-watch(() => props.displayData.previews?.length, () => nextTick(checkOverflow))
+watch(() => previewTiles.value.length, () => nextTick(checkOverflow))
 </script>

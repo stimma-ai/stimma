@@ -1343,7 +1343,9 @@
     <!-- Slideshow Mode -->
     <SlideshowMode
       v-if="slideshowState.active"
-      :total-count="slideshowState.totalCount"
+      :total-count="liveChatMediaIds.length"
+      :live-item-ids="liveChatMediaIds"
+      :item-labels="chatMediaLabels"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
       :inline="true"
@@ -1468,6 +1470,7 @@ import ChatErrorDisclosure from '../components/chat/ChatErrorDisclosure.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
+import { collectChatMedia } from '../utils/chatMedia'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -2651,105 +2654,15 @@ function getPlanControlState(item) {
   }
 }
 
-// All media IDs including trashed (for slideshow) - in order of appearance, deduplicated
-const allChatMediaIds = computed(() => {
-  const mediaIds = []
-  const seen = new Set()
-
-  // Helper to add ID only if not seen before
-  const addIfNew = (id) => {
-    if (id && !seen.has(id)) {
-      seen.add(id)
-      mediaIds.push(id)
-    }
-  }
-
-  // Collect from all item types that contain media (in order they appear)
-  for (const item of items.value) {
-    // Media display items
-    if (item.item_type === 'media_display' && item.item_metadata) {
-      try {
-        const data = typeof item.item_metadata === 'string'
-          ? JSON.parse(item.item_metadata)
-          : item.item_metadata
-        const displayData = data.display_data || {}
-        if (displayData.rows) {
-          for (const row of displayData.rows) {
-            addIfNew(row.output?.media_id)
-          }
-        }
-      } catch (e) { /* ignore parse errors */ }
-    }
-    // Progress display previews
-    if (item.item_type === 'progress_display' && item.item_metadata) {
-      try {
-        const data = typeof item.item_metadata === 'string'
-          ? JSON.parse(item.item_metadata)
-          : item.item_metadata
-        for (const mid of (data.display_data?.previews || [])) {
-          addIfNew(mid)
-        }
-      } catch (e) { /* ignore parse errors */ }
-    }
-  }
-  return mediaIds
-})
-// Non-deleted media IDs only (for strip display and marker loading - avoids 404s and broken images)
-const liveChatMediaIds = computed(() => {
-  const liveIds = []
-  const seen = new Set()
-
-  // Helper to add ID only if not seen before
-  const addIfNew = (id) => {
-    if (id && !seen.has(id)) {
-      seen.add(id)
-      liveIds.push(id)
-    }
-  }
-
-  // Collect from all item types, skipping deleted items
-  for (const item of items.value) {
-    // Media display items - skip deleted outputs
-    if (item.item_type === 'media_display' && item.item_metadata) {
-      try {
-        const data = typeof item.item_metadata === 'string'
-          ? JSON.parse(item.item_metadata)
-          : item.item_metadata
-        const displayData = data.display_data || {}
-        if (displayData.rows) {
-          for (const row of displayData.rows) {
-            // Only include non-deleted and non-trashed items
-            const isDeleted = row.output?.deleted
-            const isTrashed = row.output?.status === 'trashed'
-            if (row.output?.media_id && !isDeleted && !isTrashed) {
-              addIfNew(row.output.media_id)
-            }
-          }
-        }
-      } catch (e) { /* ignore parse errors */ }
-    }
-    // Progress display previews
-    if (item.item_type === 'progress_display' && item.item_metadata) {
-      try {
-        const data = typeof item.item_metadata === 'string'
-          ? JSON.parse(item.item_metadata)
-          : item.item_metadata
-        for (const mid of (data.display_data?.previews || [])) {
-          addIfNew(mid)
-        }
-      } catch (e) { /* ignore parse errors */ }
-    }
-    // Inline media refs in assistant messages: ![...](media_id=123) or ![...](media:123)
-    if (item.item_type === 'assistant_message' && item.message_text) {
-      const re = /!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)/g
-      let match
-      while ((match = re.exec(item.message_text)) !== null) {
-        addIfNew(parseInt(match[1], 10))
-      }
-    }
-  }
-  return liveIds
-})
+// Every chat entry opens this same live sequence. A clicked reference that is
+// not represented in the transcript collector remains reachable for this chat.
+const slideshowReferenceIds = ref([])
+watch(chatId, () => { slideshowReferenceIds.value = []; exitSlideshow() })
+const chatMediaEntries = computed(() => collectChatMedia(items.value))
+const chatMediaLabels = computed(() => Object.fromEntries(chatMediaEntries.value.map(entry => [entry.id, entry.label])))
+const liveChatMediaIds = computed(() => [...new Set([
+  ...chatMediaEntries.value.map(entry => entry.id), ...slideshowReferenceIds.value,
+])])
 
 // Watch for new media IDs and load their markers (only for non-trashed items)
 watch(liveChatMediaIds, async (newIds, oldIds) => {
@@ -3983,7 +3896,8 @@ function parseMarkdownSegments(text) {
 
 // Open slideshow at a specific media ID
 function openSlideshow(mediaId, indexInGrid) {
-  if (liveChatMediaIds.value.length === 0) return
+  if (!mediaId) return
+  if (!liveChatMediaIds.value.includes(mediaId)) slideshowReferenceIds.value.push(mediaId)
 
   // Find the index of this media ID - open immediately without validation
   const index = liveChatMediaIds.value.indexOf(mediaId)
@@ -4017,32 +3931,6 @@ function openSlideshow(mediaId, indexInGrid) {
     totalCount: liveChatMediaIds.value.length,
     startIndex,
     pageProvider: chatPageProvider,
-    randomized: false,
-    randomSeed: null
-  })
-}
-
-// Open slideshow for a single reference image (e.g., from edit/i2v input)
-async function openSingleImageSlideshow(mediaId) {
-  // Create a page provider that returns just this one image
-  const singleImageProvider = async (pageNumber, pageSize) => {
-    if (pageNumber > 0) return []  // Only one page
-    try {
-      const item = await getMediaItem(mediaId, { includeTrashed: true })
-      return [item]
-    } catch (error) {
-      return [{
-        id: mediaId,
-        file_hash: null,
-        _placeholder: true
-      }]
-    }
-  }
-
-  enterSlideshow({
-    totalCount: 1,
-    startIndex: 0,
-    pageProvider: singleImageProvider,
     randomized: false,
     randomSeed: null
   })

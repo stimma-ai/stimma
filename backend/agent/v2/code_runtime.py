@@ -38,6 +38,7 @@ import zipfile as _zipfile_mod
 
 import aiohttp
 from collections import Counter, defaultdict, deque
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from itertools import chain, combinations, count, cycle, islice, permutations, product
 from pathlib import Path
@@ -520,6 +521,9 @@ class AVToolResult:
         )
 
 
+_progress_slots: ContextVar[tuple] = ContextVar("progress_slots", default=())
+
+
 class ProgressTracker:
     """tqdm-compatible progress tracker that streams to the frontend.
 
@@ -558,8 +562,11 @@ class ProgressTracker:
         self._item_id: int | None = None  # set on first flush
         self._current = 0
         self._previews: list[int] = []
+        self._preview_slots: list[dict] | None = None
+        self._preview_order: dict[int, tuple] = {}
         self._pending_update: dict | None = None
         self._completed = False
+        self._status = "in_progress"
 
         # Auto-register with SDK
         if _sdk is not None:
@@ -587,7 +594,28 @@ class ProgressTracker:
         if preview is not None:
             media_id = preview.media_id if isinstance(preview, ToolResult) else preview
             if media_id is not None:
-                self._previews.append(media_id)
+                self._add_preview(media_id)
+        self._pending_update = self._build_state()
+
+    def _add_preview(self, media_id: int):
+        if self._preview_slots is not None:
+            context = _progress_slots.get()
+            for depth, (tracker, index) in enumerate(context):
+                if tracker is self:
+                    ids = self._preview_slots[index]["media_ids"]
+                    if media_id not in ids:
+                        ids.append(media_id)
+                        self._preview_order[media_id] = tuple(i for _, i in context[depth + 1:])
+                        ids.sort(key=lambda mid: self._preview_order[mid])
+                    self._previews = [
+                        mid for slot in self._preview_slots for mid in slot["media_ids"]
+                    ]
+                    break
+            else:
+                # Concurrent gathers must not collect each other's results.
+                return
+        elif media_id not in self._previews:
+            self._previews.append(media_id)
         self._pending_update = self._build_state()
 
     def set_description(self, desc: str | None = None, refresh: bool = True):
@@ -604,15 +632,16 @@ class ProgressTracker:
         pass
 
     def _build_state(self) -> dict:
-        status = "completed" if self._completed else "in_progress"
         return {
             "item_id": self._item_id,
             "display_data": {
                 "title": self._title,
-                "status": status,
+                "status": self._status,
                 "current": self._current,
                 "total": self._total,
                 "previews": list(self._previews),
+                **({"preview_slots": copy.deepcopy(self._preview_slots)}
+                   if self._preview_slots is not None else {}),
             },
         }
 
@@ -622,13 +651,15 @@ class ProgressTracker:
         return pending
 
     def _mark_completed(self, status: str = "completed"):
+        # Finalizing the whole script must not overwrite an earlier batch's
+        # failure/cancellation, or cancel a batch that already succeeded.
+        if self._completed:
+            status = self._status
         if status == "completed":
             self._current = self._total
         self._completed = True
+        self._status = status
         self._pending_update = self._build_state()
-        # Override status for cancelled/timed_out
-        if status != "completed":
-            self._pending_update["display_data"]["status"] = status
 
 
 class MediaRecord(dict):
@@ -1332,8 +1363,7 @@ class StimmaSDK:
             # Auto-add preview to any active progress tracker
             for tracker in self._progress_trackers:
                 if not tracker._completed:
-                    tracker._previews.append(tool_result.media_id)
-                    tracker._pending_update = tracker._build_state()
+                    tracker._add_preview(tool_result.media_id)
         return tool_result
 
     async def _gather(
@@ -1355,39 +1385,58 @@ class StimmaSDK:
         effective_desc = desc if desc is not None else (f"Generating ({len(coros)})" if len(coros) > 1 else None)
         if effective_desc is not None:
             tracker = self.progress(len(coros), desc=effective_desc)
+            tracker._preview_slots = [
+                {"media_ids": [], "status": "pending"} for _ in coros
+            ]
+            tracker._pending_update = tracker._build_state()
 
         sem = asyncio.Semaphore(max_concurrent)
 
         async def _limited(idx, coro):
-            async with sem:
-                result = await coro
+            token = _progress_slots.set(
+                (*_progress_slots.get(), (tracker, idx)) if tracker else _progress_slots.get()
+            )
+            try:
+                async with sem:
+                    result = await coro
+                if tracker is not None:
+                    # Existing Tasks may have started before this gather's
+                    # context existed. Their returned media still belongs here.
+                    if isinstance(result, ToolResult) and result.media_id is not None:
+                        tracker._add_preview(result.media_id)
+                    tracker._preview_slots[idx]["status"] = "completed"
+                return result
+            except BaseException as error:
+                if tracker is not None:
+                    tracker._preview_slots[idx]["status"] = (
+                        "cancelled" if isinstance(error, asyncio.CancelledError) else "error"
+                    )
+                raise
+            finally:
                 if tracker is not None:
                     tracker.update(1)
-                return (idx, result)
+                _progress_slots.reset(token)
 
         tasks = [_limited(i, c) for i, c in enumerate(coros)]
 
-        raw = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=return_exceptions)
+        except BaseException as error:
+            if tracker is not None:
+                tracker._mark_completed(
+                    "cancelled" if isinstance(error, asyncio.CancelledError) else "error"
+                )
+            raise
 
         # Mark tracker as completed so subsequent call_tool results
         # don't bleed previews into this (now-finished) gather's display
         if tracker is not None:
-            tracker._mark_completed("completed")
-            # Queue a final flush so the UI updates immediately
-            tracker._pending_update = tracker._build_state()
+            tracker._mark_completed(
+                "error" if any(isinstance(result, BaseException) for result in results)
+                else "completed"
+            )
 
-        # Restore input ordering
-        results = [None] * len(coros)
-        for item in raw:
-            if return_exceptions and isinstance(item, BaseException):
-                # Can't recover ordering for exceptions from gather, append at end
-                for i in range(len(results)):
-                    if results[i] is None:
-                        results[i] = item
-                        break
-            else:
-                idx, val = item
-                results[idx] = val
+        # asyncio.gather preserves request order, including exception positions.
         return results
 
     async def delegate(
@@ -1545,13 +1594,7 @@ class StimmaSDK:
         from database_registry import get_database_registry
         from utils.websocket import ws_manager
 
-        display_data = {
-            "title": tracker._title,
-            "status": "in_progress",
-            "current": tracker._current,
-            "total": tracker._total,
-            "previews": list(tracker._previews),
-        }
+        display_data = tracker._build_state()["display_data"]
         chat_item = ChatItem(
             chat_id=self.chat_id,
             item_type="progress_display",

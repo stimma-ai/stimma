@@ -111,6 +111,11 @@
       Back to Grid
     </button>
 
+    <div
+      v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[currentPayloadId]"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
+    >{{ itemLabels[currentPayloadId] }}</div>
+
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
     <div
@@ -1311,6 +1316,7 @@
 </template>
 
 <script setup>
+import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
 import { createSlideshowDwell } from '../utils/slideshowDwell'
@@ -1420,6 +1426,10 @@ const props = defineProps({
   liveItemIds: {
     type: Array,
     default: null
+  },
+  itemLabels: {
+    type: Object,
+    default: () => ({})
   },
   randomSeed: Number,
   randomized: Boolean,
@@ -5557,7 +5567,23 @@ async function refreshLiveItemForKey(key) {
 // This also naturally covers post-processing chains (the job enters the list
 // only when its final image is ready) and out-of-order completions.
 watch(() => props.liveItemIds, (newIds, oldIds) => {
-  if (!props.autoAdvanceOnNew || !Array.isArray(newIds) || !Array.isArray(oldIds)) return
+  if (!Array.isArray(newIds) || !Array.isArray(oldIds)) return
+  if (!props.autoAdvanceOnNew) {
+    if (newIds.length === oldIds.length && newIds.every((id, i) => id === oldIds[i])) return
+    const next = reconcileSlideshowCollection(oldIds, newIds, itemsCache.value, currentIndex.value)
+    invalidatePageProviderLoads()
+    localRemovedIds.value = new Set()
+    itemsCache.value = next.cache
+    localTotalCount.value = newIds.length
+    // A removed selection requires real navigation. An insertion only moves
+    // its index; the display lock preserves the image, zoom and nested view.
+    if (next.removed) isUserNavigating.value = true
+    currentIndex.value = next.index
+    if (!newIds.length) { close(); return }
+    ensureItemLoaded(next.index)
+    preloadNearbyItems(next.index)
+    return
+  }
   const arrivals = diffInsertedLiveIds(newIds, oldIds)
   if (arrivals.length === 0) {
     sortLiveAdvanceQueue()
