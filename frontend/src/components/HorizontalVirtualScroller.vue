@@ -13,10 +13,10 @@
       <div
         class="scroll-content"
         :style="{
-          width: `${totalWidth + gutter}px`,
+          width: `${totalWidth + edgeGutter}px`,
           height: `${itemHeight}px`,
           marginTop: `${Math.max(0, (height - itemHeight) / 2)}px`,
-          marginLeft: `${gutter}px`
+          marginLeft: `${edgeGutter}px`
         }"
       >
         <div
@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const props = defineProps({
   // Total number of items in the data set
@@ -82,6 +82,8 @@ const props = defineProps({
     type: Number,
     default: 0
   },
+  // Permit first/last thumbnails to occupy the center of a compact gallery.
+  centerEdges: { type: Boolean, default: false },
   // Container height
   height: {
     type: Number,
@@ -107,6 +109,9 @@ const props = defineProps({
 const scrollContainer = ref(null)
 const scrollLeft = ref(0)
 const containerWidth = ref(0)
+const edgeGutter = computed(() => props.centerEdges ? Math.max(props.gutter, (containerWidth.value - props.itemWidth) / 2) : props.gutter)
+let resizeObserver
+let scrollRequest = 0
 
 // Cache for loaded items
 const itemsCache = ref(new Map())
@@ -122,8 +127,8 @@ const totalWidth = computed(() => {
 
 // Calculate visible range
 const visibleRange = computed(() => {
-  const start = Math.floor(scrollLeft.value / (props.itemWidth + props.itemGap))
-  const end = Math.ceil((scrollLeft.value + containerWidth.value) / (props.itemWidth + props.itemGap))
+  const start = Math.floor((scrollLeft.value - edgeGutter.value) / (props.itemWidth + props.itemGap))
+  const end = Math.ceil((scrollLeft.value + containerWidth.value - edgeGutter.value) / (props.itemWidth + props.itemGap))
   return {
     start: Math.max(0, start - props.bufferSize),
     end: Math.min(props.totalCount, end + props.bufferSize)
@@ -170,7 +175,7 @@ async function loadVisibleChunks() {
 // Load a specific chunk
 async function loadChunk(chunkNum) {
   // Guard against invalid chunk numbers
-  if (chunkNum < 0) {
+  if (chunkNum < 0 || chunkNum * props.chunkSize >= props.totalCount) {
     return
   }
 
@@ -261,19 +266,19 @@ function handleWheel(event) {
 
 // Scroll to specific index
 async function scrollToIndex(index, behavior = 'smooth') {
+  const request = ++scrollRequest
   await nextTick()
 
-  if (!scrollContainer.value) {
+  if (!scrollContainer.value || request !== scrollRequest) {
     return
   }
 
-  // Ensure the item and surrounding items are loaded first
+  // Loading must not delay the filmstrip's response to a swipe. Placeholders
+  // preserve geometry while pages arrive, even across unloaded chunk boundaries.
   const chunkNum = Math.floor(index / props.chunkSize)
-  await loadChunk(chunkNum)
-  await loadChunk(chunkNum - 1) // Load previous chunk
-  await loadChunk(chunkNum + 1) // Load next chunk
-
-  const itemPosition = index * (props.itemWidth + props.itemGap)
+  void Promise.all([loadChunk(chunkNum), loadChunk(chunkNum - 1), loadChunk(chunkNum + 1)])
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) behavior = 'instant'
+  const itemPosition = edgeGutter.value + index * (props.itemWidth + props.itemGap)
 
   if (props.autoCenter) {
     // Center the item
@@ -312,7 +317,7 @@ function updateFirstVisibleItemId() {
     firstVisibleItemId.value = null
     return
   }
-  const firstVisibleIndex = Math.floor(scrollLeft.value / (props.itemWidth + props.itemGap))
+  const firstVisibleIndex = Math.max(0, Math.floor((scrollLeft.value - edgeGutter.value) / (props.itemWidth + props.itemGap)))
   const item = props.itemGetter(firstVisibleIndex)
   firstVisibleItemId.value = item?.id || null
 }
@@ -324,7 +329,7 @@ watch(() => props.totalCount, (newCount, oldCount) => {
   if (newCount > oldCount && scrollContainer.value && scrollLeft.value > 0 && props.itemGetter) {
     const addedCount = newCount - oldCount
     // Check if items were prepended by seeing if first visible item ID changed
-    const firstVisibleIndex = Math.floor(scrollLeft.value / (props.itemWidth + props.itemGap))
+    const firstVisibleIndex = Math.max(0, Math.floor((scrollLeft.value - edgeGutter.value) / (props.itemWidth + props.itemGap)))
     const currentFirstItem = props.itemGetter(firstVisibleIndex)
 
     // If the item at our scroll position has a different ID, items were prepended
@@ -358,9 +363,11 @@ onMounted(async () => {
     containerWidth.value = scrollContainer.value.clientWidth
 
     // Add resize observer
-    const resizeObserver = new ResizeObserver((entries) => {
+    resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        const changed = containerWidth.value !== entry.contentRect.width
         containerWidth.value = entry.contentRect.width
+        if (changed && props.centerEdges) void scrollToIndex(props.currentIndex, 'instant')
       }
     })
     resizeObserver.observe(scrollContainer.value)
@@ -371,6 +378,8 @@ onMounted(async () => {
   await loadVisibleChunks()
   updateFirstVisibleItemId()
 })
+
+onBeforeUnmount(() => { scrollRequest++; resizeObserver?.disconnect() })
 
 // Clear cache and reload all visible data
 async function refresh() {

@@ -73,7 +73,7 @@
 
     <!-- Back button (when viewing source image) -->
     <button
-      v-if="!focusMode && isViewingSource"
+      v-if="!slideshowCompact && !focusMode && isViewingSource"
       class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="goBackFromSource"
       title="Back to original image"
@@ -86,7 +86,7 @@
 
     <!-- Exit Set button (when browsing inside a set) -->
     <button
-      v-if="!focusMode && isViewingSet"
+      v-if="!slideshowCompact && !focusMode && isViewingSet"
       class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitSetView"
       title="Exit set and return to main slideshow"
@@ -100,7 +100,7 @@
     <!-- Exit Grid Cell button (when viewing expanded cell in a grid) -->
     <!-- Visible even in focus mode so user can navigate back -->
     <button
-      v-if="isViewingGrid"
+      v-if="!slideshowCompact && isViewingGrid"
       class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitGridView"
       title="Return to grid overview (Esc)"
@@ -113,15 +113,15 @@
 
     <div
       v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[currentPayloadId]"
-      class="absolute top-4 left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
     >{{ itemLabels[currentPayloadId] }}</div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
     <div
       v-if="isViewingGrid && currentGridView"
-      class="absolute top-4 -translate-x-1/2 z-chrome flex flex-col items-center"
-      :style="{ left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%' }"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome flex flex-col items-center"
+      :style="{ left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%' }"
     >
       <!-- Compact pill indicator with editable title -->
       <div
@@ -167,12 +167,12 @@
     <div
       v-if="!focusMode && isViewingSet && currentSetView"
       ref="setTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !currentSetView.title ? 'cursor-text' : (isEditingSetTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
       :style="{
-        left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%',
+        left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%',
         minWidth: setTitleContainerWidth ? `${setTitleContainerWidth}px` : undefined
       }"
       @dblclick.stop="startEditingSetTitle"
@@ -207,12 +207,12 @@
     <div
       v-if="!focusMode && isSet && !isViewingSet"
       ref="setOverviewTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !setOverviewData?.title ? 'cursor-text' : (isEditingSetOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
       :style="{
-        left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%',
+        left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%',
         minWidth: setOverviewTitleContainerWidth ? `${setOverviewTitleContainerWidth}px` : undefined
       }"
       @dblclick.stop="startEditingSetOverviewTitle"
@@ -247,12 +247,12 @@
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
       ref="gridOverviewTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !gridOverviewData?.title ? 'cursor-text' : (isEditingGridOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
       :style="{
-        left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%',
+        left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%',
         minWidth: gridOverviewTitleContainerWidth ? `${gridOverviewTitleContainerWidth}px` : undefined
       }"
       @dblclick.stop="startEditingGridOverviewTitle"
@@ -286,8 +286,8 @@
     <!-- Compare button (when viewing grid overview) -->
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
-      class="absolute top-4 h-12 z-chrome flex items-center"
-      :style="{ right: (showSidebar && !focusMode) ? '468px' : '84px' }"
+      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] h-12 z-chrome flex items-center"
+      :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '468px' : '84px' }"
     >
       <!-- Initial compare button (not in compare mode) -->
       <button
@@ -338,9 +338,24 @@
       </div>
     </div>
 
+    <!-- Gallery chrome stays separate from the image's marker actions. -->
+    <div v-if="slideshowCompact && !compactImmersive" class="relative z-chrome flex shrink-0 items-center justify-between bg-slideshow-matt px-3 pb-2 pt-[calc(var(--safe-top,0px)+8px)]" style="-webkit-app-region: no-drag">
+      <button class="compact-bar-btn" :aria-label="isViewingSource || isViewingSet || isViewingGrid ? 'Back' : 'Close slideshow'" @click="isViewingSource ? goBackFromSource() : isViewingGrid ? exitGridView() : isViewingSet ? exitSetView() : handleCloseClick()">
+        <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-5 w-5" /><XMarkIcon v-else class="h-5 w-5" />
+      </button>
+      <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-xs tabular-nums text-content-tertiary">
+        <template v-if="isViewingGrid && currentGridView"><span class="text-content-secondary">{{ gridLinearPosition }}</span> / {{ gridTotalCells }}</template>
+        <template v-else><span class="text-content-secondary">{{ effectiveIndex + 1 }}</span> / {{ effectiveTotalCount }}</template>
+      </div>
+      <div class="flex items-center">
+        <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info"><InformationCircleIcon class="h-5 w-5" /></button>
+        <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen"><ArrowsPointingOutIcon class="h-5 w-5" /></button>
+      </div>
+    </div>
+
     <!-- Close button -->
     <button
-      v-if="!(slideshowCompact && compactImmersive)"
+      v-if="!slideshowCompact"
       class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all compact:transition-colors hover:bg-black/60 compact:w-11 compact:h-11 compact:text-[1.5rem] compact:top-[calc(var(--safe-top,0px)+8px)]"
       :style="{ right: slideshowCompact ? 'calc(var(--safe-right, 0px) + 12px)' : (showSidebar && !focusMode) ? '400px' : '12px', WebkitAppRegion: 'no-drag' }"
       @click="handleCloseClick"
@@ -361,7 +376,7 @@
       @touchend.capture="handleTouchEnd"
       @touchcancel.capture="cancelSlideshowTouch"
       @click.capture="suppressSlideshowSwipeClick"
-      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid && !slideshowCompact) ? `${STRIP_HEIGHT}px` : '0px', paddingTop: slideshowCompact ? 'var(--safe-top, 0px)' : '0px' }"
+      :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid && !slideshowCompact) ? `${STRIP_HEIGHT}px` : '0px', paddingTop: '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
       <!-- Placeholder for deleted/trashed items (rare edge case) -->
@@ -656,12 +671,12 @@
     <!-- Hidden when viewing an expanded grid cell (the grid cell navigation replaces the strip) -->
     <div
       v-if="visibleImageStrip"
-      :class="slideshowCompact ? 'relative order-3 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:bg-slideshow-matt compact:backdrop-blur-none compact:border-t-0 compact:py-1 compact:pb-safe"
+      :class="slideshowCompact ? 'relative order-2 w-full shrink-0' : (fullscreen ? 'fixed' : 'absolute')"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2 compact:bg-slideshow-matt compact:backdrop-blur-none compact:border-t-0 compact:pt-3 compact:pb-0"
       :style="{
         paddingLeft: slideshowCompact ? 'calc(var(--safe-left, 0px) + 8px)' : undefined,
         paddingRight: slideshowCompact ? 'calc(var(--safe-right, 0px) + 8px)' : undefined,
-        height: slideshowCompact ? `calc(${STRIP_HEIGHT}px + var(--safe-bottom, 0px))` : `${STRIP_HEIGHT}px`,
+        height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
       }"
     >
@@ -699,7 +714,7 @@
       </div>
       <!-- Set view mode: show set items in strip -->
       <div
-        v-else-if="isViewingSet && currentSetView"
+        v-else-if="isViewingSet && currentSetView && !slideshowCompact"
         class="flex items-center gap-2 h-full overflow-x-auto px-2"
       >
         <div
@@ -740,25 +755,27 @@
       </div>
       <!-- Normal browsing: show full virtualized thumbnail strip -->
       <HorizontalVirtualScroller
-        v-else-if="localTotalCount > 0 && !isViewingSet"
+        v-else-if="(localTotalCount > 0 && !isViewingSet) || (slideshowCompact && isViewingSet && currentSetView)"
         ref="stripScrollerRef"
-        :key="`${isRandomized}-${props.randomSeed}-${stripRefreshKey}`"
-        :total-count="localTotalCount"
-        :page-provider="stripPageProvider"
-        :item-getter="stripItemGetter"
-        :current-index="currentIndex"
-        :item-width="STRIP_ROW"
+        :key="`${isViewingSet}-${isRandomized}-${props.randomSeed}-${stripRefreshKey}`"
+        :total-count="isViewingSet ? currentSetView.items.length : localTotalCount"
+        :page-provider="isViewingSet ? compactSetStripPage : stripPageProvider"
+        :item-getter="isViewingSet ? compactSetStripItem : stripItemGetter"
+        :current-index="isViewingSet ? setViewIndex : currentIndex"
+        :item-width="slideshowCompact ? 48 : STRIP_ROW"
         :item-height="STRIP_ROW"
         :item-gap="slideshowCompact ? 6 : 8"
         :gutter="4"
-        :height="STRIP_ROW + 16"
+        :height="slideshowCompact ? 62 : STRIP_ROW + 16"
+        :center-edges="slideshowCompact"
+        :class="slideshowCompact ? '[&_.scroll-container]:![scrollbar-width:none] [&_.scroll-container::-webkit-scrollbar]:!hidden' : undefined"
         :chunk-size="50"
         :buffer-size="10"
         :auto-center="true"
       >
         <template v-slot="{ item, index }">
           <div
-            @click="!item._isPlaceholder && goToIndex(index)"
+            @click="!item._isPlaceholder && (isViewingSet ? setViewIndex = index : goToIndex(index))"
             @contextmenu="!item._isPlaceholder && handleContextMenu($event, item)"
             class="flex items-center justify-center transition-all relative"
             :class="item._isPlaceholder ? 'cursor-default' : 'cursor-pointer'"
@@ -773,8 +790,10 @@
             <!-- Real thumbnail -->
             <div
               v-else-if="item.file_hash"
-              class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-black rounded overflow-hidden border border-edge transition-all"
-              :class="index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated compact:ring-offset-black' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
+              class="w-[96px] h-[96px] bg-black rounded compact:bg-matte compact:rounded-media overflow-hidden border border-edge transition-all compact:h-11 compact:w-11 compact:shrink-0 compact:border-0 compact:transition-[transform,opacity] compact:duration-200 compact:ease-out motion-reduce:transition-none"
+              :class="slideshowCompact
+                ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'scale-[1.2273] opacity-100 ring-1 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-60')
+                : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110')"
             >
               <MediaImage
                 :media-id="mediaIdOf(item)"
@@ -877,7 +896,7 @@
       ref="controlBar"
       :class="[
         slideshowCompact
-          ? 'slideshow-control-bar relative order-2 w-full shrink-0 min-h-[52px] flex items-center bg-slideshow-matt z-chrome select-none'
+          ? 'slideshow-control-bar relative order-3 w-full shrink-0 min-h-16 flex items-center bg-slideshow-matt z-chrome select-none'
           : 'slideshow-control-bar absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging && !slideshowCompact },
         { '!bg-black/60': isHovered && !slideshowCompact },
@@ -885,64 +904,23 @@
         { 'flex-col px-2 py-4': controlBarOrientation === 'vertical' && !slideshowCompact }
       ]"
       :style="slideshowCompact ? {
-        paddingLeft: 'calc(var(--safe-left, 0px) + 6px)',
-        paddingRight: 'calc(var(--safe-right, 0px) + 6px)',
-        paddingBottom: visibleImageStrip ? undefined : 'var(--safe-bottom, 0px)',
-        minHeight: visibleImageStrip ? '52px' : 'calc(52px + var(--safe-bottom, 0px))',
+        paddingLeft: 'calc(var(--safe-left, 0px) + 12px)',
+        paddingRight: 'calc(var(--safe-right, 0px) + 12px)',
+        paddingBottom: 'var(--safe-bottom, 0px)',
+        minHeight: 'calc(64px + var(--safe-bottom, 0px))',
       } : controlBarStyle"
       @mousedown="!slideshowCompact && startDrag($event)"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
       :title="slideshowCompact ? undefined : 'Drag to reposition'"
     >
-      <!-- Compact: play · counter · markers · full screen · info · more.
-           Shuffle, loop, interval, mute, lineage and the filmstrip toggle live
-           in the More sheet. Full screen hides every piece of chrome; a tap on
-           the picture brings it back. -->
+      <!-- Gallery: markers are primary; transport and disclosure are quiet chrome. -->
       <template v-if="slideshowCompact">
-        <!-- Cluster 1 — the show: play, counter (denominator dimmed) -->
-        <div class="flex items-center">
-          <button
-            @click="toggleSlideshow"
-            :class="['compact-bar-btn', { '!text-live': isPlaying }]"
-            :aria-label="isPlaying ? 'Pause' : 'Play slideshow'"
-          >
-            <PauseIcon v-if="isPlaying" class="w-6 h-6" />
-            <PlayIcon v-else class="w-6 h-6" />
-          </button>
-          <div class="font-mono text-[13px] font-semibold text-white/80 tabular-nums px-1 whitespace-nowrap">
-            <template v-if="isViewingGrid && currentGridView">{{ gridLinearPosition }} <span class="text-white/45">/ {{ gridTotalCells }}</span></template>
-            <template v-else>{{ effectiveIndex + 1 }} <span class="text-white/45">/ {{ effectiveTotalCount }}</span></template>
-          </div>
-        </div>
-        <div class="flex-1"></div>
-        <!-- Cluster 2 — this image: its markers, in marker order -->
-        <div v-if="availableMarkers.length > 0 && currentItem" class="flex items-center">
-          <button
-            v-for="marker in availableMarkers"
-            :key="marker.id"
-            @click.stop="toggleMarker(marker.id)"
-            class="compact-bar-btn"
-            :class="isMarkerActive(marker.id) ? '' : 'text-white/60'"
-            :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
-            :aria-label="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
-          >
-            <span class="w-6 h-6 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
-          </button>
-        </div>
-        <div class="flex-1"></div>
-        <!-- Cluster 3 — open: full screen, info, more -->
-        <div class="flex items-center">
-          <button @click="compactImmersive = true" class="compact-bar-btn" aria-label="Full screen">
-            <ArrowsPointingOutIcon class="w-6 h-6" />
-          </button>
-          <button @click="showSidebar = true" class="compact-bar-btn" aria-label="Info">
-            <InformationCircleIcon class="w-6 h-6" />
-          </button>
-          <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More">
-            <EllipsisHorizontalIcon class="w-6 h-6" />
-          </button>
-        </div>
+        <button @click="toggleSlideshow" :class="['compact-bar-btn', { '!text-live': isPlaying }]" :aria-label="isPlaying ? 'Pause' : 'Play slideshow'">
+          <PauseIcon v-if="isPlaying" class="h-5 w-5" /><PlayIcon v-else class="h-5 w-5" />
+        </button>
+        <SlideshowMarkerControls class="min-w-0 flex-1" :markers="currentItem ? availableMarkers : []" :is-active="isMarkerActive" @toggle="toggleMarker" />
+        <button @click="compactMoreOpen = true" class="compact-bar-btn" aria-label="More"><EllipsisHorizontalIcon class="h-5 w-5" /></button>
       </template>
       <template v-else>
       <!-- Cluster 1 — Playback: shuffle · play/pause · loop · interval · volume -->
@@ -1386,11 +1364,12 @@ import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
 import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
+import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
 import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
 import Sheet from './ui/Sheet.vue'
-import { InformationCircleIcon, EllipsisHorizontalIcon, Squares2X2Icon, ShareIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, ArrowLeftIcon, InformationCircleIcon, EllipsisHorizontalIcon, Squares2X2Icon, ShareIcon } from '@heroicons/vue/24/outline'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
@@ -1724,8 +1703,8 @@ const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (saved
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
 // Phones: a shorter strip, and the info panel overlays instead of taking width.
-const STRIP_HEIGHT = slideshowCompact.value ? 66 : 136
-const STRIP_ROW = slideshowCompact.value ? 52 : 104
+const STRIP_HEIGHT = slideshowCompact.value ? 74 : 136
+const STRIP_ROW = slideshowCompact.value ? 54 : 104
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))
@@ -1909,6 +1888,8 @@ watch([displayItem, mediaLoaded], ([item, loadedNow]) => {
   }
 })
 const stripRefreshKey = ref(0) // Force strip remount independently
+function compactSetStripItem(index) { return currentSetView.value?.items[index] }
+async function compactSetStripPage(page, size) { return currentSetView.value?.items.slice(page * size, (page + 1) * size) ?? [] }
 const stripScrollerRef = ref(null) // Reference to HorizontalVirtualScroller for manual refresh
 
 function invalidatePageProviderLoads() {
@@ -4414,6 +4395,7 @@ function stopDrag() {
 
 // Keyboard handling
 function handleKeydown(event) {
+  if (document.querySelector('[data-sheet-layer]')) return
   // Don't handle keyboard shortcuts if user is typing in an input/textarea
   const activeElement = document.activeElement
   if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
@@ -5964,6 +5946,8 @@ useGlobalKeyboardShortcuts({
 // This is needed because parent view (BrowseGridView) has its own Escape handler
 // that closes the slideshow, but we want to exit set view first
 function handleEscapeCapture(event) {
+  // Let the top sheet dismiss before changing the underlying collection.
+  if (document.querySelector('[data-sheet-layer]')) return
   if (event.key === 'Escape') {
     // Grid view takes precedence - exit cell view back to grid overview
     if (isViewingGrid.value) {
@@ -6816,7 +6800,7 @@ async function toggleMarker(markerId) {
 
 <style scoped>
 .compact-bar-btn {
-  @apply bg-transparent border-none text-white/80 cursor-pointer w-11 h-11 p-0 flex items-center justify-center rounded-md;
+  @apply bg-transparent border-none text-content-tertiary cursor-pointer w-11 h-11 shrink-0 p-0 flex items-center justify-center rounded-md transition-colors hover:text-content focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent;
 }
 
 /* Sidebar scrollbar styling */
