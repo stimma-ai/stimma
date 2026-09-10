@@ -1634,6 +1634,9 @@ function getDisplayableStepParams(params) {
 
   for (const [key, value] of Object.entries(params)) {
     if (excludedStepParams.has(key)) continue
+    // Media references belong in the source thumbnails, not the user-facing facts.
+    const normalizedKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
+    if (/(^|_)media_ids?$/.test(normalizedKey)) continue
     if (value === null || value === undefined) continue
     if (typeof value === 'object') continue
 
