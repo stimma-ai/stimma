@@ -16,7 +16,7 @@
       <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-6 compact:pb-10">
+        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-12 compact:pb-12">
           <!-- Soft ambient halo, centered behind the greeting + prompt -->
           <div
             class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2 compact:hidden"
@@ -30,7 +30,7 @@
             style="background: radial-gradient(60% 55% at 45% 42%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(55% 50% at 58% 52%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
           ></div>
 
-          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-7 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
+          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-9 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
           <!-- Spacer where the greeting subtitle used to sit — keeps the hero rhythm -->
           <div class="relative h-[20px] mb-10 compact:hidden" aria-hidden="true"></div>
 
@@ -126,7 +126,7 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 space-y-10">
+        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10">
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
@@ -365,7 +365,12 @@ const mediaColumns = computed(() => {
   return 6
 })
 
-const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value))
+// Phones get two rows so the home screen has enough below the fold to
+// scroll a little; every other home screen does, and a page that fits
+// exactly reads as stuck.
+const mediaRows = computed(() => (isCompact.value ? 2 : 1))
+
+const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value * mediaRows.value))
 
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
