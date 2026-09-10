@@ -91,6 +91,10 @@ test.describe('phone lane: detail screens', () => {
 
     // Selection: the glass button opens the tool sheet.
     await bar.getByRole('button', { name: 'Edits', exact: true }).click();
+    // Returning to Edits preserves the selection session. Finish its brush
+    // before opening the tool chooser, just as a user would.
+    const selectionDone = page.getByRole('button', { name: 'Done', exact: true });
+    if (await selectionDone.isVisible()) await selectionDone.click();
     await page.getByRole('button', { name: 'Select', exact: true }).click();
     await expect(page.locator('[data-sheet-layer]').getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
     await audit(page, 'editor-select-sheet', '[data-sheet-layer]');
