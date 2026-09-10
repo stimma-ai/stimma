@@ -4,9 +4,6 @@ import { waitForShell } from '../helpers/app';
 for (const enabled of [false, true]) {
   test(`analysis backlog ${enabled ? 'appears when enabled' : 'does not show a busy indicator when disabled'}`, async ({ page }) => {
     const readiness = page.getByTestId('readiness-panel');
-    await page.addLocatorHandler(readiness, async () => {
-      await readiness.getByRole('button', { name: 'Close', exact: true }).click();
-    });
     const phase = (enabled: boolean, pending: number, completed: number) => ({
       enabled, pending, completed, processing: 0, failed: 0,
     });
@@ -21,6 +18,11 @@ for (const enabled of [false, true]) {
     const stats = page.waitForResponse('**/api/processing/stats');
     await page.goto('/browse');
     await waitForShell(page);
+    // Initial onboarding handles readiness itself. Register the late-dialog
+    // handler afterward so it cannot remove the button that helper is clicking.
+    await page.addLocatorHandler(readiness, async () => {
+      await readiness.getByRole('button', { name: 'Close', exact: true }).click();
+    });
     await stats;
     const indicator = page.locator('.processing-indicator');
     if (!enabled) {
