@@ -57,16 +57,17 @@ verify that the selected beta completed all platform builds and passed manual
 testing, then promote it through the CLI. Keep the finalized release notes on
 main too, since production notes are published from main.
 
-There are four ways a desktop build gets produced. All are gated by the
-quality gate before any platform build starts (except an explicit emergency
-bypass, see below).
+There are four ways a desktop build gets produced. Quality gates must pass
+before publication (except an explicit emergency bypass, see below). Canary
+builds run alongside tests; release and manual desktop builds wait for tests
+before starting.
 
 1. **Push to `main` (canary — automatic).** Every push to `main` triggers
    `.github/workflows/canary.yml`. It computes a synthetic version
-   (`<next-patch>-canary.<commit-count>`), runs the quality gate, then builds
-   and publishes macOS and Linux x64 AppImage builds to the canary updater
-   feed. This is the fastest signal for "does `main` still work" and requires
-   no manual step.
+   (`<next-patch>-canary.<commit-count>`) from a pinned commit, then starts
+   quality checks and all desktop/headless builds concurrently. Each platform
+   waits for this run's successful aggregate quality gate before publishing
+   its own feed. A superseded main commit cannot publish through that gate.
 
 2. **`stimma tag beta [X.Y.Z]` (the real release path).** Tags the current
    commit as the next beta of the upcoming production version — pushing a
@@ -91,11 +92,13 @@ bypass, see below).
 
 The quality gate is `.github/workflows/quality-gate.yml` and currently requires:
 
-- backend lint + `tools/stimma test backend -vv -rA --maxfail=1`
+- backend lint and four deterministic backend test shards, preserving module fixtures
 - browser acceptance tests via `tools/stimma test acceptance` (the smoke lane
   by default; `acceptance_suite=full` runs the full suite)
+- two isolated phone acceptance shards, with all phone tests retained
 
-The normal PR/main workflow (`.github/workflows/ci.yml`) also calls this gate.
+The PR/manual CI workflow (`.github/workflows/ci.yml`) also calls this gate.
+Main uses Canary's gate once, avoiding duplicate CI execution.
 Both `release.yml` and `build-desktop.yml` support `skip_quality_gate` as an
 emergency `workflow_dispatch` bypass.
 
@@ -122,31 +125,36 @@ on:
       publish_github_release: { required: false, type: boolean }
 ```
 
-Canary builds run the macOS and Linux x64 AppImage reusable workflows
-(`publish_github_release: false`) — canary is meant for fast signal, not a
-full cross-platform release, so Windows and Linux arm64 are skipped. Beta and
-production releases fan out to macOS, Windows, and both Linux AppImage
-architectures.
+Canary builds run macOS, Windows, both Linux AppImage architectures, and
+both headless Linux architectures. They publish updater feeds but do not
+create GitHub releases. Archival workflow uploads happen after publication.
 
 ### Build runners
 
-Every platform build runs on our own hardware; only the quality gate uses
-GitHub-hosted runners. This keeps canary — which fires on every push to
-`main` — off the Actions minute budget.
+Desktop builds and Canary quality checks use self-hosted pools. PR checks
+remain GitHub-hosted. Headless builds currently use GitHub-hosted Linux.
 
-| Build | Runner labels | Machine |
-|-------|---------------|---------|
-| Quality gate | `ubuntu-latest` | GitHub-hosted |
-| macOS | `self-hosted, macOS, ARM64` | Mac signer |
-| Windows | `self-hosted, Windows, X64` | Windows signer |
-| Linux AppImage x64 | `self-hosted, linux, x64` | x64 Linux builder (default `runs_on` in `linux-appimage.yml`) |
-| Linux AppImage arm64 | `self-hosted, linux, arm64, spark` | spark (explicit `runs_on` override) |
+| Work | Runner labels |
+|------|---------------|
+| Canary version and quality gate | `self-hosted, linux, x64, stimma-test` |
+| PR/release quality gate by default | `ubuntu-latest` |
+| macOS | `self-hosted, macOS, ARM64` |
+| Windows | `self-hosted, Windows, X64` |
+| Linux AppImage x64 | `self-hosted, linux, x64, stimma-build` |
+| Linux AppImage arm64 | `self-hosted, linux, arm64, spark` |
 
-The x64 Linux builder is a container (`stimma-github-runner:jammy-tauri`,
-compose + Dockerfile in `~/actions-runner/` on the box) built on Ubuntu 22.04
-/ glibc 2.35 — the same base the GitHub-hosted `ubuntu-22.04` image used, so
-AppImage portability is unchanged. If a Linux x64 build queues forever, check
-that the `actions-runner` container is up on that host.
+The x64 pool uses Ubuntu 22.04 / glibc 2.35 to preserve AppImage compatibility.
+Each test slot must have its own container, workspace, HOME, and process/port
+namespace. Preprovisioned images include FFmpeg, Xvfb, and Chromium's system
+libraries and set `STIMMA_PREPROVISIONED=1`. Keep sufficient always-available
+build and test slots; optional workers join the same capability pool. Offline
+optional workers are not required by any job, though an executing job can
+still fail if its host disappears and must be rerun.
+
+`STIMMA_BUILD_CACHE` keeps native Cargo outputs and content-verified Windows
+Python runtime archives outside checkout cleanup. Final installer directories
+are still cleaned before packaging. Compiler/source fingerprints determine
+native reuse; never reuse an old installer merely because it exists.
 
 ## Channel & version derivation
 
@@ -282,6 +290,9 @@ the workflow directly:
 
 ```bash
 gh workflow run canary.yml -f ref=main
+
+# Exercise a branch with identical gates, without publishing or canceling main:
+gh workflow run canary.yml --ref <branch> -f ref=<branch> -F publish_updates=false
 ```
 
 ### Sandbox / test build (no publish)
@@ -305,7 +316,7 @@ a hand-rolled build to R2.
 | `tools/stimma` (`stimma tag beta` / `stimma promote production`) | The only supported way to cut beta and production releases |
 | `.github/workflows/ci.yml` | PR/main CI entrypoint |
 | `.github/workflows/quality-gate.yml` | Reusable backend + acceptance test gate |
-| `.github/workflows/canary.yml` | Push-to-`main` canary build (macOS + Linux x64, auto-triggered) |
+| `.github/workflows/canary.yml` | Push-to-`main` canary builds with concurrent quality gates |
 | `.github/workflows/release.yml` | Tag-triggered release orchestrator (beta/production); runs the quality gate before fan-out |
 | `.github/workflows/build-desktop.yml` | On-demand dispatcher; runs the quality gate before fan-out |
 | `.github/workflows/release-macos.yml` | macOS build/sign/publish reusable |

@@ -112,6 +112,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: ${{ runner.environment == 'github-hosted' }}
+          cache-local-path: ~/.cache/uv
 
       - name: Setup Python
         run: uv python install 3.11

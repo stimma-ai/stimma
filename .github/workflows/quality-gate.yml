@@ -61,6 +61,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: ${{ runner.environment == 'github-hosted' }}
+          cache-local-path: ~/.cache/uv
 
       - name: Install backend deps
         working-directory: backend
@@ -107,6 +108,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: ${{ runner.environment == 'github-hosted' }}
+          cache-local-path: ~/.cache/uv
 
       - name: Install backend deps
         working-directory: backend

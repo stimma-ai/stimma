@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      linux_only:
+        description: Validate only Linux desktop builds and the complete quality gate
+        type: boolean
+        default: false
       publish_updates:
         description: Publish tested builds to the canary feeds
         type: boolean
@@ -76,6 +80,7 @@ jobs:
       runs_on: '["self-hosted","linux","x64","stimma-test"]'
 
   macos:
+    if: ${{ github.event_name == 'push' || !inputs.linux_only }}
     name: macOS
     needs:
       - version
@@ -120,6 +125,7 @@ jobs:
     secrets: inherit
 
   windows:
+    if: ${{ github.event_name == 'push' || !inputs.linux_only }}
     name: Windows x64
     needs:
       - version
@@ -134,6 +140,7 @@ jobs:
     secrets: inherit
 
   headless:
+    if: ${{ github.event_name == 'push' || !inputs.linux_only }}
     name: Headless Linux
     needs: [version]
     uses: ./.github/workflows/headless-package.yml

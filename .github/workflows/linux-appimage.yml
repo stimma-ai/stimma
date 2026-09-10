@@ -80,6 +80,10 @@ jobs:
             echo "sudo is required to install Linux build dependencies when the runner is not root."
             exit 1
           fi
+          if [ "${STIMMA_PREPROVISIONED:-}" = "1" ]; then
+            for tool in cc file patchelf pkg-config xdg-open xvfb-run; do command -v "$tool"; done
+            exit 0
+          fi
           "${SUDO[@]}" apt-get update
           "${SUDO[@]}" apt-get install -y --no-install-recommends \
             build-essential \
@@ -114,6 +118,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: ${{ runner.environment == 'github-hosted' }}
+          cache-local-path: ~/.cache/uv
 
       - name: Preflight environment
         run: |
