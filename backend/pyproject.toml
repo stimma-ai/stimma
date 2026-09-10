@@ -68,6 +68,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "httpx>=0.27.0",
     "ruff>=0.14",
+    "tzdata>=2025.3",
 ]
 cv2-parity = [
     "opencv-python-headless==4.11.0.86",

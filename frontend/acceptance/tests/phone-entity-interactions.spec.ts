@@ -2,6 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 import { apiJSON, createBoard, createChat, createProject, promptInput, TEST_T2I_TOOL_ID } from '../helpers/app';
 import { settleAnyViewport } from '../helpers/viewport';
 
+test.beforeEach(async ({ page }) => {
+  // Readiness can arrive after the initial route settles on a fresh profile.
+  await page.addLocatorHandler(page.getByTestId('readiness-panel'), async () => {
+    await page.getByTestId('readiness-dismiss').click();
+  });
+});
+
 async function generate(page: Page, label: string) {
   await page.goto(`/tools/${TEST_T2I_TOOL_ID}`);
   await settleAnyViewport(page);

@@ -70,12 +70,19 @@ jobs:
       - name: Lint backend
         run: tools/stimma lint backend
 
+      - name: Prepare test scratch
+        run: python3 scripts/ci-test-scratch.py
+
       - name: Run backend tests
         env:
           STIMMA_TEST_SHARD: ${{ matrix.shard }}/4
         # -m "not darkroom": the Darkroom tool tests cover rarely-changing
         # vendored code; run them locally or explicitly with -m darkroom.
         run: tools/stimma test backend -p ci_shard -vv -rA --durations=15 --maxfail=1 -m "not darkroom"
+
+      - name: Clean test scratch
+        if: always()
+        run: python3 scripts/ci-test-scratch.py cleanup
 
   acceptance-tests:
     name: Acceptance tests (${{ matrix.lane }})
@@ -139,6 +146,9 @@ jobs:
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend
 
+      - name: Prepare test scratch
+        run: python3 scripts/ci-test-scratch.py
+
       - name: Run smoke acceptance tests
         if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite != 'full' }}
         run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=30000 --retries=0
@@ -173,6 +183,10 @@ jobs:
             frontend/test-results/
             frontend/acceptance/playwright-report/
             frontend/acceptance/acceptance/
+
+      - name: Clean test scratch
+        if: always()
+        run: python3 scripts/ci-test-scratch.py cleanup
 
   passed:
     name: Quality gate passed
