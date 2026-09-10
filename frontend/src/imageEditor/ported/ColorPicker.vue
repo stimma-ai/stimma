@@ -136,6 +136,8 @@ const editColor = ref<RGBAColor>({ r: 255, g: 255, b: 255, a: 1 });
 const editOpacity = ref(100);
 const hexInput = ref('FFFFFF');
 const recents = ref<string[]>([]);
+const spectrumX = ref(0);
+const spectrumY = ref(0);
 
 /** Sync from the outside in — the parent may set the color elsewhere. */
 watch(
@@ -233,8 +235,6 @@ function selectNoFill() {
 
 const spectrumRef = ref<HTMLElement | null>(null);
 const isDraggingSpectrum = ref(false);
-const spectrumX = ref(0);
-const spectrumY = ref(0);
 
 function updateFromSpectrum(x: number, y: number) {
   if (!spectrumRef.value) return;
@@ -249,7 +249,8 @@ function updateFromSpectrum(x: number, y: number) {
   applyColor();
 }
 
-function handleSpectrumDown(e: MouseEvent) {
+function handleSpectrumDown(e: PointerEvent) {
+  if (!beginDrag(e)) return;
   isDraggingSpectrum.value = true;
   updateFromSpectrum(e.clientX, e.clientY);
 }
@@ -357,15 +358,26 @@ async function openEyeDropper() {
   } catch { /* user cancelled */ }
 }
 
+let dragPointerId: number | null = null;
+function beginDrag(event: PointerEvent): boolean {
+  if (!event.isPrimary || event.button !== 0 || dragPointerId !== null) return false;
+  dragPointerId = event.pointerId;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  return true;
+}
+
 // -- global drag plumbing ----------------------------------------------------
 
-function handleMouseMove(e: MouseEvent) {
+function handleMouseMove(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId) return;
   if (isDraggingSpectrum.value) updateFromSpectrum(e.clientX, e.clientY);
   if (isDraggingOpacity.value) updateFromOpacity(e.clientX);
   if (draggingChannel.value) updateChannel(draggingChannel.value, e.clientX);
 }
 
-function handleMouseUp() {
+function handleMouseUp(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId) return;
+  dragPointerId = null;
   // A released drag is a committed pick; that is when it earns a recent slot.
   if (isDraggingSpectrum.value || draggingChannel.value) pushRecent(editColor.value);
   isDraggingSpectrum.value = false;
@@ -381,13 +393,15 @@ onMounted(() => {
     const tab = localStorage.getItem(TAB_KEY());
     if (tab === 'grid' || tab === 'spectrum' || tab === 'sliders') activeTab.value = tab;
   } catch { /* fall back to defaults */ }
-  document.addEventListener('mousemove', handleMouseMove);
-  document.addEventListener('mouseup', handleMouseUp);
+  document.addEventListener('pointermove', handleMouseMove);
+  document.addEventListener('pointerup', handleMouseUp);
+  document.addEventListener('pointercancel', handleMouseUp);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', handleMouseMove);
-  document.removeEventListener('mouseup', handleMouseUp);
+  document.removeEventListener('pointermove', handleMouseMove);
+  document.removeEventListener('pointerup', handleMouseUp);
+  document.removeEventListener('pointercancel', handleMouseUp);
 });
 
 function chooseTab(tab: 'grid' | 'spectrum' | 'sliders') {
@@ -469,10 +483,11 @@ const TABS = [
     </div>
 
     <!-- Grid -->
-    <div v-if="activeTab === 'grid'" class="grid grid-cols-12 gap-0.5">
+    <div v-if="activeTab === 'grid'" class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
       <button
         v-for="(color, i) in gridColors"
         :key="i"
+        :aria-label="rgbToHex(color)"
         type="button"
         class="aspect-square rounded-media"
         :class="isCurrent(color) ? 'outline outline-2 outline-selection outline-offset-1 relative z-[1]' : ''"
@@ -485,13 +500,13 @@ const TABS = [
     <div
       v-else-if="activeTab === 'spectrum'"
       ref="spectrumRef"
-      class="h-[150px] rounded-md border border-edge-subtle cursor-crosshair relative"
+      class="h-[150px] touch-none rounded-md border border-edge-subtle cursor-crosshair relative"
       :style="{
         background:
           'linear-gradient(to bottom, white 0%, transparent 50%, black 100%),' +
           'linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))',
       }"
-      @mousedown="handleSpectrumDown"
+      @pointerdown="handleSpectrumDown"
     >
       <div
         class="absolute w-3 h-3 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 pointer-events-none
@@ -520,9 +535,9 @@ const TABS = [
         <span class="w-3 text-[11px] text-content-tertiary">{{ channel.label }}</span>
         <div
           :ref="el => (channelRefs[channel.id].value = el as HTMLElement)"
-          class="flex-1 h-3 rounded-full cursor-pointer relative border border-edge-subtle"
+          class="flex-1 h-3 compact:h-11 touch-none rounded-full cursor-pointer relative border border-edge-subtle"
           :style="{ background: channelBg[channel.id] }"
-          @mousedown="draggingChannel = channel.id; updateChannel(channel.id, $event.clientX)"
+          @pointerdown="if (beginDrag($event)) { draggingChannel = channel.id; updateChannel(channel.id, $event.clientX) }"
         >
           <div
             class="absolute top-1/2 w-3.5 h-3.5 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 pointer-events-none
@@ -547,9 +562,9 @@ const TABS = [
       <span class="w-11 text-[11px] text-content-tertiary">Opacity</span>
       <div
         ref="opacityRef"
-        class="flex-1 h-3 rounded-full cursor-pointer relative
+        class="flex-1 h-3 compact:h-11 touch-none rounded-full cursor-pointer relative
                [background:repeating-conic-gradient(rgba(255,255,255,.12)_0%_25%,rgba(255,255,255,.04)_0%_50%)_0_0/8px_8px]"
-        @mousedown="isDraggingOpacity = true; updateFromOpacity($event.clientX)"
+        @pointerdown="if (beginDrag($event)) { isDraggingOpacity = true; updateFromOpacity($event.clientX) }"
       >
         <div class="absolute inset-0 rounded-full" :style="{ background: opacityBg }" />
         <div
@@ -566,7 +581,7 @@ const TABS = [
     <!-- Swatches: the image's own colors, then what was actually used. -->
     <template v-if="imageChips.length">
       <div class="mt-3 mb-1.5 text-[11px] text-content-tertiary">From this image</div>
-      <div class="grid grid-cols-12 gap-0.5">
+      <div class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
         <button
           v-for="(color, i) in imageChips"
           :key="'image-' + i"
@@ -581,7 +596,7 @@ const TABS = [
 
     <template v-if="recents.length">
       <div class="mt-3 mb-1.5 text-[11px] text-content-tertiary">Recent</div>
-      <div class="grid grid-cols-12 gap-0.5">
+      <div class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
         <button
           v-for="hex in recents"
           :key="'recent-' + hex"

@@ -71,7 +71,7 @@ const props = defineProps<{
  * the chips keep wrapping in the bar's single flex line; on a phone it is a
  * touch-height row that scrolls sideways.
  */
-const ROW = 'contents compact:flex compact:items-center compact:gap-1 compact:shrink-0 compact:min-h-11 compact:overflow-x-auto compact:[scrollbar-width:none] compact:-mx-2 compact:px-2'
+const ROW = 'contents compact:flex compact:items-center compact:gap-1 compact:shrink-0 compact:min-h-11 compact:overflow-x-auto compact:[&>*]:shrink-0 compact:[scrollbar-width:none] compact:-mx-2 compact:px-2'
 
 const emit = defineEmits<{
   sub: [string]
@@ -240,7 +240,7 @@ function chipClass(active: boolean, pending = false) {
             <!-- In a narrow bar the labels are what force the chip row to
                  wrap; iconed chips drop them and keep their tooltips. -->
             <span
-              v-if="!option.icon || option.labeled"
+              v-if="compact || !option.icon || option.labeled"
               :class="option.icon && 'hidden @xl:inline compact:inline'"
             >{{ option.label }}</span>
           </button>
@@ -254,6 +254,7 @@ function chipClass(active: boolean, pending = false) {
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
     <template v-if="family.id === 'retouch'">
+      <div :class="ROW">
       <template
         v-for="option in family.subTools"
         :key="option.id"
@@ -271,12 +272,13 @@ function chipClass(active: boolean, pending = false) {
             <!-- In a narrow bar the labels are what force the chip row to
                  wrap; iconed chips drop them and keep their tooltips. -->
             <span
-              v-if="!option.icon || option.labeled"
-              :class="option.icon && 'hidden @xl:inline'"
+              v-if="compact || !option.icon || option.labeled"
+              :class="option.icon && 'hidden @xl:inline compact:inline'"
             >{{ option.label }}</span>
           </button>
         </Tooltip>
       </template>
+      </div>
 
       <!-- The sub-tool chip beside this says what work is being authored.
            The brush only defines its region; it is not itself a Paint stroke. -->
@@ -316,6 +318,7 @@ function chipClass(active: boolean, pending = false) {
             {{ state.retouchExposure }}%
           </span>
         </label>
+        <div :class="ROW">
         <button
           v-for="range in ['shadows', 'midtones', 'highlights']"
           :key="range"
@@ -326,6 +329,7 @@ function chipClass(active: boolean, pending = false) {
         >
           {{ range }}
         </button>
+        </div>
       </template>
       <template v-else-if="strengthSubs.includes(sub ?? '')">
         <label class="flex items-center gap-2 text-xs text-content-tertiary">
@@ -591,8 +595,9 @@ function chipClass(active: boolean, pending = false) {
 
     <!-- Paint ----------------------------------------------------------- -->
     <template v-else-if="family.id === 'paint'">
+      <div :class="ROW">
       <Tooltip
-        v-for="engine in standalonePaintEngines"
+        v-for="engine in compact ? PAINT_ENGINES : standalonePaintEngines"
         :key="engine.id"
         :text="engine.pending ? 'Not built yet' : engine.hint ?? engine.label"
       >
@@ -601,16 +606,20 @@ function chipClass(active: boolean, pending = false) {
           class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
           :class="chipClass(state.engineId === engine.id, engine.pending)"
           :disabled="engine.pending"
+          :aria-label="engine.label"
           @click="emit('set', { engineId: engine.id })"
         >
           <ToolIcon :name="engine.icon" />
+          <span class="hidden compact:inline">{{ engine.label }}</span>
         </button>
       </Tooltip>
       <PaintFillGroup
+        v-if="!compact"
         :active="state.engineId"
         :current="state.paintFillEngineId"
         @select="emit('set', { engineId: $event })"
       />
+      </div>
       <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <!-- A brush is not a property of the layer it painted, so it hangs off
            the toolbar rather than appearing in the Edits inspector. -->
@@ -849,7 +858,7 @@ function chipClass(active: boolean, pending = false) {
          control is an icon opening a popover. With a shape selected the same
          controls edit it, so the strip doubles as a remote for the selection. -->
     <template v-else-if="family.id === 'annotate'">
-      <div :class="ROW">
+      <div :class="[ROW, 'compact:flex-wrap compact:overflow-visible']">
       <template v-if="showStroke">
         <!-- Stroke weight -->
         <ToolbarPopover label="" :width="148">
@@ -879,7 +888,7 @@ function chipClass(active: boolean, pending = false) {
         </ToolbarPopover>
 
         <!-- Stroke color: a ring, because the stroke is an outline. -->
-        <ToolbarPopover label="" :width="292">
+        <ToolbarPopover :label="compact ? 'Stroke' : ''" aria-label="Stroke color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-full ring-inset"
@@ -900,7 +909,7 @@ function chipClass(active: boolean, pending = false) {
         </ToolbarPopover>
 
         <!-- Fill: a solid square, because the fill is the inside. -->
-        <ToolbarPopover v-if="showFill" label="" :width="292">
+        <ToolbarPopover v-if="showFill" :label="compact ? 'Fill' : ''" aria-label="Fill color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-[4px] border border-edge-subtle"
@@ -958,7 +967,7 @@ function chipClass(active: boolean, pending = false) {
 
       <template v-if="showText">
         <!-- Text color shares the stroke well; the presets carry the rest. -->
-        <ToolbarPopover label="" :width="292">
+        <ToolbarPopover :label="compact ? 'Text color' : ''" aria-label="Text color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-full"
@@ -992,10 +1001,11 @@ function chipClass(active: boolean, pending = false) {
       <!-- Opacity, inline: one slider does not deserve a popover. -->
       <label
         v-if="sub !== 'redact'"
-        class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:min-w-[9rem]"
+        class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:basis-full compact:min-w-0"
         title="Opacity"
       >
-        <svg viewBox="0 0 16 16" class="w-4 h-4" fill="none" stroke="currentColor">
+        <span class="hidden compact:inline">Opacity</span>
+        <svg viewBox="0 0 16 16" class="w-4 h-4 compact:hidden" fill="none" stroke="currentColor">
           <circle cx="8" cy="8" r="6" />
           <path d="M8 2 a6 6 0 0 1 0 12 Z" fill="currentColor" stroke="none" opacity="0.5" />
         </svg>

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0">
+  <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0 [&_img]:[-webkit-touch-callout:none] [&_img]:select-none [&_video]:[-webkit-touch-callout:none] [&_video]:select-none">
     <!-- Loading state -->
     <div v-if="initialLoading" class="flex-1 p-2 overflow-hidden bg-matte">
       <div class="grid grid-cols-6 gap-2 loading-grid">

@@ -11,7 +11,7 @@
   <div
     ref="containerRef"
     :class="[
-      'relative overflow-hidden',
+      'relative overflow-hidden [&_img]:[-webkit-touch-callout:none] [&_img]:select-none',
       backgroundClass || (contain ? 'bg-surface-raised' : 'bg-base'),
       containerClass
     ]"

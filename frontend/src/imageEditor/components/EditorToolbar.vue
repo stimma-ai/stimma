@@ -53,13 +53,13 @@ function tap(id: FamilyId) {
   <!-- Phone: the bottom bar. One docked bar per screen (DESIGN.md §1.11). -->
   <div
     v-if="bar"
-    class="flex items-stretch h-16 shrink-0 border-t border-edge-subtle bg-surface pb-safe px-1"
+    class="flex items-stretch shrink-0 border-t border-edge-subtle bg-surface pt-2 px-1 pb-[max(16px,var(--safe-bottom,0px))]"
     role="toolbar"
     aria-label="Editor families"
   >
     <button
       type="button"
-      class="flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 rounded-md text-[10px] font-medium leading-none border-none bg-transparent border-r border-edge-subtle mr-0.5"
+      class="flex-1 min-w-0 min-h-14 py-2 flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium leading-none border-none bg-transparent border-r border-edge-subtle mr-0.5"
       :class="active === null ? 'text-accent-hi' : 'text-content-secondary'"
       aria-label="Edits"
       :aria-pressed="active === null"
@@ -72,7 +72,7 @@ function tap(id: FamilyId) {
       v-for="family in families"
       :key="family.id"
       type="button"
-      class="flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 rounded-md text-[10px] font-medium leading-none border-none bg-transparent"
+      class="flex-1 min-w-0 min-h-14 py-2 flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium leading-none border-none bg-transparent"
       :class="[
         active === family.id ? 'text-accent-hi' : 'text-content-secondary',
         unavailable.includes(family.id) && 'opacity-35',

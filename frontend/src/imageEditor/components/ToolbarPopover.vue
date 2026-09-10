@@ -70,7 +70,7 @@ function place() {
   const trigger = root.value?.getBoundingClientRect()
   if (!trigger) return
 
-  const width = props.width
+  const width = Math.min(props.width, window.innerWidth - MARGIN * 2)
   const left = Math.min(
     Math.max(MARGIN, trigger.right - width),
     Math.max(MARGIN, window.innerWidth - width - MARGIN),
@@ -125,7 +125,11 @@ function onDocumentPointerDown(event: PointerEvent) {
 
 function onKeydown(event: KeyboardEvent) {
   if (document.querySelector('[data-modal-layer]')) return
-  if (event.key === 'Escape') open.value = false
+  if (event.key === 'Escape' && open.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    open.value = false
+  }
 }
 
 function onPanelClick(event: MouseEvent) {
@@ -181,7 +185,7 @@ onBeforeUnmount(() => {
       <div
         v-if="open"
         ref="panel"
-        class="popover-panel z-menu fixed overflow-y-auto rounded-lg
+        class="popover-panel editor-picker z-menu fixed overflow-y-auto rounded-lg
                border border-edge-subtle bg-surface shadow-xl p-3"
         :style="style"
         @click="onPanelClick"

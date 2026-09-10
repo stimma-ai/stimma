@@ -244,16 +244,15 @@ const compactNav = useCompactNav()
 // labelled bar under it, and every popover becomes a sheet. Nothing is
 // renamed and no control exists in only one of the two layouts.
 const editorDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
+const cropCanvasRef = ref<InstanceType<typeof StackCropCanvas> | null>(null)
 const docSheetOpen = ref(false)
 /** At full height only a slice of the picture shows; the glass chips get out of its way. */
 const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
-/** Brush work needs a stylus-class device; the steps still render and toggle. */
-const COMPACT_UNAVAILABLE: FamilyId[] = ['retouch', 'paint']
-function onFamilyUnavailable(id: FamilyId) {
-  addToast(`${familyById(id).label} needs a desktop or a stylus. Its steps still show in Edits.`, 'info')
-}
 /** The bar's Edits cell: leave the open family, or raise the stack. */
 function onCompactEdits() {
+  selectedOpId.value = null
+  selectedShapeId.value = null
+  selectedRetouchRegionId.value = null
   if (family.value) {
     selectFamily(family.value)
   } else {
@@ -1627,6 +1626,8 @@ function onNativeTabletPan(sample: NativeTabletPanSample) {
     nativeTabletPanActive = true
     paintRef.value?.commitStroke()
     retouchRef.value?.commitStroke()
+    cropCanvasRef.value?.commitGesture()
+    annotateRef.value?.commitGesture()
     if (middleMousePointerId === null) {
       viewPanning.value = true
       beginLivePan()
@@ -1756,6 +1757,8 @@ function onViewportTouchDown(event: PointerEvent) {
     pinchActive = true
     paintRef.value?.commitStroke()
     retouchRef.value?.commitStroke()
+    cropCanvasRef.value?.commitGesture()
+    annotateRef.value?.commitGesture()
     pinchStartDistance = touchDistance()
     pinchStartZoom = viewZoom.value
     pinchCentroid = touchCentroid()
@@ -8191,6 +8194,8 @@ async function flattenIfNeeded() {
 // -- lifecycle -------------------------------------------------------------
 
 function onKeydown(event: KeyboardEvent) {
+  // Sheets and dialogs own their shortcuts, including the dismissal key.
+  if (event.defaultPrevented || document.querySelector('[data-sheet-layer], [data-modal-layer]')) return
   const target = event.target as HTMLElement
   updateHeldCombine(event)
   // Canvas text editing has no focusable element to hide behind, so the
@@ -8900,7 +8905,7 @@ watch(
 
       <!-- Compact: the commit bar's zoom read-out and before/after as glass
            chips on the matte; pinch zooms, two fingers pan. -->
-      <template v-if="isCompact && !loading && !drawerFull">
+      <template v-if="isCompact && !loading && !drawerFull && family !== 'crop'">
         <button
           type="button"
           class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
@@ -8934,6 +8939,7 @@ watch(
       <div
         v-else
         ref="viewport"
+        data-disable-long-press
         class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
         :class="viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : '')"
         @wheel.prevent="onViewportWheel"
@@ -8961,6 +8967,7 @@ watch(
           ]"
         >
           <StackCropCanvas
+            ref="cropCanvasRef"
             :source="cropInput"
             :crop="cropRect"
             :flip-x="!!cropParamsOf().flipX"
@@ -9176,7 +9183,7 @@ watch(
           :compact="isCompact"
           @done="disarmSelect"
           :class="isCompact
-            ? ['absolute bottom-2 left-2 right-2 z-chrome', drawerFull && 'hidden']
+            ? ['absolute bottom-2 left-2 right-2 z-chrome', (drawerFull || family === 'crop') && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
@@ -9247,7 +9254,7 @@ watch(
         </div>
         </Teleport>
 
-        <Teleport to="#editor-drawer-body" :disabled="!isCompact" defer>
+        <Teleport to="#editor-drawer-panels" :disabled="!isCompact" defer>
         <div class="contents compact:flex compact:flex-col">
         <OutputPanel
           v-if="sidebarTab === 'output' && stack.doc.value"
@@ -9533,6 +9540,7 @@ watch(
         >
           <EditorSubbar
             v-if="family"
+            :key="family"
             compact
             :family="family"
             :sub="sub"
@@ -9553,9 +9561,7 @@ watch(
         <EditorToolbar
           bar
           :active="family"
-          :unavailable="COMPACT_UNAVAILABLE"
           @select="selectFamily"
-          @unavailable="onFamilyUnavailable"
           @edits="onCompactEdits"
         />
       </template>

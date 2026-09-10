@@ -419,7 +419,7 @@ defineExpose({ isEraser });
     <div class="flex flex-col gap-1">
       <div v-for="def in SLIDERS" :key="def.key" class="flex items-center gap-1.5">
         <div
-          class="relative flex-1 h-[26px] rounded-md bg-overlay-hover overflow-hidden cursor-ew-resize touch-none"
+          class="relative flex-1 h-[26px] compact:h-11 rounded-md bg-overlay-hover overflow-hidden cursor-ew-resize touch-none"
           @pointerdown="onSliderPointerDown(def, $event)"
         >
           <div

@@ -82,7 +82,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @contextmenu.prevent
     @click="onClick"
   >
-    <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18.2 8.5c-2 0-3.4 1.6-4.6 3.5-1.2 1.9-2.6 3.5-4.6 3.5a3.5 3.5 0 0 1 0-7c2 0 3.4 1.6 4.6 3.5 1.2 1.9 2.6 3.5 4.6 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+    <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
     <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
     <span
       v-if="batchSize > 1"
@@ -109,7 +109,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
         :aria-pressed="foreverActive"
         @click="toggleForever"
       >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18.2 8.5c-2 0-3.4 1.6-4.6 3.5-1.2 1.9-2.6 3.5-4.6 3.5a3.5 3.5 0 0 1 0-7c2 0 3.4 1.6 4.6 3.5 1.2 1.9 2.6 3.5 4.6 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
         Forever mode
       </button>
     </div>

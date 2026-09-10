@@ -317,7 +317,7 @@
         </Teleport>
 
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
-        <Teleport to="#tool-drawer-body" :disabled="!isCompact" defer>
+        <Teleport to="#tool-drawer-panels" :disabled="!isCompact" defer>
         <!-- Params-card top row: resolution + markers | auto-trash -->
         <div class="flex items-center gap-2 mb-3">
             <ConstrainedResolutionPicker

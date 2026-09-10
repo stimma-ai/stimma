@@ -370,6 +370,7 @@ function resize() {
 }
 
 defineExpose({
+  commitGesture: () => annotation.commitGesture(),
   /** Typing goes to the canvas, so the view must hold its shortcuts. */
   isEditingText: () => annotation.isEditingTextOnCanvas(),
   /** The same fact, watchable: chrome over the canvas hides during a session. */

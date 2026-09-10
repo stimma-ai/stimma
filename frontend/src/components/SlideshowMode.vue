@@ -5100,6 +5100,8 @@ function isImageFormat(format) {
 }
 
 function handleEditImage(mediaId = null) {
+  if (slideshowCompact.value) showSidebar.value = false
+  compactMoreOpen.value = false
   const targetMediaId = mediaId || currentPayloadId.value
   if (!targetMediaId) return
   void openImageEditor(router, targetMediaId)
@@ -6231,6 +6233,8 @@ onUnmounted(() => {
 // Also clean up focus mode when deactivated by KeepAlive (e.g., navigating away)
 // This is needed because the parent view uses KeepAlive, so onUnmounted won't fire
 onDeactivated(() => {
+  if (slideshowCompact.value) showSidebar.value = false
+  compactMoreOpen.value = false
   resetGalleryDrag()
   mediaPreloadEpoch++
   slideshowViewActive = false

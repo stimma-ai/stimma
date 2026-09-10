@@ -855,11 +855,33 @@ select option {
    unchanged, so their controls are brought up to touch size here rather than
    one component at a time (DESIGN.md §1.11 touch targets). */
 [data-viewport="compact"] .editor-drawer-body input[type="range"] { height: 44px; }
+/* Put the complete label/value above the track instead of squeezing all
+   three into the desktop inspector's narrow, fixed-width columns. */
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"] {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+}
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) > span:first-child {
+  width: auto;
+  white-space: normal;
+  overflow: visible;
+}
 [data-viewport="compact"] .editor-drawer-body input[type="checkbox"] { width: 24px; height: 24px; margin: 10px; }
 [data-viewport="compact"] .editor-drawer-body button { min-height: 44px; min-width: 44px; }
 [data-viewport="compact"] .editor-drawer-body input[type="number"],
 [data-viewport="compact"] .editor-drawer-body input[type="text"],
 [data-viewport="compact"] .editor-drawer-body select { min-height: 44px; }
+
+/* Editor pickers teleport out of the drawer but retain touch-sized controls. */
+[data-viewport="compact"] .editor-picker button { min-height: 44px; min-width: 44px; }
+[data-viewport="compact"] .editor-picker input:not([type="checkbox"]),
+[data-viewport="compact"] .editor-picker select { min-height: 44px; }
 
 /* Coarse pointers: there are no floating menus, only sheets. Menus that go
    through useContextMenuPosition get data-sheet-menu; the Sheet component's

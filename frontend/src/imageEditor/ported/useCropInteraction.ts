@@ -1,6 +1,7 @@
 /**
  * Ported from the retired editor's interaction code, keeping the crop half
- * and dropping pan, zoom and touch.
+ * and dropping viewport pan and zoom. Pointer events support mouse, pen,
+ * and finger crop gestures.
  *
  * The new editor fits the image to the viewport and does not pan or zoom, so
  * those paths had nowhere to go — worse, the old code moves the crop to stay
@@ -120,6 +121,7 @@ export function useCropInteraction(
 ) {
   const interaction = ref<Interaction>({ type: 'idle' })
   const cursorStyle = ref('default')
+  let activePointerId: number | null = null
 
   function toCanvasPoint(event: MouseEvent): Point | null {
     const canvas = canvasRef.value
@@ -133,12 +135,12 @@ export function useCropInteraction(
     return cropCanvasRect(getCrop(), viewTransform.value, imageSize.value, canvasSize.value, pinned)
   }
 
-  function hitTestCropHandle(canvasPoint: Point): CropHandle | null {
+  function hitTestCropHandle(canvasPoint: Point, touch = false): CropHandle | null {
     const cropRect = canvasRect()
     if (!cropRect) return null
 
     const { w, h, cx, cy, rotation } = cropRect
-    const radius = HIT_TEST.handleRadius
+    const radius = touch ? 24 : HIT_TEST.handleRadius
     const rotationRadius = HIT_TEST.rotationRadius
 
     const halfW = w / 2
@@ -371,14 +373,16 @@ export function useCropInteraction(
     onCropChange({ ...getCrop(), rotation: newRotation })
   }
 
-  function handleMouseDown(event: MouseEvent) {
-    if (event.button !== 0) return
+  function handleMouseDown(event: PointerEvent) {
+    if (event.button !== 0 || activePointerId !== null || event.isPrimary === false) return
     const canvasPoint = toCanvasPoint(event)
     if (!canvasPoint) return
 
-    const handle = hitTestCropHandle(canvasPoint)
+    const handle = hitTestCropHandle(canvasPoint, event.pointerType === 'touch')
     if (!handle) return
     event.preventDefault()
+    activePointerId = event.pointerId
+    canvasRef.value?.setPointerCapture(event.pointerId)
 
     if (handle === 'rotation') {
       const cropRect = canvasRect()
@@ -402,7 +406,8 @@ export function useCropInteraction(
     cursorStyle.value = getCropCursor(handle)
   }
 
-  function handleMouseMove(event: MouseEvent) {
+  function handleMouseMove(event: PointerEvent) {
+    if (activePointerId !== null && event.pointerId !== activePointerId) return
     const canvasPoint = toCanvasPoint(event)
     if (!canvasPoint) return
     const state = interaction.value
@@ -412,7 +417,12 @@ export function useCropInteraction(
     else cursorStyle.value = getCropCursor(hitTestCropHandle(canvasPoint))
   }
 
-  function handleMouseUp() {
+  function handleMouseUp(event?: PointerEvent) {
+    if (event && activePointerId !== event.pointerId) return
+    if (activePointerId !== null && canvasRef.value?.hasPointerCapture(activePointerId)) {
+      canvasRef.value.releasePointerCapture(activePointerId)
+    }
+    activePointerId = null
     if (interaction.value.type === 'idle') return
     interaction.value = { type: 'idle' }
     cursorStyle.value = 'default'
@@ -422,17 +432,19 @@ export function useCropInteraction(
   function setupListeners() {
     const canvas = canvasRef.value
     if (!canvas) return
-    canvas.addEventListener('mousedown', handleMouseDown)
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
+    canvas.addEventListener('pointerdown', handleMouseDown)
+    window.addEventListener('pointermove', handleMouseMove)
+    window.addEventListener('pointerup', handleMouseUp)
+    window.addEventListener('pointercancel', handleMouseUp)
   }
 
   function cleanupListeners() {
     const canvas = canvasRef.value
-    if (canvas) canvas.removeEventListener('mousedown', handleMouseDown)
-    window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('mouseup', handleMouseUp)
+    if (canvas) canvas.removeEventListener('pointerdown', handleMouseDown)
+    window.removeEventListener('pointermove', handleMouseMove)
+    window.removeEventListener('pointerup', handleMouseUp)
+    window.removeEventListener('pointercancel', handleMouseUp)
   }
 
-  return { interaction, cursorStyle, setupListeners, cleanupListeners, hitTestCropHandle }
+  return { interaction, cursorStyle, setupListeners, cleanupListeners, hitTestCropHandle, commit: handleMouseUp }
 }

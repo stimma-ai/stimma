@@ -69,11 +69,11 @@ const changed = computed(() => hasExpansion(props.edges))
   <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
     <!-- 2×2 or 1×4 by the BAR's width (container query), not the viewport's:
          with the resizable sidebar next door the two are unrelated. -->
-    <div class="grid grid-cols-2 gap-x-3 gap-y-1 @2xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-x-3 gap-y-1 @2xl:grid-cols-4 compact:w-full compact:gap-x-4">
       <label
         v-for="field in FIELDS"
         :key="field.edge"
-        class="grid items-center text-xs text-content-tertiary"
+        class="grid items-center text-xs text-content-tertiary compact:!grid-cols-[minmax(0,1fr)_auto] compact:gap-2"
         :class="unit === 'percent'
           ? 'grid-cols-[3.25rem_2rem]'
           : 'grid-cols-[3.25rem_3.5rem]'"

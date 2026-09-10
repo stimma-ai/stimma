@@ -145,6 +145,7 @@ onMounted(() => {
   crop.setupListeners()
 })
 onBeforeUnmount(() => crop.cleanupListeners())
+defineExpose({ commitGesture: () => crop.commit() })
 </script>
 
 <template>

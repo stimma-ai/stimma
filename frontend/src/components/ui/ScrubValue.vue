@@ -2,12 +2,17 @@
   <span
     ref="anchorRef"
     :class="[
-      'text-xs font-mono tabular-nums text-right select-none',
+      'text-xs font-mono tabular-nums text-right select-none touch-none compact:inline-flex compact:min-h-11 compact:min-w-11 compact:items-center compact:justify-end',
       disabled ? 'opacity-40 cursor-not-allowed text-content-tertiary'
                : 'cursor-ew-resize ' + (nonDefault ? 'text-accent-hi hover:text-accent' : 'text-content-secondary hover:text-content'),
       open ? '!text-content' : '',
     ]"
     :title="disabled ? undefined : title || 'Drag to adjust · click to edit'"
+    role="button"
+    :tabindex="disabled ? -1 : 0"
+    :aria-disabled="disabled || undefined"
+    @keydown.enter.prevent="!disabled && openPopover()"
+    @keydown.space.prevent="!disabled && openPopover()"
     @pointerdown="onPointerDown"
   >{{ displayValue }}</span>
 
@@ -16,7 +21,7 @@
     <template v-if="open">
       <div class="fixed inset-0 z-menu" @click="open = false" @contextmenu.prevent="open = false"></div>
       <div
-        class="fixed z-submenu w-64 bg-surface border border-edge-subtle rounded-lg shadow-lg p-3"
+        class="editor-picker fixed z-submenu w-64 bg-surface border border-edge-subtle rounded-lg shadow-lg p-3"
         :style="popoverStyle"
         @keydown.escape.stop="open = false"
       >
@@ -52,6 +57,9 @@
 // Atelier ScrubValue — compact mono value in the row; drag horizontally to
 // scrub (4px/step), click to open a slider + text-entry popover.
 import { computed, nextTick, ref, watchEffect } from 'vue'
+import { useViewport } from '../../composables/useViewport'
+
+const { isCoarsePointer } = useViewport()
 
 const props = withDefaults(defineProps<{
   modelValue: number
@@ -106,33 +114,37 @@ function openPopover() {
   const top = r.bottom + H + 8 > window.innerHeight ? r.top - H - 8 : r.bottom + 6
   popoverStyle.value = { left: `${left}px`, top: `${top}px` }
   open.value = true
-  nextTick(() => inputRef.value?.select())
+  nextTick(() => { if (!isCoarsePointer.value) inputRef.value?.select() })
 }
 
 // --- Drag to scrub; click (no movement) opens the editor ---------------------
 const PX_PER_STEP = 4
 function onPointerDown(e: PointerEvent) {
-  if (props.disabled) return
+  if (props.disabled || !e.isPrimary || e.button !== 0) return
   const startX = e.clientX
   const startValue = props.modelValue
   let moved = false
   const el = e.target as HTMLElement
   el.setPointerCapture(e.pointerId)
   const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== e.pointerId) return
     const dx = ev.clientX - startX
     if (!moved && Math.abs(dx) < 3) return
     moved = true
     emitClamped(startValue + Math.round(dx / PX_PER_STEP) * props.step)
   }
-  const onUp = () => {
-    el.releasePointerCapture(e.pointerId)
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== e.pointerId) return
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
     el.removeEventListener('pointermove', onMove)
     el.removeEventListener('pointerup', onUp)
+    el.removeEventListener('pointercancel', onUp)
     if (moved) emit('commit')
-    else openPopover()
+    else if (ev.type !== 'pointercancel') openPopover()
   }
   el.addEventListener('pointermove', onMove)
   el.addEventListener('pointerup', onUp)
+  el.addEventListener('pointercancel', onUp)
 }
 
 function commitText(e: Event) {

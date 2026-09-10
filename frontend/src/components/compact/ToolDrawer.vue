@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
   /** Pixels the drawer leaves for the header + tab bar at full height. */
   chromeReserve?: number
   /**
-   * Prefix for the two teleport-target ids. The tool view keeps the default;
+   * Prefix for the teleport-target ids. The tool view keeps the default;
    * the image editor mounts its own drawer under KeepAlive at the same time,
    * so the ids must differ or a teleport lands in the wrong screen.
    */
@@ -66,22 +66,26 @@ const style = computed(() => {
 let startY = 0
 let startH = 0
 let moved = false
+let activePointerId: number | null = null
 function onPointerDown(e: PointerEvent) {
-  if (!rootEl.value) return
+  if (!rootEl.value || !e.isPrimary || e.button !== 0 || activePointerId !== null) return
+  activePointerId = e.pointerId
   startY = e.clientY
   startH = rootEl.value.getBoundingClientRect().height
   moved = false
   ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
 }
 function onPointerMove(e: PointerEvent) {
-  if (!e.buttons && e.pointerType === 'mouse') return
+  if (activePointerId !== e.pointerId) return
   const dy = startY - e.clientY
   if (Math.abs(dy) > 4) moved = true
   if (!moved) return
   const collapsedH = collapsedHeight()
   dragPx.value = Math.max(collapsedH, Math.min(availableH() - props.heroReserve, startH + dy))
 }
-function onPointerUp() {
+function onPointerUp(e: PointerEvent) {
+  if (activePointerId !== e.pointerId) return
+  activePointerId = null
   if (!moved) {
     level.value = level.value === 'collapsed' ? 'half' : 'collapsed'
     dragPx.value = null
@@ -133,10 +137,13 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
       class="flex-none h-11 -mb-2 flex items-center justify-center touch-none cursor-grab"
       role="button"
       aria-label="Toggle controls"
+      tabindex="0"
+      @keydown.enter.prevent="level = level === 'collapsed' ? 'half' : 'collapsed'"
+      @keydown.space.prevent="level = level === 'collapsed' ? 'half' : 'collapsed'"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
-      @pointercancel="onPointerUp"
+      @pointercancel="activePointerId = null; dragPx = null"
     >
       <span class="w-9 h-1 rounded-full bg-overlay-light"></span>
     </div>
@@ -151,6 +158,11 @@ defineExpose({ open: (l: Level) => { level.value = l }, level })
       :id="`${idPrefix}-body`"
       class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-safe"
       :class="[level === 'collapsed' ? 'overflow-hidden' : '', bodyClass]"
-    ><slot /></div>
+    >
+      <slot />
+      <!-- Keep teleported panels separate from the slot's dynamic children.
+           Switching tools must never reconcile two owners in one DOM list. -->
+      <div :id="`${idPrefix}-panels`" class="contents" />
+    </div>
   </div>
 </template>

@@ -25,6 +25,8 @@ function clear() {
 }
 
 function onTouchStart(e: TouchEvent) {
+  // Editing canvases own sustained touches as strokes and handle drags.
+  if ((e.target as Element | null)?.closest?.('[data-disable-long-press]')) { clear(); fired = false; return }
   if (e.touches.length !== 1) { clear(); return }
   const t = e.touches[0]
   startX = t.clientX; startY = t.clientY; target = e.target; fired = false

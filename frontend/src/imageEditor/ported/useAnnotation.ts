@@ -1052,13 +1052,17 @@ export function useAnnotation(
   /**
    * Handle mouse down on canvas
    */
-  function handleMouseDown(event: MouseEvent) {
-    if (event.button !== 0) return;
+  let activePointerId: number | null = null;
+  function handleMouseDown(event: PointerEvent) {
+    if (event.button !== 0 || !event.isPrimary || activePointerId !== null) return;
 
     const state = getState();
     const screenPoint = { x: event.clientX, y: event.clientY };
     const imagePoint = toImagePoint(screenPoint);
     if (!imagePoint) return;
+
+    activePointerId = event.pointerId;
+    canvasRef.value?.setPointerCapture(event.pointerId);
 
     // If we're editing text on canvas, check if click is inside or outside the text shape
     const mode = interactionMode.value;
@@ -1265,7 +1269,8 @@ export function useAnnotation(
   /**
    * Handle mouse move on canvas
    */
-  function handleMouseMove(event: MouseEvent) {
+  function handleMouseMove(event: PointerEvent) {
+    if (!event.isPrimary || (activePointerId !== null && activePointerId !== event.pointerId)) return;
     const mode = interactionMode.value;
     const screenPoint = { x: event.clientX, y: event.clientY };
     const imagePoint = toImagePoint(screenPoint);
@@ -1368,11 +1373,13 @@ export function useAnnotation(
             additiveSelection: mode.additiveSelection,
             initialSelectionIds: mode.initialSelectionIds,
           };
-          continueInteraction(imagePoint, event.shiftKey);
         } else {
           // Start drawing with current tool
           startDrawing(mode.startPoint);
         }
+        // Apply the move that crossed the threshold, including a quick flick
+        // whose next event is pointerup.
+        continueInteraction(imagePoint, event.shiftKey);
       }
       return;
     }
@@ -1384,8 +1391,18 @@ export function useAnnotation(
   /**
    * Handle mouse up on canvas
    */
-  function handleMouseUp(_event: MouseEvent) {
+  function handleMouseUp(event?: PointerEvent) {
+    if (event && (!event.isPrimary || (activePointerId !== null && activePointerId !== event.pointerId))) return;
+    if (activePointerId !== null && canvasRef.value?.hasPointerCapture(activePointerId)) {
+      canvasRef.value.releasePointerCapture(activePointerId);
+    }
+    activePointerId = null;
     const mode = interactionMode.value;
+    // A second finger switches to viewport navigation, not a text-placement tap.
+    if (!event && mode.type === 'pending') {
+      interactionMode.value = { type: 'idle' };
+      return;
+    }
 
     // If still in pending mode, it was a click (not a drag)
     if (mode.type === 'pending') {
@@ -1455,10 +1472,11 @@ export function useAnnotation(
     const canvas = canvasRef.value;
     if (!canvas) return;
 
-    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('pointerdown', handleMouseDown);
     canvas.addEventListener('dblclick', handleDoubleClick);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handleMouseMove);
+    window.addEventListener('pointerup', handleMouseUp);
+    window.addEventListener('pointercancel', handleMouseUp);
     window.addEventListener('keydown', handleKeyDownWrapper);
     window.addEventListener('keyup', handleKeyUpWrapper);
     // A drag that ends with the window losing focus never sees the Option
@@ -1478,11 +1496,12 @@ export function useAnnotation(
 
     const canvas = canvasRef.value;
     if (canvas) {
-      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('pointerdown', handleMouseDown);
       canvas.removeEventListener('dblclick', handleDoubleClick);
     }
-    window.removeEventListener('mousemove', handleMouseMove);
-    window.removeEventListener('mouseup', handleMouseUp);
+    window.removeEventListener('pointermove', handleMouseMove);
+    window.removeEventListener('pointerup', handleMouseUp);
+    window.removeEventListener('pointercancel', handleMouseUp);
     window.removeEventListener('keydown', handleKeyDownWrapper);
     window.removeEventListener('keyup', handleKeyUpWrapper);
     window.removeEventListener('blur', handleWindowBlur);
@@ -1651,6 +1670,7 @@ export function useAnnotation(
     cursorStyle,
     marqueeBounds,
     setupListeners,
+    commitGesture: handleMouseUp,
     cleanupListeners,
     getSelectedShape,
     updateShape,
