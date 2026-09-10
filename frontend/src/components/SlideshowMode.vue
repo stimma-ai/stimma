@@ -339,7 +339,7 @@
     </div>
 
     <!-- Gallery chrome stays separate from the image's marker actions. -->
-    <div v-if="slideshowCompact && !compactImmersive" class="relative z-chrome flex shrink-0 items-center justify-between bg-slideshow-matt px-3 pb-2 pt-[calc(var(--safe-top,0px)+8px)]" style="-webkit-app-region: no-drag">
+    <div v-if="slideshowCompact && !compactImmersive" class="relative z-chrome flex shrink-0 items-center justify-between bg-slideshow-matt pb-2 pt-[calc(var(--safe-top,0px)+8px)]" :style="{ paddingLeft: 'calc(var(--safe-left, 0px) + 12px)', paddingRight: 'calc(var(--safe-right, 0px) + 12px)', WebkitAppRegion: 'no-drag' }">
       <button class="compact-bar-btn" :aria-label="isViewingSource || isViewingSet || isViewingGrid ? 'Back' : 'Close slideshow'" @click="isViewingSource ? goBackFromSource() : isViewingGrid ? exitGridView() : isViewingSet ? exitSetView() : handleCloseClick()">
         <ArrowLeftIcon v-if="isViewingSource || isViewingSet || isViewingGrid" class="h-5 w-5" /><XMarkIcon v-else class="h-5 w-5" />
       </button>

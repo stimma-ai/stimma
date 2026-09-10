@@ -129,10 +129,16 @@ test.describe('phone lane: media touch paths', () => {
         document.documentElement.style.setProperty('--safe-right', `${right}px`);
         document.documentElement.style.setProperty('--safe-bottom', '21px');
       }, { left, right });
-      await expect(page.getByTitle('Close slideshow', { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Close slideshow', exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.querySelector('img[fetchpriority="high"]') === (window as any).slideshowImageBeforeRotation)).toBe(true);
-      const close = await page.getByTitle('Close slideshow', { exact: true }).boundingBox();
+      const close = await page.getByRole('button', { name: 'Close slideshow', exact: true }).boundingBox();
+      expect(close!.x).toBeGreaterThanOrEqual(left);
       expect(close!.x + close!.width).toBeLessThanOrEqual(844 - right);
+      for (const name of ['Info', 'Full screen']) {
+        const button = await page.getByRole('button', { name, exact: true }).boundingBox();
+        expect(button!.x).toBeGreaterThanOrEqual(left);
+        expect(button!.x + button!.width).toBeLessThanOrEqual(844 - right);
+      }
       const buttons = await page.locator('.slideshow-control-bar button').evaluateAll(elements => elements.map(el => {
         const box = el.getBoundingClientRect(); return { left: box.left, right: box.right };
       }));

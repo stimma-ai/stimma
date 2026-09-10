@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onDeactivated, ref } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/outline'
 import Sheet from './ui/Sheet.vue'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
@@ -11,6 +11,7 @@ const props = defineProps({
 defineEmits(['toggle'])
 const open = ref(false)
 const search = ref('')
+onDeactivated(() => { open.value = false })
 // Four fit at 320px without shrinking the touch targets. Reserve the fourth
 // slot for overflow only when the catalog actually needs it; preserve order.
 const inlineMarkers = computed(() => props.markers.length > 4 ? props.markers.slice(0, 3) : props.markers)
