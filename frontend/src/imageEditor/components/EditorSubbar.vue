@@ -322,7 +322,7 @@ function chipClass(active: boolean, pending = false) {
            its Properties, where they stay adjustable. -->
       <template v-if="dodgeBurnSubs.includes(sub ?? '')">
         <label class="flex items-center gap-2 text-xs text-content-tertiary">
-          Exposure
+          <span>Exposure</span>
           <input
             type="range" min="1" max="100" class="w-20"
             :value="state.retouchExposure"
@@ -347,7 +347,7 @@ function chipClass(active: boolean, pending = false) {
       </template>
       <template v-else-if="strengthSubs.includes(sub ?? '')">
         <label class="flex items-center gap-2 text-xs text-content-tertiary">
-          Strength
+          <span>Strength</span>
           <input
             type="range" min="1" max="100" class="w-20"
             :value="state.retouchStrength"
@@ -399,7 +399,7 @@ function chipClass(active: boolean, pending = false) {
            and the opposite sign of the crop window's own tilt. -->
       <div :class="ROW">
       <label class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:text-[13px]">
-        Straighten
+        <span>Straighten</span>
         <input
           type="range" min="-0.7854" max="0.7854" step="0.002" class="w-28 compact:flex-1 compact:w-auto"
           :value="-(state.rotation ?? 0)"

@@ -686,10 +686,16 @@ The drawer body shows exactly one of: the family's controls (plus the
 selected step's inspector when it belongs to that family), the selection
 panel, or the stack with Edits / Output / Info as one segmented control.
 A step opened from the stack shows `‹ Edits` and its name in the pinned
-row. Sliders inside the drawer follow one grammar: label and mono value on
-one line, a thin track under them, the whole 46px row the hit area — the
-`.editor-drawer-body` rules in `style.css` do this to the desktop
-inspectors unchanged.
+row. Sliders inside the drawer follow one grammar: **the row is the
+slider**. Label left, mono value right, a 2px hairline under the row that
+fills to the value (from the centre for bipolar ranges), and the range
+input itself invisible over the whole 44px row so a drag anywhere on it
+scrubs — no thumb, no track, no second line. The `.editor-drawer-body`
+rules in `style.css` do this to the desktop inspectors unchanged, and
+`ImageEditorView` keeps the fill's custom properties current. Small
+canvas-like controls (the tone curve) keep their own visuals with 44px
+hit areas around them and freeze the drawer's scroll for the length of a
+drag.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

@@ -279,6 +279,39 @@ function onCompactFamily(id: FamilyId) {
   disarmSelect()
   if (family.value !== id) selectFamily(id)
 }
+/**
+ * Phone sliders draw their own value: the range input is invisible and covers
+ * its row (the whole row is the hit area), and a hairline under the row fills
+ * to the value. The fill is CSS (`style.css`, `.editor-drawer-body`) driven by
+ * two custom properties this keeps current for every slider in the drawer,
+ * whichever inspector rendered it.
+ */
+function paintDrawerRangeFills(root: HTMLElement) {
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('label > input[type="range"]'))) {
+    const label = input.parentElement
+    if (!label) continue
+    const min = Number(input.min || 0)
+    const max = Number(input.max || 100)
+    const value = Number(input.value)
+    const p = max > min ? ((value - min) / (max - min)) * 100 : 0
+    const zero = min < 0 && max > 0 ? ((0 - min) / (max - min)) * 100 : 0
+    label.style.setProperty('--fill-l', `${Math.min(p, zero).toFixed(2)}%`)
+    label.style.setProperty('--fill-w', `${Math.abs(p - zero).toFixed(2)}%`)
+  }
+}
+watch(editorDrawerRef, (drawer, _previous, onCleanup) => {
+  const root = (drawer?.$el as HTMLElement | undefined)?.querySelector<HTMLElement>('#editor-drawer-body')
+  if (!root) return
+  const paint = () => paintDrawerRangeFills(root)
+  paint()
+  const observer = new MutationObserver(paint)
+  observer.observe(root, { childList: true, subtree: true })
+  root.addEventListener('input', paint)
+  // Programmatic value changes (undo, reset, a look) patch the input's value
+  // without a DOM mutation, so a slow tick keeps the fill honest.
+  const timer = setInterval(paint, 300)
+  onCleanup(() => { observer.disconnect(); root.removeEventListener('input', paint); clearInterval(timer) })
+}, { flush: 'post' })
 /** The step whose properties the drawer shows, for the pinned title row. */
 const compactStepTitle = computed(() =>
   (selectedOpId.value ? stack.opById(selectedOpId.value)?.label : null) ?? 'Properties'
@@ -8827,6 +8860,7 @@ watch(
       <div
         v-if="isCompact"
         class="editor-compact-header relative z-chrome pt-safe shrink-0 border-b border-edge-subtle bg-base"
+        data-drawer-chrome
       >
         <div class="flex h-[60px] items-center gap-0.5 pl-[max(8px,var(--safe-left,0px))] pr-[max(8px,var(--safe-right,0px))]">
         <button
@@ -9660,6 +9694,7 @@ watch(
         </ToolDrawer>
         <EditorToolbar
           bar
+          data-drawer-chrome
           :active="family"
           :edits-active="!family"
           :count="visibleRows.length"

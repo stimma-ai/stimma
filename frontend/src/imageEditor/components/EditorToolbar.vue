@@ -70,7 +70,7 @@ function tap(id: FamilyId) {
        selects a step rather than arming a tool. -->
   <div
     v-if="bar"
-    class="flex items-stretch shrink-0 border-t border-edge-subtle bg-base pt-1 px-1 pb-[max(16px,var(--safe-bottom,0px))]"
+    class="flex items-stretch shrink-0 border-t border-edge-subtle bg-base pt-0.5 px-1 pb-[max(12px,var(--safe-bottom,0px))]"
     role="toolbar"
     aria-label="Editor families"
   >
@@ -78,7 +78,7 @@ function tap(id: FamilyId) {
       v-for="family in barFamilies"
       :key="family.id"
       type="button"
-      class="flex-1 min-w-0 min-h-14 py-1.5 flex flex-col items-center justify-center gap-1.5 rounded-lg text-[10.5px] font-medium leading-none border-none transition-colors"
+      class="flex-1 min-w-0 min-h-12 py-1 flex flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium leading-none border-none transition-colors"
       :class="[
         active === family.id ? 'text-accent-hi bg-accent/15' : 'text-content-secondary bg-transparent',
         unavailable.includes(family.id) && 'opacity-35',
@@ -88,23 +88,23 @@ function tap(id: FamilyId) {
       :aria-disabled="unavailable.includes(family.id) || undefined"
       @click="tap(family.id)"
     >
-      <span class="w-6 h-6 shrink-0" v-html="family.svg" />
+      <span class="w-[22px] h-[22px] shrink-0" v-html="family.svg" />
       {{ family.label }}
     </button>
     <span class="w-px shrink-0 my-3 mx-0.5 bg-edge-strong" aria-hidden="true" />
     <button
       type="button"
-      class="relative flex-1 min-w-0 min-h-14 py-1.5 flex flex-col items-center justify-center gap-1.5 rounded-lg text-[10.5px] font-medium leading-none border-none transition-colors"
+      class="relative flex-1 min-w-0 min-h-12 py-1 flex flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium leading-none border-none transition-colors"
       :class="editsActive ? 'text-selection bg-selection/15' : 'text-content-secondary bg-transparent'"
       aria-label="Edits"
       :aria-pressed="editsActive"
       @click="emit('edits')"
     >
-      <span class="w-6 h-6 shrink-0" v-html="STACK_ICON" />
+      <span class="w-[22px] h-[22px] shrink-0" v-html="STACK_ICON" />
       Edits
       <span
         v-if="count"
-        class="absolute top-1 left-[calc(50%+6px)] min-w-[15px] h-[15px] px-1 rounded-full text-[9.5px] font-mono font-semibold flex items-center justify-center"
+        class="absolute top-0.5 left-[calc(50%+5px)] min-w-[15px] h-[15px] px-1 rounded-full text-[9.5px] font-mono font-semibold flex items-center justify-center"
         :class="editsActive ? 'bg-selection text-base' : 'bg-content-tertiary text-base'"
         aria-hidden="true"
       >{{ count }}</span>

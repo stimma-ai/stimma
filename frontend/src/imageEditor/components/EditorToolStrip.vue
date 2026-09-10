@@ -157,7 +157,7 @@ watch([activeId, () => props.family, () => props.armed], () => {
 <template>
   <div
     ref="rootEl"
-    class="editor-tool-strip flex items-stretch gap-0.5 overflow-x-auto px-2 pt-1 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    class="editor-tool-strip flex items-stretch gap-0.5 overflow-x-auto px-2 pt-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     role="toolbar"
     :aria-label="armed ? 'Selection tools' : 'Tools'"
   >
@@ -166,8 +166,8 @@ watch([activeId, () => props.family, () => props.armed], () => {
       <button
         v-else
         type="button"
-        class="flex-none min-w-[64px] h-[58px] px-1.5 rounded-lg flex flex-col items-center justify-center gap-1.5
-               text-[11px] font-medium leading-none whitespace-nowrap border-none transition-colors
+        class="flex-none min-w-[60px] h-[50px] px-1.5 rounded-lg flex flex-col items-center justify-center gap-1
+               text-[10.5px] font-medium leading-none whitespace-nowrap border-none transition-colors
                focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
         :class="item.active
           ? (item.selection ? 'bg-selection/15 text-selection' : 'bg-accent/15 text-accent-hi')
@@ -177,10 +177,10 @@ watch([activeId, () => props.family, () => props.armed], () => {
         :data-strip-cell="item.id"
         @click="item.pick()"
       >
-        <svg v-if="item.aspect !== undefined && aspectRect(item.aspect)" viewBox="0 0 24 24" class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg v-if="item.aspect !== undefined && aspectRect(item.aspect)" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect v-bind="aspectRect(item.aspect)!" rx="1.5" :stroke-dasharray="item.aspect === -1 ? '3 2' : undefined" />
         </svg>
-        <ToolIcon v-else :name="item.icon ?? 'crop'" :size="22" />
+        <ToolIcon v-else :name="item.icon ?? 'crop'" :size="20" />
         {{ item.label }}
       </button>
     </template>

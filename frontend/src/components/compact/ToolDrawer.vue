@@ -57,7 +57,16 @@ const dragPx = ref<number | null>(null)
 // push the handle out of view. `heroReserve` is what stays visible above.
 function availableH() {
   const parent = rootEl.value?.parentElement
-  return parent ? parent.clientHeight : window.innerHeight - props.chromeReserve
+  if (!parent) return window.innerHeight - props.chromeReserve
+  // Siblings marked as chrome (the editor's header and dock) are not space the
+  // drawer may take: full height is the column minus them minus the hero slice.
+  let chrome = 0
+  for (const sibling of Array.from(parent.children)) {
+    if (sibling !== rootEl.value && (sibling as HTMLElement).dataset.drawerChrome !== undefined) {
+      chrome += (sibling as HTMLElement).offsetHeight
+    }
+  }
+  return parent.clientHeight - chrome
 }
 /** The chrome the drawer carries at every level: handle, pinned prompt, pinned strip. */
 function chromeH() {
@@ -110,10 +119,13 @@ function toggle() {
     // Content-sized: a body that already shows whole has nowhere to grow, so
     // the tap folds it instead of opening onto empty drawer.
     const half = heightFor('half')!
-    level.value = props.contentSized && half < heightFor('full')! && chromeH() + bodyNaturalPx.value <= half
-      ? 'collapsed'
-      : props.contentSized ? 'full' : 'collapsed'
-  } else level.value = 'half'
+    const fits = chromeH() + bodyNaturalPx.value <= half
+    level.value = props.contentSized && !fits ? 'full' : 'collapsed'
+  } else {
+    // Full folds all the way: two taps close the drawer from any height, so a
+    // tall panel can never trap the picture behind it.
+    level.value = 'collapsed'
+  }
 }
 function onPointerUp(e: PointerEvent) {
   if (activePointerId !== e.pointerId) return

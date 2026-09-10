@@ -51,7 +51,7 @@
         </transition>
       </div>
 
-      <UpdateControls />
+      <UpdateControls @open-settings="emit('open-settings', $event)" />
 
       <!-- Update affordance: compact icon pill that peeks open on state change and expands on hover -->
       <button

@@ -854,77 +854,98 @@ select option {
 /* The image editor's phone drawer: the desktop inspectors render inside it
    unchanged, so their controls are brought up to touch size here rather than
    one component at a time (DESIGN.md §1.11 touch targets). */
-/* Slider grammar on a phone: the label and its value on one line, a thin
-   track under them, the whole row the hit area. Labels never clip, and
-   seven of them fit in the half-open drawer. */
+/* Slider grammar on a phone (DESIGN.md §3.6a): the ROW is the slider. Label
+   left, mono value right, a hairline under the row that fills to the value,
+   and the range input itself invisible over the whole 44px row so a drag
+   anywhere on it scrubs. The fill is driven by --fill-l / --fill-w, which
+   ImageEditorView keeps current for every slider in the drawer. */
 [data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  position: relative;
+  display: flex !important;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 0;
-  min-height: 46px;
-  padding: 2px 0;
-  font-size: 12.5px;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 2px;
+  font-size: 13px;
   line-height: 1.2;
 }
-[data-viewport="compact"] .editor-drawer-body label > input[type="range"] {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  min-width: 0;
-  width: 100%;
-  /* A 44px touch target that overlaps the label line above it, so the row
-     still reads as one 46px unit with a thin track. */
-  height: 44px;
-  margin: -10px 0 -6px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
 [data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
   width: auto;
   white-space: normal;
   overflow: visible;
+  color: rgb(var(--color-text-secondary-rgb, 164 173 187));
 }
-[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) > span:last-child:not(:first-child) {
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) > span:last-of-type:not(:first-child) {
+  flex: none;
   width: auto;
   text-align: right;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  color: rgb(var(--color-text-tertiary-rgb, 111 120 136));
+  font-size: 12.5px;
 }
-[data-viewport="compact"] .editor-drawer-body input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"])::before,
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"])::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"])::before {
+  left: 2px;
+  right: 2px;
   background: var(--color-overlay-light, rgba(255, 255, 255, 0.14));
 }
-[data-viewport="compact"] .editor-drawer-body input[type="range"]::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--color-overlay-light, rgba(255, 255, 255, 0.14));
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"])::after {
+  left: calc(2px + var(--fill-l, 0%));
+  width: var(--fill-w, 0%);
+  background: rgb(var(--color-accent-rgb, 45 212 191));
 }
-[data-viewport="compact"] .editor-drawer-body input[type="range"]::-webkit-slider-thumb {
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
-  margin-top: -7.5px;
-  border-radius: 50%;
-  background: #fff;
-  border: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: pan-y;
 }
-[data-viewport="compact"] .editor-drawer-body input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"]::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"]::-moz-range-track {
+  height: 100%;
+  background: transparent;
+}
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  background: transparent;
   border: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
+}
+[data-viewport="compact"] .editor-drawer-body label > input[type="range"]::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 [data-viewport="compact"] .editor-drawer-body input[type="range"]:not(label > *) { height: 44px; }
+/* The tone curve keeps its own small controls: the plot's points and clip
+   toggles size their hit areas in the component. */
+[data-viewport="compact"] .editor-drawer-body .tone-curve-plot button { min-width: 0; min-height: 0; }
 [data-viewport="compact"] .editor-drawer-body input[type="checkbox"] { width: 24px; height: 24px; margin: 10px; }
 [data-viewport="compact"] .editor-drawer-body button { min-height: 44px; min-width: 44px; }
 [data-viewport="compact"] .editor-drawer-body input[type="number"],

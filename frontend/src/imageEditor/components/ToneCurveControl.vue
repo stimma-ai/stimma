@@ -135,11 +135,30 @@ function pointerPosition(event: PointerEvent) {
   }
 }
 
+/**
+ * The phone drawer scrolls its body; a point drag that runs to the plot's
+ * edge must not turn into a scroll. The plot is touch-none, and for good
+ * measure the scrolling ancestor is frozen for the length of the drag.
+ */
+let frozenScroller: HTMLElement | null = null
+function freezeScroller() {
+  const scroller = plot.value?.closest<HTMLElement>('#editor-drawer-body') ?? null
+  if (!scroller) return
+  frozenScroller = scroller
+  scroller.style.overflowY = 'hidden'
+}
+function releaseScroller() {
+  if (!frozenScroller) return
+  frozenScroller.style.overflowY = ''
+  frozenScroller = null
+}
+
 function startPoint(event: PointerEvent, index: number) {
   if (props.disabled) return
   selectedIndex.value = index
   dragging.value = index
   plot.value?.setPointerCapture(event.pointerId)
+  freezeScroller()
   event.preventDefault()
   event.stopPropagation()
 }
@@ -155,6 +174,7 @@ function addPoint(event: PointerEvent) {
   selectedIndex.value = index
   dragging.value = index
   plot.value?.setPointerCapture(event.pointerId)
+  freezeScroller()
   emitPoints(next)
   event.preventDefault()
 }
@@ -176,6 +196,7 @@ function movePoint(event: PointerEvent) {
 }
 
 function finishPoint(event: PointerEvent) {
+  releaseScroller()
   if (dragging.value === null) return
   movePoint(event)
   dragging.value = null
@@ -337,7 +358,7 @@ function reset() {
       <div class="w-full aspect-square rounded-md bg-matte p-2">
         <div
           ref="plot"
-          class="relative h-full w-full cursor-crosshair touch-none"
+          class="tone-curve-plot relative h-full w-full cursor-crosshair touch-none"
           role="group"
           :aria-label="`${CHANNEL_LABELS[channel]} ${label ?? 'tone curve'}`"
           @pointerdown="addPoint"
@@ -421,6 +442,7 @@ function reset() {
           <button
             type="button"
             class="absolute left-0 top-0 grid h-5 w-5 place-items-center rounded-md
+                   compact:-left-3 compact:-top-3 compact:h-11 compact:w-11
                    transition-colors duration-150
                    focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
             :class="clipShadows
@@ -439,6 +461,7 @@ function reset() {
           <button
             type="button"
             class="absolute right-0 top-0 grid h-5 w-5 place-items-center rounded-md
+                   compact:-right-3 compact:-top-3 compact:h-11 compact:w-11
                    transition-colors duration-150
                    focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
             :class="clipHighlights
@@ -459,22 +482,12 @@ function reset() {
             v-for="(point, index) in points"
             :key="`${channel}:${index}`"
             type="button"
-            class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2
-                   cursor-move rounded-full border-2 bg-matte
-                   transition-colors duration-150
+            class="absolute grid h-3 w-3 -translate-x-1/2 -translate-y-1/2 place-items-center
+                   cursor-move rounded-full border-0 bg-transparent
+                   compact:h-11 compact:w-11
                    focus-visible:outline-none focus-visible:ring-2 ring-accent/60
                    ring-offset-1 ring-offset-matte
                    disabled:cursor-not-allowed disabled:opacity-50"
-            :class="[
-              channel === 'rgb' ? 'border-content' :
-                channel === 'red' ? 'border-red-400' :
-                  channel === 'green' ? 'border-green-400' : 'border-blue-400',
-              selectedIndex === index && (
-                channel === 'rgb' ? 'bg-content' :
-                  channel === 'red' ? 'bg-red-400' :
-                    channel === 'green' ? 'bg-green-400' : 'bg-blue-400'
-              ),
-            ]"
             :style="{ left: `${point[0] * 100}%`, top: `${(1 - point[1]) * 100}%` }"
             :disabled="disabled"
             role="slider"
@@ -485,7 +498,22 @@ function reset() {
             @pointerdown="startPoint($event, index)"
             @dblclick.stop="removePoint(index)"
             @keydown="keyboardPoint($event, index)"
-          />
+          >
+            <span
+              class="block h-3 w-3 rounded-full border-2 bg-matte transition-colors duration-150"
+              :class="[
+                channel === 'rgb' ? 'border-content' :
+                  channel === 'red' ? 'border-red-400' :
+                    channel === 'green' ? 'border-green-400' : 'border-blue-400',
+                selectedIndex === index && (
+                  channel === 'rgb' ? 'bg-content' :
+                    channel === 'red' ? 'bg-red-400' :
+                      channel === 'green' ? 'bg-green-400' : 'bg-blue-400'
+                ),
+              ]"
+              aria-hidden="true"
+            />
+          </button>
         </div>
       </div>
 
