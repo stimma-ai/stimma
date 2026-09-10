@@ -1516,12 +1516,16 @@ function nativeTargetDir(crateDir: string): string {
   return cache ? join(cache, "cargo", Deno.build.target) : join(crateDir, "target");
 }
 
-async function buildStimmaNative(): Promise<string> {
+async function buildStimmaNative(target: string): Promise<string> {
   const dir = join(repoRoot, "native", "stimma-native");
   const targetDir = nativeTargetDir(dir);
   await run("cargo", ["build", "--locked", "--release", "--target-dir", targetDir], { cwd: dir });
   const ext = Deno.build.os === "windows" ? ".exe" : "";
-  return join(targetDir, "release", `stimma-native${ext}`);
+  // Package from the checkout, not a private compiler-cache directory. Linux
+  // updater fixtures can run as a different unprivileged user than the builder.
+  const staged = join(repoRoot, "src-tauri", "binaries", `stimma-native-${target}${ext}`);
+  await Deno.copyFile(join(targetDir, "release", `stimma-native${ext}`), staged);
+  return staged;
 }
 
 async function appBuildElectron(polishedInstaller: boolean, channel: string): Promise<void> {
@@ -1536,7 +1540,7 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   const backendResources = await prepareElectronBackendResources(target);
   await buildWatchdog(target);
   const drawThingsSidecar = await ensureDrawThingsSidecar(target);
-  const nativeHelper = await buildStimmaNative();
+  const nativeHelper = await buildStimmaNative(target);
 
   console.log("Building Electron shell");
   await ensureElectronDeps();

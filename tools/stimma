@@ -15,6 +15,9 @@ fi
 
 if command -v deno >/dev/null 2>&1; then
   DENO_BIN="$(command -v deno)"
+elif [[ -x "${DENO_INSTALL:-$HOME/.deno}/bin/deno" ]]; then
+  # Non-login CI shells may not have the installer directory on PATH.
+  DENO_BIN="${DENO_INSTALL:-$HOME/.deno}/bin/deno"
 else
   echo "Deno is not installed. Installing Deno..."
   curl -fsSL https://deno.land/install.sh | sh
