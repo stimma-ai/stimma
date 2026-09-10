@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex items-center justify-between px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-tauri-drag-region>
+  <div class="relative grid grid-cols-[minmax(max-content,1fr)_minmax(0,420px)_minmax(max-content,1fr)] items-center gap-3 px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-tauri-drag-region>
     <!-- Left side: navigation buttons -->
     <div class="flex items-center gap-0.5">
       <button
@@ -27,14 +27,15 @@
     </div>
 
     <!-- Center: global search omnibox -->
-    <!-- z-30: the translate wrapper traps the dropdown's z-index in its own
-         stacking context, which must outrank the view roots (relative, z-auto) -->
-    <div class="absolute left-1/2 top-0 h-full -translate-x-1/2 flex items-center z-30">
+    <!-- Keep search in flow so expanding controls reserve space. Equal side
+         tracks center it when space allows; the search track can shrink.
+         The dropdown must still outrank the view roots (relative, z-auto). -->
+    <div class="relative min-w-0 z-chrome">
       <GlobalSearchBox />
     </div>
 
     <!-- Right side: controls and progress -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center justify-self-end gap-2">
       <!-- Processing indicator (only shows when there's activity or errors) -->
       <div
         v-if="hasActiveWork"

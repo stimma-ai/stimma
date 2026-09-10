@@ -1,8 +1,8 @@
 <template>
-  <div class="relative global-search-box">
+  <div class="relative min-w-0 global-search-box">
     <!-- Search field -->
     <div
-      class="flex items-center gap-1.5 h-[34px] w-[420px] rounded-lg border pl-2.5 pr-1 transition-colors"
+      class="flex items-center gap-1.5 h-[34px] w-full min-w-0 rounded-lg border pl-2.5 pr-1 transition-colors"
       :class="isOpen
         ? 'bg-surface border-accent/50 ring-2 ring-accent/40'
         : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
