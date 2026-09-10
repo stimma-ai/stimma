@@ -219,7 +219,7 @@ function chipClass(active: boolean, pending = false) {
   >
     <!-- Sub-tools, for the families that have them. Retouch lays its own out:
          its bar is two jobs, not one list. -->
-    <template v-if="family.subTools.length && family.id !== 'retouch'">
+    <template v-if="family.subTools.length && family.id !== 'retouch' && !compact">
       <div :class="ROW">
       <template
         v-for="option in family.subTools"
@@ -254,7 +254,7 @@ function chipClass(active: boolean, pending = false) {
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
     <template v-if="family.id === 'retouch'">
-      <div :class="ROW">
+      <div v-if="!compact" :class="ROW">
       <template
         v-for="option in family.subTools"
         :key="option.id"
@@ -284,7 +284,7 @@ function chipClass(active: boolean, pending = false) {
            The brush only defines its region; it is not itself a Paint stroke. -->
       <ToolbarPopover
         v-if="sub !== 'patch'"
-        :label="`${Math.round(state.retouchBrush.size)}px`"
+        :label="compact ? 'Brush' : `${Math.round(state.retouchBrush.size)}px`"
         :width="336"
       >
         <template #trigger>
@@ -302,6 +302,20 @@ function chipClass(active: boolean, pending = false) {
           @update:model-value="emit('set', { retouchBrush: $event })"
         />
       </ToolbarPopover>
+      <!-- Phone: size is the one brush setting worth a slider of its own; the
+           picker behind the chip keeps the rest. -->
+      <label
+        v-if="compact && sub !== 'patch'"
+        class="flex flex-1 min-w-0 items-center gap-2 text-xs text-content-tertiary compact:text-[13px]"
+      >
+        <span>Size</span>
+        <input
+          type="range" min="1" max="400" step="1" class="flex-1 min-w-0"
+          :value="state.retouchBrush.size"
+          @input="emit('set', { retouchBrush: { ...state.retouchBrush, size: Number(($event.target as HTMLInputElement).value) } })"
+        />
+        <span class="tabular-nums">{{ Math.round(state.retouchBrush.size) }} px</span>
+      </label>
 
       <!-- Strength for the photographic brushes. These seed the region the
            next gesture creates; the landed region's own values then live in
@@ -366,8 +380,7 @@ function chipClass(active: boolean, pending = false) {
 
     <!-- Crop ------------------------------------------------------------ -->
     <template v-if="family.id === 'crop'">
-      <p v-if="compact" class="px-1 py-1 text-xs text-content-secondary">Pinch to zoom · twist to straighten</p>
-      <div :class="ROW">
+      <div v-if="!compact" :class="ROW">
       <button
         v-for="preset in CROP_ASPECTS"
         :key="preset.id"
@@ -596,7 +609,7 @@ function chipClass(active: boolean, pending = false) {
 
     <!-- Paint ----------------------------------------------------------- -->
     <template v-else-if="family.id === 'paint'">
-      <div :class="ROW">
+      <div v-if="!compact" :class="ROW">
       <Tooltip
         v-for="engine in compact ? PAINT_ENGINES : standalonePaintEngines"
         :key="engine.id"
@@ -626,7 +639,7 @@ function chipClass(active: boolean, pending = false) {
            the toolbar rather than appearing in the Edits inspector. -->
       <ToolbarPopover
         v-if="state.engineId === 'paint' || state.engineId === 'erase'"
-        :label="`${Math.round(state.paintBrush.size)}px`"
+        :label="compact ? 'Brush' : `${Math.round(state.paintBrush.size)}px`"
         :width="336"
       >
         <template #trigger>
@@ -645,6 +658,18 @@ function chipClass(active: boolean, pending = false) {
           @update:model-value="emit('set', { paintBrush: $event })"
         />
       </ToolbarPopover>
+      <label
+        v-if="compact && (state.engineId === 'paint' || state.engineId === 'erase')"
+        class="flex flex-1 min-w-0 items-center gap-2 text-xs text-content-tertiary compact:text-[13px]"
+      >
+        <span>Size</span>
+        <input
+          type="range" min="1" max="400" step="1" class="flex-1 min-w-0"
+          :value="state.paintBrush.size"
+          @input="emit('set', { paintBrush: { ...state.paintBrush, size: Number(($event.target as HTMLInputElement).value) } })"
+        />
+        <span class="tabular-nums">{{ Math.round(state.paintBrush.size) }} px</span>
+      </label>
       <!-- Erase has no color: its stroke is an alpha mask. -->
       <ToolbarPopover
         v-if="state.engineId !== 'erase' && state.engineId !== 'gradient'"
@@ -712,6 +737,7 @@ function chipClass(active: boolean, pending = false) {
       </template>
       <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <button
+        v-if="!compact"
         type="button"
         class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap text-content-secondary hover:text-content hover:bg-overlay-subtle"
         @click="emit('set', { newLayer: true })"
@@ -730,7 +756,7 @@ function chipClass(active: boolean, pending = false) {
          the photographic corrections, and the things that ADD a look. Eleven
          labelled chips in one undifferentiated line is what made this wrap. -->
     <template v-else-if="family.id === 'levels'">
-      <div :class="ROW">
+      <div v-if="!compact" :class="ROW">
       <!-- The Autos behind one chip. They are three variants of a single act —
            let the histogram decide — and spelled out across the bar they took a
            third of its width for the least specific thing on it.
@@ -822,7 +848,8 @@ function chipClass(active: boolean, pending = false) {
       <div
         v-if="state.looksOpen"
         class="w-[calc(100%+2rem)] min-w-0 mt-2 -mx-4 -mb-2 px-4
-               flex items-start gap-1.5 overflow-x-auto custom-scrollbar"
+               flex items-start gap-1.5 overflow-x-auto custom-scrollbar
+               compact:w-[calc(100%+1.5rem)] compact:-mx-3 compact:px-3 compact:mt-1 compact:mb-1 compact:[scrollbar-width:none]"
       >
         <template v-for="(category, index) in LOOK_CATEGORIES" :key="category.id">
           <span v-if="index" class="w-px h-10 bg-edge-subtle mx-1 shrink-0" />

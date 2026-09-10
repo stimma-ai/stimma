@@ -22,12 +22,10 @@ import {
   ArrowUturnLeftIcon,
   ArrowUturnRightIcon,
   ArrowsPointingInIcon,
-  ArrowsPointingOutIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
-  InformationCircleIcon,
   MinusIcon,
   PlusIcon,
   ViewColumnsIcon,
@@ -36,6 +34,7 @@ import {
 import Button from '../components/ui/Button.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import ToolDrawer from '../components/compact/ToolDrawer.vue'
+import EditorToolStrip from '../imageEditor/components/EditorToolStrip.vue'
 import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
 import Tooltip from '../components/ui/Tooltip.vue'
@@ -251,6 +250,7 @@ const docSheetOpen = ref(false)
 const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
 /** Edits is a reliable way back from any tool or inspector to the stack. */
 function onCompactEdits() {
+  disarmSelect()
   if (family.value) leaveMode()
   selectedOpId.value = null
   selectedShapeId.value = null
@@ -261,13 +261,19 @@ function onCompactEdits() {
     editorDrawerRef.value?.scrollToTop()
   })
 }
-/** Output and Info live in the drawer at full height, reached from the document sheet. */
-function showCompactPanel(tab: 'edits' | 'output' | 'info') {
-  docSheetOpen.value = false
-  if (family.value) selectFamily(family.value)
-  sidebarTab.value = tab
-  nextTick(() => editorDrawerRef.value?.open('full'))
+/**
+ * The dock's family cells. A selection tool lets go first (the strip shows
+ * the family's tools again), and re-tapping the open family keeps it open:
+ * on a phone the dock is where you are, not a toggle.
+ */
+function onCompactFamily(id: FamilyId) {
+  disarmSelect()
+  if (family.value !== id) selectFamily(id)
 }
+/** The step whose properties the drawer shows, for the pinned title row. */
+const compactStepTitle = computed(() =>
+  (selectedOpId.value ? stack.opById(selectedOpId.value)?.label : null) ?? 'Properties'
+)
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -1988,11 +1994,6 @@ const compactTitle = computed(() => {
   return path.split('/').pop() || 'Edit'
 })
 const compactSubtitle = computed(() => {
-  if (family.value) {
-    const spec = familyById(family.value)
-    const tool = sub.value ? spec.subTools.find(t => t.id === sub.value)?.label : null
-    return tool ? `${spec.label} · ${tool}` : spec.label
-  }
   const n = visibleRows.value.length
   const edits = `${n} ${n === 1 ? 'edit' : 'edits'}`
   return stack.dirtySinceSave.value ? `${edits} · unsaved` : edits
@@ -3292,13 +3293,6 @@ const compactPropertiesVisible = computed(() => inspectorShown.value && (
   || (inspectorKind.value === 'model' && !!selectedModelOp.value)
   || showsAdjustInspector.value
 ))
-const compactDrawerTitle = computed(() => {
-  if (sidebarTab.value === 'output') return 'Output'
-  if (sidebarTab.value === 'info') return 'Info'
-  if (family.value) return familyById(family.value).label
-  if (compactPropertiesVisible.value && selectedOpId.value) return stack.opById(selectedOpId.value)?.label ?? 'Properties'
-  return 'Edits'
-})
 
 
 
@@ -6952,6 +6946,8 @@ function disarmSelect() {
 // The preview only means anything while a selection tool can gesture.
 watch(armedSelectTool, armed => {
   if (!armed) heldCombineOverride.value = null
+  // Phone: the tool's panel lives in the drawer, so arming raises it.
+  if (armed && isCompact.value) nextTick(() => editorDrawerRef.value?.open('half'))
 })
 
 /** Island-only settings: tuning the armed tool must never disarm it. */
@@ -9210,9 +9206,10 @@ watch(
           :ai-action="aiSelectAction"
           :ai-error="aiSelectError"
           :compact="isCompact"
+          :panel-target="isCompact ? '#editor-drawer-panels' : null"
           @done="disarmSelect"
           :class="isCompact
-            ? ['absolute bottom-2 left-2 right-2 z-chrome', (drawerFull || family === 'crop') && 'hidden']
+            ? ['absolute bottom-2 left-2 z-chrome', (drawerFull || family === 'crop') && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
@@ -9281,18 +9278,56 @@ watch(
           </template>
           <Spinner v-if="rendering" size="sm" />
         </div>
-        <div v-else class="flex min-h-11 items-center gap-2">
-          <button v-if="family || compactPropertiesVisible || sidebarTab !== 'edits'"
-            type="button" class="flex min-h-11 shrink-0 items-center gap-1 rounded-md pr-3 text-sm text-content-secondary"
-            aria-label="Back to edits" @click="onCompactEdits">
-            <ChevronDownIcon class="h-4 w-4 rotate-90" /> Edits
-          </button>
-          <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactDrawerTitle }}</span>
-        </div>
+        <template v-else-if="!armedSelectTool">
+          <!-- The stack: Edits, Output and Info as one segmented control. -->
+          <div
+            v-if="!family && !compactPropertiesVisible"
+            class="flex rounded-md bg-overlay-subtle p-0.5"
+            role="tablist"
+            aria-label="Document panels"
+          >
+            <button
+              v-for="tab in [
+                { id: 'edits', label: 'Edits' },
+                { id: 'output', label: 'Output' },
+                { id: 'info', label: 'Info' },
+              ]"
+              :key="tab.id"
+              type="button"
+              role="tab"
+              class="flex-1 min-h-10 rounded text-[13px] font-medium transition-colors"
+              :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
+              :aria-selected="sidebarTab === tab.id"
+              @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
+            >
+              {{ tab.label }}
+              <span
+                v-if="tab.id === 'output' && outputLabel(outputStage)"
+                class="ml-1 text-[11px] text-accent tabular-nums"
+              >{{ outputLabel(outputStage) }}</span>
+            </button>
+          </div>
+          <!-- A step's properties, reached from the stack: the way back, then the step. -->
+          <div v-else-if="!family" class="flex min-h-11 items-center gap-1">
+            <button
+              type="button"
+              class="flex min-h-11 shrink-0 items-center gap-0.5 rounded-md -ml-1 pr-2 text-[13px] text-content-secondary"
+              aria-label="Back to edits"
+              @click="onCompactEdits"
+            >
+              <ChevronDownIcon class="h-5 w-5 rotate-90" /> Edits
+            </button>
+            <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactStepTitle }}</span>
+          </div>
+          <!-- A family with a step's properties under its controls: name the step. -->
+          <div v-else-if="compactPropertiesVisible" class="flex min-h-9 items-center">
+            <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactStepTitle }}</span>
+          </div>
+        </template>
         </Teleport>
 
         <Teleport to="#editor-drawer-panels" :disabled="!isCompact" defer>
-        <div class="contents compact:flex compact:flex-col">
+        <div class="contents compact:flex compact:flex-col" :class="isCompact && armedSelectTool && '!hidden'">
         <OutputPanel
           v-if="sidebarTab === 'output' && stack.doc.value"
           :output="outputStage"
@@ -9572,12 +9607,27 @@ watch(
           ref="editorDrawerRef"
           id-prefix="editor-drawer"
           initial="half"
-          :hero-reserve="160"
-          :half-fraction="0.42"
+          content-sized
+          :hero-reserve="176"
+          :half-fraction="0.44"
           body-class="!px-0 editor-drawer-body"
         >
+          <!-- The family's tools (or the selection tools), pinned under the
+               body at every drawer height: switching tools is never a
+               navigation. -->
+          <template v-if="family || armedSelectTool" #strip>
+            <EditorToolStrip
+              :family="family"
+              :sub="sub"
+              :state="subbarState"
+              :armed="armedSelectTool"
+              @sub="selectSub"
+              @set="onSubbarSet"
+              @arm="(id: SelectToolId) => armSelectTool(id, true)"
+            />
+          </template>
           <EditorSubbar
-            v-if="family"
+            v-if="family && !armedSelectTool"
             :key="family"
             compact
             :family="family"
@@ -9599,7 +9649,9 @@ watch(
         <EditorToolbar
           bar
           :active="family"
-          @select="selectFamily"
+          :edits-active="!family"
+          :count="visibleRows.length"
+          @select="onCompactFamily"
           @edits="onCompactEdits"
         />
       </template>
@@ -9758,57 +9810,62 @@ watch(
       </div>
     </footer>
 
-    <!-- Compact: the document sheet, from the header title. The sidebar's
-         Output and Info tabs, the commit bar's Compare and Revert, and the
-         Save menu's fork, as rows. -->
-    <Sheet v-if="isCompact" :show="docSheetOpen" @close="docSheetOpen = false">
-      <template #header>
-        <div class="min-w-0 py-1">
-          <p class="truncate text-[14px] font-semibold text-content">{{ compactTitle }}</p>
-          <p class="truncate text-[12px] font-mono text-content-tertiary">
+    <!-- Compact: the document menu, anchored under the header title. Compare,
+         the Save menu's fork and Revert as rows. Output and Info are tabs in
+         the drawer, so they are not repeated here. -->
+    <div
+      v-if="isCompact && docSheetOpen"
+      class="fixed inset-0 z-menu"
+      data-modal-layer
+      @click.self="docSheetOpen = false"
+    >
+      <div
+        class="absolute left-12 w-64 max-w-[calc(100%-4rem)] bg-surface border border-edge-subtle rounded-lg shadow-lg py-1"
+        :style="{ top: 'calc(var(--safe-top, 0px) + 58px)' }"
+        role="menu"
+        aria-label="Document"
+      >
+        <div class="px-3 py-2 min-w-0">
+          <p class="truncate text-[13.5px] font-semibold text-content">{{ compactTitle }}</p>
+          <p class="truncate text-[11px] font-mono text-content-tertiary">
             {{ baseInfo ? `${baseInfo.width} × ${baseInfo.height} · ` : '' }}{{ compactSubtitle }}
           </p>
         </div>
-      </template>
-      <button type="button" class="sheet-row w-full text-left" @click="showCompactPanel('output')">
-        <ArrowsPointingOutIcon class="sheet-row-icon" />
-        <span class="flex-1 min-w-0 truncate">Output</span>
-        <span class="sheet-row-detail">{{ outputLabel(outputStage) ?? `${outputInput.width} × ${outputInput.height}` }}</span>
-      </button>
-      <button type="button" class="sheet-row w-full text-left" @click="showCompactPanel('info')">
-        <InformationCircleIcon class="sheet-row-icon" />
-        <span class="flex-1 min-w-0 truncate">Info</span>
-      </button>
-      <button
-        type="button"
-        class="sheet-row w-full text-left disabled:opacity-40"
-        :disabled="!composite"
-        @click="docSheetOpen = false; toggleCompare()"
-      >
-        <ViewColumnsIcon class="sheet-row-icon" />
-        <span class="flex-1 min-w-0 truncate">Compare with original</span>
-        <span v-if="comparing" class="sheet-row-detail">on</span>
-      </button>
-      <button
-        type="button"
-        class="sheet-row w-full text-left disabled:opacity-40"
-        :disabled="saving || !composite"
-        @click="docSheetOpen = false; save(true)"
-      >
-        <DocumentDuplicateIcon class="sheet-row-icon" />
-        <span class="flex-1 min-w-0 truncate">Save as new asset</span>
-      </button>
-      <button
-        type="button"
-        class="sheet-row w-full text-left text-red-400 disabled:opacity-40"
-        :disabled="!canRevert || saving"
-        @click="docSheetOpen = false; confirmingRevert = true"
-      >
-        <ArrowUturnLeftIcon class="sheet-row-icon !text-red-400" />
-        <span class="flex-1 min-w-0 truncate">Revert to last save</span>
-        <span v-if="canRevert" class="sheet-row-detail">{{ revertCount }} {{ revertCount === 1 ? 'edit' : 'edits' }}</span>
-      </button>
-    </Sheet>
+        <div class="border-t border-edge-subtle my-1" />
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full min-h-11 px-3 flex items-center gap-2.5 text-[13.5px] text-content text-left disabled:opacity-40"
+          :disabled="!composite"
+          @click="docSheetOpen = false; toggleCompare()"
+        >
+          <ViewColumnsIcon class="w-[18px] h-[18px] text-content-tertiary shrink-0" />
+          <span class="flex-1 min-w-0 truncate">Compare with original</span>
+          <span v-if="comparing" class="text-[11px] font-mono text-content-tertiary">on</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full min-h-11 px-3 flex items-center gap-2.5 text-[13.5px] text-content text-left disabled:opacity-40"
+          :disabled="saving || !composite"
+          @click="docSheetOpen = false; save(true)"
+        >
+          <DocumentDuplicateIcon class="w-[18px] h-[18px] text-content-tertiary shrink-0" />
+          <span class="flex-1 min-w-0 truncate">Save as new asset</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full min-h-11 px-3 flex items-center gap-2.5 text-[13.5px] text-red-400 text-left disabled:opacity-40"
+          :disabled="!canRevert || saving"
+          @click="docSheetOpen = false; confirmingRevert = true"
+        >
+          <ArrowUturnLeftIcon class="w-[18px] h-[18px] shrink-0" />
+          <span class="flex-1 min-w-0 truncate">Revert to last save</span>
+          <span v-if="canRevert" class="text-[11px] font-mono text-content-tertiary">{{ revertCount }} {{ revertCount === 1 ? 'edit' : 'edits' }}</span>
+        </button>
+      </div>
+    </div>
 
     <!-- Compact: the Generate tool picker as a sheet. -->
     <Sheet v-if="isCompact" :show="toolPickerOpen" title="Tool" @close="toolPickerOpen = false">

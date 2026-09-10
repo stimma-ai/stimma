@@ -23,7 +23,11 @@ const props = withDefaults(defineProps<{
   bar?: boolean
   /** Families the bar shows but will not enter. */
   unavailable?: FamilyId[]
-}>(), { bar: false, unavailable: () => [] })
+  /** Phone bar: the drawer is showing the stack (or a step's properties). */
+  editsActive?: boolean
+  /** Phone bar: how many steps the stack holds, as the Edits cell's badge. */
+  count?: number
+}>(), { bar: false, unavailable: () => [], editsActive: false, count: 0 })
 const emit = defineEmits<{ select: [FamilyId]; unavailable: [FamilyId]; edits: [] }>()
 
 const families = computed(() =>
@@ -34,6 +38,15 @@ const families = computed(() =>
         stroke-linecap="round" stroke-linejoin="round">${family.icon}</svg>`
     ),
   }))
+)
+
+/**
+ * The phone dock's order: the three photo tools, then Generate and Adjust,
+ * Annotate, and Paint last — the family a phone reaches for least.
+ */
+const PHONE_ORDER: FamilyId[] = ['crop', 'retouch', 'generate', 'levels', 'annotate', 'paint']
+const barFamilies = computed(() =>
+  PHONE_ORDER.map(id => families.value.find(family => family.id === id)!).filter(Boolean)
 )
 
 const STACK_ICON = sanitizeSvg(
@@ -50,31 +63,24 @@ function tap(id: FamilyId) {
 </script>
 
 <template>
-  <!-- Phone: the bottom bar. One docked bar per screen (DESIGN.md §1.11). -->
+  <!-- Phone: the bottom bar. One docked bar per screen (DESIGN.md §1.11).
+       The families first, then Edits behind a hairline: Edits is a peer of
+       the tools (the stack is what the drawer shows when no family is open),
+       never underneath them, and it wears the selection color because it
+       selects a step rather than arming a tool. -->
   <div
     v-if="bar"
-    class="flex items-stretch shrink-0 border-t border-edge-subtle bg-surface pt-2 px-1 pb-[max(16px,var(--safe-bottom,0px))]"
+    class="flex items-stretch shrink-0 border-t border-edge-subtle bg-base pt-1 px-1 pb-[max(16px,var(--safe-bottom,0px))]"
     role="toolbar"
     aria-label="Editor families"
   >
     <button
-      type="button"
-      class="flex-1 min-w-0 min-h-14 py-2 flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium leading-none border-none bg-transparent border-r border-edge-subtle mr-0.5"
-      :class="active === null ? 'text-accent-hi' : 'text-content-secondary'"
-      aria-label="Edits"
-      :aria-pressed="active === null"
-      @click="emit('edits')"
-    >
-      <span class="w-[22px] h-[22px] shrink-0" v-html="STACK_ICON" />
-      Edits
-    </button>
-    <button
-      v-for="family in families"
+      v-for="family in barFamilies"
       :key="family.id"
       type="button"
-      class="flex-1 min-w-0 min-h-14 py-2 flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium leading-none border-none bg-transparent"
+      class="flex-1 min-w-0 min-h-14 py-1.5 flex flex-col items-center justify-center gap-1.5 rounded-lg text-[10.5px] font-medium leading-none border-none transition-colors"
       :class="[
-        active === family.id ? 'text-accent-hi' : 'text-content-secondary',
+        active === family.id ? 'text-accent-hi bg-accent/15' : 'text-content-secondary bg-transparent',
         unavailable.includes(family.id) && 'opacity-35',
       ]"
       :aria-label="family.label"
@@ -82,8 +88,26 @@ function tap(id: FamilyId) {
       :aria-disabled="unavailable.includes(family.id) || undefined"
       @click="tap(family.id)"
     >
-      <span class="w-[22px] h-[22px] shrink-0" v-html="family.svg" />
+      <span class="w-6 h-6 shrink-0" v-html="family.svg" />
       {{ family.label }}
+    </button>
+    <span class="w-px shrink-0 my-3 mx-0.5 bg-edge-strong" aria-hidden="true" />
+    <button
+      type="button"
+      class="relative flex-1 min-w-0 min-h-14 py-1.5 flex flex-col items-center justify-center gap-1.5 rounded-lg text-[10.5px] font-medium leading-none border-none transition-colors"
+      :class="editsActive ? 'text-selection bg-selection/15' : 'text-content-secondary bg-transparent'"
+      aria-label="Edits"
+      :aria-pressed="editsActive"
+      @click="emit('edits')"
+    >
+      <span class="w-6 h-6 shrink-0" v-html="STACK_ICON" />
+      Edits
+      <span
+        v-if="count"
+        class="absolute top-1 left-[calc(50%+6px)] min-w-[15px] h-[15px] px-1 rounded-full text-[9.5px] font-mono font-semibold flex items-center justify-center"
+        :class="editsActive ? 'bg-selection text-base' : 'bg-content-tertiary text-base'"
+        aria-hidden="true"
+      >{{ count }}</span>
     </button>
   </div>
 

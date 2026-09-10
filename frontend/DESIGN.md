@@ -659,6 +659,38 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
   bordered inputs, and slot chrome never changes because of an unrelated
   feature flag (the ControlNet border-drop bug class).
 
+### 3.6a The image editor on a phone (adopted 2026-09-10)
+
+The compact editor is the desktop editor re-homed, never a second editor
+(§1.11). Its grammar, top to bottom:
+
+- **One header row**: close, the document (title + `N edits · unsaved`
+  mono; tap opens an anchored document menu with Compare, Save as, Revert),
+  undo, redo, Save. Nothing else lives up there.
+- **The picture**, with the glass chips (zoom, Compare) and the selection
+  pill on the matte. The pill is the only selection chrome: idle it arms
+  the last tool, armed it names the tool in the selection color and Done
+  hands the pointer back.
+- **The drawer** (`ToolDrawer content-sized`): a handle, a body, and a
+  pinned **sub-tool strip** (`EditorToolStrip`) under the body at every
+  height. The strip is where the desktop sub-bar's chips go — brushes,
+  verbs, adjustment groups, crop aspects, paint engines — and, while a
+  selection tool is armed, the selection tools. Switching tools is one tap,
+  never a navigation. Half height fits the body's content (capped at 44%
+  of the column), so a small palette never opens onto empty drawer.
+- **The dock**: the six families, a hairline, then Edits with a count
+  badge. Edits is a peer of the tools, never underneath them; it wears the
+  selection color because it selects a step rather than arming a tool.
+
+The drawer body shows exactly one of: the family's controls (plus the
+selected step's inspector when it belongs to that family), the selection
+panel, or the stack with Edits / Output / Info as one segmented control.
+A step opened from the stack shows `‹ Edits` and its name in the pinned
+row. Sliders inside the drawer follow one grammar: label and mono value on
+one line, a thin track under them, the whole 46px row the hit area — the
+`.editor-drawer-body` rules in `style.css` do this to the desktop
+inspectors unchanged.
+
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 
 The graph canvas nodes follow the same one-signal discipline as the rest of

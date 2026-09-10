@@ -7,11 +7,16 @@
  * tool's controls scroll beneath it as one column, in the order the tool
  * renders them.
  *
+ * `contentSized` is the image editor's variant: half is the body's natural
+ * height, capped at `halfFraction` of the column, so a palette of four rows
+ * never opens onto a wall of empty drawer, and the optional `strip` slot is
+ * pinned UNDER the body at every height — collapsed shows just the strip.
+ *
  * This is deliberately not the kit Sheet: the Sheet is modal and one-height.
  * Two screens use it, the tool view and the image editor, each with its own
  * `idPrefix`; nothing else may (DESIGN.md §1.11).
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 type Level = 'collapsed' | 'half' | 'full'
 
@@ -35,12 +40,16 @@ const props = withDefaults(defineProps<{
   heroReserve?: number
   /** The half level, as a share of the parent's height. */
   halfFraction?: number
-}>(), { initial: 'collapsed', chromeReserve: 150, idPrefix: 'tool-drawer', bodyClass: '', heroReserve: 96, halfFraction: 0.55 })
+  /** Half fits the body's content (up to `halfFraction`); see the header comment. */
+  contentSized?: boolean
+}>(), { initial: 'collapsed', chromeReserve: 150, idPrefix: 'tool-drawer', bodyClass: '', heroReserve: 96, halfFraction: 0.55, contentSized: false })
 
 const level = ref<Level>(props.initial)
 const bodyEl = ref<HTMLElement | null>(null)
+const innerEl = ref<HTMLElement | null>(null)
 const rootEl = ref<HTMLElement | null>(null)
 const promptEl = ref<HTMLElement | null>(null)
+const stripEl = ref<HTMLElement | null>(null)
 const dragPx = ref<number | null>(null)
 
 // Heights come from the space the drawer actually has (its flex parent:
@@ -50,10 +59,22 @@ function availableH() {
   const parent = rootEl.value?.parentElement
   return parent ? parent.clientHeight : window.innerHeight - props.chromeReserve
 }
+/** The chrome the drawer carries at every level: handle, pinned prompt, pinned strip. */
+function chromeH() {
+  // The handle row is a touch target (44px) that tucks 8px under the prompt.
+  const handle = 36
+  const prompt = promptEl.value?.getBoundingClientRect().height ?? 0
+  const strip = stripEl.value?.getBoundingClientRect().height ?? 0
+  return handle + prompt + strip
+}
 function heightFor(l: Level): number | null {
   if (l === 'collapsed') return null
-  if (l === 'half') return Math.round(availableH() * props.halfFraction)
-  return availableH() - props.heroReserve
+  const full = availableH() - props.heroReserve
+  if (l === 'full') return full
+  const cap = Math.round(availableH() * props.halfFraction)
+  if (!props.contentSized) return cap
+  // Body padding is part of what the content needs to show whole.
+  return Math.min(full, Math.max(chromeH(), Math.min(cap, chromeH() + bodyNaturalPx.value)))
 }
 const style = computed(() => {
   if (dragPx.value !== null) return { height: `${dragPx.value}px`, transition: 'none' }
@@ -83,11 +104,22 @@ function onPointerMove(e: PointerEvent) {
   const collapsedH = collapsedHeight()
   dragPx.value = Math.max(collapsedH, Math.min(availableH() - props.heroReserve, startH + dy))
 }
+function toggle() {
+  if (level.value === 'collapsed') level.value = 'half'
+  else if (level.value === 'half') {
+    // Content-sized: a body that already shows whole has nowhere to grow, so
+    // the tap folds it instead of opening onto empty drawer.
+    const half = heightFor('half')!
+    level.value = props.contentSized && half < heightFor('full')! && chromeH() + bodyNaturalPx.value <= half
+      ? 'collapsed'
+      : props.contentSized ? 'full' : 'collapsed'
+  } else level.value = 'half'
+}
 function onPointerUp(e: PointerEvent) {
   if (activePointerId !== e.pointerId) return
   activePointerId = null
   if (!moved) {
-    level.value = level.value === 'collapsed' ? 'half' : 'collapsed'
+    toggle()
     dragPx.value = null
     return
   }
@@ -102,26 +134,37 @@ function onPointerUp(e: PointerEvent) {
   dragPx.value = null
 }
 function collapsedHeight(): number {
-  // The handle row is a touch target (44px) that tucks 8px under the prompt.
-  const handle = 36
-  const prompt = promptEl.value?.getBoundingClientRect().height ?? 0
-  return handle + prompt
+  return chromeH()
 }
 // Collapsed is an explicit height too (measured from the pinned prompt), so
 // every level change is one continuous height tween and the body below is
 // simply clipped, never hidden. Re-measured whenever the prompt resizes.
 const collapsedPx = ref<number | null>(null)
-let promptObserver: ResizeObserver | null = null
-function measureCollapsed() { collapsedPx.value = collapsedHeight() }
+/** The body's content height, for the content-sized half level. */
+const bodyNaturalPx = ref(0)
+let observer: ResizeObserver | null = null
+function measure() {
+  collapsedPx.value = collapsedHeight()
+  const body = bodyEl.value
+  const inner = innerEl.value
+  if (body && inner) {
+    const styles = getComputedStyle(body)
+    bodyNaturalPx.value = inner.getBoundingClientRect().height
+      + parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom)
+  }
+}
+watch(level, () => { if (props.contentSized) measure() })
 
 onMounted(() => {
-  requestAnimationFrame(measureCollapsed)
-  if (promptEl.value && typeof ResizeObserver !== 'undefined') {
-    promptObserver = new ResizeObserver(() => measureCollapsed())
-    promptObserver.observe(promptEl.value)
+  requestAnimationFrame(measure)
+  if (typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(() => measure())
+    if (promptEl.value) observer.observe(promptEl.value)
+    if (stripEl.value) observer.observe(stripEl.value)
+    if (innerEl.value) observer.observe(innerEl.value)
   }
 })
-onBeforeUnmount(() => { promptObserver?.disconnect() })
+onBeforeUnmount(() => { observer?.disconnect() })
 
 defineExpose({
   open: (l: Level) => { level.value = l },
@@ -142,8 +185,8 @@ defineExpose({
       role="button"
       aria-label="Toggle controls"
       tabindex="0"
-      @keydown.enter.prevent="level = level === 'collapsed' ? 'half' : 'collapsed'"
-      @keydown.space.prevent="level = level === 'collapsed' ? 'half' : 'collapsed'"
+      @keydown.enter.prevent="toggle"
+      @keydown.space.prevent="toggle"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -154,19 +197,24 @@ defineExpose({
 
     <!-- Pinned prompt (filled by the tool view's prompt editor teleport, or
          the #pin slot). -->
-    <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-3 pb-2"><slot name="pin" /></div>
+    <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-3 pb-2 empty:pb-0"><slot name="pin" /></div>
 
     <!-- Body (filled by the tool view's controls teleport, or the default slot). -->
     <div
       ref="bodyEl"
       :id="`${idPrefix}-body`"
-      class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-safe"
-      :class="[level === 'collapsed' ? 'overflow-hidden' : '', bodyClass]"
+      class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3"
+      :class="[level === 'collapsed' ? 'overflow-hidden' : '', $slots.strip ? '' : 'pb-safe', bodyClass]"
     >
-      <slot />
-      <!-- Keep teleported panels separate from the slot's dynamic children.
-           Switching tools must never reconcile two owners in one DOM list. -->
-      <div :id="`${idPrefix}-panels`" class="contents" />
+      <div ref="innerEl">
+        <slot />
+        <!-- Keep teleported panels separate from the slot's dynamic children.
+             Switching tools must never reconcile two owners in one DOM list. -->
+        <div :id="`${idPrefix}-panels`" class="contents" />
+      </div>
     </div>
+
+    <!-- Pinned strip: the editor's sub-tools, visible at every level. -->
+    <div v-if="$slots.strip" ref="stripEl" class="flex-none"><slot name="strip" /></div>
   </div>
 </template>
