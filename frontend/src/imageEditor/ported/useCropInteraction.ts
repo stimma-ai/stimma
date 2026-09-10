@@ -122,6 +122,7 @@ export function useCropInteraction(
   const interaction = ref<Interaction>({ type: 'idle' })
   const cursorStyle = ref('default')
   let activePointerId: number | null = null
+  let gestureChanged = false
 
   function toCanvasPoint(event: MouseEvent): Point | null {
     const canvas = canvasRef.value
@@ -339,6 +340,7 @@ export function useCropInteraction(
       }
     }
 
+    gestureChanged = true
     onCropChange(newCrop)
   }
 
@@ -370,6 +372,7 @@ export function useCropInteraction(
     const maxRotation = Math.PI / 4
     newRotation = Math.max(-maxRotation, Math.min(maxRotation, newRotation))
 
+    gestureChanged = true
     onCropChange({ ...getCrop(), rotation: newRotation })
   }
 
@@ -381,6 +384,7 @@ export function useCropInteraction(
     const handle = hitTestCropHandle(canvasPoint, event.pointerType === 'touch')
     if (!handle) return
     event.preventDefault()
+    gestureChanged = false
     activePointerId = event.pointerId
     canvasRef.value?.setPointerCapture(event.pointerId)
 
@@ -426,7 +430,8 @@ export function useCropInteraction(
     if (interaction.value.type === 'idle') return
     interaction.value = { type: 'idle' }
     cursorStyle.value = 'default'
-    onCommit()
+    if (gestureChanged) onCommit()
+    gestureChanged = false
   }
 
   function setupListeners() {

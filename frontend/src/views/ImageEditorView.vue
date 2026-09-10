@@ -26,6 +26,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   DocumentDuplicateIcon,
+  EllipsisHorizontalIcon,
   InformationCircleIcon,
   MinusIcon,
   PlusIcon,
@@ -248,17 +249,17 @@ const cropCanvasRef = ref<InstanceType<typeof StackCropCanvas> | null>(null)
 const docSheetOpen = ref(false)
 /** At full height only a slice of the picture shows; the glass chips get out of its way. */
 const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
-/** The bar's Edits cell: leave the open family, or raise the stack. */
+/** Edits is a reliable way back from any tool or inspector to the stack. */
 function onCompactEdits() {
+  if (family.value) leaveMode()
   selectedOpId.value = null
   selectedShapeId.value = null
   selectedRetouchRegionId.value = null
-  if (family.value) {
-    selectFamily(family.value)
-  } else {
-    sidebarTab.value = 'edits'
-    editorDrawerRef.value?.open(editorDrawerRef.value.level === 'collapsed' ? 'half' : 'collapsed')
-  }
+  sidebarTab.value = 'edits'
+  nextTick(() => {
+    editorDrawerRef.value?.open('half')
+    editorDrawerRef.value?.scrollToTop()
+  })
 }
 /** Output and Info live in the drawer at full height, reached from the document sheet. */
 function showCompactPanel(tab: 'edits' | 'output' | 'info') {
@@ -1752,6 +1753,7 @@ function touchDistance() {
 }
 
 function onViewportTouchDown(event: PointerEvent) {
+  if (family.value === 'crop') { cropCanvasRef.value?.touchDown(event); return }
   touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
   if (touchPoints.size === 2 && !pinchActive) {
     pinchActive = true
@@ -1773,6 +1775,7 @@ function onViewportTouchDown(event: PointerEvent) {
 }
 
 function onViewportTouchMove(event: PointerEvent) {
+  if (family.value === 'crop') { cropCanvasRef.value?.touchMove(event); return }
   if (!touchPoints.has(event.pointerId)) return
   touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
   if (!pinchActive) return
@@ -1800,6 +1803,7 @@ function onViewportTouchMove(event: PointerEvent) {
 }
 
 function onViewportTouchUp(event: PointerEvent) {
+  if (family.value === 'crop') { cropCanvasRef.value?.touchUp(event); return }
   if (!touchPoints.has(event.pointerId)) return
   touchPoints.delete(event.pointerId)
   if (!pinchActive) return
@@ -3282,6 +3286,21 @@ const inspectorShown = computed(() =>
   || !family.value
   || (inspectorKind.value !== null && INSPECTOR_FAMILY[inspectorKind.value] === family.value)
 )
+const compactPropertiesVisible = computed(() => inspectorShown.value && (
+  (inspectorKind.value === 'annotation' && !!selectedShape.value)
+  || (inspectorKind.value === 'retouch' && !!selectedRetouchRegion.value)
+  || (inspectorKind.value === 'model' && !!selectedModelOp.value)
+  || showsAdjustInspector.value
+))
+const compactDrawerTitle = computed(() => {
+  if (sidebarTab.value === 'output') return 'Output'
+  if (sidebarTab.value === 'info') return 'Info'
+  if (family.value) return familyById(family.value).label
+  if (compactPropertiesVisible.value && selectedOpId.value) return stack.opById(selectedOpId.value)?.label ?? 'Properties'
+  return 'Edits'
+})
+
+
 
 /**
  * A thumbnail per look, off the real picture, for the strip.
@@ -6858,6 +6877,7 @@ function onRowSelect(op: any) {
   // would sit on top of them with the pointer.
   if (selectedShapeId.value) disarmSelect()
   syncImplicitPaintLayer()
+  if (isCompact.value && ['crop', 'paint', 'retouch', 'sketch'].includes(op.exec?.kind)) enterContainerOp(op)
 }
 
 /**
@@ -7707,6 +7727,13 @@ const outputPickerOpen = ref(false)
 /** Which sidebar panel is showing. Edits owns the stack, Output owns the
  * terminal stage, and Info reuses the library's media-information body. */
 const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
+watch([family, selectedOpId, selectedRetouchRegionId, sidebarTab], () => {
+  if (!isCompact.value) return
+  nextTick(() => {
+    editorDrawerRef.value?.scrollToTop()
+    if (family.value || compactPropertiesVisible.value) editorDrawerRef.value?.open('half')
+  })
+})
 
 async function loadEditorMediaInfo() {
   const token = ++infoLoadToken
@@ -8791,8 +8818,9 @@ watch(
            Save. The families move to the bar at the bottom. -->
       <div
         v-if="isCompact"
-        class="editor-compact-header flex items-center gap-0.5 px-2 h-[60px] pt-safe shrink-0 border-b border-edge-subtle bg-base"
+        class="editor-compact-header relative z-chrome pt-safe shrink-0 border-b border-edge-subtle bg-base"
       >
+        <div class="flex h-[60px] items-center gap-0.5 pl-[max(8px,var(--safe-left,0px))] pr-[max(8px,var(--safe-right,0px))]">
         <button
           type="button"
           class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
@@ -8820,7 +8848,7 @@ watch(
             </span>
             <span class="block truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ compactSubtitle }}</span>
           </span>
-          <ChevronDownIcon class="w-4 h-4 shrink-0 text-content-tertiary" />
+          <EllipsisHorizontalIcon class="w-5 h-5 shrink-0 text-content-tertiary" />
         </button>
         <button
           type="button"
@@ -8849,6 +8877,7 @@ watch(
           <i v-if="savingNote">{{ savingNote }}</i>
           <template v-else>Save</template>
         </Button>
+        </div>
       </div>
       <div v-else class="@container flex items-center gap-3 px-3 h-11 shrink-0 min-w-0 overflow-hidden border-b border-edge-subtle">
         <h1 class="text-sm font-medium text-content shrink-0">Edit</h1>
@@ -8866,7 +8895,7 @@ watch(
            top of the matte: the viewport keeps its full height whether or not
            a family is open, so the image holds steady and opening a mode
            consumes matte instead of reflowing the picture. -->
-      <div class="relative flex-1 min-h-0 flex flex-col">
+      <div class="relative flex-1 min-h-0 flex flex-col compact:isolate compact:overflow-hidden">
       <!-- Toolbar 2: the active family's controls, overlaid on the matte.
            On a phone the same component renders inside the drawer instead. -->
       <div v-if="!isCompact" class="absolute top-0 left-0 right-0 z-20">
@@ -9221,7 +9250,7 @@ watch(
              terminal stage, and Info is the shared media-information body. -->
         <Teleport to="#editor-drawer-prompt" :disabled="!isCompact" defer>
         <div
-          v-if="!isCompact || !family"
+          v-if="!isCompact"
           class="px-3 h-11 flex items-center gap-1 shrink-0 bg-surface-raised
                  border-b border-edge-strong compact:bg-transparent compact:border-b-0 compact:px-0 compact:h-auto"
         >
@@ -9251,6 +9280,14 @@ watch(
             </button>
           </template>
           <Spinner v-if="rendering" size="sm" />
+        </div>
+        <div v-else class="flex min-h-11 items-center gap-2">
+          <button v-if="family || compactPropertiesVisible || sidebarTab !== 'edits'"
+            type="button" class="flex min-h-11 shrink-0 items-center gap-1 rounded-md pr-3 text-sm text-content-secondary"
+            aria-label="Back to edits" @click="onCompactEdits">
+            <ChevronDownIcon class="h-4 w-4 rotate-90" /> Edits
+          </button>
+          <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactDrawerTitle }}</span>
         </div>
         </Teleport>
 
@@ -9306,7 +9343,8 @@ watch(
              handlers miss the gaps (the list's padding) and leave a stale line
              behind, and dragenter is unreliable in WKWebView. -->
         <div
-          v-else-if="sidebarTab === 'edits'"
+          v-else-if="sidebarTab === 'edits' && (!isCompact || (!family && !compactPropertiesVisible))"
+          data-testid="editor-edits-list"
           class="flex-1 overflow-y-auto custom-scrollbar p-1.5 compact:order-2 compact:flex-none compact:overflow-visible"
           @keydown="onStackKeydown"
           @dragover.prevent="onListDragOver"

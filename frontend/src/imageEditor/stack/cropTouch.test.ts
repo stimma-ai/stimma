@@ -64,7 +64,7 @@ test('a second finger cannot resize or finish the active crop gesture', () => {
     assert.equal(f.rect().width, 0.5)
     assert.equal(f.commits(), 0)
     f.crop.commit()
-    assert.equal(f.commits(), 1)
+    assert.equal(f.commits(), 0)
     assert.equal(f.crop.interaction.value.type, 'idle')
   } finally { f.cleanup() }
 })

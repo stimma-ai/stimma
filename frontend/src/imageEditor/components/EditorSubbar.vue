@@ -366,6 +366,7 @@ function chipClass(active: boolean, pending = false) {
 
     <!-- Crop ------------------------------------------------------------ -->
     <template v-if="family.id === 'crop'">
+      <p v-if="compact" class="px-1 py-1 text-xs text-content-secondary">Pinch to zoom · twist to straighten</p>
       <div :class="ROW">
       <button
         v-for="preset in CROP_ASPECTS"

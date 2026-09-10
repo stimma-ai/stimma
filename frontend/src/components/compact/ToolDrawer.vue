@@ -123,7 +123,11 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { promptObserver?.disconnect() })
 
-defineExpose({ open: (l: Level) => { level.value = l }, level })
+defineExpose({
+  open: (l: Level) => { level.value = l },
+  scrollToTop: () => { if (bodyEl.value) bodyEl.value.scrollTop = 0 },
+  level,
+})
 </script>
 
 <template>

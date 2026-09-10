@@ -26,6 +26,7 @@ import { useCropInteraction } from '../ported/useCropInteraction'
 import type { CropRect } from '../ported/useCropInteraction'
 import { drawCropOverlay } from '../ported/cropOverlay'
 import type { ViewTransform } from '../ported/geometry'
+import { pinchCrop, type CropPinchFrame } from '../ported/cropPinch'
 
 const props = defineProps<{
   /** The composite BELOW the crop step — the uncropped image. */
@@ -48,6 +49,8 @@ const emit = defineEmits<{
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
+// Once pinched, retain the preview magnification so the frame stays stationary.
+const pinchZoom = ref<number | null>(null)
 
 /** Clearance for corner handles and the rotation lollipop, in canvas pixels. */
 const HANDLE_MARGIN = 44
@@ -58,9 +61,7 @@ const imageSize = computed(() =>
 const canvasSize = computed(() => ({ width: props.viewWidth, height: props.viewHeight }))
 
 /**
- * The image is fitted, never panned or zoomed, so the transform the ported
- * code takes is just the fit scale. It is left as a real ViewTransform so the
- * copied maths is untouched.
+ * Start fitted to the viewport; a pinch retains its preview magnification.
  */
 const viewTransform = computed<ViewTransform>(() => {
   const size = imageSize.value
@@ -82,7 +83,7 @@ const viewTransform = computed<ViewTransform>(() => {
     (props.viewHeight - margin) / spanH,
     1
   )
-  return { zoom, panX: 0, panY: 0, rotation: 0 }
+  return { zoom: pinchZoom.value ?? zoom, panX: 0, panY: 0, rotation: 0 }
 })
 
 const crop = useCropInteraction(
@@ -103,7 +104,11 @@ function draw() {
   const ctx = element.getContext('2d')!
   const { zoom } = viewTransform.value
 
-  ctx.clearRect(0, 0, element.width, element.height)
+  // Keep drawing coordinates in CSS pixels, with a device-resolution bitmap.
+  ctx.setTransform(element.width / props.viewWidth, 0, 0, element.height / props.viewHeight, 0, 0)
+  ctx.clearRect(0, 0, props.viewWidth, props.viewHeight)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
 
   // The image is placed so the CROP CENTRE lands at the viewport centre and
   // the crop's tilt is taken out of it — the inverse of the transform the
@@ -127,12 +132,13 @@ function draw() {
 function resize() {
   const element = canvas.value
   if (!element) return
-  element.width = props.viewWidth
-  element.height = props.viewHeight
+  const ratio = window.devicePixelRatio || 1
+  element.width = Math.max(1, Math.round(props.viewWidth * ratio))
+  element.height = Math.max(1, Math.round(props.viewHeight * ratio))
   draw()
 }
 
-watch(() => [props.viewWidth, props.viewHeight], resize)
+watch(() => [props.viewWidth, props.viewHeight], () => { pinchZoom.value = null; resize() })
 watch(() => props.source, resize)
 watch(
   () => [props.crop, props.flipX, props.flipY, props.rotation, props.rotation90],
@@ -145,7 +151,59 @@ onMounted(() => {
   crop.setupListeners()
 })
 onBeforeUnmount(() => crop.cleanupListeners())
-defineExpose({ commitGesture: () => crop.commit() })
+type TouchPoint = { x: number; y: number }
+const touches = new Map<number, TouchPoint>()
+let pinch: { frame: CropPinchFrame; points: [TouchPoint, TouchPoint]; ids: [number, number] } | null = null
+let finishingPinch = false
+function localPoint(event: PointerEvent): TouchPoint {
+  const rect = canvas.value!.getBoundingClientRect()
+  return {
+    x: (event.clientX - rect.left) * props.viewWidth / rect.width - props.viewWidth / 2,
+    y: (event.clientY - rect.top) * props.viewHeight / rect.height - props.viewHeight / 2,
+  }
+}
+function consume(event: PointerEvent) { event.preventDefault(); event.stopPropagation() }
+function touchDown(event: PointerEvent) {
+  if (!canvas.value || !imageSize.value) return
+  touches.set(event.pointerId, localPoint(event))
+  if (touches.size === 2 && !finishingPinch) {
+    crop.commit()
+    pinch = {
+      frame: {
+        crop: { ...props.crop }, zoom: viewTransform.value.zoom,
+        width: imageSize.value.width, height: imageSize.value.height,
+        rotation: (props.rotation ?? 0) + (props.rotation90 ?? 0) * Math.PI / 2,
+        flipX: !!props.flipX, flipY: !!props.flipY,
+      },
+      points: [...touches.values()] as [TouchPoint, TouchPoint],
+      ids: [...touches.keys()] as [number, number],
+    }
+    for (const id of touches.keys()) canvas.value.setPointerCapture(id)
+  }
+  if (pinch || finishingPinch) consume(event)
+}
+function touchMove(event: PointerEvent) {
+  if (!touches.has(event.pointerId)) return
+  touches.set(event.pointerId, localPoint(event))
+  if (pinch) {
+    const result = pinchCrop(pinch.frame, pinch.points, pinch.ids.map(id => touches.get(id)!) as [TouchPoint, TouchPoint])
+    pinchZoom.value = result.zoom
+    emit('change', result.crop)
+  }
+  if (pinch || finishingPinch) consume(event)
+}
+function touchUp(event: PointerEvent) {
+  touches.delete(event.pointerId)
+  if (!pinch && !finishingPinch) return
+  consume(event)
+  if (pinch && pinch.ids.includes(event.pointerId)) {
+    pinch = null
+    finishingPinch = true
+    emit('commit')
+  }
+  if (!touches.size) finishingPinch = false
+}
+defineExpose({ commitGesture: () => crop.commit(), touchDown, touchMove, touchUp })
 </script>
 
 <template>

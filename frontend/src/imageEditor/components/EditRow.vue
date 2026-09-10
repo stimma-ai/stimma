@@ -282,11 +282,8 @@ function onRowClick(event: MouseEvent) {
   // own clicks, so focusing here never steals focus from an eye, trash button,
   // candidate, or other nested control.
   const row = event.currentTarget as HTMLElement
-  const alreadyFocused = document.activeElement === row
   row.focus({ preventScroll: true })
-  // Focus selects a newly focused row; a repeat click on the focused row still
-  // behaves like a selection gesture without emitting twice on the first one.
-  if (alreadyFocused) emit('select')
+  emit('select')
 }
 
 function onCandidateClick(event: MouseEvent, candidateId: string) {
@@ -352,6 +349,7 @@ const previewTint = computed(() =>
        in place, so the drop line is read against the list the move leaves. -->
   <div
     :data-op-id="op.id"
+    :style="{ '--edit-actions-width': isGenerative ? '138px' : '94px' }"
     tabindex="0"
     class="group flex items-start gap-1.5 px-2 py-2 rounded-md cursor-default transition-colors
            focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
@@ -363,7 +361,7 @@ const previewTint = computed(() =>
     :draggable="draggable"
     :aria-current="selected ? 'true' : undefined"
     @click="onRowClick"
-    @focus="emit('select')"
+    @keydown.enter.self.prevent="emit('select')"
     @dblclick="emit('reenter')"
     @dragstart="emit('dragStart', $event)"
     @dragend="emit('dragEnd')"
@@ -375,7 +373,7 @@ const previewTint = computed(() =>
       v-if="draggable"
       :class="[
         ROW_COLUMN_INLINE,
-        'shrink-0 text-content-tertiary opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing',
+        'shrink-0 text-content-tertiary opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing compact:hidden',
       ]"
       @mouseenter="emit('intentHover', true)"
       @mouseleave="emit('intentHover', false)"
@@ -386,7 +384,7 @@ const previewTint = computed(() =>
     <!-- The image as of this step. A hidden step shows what the stack looks
          like without it, dimmed — the eye is no longer beside the label, so
          the square carries the disabled state. -->
-    <div :class="[ROW_SQUARE, !op.enabled && 'opacity-40']">
+    <div :class="[ROW_SQUARE, 'compact:w-11 compact:h-11', !op.enabled && 'opacity-40']">
       <img v-if="displayPreview" :src="displayPreview" class="w-full h-full object-cover" alt="" />
       <div
         v-else
@@ -395,8 +393,8 @@ const previewTint = computed(() =>
       />
     </div>
 
-    <div :class="['min-w-0 flex-1', ROW_COLUMN]">
-      <div class="flex items-center gap-1.5">
+    <div :class="['min-w-0 flex-1 compact:min-h-11', ROW_COLUMN]">
+      <div class="flex items-center gap-1.5 compact:min-h-11">
         <span class="text-sm truncate" :class="op.enabled ? 'text-content' : 'text-content-tertiary'">
           {{ op.label }}
         </span>
@@ -416,7 +414,7 @@ const previewTint = computed(() =>
            distinct things, and the hierarchy says so. -->
       <template v-if="maskTarget">
         <div
-          class="group/mask mt-1 -mr-[62px] min-w-0 flex items-center gap-1 py-0.5
+          class="group/mask mt-1 -mr-[62px] compact:-mr-[var(--edit-actions-width)] min-w-0 flex items-center gap-1 py-0.5
                  text-xs text-content-secondary rounded-md cursor-default"
           :class="maskParentActive ? 'bg-selection/15' : 'hover:bg-overlay-subtle'"
           @click.stop="emit('selectRegion', maskTarget.id)"
@@ -446,7 +444,7 @@ const previewTint = computed(() =>
             </IconButton>
           </Tooltip>
         </div>
-        <div v-if="maskExpanded" class="-mr-[62px] flex flex-col">
+        <div v-if="maskExpanded" class="-mr-[62px] compact:-mr-[var(--edit-actions-width)] flex flex-col">
           <div
             v-for="(component, componentIndex) in maskTarget.components"
             :key="component.id"
@@ -529,7 +527,7 @@ const previewTint = computed(() =>
         </button>
         <!-- Extend through the parent's trailing control columns so nested
              eye/trash buttons land on the exact same vertical rails. -->
-        <div v-if="regionsExpanded" class="mt-1 -mr-[62px] flex flex-col">
+        <div v-if="regionsExpanded" class="mt-1 -mr-[62px] compact:-mr-[var(--edit-actions-width)] flex flex-col">
           <div
             v-for="region in displayedRetouchRegions"
             :key="region.id"
@@ -559,6 +557,7 @@ const previewTint = computed(() =>
             <Tooltip text="Remove this region">
               <IconButton
                 variant="danger"
+                aria-label="Remove this region"
                 @click.stop="emit('removeRegion', region.id)"
               >
                 <TrashIcon class="w-3.5 h-3.5" />
@@ -594,7 +593,6 @@ const previewTint = computed(() =>
             class="relative w-10 h-10 rounded-media overflow-hidden bg-matte transition-shadow focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
             :class="candidate.id === picked ? 'ring-2 ring-selection' : 'opacity-70 hover:opacity-100'"
             @click.stop="onCandidateClick($event, candidate.id)"
-            @focus="emit('select')"
             @keydown="onCandidateKeydown($event, candidate.flatIndex)"
           >
             <img :src="candidate.url" class="w-full h-full object-cover" alt="" />
@@ -647,6 +645,7 @@ const previewTint = computed(() =>
          is on is state you read, not an action you go looking for. -->
     <Tooltip :text="op.enabled ? 'Hide this edit' : 'Show this edit'">
       <IconButton
+        :aria-label="op.enabled ? 'Hide this edit' : 'Show this edit'"
         @click.stop="emit('toggle', !op.enabled)"
         @mouseenter="emit('intentHover', true)"
         @mouseleave="emit('intentHover', false)"
@@ -659,6 +658,7 @@ const previewTint = computed(() =>
     <Tooltip text="Remove this edit">
       <IconButton
         variant="danger"
+        aria-label="Remove this edit"
         @click.stop="emit('remove')"
       >
         <TrashIcon class="w-4 h-4" />

@@ -12,9 +12,9 @@ const result = await build({
   } },
 })
 const script = (Array.isArray(result) ? result : [result]).flatMap(r => r.output).find(x => x.type === 'chunk').code
-async function fixture(t) {
+async function fixture(t, options = {}) {
   const browser = await chromium.launch(); t.after(() => browser.close())
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true })
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, ...options })
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   t.after(() => assert.deepEqual(errors, []))
@@ -93,4 +93,27 @@ test('tapping a numeric control opens its slider without focusing text entry', a
   await page.getByRole('button', { name: '50' }).tap()
   assert.equal(await page.locator('.editor-picker').count(), 1)
   assert.equal(await page.locator('.editor-picker input[type=text]').evaluate(el => el === document.activeElement), false)
+})
+
+test('crop pinch changes the crop once and renders at device resolution', async t => {
+  const page = await fixture(t, { deviceScaleFactor: 3 })
+  await page.evaluate(() => { window.cropTest = window.editorTouch.mountCrop() })
+  assert.equal(await page.locator('canvas').evaluate(el => el.width), 900)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 108, y: 158, id: 1 }, { x: 208, y: 158, id: 2 }] })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 78, y: 138, id: 1 }, { x: 238, y: 178, id: 2 }] })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  const result = await page.evaluate(() => ({ crop: window.cropTest.crop(), commits: window.cropTest.commits() }))
+  assert.ok(result.crop.width < 0.7)
+  assert.ok(result.crop.rotation < -0.2)
+  assert.equal(result.commits, 1)
+})
+
+test('edit rows select on the first tap and nested controls do not select the row', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => { window.rowEvents = window.editorTouch.mountEditRow() })
+  await page.locator('[data-op-id]').click({ position: { x: 5, y: 5 } })
+  await page.getByRole('button', { name: 'Hide this edit', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove this edit', exact: true }).click()
+  assert.deepEqual(await page.evaluate(() => window.rowEvents()), ['select', 'toggle', 'remove'])
 })
