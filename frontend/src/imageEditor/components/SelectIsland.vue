@@ -543,7 +543,7 @@ function buttonClass(active: boolean, enabled = true) {
             :key="option.id"
             type="button"
             role="radio"
-            class="flex-1 min-h-10 text-[12.5px] rounded flex items-center justify-center gap-1"
+            class="flex-1 min-h-11 text-[12.5px] rounded flex items-center justify-center gap-1"
             :class="(combineOverride ?? combine) === option.id
               ? 'bg-selection/15 text-content font-medium'
               : 'text-content-tertiary'"
@@ -556,11 +556,11 @@ function buttonClass(active: boolean, enabled = true) {
           </button>
         </div>
         <div v-if="hasSelection" class="flex items-center gap-1.5 mt-2">
-          <button type="button" class="min-h-10 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(1)">
+          <button type="button" class="min-h-11 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(1)">
             <PaintToolIcon name="maskExpand" class="w-4 h-4" />
             Expand
           </button>
-          <button type="button" class="min-h-10 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(-1)">
+          <button type="button" class="min-h-11 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(-1)">
             <PaintToolIcon name="maskContract" class="w-4 h-4" />
             Contract
           </button>

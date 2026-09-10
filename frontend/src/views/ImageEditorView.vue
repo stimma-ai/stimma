@@ -9295,7 +9295,7 @@ watch(
               :key="tab.id"
               type="button"
               role="tab"
-              class="flex-1 min-h-10 rounded text-[13px] font-medium transition-colors"
+              class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors"
               :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
               :aria-selected="sidebarTab === tab.id"
               @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
