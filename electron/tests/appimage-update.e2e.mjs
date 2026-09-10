@@ -3,7 +3,7 @@
 // drives the packaged app through download -> recheck -> relaunch.
 
 import assert from 'node:assert/strict'
-import { spawnSync, execFileSync } from 'node:child_process'
+import { spawn, spawnSync, execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { createServer } from 'node:http'
@@ -186,7 +186,7 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
 const feedUrl = `http://127.0.0.1:${server.address().port}${prefix.slice(0, -1)}`
 
 const baseConfig = JSON.parse(fs.readFileSync(baseConfigPath, 'utf8'))
-function buildAppImage(version, label) {
+async function buildAppImage(version, label) {
   const output = path.join(work, label)
   const config = {
     ...baseConfig,
@@ -206,7 +206,15 @@ function buildAppImage(version, label) {
   delete config.mac
   const configPath = path.join(work, `${label}.json`)
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`)
-  run(builder, ['--config', configPath, '--publish', 'never'])
+  await new Promise((resolve, reject) => {
+    const child = spawn(builder, ['--config', configPath, '--publish', 'never'], {
+      cwd: electronRoot,
+      env: process.env,
+      stdio: 'inherit',
+    })
+    child.once('error', reject)
+    child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`AppImage fixture build exited ${code}`)))
+  })
   return {
     appImage: findOne(output, (name) => name.endsWith('.AppImage'), 'AppImage'),
     manifest: findOne(output, (name) => name.endsWith(manifestSuffix), 'Linux manifest'),
@@ -334,12 +342,18 @@ try {
 
   console.log('building buggy source AppImage...')
   await buildBuggyMain()
-  const buggy = buildAppImage(versions.buggy, 'buggy')
+  const buggy = await buildAppImage(versions.buggy, 'buggy')
 
   console.log('building fixed AppImages...')
   restoreFixedMain()
-  const fixed = buildAppImage(versions.fixed, 'fixed')
-  const next = buildAppImage(versions.next, 'next')
+  // The fixed shell is immutable for both builds; each has its own output
+  // directory. Wait for both to settle before teardown, even if one fails.
+  const results = await Promise.allSettled([
+    buildAppImage(versions.fixed, 'fixed'),
+    buildAppImage(versions.next, 'next'),
+  ])
+  for (const result of results) if (result.status === 'rejected') throw result.reason
+  const [fixed, next] = results.map((result) => result.value)
 
   const installed = path.join(installDir, 'Stimma-Update-Test.AppImage')
   fs.copyFileSync(buggy.appImage, installed)

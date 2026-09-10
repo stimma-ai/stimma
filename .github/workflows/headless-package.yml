@@ -2,6 +2,10 @@ name: Build / Stimma Server package
 on:
   workflow_call:
     inputs:
+      wait_for_quality_gate:
+        description: Wait for this run's quality gate before publishing
+        type: boolean
+        default: false
       ref:
         required: true
         type: string
@@ -29,6 +33,7 @@ on:
         type: boolean
         default: false
 permissions:
+  actions: read
   contents: read
 concurrency:
   group: headless-packages-${{ inputs.channel }}
@@ -76,16 +81,17 @@ jobs:
         run: tools/stimma headless image
       - name: Verify signed startup and unchanged-image updates
         run: tools/stimma headless smoke
-      - name: Upload package
-        uses: actions/upload-artifact@v4
-        with:
-          name: headless-${{ matrix.arch }}
-          path: dist-headless/
-          retention-days: 7
+
       - name: Install release signer
         if: inputs.publish_updates
         working-directory: frontend
         run: npm ci
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-for-quality-gate.py
+
       - name: Publish signed headless feed
         if: inputs.publish_updates
         env:
@@ -96,3 +102,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: tools/stimma headless publish
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          compression-level: 0
+          name: headless-${{ matrix.arch }}
+          path: dist-headless/
+          retention-days: 7

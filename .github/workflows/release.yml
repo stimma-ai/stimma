@@ -20,6 +20,7 @@ on:
         type: boolean
 
 permissions:
+  actions: read
   contents: write
 
 # Releases must not overlap: concurrent runs race on the self-hosted macOS

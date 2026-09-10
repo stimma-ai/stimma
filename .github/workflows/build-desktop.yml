@@ -44,6 +44,7 @@ on:
 # top-level workflow and its `permissions:` block applies directly. Granting
 # write here keeps the called workflows within the caller's permission set.
 permissions:
+  actions: read
   contents: write
 
 jobs:

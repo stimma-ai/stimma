@@ -26,3 +26,22 @@ def test_runtime_archive_is_deterministic_and_has_normal_root_layout(tmp_path):
     assert archive.name == f"stimma-python-runtime-{second['sha256']}.tar.xz"
     with tarfile.open(archive, "r:xz") as packaged:
         assert packaged.getnames() == ["Lib/example/module.py", "python.exe"]
+
+
+def test_runtime_cache_reuses_identical_inputs_and_rejects_corruption(tmp_path, monkeypatch):
+    source = tmp_path / "python"
+    source.mkdir()
+    (source / "python.exe").write_bytes(b"python executable")
+    cache = tmp_path / "cache"
+    monkeypatch.setenv("STIMMA_BUILD_CACHE", str(cache))
+    first = MODULE.package_runtime(source, tmp_path / "one")
+    second = MODULE.package_runtime(source, tmp_path / "two")
+    assert second["cache_hit"] is True
+    assert first["sha256"] == second["sha256"]
+    next(cache.rglob("*.tar.xz")).write_bytes(b"corrupt")
+    repaired = MODULE.package_runtime(source, tmp_path / "three")
+    assert repaired["sha256"] == first["sha256"]
+    assert not repaired.get("cache_hit")
+    (source / "python.exe").write_bytes(b"changed executable")
+    changed = MODULE.package_runtime(source, tmp_path / "four")
+    assert changed["sha256"] != first["sha256"]

@@ -3,9 +3,6 @@ run-name: CI - ${{ github.ref_name || 'manual' }}
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
   pull_request:
 
 permissions:

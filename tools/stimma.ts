@@ -1004,10 +1004,11 @@ async function dirSize(root: string): Promise<{ files: number; bytes: number }> 
 
 async function buildWatchdog(target: string): Promise<void> {
   const watchdogDir = join(repoRoot, "src-tauri", "watchdog");
-  await run("cargo", ["build", "--release"], { cwd: watchdogDir });
+  const targetDir = nativeTargetDir(watchdogDir);
+  await run("cargo", ["build", "--locked", "--release", "--target-dir", targetDir], { cwd: watchdogDir });
 
   const ext = Deno.build.os === "windows" ? ".exe" : "";
-  const src = join(watchdogDir, "target", "release", `stimma-watchdog${ext}`);
+  const src = join(targetDir, "release", `stimma-watchdog${ext}`);
   const destDir = join(repoRoot, "src-tauri", "binaries");
   await Deno.mkdir(destDir, { recursive: true });
   await Deno.copyFile(src, join(destDir, `stimma-watchdog-${target}${ext}`));
@@ -1510,11 +1511,17 @@ function channelAppIdentity(channel: string): { bundleId: string; productName: s
 /** The system interpreter for the repo's helper scripts: Windows ships `python`, not `python3`. */
 const pythonCommand = Deno.build.os === "windows" ? "python" : "python3";
 
+function nativeTargetDir(crateDir: string): string {
+  const cache = Deno.env.get("STIMMA_BUILD_CACHE");
+  return cache ? join(cache, "cargo", Deno.build.target) : join(crateDir, "target");
+}
+
 async function buildStimmaNative(): Promise<string> {
   const dir = join(repoRoot, "native", "stimma-native");
-  await run("cargo", ["build", "--release"], { cwd: dir });
+  const targetDir = nativeTargetDir(dir);
+  await run("cargo", ["build", "--locked", "--release", "--target-dir", targetDir], { cwd: dir });
   const ext = Deno.build.os === "windows" ? ".exe" : "";
-  return join(dir, "target", "release", `stimma-native${ext}`);
+  return join(targetDir, "release", `stimma-native${ext}`);
 }
 
 async function appBuildElectron(polishedInstaller: boolean, channel: string): Promise<void> {

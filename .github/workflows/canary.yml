@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      publish_updates:
+        description: Publish tested builds to the canary feeds
+        type: boolean
+        default: true
       ref:
         description: Git ref to build
         required: false
@@ -24,6 +28,7 @@ concurrency:
 # workflow within its permission set.
 permissions:
   contents: write
+  actions: read
 
 jobs:
   version:
@@ -37,14 +42,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
 
       - name: Resolve version
         id: resolve
         run: |
           set -euo pipefail
-          ref="${{ inputs.ref || 'main' }}"
+          ref="$(git rev-parse HEAD)"
 
           latest_prod="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)"
           if [ -z "$latest_prod" ]; then
@@ -68,18 +73,19 @@ jobs:
     uses: ./.github/workflows/quality-gate.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
+      runs_on: '["self-hosted","linux","x64","stimma-test"]'
 
   macos:
     name: macOS
     needs:
       - version
-      - quality-gate
     uses: ./.github/workflows/release-macos.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
       channel: canary
       version: ${{ needs.version.outputs.version }}
-      publish_updates: true
+      publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
+      wait_for_quality_gate: true
       publish_github_release: false
     secrets: inherit
 
@@ -87,13 +93,13 @@ jobs:
     name: Linux AppImage x64
     needs:
       - version
-      - quality-gate
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
       channel: canary
       version: ${{ needs.version.outputs.version }}
-      publish_updates: true
+      publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
+      wait_for_quality_gate: true
       publish_github_release: false
     secrets: inherit
 
@@ -101,13 +107,13 @@ jobs:
     name: Linux AppImage arm64
     needs:
       - version
-      - quality-gate
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
       channel: canary
       version: ${{ needs.version.outputs.version }}
-      publish_updates: true
+      publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
+      wait_for_quality_gate: true
       publish_github_release: false
       arch: aarch64
       runs_on: '["self-hosted","linux","arm64","spark"]'
@@ -117,23 +123,24 @@ jobs:
     name: Windows x64
     needs:
       - version
-      - quality-gate
     uses: ./.github/workflows/release-windows.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
       channel: canary
       version: ${{ needs.version.outputs.version }}
-      publish_updates: true
+      publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
+      wait_for_quality_gate: true
       publish_github_release: false
     secrets: inherit
 
   headless:
     name: Headless Linux
-    needs: [version, quality-gate]
+    needs: [version]
     uses: ./.github/workflows/headless-package.yml
     with:
       ref: ${{ needs.version.outputs.ref }}
       channel: canary
       version: ${{ needs.version.outputs.version }}
-      publish_updates: true
+      publish_updates: ${{ github.event_name == 'push' || inputs.publish_updates }}
+      wait_for_quality_gate: true
     secrets: inherit

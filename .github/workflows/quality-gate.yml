@@ -4,6 +4,10 @@ run-name: Quality Gate - ${{ inputs.ref || github.ref_name || 'manual' }}
 on:
   workflow_call:
     inputs:
+      runs_on:
+        description: Runner pool (trusted builds may use isolated self-hosted slots)
+        type: string
+        default: '"ubuntu-latest"'
       ref:
         description: Git ref to test
         required: false
@@ -34,11 +38,12 @@ permissions:
 
 jobs:
   backend-tests:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    # CI and Canary both invoke this reusable workflow for each main push.
-    # Allow headroom for occasional contention between their duplicate test
-    # jobs; the suite normally completes in under six minutes.
+    name: Backend tests (${{ matrix.shard }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-latest"') }}
     timeout-minutes: 15
 
     steps:
@@ -55,7 +60,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Install backend deps
         working-directory: backend
@@ -65,15 +70,19 @@ jobs:
         run: tools/stimma lint backend
 
       - name: Run backend tests
+        env:
+          STIMMA_TEST_SHARD: ${{ matrix.shard }}/4
         # -m "not darkroom": the Darkroom tool tests cover rarely-changing
         # vendored code; run them locally or explicitly with -m darkroom.
-        run: tools/stimma test backend -vv -rA --maxfail=1 -m "not darkroom"
+        run: tools/stimma test backend -p ci_shard -vv -rA --durations=15 --maxfail=1 -m "not darkroom"
 
   acceptance-tests:
-    name: Acceptance tests
-    runs-on: ubuntu-latest
-    # The runner's package mirrors occasionally make the FFmpeg install take
-    # longer than the normal five-minute acceptance lane.
+    name: Acceptance tests (${{ matrix.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [desktop, phone-1, phone-2]
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-latest"') }}
     timeout-minutes: 20
 
     steps:
@@ -86,7 +95,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Python
@@ -97,7 +106,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Install backend deps
         working-directory: backend
@@ -109,34 +118,44 @@ jobs:
 
       - name: Install FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
           ffmpeg -version
           ffprobe -version
 
       - name: Install Playwright Chromium
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [ "${STIMMA_PREPROVISIONED:-}" = "1" ]; then
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend
 
       - name: Run smoke acceptance tests
-        if: ${{ inputs.acceptance_suite != 'full' }}
+        if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite != 'full' }}
         run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=30000 --retries=0
 
       - name: Run full acceptance tests
-        if: ${{ inputs.acceptance_suite == 'full' }}
+        if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite == 'full' }}
         run: tools/stimma test acceptance
 
       - name: Run phone lane (route audit)
-        run: tools/stimma test acceptance --viewport=phone --timeout=30000 --retries=0
+        if: matrix.lane != 'desktop'
+        env:
+          LANE: ${{ matrix.lane }}
+        run: tools/stimma test acceptance --viewport=phone --shard="${LANE#phone-}/2" --timeout=30000 --retries=0
 
       - name: Upload phone screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phone-shots
+          name: phone-shots-${{ matrix.lane }}
           retention-days: 5
           if-no-files-found: ignore
           path: frontend/acceptance/phone-shots/
@@ -145,10 +164,22 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: acceptance-artifacts
+          name: acceptance-artifacts-${{ matrix.lane }}
           retention-days: 2
           if-no-files-found: ignore
           path: |
             frontend/test-results/
             frontend/acceptance/playwright-report/
             frontend/acceptance/acceptance/
+
+  passed:
+    name: Quality gate passed
+    if: always()
+    needs: [backend-tests, acceptance-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every test shard
+        env:
+          BACKEND: ${{ needs.backend-tests.result }}
+          ACCEPTANCE: ${{ needs.acceptance-tests.result }}
+        run: test "$BACKEND" = success && test "$ACCEPTANCE" = success

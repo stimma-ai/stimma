@@ -33,6 +33,10 @@ on:
         type: boolean
   workflow_call:
     inputs:
+      wait_for_quality_gate:
+        description: Wait for this run's quality gate before publishing
+        type: boolean
+        default: false
       ref:
         required: true
         type: string
@@ -51,6 +55,7 @@ on:
         type: boolean
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -105,14 +110,6 @@ jobs:
 
           $cargoBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           & (Join-Path $cargoBin "rustc.exe") --version
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            src-tauri
-            native/stimma-native
-          save-if: false
 
       - name: Ensure Visual Studio Build Tools
         shell: powershell
@@ -211,7 +208,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Preflight Environment
         shell: powershell
@@ -337,6 +334,9 @@ jobs:
         working-directory: backend
         run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$env:CHANNEL"
 
+      - name: Configure persistent build cache
+        run: uv run --python 3.11 python scripts/configure-build-cache.py
+
       - name: Build Windows app
         timeout-minutes: 20
         shell: powershell
@@ -437,18 +437,6 @@ jobs:
           "app_archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "app_sig=$($sig.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Upload workflow artifacts
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: stimma-windows-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 1
-          path: |
-            ${{ steps.collect.outputs.installer_file }}
-            ${{ steps.collect.outputs.blockmap }}
-            ${{ steps.collect.outputs.electron_manifest }}
-            ${{ steps.collect.outputs.app_archive }}
-            ${{ steps.collect.outputs.app_sig }}
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
@@ -462,6 +450,12 @@ jobs:
             ${{ steps.collect.outputs.blockmap }}
             ${{ steps.collect.outputs.app_archive }}
             ${{ steps.collect.outputs.app_sig }}
+
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --python 3.11 python scripts/wait-for-quality-gate.py
 
       - name: Publish updater artifacts to Cloudflare R2
         if: inputs.publish_updates == true && steps.collect.outputs.app_archive != ''
@@ -605,3 +599,17 @@ jobs:
           $downloadManifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/download.json"
           $body = @{ files = @($manifestUrl, $downloadManifestUrl, $electronManifestUrl) } | ConvertTo-Json -Compress
           Invoke-RestMethod -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$env:CF_ZONE_ID/purge_cache" -Headers @{ Authorization = "Bearer $env:CF_API_TOKEN"; "Content-Type" = "application/json" } -Body $body | Out-Null
+
+      - name: Upload workflow artifacts
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          compression-level: 0
+          name: stimma-windows-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 1
+          path: |
+            ${{ steps.collect.outputs.installer_file }}
+            ${{ steps.collect.outputs.blockmap }}
+            ${{ steps.collect.outputs.electron_manifest }}
+            ${{ steps.collect.outputs.app_archive }}
+            ${{ steps.collect.outputs.app_sig }}

@@ -4,6 +4,10 @@ run-name: ${{ github.event_name == 'push' && format('Release / macOS - {0}', git
 on:
   workflow_call:
     inputs:
+      wait_for_quality_gate:
+        description: Wait for this run's quality gate before publishing
+        type: boolean
+        default: false
       ref:
         required: true
         type: string
@@ -54,6 +58,7 @@ on:
         type: boolean
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -100,18 +105,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            src-tauri
-            native/stimma-native
-          save-if: false
+      - name: Configure persistent build cache
+        run: python3 scripts/configure-build-cache.py
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Setup Python
         run: uv python install 3.11
@@ -435,18 +435,6 @@ jobs:
           echo "app_sig=$APP_SIG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: stimma-macos-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 1
-          path: |
-            ${{ steps.collect.outputs.dmg_file }}
-            ${{ steps.collect.outputs.mac_zip }}
-            ${{ steps.collect.outputs.latest_mac_yml }}
-            ${{ steps.collect.outputs.app_tar }}
-            ${{ steps.collect.outputs.app_sig }}
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
@@ -460,6 +448,12 @@ jobs:
             ${{ steps.collect.outputs.mac_zip }}
             ${{ steps.collect.outputs.app_tar }}
             ${{ steps.collect.outputs.app_sig }}
+
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-for-quality-gate.py
 
       - name: Publish updater artifacts to Cloudflare R2
         if: inputs.publish_updates == true
@@ -662,3 +656,17 @@ jobs:
             rm -f "$STIMMA_SIGNING_KEYCHAIN" "$STIMMA_SIGNING_KEYCHAIN"-shm "$STIMMA_SIGNING_KEYCHAIN"-wal
           fi
           exit 0
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          compression-level: 0
+          name: stimma-macos-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 1
+          path: |
+            ${{ steps.collect.outputs.dmg_file }}
+            ${{ steps.collect.outputs.mac_zip }}
+            ${{ steps.collect.outputs.latest_mac_yml }}
+            ${{ steps.collect.outputs.app_tar }}
+            ${{ steps.collect.outputs.app_sig }}

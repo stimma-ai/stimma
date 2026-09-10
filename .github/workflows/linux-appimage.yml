@@ -4,6 +4,10 @@ run-name: ${{ github.event_name == 'push' && format('Build / Linux AppImage - {0
 on:
   workflow_call:
     inputs:
+      wait_for_quality_gate:
+        description: Wait for this run's quality gate before publishing
+        type: boolean
+        default: false
       ref:
         required: true
         type: string
@@ -29,10 +33,11 @@ on:
       # dependency on current distributions (the kernel FUSE device remains).
       runs_on:
         required: false
-        default: '"ubuntu-22.04"'
+        default: '["self-hosted","linux","x64","stimma-build"]'
         type: string
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -102,16 +107,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: native/stimma-native
-          save-if: false
+      - name: Configure persistent build cache
+        run: python3 scripts/configure-build-cache.py
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: ${{ runner.environment == 'github-hosted' }}
 
       - name: Preflight environment
         run: |
@@ -142,7 +144,7 @@ jobs:
       - name: Setup Python via uv
         run: |
           set -euo pipefail
-          uv python install --force 3.11
+          uv python install 3.11
           uv run --python 3.11 python --version
 
       # Frontend dependencies also provide the Tauri signer needed only for
@@ -313,17 +315,6 @@ jobs:
           echo "updater_archive=$UPDATER_ARCHIVE" >> "$GITHUB_OUTPUT"
           echo "updater_sig=$UPDATER_SIG" >> "$GITHUB_OUTPUT"
 
-      - name: Upload workflow artifacts
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: stimma-${{ env.LINUX_PLATFORM }}-electron-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 1
-          path: |
-            ${{ steps.collect.outputs.appimage_file }}
-            ${{ steps.collect.outputs.latest_linux_yml }}
-            ${{ steps.collect.outputs.updater_archive }}
-            ${{ steps.collect.outputs.updater_sig }}
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
@@ -336,6 +327,12 @@ jobs:
             ${{ steps.collect.outputs.appimage_file }}
             ${{ steps.collect.outputs.updater_archive }}
             ${{ steps.collect.outputs.updater_sig }}
+
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-for-quality-gate.py
 
       - name: Publish Linux artifacts to Cloudflare R2
         if: inputs.publish_updates == true
@@ -484,3 +481,16 @@ jobs:
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             --data "{\"files\":[\"${PREFIX}/latest.json\",\"${PREFIX}/latest${ELECTRON_MANIFEST_SUFFIX}.yml\",\"${PREFIX}/download.json\"]}"
+
+      - name: Upload workflow artifacts
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          compression-level: 0
+          name: stimma-${{ env.LINUX_PLATFORM }}-electron-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 1
+          path: |
+            ${{ steps.collect.outputs.appimage_file }}
+            ${{ steps.collect.outputs.latest_linux_yml }}
+            ${{ steps.collect.outputs.updater_archive }}
+            ${{ steps.collect.outputs.updater_sig }}
