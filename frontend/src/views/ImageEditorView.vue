@@ -246,6 +246,15 @@ const compactNav = useCompactNav()
 const editorDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
 const cropCanvasRef = ref<InstanceType<typeof StackCropCanvas> | null>(null)
 const docSheetOpen = ref(false)
+// The anchored document menu closes on Escape like any menu.
+function onDocMenuKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') { event.preventDefault(); docSheetOpen.value = false }
+}
+watch(docSheetOpen, open => {
+  if (open) window.addEventListener('keydown', onDocMenuKeydown)
+  else window.removeEventListener('keydown', onDocMenuKeydown)
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onDocMenuKeydown))
 /** At full height only a slice of the picture shows; the glass chips get out of its way. */
 const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
 /** Edits is a reliable way back from any tool or inspector to the stack. */
@@ -2368,7 +2377,10 @@ function selectFamily(id: FamilyId) {
     id === 'generate'
     && (sub.value === 'remove' || sub.value === 'repaint')
   ) {
-    if (!selection.value) armSelectTool('brush', true)
+    // Desktop arms the brush so the first gesture paints the mask. On a
+    // phone the drawer shows one thing at a time, and the family's prompt
+    // and Run come first; the matte pill arms the selection deliberately.
+    if (!selection.value && !isCompact.value) armSelectTool('brush', true)
   }
   // Entering an adjustment family starts fresh. Without this the panel kept
   // editing whatever was selected before, and a subbar click would judge the
@@ -2404,7 +2416,7 @@ function selectSub(id: string) {
     && (id === 'remove' || id === 'repaint')
   ) {
     selectedRetouchRegionId.value = null
-    if (!selection.value) armSelectTool('brush', true)
+    if (!selection.value && !isCompact.value) armSelectTool('brush', true)
   }
 }
 

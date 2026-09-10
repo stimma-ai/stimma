@@ -89,22 +89,28 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.getByRole('button', { name: /^Run/ }).first()).toBeVisible();
     await audit(page, 'editor-generate');
 
-    // Selection: the glass button opens the tool sheet.
+    // Selection: the matte pill arms the last tool; its panel lives in the
+    // drawer and the strip under it shows the selection tools.
     await bar.getByRole('button', { name: 'Edits', exact: true }).click();
-    // Returning to Edits preserves the selection session. Finish its brush
-    // before opening the tool chooser, just as a user would.
+    // Returning to Edits puts any armed selection tool down first.
     const selectionDone = page.getByRole('button', { name: 'Done', exact: true });
     if (await selectionDone.isVisible()) await selectionDone.click();
     await page.getByRole('button', { name: 'Select', exact: true }).click();
-    await expect(page.locator('[data-sheet-layer]').getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
-    await audit(page, 'editor-select-sheet', '[data-sheet-layer]');
-    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-select-panel]')).toBeVisible();
+    await expect(page.locator('.editor-tool-strip').getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
+    await audit(page, 'editor-select-panel', '.tool-drawer');
+    await page.locator('[data-select-panel]').getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page.locator('[data-select-panel]')).toBeHidden();
 
-    // The document sheet: Output, Info, Compare, Save as new asset, Revert.
+    // The document menu, anchored under the title: Compare, Save as new
+    // asset, Revert. Output and Info are tabs on the stack now.
     await page.getByRole('button', { name: 'Document options' }).click();
-    await expect(page.locator('[data-sheet-layer]').getByRole('button', { name: 'Revert to last save' })).toBeVisible();
-    await audit(page, 'editor-document-sheet', '[data-sheet-layer]');
+    const docMenu = page.getByRole('menu', { name: 'Document' });
+    await expect(docMenu.getByRole('menuitem', { name: 'Revert to last save' })).toBeVisible();
+    await audit(page, 'editor-document-menu', '[role="menu"][aria-label="Document"]');
     await page.keyboard.press('Escape');
+    await expect(docMenu).toBeHidden();
+    await expect(page.locator('#editor-drawer-prompt').getByRole('tab', { name: 'Output' })).toBeVisible();
   });
 
 
