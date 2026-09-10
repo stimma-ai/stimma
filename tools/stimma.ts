@@ -1292,13 +1292,15 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   console.log("Copying app-level runtime files...");
   await Deno.copyFile(join(repoRoot, "prompts.yaml"), join(outputDir, "prompts.yaml"));
 
+  // Import smoke must not introduce timestamp bytecode into the immutable
+  // runtime. Only the explicit startup precompiler writes portable hash caches.
   console.log("Verifying runtime-sensitive package imports...");
-  await run(pythonExe, [join(repoRoot, "scripts", "verify_python_runtime.py"), outputDir], {
+  await run(pythonExe, ["-B", join(repoRoot, "scripts", "verify_python_runtime.py"), outputDir], {
     cwd: outputDir,
   });
 
   console.log("Precompiling the backend startup import graph...");
-  await run(pythonExe, [join(repoRoot, "scripts", "precompile_python_startup.py"), outputDir], {
+  await run(pythonExe, ["-B", join(repoRoot, "scripts", "precompile_python_startup.py"), outputDir], {
     cwd: outputDir,
   });
 
@@ -1349,7 +1351,7 @@ async function prepareElectronBackendResources(target: string): Promise<Electron
   console.log("Packaging portable Python as a deterministic runtime archive...");
   const pythonDir = join(portableBackend, "python");
   const pythonExe = join(pythonDir, "python.exe");
-  await run(pythonExe, [join(repoRoot, "scripts", "package_python_runtime.py"), pythonDir, archiveDir]);
+  await run(pythonExe, ["-B", join(repoRoot, "scripts", "package_python_runtime.py"), pythonDir, archiveDir]);
 
   const archives: string[] = [];
   for await (const entry of Deno.readDir(archiveDir)) {

@@ -15,7 +15,7 @@ def test_precompile_script_emits_portable_unchecked_hash_bytecode(tmp_path: Path
 
     script = Path(__file__).parents[2] / "scripts" / "precompile_python_startup.py"
     result = subprocess.run(
-        [sys.executable, str(script), str(payload)],
+        [sys.executable, "-B", str(script), str(payload)],
         check=True,
         capture_output=True,
         text=True,
