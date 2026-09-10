@@ -12,7 +12,7 @@
     ref="containerRef"
     :class="[
       'relative overflow-hidden',
-      contain ? 'bg-surface-raised' : 'bg-base',
+      backgroundClass || (contain ? 'bg-surface-raised' : 'bg-base'),
       containerClass
     ]"
     :style="{ transform: 'translateZ(0)' }"
@@ -22,7 +22,8 @@
     <!-- Loading skeleton (shown until image loads or errors) -->
     <div
       v-if="!loaded && !error"
-      class="absolute inset-0 bg-surface animate-pulse"
+      class="absolute inset-0 animate-pulse"
+      :class="backgroundClass || 'bg-surface'"
     />
 
     <!-- CONTAIN MODE: Use flex centering with aspect-ratio wrapper for proper checker placement -->
@@ -60,7 +61,7 @@
       :alt="alt"
       :class="[
         'w-full h-full object-cover transition-opacity duration-150',
-        showChecker ? 'bg-checker' : '',
+        loaded && showChecker ? 'bg-checker' : '',
         loaded ? 'opacity-100' : 'opacity-0',
         imgClass
       ]"
@@ -75,7 +76,8 @@
     <!-- Error state -->
     <div
       v-if="error"
-      class="absolute inset-0 flex items-center justify-center bg-base"
+      class="absolute inset-0 flex items-center justify-center"
+      :class="backgroundClass || 'bg-base'"
     >
       <!-- Broken image icon (heroicons photo with X) -->
       <svg
@@ -117,13 +119,14 @@ interface Props {
   alt?: string
   /** Use object-contain (fit whole image). Default is object-cover (fill, may crop). */
   contain?: boolean
+  /** Override the letterbox, loading, and error matte for the hosting viewer. */
+  backgroundClass?: string
   /**
    * Whether the source file actually has an alpha channel (from media
    * metadata, computed at ingest — header-only, no pixel decode). `false`
    * means the checkerboard never renders at all, so there's nothing to race
-   * against a loading image. `null`/`undefined` (unknown — not a library
-   * item, or metadata predates this field) falls back to the old
-   * load-gated checker so nothing regresses.
+   * against a loading image. Unknown alpha metadata also stays on the matte;
+   * checkerboard requires an explicit `true` and a decoded image.
    */
   hasAlpha?: boolean | null
   /** Additional classes for the container div */
@@ -184,10 +187,8 @@ const emit = defineEmits<{
 
 const loaded = ref(false)
 const error = ref(false)
-// hasAlpha === false is a known fact from file metadata — never render the
-// checker for opaque content, so there's no loading race to hide. Unknown
-// (null/undefined) keeps today's load-gated checker as a safe fallback.
-const showChecker = computed(() => props.hasAlpha !== false)
+// Only confirmed alpha content gets checkerboard, after decode completes.
+const showChecker = computed(() => props.hasAlpha === true)
 // Queued loads must fetch as soon as their src is applied — admission control
 // has already decided the timing, and native lazy-loading deferring an
 // admitted request would hold its queue slot without making progress.

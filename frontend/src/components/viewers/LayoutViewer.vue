@@ -38,6 +38,9 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['document-touchstart', 'document-touchmove', 'document-touchend', 'document-touchcancel', 'document-click'])
+let removeDocumentTouches = () => {}
+
 const loading = ref(true)
 const error = ref(null)
 const htmlContent = ref('')
@@ -65,9 +68,45 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  removeDocumentTouches()
 })
 
 function onIframeLoad() {
+  // Iframe events do not bubble to the slideshow. Forward the original
+  // events so its gesture recognizer can still exclude links and controls.
+  removeDocumentTouches()
+  try {
+    const doc = iframeRef.value?.contentDocument
+    if (doc) {
+      const handlers = ['touchstart', 'touchmove', 'touchend', 'touchcancel'].map(type => {
+        const handler = event => {
+          const frame = iframeRef.value
+          if (!frame) return
+          const rect = frame.getBoundingClientRect()
+          const mapTouches = touches => Array.from(touches, touch => ({
+            identifier: touch.identifier,
+            clientX: rect.left + touch.clientX * rect.width / (frame.clientWidth || 1),
+            clientY: rect.top + touch.clientY * rect.height / (frame.clientHeight || 1),
+          }))
+          emit(`document-${type}`, {
+            target: event.target,
+            touches: mapTouches(event.touches),
+            changedTouches: mapTouches(event.changedTouches),
+            cancelable: event.cancelable,
+            preventDefault: () => event.preventDefault(),
+          })
+        }
+        doc.addEventListener(type, handler, { capture: true, passive: false })
+        return [type, handler]
+      })
+      const suppressClick = event => emit('document-click', event)
+      doc.addEventListener('click', suppressClick, true)
+      removeDocumentTouches = () => {
+        for (const [type, handler] of handlers) doc.removeEventListener(type, handler, true)
+        doc.removeEventListener('click', suppressClick, true)
+      }
+    }
+  } catch { /* Cross-origin layouts retain their own interaction handling. */ }
   // For legacy layouts with height="auto", measure from iframe DOM
   if (!heightResolved.value) {
     try {

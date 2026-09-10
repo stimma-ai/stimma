@@ -33,7 +33,10 @@ type TerminationSignal = "SIGTERM" | "SIGKILL";
 
 const DEV_HOST = "127.0.0.1";
 const LOCALHOSTS = [DEV_HOST, "::1"];
-const VITE_DEV_ARGS = ["run", "dev", "--", "--host", DEV_HOST, "--strictPort"];
+// Serve the shared UI to phones on the LAN as well as the desktop shell.
+// Vite prints the Network URLs and proxies API/WebSocket traffic to the
+// sandbox's loopback backend; desktop URLs and readiness checks stay local.
+const VITE_DEV_ARGS = ["run", "dev", "--", "--host", "0.0.0.0", "--strictPort"];
 const DEFAULT_BACKEND_PORT = 9191;
 const DEFAULT_FRONTEND_PORT = 9192;
 // Hiro uses 9292/9293 for defaults and 9300-9399 for sandboxes.
@@ -537,12 +540,13 @@ Flags:
                       cloud; app_branch stays 'dev' on the debug channel)
 
 Commands:
-  dev frontend    Run Vite dev server with HMR (default port 9192)
+  dev frontend    Run LAN-accessible Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
   dev backend2    Run Rust backend (default port 9191)
   dev app         Run desktop app in dev mode (Electron; --shell=tauri for the
                       legacy shell during the migration)
   dev all         Run backend + frontend + app together with merged logs
+                      Open Vite's Network URL on a phone on the same network
   dev ios         Build, sign, install, and launch on the connected iPhone
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)

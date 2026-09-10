@@ -356,6 +356,11 @@
     <div
       ref="mediaContainer"
       class="flex-1 flex items-center justify-center relative transition-all duration-300 compact:min-h-0"
+      @touchstart.capture="handleTouchStart"
+      @touchmove.capture="handleTouchMove"
+      @touchend.capture="handleTouchEnd"
+      @touchcancel.capture="cancelSlideshowTouch"
+      @click.capture="suppressSlideshowSwipeClick"
       :style="{ marginBottom: (showImageStrip && !focusMode && !isViewingGrid && !slideshowCompact) ? `${STRIP_HEIGHT}px` : '0px', paddingTop: slideshowCompact ? 'var(--safe-top, 0px)' : '0px' }"
     >
       <div v-if="!displayItem" class="text-content">Loading...</div>
@@ -383,30 +388,45 @@
         @selection-change="handleGridSelectionChange"
         @loaded="handleGridOverviewLoaded"
         class="absolute inset-0"
+        :style="galleryPictureStyle"
       />
 
       <!-- Wrapper fills container; w-full h-full + object-contain scales to fit -->
       <div
         v-else
         ref="mediaContainerRef"
-        class="relative w-full h-full flex items-center justify-center bg-slideshow-matt overflow-hidden touch-none"
+        class="relative w-full h-full flex items-center justify-center bg-slideshow-matt overflow-hidden"
+        :class="pictureGesturesEnabled() ? 'touch-none' : 'touch-pan-y'"
         @wheel="handleWheel"
         @pointerdown="startPan"
         @pointermove="doPan"
         @pointerup="endPan"
         @pointercancel="endPan"
-        @touchstart="handleTouchStart"
-        @touchmove="handleTouchMove"
-        @touchend="handleTouchEnd"
-        @touchcancel="cancelSlideshowTouch"
         @click="handleDoubleTap"
       >
         <div v-if="galleryPreview" class="absolute inset-0 pointer-events-none bg-slideshow-matt" :style="galleryPreviewStyle" aria-hidden="true">
-          <img :src="getMediaFileUrl(galleryPreview.file_hash)" class="w-full h-full object-contain" alt="" />
+          <MediaImage
+            :media-id="mediaIdOf(galleryPreview)"
+            :file-hash="galleryPreview.file_hash"
+            :file-format="galleryPreview.file_format"
+            :thumbnail="getMediaType(galleryPreview) === 'video'"
+            :thumbnail-size="1024"
+            thumbnail-mode="fit"
+            contain
+            background-class="bg-slideshow-matt"
+            :has-alpha="galleryPreview.has_alpha"
+            loading="eager"
+            :queued="false"
+            :draggable="false"
+            :enable-context-menu="false"
+            container-class="w-full h-full"
+            img-class="w-full h-full object-contain !transition-none"
+          />
         </div>
         <!-- Audio player -->
         <AudioPlayer
           v-if="isAudio"
+          :style="galleryPictureStyle"
           :key="`audio-${displayItem?.id}-${refreshKey}`"
           :src="getMediaFileUrl(displayItem.file_hash)"
           :media-id="mediaIdOf(displayItem)"
@@ -418,6 +438,7 @@
         <!-- Markdown viewer -->
         <MarkdownViewer
           v-else-if="isText"
+          :style="galleryPictureStyle"
           :key="`markdown-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
         />
@@ -425,6 +446,7 @@
         <!-- Set overview: show all items in a wrap panel (only when not already viewing a set) -->
         <SetOverview
           v-else-if="isSet && !isViewingSet"
+          :style="galleryPictureStyle"
           :key="`set-overview-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           @select-item="handleSetItemSelect"
@@ -435,6 +457,12 @@
         <!-- Layout viewer -->
         <LayoutViewer
           v-else-if="isLayout"
+          :style="galleryPictureStyle"
+          @document-touchstart="handleTouchStart"
+          @document-touchmove="handleTouchMove"
+          @document-touchend="handleTouchEnd"
+          @document-touchcancel="cancelSlideshowTouch"
+          @document-click="suppressSlideshowSwipeClick"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0"
@@ -443,6 +471,7 @@
         <!-- SVG viewer -->
         <SvgViewer
           v-else-if="isVector"
+          :style="galleryPictureStyle"
           :key="`svg-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0"
@@ -451,6 +480,7 @@
         <!-- Sprite player: full-bleed stage with its own floating transport -->
         <SpritePlayer
           v-else-if="isSprite"
+          :style="galleryPictureStyle"
           :key="`sprite-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           overlay
@@ -472,10 +502,8 @@
             'w-full h-full object-contain select-none',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
           ]"
-          :style="{
-            transform: `translate(${panX}px, ${panY}px) scale(${zoomScale})`,
-            transformOrigin: 'center center'
-          }"
+          :style="galleryPictureStyle"
+          data-gallery-picture
           ref="videoElement"
           draggable="true"
           @dragstart="handleDragStart"
@@ -489,7 +517,7 @@
         <div
           v-else
           :class="[
-            displayItem.has_alpha !== false && mediaLoaded && hasExactDimensions ? 'bg-checker' : 'bg-slideshow-matt',
+            displayItem.has_alpha === true && mediaLoaded && hasExactDimensions ? 'bg-checker' : 'bg-slideshow-matt',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
           ]"
           :style="[checkerOverlayStyle, galleryPictureStyle]"
@@ -1622,6 +1650,7 @@ const showSidebar = ref(!slideshowCompact.value)
 
 const galleryOffset = ref(0)
 const gallerySettling = ref(false)
+const galleryHandoff = ref(false)
 const galleryPreview = ref(null)
 const galleryDirection = ref(1)
 let galleryTimer = null
@@ -1629,45 +1658,50 @@ let galleryResetTimer = null
 const galleryTransition = computed(() => gallerySettling.value ? 'transform 200ms ease-out' : 'none')
 const galleryPictureStyle = computed(() => ({
   transform: `translate(${panX.value + galleryOffset.value}px, ${panY.value}px) scale(${zoomScale.value})`,
-  transition: galleryTransition.value,
+  transition: galleryHandoff.value ? 'none' : galleryTransition.value,
+  opacity: galleryHandoff.value && galleryPreview.value ? 0 : 1,
 }))
 const galleryPreviewStyle = computed(() => ({
-  transform: `translateX(${galleryOffset.value + galleryDirection.value * (mediaContainerRef.value?.clientWidth || 0)}px)`,
-  transition: galleryTransition.value,
+  transform: galleryHandoff.value ? 'translateX(0)' : `translateX(${galleryOffset.value + galleryDirection.value * (mediaContainerRef.value?.clientWidth || 0)}px)`,
+  transition: galleryHandoff.value ? 'none' : galleryTransition.value,
 }))
 function resetGalleryDrag() {
   clearTimeout(galleryTimer)
   clearTimeout(galleryResetTimer)
   galleryOffset.value = 0
   gallerySettling.value = false
+  galleryHandoff.value = false
   galleryPreview.value = null
 }
 function dragGallery(dx) {
-  if (gallerySettling.value || !slideshowCompact.value || getMediaType(displayItem.value) !== 'image') return
+  if (gallerySettling.value || !slideshowCompact.value) return
   const direction = dx < 0 ? 1 : -1
   galleryDirection.value = direction
-  const index = isViewingSet.value ? setViewIndex.value + direction : currentIndex.value + direction
-  const candidate = isViewingSet.value ? currentSetView.value?.items[index] : itemAtDisplayIndex(getActualIndex(index))
-  galleryPreview.value = candidate && getMediaType(candidate) === 'image' ? candidate : null
+  const index = isViewingSet.value ? setViewIndex.value + direction : displayAnchorIndex() + direction
+  const candidate = isViewingSet.value ? currentSetView.value?.items[index] : itemAtDisplayIndex(index)
+  galleryPreview.value = isGalleryMedia(candidate) ? candidate : null
   const available = direction === 1 ? canGoNext.value : canGoPrevious.value
   galleryOffset.value = available ? dx : dx * 0.25
 }
+function isGalleryMedia(item) {
+  return item && ['image', 'video'].includes(getMediaType(item))
+}
 function releaseGallery(direction) {
-  if (direction || gallerySettling.value) return
+  if (direction || gallerySettling.value || !galleryOffset.value) return
   gallerySettling.value = true
   galleryOffset.value = 0
   galleryTimer = setTimeout(resetGalleryDrag, 200)
 }
 function navigateGallery(direction) {
-  if (direction === 'info') { if (slideshowCompact.value) showSidebar.value = true; return }
+  if (direction === 'info') { if (slideshowCompact.value && pictureGesturesEnabled()) showSidebar.value = true; return }
   const advance = () => direction === 'next' ? next() : previous()
-  if (!slideshowCompact.value || getMediaType(displayItem.value) !== 'image') { advance(); return }
+  if (!slideshowCompact.value) { advance(); return }
   if (!(direction === 'next' ? canGoNext.value : canGoPrevious.value)) { releaseGallery(null); return }
   // Both pictures share the same translation, so the next photo follows the
   // finger into view and finishes at centre before we change the selection.
   if (!galleryOffset.value) dragGallery(direction === 'next' ? -1 : 1)
   gallerySettling.value = true
-  galleryOffset.value = (direction === 'next' ? -1 : 1) * (mediaContainerRef.value?.clientWidth || 0)
+  galleryOffset.value = (direction === 'next' ? -1 : 1) * (mediaContainerRef.value?.clientWidth || mediaContainer.value?.clientWidth || 0)
   galleryTimer = setTimeout(() => {
     advance()
     // displayItem may wait on an uncached page/image. Keep the preview in
@@ -1676,13 +1710,13 @@ function navigateGallery(direction) {
   }, 200)
 }
 const slideshowSwipe = createSlideshowSwipe({
-  canNavigate: () => zoomScale.value <= 1 && pictureGesturesEnabled() && !gallerySettling.value,
+  canNavigate: () => zoomScale.value <= 1 && !gallerySettling.value,
   navigate: navigateGallery,
   drag: dragGallery,
   release: releaseGallery,
 })
 function pictureGesturesEnabled() {
-  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value
+  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isSet.value && !isGrid.value
 }
 // Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
 const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'vertical'))
@@ -2708,7 +2742,12 @@ function mediaUpdatePatch(fields = [], media = {}) {
 // id, so they never reset zoom or restart the dwell clock here.
 watch(() => itemIdentity(displayItem.value), (newId, oldId) => {
   if (newId == null || newId === oldId) return
-  resetGalleryDrag()
+  if (gallerySettling.value && galleryPreview.value && itemIdentity(galleryPreview.value) === newId) {
+    galleryHandoff.value = true
+    galleryOffset.value = 0
+  } else {
+    resetGalleryDrag()
+  }
   slideshowDwell.shown()
   resetZoom()
   scheduleAdvance()
@@ -3188,26 +3227,28 @@ function itemAtDisplayIndex(displayIndex) {
 async function preloadNearbyMedia(displayIndex) {
   const epoch = ++mediaPreloadEpoch
   const indices = nearbyPreloadIndices(
-    displayIndex,
-    localTotalCount.value,
+    isViewingSet.value ? setViewIndex.value : displayIndex,
+    isViewingSet.value ? currentSetView.value.items.length : localTotalCount.value,
     preloadDirection,
     MEDIA_PRELOAD_LIMIT,
   )
 
-  for (const nearbyIndex of indices) {
+  await Promise.all(indices.map(async (nearbyIndex) => {
     if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
     const actualIndex = getActualIndex(nearbyIndex)
-    if (!props.items) await ensureItemLoaded(actualIndex).catch(() => {})
+    if (!props.items && !isViewingSet.value) await ensureItemLoaded(actualIndex).catch(() => {})
     if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
 
-    const item = itemAtDisplayIndex(nearbyIndex)
-    if (!item?.file_hash || isAudioType(item) || isStructuredType(item)) continue
+    const item = isViewingSet.value ? currentSetView.value.items[nearbyIndex] : itemAtDisplayIndex(nearbyIndex)
+    if (!item?.file_hash || isAudioType(item) || isStructuredType(item)) return
     if (isVideoType(item)) {
+      await preloadAndDecodeImage(getThumbnailUrl(item.file_hash, 1024, { mode: 'fit' }))
+      if (epoch !== mediaPreloadEpoch || !slideshowViewActive) return
       if (shouldPreloadVideoBytes(item.file_size)) await preloadSmallVideo(item.file_hash)
-      continue
+      return
     }
     await preloadAndDecodeImage(getMediaFileUrl(item.file_hash))
-  }
+  }))
 }
 
 // Navigation
@@ -4739,8 +4780,8 @@ function getTouchCenter(touches) {
 }
 
 function handleTouchStart(event) {
-  if (!pictureGesturesEnabled()) return
   slideshowSwipe.start(event)
+  if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
     // Pinch start
     event.preventDefault()
@@ -4759,8 +4800,8 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
-  if (!pictureGesturesEnabled()) return
   slideshowSwipe.move(event)
+  if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
     // Pinch zoom
     event.preventDefault()
@@ -4810,8 +4851,8 @@ function handleTouchMove(event) {
 }
 
 function handleTouchEnd(event) {
-  if (!pictureGesturesEnabled()) return
   slideshowSwipe.end(event)
+  if (!pictureGesturesEnabled()) return
   if (event.touches.length < 2) {
     touchStartDistance.value = 0
 
@@ -4868,6 +4909,12 @@ function handleDoubleTap(event) {
 function cancelSlideshowTouch(event) {
   slideshowSwipe.cancel()
   handleTouchEnd(event)
+}
+
+function suppressSlideshowSwipeClick(event) {
+  if (!slideshowSwipe.suppressClick()) return
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 // Reconcile the slideshow total against the parent's authoritative count after a
@@ -6276,10 +6323,11 @@ watch(currentIndex, async (newIndex) => {
 })
 
 // Do not let speculative full-resolution transfers compete with the current
-// hero. Once it is decoded and paintable, spend a small sequential budget on
+// hero. Once it is decoded and paintable, spend a small parallel budget on
 // the most likely next images.
 watch(mediaLoaded, (loaded) => {
-  if (loaded && !isViewingSet.value && !isViewingGrid.value && !isViewingSource.value) {
+  if (loaded && galleryHandoff.value) resetGalleryDrag()
+  if (loaded && !isViewingGrid.value && !isViewingSource.value) {
     void preloadNearbyMedia(currentIndex.value)
   }
 })
