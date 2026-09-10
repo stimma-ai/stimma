@@ -18,7 +18,7 @@ on:
 # A new push to main should supersede any canary build already running —
 # the runners are self-hosted, so stacked builds are expensive.
 concurrency:
-  group: canary-build
+  group: canary-build-${{ github.event_name == 'workflow_dispatch' && !inputs.publish_updates && format('validate-{0}', inputs.ref) || 'publish' }}
   cancel-in-progress: true
 
 # The reusable release-macos.yml workflow requests `contents: write` (it
@@ -33,7 +33,7 @@ permissions:
 jobs:
   version:
     name: Compute canary version
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, stimma-test]
     outputs:
       ref: ${{ steps.resolve.outputs.ref }}
       version: ${{ steps.resolve.outputs.version }}

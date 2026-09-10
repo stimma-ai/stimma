@@ -176,7 +176,7 @@ jobs:
     name: Quality gate passed
     if: always()
     needs: [backend-tests, acceptance-tests]
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-latest"') }}
     steps:
       - name: Require every test shard
         env:
