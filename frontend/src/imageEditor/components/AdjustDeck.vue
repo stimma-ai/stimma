@@ -165,9 +165,8 @@ const pickedColor = computed(() => {
         @click="emit('pick')"
       >
         <ToolIcon name="eyeDropper" :size="16" />
-        {{ picking ? 'Tap the photo…' : pickedColor ? 'Pick again' : 'Pick a color' }}
+        {{ picking ? 'Picking…' : 'Pick color' }}
       </button>
-      <span class="text-xs text-content-tertiary">then shift it</span>
     </div>
 
     <template v-if="curveOpen && curveControl">

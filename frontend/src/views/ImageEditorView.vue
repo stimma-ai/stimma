@@ -9830,11 +9830,7 @@ watch(
                     {{ auto.label }}
                   </button>
                 </div>
-                <p class="pt-1 text-xs text-content-tertiary">One-shot. Each adds an editable step{{ selection ? '; Autos read the whole frame' : '' }}.</p>
               </div>
-              <p v-else-if="family === 'levels' && compactLevelsMode === null" class="py-2 text-xs text-content-tertiary">
-                Pick a group. Each adds a step you can dial in{{ selection ? ', scoped to the selection' : '' }}, mask, or remove later.
-              </p>
               <EditorSubbar
                 v-if="family !== 'levels' || compactLevelsMode === 'looks'"
                 :key="family"
