@@ -23,6 +23,7 @@ import {
   ArrowUturnRightIcon,
   ArrowsPointingInIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   ChevronUpIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
@@ -288,15 +289,82 @@ function onCompactFamily(id: FamilyId) {
  */
 function paintDrawerRangeFills(root: HTMLElement) {
   for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('label > input[type="range"]'))) {
-    const label = input.parentElement
-    if (!label) continue
-    const min = Number(input.min || 0)
-    const max = Number(input.max || 100)
-    const value = Number(input.value)
-    const p = max > min ? ((value - min) / (max - min)) * 100 : 0
-    const zero = min < 0 && max > 0 ? ((0 - min) / (max - min)) * 100 : 0
-    label.style.setProperty('--fill-l', `${Math.min(p, zero).toFixed(2)}%`)
-    label.style.setProperty('--fill-w', `${Math.abs(p - zero).toFixed(2)}%`)
+    paintRangeFill(input)
+  }
+}
+function paintRangeFill(input: HTMLInputElement) {
+  const label = input.parentElement
+  if (!label) return
+  const min = Number(input.min || 0)
+  const max = Number(input.max || 100)
+  const value = Number(input.value)
+  const p = max > min ? ((value - min) / (max - min)) * 100 : 0
+  const zero = min < 0 && max > 0 ? ((0 - min) / (max - min)) * 100 : 0
+  label.style.setProperty('--fill-l', `${Math.min(p, zero).toFixed(2)}%`)
+  label.style.setProperty('--fill-w', `${Math.abs(p - zero).toFixed(2)}%`)
+}
+/**
+ * Scrubbing: a horizontal drag anywhere on the row moves the value by the
+ * drag's share of the row's width, relative to where the value was — no jump
+ * to the finger, so a thumb the finger covers is never the target. A native
+ * range only drags by its thumb on iOS, which is what made the row feel
+ * untouchable. Vertical intent (the first 8px going up or down) is left to
+ * the drawer's scroll; horizontal intent captures the pointer.
+ */
+function scrubDrawerRanges(root: HTMLElement): () => void {
+  let active: { input: HTMLInputElement; label: HTMLElement; id: number; x: number; y: number; start: number; decided: boolean } | null = null
+  function commit(input: HTMLInputElement, value: number, done: boolean) {
+    const min = Number(input.min || 0), max = Number(input.max || 100)
+    const step = Number(input.step) || 1
+    const snapped = Math.min(max, Math.max(min, Math.round(value / step) * step))
+    const precision = step < 1 ? Math.ceil(-Math.log10(step)) : 0
+    const next = snapped.toFixed(precision)
+    if (input.value !== next) {
+      input.value = next
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      paintRangeFill(input)
+    }
+    if (done) input.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+  function down(e: PointerEvent) {
+    if (!e.isPrimary || e.button !== 0) return
+    const label = (e.target as HTMLElement).closest<HTMLElement>('label')
+    const input = label?.querySelector<HTMLInputElement>(':scope > input[type="range"]')
+    if (!label || !input || input.disabled) return
+    active = { input, label, id: e.pointerId, x: e.clientX, y: e.clientY, start: Number(input.value), decided: false }
+  }
+  function move(e: PointerEvent) {
+    if (!active || e.pointerId !== active.id) return
+    const dx = e.clientX - active.x, dy = e.clientY - active.y
+    if (!active.decided) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      if (Math.abs(dy) > Math.abs(dx)) { active = null; return }
+      active.decided = true
+      active.label.setPointerCapture(e.pointerId)
+      active.label.dataset.scrubbing = ''
+    }
+    e.preventDefault()
+    const { input } = active
+    const min = Number(input.min || 0), max = Number(input.max || 100)
+    const width = Math.max(1, active.label.getBoundingClientRect().width - 4)
+    commit(input, active.start + (dx / width) * (max - min), false)
+  }
+  function up(e: PointerEvent) {
+    if (!active || e.pointerId !== active.id) return
+    const { input, label, decided } = active
+    active = null
+    delete label.dataset.scrubbing
+    if (decided) commit(input, Number(input.value), true)
+  }
+  root.addEventListener('pointerdown', down)
+  root.addEventListener('pointermove', move)
+  root.addEventListener('pointerup', up)
+  root.addEventListener('pointercancel', up)
+  return () => {
+    root.removeEventListener('pointerdown', down)
+    root.removeEventListener('pointermove', move)
+    root.removeEventListener('pointerup', up)
+    root.removeEventListener('pointercancel', up)
   }
 }
 watch(editorDrawerRef, (drawer, _previous, onCleanup) => {
@@ -307,10 +375,11 @@ watch(editorDrawerRef, (drawer, _previous, onCleanup) => {
   const observer = new MutationObserver(paint)
   observer.observe(root, { childList: true, subtree: true })
   root.addEventListener('input', paint)
+  const stopScrub = scrubDrawerRanges(root)
   // Programmatic value changes (undo, reset, a look) patch the input's value
   // without a DOM mutation, so a slow tick keeps the fill honest.
   const timer = setInterval(paint, 300)
-  onCleanup(() => { observer.disconnect(); root.removeEventListener('input', paint); clearInterval(timer) })
+  onCleanup(() => { observer.disconnect(); root.removeEventListener('input', paint); stopScrub(); clearInterval(timer) })
 }, { flush: 'post' })
 /** The step whose properties the drawer shows, for the pinned title row. */
 const compactStepTitle = computed(() =>
@@ -8846,7 +8915,10 @@ watch(
     so opening one takes matte space from the canvas and closing one gives it
     back — the image itself never gets pushed around.
   -->
-  <div class="h-full flex flex-col bg-base">
+  <!-- data-no-drawer-swipe: the editor is a workspace of horizontal drags
+       (sliders, the curve, the crop); none of them may open the app's
+       navigation drawer. -->
+  <div class="h-full flex flex-col bg-base" data-no-drawer-swipe>
     <div class="flex-1 flex min-h-0 compact:flex-col">
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
       <!-- Toolbar 1: the families. A container so the family buttons can drop
@@ -8866,31 +8938,19 @@ watch(
         <button
           type="button"
           class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
-          aria-label="Close editor"
+          aria-label="Back"
           @click="compactNav.back()"
         >
-          <XMarkIcon class="w-6 h-6" />
+          <ChevronLeftIcon class="w-6 h-6" />
         </button>
+        <div class="flex-1 min-w-0" />
         <button
           type="button"
-          class="flex-1 min-w-0 h-11 px-1 flex items-center gap-1 text-left border-none bg-transparent"
+          class="w-11 h-11 shrink-0 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent"
           aria-label="Document options"
           @click="docSheetOpen = true"
         >
-          <span class="min-w-0 flex-1">
-            <span class="flex items-center gap-1.5 min-w-0">
-              <span class="truncate text-[15px] font-semibold tracking-tight text-content leading-tight">{{ compactTitle }}</span>
-              <StatusDot
-                v-if="stack.dirtySinceSave.value"
-                bucket="warning"
-                class="shrink-0"
-                title="Unsaved edits"
-                aria-label="Unsaved edits"
-              />
-            </span>
-            <span class="block truncate text-[11px] font-mono text-content-tertiary leading-tight">{{ compactSubtitle }}</span>
-          </span>
-          <EllipsisHorizontalIcon class="w-5 h-5 shrink-0 text-content-tertiary" />
+          <EllipsisHorizontalIcon class="w-6 h-6" />
         </button>
         <button
           type="button"
@@ -9867,7 +9927,7 @@ watch(
       @click.self="docSheetOpen = false"
     >
       <div
-        class="absolute left-12 w-64 max-w-[calc(100%-4rem)] bg-surface border border-edge-subtle rounded-lg shadow-lg py-1"
+        class="absolute right-3 w-64 max-w-[calc(100%-1.5rem)] bg-surface border border-edge-subtle rounded-lg shadow-lg py-1"
         :style="{ top: 'calc(var(--safe-top, 0px) + 58px)' }"
         role="menu"
         aria-label="Document"

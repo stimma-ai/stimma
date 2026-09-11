@@ -905,6 +905,8 @@ select option {
   width: var(--fill-w, 0%);
   background: rgb(var(--color-accent-rgb, 45 212 191));
 }
+/* The input keeps the value and the a11y semantics; the row (its label)
+   takes the pointer, see ImageEditorView's scrub handler. */
 [data-viewport="compact"] .editor-drawer-body label > input[type="range"] {
   position: absolute;
   inset: 0;
@@ -915,8 +917,17 @@ select option {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
-  cursor: ew-resize;
+  opacity: 0;
+  pointer-events: none;
+}
+[data-viewport="compact"] .editor-drawer-body label:has(> input[type="range"]) {
   touch-action: pan-y;
+  cursor: ew-resize;
+  -webkit-user-select: none;
+  user-select: none;
+}
+[data-viewport="compact"] .editor-drawer-body label[data-scrubbing]::after {
+  height: 3px;
 }
 [data-viewport="compact"] .editor-drawer-body label > input[type="range"]::-webkit-slider-runnable-track {
   height: 100%;
