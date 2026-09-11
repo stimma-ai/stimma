@@ -413,7 +413,7 @@ function buttonClass(active: boolean, enabled = true) {
          beneath. The same set the raised panel shows on desktop; Done hands
          the canvas back and the family's controls return underneath. -->
     <Teleport v-if="armed && panelTarget" :to="panelTarget" defer>
-      <div class="px-3 pb-2 flex flex-col" data-select-panel>
+      <div class="pb-1 flex flex-col" data-select-panel>
         <div class="flex items-center gap-1 min-h-11">
           <ToolIcon :name="armedTool!.icon" :size="18" class="text-selection shrink-0" />
           <span class="text-sm font-semibold text-content">Selection</span>
@@ -433,13 +433,6 @@ function buttonClass(active: boolean, enabled = true) {
             @click="emit('clear')"
           >
             Deselect
-          </button>
-          <button
-            type="button"
-            class="min-h-11 px-3 text-[13px] font-semibold rounded-md text-accent-hi"
-            @click="emit('done')"
-          >
-            Done
           </button>
         </div>
 

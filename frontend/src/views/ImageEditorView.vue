@@ -24,6 +24,7 @@ import {
   ArrowsPointingInIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
+  Squares2X2Icon,
   ChevronUpIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
@@ -34,8 +35,10 @@ import {
 } from '@heroicons/vue/24/outline'
 import Button from '../components/ui/Button.vue'
 import Sheet from '../components/ui/Sheet.vue'
-import ToolDrawer from '../components/compact/ToolDrawer.vue'
 import EditorToolStrip from '../imageEditor/components/EditorToolStrip.vue'
+import AdjustDeck from '../imageEditor/components/AdjustDeck.vue'
+import ToolIcon from '../imageEditor/components/ToolIcon.vue'
+import type { ActiveParam } from '../imageEditor/components/AdjustDeck.vue'
 import { addToast } from '../composables/useToasts'
 import IconButton from '../components/ui/IconButton.vue'
 import Tooltip from '../components/ui/Tooltip.vue'
@@ -244,7 +247,6 @@ const compactNav = useCompactNav()
 // header, the sidebar's panels become a bottom drawer, the families become a
 // labelled bar under it, and every popover becomes a sheet. Nothing is
 // renamed and no control exists in only one of the two layouts.
-const editorDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
 const cropCanvasRef = ref<InstanceType<typeof StackCropCanvas> | null>(null)
 const docSheetOpen = ref(false)
 // The anchored document menu closes on Escape like any menu.
@@ -256,29 +258,147 @@ watch(docSheetOpen, open => {
   else window.removeEventListener('keydown', onDocMenuKeydown)
 })
 onBeforeUnmount(() => window.removeEventListener('keydown', onDocMenuKeydown))
-/** At full height only a slice of the picture shows; the glass chips get out of its way. */
-const drawerFull = computed(() => isCompact.value && editorDrawerRef.value?.level === 'full')
-/** Edits is a reliable way back from any tool or inspector to the stack. */
+
+// -- the phone deck (DESIGN.md §3.6a) -------------------------------------
+//
+// No drawer, no dock: the picture, then a deck of [the open tool's controls]
+// + [one row that drills down]. The stack lives in a sheet behind Edits.
+const deckPanelRef = ref<HTMLElement | null>(null)
+/**
+ * The Edits / Output / Info sheet. The sidebar's panels teleport into it, so
+ * the target must exist before the teleport enables and must outlive its
+ * disabling: two flags, sequenced a tick apart, or Vue moves the panels
+ * into a container that is already gone.
+ */
+const stackOpen = ref(false)
+// Keys the teleports: a Teleport resolves its target once, at mount, so it
+// must remount once the sheet's target exists (and again before it goes).
+const stackHosted = ref(false)
+function openStack() {
+  stackOpen.value = true
+  nextTick(() => { stackHosted.value = true })
+}
+function closeStack() {
+  stackHosted.value = false
+  nextTick(() => { stackOpen.value = false })
+}
+/** Adjust's row can show the Autos or the Looks instead of a step's controls. */
+const compactLevelsMode = ref<'auto' | 'looks' | null>(null)
+/** Adjust: the parameter the picture drag drives (from the deck). */
+const deckParam = ref<ActiveParam | null>(null)
+/** The floating readout while the picture is being dragged: "value|label". */
+const scrubReadout = ref<string | null>(null)
+const activeLevelSection = computed(() => (selectedAdjustOp.value as any)?.params?.section ?? null)
+/** Edits, from the row or the document menu: the stack as a sheet. */
 function onCompactEdits() {
+  docSheetOpen.value = false
   disarmSelect()
-  if (family.value) leaveMode()
-  selectedOpId.value = null
-  selectedShapeId.value = null
-  selectedRetouchRegionId.value = null
   sidebarTab.value = 'edits'
-  nextTick(() => {
-    editorDrawerRef.value?.open('half')
-    editorDrawerRef.value?.scrollToTop()
-  })
+  openStack()
 }
 /**
- * The dock's family cells. A selection tool lets go first (the strip shows
- * the family's tools again), and re-tapping the open family keeps it open:
- * on a phone the dock is where you are, not a toggle.
+ * The row's family cells. A selection tool lets go first, and re-tapping the
+ * open family keeps it open: on a phone the row is where you are.
  */
 function onCompactFamily(id: FamilyId) {
   disarmSelect()
+  compactLevelsMode.value = null
+  looksOpen.value = false
   if (family.value !== id) selectFamily(id)
+}
+/** The row's ‹: up one level. Looks and Auto sit under Adjust; a family sits under the root. */
+function onCompactBack() {
+  disarmSelect()
+  if (family.value === 'levels' && (compactLevelsMode.value || looksOpen.value)) {
+    compactLevelsMode.value = null
+    looksOpen.value = false
+    return
+  }
+  leaveMode()
+}
+/**
+ * A row cell inside a family. Adjust's groups ADD a step (the desktop rule)
+ * unless that group's step is already the one open; Auto and Looks swap what
+ * the panel shows.
+ */
+function onCompactSub(id: string) {
+  if (family.value !== 'levels') { selectSub(id); return }
+  if (id === 'auto') { compactLevelsMode.value = 'auto'; looksOpen.value = false; return }
+  if (id === 'looks') { compactLevelsMode.value = 'looks'; looksOpen.value = true; return }
+  compactLevelsMode.value = null
+  looksOpen.value = false
+  if (activeLevelSection.value !== id) onSubbarSet({ addLevel: id })
+}
+/** A row in the stack sheet: close it and open the step where it is edited. */
+function onCompactRowOpen(op: any) {
+  closeStack()
+  const kind = op?.exec?.kind
+  const id = op?.id
+  if (kind === 'adjust') {
+    if (family.value !== 'levels') selectFamily('levels')
+    compactLevelsMode.value = null
+    looksOpen.value = false
+    nextTick(() => { selectedOpId.value = id })
+  } else if (op?.class === 'patch') {
+    if (family.value !== 'generate') selectFamily('generate')
+    nextTick(() => { selectedOpId.value = id })
+  } else if (kind === 'annotate') {
+    if (family.value !== 'annotate') selectFamily('annotate')
+    nextTick(() => { selectedOpId.value = id })
+  }
+}
+// The picture is the slider: with an Adjust parameter on the dial, a
+// one-finger drag across the picture moves it (Snapseed's gesture).
+let scrub: { id: number; x: number; start: number } | null = null
+function scrubEligible(event: PointerEvent) {
+  return isCompact.value && event.isPrimary && family.value === 'levels' && !armedSelectTool.value
+    && !!deckParam.value && !!selectedAdjustOp.value && !pointPicking.value
+}
+function scrubValueText(p: ActiveParam, v: number) {
+  const text = p.step < 1 ? v.toFixed(p.step < 0.1 ? 2 : 1) : String(Math.round(v))
+  return (p.min < 0 && v > 0 ? '+' : '') + text
+}
+function onViewportPointerDown(event: PointerEvent) {
+  if (scrub) {
+    // A second finger: this is a pinch, not a scrub.
+    scrub = null
+    scrubReadout.value = null
+  } else if (scrubEligible(event)) {
+    const p = deckParam.value!
+    const current = (selectedAdjustOp.value as any)?.params?.[p.key]
+    scrub = { id: event.pointerId, x: event.clientX, start: typeof current === 'number' ? current : p.default }
+    viewport.value?.setPointerCapture(event.pointerId)
+    scrubReadout.value = `${scrubValueText(p, scrub.start)}|${p.label}`
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  startViewPan(event)
+}
+function onViewportPointerMove(event: PointerEvent) {
+  if (scrub && scrub.id === event.pointerId) {
+    const p = deckParam.value
+    if (!p) return
+    const width = Math.max(120, (viewport.value?.clientWidth ?? 390) * 0.8)
+    const raw = scrub.start + ((event.clientX - scrub.x) / width) * (p.max - p.min)
+    const step = p.step || 1
+    const value = Math.min(p.max, Math.max(p.min, Math.round(raw / step) * step))
+    onAdjustInspectorChange({ [p.key]: value }, `adjust:${p.key}`)
+    scrubReadout.value = `${scrubValueText(p, value)}|${p.label}`
+    event.stopPropagation()
+    return
+  }
+  moveViewPan(event)
+}
+function onViewportPointerUp(event: PointerEvent) {
+  if (scrub && scrub.id === event.pointerId) {
+    scrub = null
+    scrubReadout.value = null
+    void commitAdjustInspectorChange()
+    event.stopPropagation()
+    return
+  }
+  endViewPan(event)
 }
 /**
  * Phone sliders draw their own value: the range input is invisible and covers
@@ -367,8 +487,7 @@ function scrubDrawerRanges(root: HTMLElement): () => void {
     root.removeEventListener('pointercancel', up)
   }
 }
-watch(editorDrawerRef, (drawer, _previous, onCleanup) => {
-  const root = (drawer?.$el as HTMLElement | undefined)?.querySelector<HTMLElement>('#editor-drawer-body')
+watch(deckPanelRef, (root, _previous, onCleanup) => {
   if (!root) return
   const paint = () => paintDrawerRangeFills(root)
   paint()
@@ -381,10 +500,6 @@ watch(editorDrawerRef, (drawer, _previous, onCleanup) => {
   const timer = setInterval(paint, 300)
   onCleanup(() => { observer.disconnect(); root.removeEventListener('input', paint); stopScrub(); clearInterval(timer) })
 }, { flush: 'post' })
-/** The step whose properties the drawer shows, for the pinned title row. */
-const compactStepTitle = computed(() =>
-  (selectedOpId.value ? stack.opById(selectedOpId.value)?.label : null) ?? 'Properties'
-)
 
 const props = defineProps<{ assetId: string; revisionId?: string }>()
 const router = useRouter()
@@ -2115,7 +2230,7 @@ const compactSubtitle = computed(() => {
 watch(family, id => {
   if (!isCompact.value) return
   if (id) sidebarTab.value = 'edits'
-  nextTick(() => editorDrawerRef.value?.open('half'))
+  compactLevelsMode.value = null
 })
 
 /** A payload whose geometry has moved it entirely off the frame. */
@@ -3393,20 +3508,7 @@ const showsAdjustInspector = computed(() => inspectorKind.value === 'adjust')
  * Properties share it. With a family open, Properties only show for a step of
  * that family; on Edits (no family) any selected step's show, as on desktop.
  */
-const INSPECTOR_FAMILY: Record<string, FamilyId> = {
-  adjust: 'levels', annotation: 'annotate', retouch: 'retouch', model: 'generate',
-}
-const inspectorShown = computed(() =>
-  !isCompact.value
-  || !family.value
-  || (inspectorKind.value !== null && INSPECTOR_FAMILY[inspectorKind.value] === family.value)
-)
-const compactPropertiesVisible = computed(() => inspectorShown.value && (
-  (inspectorKind.value === 'annotation' && !!selectedShape.value)
-  || (inspectorKind.value === 'retouch' && !!selectedRetouchRegion.value)
-  || (inspectorKind.value === 'model' && !!selectedModelOp.value)
-  || showsAdjustInspector.value
-))
+const inspectorShown = computed(() => !isCompact.value)
 
 
 
@@ -6941,6 +7043,7 @@ function onRowSelect(op: any) {
   }
   looksOpen.value = false
   selectedOpId.value = op.id
+  if (isCompact.value) onCompactRowOpen(op)
   // A parent-row click selects the parent, not whichever child happened to be
   // selected before it. Child clicks stop propagation and take their own path.
   if (selectedRetouchRegionId.value || hoveredRetouchRegionId.value) {
@@ -7060,8 +7163,6 @@ function disarmSelect() {
 // The preview only means anything while a selection tool can gesture.
 watch(armedSelectTool, armed => {
   if (!armed) heldCombineOverride.value = null
-  // Phone: the tool's panel lives in the drawer, so arming raises it.
-  if (armed && isCompact.value) nextTick(() => editorDrawerRef.value?.open('half'))
 })
 
 /** Island-only settings: tuning the armed tool must never disarm it. */
@@ -7837,13 +7938,6 @@ const outputPickerOpen = ref(false)
 /** Which sidebar panel is showing. Edits owns the stack, Output owns the
  * terminal stage, and Info reuses the library's media-information body. */
 const sidebarTab = ref<'edits' | 'output' | 'info'>('edits')
-watch([family, selectedOpId, selectedRetouchRegionId, sidebarTab], () => {
-  if (!isCompact.value) return
-  nextTick(() => {
-    editorDrawerRef.value?.scrollToTop()
-    if (family.value || compactPropertiesVisible.value) editorDrawerRef.value?.open('half')
-  })
-})
 
 async function loadEditorMediaInfo() {
   const token = ++infoLoadToken
@@ -9036,7 +9130,7 @@ watch(
 
       <!-- Compact: the commit bar's zoom read-out and before/after as glass
            chips on the matte; pinch zooms, two fingers pan. -->
-      <template v-if="isCompact && !loading && !drawerFull && family !== 'crop'">
+      <template v-if="isCompact && !loading && family !== 'crop'">
         <button
           type="button"
           class="absolute top-2 left-2 z-chrome min-h-11 px-3 rounded-lg bg-black/60 text-white text-[11px] font-mono tabular-nums flex items-center gap-1.5 border border-white/10 backdrop-blur"
@@ -9059,6 +9153,15 @@ watch(
         </button>
       </template>
 
+      <div
+        v-if="scrubReadout"
+        class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-chrome pointer-events-none px-4 py-2 rounded-lg
+               bg-black/60 border border-white/10 backdrop-blur text-white text-center"
+        aria-live="polite"
+      >
+        <span class="block text-[15px] font-semibold font-mono tabular-nums">{{ scrubReadout.split('|')[0] }}</span>
+        <span class="block text-[11px] text-white/70">{{ scrubReadout.split('|')[1] }}</span>
+      </div>
       <div v-if="loading" class="flex-1 grid place-items-center">
         <Spinner size="md" />
       </div>
@@ -9074,10 +9177,10 @@ watch(
         class="relative flex-1 min-h-0 grid place-items-center overflow-hidden bg-matte p-6 coarse:touch-none compact:p-0"
         :class="viewPanning ? 'cursor-grabbing' : (spacePanHeld ? 'cursor-grab' : '')"
         @wheel.prevent="onViewportWheel"
-        @pointerdown.capture="startViewPan"
-        @pointermove.capture="moveViewPan"
-        @pointerup.capture="endViewPan"
-        @pointercancel.capture="endViewPan"
+        @pointerdown.capture="onViewportPointerDown"
+        @pointermove.capture="onViewportPointerMove"
+        @pointerup.capture="onViewportPointerUp"
+        @pointercancel.capture="onViewportPointerUp"
         @auxclick.middle.prevent
         @mousedown.self="onViewportMatteMouseDown"
         @click.self="onViewportMatteClick"
@@ -9312,10 +9415,10 @@ watch(
           :ai-action="aiSelectAction"
           :ai-error="aiSelectError"
           :compact="isCompact"
-          :panel-target="isCompact ? '#editor-drawer-panels' : null"
+          :panel-target="isCompact ? '#editor-deck-panel' : null"
           @done="disarmSelect"
           :class="isCompact
-            ? ['absolute bottom-2 left-2 z-chrome', (drawerFull || family === 'crop') && 'hidden']
+            ? ['absolute bottom-2 left-2 z-chrome', family === 'crop' && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
@@ -9351,7 +9454,7 @@ watch(
       >
         <!-- Three panels, not three lists. Edits is the stack, Output is the
              terminal stage, and Info is the shared media-information body. -->
-        <Teleport to="#editor-drawer-prompt" :disabled="!isCompact" defer>
+        <Teleport :key="stackHosted ? 'tabs-sheet' : 'tabs-aside'" to="#editor-stack-tabs" :disabled="!isCompact || !stackHosted" defer>
         <div
           v-if="!isCompact"
           class="px-3 h-11 flex items-center gap-1 shrink-0 bg-surface-raised
@@ -9384,56 +9487,37 @@ watch(
           </template>
           <Spinner v-if="rendering" size="sm" />
         </div>
-        <template v-else-if="!armedSelectTool">
-          <!-- The stack: Edits, Output and Info as one segmented control. -->
-          <div
-            v-if="!family && !compactPropertiesVisible"
-            class="flex rounded-md bg-overlay-subtle p-0.5"
-            role="tablist"
-            aria-label="Document panels"
+        <div
+          v-else
+          class="flex rounded-md bg-overlay-subtle p-0.5 mb-2"
+          role="tablist"
+          aria-label="Document panels"
+        >
+          <button
+            v-for="tab in [
+              { id: 'edits', label: 'Edits' },
+              { id: 'output', label: 'Output' },
+              { id: 'info', label: 'Info' },
+            ]"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors"
+            :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
+            :aria-selected="sidebarTab === tab.id"
+            @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
           >
-            <button
-              v-for="tab in [
-                { id: 'edits', label: 'Edits' },
-                { id: 'output', label: 'Output' },
-                { id: 'info', label: 'Info' },
-              ]"
-              :key="tab.id"
-              type="button"
-              role="tab"
-              class="flex-1 min-h-11 rounded text-[13px] font-medium transition-colors"
-              :class="sidebarTab === tab.id ? 'bg-surface-raised text-content shadow-sm' : 'text-content-secondary'"
-              :aria-selected="sidebarTab === tab.id"
-              @click="sidebarTab = tab.id as 'edits' | 'output' | 'info'"
-            >
-              {{ tab.label }}
-              <span
-                v-if="tab.id === 'output' && outputLabel(outputStage)"
-                class="ml-1 text-[11px] text-accent tabular-nums"
-              >{{ outputLabel(outputStage) }}</span>
-            </button>
-          </div>
-          <!-- A step's properties, reached from the stack: the way back, then the step. -->
-          <div v-else-if="!family" class="flex min-h-11 items-center gap-1">
-            <button
-              type="button"
-              class="flex min-h-11 shrink-0 items-center gap-0.5 rounded-md -ml-1 pr-2 text-[13px] text-content-secondary"
-              aria-label="Back to edits"
-              @click="onCompactEdits"
-            >
-              <ChevronDownIcon class="h-5 w-5 rotate-90" /> Edits
-            </button>
-            <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactStepTitle }}</span>
-          </div>
-          <!-- A family with a step's properties under its controls: name the step. -->
-          <div v-else-if="compactPropertiesVisible" class="flex min-h-9 items-center">
-            <span class="min-w-0 flex-1 truncate text-sm font-semibold text-content">{{ compactStepTitle }}</span>
-          </div>
-        </template>
+            {{ tab.label }}
+            <span
+              v-if="tab.id === 'output' && outputLabel(outputStage)"
+              class="ml-1 text-[11px] text-accent tabular-nums"
+            >{{ outputLabel(outputStage) }}</span>
+          </button>
+        </div>
         </Teleport>
 
-        <Teleport to="#editor-drawer-panels" :disabled="!isCompact" defer>
-        <div class="contents compact:flex compact:flex-col" :class="isCompact && armedSelectTool && '!hidden'">
+        <Teleport :key="stackHosted ? 'panels-sheet' : 'panels-aside'" to="#editor-stack-body" :disabled="!isCompact || !stackHosted" defer>
+        <div class="contents compact:flex compact:flex-col">
         <OutputPanel
           v-if="sidebarTab === 'output' && stack.doc.value"
           :output="outputStage"
@@ -9484,7 +9568,7 @@ watch(
              handlers miss the gaps (the list's padding) and leave a stale line
              behind, and dragenter is unreliable in WKWebView. -->
         <div
-          v-else-if="sidebarTab === 'edits' && (!isCompact || (!family && !compactPropertiesVisible))"
+          v-else-if="sidebarTab === 'edits'"
           data-testid="editor-edits-list"
           class="flex-1 overflow-y-auto custom-scrollbar p-1.5 compact:order-2 compact:flex-none compact:overflow-visible"
           @keydown="onStackKeydown"
@@ -9705,62 +9789,119 @@ watch(
         </Teleport>
       </aside>
 
-      <!-- Compact: the drawer (the sidebar's panels, or the open family's
-           controls above them) and the family bar. Heights come from the
-           column, so the picture always keeps a slice above the handle. -->
+      <!-- Compact: the deck (DESIGN.md §3.6a). The open tool's controls,
+           then one row that drills down. Nothing here scrolls the picture
+           away: the panel caps its height and scrolls inside. -->
       <template v-if="isCompact">
-        <ToolDrawer
-          ref="editorDrawerRef"
-          id-prefix="editor-drawer"
-          initial="half"
-          content-sized
-          :hero-reserve="176"
-          :half-fraction="0.44"
-          body-class="!px-0 editor-drawer-body"
+        <div
+          class="editor-deck flex-none flex flex-col bg-base border-t border-edge-subtle pb-[max(10px,var(--safe-bottom,0px))]"
+          data-drawer-chrome
         >
-          <!-- The family's tools (or the selection tools), pinned under the
-               body at every drawer height: switching tools is never a
-               navigation. -->
-          <template v-if="family || armedSelectTool" #strip>
-            <EditorToolStrip
-              :family="family"
-              :sub="sub"
-              :state="subbarState"
-              :armed="armedSelectTool"
-              @sub="selectSub"
-              @set="onSubbarSet"
-              @arm="(id: SelectToolId) => armSelectTool(id, true)"
-            />
-          </template>
-          <EditorSubbar
-            v-if="family && !armedSelectTool"
-            :key="family"
-            compact
+          <div
+            id="editor-deck-panel"
+            ref="deckPanelRef"
+            class="editor-drawer-body flex-none max-h-[46vh] overflow-y-auto px-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden empty:hidden"
+          >
+            <template v-if="!armedSelectTool && family">
+              <AdjustDeck
+                v-if="family === 'levels' && compactLevelsMode === null && selectedAdjustOp"
+                :section="activeLevelSection ?? 'tone'"
+                :params="adjustInspectorParams"
+                :histogram="toneCurveHistogram"
+                :picking="pointPicking"
+                :clip-shadows="clipShadows"
+                :clip-highlights="clipHighlights"
+                @change="onAdjustInspectorChange"
+                @commit="commitAdjustInspectorChange"
+                @pick="armPointColorPick"
+                @clip="setClipIndicators"
+                @active="deckParam = $event"
+              />
+              <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
+                <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
+                  <button
+                    v-for="auto in AUTO_EDITS"
+                    :key="auto.id"
+                    type="button"
+                    class="flex-none min-h-11 px-3 rounded-md text-[13px] font-medium text-content-secondary flex items-center gap-1.5 whitespace-nowrap"
+                    @click="onSubbarSet({ auto: auto.id })"
+                  >
+                    <ToolIcon :name="auto.icon" :size="16" />
+                    {{ auto.label }}
+                  </button>
+                </div>
+                <p class="pt-1 text-xs text-content-tertiary">One-shot. Each adds an editable step{{ selection ? '; Autos read the whole frame' : '' }}.</p>
+              </div>
+              <p v-else-if="family === 'levels' && compactLevelsMode === null" class="py-2 text-xs text-content-tertiary">
+                Pick a group. Each adds a step you can dial in{{ selection ? ', scoped to the selection' : '' }}, mask, or remove later.
+              </p>
+              <EditorSubbar
+                v-if="family !== 'levels' || compactLevelsMode === 'looks'"
+                :key="family"
+                compact
+                :family="family"
+                :sub="sub"
+                :state="subbarState"
+                :tool-label="activeToolLabel"
+                :busy="busy"
+                :can-run="canRun"
+                :run-label="iterationOp ? 'Re-run' : null"
+                @sub="selectSub"
+                @set="onSubbarSet"
+                @commit="onSubbarCommit"
+                @run="run"
+                @open-tool-picker="onOpenToolPicker"
+                @refresh-loras="refreshEditorLoras"
+                @upload-loras="uploadEditorLoras"
+              />
+              <!-- The selected step's properties, where the desktop keeps them in
+                   the sidebar: the phone shows them under the tool's controls. -->
+              <AnnotationInspector
+                v-if="family === 'annotate' && inspectorKind === 'annotation' && selectedShape"
+                :shape="selectedShape"
+                :shapes="selectedAnnotationShapes"
+                :palette="imagePalette"
+                @change="onSelectedShapesChange"
+                @commit="commitSelectedShapesChange"
+                @remove="annotateRef?.deleteSelected()"
+              />
+              <ModelEditInspector
+                v-else-if="family === 'generate' && inspectorKind === 'model' && selectedModelOp"
+                :op="selectedModelOp"
+                :tool="selectedModelTool"
+                :running="runningOpIds.has(selectedModelOp.id)"
+                :is-refreshing-loras="isRefreshingLoras"
+                :is-uploading-lora="isUploadingLora"
+                :lora-upload-progress="loraUploadProgress"
+                :lora-upload-file-name="loraUploadFileName"
+                @params="setSelectedModelParams"
+                @references="setSelectedModelReferences"
+                @blend="setSelectedModelBlend"
+                @blend-commit="commitSelectedModelBlend"
+                @run="resample(selectedModelOp.id)"
+                @refresh-loras="refreshEditorLoras"
+                @upload-loras="uploadEditorLoras"
+              />
+            </template>
+          </div>
+          <EditorToolStrip
             :family="family"
             :sub="sub"
             :state="subbarState"
-            :tool-label="activeToolLabel"
-            :busy="busy"
-            :can-run="canRun"
-            :run-label="iterationOp ? 'Re-run' : null"
-            @sub="selectSub"
+            :armed="armedSelectTool"
+            :count="visibleRows.length"
+            :active-level="activeLevelSection"
+            :looks="family === 'levels' && compactLevelsMode === 'looks'"
+            :auto="family === 'levels' && compactLevelsMode === 'auto'"
+            @family="onCompactFamily"
+            @edits="onCompactEdits"
+            @back="onCompactBack"
+            @done="disarmSelect"
+            @sub="onCompactSub"
             @set="onSubbarSet"
-            @commit="onSubbarCommit"
-            @run="run"
-            @open-tool-picker="onOpenToolPicker"
-            @refresh-loras="refreshEditorLoras"
-            @upload-loras="uploadEditorLoras"
+            @arm="(id: SelectToolId) => armSelectTool(id, true)"
           />
-        </ToolDrawer>
-        <EditorToolbar
-          bar
-          data-drawer-chrome
-          :active="family"
-          :edits-active="!family"
-          :count="visibleRows.length"
-          @select="onCompactFamily"
-          @edits="onCompactEdits"
-        />
+        </div>
       </template>
     </div>
 
@@ -9953,6 +10094,16 @@ watch(
         <button
           type="button"
           role="menuitem"
+          class="w-full min-h-11 px-3 flex items-center gap-2.5 text-[13.5px] text-content text-left"
+          @click="onCompactEdits()"
+        >
+          <Squares2X2Icon class="w-[18px] h-[18px] text-content-tertiary shrink-0" />
+          <span class="flex-1 min-w-0 truncate">Edits, output, info</span>
+          <span class="text-[11px] font-mono text-content-tertiary">{{ visibleRows.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
           class="w-full min-h-11 px-3 flex items-center gap-2.5 text-[13.5px] text-content text-left disabled:opacity-40"
           :disabled="saving || !composite"
           @click="docSheetOpen = false; save(true)"
@@ -9973,6 +10124,14 @@ watch(
         </button>
       </div>
     </div>
+
+    <!-- Compact: the stack (Edits, Output, Info) as a sheet behind the row's Edits cell. -->
+    <Sheet v-if="isCompact" :show="stackOpen" expandable @close="closeStack()">
+      <div class="px-3">
+        <div id="editor-stack-tabs" />
+        <div id="editor-stack-body" class="editor-drawer-body" />
+      </div>
+    </Sheet>
 
     <!-- Compact: the Generate tool picker as a sheet. -->
     <Sheet v-if="isCompact" :show="toolPickerOpen" title="Tool" @close="toolPickerOpen = false">

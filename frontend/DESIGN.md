@@ -659,43 +659,39 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
   bordered inputs, and slot chrome never changes because of an unrelated
   feature flag (the ControlNet border-drop bug class).
 
-### 3.6a The image editor on a phone (adopted 2026-09-10)
+### 3.6a The image editor on a phone (adopted 2026-09-10, revised 2026-09-11)
 
 The compact editor is the desktop editor re-homed, never a second editor
-(§1.11). Its grammar, top to bottom:
+(§1.11). It borrows the shape every phone editor converges on: one toolbar
+row that drills down in place (CapCut), the current tool's parameters as a
+row of values with one dial (iOS Photos), and the picture itself as the
+slider (Snapseed). Top to bottom:
 
-- **One header row**: close, the document (title + `N edits · unsaved`
-  mono; tap opens an anchored document menu with Compare, Save as, Revert),
-  undo, redo, Save. Nothing else lives up there.
+- **One header row**: back chevron, then the options button (an anchored
+  menu: Compare, the stack, Save as, Revert), undo, redo, Save. No title.
 - **The picture**, with the glass chips (zoom, Compare) and the selection
   pill on the matte. The pill is the only selection chrome: idle it arms
-  the last tool, armed it names the tool in the selection color and Done
-  hands the pointer back.
-- **The drawer** (`ToolDrawer content-sized`): a handle, a body, and a
-  pinned **sub-tool strip** (`EditorToolStrip`) under the body at every
-  height. The strip is where the desktop sub-bar's chips go — brushes,
-  verbs, adjustment groups, crop aspects, paint engines — and, while a
-  selection tool is armed, the selection tools. Switching tools is one tap,
-  never a navigation. Half height fits the body's content (capped at 44%
-  of the column), so a small palette never opens onto empty drawer.
-- **The dock**: the six families, a hairline, then Edits with a count
-  badge. Edits is a peer of the tools, never underneath them; it wears the
-  selection color because it selects a step rather than arming a tool.
+  the last tool, armed it names the tool in the selection color.
+- **The deck** (`EditorToolStrip` under a panel): a single row of cells.
+  At the root it is the six families and a badged Edits cell; inside a
+  family it becomes ‹ plus that family's pickable things (brushes, verbs,
+  Adjust's groups, crop aspects and turns, paint engines); while a
+  selection tool is armed it is Done plus the selection tools. Above the
+  row, the panel holds only what the current pick needs: Adjust shows the
+  step's parameters as chips with their values and one `ParamDial`
+  (`AdjustDeck`), Generate its prompt and Run, the others their sub-bar
+  controls. No drawer, no dock, nothing to drag.
+- **The stack** (Edits / Output / Info) is a kit Sheet behind the row's
+  Edits cell. Tapping a step closes the sheet and opens it where it is
+  edited.
 
-The drawer body shows exactly one of: the family's controls (plus the
-selected step's inspector when it belongs to that family), the selection
-panel, or the stack with Edits / Output / Info as one segmented control.
-A step opened from the stack shows `‹ Edits` and its name in the pinned
-row. Sliders inside the drawer follow one grammar: **the row is the
-slider**. Label left, mono value right, a 2px hairline under the row that
-fills to the value (from the centre for bipolar ranges), and the range
-input itself invisible over the whole 44px row so a drag anywhere on it
-scrubs — no thumb, no track, no second line. The `.editor-drawer-body`
-rules in `style.css` do this to the desktop inspectors unchanged, and
-`ImageEditorView` keeps the fill's custom properties current. Small
-canvas-like controls (the tone curve) keep their own visuals with 44px
-hit areas around them and freeze the drawer's scroll for the length of a
-drag.
+Parameters follow one grammar: bare text chips with a mono value, the
+active one wearing the row's single accent wash; a dial that scrubs by
+relative drag (double tap resets); and, with an Adjust parameter on the
+dial, a one-finger drag across the picture moves it with a readout under
+the finger. Segments underline their active option rather than filling
+it. Small canvas-like controls (the tone curve) swap in for the dial with
+44px hit areas around their handles.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

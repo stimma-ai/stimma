@@ -1,37 +1,44 @@
 <script setup lang="ts">
 /**
- * The phone editor's sub-tool strip, pinned to the foot of the drawer.
+ * The phone editor's row: one line of cells that drills down in place
+ * (DESIGN.md §3.6a). At the root it is the six families and Edits. Inside a
+ * family the same row becomes ‹ and that family's pickable things — Retouch's
+ * brushes, Generate's verbs, Adjust's groups, Crop's aspects and turns,
+ * Paint's engines — so switching tools is one tap and never a navigation.
+ * While a selection tool is armed the row is Done and the selection tools.
  *
- * The desktop sub-bar puts a family's pickable things — Retouch's brushes,
- * Generate's verbs, Adjust's groups, Crop's aspects, Paint's engines — in a
- * chip row above its controls. On a phone those chips become this strip:
- * one horizontally scrolling row of labelled cells that stays visible at
- * every drawer height, so switching Heal to Clone is one tap and never a
- * navigation. Arming a selection tool swaps the row for the selection tools
- * (selection is workspace state, and its tools need the same reach).
- *
- * The strip only PICKS. Every control a pick reveals lives in the drawer
- * body above, rendered by the same sub-bar and inspectors as the desktop.
+ * The row only PICKS. Every control a pick reveals lives in the deck panel
+ * above it.
  */
 import { computed, nextTick, ref, watch } from 'vue'
-import Sheet from '../../components/ui/Sheet.vue'
 import ToolIcon from './ToolIcon.vue'
 import type { IconName } from '../ported/icons'
-import { familyById, PAINT_ENGINES, SELECT_TOOLS } from '../stack/toolFamilies'
+import { familyById, PAINT_ENGINES, SELECT_TOOLS, TOOL_FAMILIES } from '../stack/toolFamilies'
 import type { FamilyId, SelectToolId } from '../stack/toolFamilies'
-import {
-  AUTO_EDITS, CREATIVE_LEVEL_EDITS, CROP_ASPECTS, PHOTOGRAPHIC_LEVEL_EDITS,
-} from '../stack/adjustSections'
+import { CREATIVE_LEVEL_EDITS, CROP_ASPECTS, PHOTOGRAPHIC_LEVEL_EDITS } from '../stack/adjustSections'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const props = defineProps<{
   family: FamilyId | null
   sub: string | null
-  /** The sub-bar's state object: aspect, engine, looks, selection presence. */
+  /** The sub-bar's state object: aspect, engine, flips, selection presence. */
   state: Record<string, any>
   /** An armed selection tool replaces the family's row with the selection tools. */
   armed: SelectToolId | null
+  /** Root row: how many steps the stack holds, as the Edits cell's badge. */
+  count?: number
+  /** Adjust: the section of the selected step, so its group reads as the open one. */
+  activeLevel?: string | null
+  /** Adjust: the Looks strip is what the panel shows. */
+  looks?: boolean
+  /** Adjust: the Autos are what the panel shows. */
+  auto?: boolean
 }>()
 const emit = defineEmits<{
+  family: [FamilyId]
+  edits: []
+  back: []
+  done: []
   sub: [string]
   set: [Record<string, any>]
   arm: [SelectToolId]
@@ -41,94 +48,90 @@ interface Cell {
   id: string
   label: string
   icon?: IconName
-  /** Crop aspects draw their own proportion instead of a named glyph. */
+  svg?: string
   aspect?: number | null
   active: boolean
   /** Selection cells light up in the selection color, not the accent. */
   selection?: boolean
+  /** A dot: this group has a step with values. */
+  modified?: boolean
+  badge?: number
   pick: () => void
 }
 type Item = Cell | 'sep'
 
-const autoOpen = ref(false)
-
-/** Generate's chip labels are sentences on desktop; the cells want one word. */
+const PHONE_ORDER: FamilyId[] = ['crop', 'retouch', 'generate', 'levels', 'annotate', 'paint']
 const SHORT: Record<string, string> = { remove: 'Remove', cutout: 'Cut out', repaint: 'Repaint', expand: 'Expand' }
+const STACK_ICON = sanitizeSvg(
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5 12 22l9-4.5"/>
+  </svg>`
+)
+const familySvg = Object.fromEntries(TOOL_FAMILIES.map(f => [f.id, sanitizeSvg(
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>`
+)]))
+
+const level = computed<'root' | 'family' | 'selection'>(() => props.armed ? 'selection' : props.family ? 'family' : 'root')
 
 const items = computed<Item[]>(() => {
   if (props.armed) {
     const cells = SELECT_TOOLS.map<Cell>(tool => ({
-      id: tool.id,
-      label: tool.label.replace(' gradient', ''),
-      icon: tool.icon,
-      active: props.armed === tool.id,
-      selection: true,
-      pick: () => emit('arm', tool.id),
+      id: tool.id, label: tool.label.replace(' gradient', ''), icon: tool.icon,
+      active: props.armed === tool.id, selection: true, pick: () => emit('arm', tool.id),
     }))
     return [...cells.slice(0, 4), 'sep', ...cells.slice(4, 7), 'sep', ...cells.slice(7)]
   }
   const family = props.family
-  if (!family) return []
+  if (!family) {
+    return [
+      ...PHONE_ORDER.map<Cell>(id => ({ id, label: familyById(id).label, svg: familySvg[id], active: false, pick: () => emit('family', id) })),
+      'sep',
+      { id: 'edits', label: 'Edits', svg: STACK_ICON, active: false, badge: props.count, pick: () => emit('edits') },
+    ]
+  }
   const spec = familyById(family)
   if (family === 'crop') {
-    return CROP_ASPECTS.map<Cell>(preset => ({
-      id: preset.id,
-      label: preset.label,
-      aspect: preset.ratio,
-      active: props.state.cropAspect === preset.id,
-      pick: () => emit('set', { cropAspect: preset.id }),
-    }))
+    return [
+      ...CROP_ASPECTS.map<Cell>(preset => ({ id: preset.id, label: preset.label, aspect: preset.ratio, active: props.state.cropAspect === preset.id, pick: () => emit('set', { cropAspect: preset.id }) })),
+      'sep',
+      { id: 'turn', label: 'Rotate', icon: 'rotateCcw', active: false, pick: () => emit('set', { rotateQuarter: true }) },
+      { id: 'flipX', label: 'Flip H', icon: 'flipHorizontal', active: !!props.state.flipX, pick: () => emit('set', { flipX: !props.state.flipX }) },
+      { id: 'flipY', label: 'Flip V', icon: 'flipVertical', active: !!props.state.flipY, pick: () => emit('set', { flipY: !props.state.flipY }) },
+    ]
   }
   if (family === 'paint') {
-    const engines = PAINT_ENGINES.map<Cell>(engine => ({
-      id: engine.id,
-      label: engine.label,
-      icon: engine.icon,
-      active: props.state.engineId === engine.id,
-      pick: () => emit('set', { engineId: engine.id }),
-    }))
-    return [...engines, 'sep', {
-      id: 'newLayer', label: 'New layer', icon: 'copy', active: false,
-      pick: () => emit('set', { newLayer: true }),
-    }]
+    return [
+      ...PAINT_ENGINES.map<Cell>(engine => ({ id: engine.id, label: engine.label, icon: engine.icon, active: props.state.engineId === engine.id, pick: () => emit('set', { engineId: engine.id }) })),
+      'sep',
+      { id: 'newLayer', label: 'New layer', icon: 'copy', active: false, pick: () => emit('set', { newLayer: true }) },
+    ]
   }
   if (family === 'levels') {
     const group = (edit: { id: string; label: string; icon: IconName }): Cell => ({
-      id: edit.id,
-      label: edit.id === 'point' ? 'Point' : edit.label,
-      icon: edit.icon,
-      active: false,
-      pick: () => emit('set', { addLevel: edit.id }),
+      id: edit.id, label: edit.id === 'point' ? 'Point' : edit.label, icon: edit.icon,
+      active: !props.looks && !props.auto && props.activeLevel === edit.id,
+      modified: props.state.modifiedSections?.includes(edit.id) ?? false,
+      pick: () => emit('sub', edit.id),
     })
     return [
-      { id: 'auto', label: 'Auto', icon: 'histogram', active: autoOpen.value, pick: () => { autoOpen.value = true } },
+      { id: 'auto', label: 'Auto', icon: 'histogram', active: !!props.auto, pick: () => emit('sub', 'auto') },
       ...PHOTOGRAPHIC_LEVEL_EDITS.map(group),
       'sep',
       ...CREATIVE_LEVEL_EDITS.map(group),
       'sep',
-      {
-        id: 'looks', label: 'Looks', icon: 'image', active: !!props.state.looksOpen,
-        pick: () => emit('set', { looksOpen: !props.state.looksOpen }),
-      },
+      { id: 'looks', label: 'Looks', icon: 'image', active: !!props.looks, modified: (props.state.appliedLookIds?.length ?? 0) > 0, pick: () => emit('sub', 'looks') },
     ]
   }
-  // Retouch, Generate, Annotate: the family's own sub-tools. With an
-  // annotation selected the strip shows no armed tool: the body is that
-  // shape's remote, and the next tap on the strip arms a tool again.
   const shapeSelected = family === 'annotate' && !!props.state.selectedShapeId
   const cells = spec.subTools.map<Cell>(tool => ({
-    id: tool.id,
-    label: SHORT[tool.id] ?? tool.label,
-    icon: tool.icon,
-    active: !shapeSelected && props.sub === tool.id,
-    pick: () => emit('sub', tool.id),
+    id: tool.id, label: SHORT[tool.id] ?? tool.label, icon: tool.icon,
+    active: !shapeSelected && props.sub === tool.id, pick: () => emit('sub', tool.id),
   }))
   if (family === 'retouch') return [...cells.slice(0, 3), 'sep', ...cells.slice(3)]
   if (family === 'annotate') return [...cells.slice(0, 5), 'sep', ...cells.slice(5)]
   return cells
 })
 
-/** A crop aspect as the rectangle it makes; Free is the crop glyph, Original dashed. */
 function aspectRect(ratio: number | null) {
   const r = ratio === null ? null : ratio === -1 ? 3 / 2 : ratio
   if (r === null) return null
@@ -137,18 +140,18 @@ function aspectRect(ratio: number | null) {
   return { x: 12 - w / 2, y: 12 - h / 2, width: w, height: h }
 }
 
-// The active cell stays in view when it changes under the user (a shape
-// selection, a family entry that restores its last tool).
 const rootEl = ref<HTMLElement | null>(null)
 const activeId = computed(() => (items.value.find(item => item !== 'sep' && item.active) as Cell | undefined)?.id ?? null)
 watch([activeId, () => props.family, () => props.armed], () => {
   void nextTick(() => {
-    const el = rootEl.value?.querySelector<HTMLElement>('[aria-pressed="true"]')
-    if (!el || !rootEl.value) return
+    const row = rootEl.value
+    if (!row) return
+    const el = row.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!el) { row.scrollTo({ left: 0 }); return }
     const cell = el.getBoundingClientRect()
-    const row = rootEl.value.getBoundingClientRect()
-    if (cell.left < row.left + 8 || cell.right > row.right - 8) {
-      rootEl.value.scrollTo({ left: el.offsetLeft - (row.width - cell.width) / 2, behavior: 'smooth' })
+    const r = row.getBoundingClientRect()
+    if (cell.left < r.left + 8 || cell.right > r.right - 8) {
+      row.scrollTo({ left: el.offsetLeft - (r.width - cell.width) / 2, behavior: 'smooth' })
     }
   })
 }, { immediate: true })
@@ -157,49 +160,64 @@ watch([activeId, () => props.family, () => props.armed], () => {
 <template>
   <div
     ref="rootEl"
-    class="editor-tool-strip flex items-stretch gap-0.5 overflow-x-auto px-2 pt-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    class="editor-tool-strip flex items-stretch gap-0.5 h-[60px] overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    :class="level === 'root' ? 'px-1 justify-between' : 'px-1.5'"
     role="toolbar"
-    :aria-label="armed ? 'Selection tools' : 'Tools'"
+    :aria-label="level === 'root' ? 'Editor families' : level === 'selection' ? 'Selection tools' : 'Tools'"
+    :data-level="level"
   >
+    <!-- The way up. Done is the selection's way out; it wears the accent
+         because it hands the pointer back. -->
+    <button
+      v-if="level === 'selection'"
+      type="button"
+      class="flex-none min-w-[64px] min-h-[56px] rounded-md text-[13px] font-semibold text-accent-hi border-none bg-transparent mr-1"
+      aria-label="Done"
+      @click="emit('done')"
+    >
+      Done
+    </button>
+    <button
+      v-else-if="level === 'family'"
+      type="button"
+      class="flex-none min-w-11 min-h-[56px] flex items-center justify-center text-content-secondary border-none bg-transparent border-r border-edge-strong pr-2 mr-1"
+      aria-label="Back"
+      @click="emit('back')"
+    >
+      <ToolIcon name="chevronLeft" :size="24" />
+    </button>
+
     <template v-for="(item, index) in items" :key="item === 'sep' ? `sep-${index}` : item.id">
-      <span v-if="item === 'sep'" class="w-px shrink-0 my-3 mx-1.5 bg-edge-strong" aria-hidden="true" />
+      <span v-if="item === 'sep'" class="w-px shrink-0 my-3.5 mx-1 bg-edge-strong" aria-hidden="true" />
       <button
         v-else
         type="button"
-        class="flex-none min-w-[60px] h-[50px] px-1.5 rounded-lg flex flex-col items-center justify-center gap-1
-               text-[10.5px] font-medium leading-none whitespace-nowrap border-none transition-colors
+        class="relative min-h-[56px] px-1 rounded-md flex flex-col items-center justify-center gap-1
+               text-[10.5px] font-medium leading-none whitespace-nowrap border-none bg-transparent transition-colors
                focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-        :class="item.active
-          ? (item.selection ? 'bg-selection/15 text-selection' : 'bg-accent/15 text-accent-hi')
-          : 'bg-transparent text-content-secondary'"
+        :class="[
+          level === 'root' ? 'flex-1 min-w-0' : 'flex-none min-w-[58px]',
+          item.active ? (item.selection ? 'text-selection' : 'text-accent-hi') : 'text-content-secondary',
+          item.id === 'edits' && 'text-selection',
+        ]"
         :aria-label="item.label"
         :aria-pressed="item.active"
         :data-strip-cell="item.id"
         @click="item.pick()"
       >
-        <svg v-if="item.aspect !== undefined && aspectRect(item.aspect)" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5">
+        <span v-if="item.svg" class="w-[22px] h-[22px] shrink-0" v-html="item.svg" />
+        <svg v-else-if="item.aspect !== undefined && aspectRect(item.aspect)" viewBox="0 0 24 24" class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect v-bind="aspectRect(item.aspect)!" rx="1.5" :stroke-dasharray="item.aspect === -1 ? '3 2' : undefined" />
         </svg>
-        <ToolIcon v-else :name="item.icon ?? 'crop'" :size="20" />
+        <ToolIcon v-else :name="item.icon ?? 'crop'" :size="22" />
         {{ item.label }}
+        <span v-if="item.modified && !item.active" class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
+        <span
+          v-if="item.badge"
+          class="absolute top-0.5 left-[calc(50%+5px)] min-w-[15px] h-[15px] px-1 rounded-full bg-selection text-base text-[9.5px] font-mono font-semibold flex items-center justify-center"
+          aria-hidden="true"
+        >{{ item.badge }}</span>
       </button>
     </template>
-
-    <!-- The Autos: three variants of one act, behind one cell. -->
-    <Sheet :show="autoOpen" title="Automatic" @close="autoOpen = false">
-      <button
-        v-for="auto in AUTO_EDITS"
-        :key="auto.id"
-        type="button"
-        class="sheet-row w-full text-left"
-        @click="autoOpen = false; emit('set', { auto: auto.id })"
-      >
-        <ToolIcon :name="auto.icon" class="sheet-row-icon" :size="20" />
-        <span class="flex-1">{{ auto.label }}</span>
-      </button>
-      <p v-if="state.hasSelection" class="px-4 pb-2 text-[12px] text-content-tertiary">
-        Autos read the whole frame, so they apply to the whole image.
-      </p>
-    </Sheet>
   </div>
 </template>

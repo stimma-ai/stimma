@@ -215,7 +215,7 @@ function chipClass(active: boolean, pending = false) {
        width, not the viewport's — the resizable sidebar makes them unrelated. -->
   <div
     class="@container flex items-center gap-1.5 flex-wrap border-b border-edge-subtle bg-surface px-4 py-2"
-    :class="compact && '!flex-col !items-stretch !flex-nowrap !gap-1 !px-3 !py-1 !border-b-0'"
+    :class="compact && '!flex-col !items-stretch !flex-nowrap !gap-1 !px-0 !py-0 !border-b-0 !bg-transparent'"
   >
     <!-- Sub-tools, for the families that have them. Retouch lays its own out:
          its bar is two jobs, not one list. -->
@@ -421,7 +421,7 @@ function chipClass(active: boolean, pending = false) {
         Reset
       </button>
       </div>
-      <div :class="ROW">
+      <div v-if="!compact" :class="ROW">
       <button type="button" class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap compact:flex-1" :class="chipClass(false)" @click="emit('set', { rotateQuarter: true })">
         Rotate 90°
       </button>
@@ -886,7 +886,7 @@ function chipClass(active: boolean, pending = false) {
          control is an icon opening a popover. With a shape selected the same
          controls edit it, so the strip doubles as a remote for the selection. -->
     <template v-else-if="family.id === 'annotate'">
-      <div :class="[ROW, 'compact:flex-wrap compact:overflow-visible']">
+      <div :class="ROW">
       <template v-if="showStroke">
         <!-- Stroke weight -->
         <ToolbarPopover label="" :width="148">

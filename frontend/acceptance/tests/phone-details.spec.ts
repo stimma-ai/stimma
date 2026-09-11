@@ -64,53 +64,57 @@ test.describe('phone lane: detail screens', () => {
     const [media] = await waitForGeneratedMedia(page, {});
     expect(media.asset_id, 'generated media carries its asset id').toBeTruthy();
 
-    // Resting: header, drawer with the stack, family bar.
+    // Resting: header, the picture, the row of families.
     await page.goto(`/edit-image/${media.asset_id}`);
     await settleAnyViewport(page);
     await expect(page.locator('.editor-compact-header')).toBeVisible({ timeout: 30000 });
-    await expect(page.locator('#editor-drawer-body')).toContainText('Original image', { timeout: 30000 });
-    const bar = page.locator('[role="toolbar"][aria-label="Editor families"]');
-    await expect(bar).toBeVisible();
+    const row = page.locator('.editor-tool-strip');
+    await expect(row).toBeVisible({ timeout: 30000 });
+    await expect(row.getByRole('button', { name: 'Edits', exact: true })).toBeVisible();
     await audit(page, 'editor');
 
-    // Crop: ratio chips, straighten, verbs.
-    await bar.getByRole('button', { name: 'Crop', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Flip H' })).toBeVisible();
+    // Crop: the row becomes ‹ plus aspects and turns; the straighten dial above.
+    await row.getByRole('button', { name: 'Crop', exact: true }).click();
+    await expect(row.getByRole('button', { name: 'Flip H' })).toBeVisible();
     await audit(page, 'editor-crop');
+    await row.getByRole('button', { name: 'Back', exact: true }).click();
 
-    // Adjust: a Light step and its sliders in the drawer.
-    await bar.getByRole('button', { name: 'Adjust', exact: true }).click();
-    await page.getByRole('button', { name: 'Light', exact: true }).click();
-    await expect(page.locator('#editor-drawer-body input[type="range"]').first()).toBeVisible({ timeout: 15000 });
+    // Adjust: a Light step; its parameters as chips and one dial.
+    await row.getByRole('button', { name: 'Adjust', exact: true }).click();
+    await row.getByRole('button', { name: 'Light', exact: true }).click();
+    await expect(page.locator('[data-param-dial]')).toBeVisible({ timeout: 15000 });
     await audit(page, 'editor-adjust');
+    await row.getByRole('button', { name: 'Back', exact: true }).click();
 
-    // Generate: the sub-tools, the brush strip over the matte, Run.
-    await bar.getByRole('button', { name: 'Generate', exact: true }).click();
+    // Generate: the verbs in the row, prompt and Run above.
+    await row.getByRole('button', { name: 'Generate', exact: true }).click();
     await expect(page.getByRole('button', { name: /^Run/ }).first()).toBeVisible();
     await audit(page, 'editor-generate');
+    await row.getByRole('button', { name: 'Back', exact: true }).click();
 
     // Selection: the matte pill arms the last tool; its panel lives in the
-    // drawer and the strip under it shows the selection tools.
-    await bar.getByRole('button', { name: 'Edits', exact: true }).click();
-    // Returning to Edits puts any armed selection tool down first.
-    const selectionDone = page.getByRole('button', { name: 'Done', exact: true });
-    if (await selectionDone.isVisible()) await selectionDone.click();
+    // deck and the row shows the selection tools.
     await page.getByRole('button', { name: 'Select', exact: true }).click();
     await expect(page.locator('[data-select-panel]')).toBeVisible();
-    await expect(page.locator('.editor-tool-strip').getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
-    await audit(page, 'editor-select-panel', '.tool-drawer');
-    await page.locator('[data-select-panel]').getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(row.getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
+    await audit(page, 'editor-select-panel', '.editor-deck');
+    await row.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(page.locator('[data-select-panel]')).toBeHidden();
 
-    // The document menu, anchored under the title: Compare, Save as new
-    // asset, Revert. Output and Info are tabs on the stack now.
+    // The stack: a sheet behind Edits, with Edits / Output / Info.
+    await row.getByRole('button', { name: 'Edits', exact: true }).click();
+    await expect(page.locator('#editor-stack-body')).toContainText('Original image', { timeout: 15000 });
+    await audit(page, 'editor-stack-sheet', '[data-sheet-layer]');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#editor-stack-body')).toBeHidden();
+
+    // The document menu, anchored under the options button.
     await page.getByRole('button', { name: 'Document options' }).click();
     const docMenu = page.getByRole('menu', { name: 'Document' });
     await expect(docMenu.getByRole('menuitem', { name: 'Revert to last save' })).toBeVisible();
     await audit(page, 'editor-document-menu', '[role="menu"][aria-label="Document"]');
     await page.keyboard.press('Escape');
     await expect(docMenu).toBeHidden();
-    await expect(page.locator('#editor-drawer-prompt').getByRole('tab', { name: 'Output' })).toBeVisible();
   });
 
 
