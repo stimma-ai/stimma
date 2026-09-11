@@ -963,6 +963,16 @@ select option {
 [data-viewport="compact"] .editor-drawer-body input[type="text"],
 [data-viewport="compact"] .editor-drawer-body select { min-height: 44px; }
 
+/* Fields inside the phone editor keep their own text selection even though
+   the chrome around them selects nothing. */
+[data-viewport="compact"] .editor-drawer-body input:not([type="range"]):not([type="checkbox"]),
+[data-viewport="compact"] .editor-drawer-body textarea,
+[data-viewport="compact"] .editor-deck input:not([type="range"]):not([type="checkbox"]),
+[data-viewport="compact"] .editor-deck textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
 /* Editor pickers teleport out of the drawer but retain touch-sized controls. */
 [data-viewport="compact"] .editor-picker button { min-height: 44px; min-width: 44px; }
 [data-viewport="compact"] .editor-picker input:not([type="checkbox"]),

@@ -9012,7 +9012,13 @@ watch(
   <!-- data-no-drawer-swipe: the editor is a workspace of horizontal drags
        (sliders, the curve, the crop); none of them may open the app's
        navigation drawer. -->
-  <div class="h-full flex flex-col bg-base" data-no-drawer-swipe>
+  <!-- Compact: chrome is not prose. Nothing in the editor selects on a long
+       press, and the press opens no callout; fields keep their own selection. -->
+  <div
+    class="h-full flex flex-col bg-base compact:select-none compact:[-webkit-touch-callout:none]"
+    data-no-drawer-swipe
+    @contextmenu="isCompact && $event.preventDefault()"
+  >
     <div class="flex-1 flex min-h-0 compact:flex-col">
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
       <!-- Toolbar 1: the families. A container so the family buttons can drop
@@ -10123,7 +10129,7 @@ watch(
 
     <!-- Compact: the stack (Edits, Output, Info) as a sheet behind the row's Edits cell. -->
     <Sheet v-if="isCompact" :show="stackOpen" expandable @close="closeStack()">
-      <div class="px-3">
+      <div class="px-3 select-none [-webkit-touch-callout:none]" @contextmenu.prevent>
         <div id="editor-stack-tabs" />
         <div id="editor-stack-body" class="editor-drawer-body" />
       </div>
