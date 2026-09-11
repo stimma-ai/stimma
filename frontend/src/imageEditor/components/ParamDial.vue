@@ -61,6 +61,10 @@ let startX = 0
 let startValue = 0
 let moved = false
 let lastTap = 0
+// Reset lives on a long press (and a double tap): nothing on screen for it.
+let holdTimer: ReturnType<typeof setTimeout> | null = null
+let held = false
+function clearHold() { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null } }
 function snap(value: number) {
   const step = props.step || 1
   return Math.min(props.max, Math.max(props.min, Math.round(value / step) * step))
@@ -72,13 +76,22 @@ function down(event: PointerEvent) {
   startX = event.clientX
   startValue = props.value
   moved = false
+  held = false
   dragging.value = true
+  clearHold()
+  holdTimer = setTimeout(() => {
+    holdTimer = null
+    if (moved) return
+    held = true
+    navigator.vibrate?.(10)
+    emit('reset')
+  }, 500)
 }
 function move(event: PointerEvent) {
   if (pointerId !== event.pointerId) return
   const dx = event.clientX - startX
-  if (Math.abs(dx) > 2) moved = true
-  if (!moved) return
+  if (Math.abs(dx) > 2) { moved = true; clearHold() }
+  if (!moved || held) return
   event.preventDefault()
   emit('input', snap(startValue - dx / (TICK_PX * TICKS) * range.value))
 }
@@ -86,6 +99,8 @@ function up(event: PointerEvent) {
   if (pointerId !== event.pointerId) return
   pointerId = null
   dragging.value = false
+  clearHold()
+  if (held) { held = false; return }
   const now = Date.now()
   if (!moved && now - lastTap < 320) { lastTap = 0; emit('reset'); return }
   lastTap = now

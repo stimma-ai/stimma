@@ -59,7 +59,6 @@ const levelEdit = computed(() => levelEditById(String(props.section)) ?? null)
 const presentation = computed(() => levelEdit.value?.presentation)
 const mixerMode = ref<'Hue' | 'Sat' | 'Lum'>('Hue')
 const gradeRange = ref<'Shadow' | 'Mid' | 'Highlight'>('Mid')
-const curveOpen = ref(false)
 
 const sliders = computed<AdjustSliderControl[]>(() =>
   (levelEdit.value?.controls ?? []).filter((c): c is AdjustSliderControl => c.kind !== 'curve')
@@ -89,18 +88,21 @@ const visible = computed<Array<AdjustSliderControl & { short: string; swatch?: s
   return all.map(c => ({ ...c, short: c.label }))
 })
 
+// The curve is one more chip: choosing it puts the plot where the dial
+// was, and any other chip brings the dial back. No mode to leave.
 const activeKey = ref<string | null>(null)
-const active = computed(() => visible.value.find(c => c.key === activeKey.value) ?? visible.value[0] ?? null)
+const curveOpen = computed(() => activeKey.value === 'curve' && !!curveControl.value)
+const active = computed(() => curveOpen.value ? null : (visible.value.find(c => c.key === activeKey.value) ?? visible.value[0] ?? null))
 watch([visible, () => props.section], () => {
+  if (activeKey.value === 'curve' && curveControl.value) return
   if (!visible.value.some(c => c.key === activeKey.value)) activeKey.value = visible.value[0]?.key ?? null
 }, { immediate: true })
-watch([active, curveOpen], () => {
-  const a = active.value
-  emit('active', a && !curveOpen.value
+watch(active, a => {
+  emit('active', a
     ? { key: a.key, label: a.short, min: a.min, max: a.max, step: a.step, default: a.default, hue: isHue(a.key) }
     : null)
 }, { immediate: true })
-watch(() => props.section, () => { curveOpen.value = false })
+watch(() => props.section, () => { if (activeKey.value === 'curve') activeKey.value = null })
 
 function isHue(key: string) { return /Hue$/.test(key) && !/Shift$/.test(key) }
 function valueOf(control: AdjustSliderControl) {
@@ -114,6 +116,32 @@ function readout(control: AdjustSliderControl) {
 }
 function set(control: AdjustSliderControl, value: number) {
   emit('change', { [control.key]: value }, `adjust:${control.key}`)
+}
+// A long press on a chip resets its parameter: the one gesture that is not a
+// tap or a scroll, and nothing to draw for it.
+let hold: { timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null = null
+function holdStart(control: AdjustSliderControl, event: PointerEvent) {
+  holdEnd()
+  hold = {
+    x: event.clientX, y: event.clientY, fired: false,
+    timer: setTimeout(() => {
+      if (!hold) return
+      hold.fired = true
+      navigator.vibrate?.(10)
+      set(control, control.default)
+      emit('commit')
+    }, 500),
+  }
+}
+function holdMove(event: PointerEvent) {
+  if (hold && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > 8) holdEnd()
+}
+function holdEnd() { if (hold) { clearTimeout(hold.timer); hold = null } }
+function chipTap(control: AdjustSliderControl) {
+  // The tap that ends a long press is not a pick.
+  if (hold?.fired) { holdEnd(); return }
+  holdEnd()
+  activeKey.value = control.key
 }
 function curveValue(): ToneCurve { return toneCurveValueOf(props.params?.[curveControl.value?.key ?? 'curve']) }
 const pickedColor = computed(() => {
@@ -169,79 +197,71 @@ const pickedColor = computed(() => {
       </button>
     </div>
 
-    <template v-if="curveOpen && curveControl">
-      <!-- The curve replaces the dial: channel segment, a way back to the sliders. -->
-      <div class="flex items-center gap-1 -mx-1">
-        <button
-          type="button"
-          class="min-h-10 px-2.5 rounded-md text-[13px] font-medium text-content-secondary flex items-center gap-1.5"
-          @click="curveOpen = false"
-        >
-          <ToolIcon name="sliders" :size="16" />
-          Sliders
-        </button>
-        <span class="flex-1" />
-      </div>
-      <div class="mx-auto w-full max-w-[280px] pb-1">
-        <ToneCurveControl
-          :label="curveControl.label"
-          :value="curveValue()"
-          :histogram="histogram"
-          :disabled="disabled"
-          :clip-shadows="clipShadows"
-          :clip-highlights="clipHighlights"
-          @input="emit('change', { [curveControl.key]: $event }, 'adjust:curve')"
-          @commit="emit('commit')"
-          @clip="emit('clip', $event)"
-        />
-      </div>
-    </template>
-    <template v-else>
-      <!-- The parameters: bare text with a value, the active one wearing the row's one wash. -->
-      <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Parameters">
-        <button
-          v-for="control in visible"
-          :key="control.key"
-          type="button"
-          role="tab"
-          class="flex-none min-h-10 h-10 px-2.5 rounded-md text-[13px] font-medium flex items-center gap-1.5 whitespace-nowrap transition-colors"
-          :class="active?.key === control.key ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary'"
-          :aria-selected="active?.key === control.key"
-          :data-param-chip="control.key"
-          @click="activeKey = control.key"
-        >
-          <span v-if="control.swatch" class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: control.swatch }" />
-          {{ control.short }}
-          <span
-            class="font-mono text-xs tabular-nums"
-            :class="active?.key === control.key ? 'text-accent-hi' : valueOf(control) !== control.default ? 'text-accent-hi' : 'text-content-tertiary'"
-          >{{ readout(control) }}</span>
-        </button>
-        <button
-          v-if="curveControl"
-          type="button"
-          class="flex-none min-h-10 h-10 px-2.5 rounded-md text-[13px] font-medium flex items-center gap-1.5 whitespace-nowrap text-content-secondary"
-          data-param-chip="curve"
-          @click="curveOpen = true"
-        >
-          <ToolIcon name="histogram" :size="16" />
-          Curve
-        </button>
-      </div>
-      <ParamDial
-        v-if="active"
-        :label="active.short"
-        :value="valueOf(active)"
-        :min="active.min"
-        :max="active.max"
-        :step="active.step"
-        :default="active.default"
-        :hue="isHue(active.key)"
+    <!-- The parameters: bare text with a value, the active one wearing the row's one wash. -->
+    <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Parameters">
+      <button
+        v-for="control in visible"
+        :key="control.key"
+        type="button"
+        role="tab"
+        class="flex-none min-h-10 h-10 px-2.5 rounded-md text-[13px] font-medium flex items-center gap-1.5 whitespace-nowrap transition-colors"
+        :class="active?.key === control.key ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary'"
+        :aria-selected="active?.key === control.key"
+        :data-param-chip="control.key"
+        @pointerdown="holdStart(control, $event)"
+        @pointermove="holdMove"
+        @pointerup="holdEnd"
+        @pointercancel="holdEnd"
+        @contextmenu.prevent
+        @click="chipTap(control)"
+      >
+        <span v-if="control.swatch" class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: control.swatch }" />
+        {{ control.short }}
+        <span
+          class="font-mono text-xs tabular-nums"
+          :class="active?.key === control.key ? 'text-accent-hi' : valueOf(control) !== control.default ? 'text-accent-hi' : 'text-content-tertiary'"
+        >{{ readout(control) }}</span>
+      </button>
+      <button
+        v-if="curveControl"
+        type="button"
+        role="tab"
+        class="flex-none min-h-10 h-10 px-2.5 rounded-md text-[13px] font-medium flex items-center gap-1.5 whitespace-nowrap transition-colors"
+        :class="curveOpen ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary'"
+        :aria-selected="curveOpen"
+        data-param-chip="curve"
+        @click="activeKey = 'curve'"
+      >
+        <ToolIcon name="histogram" :size="16" />
+        Curve
+      </button>
+    </div>
+    <div v-if="curveOpen && curveControl" class="mx-auto w-full max-w-[280px] pb-1">
+      <ToneCurveControl
+        :label="curveControl.label"
+        :value="curveValue()"
+        :histogram="histogram"
         :disabled="disabled"
-        @input="set(active, $event)"
+        :clip-shadows="clipShadows"
+        :clip-highlights="clipHighlights"
+        @input="emit('change', { [curveControl.key]: $event }, 'adjust:curve')"
         @commit="emit('commit')"
-        @reset="set(active, active.default); emit('commit')"
+        @clip="emit('clip', $event)"
       />
-    </template>
+    </div>
+    <ParamDial
+      v-else-if="active"
+      :label="active.short"
+      :value="valueOf(active)"
+      :min="active.min"
+      :max="active.max"
+      :step="active.step"
+      :default="active.default"
+      :hue="isHue(active.key)"
+      :disabled="disabled"
+      @input="set(active, $event)"
+      @commit="emit('commit')"
+      @reset="set(active, active.default); emit('commit')"
+    />
   </div>
 </template>
