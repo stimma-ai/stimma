@@ -113,7 +113,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           :style="panelStyle"
           :class="expandable && dragHeight === null ? 'transition-[height] duration-200 motion-reduce:transition-none' : ''"
         >
-          <button v-if="expandable" type="button" class="flex-none h-11 w-full flex items-center justify-center touch-none cursor-ns-resize border-0 bg-transparent text-content-secondary" :aria-label="expanded ? 'Collapse drawer' : 'Expand drawer'" :aria-expanded="expanded" @pointerdown="startResize" @pointermove="resize" @pointerup="finishResize" @pointercancel="cancelResize" @click="toggleSize">
+          <button v-if="expandable" type="button" class="flex-none h-12 w-full flex items-center justify-center touch-none cursor-ns-resize border-0 bg-transparent text-content-secondary" :aria-label="expanded ? 'Collapse drawer' : 'Expand drawer'" :aria-expanded="expanded" @pointerdown="startResize" @pointermove="resize" @pointerup="finishResize" @pointercancel="cancelResize" @click="toggleSize">
             <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
           </button>
           <div v-else class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
