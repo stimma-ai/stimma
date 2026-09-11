@@ -20,7 +20,9 @@ const props = withDefaults(defineProps<{
   /** A hue parameter: the ruler is a spectrum, no fill. */
   hue?: boolean
   disabled?: boolean
-}>(), { step: 1, default: 0, unit: '', hue: false, disabled: false })
+  /** A readout other than the value itself (a nonlinear slider's real unit). */
+  readout?: string
+}>(), { step: 1, default: 0, unit: '', hue: false, disabled: false, readout: undefined })
 
 const emit = defineEmits<{
   /** Continuous, while dragging. */
@@ -49,6 +51,7 @@ const fillStyle = computed(() => {
   return { left: `calc(50% - ${a}px)`, width: `${a + b}px` }
 })
 const readout = computed(() => {
+  if (props.readout !== undefined) return props.readout
   const step = props.step
   const text = step < 1 ? props.value.toFixed(step < 0.1 ? 2 : 1) : String(Math.round(props.value))
   return (props.min < 0 && props.value > 0 ? '+' : '') + text + props.unit

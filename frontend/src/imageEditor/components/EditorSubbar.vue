@@ -25,6 +25,10 @@ import ReferenceImageStrip from './ReferenceImageStrip.vue'
 import ToolAdvancedParams, { filterScalarGroups } from './ToolAdvancedParams.vue'
 import ExpandEdgesControl from './ExpandEdgesControl.vue'
 import GenerationRunButton from './GenerationRunButton.vue'
+import DeckSegments from './DeckSegments.vue'
+import ParamDeck from './ParamDeck.vue'
+import type { DeckParam } from './ParamDeck.vue'
+import { paintEngineSettings } from '../stack/paintEngineSettings'
 import { useToolSchemaFeatures } from '../../composables/useToolSchemaFeatures'
 import { OUTPAINT_EXPAND_FIELDS } from '../../utils/taskTypeValidation'
 import { toolSupportsLoras } from '../../utils/loraSchema'
@@ -112,6 +116,68 @@ const effectSubs = ['arrow', 'rectangle', 'ellipse', 'line']
 /** Retouch brushes whose engine takes a strength/direction beyond the brush. */
 const dodgeBurnSubs = ['dodge', 'burn']
 const strengthSubs = ['sponge', 'blur', 'sharpen']
+
+/**
+ * Phone (DESIGN.md §3.6a): every numeric control of the open tool as one
+ * parameter grid with a dial, the same grammar Adjust uses, instead of a
+ * brush popover and a run of sliders. Defaults come from the engine's own
+ * resting settings so a long-press reset lands where a fresh install would.
+ */
+const compactActive = ref<string | null>(null)
+const RETOUCH_RANGES = [
+  { id: 'shadows', label: 'Shadows' },
+  { id: 'midtones', label: 'Midtones' },
+  { id: 'highlights', label: 'Highlights' },
+] as const
+const SPONGE_MODES = [
+  { id: 'saturate', label: 'Saturate' },
+  { id: 'desaturate', label: 'Desaturate' },
+] as const
+function brushParams(prefix: 'retouchBrush' | 'paintBrush', engineId: string): DeckParam[] {
+  const brush = props.state[prefix] ?? {}
+  const rest = paintEngineSettings(engineId).brush
+  return [
+    { key: `${prefix}.size`, label: 'Size', value: brush.size ?? rest.size, min: 1, max: 400, step: 1, default: rest.size, unit: 'px' },
+    { key: `${prefix}.hardness`, label: 'Hardness', value: brush.hardness ?? rest.hardness, min: 0, max: 100, step: 1, default: rest.hardness },
+    { key: `${prefix}.opacity`, label: 'Opacity', value: brush.opacity ?? rest.opacity, min: 0, max: 100, step: 1, default: rest.opacity },
+  ]
+}
+const compactParams = computed<DeckParam[]>(() => {
+  const sub = props.sub ?? ''
+  switch (props.family) {
+    case 'retouch': {
+      if (sub === 'patch') return []
+      const rest = paintEngineSettings(sub)
+      const list = brushParams('retouchBrush', sub)
+      if (dodgeBurnSubs.includes(sub)) list.push({ key: 'retouchExposure', label: 'Exposure', value: props.state.retouchExposure, min: 1, max: 100, step: 1, default: rest.exposure, unit: '%' })
+      if (strengthSubs.includes(sub)) list.push({ key: 'retouchStrength', label: 'Strength', value: props.state.retouchStrength, min: 1, max: 100, step: 1, default: rest.strength, unit: '%' })
+      return list
+    }
+    case 'paint':
+      return props.state.engineId === 'paint' || props.state.engineId === 'erase' ? brushParams('paintBrush', props.state.engineId) : []
+    case 'crop':
+      return [{ key: 'rotation', label: 'Straighten', value: Math.round(-(props.state.rotation ?? 0) * 1800 / Math.PI) / 10, min: -45, max: 45, step: 0.1, default: 0, unit: '°' }]
+    case 'annotate': {
+      const list: DeckParam[] = []
+      if (showStroke.value) list.push({ key: 'annotateStrokeWidth', label: 'Width', value: props.state.annotateStrokeWidth ?? 8, min: 1, max: 24, step: 1, default: 8, unit: 'px' })
+      if (sub !== 'redact') list.push({ key: 'annotateOpacity', label: 'Opacity', value: Math.round((props.state.annotateOpacity ?? 1) * 100), min: 10, max: 100, step: 1, default: 100, unit: '%' })
+      return list
+    }
+    default: return []
+  }
+})
+function onCompactChange(key: string, value: number) {
+  if (key.startsWith('retouchBrush.')) emit('set', { retouchBrush: { ...props.state.retouchBrush, [key.slice('retouchBrush.'.length)]: value } })
+  else if (key.startsWith('paintBrush.')) emit('set', { paintBrush: { ...props.state.paintBrush, [key.slice('paintBrush.'.length)]: value } })
+  else if (key === 'rotation') emit('set', { rotation: -value * Math.PI / 180 }, true)
+  else if (key === 'annotateOpacity') emit('set', { annotateOpacity: value / 100 }, true)
+  else if (key === 'annotateStrokeWidth') emit('set', { annotateStrokeWidth: value }, true)
+  else emit('set', { [key]: value })
+}
+function onCompactCommit(key: string) {
+  if (key === 'rotation') emit('commit', 'crop')
+  if (key === 'annotateOpacity' || key === 'annotateStrokeWidth') emit('commit', 'annotation')
+}
 
 const standalonePaintEngines = PAINT_ENGINES.filter(engine =>
   engine.id !== 'fill' && engine.id !== 'gradient',
@@ -253,8 +319,31 @@ function chipClass(active: boolean, pending = false) {
     <!-- Retouch's chip row: every tool is a brush; the picker sits with the
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
-    <template v-if="family.id === 'retouch'">
-      <div v-if="!compact" :class="ROW">
+    <template v-if="family.id === 'retouch' && compact">
+      <DeckSegments
+        v-if="dodgeBurnSubs.includes(sub ?? '')"
+        :model-value="state.retouchRange"
+        :options="RETOUCH_RANGES"
+        aria-label="Tonal range"
+        @update:model-value="emit('set', { retouchRange: $event })"
+      />
+      <DeckSegments
+        v-else-if="sub === 'sponge'"
+        :model-value="state.retouchSaturate ? 'saturate' : 'desaturate'"
+        :options="SPONGE_MODES"
+        aria-label="Sponge"
+        @update:model-value="emit('set', { retouchSaturate: $event === 'saturate' })"
+      />
+      <ParamDeck
+        :params="compactParams"
+        :active="compactActive"
+        @update:active="compactActive = $event"
+        @change="onCompactChange"
+        @commit="onCompactCommit"
+      />
+    </template>
+    <template v-if="family.id === 'retouch' && !compact">
+      <div :class="ROW">
       <template
         v-for="option in family.subTools"
         :key="option.id"
@@ -302,20 +391,6 @@ function chipClass(active: boolean, pending = false) {
           @update:model-value="emit('set', { retouchBrush: $event })"
         />
       </ToolbarPopover>
-      <!-- Phone: size is the one brush setting worth a slider of its own; the
-           picker behind the chip keeps the rest. -->
-      <label
-        v-if="compact && sub !== 'patch'"
-        class="flex flex-1 min-w-0 items-center gap-2 text-xs text-content-tertiary compact:text-[13px]"
-      >
-        <span>Size</span>
-        <input
-          type="range" min="1" max="400" step="1" class="flex-1 min-w-0"
-          :value="state.retouchBrush.size"
-          @input="emit('set', { retouchBrush: { ...state.retouchBrush, size: Number(($event.target as HTMLInputElement).value) } })"
-        />
-        <span class="tabular-nums">{{ Math.round(state.retouchBrush.size) }} px</span>
-      </label>
 
       <!-- Strength for the photographic brushes. These seed the region the
            next gesture creates; the landed region's own values then live in
@@ -379,8 +454,17 @@ function chipClass(active: boolean, pending = false) {
     </template>
 
     <!-- Crop ------------------------------------------------------------ -->
-    <template v-if="family.id === 'crop'">
-      <div v-if="!compact" :class="ROW">
+    <template v-if="family.id === 'crop' && compact">
+      <ParamDeck
+        :params="compactParams"
+        :active="compactActive"
+        @update:active="compactActive = $event"
+        @change="onCompactChange"
+        @commit="onCompactCommit"
+      />
+    </template>
+    <template v-if="family.id === 'crop' && !compact">
+      <div :class="ROW">
       <button
         v-for="preset in CROP_ASPECTS"
         :key="preset.id"
@@ -435,7 +519,7 @@ function chipClass(active: boolean, pending = false) {
     </template>
 
     <!-- Generate --------------------------------------------------------- -->
-    <template v-else-if="family.id === 'generate'">
+    <template v-if="family.id === 'generate'">
       <!-- Remove/Repaint/Cutout/Expand are one explicit model run over the
            shared selection. The bar itself is the surface — no card floating
            inside it. One invariant grammar: the SUBJECT on the left (prompt,
@@ -637,9 +721,10 @@ function chipClass(active: boolean, pending = false) {
       <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <!-- A brush is not a property of the layer it painted, so it hangs off
            the toolbar rather than appearing in the Edits inspector. -->
+      <div :class="ROW">
       <ToolbarPopover
-        v-if="state.engineId === 'paint' || state.engineId === 'erase'"
-        :label="compact ? 'Brush' : `${Math.round(state.paintBrush.size)}px`"
+        v-if="!compact && (state.engineId === 'paint' || state.engineId === 'erase')"
+        :label="`${Math.round(state.paintBrush.size)}px`"
         :width="336"
       >
         <template #trigger>
@@ -658,18 +743,6 @@ function chipClass(active: boolean, pending = false) {
           @update:model-value="emit('set', { paintBrush: $event })"
         />
       </ToolbarPopover>
-      <label
-        v-if="compact && (state.engineId === 'paint' || state.engineId === 'erase')"
-        class="flex flex-1 min-w-0 items-center gap-2 text-xs text-content-tertiary compact:text-[13px]"
-      >
-        <span>Size</span>
-        <input
-          type="range" min="1" max="400" step="1" class="flex-1 min-w-0"
-          :value="state.paintBrush.size"
-          @input="emit('set', { paintBrush: { ...state.paintBrush, size: Number(($event.target as HTMLInputElement).value) } })"
-        />
-        <span class="tabular-nums">{{ Math.round(state.paintBrush.size) }} px</span>
-      </label>
       <!-- Erase has no color: its stroke is an alpha mask. -->
       <ToolbarPopover
         v-if="state.engineId !== 'erase' && state.engineId !== 'gradient'"
@@ -712,7 +785,7 @@ function chipClass(active: boolean, pending = false) {
         >
           <button
             type="button"
-            class="inline-flex items-center px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
+            class="inline-flex items-center justify-center px-2 py-1.5 text-xs rounded-md compact:min-h-11 compact:min-w-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
             :class="chipClass(state.paintGradientType === option.id)"
             :aria-label="`${option.label} gradient`"
             :aria-pressed="state.paintGradientType === option.id"
@@ -735,11 +808,20 @@ function chipClass(active: boolean, pending = false) {
           </button>
         </Tooltip>
       </template>
+      </div>
+      <ParamDeck
+        v-if="compact && compactParams.length"
+        :params="compactParams"
+        :active="compactActive"
+        @update:active="compactActive = $event"
+        @change="onCompactChange"
+        @commit="onCompactCommit"
+      />
       <span class="w-px h-5 bg-edge-subtle mx-1 compact:hidden" />
       <button
         v-if="!compact"
         type="button"
-        class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap text-content-secondary hover:text-content hover:bg-overlay-subtle"
+        class="px-2.5 py-1.5 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle"
         @click="emit('set', { newLayer: true })"
       >
         New layer
@@ -888,8 +970,8 @@ function chipClass(active: boolean, pending = false) {
     <template v-else-if="family.id === 'annotate'">
       <div :class="ROW">
       <template v-if="showStroke">
-        <!-- Stroke weight -->
-        <ToolbarPopover label="" :width="148">
+        <!-- Stroke weight; on a phone it is a parameter on the dial instead. -->
+        <ToolbarPopover v-if="!compact" label="" :width="148">
           <template #trigger>
             <svg viewBox="0 0 16 16" class="w-4 h-4" fill="currentColor" aria-label="Stroke width">
               <rect x="2" y="3" width="12" height="1" rx="0.5" />
@@ -966,7 +1048,7 @@ function chipClass(active: boolean, pending = false) {
         </ToolbarPopover>
 
         <!-- Effect: none, or the neon glow. -->
-        <ToolbarPopover v-if="showEffect" :label="shapeEffectLabel" :width="148">
+        <ToolbarPopover v-if="showEffect" :label="compact && shapeEffectLabel === 'None' ? 'No effect' : shapeEffectLabel" :width="148">
           <template #trigger>
             <span class="sr-only">Effect</span>
           </template>
@@ -1014,21 +1096,23 @@ function chipClass(active: boolean, pending = false) {
             @update:model-value="emit('set', { annotatePaint: $event })"
           />
         </ToolbarPopover>
+        <template v-if="!compact">
         <button
           v-for="style in TEXT_STYLES"
           :key="style.id"
           type="button"
-          class="px-2.5 py-1.5 text-xs rounded-md compact:min-h-11 compact:px-3 compact:text-[13px] compact:whitespace-nowrap transition-colors"
+          class="px-2.5 py-1.5 text-xs rounded-md transition-colors"
           :class="chipClass(state.textStyle === style.id)"
           @click="emit('set', { textStyle: style.id })"
         >
           {{ style.label }}
         </button>
+        </template>
       </template>
 
       <!-- Opacity, inline: one slider does not deserve a popover. -->
       <label
-        v-if="sub !== 'redact'"
+        v-if="!compact && sub !== 'redact'"
         class="flex items-center gap-2 text-xs text-content-tertiary compact:flex-1 compact:basis-full compact:min-w-0"
         title="Opacity"
       >
@@ -1049,6 +1133,23 @@ function chipClass(active: boolean, pending = false) {
         />
       </label>
       </div>
+      <template v-if="compact">
+        <DeckSegments
+          v-if="showText"
+          :model-value="state.textStyle"
+          :options="TEXT_STYLES"
+          aria-label="Text style"
+          @update:model-value="emit('set', { textStyle: $event })"
+        />
+        <ParamDeck
+          v-if="compactParams.length"
+          :params="compactParams"
+          :active="compactActive"
+          @update:active="compactActive = $event"
+          @change="onCompactChange"
+          @commit="onCompactCommit"
+        />
+      </template>
     </template>
 
   </div>

@@ -663,9 +663,9 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
 
 The compact editor is the desktop editor re-homed, never a second editor
 (§1.11). It borrows the shape every phone editor converges on: one toolbar
-row that drills down in place (CapCut), the current tool's parameters as a
-row of values with one dial (iOS Photos), and the picture itself as the
-slider (Snapseed). Top to bottom:
+row that drills down in place (CapCut), the current tool's parameters as
+values with one dial (iOS Photos), and the picture itself as the slider
+(Snapseed). Top to bottom:
 
 - **One header row**: back chevron, then the options button (an anchored
   menu: Compare, the stack, Save as, Revert), undo, redo, Save. No title.
@@ -676,22 +676,42 @@ slider (Snapseed). Top to bottom:
   At the root it is the six families and a badged Edits cell; inside a
   family it becomes ‹ plus that family's pickable things (brushes, verbs,
   Adjust's groups, crop aspects and turns, paint engines); while a
-  selection tool is armed it is Done plus the selection tools. Above the
-  row, the panel holds only what the current pick needs: Adjust shows the
-  step's parameters as chips with their values and one `ParamDial`
-  (`AdjustDeck`), Generate its prompt and Run, the others their sub-bar
-  controls. No drawer, no dock, nothing to drag.
+  selection tool is armed it is ‹ plus the selection tools. Above the row,
+  the panel holds only what the current pick needs: the tool's parameters
+  (`ParamDeck`), Generate its prompt and Run, the wells and popovers a
+  tool has beyond numbers. No drawer, no dock, nothing to drag.
 - **The stack** (Edits / Output / Info) is a kit Sheet behind the row's
   Edits cell. Tapping a step closes the sheet and opens it where it is
   edited.
 
-Parameters follow one grammar: bare text chips with a mono value, the
-active one wearing the row's single accent wash; a dial that scrubs by
-relative drag (double tap resets); and, with an Adjust parameter on the
-dial, a one-finger drag across the picture moves it with a readout under
-the finger. Segments underline their active option rather than filling
-it. Small canvas-like controls (the tone curve) swap in for the dial with
-44px hit areas around their handles.
+**One way out.** The row's left cell is ‹, and it goes up exactly one
+level: out of a selection tool to the family beneath it, out of a family
+to the root. Nothing else is a way out — re-tapping a cell never leaves,
+Adjust's Auto and Looks are panel states of Adjust rather than levels, and
+no panel carries its own Done. The armed pill still hands the pointer back
+as a shortcut; it is not the mechanism.
+
+**One parameter grammar** (`ParamDeck`, `DeckSegments`, `ParamDial`), the
+same for Adjust, the brushes, the selection tools, Crop and Annotate:
+
+- The tool's numeric controls are a **grid of cells** — name left, mono
+  value right, three to a row — all visible at once, nothing to scroll
+  sideways for. The chosen cell wears the panel's single accent wash;
+  values away from their default read in the accent. A single parameter is
+  just the dial.
+- Where a tool has more numbers than one screen wants, a **segment row**
+  above the grid chooses which set it shows (Mixer's channel, Grading's
+  range, Detail's presence / sharpen / noise / color noise) — the hierarchy
+  the desktop draws with section headers. Segments underline their active
+  option rather than filling it and carry a dot when their set holds
+  values. The same row serves a tool's few peer modes (a brush's tonal
+  range, a text preset, how the next selection gesture combines).
+- **One dial** scrubs the chosen value by relative drag; with an Adjust
+  parameter on it, a one-finger drag across the picture moves it too, with
+  a readout under the finger. Reset is a long press on a cell or the dial
+  (or a double tap on the dial): nothing on screen for it.
+- Small canvas-like controls (the tone curve) are one more cell and swap
+  in for the dial, with 44px hit areas around their handles.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

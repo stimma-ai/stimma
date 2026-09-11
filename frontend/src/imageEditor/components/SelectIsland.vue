@@ -27,6 +27,10 @@ import Spinner from '../../components/ui/Spinner.vue'
 import Tooltip from '../../components/ui/Tooltip.vue'
 import PaintToolIcon from '../../components/generation/PaintToolIcon.vue'
 import ToolIcon from './ToolIcon.vue'
+import DeckSegments from './DeckSegments.vue'
+import ParamDeck from './ParamDeck.vue'
+import type { DeckParam } from './ParamDeck.vue'
+import { DEFAULT_LINEAR_SOFTNESS, DEFAULT_RADIAL_FEATHER } from '../stack/regionMask'
 import { SELECT_TOOLS, SELECT_TOOL_GROUPS, SELECTION_MODES } from '../stack/toolFamilies'
 import type { SelectToolId, SelectionMode } from '../stack/toolFamilies'
 import {
@@ -251,6 +255,8 @@ interface PanelSlider {
   unit: string
   value: number
   readout: number
+  /** What a phone's long-press reset returns to. */
+  initial: number
   set: (value: number) => void
   previewsGradient?: boolean
 }
@@ -260,14 +266,15 @@ const featherSlider = (): PanelSlider => ({
   min: 0, max: FEATHER_SLIDER_MAX, unit: 'px',
   value: featherSliderFromPx(props.featherPx),
   readout: props.featherPx,
+  initial: 0,
   set: value => emit('set', { featherPx: featherPxFromSlider(value) }),
 })
 
 const plainSlider = (
   label: string, key: string, value: number, min: number, max: number, unit: string,
-  previewsGradient = false,
+  initial: number, previewsGradient = false,
 ): PanelSlider => ({
-  label, min, max, unit, value, readout: value,
+  label, min, max, unit, value, readout: value, initial,
   set: v => emit('set', { [key]: v }),
   previewsGradient,
 })
@@ -288,25 +295,40 @@ function finishSliderAdjustment(slider: PanelSlider) {
 const panelSliders = computed<PanelSlider[]>(() => {
   switch (props.armed) {
     case 'wand': return [
-      plainSlider('Threshold', 'tolerance', props.tolerance, 1, 100, ''),
-      plainSlider('Spread', 'spread', props.spread, 0, 100, '%'),
-      plainSlider('Grow', 'growPx', props.growPx, -40, 40, 'px'),
+      plainSlider('Threshold', 'tolerance', props.tolerance, 1, 100, '', 8),
+      plainSlider('Spread', 'spread', props.spread, 0, 100, '%', 100),
+      plainSlider('Grow', 'growPx', props.growPx, -40, 40, 'px', 0),
       featherSlider(),
     ]
     case 'brush': return [
-      plainSlider('Brush', 'selectBrushSize', props.brushSize, 8, 300, 'px'),
+      plainSlider('Brush', 'selectBrushSize', props.brushSize, 8, 300, 'px', 80),
       featherSlider(),
     ]
     case 'linear': return [
-      plainSlider('Softness', 'gradientSoftness', props.gradientSoftness, 0, 100, '', true),
+      plainSlider('Softness', 'gradientSoftness', props.gradientSoftness, 0, 100, '', DEFAULT_LINEAR_SOFTNESS, true),
     ]
     case 'radial': return [
-      plainSlider('Feather', 'gradientFeather', props.gradientFeather, 2, 100, '', true),
+      plainSlider('Feather', 'gradientFeather', props.gradientFeather, 2, 100, '', DEFAULT_RADIAL_FEATHER, true),
     ]
     case 'rect': case 'ellipse': case 'lasso': case 'magnetic': return [featherSlider()]
     default: return []
   }
 })
+
+/** Phone: the same sliders as a parameter grid and one dial (DESIGN.md §3.6a). */
+const deckActive = ref<string | null>(null)
+const deckParams = computed<DeckParam[]>(() => panelSliders.value.map(slider => ({
+  key: slider.label, label: slider.label, value: slider.value, min: slider.min, max: slider.max,
+  step: 1, default: slider.initial, format: () => `${slider.readout}${slider.unit}`,
+})))
+function onDeckChange(key: string, value: number) {
+  const slider = panelSliders.value.find(s => s.label === key)
+  if (slider) setSliderValue(slider, value)
+}
+function onDeckCommit(key: string) {
+  const slider = panelSliders.value.find(s => s.label === key)
+  if (slider) finishSliderAdjustment(slider)
+}
 
 /**
  * The Object tool's panel content keeps prompt/click selection together with
@@ -414,25 +436,18 @@ function buttonClass(active: boolean, enabled = true) {
          the canvas back and the family's controls return underneath. -->
     <Teleport v-if="armed && panelTarget" :to="panelTarget" defer>
       <div class="pb-1 flex flex-col" data-select-panel>
-        <div class="flex items-center gap-1 min-h-11">
-          <ToolIcon :name="armedTool!.icon" :size="18" class="text-selection shrink-0" />
-          <span class="text-sm font-semibold text-content">Selection</span>
+        <!-- What can be done to the selection that exists. Bare verbs, no fills. -->
+        <div v-if="hasSelection" class="flex items-center min-h-11 -mx-2">
+          <button type="button" class="min-h-11 px-2.5 text-[13px] font-medium rounded-md text-content-secondary" @click="emit('invert')">Invert</button>
+          <button type="button" class="min-h-11 px-2.5 text-[13px] font-medium rounded-md text-content-secondary" @click="emit('clear')">Deselect</button>
           <span class="flex-1" />
-          <button
-            v-if="hasSelection"
-            type="button"
-            class="min-h-11 px-2.5 text-[13px] rounded-md text-content-secondary"
-            @click="emit('invert')"
-          >
-            Invert
+          <button type="button" class="min-h-11 px-2.5 text-[13px] font-medium rounded-md text-content-secondary flex items-center gap-1.5" @click="morphSelection(1)">
+            <PaintToolIcon name="maskExpand" class="w-4 h-4" />
+            Expand
           </button>
-          <button
-            v-if="hasSelection"
-            type="button"
-            class="min-h-11 px-2.5 text-[13px] rounded-md text-content-secondary"
-            @click="emit('clear')"
-          >
-            Deselect
+          <button type="button" class="min-h-11 px-2.5 text-[13px] font-medium rounded-md text-content-secondary flex items-center gap-1.5" @click="morphSelection(-1)">
+            <PaintToolIcon name="maskContract" class="w-4 h-4" />
+            Contract
           </button>
         </div>
 
@@ -496,25 +511,13 @@ function buttonClass(active: boolean, enabled = true) {
         </template>
 
         <template v-else>
-          <label
-            v-for="slider in panelSliders"
-            :key="slider.label"
-            class="flex items-center gap-2 min-h-11 text-[13px] text-content-secondary"
-          >
-            <span class="w-20 shrink-0">{{ slider.label }}</span>
-            <input
-              type="range" class="flex-1 min-w-0 h-11"
-              :min="slider.min" :max="slider.max"
-              :value="slider.value"
-              @pointerdown="beginSliderAdjustment(slider)"
-              @input="setSliderValue(slider, Number(($event.target as HTMLInputElement).value))"
-              @change="finishSliderAdjustment(slider)"
-              @pointerup="finishSliderAdjustment(slider)"
-              @pointercancel="finishSliderAdjustment(slider)"
-              @blur="finishSliderAdjustment(slider)"
-            />
-            <span class="w-12 text-right font-mono text-[12px] tabular-nums text-content">{{ slider.readout }}{{ slider.unit }}</span>
-          </label>
+          <ParamDeck
+            :params="deckParams"
+            :active="deckActive"
+            @update:active="deckActive = $event"
+            @change="onDeckChange"
+            @commit="onDeckCommit"
+          />
           <label
             v-if="armed === 'wand'"
             class="flex items-center gap-2 min-h-11 text-[13px] text-content-secondary"
@@ -530,35 +533,14 @@ function buttonClass(active: boolean, enabled = true) {
         </template>
 
         <!-- How the next gesture meets what is selected. -->
-        <div class="flex rounded-md bg-overlay-subtle p-0.5 mt-1" role="radiogroup" aria-label="Combine mode">
-          <button
-            v-for="option in SELECTION_MODES"
-            :key="option.id"
-            type="button"
-            role="radio"
-            class="flex-1 min-h-11 text-[12.5px] rounded flex items-center justify-center gap-1"
-            :class="(combineOverride ?? combine) === option.id
-              ? 'bg-selection/15 text-content font-medium'
-              : 'text-content-tertiary'"
-            :aria-checked="combine === option.id"
-            :disabled="!combineEnabled"
-            @click="emit('set', { combine: option.id })"
-          >
-            <ToolIcon :name="option.icon" :size="15" />
-            {{ option.label }}
-          </button>
-        </div>
-        <div v-if="hasSelection" class="flex items-center gap-1.5 mt-2">
-          <button type="button" class="min-h-11 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(1)">
-            <PaintToolIcon name="maskExpand" class="w-4 h-4" />
-            Expand
-          </button>
-          <button type="button" class="min-h-11 px-3 rounded-md bg-overlay-subtle text-[12.5px] text-content-secondary flex items-center gap-1.5" @click="morphSelection(-1)">
-            <PaintToolIcon name="maskContract" class="w-4 h-4" />
-            Contract
-          </button>
-          <span class="text-[11px] font-mono text-content-tertiary">{{ edgeAmount }} px</span>
-        </div>
+        <DeckSegments
+          :model-value="combineOverride ?? combine"
+          :options="SELECTION_MODES"
+          aria-label="Combine mode"
+          tone="selection"
+          :disabled="!combineEnabled"
+          @update:model-value="emit('set', { combine: $event })"
+        />
       </div>
     </Teleport>
   </template>

@@ -306,14 +306,15 @@ function onCompactFamily(id: FamilyId) {
   looksOpen.value = false
   if (family.value !== id) selectFamily(id)
 }
-/** The row's ‹: up one level. Looks and Auto sit under Adjust; a family sits under the root. */
+/**
+ * The row's ‹: up exactly one level, and the only way up. An armed selection
+ * tool is a level (it hands the pointer back to the family beneath); a family
+ * sits under the root. Auto and Looks are panel states of Adjust, not levels.
+ */
 function onCompactBack() {
-  disarmSelect()
-  if (family.value === 'levels' && (compactLevelsMode.value || looksOpen.value)) {
-    compactLevelsMode.value = null
-    looksOpen.value = false
-    return
-  }
+  if (armedSelectTool.value) { disarmSelect(); return }
+  compactLevelsMode.value = null
+  looksOpen.value = false
   leaveMode()
 }
 /**
@@ -2774,7 +2775,7 @@ function onSubbarSet(patch: Record<string, any>, continuous = false) {
   // same values, so setting neon before or after drawing is the same act.
   if ('annotateStrokeWidth' in patch) {
     annotateStrokeWidth.value = patch.annotateStrokeWidth
-    if (selectedShape.value) onShapeChange({ strokeWidth: patch.annotateStrokeWidth })
+    if (selectedShape.value) onShapeChange({ strokeWidth: patch.annotateStrokeWidth }, continuous)
   }
   if ('annotateFillColor' in patch) {
     annotateFillColor.value = patch.annotateFillColor
@@ -9898,7 +9899,6 @@ watch(
             @family="onCompactFamily"
             @edits="onCompactEdits"
             @back="onCompactBack"
-            @done="disarmSelect"
             @sub="onCompactSub"
             @set="onSubbarSet"
             @arm="(id: SelectToolId) => armSelectTool(id, true)"

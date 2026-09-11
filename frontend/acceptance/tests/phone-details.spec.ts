@@ -98,7 +98,7 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.locator('[data-select-panel]')).toBeVisible();
     await expect(row.getByRole('button', { name: 'Lasso', exact: true })).toBeVisible();
     await audit(page, 'editor-select-panel', '.editor-deck');
-    await row.getByRole('button', { name: 'Done', exact: true }).click();
+    await row.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.locator('[data-select-panel]')).toBeHidden();
 
     // The stack: a sheet behind Edits, with Edits / Output / Info.

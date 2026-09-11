@@ -5,7 +5,7 @@
  * family the same row becomes ‹ and that family's pickable things — Retouch's
  * brushes, Generate's verbs, Adjust's groups, Crop's aspects and turns,
  * Paint's engines — so switching tools is one tap and never a navigation.
- * While a selection tool is armed the row is Done and the selection tools.
+ * While a selection tool is armed the row is ‹ and the selection tools.
  *
  * The row only PICKS. Every control a pick reveals lives in the deck panel
  * above it.
@@ -38,7 +38,6 @@ const emit = defineEmits<{
   family: [FamilyId]
   edits: []
   back: []
-  done: []
   sub: [string]
   set: [Record<string, any>]
   arm: [SelectToolId]
@@ -166,21 +165,13 @@ watch([activeId, () => props.family, () => props.armed], () => {
     :aria-label="level === 'root' ? 'Editor families' : level === 'selection' ? 'Selection tools' : 'Tools'"
     :data-level="level"
   >
-    <!-- The way up. Done is the selection's way out; it wears the accent
-         because it hands the pointer back. -->
+    <!-- The way up: always the same cell in the same place, one level at a
+         time. A selection level is a level too, so it leaves the same way. -->
     <button
-      v-if="level === 'selection'"
+      v-if="level !== 'root'"
       type="button"
-      class="flex-none min-w-[64px] min-h-[56px] rounded-md text-[13px] font-semibold text-accent-hi border-none bg-transparent mr-1"
-      aria-label="Done"
-      @click="emit('done')"
-    >
-      Done
-    </button>
-    <button
-      v-else-if="level === 'family'"
-      type="button"
-      class="flex-none min-w-11 min-h-[56px] flex items-center justify-center text-content-secondary border-none bg-transparent border-r border-edge-strong pr-2 mr-1"
+      class="flex-none min-w-11 min-h-[56px] flex items-center justify-center border-none bg-transparent border-r border-edge-strong pr-2 mr-1"
+      :class="level === 'selection' ? 'text-selection' : 'text-content-secondary'"
       aria-label="Back"
       @click="emit('back')"
     >
