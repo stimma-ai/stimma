@@ -14,6 +14,7 @@ final class ShellUITests: XCTestCase {
                 let html = """
                 <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
                 <body><h1>Live dev frontend</h1><p id="result">Waiting for native bridge</p>
+                <button onclick="native('disconnect')">Disconnect</button>
                 <script>
                 const native = (method) => window.webkit.messageHandlers.stimma.postMessage({method});
                 native('getState').then(state => {
@@ -33,6 +34,7 @@ final class ShellUITests: XCTestCase {
         wait(for: [ready], timeout: 5)
         let port = try XCTUnwrap(listener.port).rawValue
         let app = XCUIApplication()
+        app.launchArguments = ["-mobile.devServerAddress", ""]
         app.launch()
         let dev = app.webViews.buttons["Dev server"]
         XCTAssertTrue(dev.waitForExistence(timeout: 15), app.debugDescription)
@@ -40,14 +42,11 @@ final class ShellUITests: XCTestCase {
         let address = app.webViews.textFields["Server IP and frontend port"]
         XCTAssertTrue(address.waitForExistence(timeout: 5))
         address.tap()
-        if let value = address.value as? String, value != address.placeholderValue {
-            address.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
-        }
         address.typeText("127.0.0.1:\(port)")
         app.webViews.buttons["Connect to dev server"].tap()
         XCTAssertTrue(app.webViews.staticTexts["Dev bridge ready"].waitForExistence(timeout: 15), app.debugDescription)
-        app.buttons["Dev"].tap()
-        app.buttons["Disconnect"].tap()
+        XCTAssertFalse(app.buttons["Dev"].exists)
+        app.webViews.buttons["Disconnect"].tap()
         XCTAssertTrue(app.webViews.buttons["Dev server"].waitForExistence(timeout: 10), app.debugDescription)
     }
 

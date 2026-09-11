@@ -520,20 +520,6 @@ struct ShellView: View {
             }
         }
         .background(Color(red: 11/255, green: 14/255, blue: 20/255).ignoresSafeArea())
-        .overlay(alignment: .topTrailing) {
-            #if DEBUG
-            if model.devServerURL != nil {
-                Menu("Dev") {
-                    Button("Reload interface") { model.revision = UUID() }
-                    Button("Change dev server") { model.showConnections = true }
-                    Button("Disconnect") { model.disconnect() }
-                }
-                .padding(12)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.trailing, 12)
-            }
-            #endif
-        }
         .sheet(isPresented: $model.showConnections) {
             if let origin = model.origin {
                 StimmaWebView(model: model, origin: origin, connectionScreen: true)

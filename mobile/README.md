@@ -220,10 +220,10 @@ WebSocket updates the phone as source files change. The phone needs a route
 over Wi-Fi or Tailscale; the USB cable installs the app but does not forward
 the computer's localhost. Only expose a dev server on a trusted network.
 
-The native **Dev** menu remains available even if the page fails to load. It
-offers reload, change server, and disconnect. The live page retains the mobile
-bridge, safe areas, sharing, and slideshow controls. Account credentials and
-remote-session headers are not injected into this direct connection. Release
+Use the app’s account/server controls to disconnect or change servers. If
+startup stalls, **Choose another server** returns to the connection screen.
+The live page retains the mobile bridge, safe areas, sharing, and slideshow
+controls. Account credentials and remote-session headers are not injected into this direct connection. Release
 builds do not expose or accept the dev-server command.
 
 ## Isolated simulator validation
