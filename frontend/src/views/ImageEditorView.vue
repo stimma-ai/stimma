@@ -9810,6 +9810,10 @@ watch(
             class="editor-drawer-body flex-none max-h-[46vh] overflow-y-auto px-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden empty:hidden"
           >
             <template v-if="!armedSelectTool && family">
+              <!-- Adjust's panel is one height whatever it shows — a step's
+                   grid and dial, the Autos, the Looks, or nothing yet — so the
+                   row beneath never moves while the group changes. -->
+              <div class="flex flex-col" :class="family === 'levels' && 'min-h-[228px]'">
               <AdjustDeck
                 v-if="family === 'levels' && compactLevelsMode === null && selectedAdjustOp"
                 :section="activeLevelSection ?? 'tone'"
@@ -9857,6 +9861,7 @@ watch(
                 @refresh-loras="refreshEditorLoras"
                 @upload-loras="uploadEditorLoras"
               />
+              </div>
               <!-- The selected step's properties, where the desktop keeps them in
                    the sidebar: the phone shows them under the tool's controls. -->
               <AnnotationInspector

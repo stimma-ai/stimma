@@ -6,9 +6,14 @@
  * beneath. One grammar for Adjust, the brushes, the selection tools, Crop
  * and Annotate, so a phone user learns it once.
  *
- * A single parameter is just the dial. The host may put extra cells in the
- * grid (Adjust's Curve) and swap the dial for something else through the
- * `dial` slot when one of those is active.
+ * Layout is STABLE: a host that switches between parameter sets (segments,
+ * brushes, selection tools) passes `rows`, and the grid then always stands
+ * that many rows tall and the dial's slot is always reserved, so a tap on a
+ * segment never moves the segments — or the row beneath — out from under
+ * the finger. Without `rows` the deck is content-sized, and a single
+ * parameter is just the dial. The host may put extra cells in the grid
+ * (Adjust's Curve) and swap the dial for something else through the `dial`
+ * slot when one of those is active.
  *
  * Reset is a long press on a cell or the dial, or a double tap on the dial:
  * nothing on screen for it.
@@ -38,8 +43,10 @@ const props = withDefaults(defineProps<{
   /** The key on the dial. Stale or null resolves to the first parameter. */
   active: string | null
   columns?: number
+  /** Fixed layout: the grid is always this many rows and the dial slot always stands. */
+  rows?: number
   disabled?: boolean
-}>(), { columns: 3, disabled: false })
+}>(), { columns: 3, rows: 0, disabled: false })
 
 const emit = defineEmits<{
   'update:active': [string]
@@ -104,9 +111,13 @@ function tap(p: DeckParam) {
 <template>
   <div class="flex flex-col" data-param-deck>
     <div
-      v-if="params.length > 1 || $slots.default"
-      class="grid gap-x-1"
-      :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }"
+      v-if="rows > 0 || params.length > 1 || $slots.default"
+      class="grid gap-x-1 content-start"
+      :style="{
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        gridAutoRows: rows > 0 ? '44px' : undefined,
+        minHeight: rows > 0 ? `${rows * 44}px` : undefined,
+      }"
       role="tablist"
       aria-label="Parameters"
     >
@@ -138,7 +149,8 @@ function tap(p: DeckParam) {
       </button>
       <slot />
     </div>
-    <slot v-if="!shown" name="dial" />
+    <slot v-if="!shown && active && $slots.dial" name="dial" />
+    <div v-else-if="!shown && rows > 0" class="h-[52px]" aria-hidden="true" />
     <ParamDial
       v-else
       :label="shown.label"

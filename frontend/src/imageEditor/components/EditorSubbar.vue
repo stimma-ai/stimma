@@ -320,6 +320,9 @@ function chipClass(active: boolean, pending = false) {
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
     <template v-if="family.id === 'retouch' && compact">
+      <!-- The segment slot and two grid rows stand for every brush, so
+           switching brushes never moves the row. -->
+      <div class="min-h-11 flex flex-col justify-end">
       <DeckSegments
         v-if="dodgeBurnSubs.includes(sub ?? '')"
         :model-value="state.retouchRange"
@@ -334,9 +337,11 @@ function chipClass(active: boolean, pending = false) {
         aria-label="Sponge"
         @update:model-value="emit('set', { retouchSaturate: $event === 'saturate' })"
       />
+      </div>
       <ParamDeck
         :params="compactParams"
         :active="compactActive"
+        :rows="2"
         @update:active="compactActive = $event"
         @change="onCompactChange"
         @commit="onCompactCommit"
@@ -810,9 +815,10 @@ function chipClass(active: boolean, pending = false) {
       </template>
       </div>
       <ParamDeck
-        v-if="compact && compactParams.length"
+        v-if="compact"
         :params="compactParams"
         :active="compactActive"
+        :rows="1"
         @update:active="compactActive = $event"
         @change="onCompactChange"
         @commit="onCompactCommit"
@@ -1096,6 +1102,14 @@ function chipClass(active: boolean, pending = false) {
             @update:model-value="emit('set', { annotatePaint: $event })"
           />
         </ToolbarPopover>
+        <DeckSegments
+          v-if="compact"
+          class="flex-1 min-w-0"
+          :model-value="state.textStyle"
+          :options="TEXT_STYLES"
+          aria-label="Text style"
+          @update:model-value="emit('set', { textStyle: $event })"
+        />
         <template v-if="!compact">
         <button
           v-for="style in TEXT_STYLES"
@@ -1134,17 +1148,10 @@ function chipClass(active: boolean, pending = false) {
       </label>
       </div>
       <template v-if="compact">
-        <DeckSegments
-          v-if="showText"
-          :model-value="state.textStyle"
-          :options="TEXT_STYLES"
-          aria-label="Text style"
-          @update:model-value="emit('set', { textStyle: $event })"
-        />
         <ParamDeck
-          v-if="compactParams.length"
           :params="compactParams"
           :active="compactActive"
+          :rows="1"
           @update:active="compactActive = $event"
           @change="onCompactChange"
           @commit="onCompactCommit"

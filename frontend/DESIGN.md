@@ -712,6 +712,13 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
   (or a double tap on the dial): nothing on screen for it.
 - Small canvas-like controls (the tone curve) are one more cell and swap
   in for the dial, with 44px hit areas around their handles.
+- **The panel stands still.** Within a family the panel is one height
+  whatever the row or a segment picks: the grid is a fixed number of rows
+  (three for Adjust, two for the brushes and selection tools, one for
+  Paint and Annotate), the segment slot and the dial slot stand even when
+  empty, and a tool with no numbers keeps the space. A tab bar that moves
+  out from under the finger is worse than a blank row. The large
+  exceptions (the tone curve, the Looks strip) may grow.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

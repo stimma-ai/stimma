@@ -167,7 +167,10 @@ const pickedColor = computed(() => {
 
 <template>
   <div class="flex flex-col" data-adjust-deck>
-    <!-- Which set of parameters the grid shows, for the groups that have more than one. -->
+    <!-- Which set of parameters the grid shows, for the groups that have more
+         than one. The slot stands for every group so switching groups in the
+         row never moves the row. -->
+    <div class="min-h-11 flex flex-col justify-end">
     <DeckSegments v-if="presentation === 'mixer'" v-model="mixerMode" :options="mixerSegments" aria-label="Mixer channel" />
     <DeckSegments v-else-if="presentation === 'grade'" v-model="gradeRange" :options="gradeSegments" aria-label="Tonal range" />
     <DeckSegments v-else-if="levelEdit?.id === 'detail'" v-model="detailGroup" :options="detailSegments" aria-label="Detail group" />
@@ -184,10 +187,14 @@ const pickedColor = computed(() => {
         {{ picking ? 'Picking…' : 'Pick color' }}
       </button>
     </div>
+    </div>
 
+    <!-- Three rows: Light and Mixer need them, and every group standing the
+         same height is what keeps the row still while groups change. -->
     <ParamDeck
       :params="visible"
       :active="activeKey"
+      :rows="3"
       :disabled="disabled"
       @update:active="activeKey = $event"
       @change="onChange"
