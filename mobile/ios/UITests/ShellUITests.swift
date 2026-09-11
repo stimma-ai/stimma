@@ -1,6 +1,56 @@
 import XCTest
+import Network
 
 final class ShellUITests: XCTestCase {
+    func testManualDevServerLoadsNativeBridgeAndDisconnects() throws {
+        // A disposable HTTP frontend proves WKWebView loads a live origin and
+        // accepts bridge calls there, without a cloud account or UI package.
+        let listener = try NWListener(using: .tcp, on: .any)
+        let ready = expectation(description: "Dev frontend listening")
+        listener.stateUpdateHandler = { if case .ready = $0 { ready.fulfill() } }
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: .global())
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
+                let html = """
+                <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+                <body><h1>Live dev frontend</h1><p id="result">Waiting for native bridge</p>
+                <script>
+                const native = (method) => window.webkit.messageHandlers.stimma.postMessage({method});
+                native('getState').then(state => {
+                  document.getElementById('result').textContent = state.activeDeviceId.startsWith('dev:') ? 'Dev bridge ready' : 'Wrong server';
+                  return native('interfaceReady');
+                });
+                </script>
+                """
+                let bytes = Data(html.utf8)
+                var response = Data("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(bytes.count)\r\nConnection: close\r\n\r\n".utf8)
+                response.append(bytes)
+                connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        listener.start(queue: .global())
+        defer { listener.cancel() }
+        wait(for: [ready], timeout: 5)
+        let port = try XCTUnwrap(listener.port).rawValue
+        let app = XCUIApplication()
+        app.launch()
+        let dev = app.webViews.buttons["Dev server"]
+        XCTAssertTrue(dev.waitForExistence(timeout: 15), app.debugDescription)
+        dev.tap()
+        let address = app.webViews.textFields["Server IP and frontend port"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.tap()
+        if let value = address.value as? String, value != address.placeholderValue {
+            address.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
+        }
+        address.typeText("127.0.0.1:\(port)")
+        app.webViews.buttons["Connect to dev server"].tap()
+        XCTAssertTrue(app.webViews.staticTexts["Dev bridge ready"].waitForExistence(timeout: 15), app.debugDescription)
+        app.buttons["Dev"].tap()
+        app.buttons["Disconnect"].tap()
+        XCTAssertTrue(app.webViews.buttons["Dev server"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
     func testAuthEndpointConnectivity() {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-network-check"]

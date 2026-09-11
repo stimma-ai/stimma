@@ -6,6 +6,8 @@ import { mobileNative as native } from '../desktop/mobileNative'
 
 interface Device { deviceId: string; name: string; serving: boolean }
 interface ConnectionInfo {
+  devServerAvailable?: boolean
+  devServerAddress?: string
   authenticated: boolean
   user?: { email?: string; display_name?: string } | null
   devices: Device[]
@@ -16,6 +18,8 @@ interface ConnectionInfo {
 }
 
 const info = ref<ConnectionInfo | null>(null)
+const devPanelOpen = ref(false)
+const devAddress = ref('')
 const operation = ref<string | null>(null)
 const failure = ref<string | null>(null)
 const attemptedDevice = ref<string | null>(null)
@@ -47,7 +51,10 @@ async function readInfo() {
   reading = true
   try {
     const state = await native<ConnectionInfo>('connectionInfo')
-    if (mounted) info.value = state
+    if (mounted) {
+      if (!info.value) devAddress.value = state.devServerAddress ?? ''
+      info.value = state
+    }
   } catch (error) {
     if (mounted) failure.value = errorMessage(error)
   } finally { reading = false }
@@ -191,6 +198,15 @@ onUnmounted(() => {
       </section>
 
       <footer class="pb-5 text-center">
+        <div v-if="info?.devServerAvailable" class="mb-4 text-left">
+          <Button variant="ghost" class="min-h-11 w-full" :aria-expanded="devPanelOpen" aria-controls="dev-server-panel" @click="devPanelOpen = !devPanelOpen">Dev server</Button>
+          <form v-if="devPanelOpen" id="dev-server-panel" class="mt-2 space-y-3" @submit.prevent="act('connectDevServer', { address: devAddress })">
+            <label for="dev-server-address" class="block text-sm text-content-secondary">Server IP and frontend port</label>
+            <input id="dev-server-address" v-model="devAddress" type="text" inputmode="url" autocomplete="off" autocapitalize="off" :spellcheck="false" placeholder="192.168.1.20:9407" :disabled="pending" class="min-h-12 w-full rounded-md border border-transparent bg-overlay-subtle px-3 py-2 text-base text-content outline-none placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed">
+            <p class="text-xs leading-relaxed text-content-tertiary">Loads the live frontend with hot reload. Use a trusted dev server reachable over Wi-Fi or Tailscale. The Dev menu lets you reload or disconnect.</p>
+            <Button type="submit" variant="secondary" class="min-h-12 w-full" :loading="operation === 'connectDevServer'" :disabled="pending || !devAddress.trim()">Connect to dev server</Button>
+          </form>
+        </div>
         <template v-if="info?.authenticated">
           <p v-if="info.user?.email" class="truncate text-xs text-content-tertiary">{{ info.user.email }}</p>
           <Button variant="ghost" class="min-h-11" :disabled="pending" @click="act('logout')">Sign out</Button>

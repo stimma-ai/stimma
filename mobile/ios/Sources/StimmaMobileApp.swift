@@ -27,6 +27,41 @@ final class ShellModel: ObservableObject {
     @Published var devices: [MobileDevice] = []
     @Published var selected: MobileDevice?
     @Published var origin: URL?
+    @Published private(set) var devServerURL: URL?
+    var appOrigin: URL? { devServerURL ?? origin }
+
+    #if DEBUG
+    func connectDevServer(_ address: String) async throws {
+        let url = try DevServerAddress.parse(address)
+        guard let frontend = Bundle.main.url(forResource: "Frontend", withExtension: nil) else {
+            throw ShellError.message("The bundled connection screen is missing.")
+        }
+        let next = MobileTransport(frontend: frontend)
+        let localOrigin = try await next.start()
+        connectionGeneration = UUID()
+        connectionTask?.cancel(); connectionTask = nil
+        connectionProbe?.cancel(); connectionProbe = nil
+        monitor?.cancel(); monitor = nil
+        checkingConnection = false
+        resumePending = false
+        activeRoute = nil; activeSession = nil; activeUIHash = nil
+        // Keep the bundled connection screen available on its own loopback origin.
+        transport?.stop()
+        transport = next
+        origin = localOrigin
+        setSlideshowActive(false)
+        devServerURL = url
+        selected = MobileDevice(deviceId: "dev:" + url.absoluteString, name: "Dev server", routes: [], certFingerprint: nil, serving: false)
+        UserDefaults.standard.set(url.absoluteString, forKey: "mobile.devServerAddress")
+        interfaceReady = false
+        restoring = false
+        busy = false
+        message = nil
+        connectionState = "ready"
+        showConnections = false
+        revision = UUID()
+    }
+    #endif
     @Published var message: String?
     @Published var busy = false
     @Published var showConnections = false {
@@ -323,6 +358,7 @@ final class ShellModel: ObservableObject {
             transport = next
             setSlideshowActive(false)
             interfaceReady = false
+            devServerURL = nil
             activeUIHash = package.hash
             selected = device
             activeRoute = route
@@ -360,7 +396,7 @@ final class ShellModel: ObservableObject {
     }
 
     func suspendConnection() {
-        guard selected != nil else { return }
+        guard selected != nil, devServerURL == nil else { return }
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
         connectionProbe?.cancel(); connectionProbe = nil
@@ -372,7 +408,7 @@ final class ShellModel: ObservableObject {
     }
 
     func checkConnection() async {
-        guard !busy, !checkingConnection, UIApplication.shared.applicationState == .active,
+        guard devServerURL == nil, !busy, !checkingConnection, UIApplication.shared.applicationState == .active,
               let selected, let transport else { return }
         let generation = connectionGeneration
         checkingConnection = true
@@ -426,6 +462,7 @@ final class ShellModel: ObservableObject {
         transport?.stop()
         transport = nil
         origin = nil
+        devServerURL = nil
         selected = nil
         UserDefaults.standard.removeObject(forKey: "mobile.selectedServer")
         message = nil
@@ -448,7 +485,7 @@ struct ShellView: View {
     @State private var slowOpening = false
     var body: some View {
         ZStack {
-            if let origin = model.origin {
+            if let origin = model.appOrigin {
                 StimmaWebView(model: model, origin: origin, connectionScreen: model.selected == nil)
                     .id(model.revision)
                     .ignoresSafeArea(.container)
@@ -483,6 +520,20 @@ struct ShellView: View {
             }
         }
         .background(Color(red: 11/255, green: 14/255, blue: 20/255).ignoresSafeArea())
+        .overlay(alignment: .topTrailing) {
+            #if DEBUG
+            if model.devServerURL != nil {
+                Menu("Dev") {
+                    Button("Reload interface") { model.revision = UUID() }
+                    Button("Change dev server") { model.showConnections = true }
+                    Button("Disconnect") { model.disconnect() }
+                }
+                .padding(12)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.trailing, 12)
+            }
+            #endif
+        }
         .sheet(isPresented: $model.showConnections) {
             if let origin = model.origin {
                 StimmaWebView(model: model, origin: origin, connectionScreen: true)

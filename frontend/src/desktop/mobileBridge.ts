@@ -45,7 +45,7 @@ export const mobileBridge: DesktopBridge = {
   ...browserBridge,
   get kind() { return mobilePlatform() ?? 'ios' },
   async getBackendPort() {
-    const port = Number(window.location.port)
+    const port = Number(window.location.port || (window.location.protocol === 'https:' ? 443 : 80))
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       throw new Error('The mobile connection is unavailable')
     }

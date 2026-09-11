@@ -149,9 +149,12 @@ export async function initApiConfig() {
         }
       }
 
-      backendOrigin = `http://127.0.0.1:${port}`
+      // Phone shells serve API/media beside the document. In dev mode that
+      // document is on the computer's Vite origin, not the phone's loopback.
+      const mobile = desktop.kind === 'ios' || desktop.kind === 'android'
+      backendOrigin = mobile ? window.location.origin : `http://127.0.0.1:${port}`
       apiBaseUrl = `${backendOrigin}/api`
-      wsBaseUrl = `ws://127.0.0.1:${port}/ws`
+      wsBaseUrl = `${backendOrigin.replace(/^http/, 'ws')}/ws`
       axios.defaults.baseURL = backendOrigin
 
       // Step 2: Wait for backend to be ready (health check). Once the native

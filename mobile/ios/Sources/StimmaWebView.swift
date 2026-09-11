@@ -36,6 +36,12 @@ struct StimmaWebView: UIViewRepresentable {
             }
             return webView
         }
+        #if DEBUG
+        if !connectionScreen, model.devServerURL == origin {
+            webView.load(URLRequest(url: origin, cachePolicy: .reloadIgnoringLocalCacheData))
+            return webView
+        }
+        #endif
         if let transport = model.transport,
            let cookie = HTTPCookie(properties: [
             .domain: "127.0.0.1", .path: "/", .name: transport.cookieName,
@@ -127,10 +133,10 @@ struct StimmaWebView: UIViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage,
                                    replyHandler: @escaping (Any?, String?) -> Void) {
-            guard model.origin == origin, message.frameInfo.isMainFrame,
-                  message.frameInfo.securityOrigin.protocol == "http",
-                  message.frameInfo.securityOrigin.host == "127.0.0.1",
-                  message.frameInfo.securityOrigin.port == origin.port,
+            guard isCurrentOrigin, message.frameInfo.isMainFrame,
+                  message.frameInfo.securityOrigin.protocol == origin.scheme,
+                  message.frameInfo.securityOrigin.host == origin.host,
+                  message.frameInfo.securityOrigin.port == (origin.port ?? (origin.scheme == "https" ? 443 : 80)),
                   let documentURL = message.frameInfo.request.url, isAppDocument(documentURL),
                   let body = message.body as? [String: Any],
                   let method = body["method"] as? String else {
@@ -191,6 +197,14 @@ struct StimmaWebView: UIViewRepresentable {
                     case "refreshDevices":
                         await model.refresh()
                         result = try object(model.devices)
+                    #if DEBUG
+                    case "connectDevServer":
+                        guard connectionScreen, let address = args["address"] as? String else {
+                            throw ShellError.message("Open the connection screen to choose a dev server.")
+                        }
+                        try await model.connectDevServer(address)
+                        result = NSNull()
+                    #endif
                     case "selectServer":
                         guard let id = args["deviceId"] as? String,
                               let device = model.devices.first(where: { $0.deviceId == id }) else {
@@ -269,12 +283,24 @@ struct StimmaWebView: UIViewRepresentable {
                 "restoring": model.restoring,
                 "message": model.message ?? "",
             ]
+            #if DEBUG
+            info["devServerAvailable"] = true
+            info["devServerAddress"] = UserDefaults.standard.string(forKey: "mobile.devServerAddress") ?? ""
+            #endif
             if let user = model.auth.user { info["user"] = try object(user) }
             return info
         }
 
+        private var isCurrentOrigin: Bool {
+            connectionScreen ? model.origin == origin : model.appOrigin == origin
+        }
+
+        private func sameOrigin(_ url: URL) -> Bool {
+            url.scheme == origin.scheme && url.host == origin.host && url.port == origin.port
+        }
+
         private func isAppDocument(_ url: URL) -> Bool {
-            guard url.scheme == "http", url.host == "127.0.0.1", url.port == origin.port else { return false }
+            guard sameOrigin(url) else { return false }
             let path = url.path.removingPercentEncoding ?? url.path
             return !["/api", "/ws", "/assets"].contains(where: { path == $0 || path.hasPrefix($0 + "/") })
                 && !path.contains("\\") && !path.components(separatedBy: "/").contains("..")
@@ -283,7 +309,7 @@ struct StimmaWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
-            if url.scheme == "http" && url.host == "127.0.0.1" && url.port == origin.port {
+            if sameOrigin(url) {
                 decisionHandler(action.targetFrame?.isMainFrame == true && !isAppDocument(url) ? .cancel : .allow)
             } else if action.targetFrame?.isMainFrame == true || action.targetFrame == nil {
                 decisionHandler(.cancel)
@@ -295,14 +321,14 @@ struct StimmaWebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            if !connectionScreen, model.origin == origin { model.setSlideshowActive(false) }
+            if !connectionScreen, isCurrentOrigin { model.setSlideshowActive(false) }
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            if !connectionScreen, model.origin == origin { model.setSlideshowActive(false) }
+            if !connectionScreen, isCurrentOrigin { model.setSlideshowActive(false) }
             webView.reload()
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            guard (error as NSError).code != NSURLErrorCancelled, model.origin == origin else { return }
+            guard (error as NSError).code != NSURLErrorCancelled, isCurrentOrigin else { return }
             model.message = "Connection interrupted. \(error.localizedDescription)"
             if model.selected != nil { model.showConnections = true }
         }

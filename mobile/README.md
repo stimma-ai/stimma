@@ -199,6 +199,33 @@ and installed Apple development certificate automatically:
 tools/stimma dev ios
 ```
 
+### Live frontend on an iPhone
+
+Debug iOS builds include **Dev server** at the bottom of the connection screen,
+available without signing in. Enter the computer's IP and Vite frontend port
+(for example `192.168.1.20:9407`), then tap **Connect to dev server**. IPv6 uses
+brackets, such as `[fd00::20]:9407`. The last address is remembered for the next
+manual connection; the app never automatically reconnects to a dev address.
+
+Run the backend and frontend for the same sandbox. The CLI makes Vite reachable from
+the phone over the network:
+
+```sh
+tools/stimma --sandbox NAME dev frontend
+```
+
+Use the frontend port printed by the CLI, not the backend port. Vite proxies
+API and app WebSocket requests to that sandbox's backend, and its own HMR
+WebSocket updates the phone as source files change. The phone needs a route
+over Wi-Fi or Tailscale; the USB cable installs the app but does not forward
+the computer's localhost. Only expose a dev server on a trusted network.
+
+The native **Dev** menu remains available even if the page fails to load. It
+offers reload, change server, and disconnect. The live page retains the mobile
+bridge, safe areas, sharing, and slideshow controls. Account credentials and
+remote-session headers are not injected into this direct connection. Release
+builds do not expose or accept the dev-server command.
+
 ## Isolated simulator validation
 
 A Debug simulator build can use an isolated loopback backend:
