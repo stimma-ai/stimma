@@ -308,7 +308,7 @@
                         </template>
                       </summary>
                       <div class="activity-step-content">
-                        <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(actItem))"></div>
+                        <ChatMarkdown class="prose prose-sm max-w-none text-content-secondary select-text" :html="renderMarkdown(getThinkingContent(actItem))" />
                       </div>
                     </details>
                     <div v-else-if="isThinkingInProgress(actItem)" class="activity-step-summary" style="cursor: default;">
@@ -380,7 +380,7 @@
                                 </template>
                               </summary>
                               <div class="activity-step-content">
-                                <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(childItem))"></div>
+                                <ChatMarkdown class="prose prose-sm max-w-none text-content-secondary select-text" :html="renderMarkdown(getThinkingContent(childItem))" />
                               </div>
                             </details>
                             <div v-else-if="isThinkingInProgress(childItem)" class="activity-step-summary" style="cursor: default;">
@@ -590,7 +590,7 @@
                       </template>
                     </summary>
                     <div class="activity-step-content mt-1.5">
-                      <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(item))"></div>
+                      <ChatMarkdown class="prose prose-sm max-w-none text-content-secondary select-text" :html="renderMarkdown(getThinkingContent(item))" />
                     </div>
                   </details>
                   <div v-else-if="isThinkingInProgress(item)" class="activity-summary select-none" style="display: inline-flex; cursor: default;">
@@ -603,7 +603,7 @@
                   class="bg-surface border border-edge-subtle text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
-                    <span v-if="seg.type === 'html'" v-html="seg.content"></span>
+                    <ChatMarkdown v-if="seg.type === 'html'" :html="seg.content" />
                     <MediaImage
                       v-else-if="seg.type === 'media'"
                       :media-id="seg.mediaId"
@@ -1400,6 +1400,7 @@ import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useRoute, useRouter } from 'vue-router'
+import ChatMarkdown from '../components/chat/ChatMarkdown.vue'
 import ChatControlStrip from '../components/chat/ChatControlStrip.vue'
 import ChatSettingsPanel from '../components/chat/ChatSettingsPanel.vue'
 import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
@@ -3859,7 +3860,7 @@ function renderMarkdown(text) {
     const language = (lang || '').toLowerCase()
     const normalized = language === 'py' ? 'python' : language === 'sh' ? 'bash' : language
     const highlighted = renderHighlightedCode(code, normalized)
-    return `<div class="rounded-lg border border-edge-subtle bg-black/20 p-3 overflow-x-auto my-3"><pre class="text-sm leading-6 select-text"><code>${highlighted}</code></pre></div>`
+    return `<div class="rounded-lg border border-edge-subtle bg-black/20 p-3 my-3"><pre class="text-sm leading-6 select-text overflow-x-auto"><code>${highlighted}</code></pre></div>`
   }
   renderer.image = (token) => {
     const href = typeof token === 'string' ? token : (token?.href || '')
