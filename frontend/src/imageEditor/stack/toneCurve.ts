@@ -18,6 +18,13 @@ export interface ToneCurveHistogram {
 export const TONE_CURVE_CHANNELS: ToneCurveChannel[] = ['rgb', 'red', 'green', 'blue']
 export const TONE_CURVE_LUT_SIZE = 17
 
+/** The starting shapes a curve control offers, per channel. */
+export const TONE_CURVE_PRESETS: Record<'linear' | 'medium' | 'strong', ToneCurvePoint[]> = {
+  linear: [[0, 0], [1, 1]],
+  medium: [[0, 0], [0.25, 0.20], [0.5, 0.5], [0.75, 0.80], [1, 1]],
+  strong: [[0, 0], [0.25, 0.14], [0.5, 0.5], [0.75, 0.86], [1, 1]],
+}
+
 const IDENTITY_POINTS: ToneCurvePoint[] = [[0, 0], [1, 1]]
 
 export function defaultToneCurve(): ToneCurve {

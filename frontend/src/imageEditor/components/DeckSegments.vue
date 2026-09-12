@@ -10,7 +10,7 @@ import type { IconName } from '../ported/icons'
 import ToolIcon from './ToolIcon.vue'
 
 withDefaults(defineProps<{
-  options: ReadonlyArray<{ id: T; label: string; icon?: IconName; modified?: boolean }>
+  options: ReadonlyArray<{ id: T; label: string; icon?: IconName; modified?: boolean; swatch?: string | null }>
   modelValue: T
   ariaLabel: string
   /** Selection contexts underline in the selection color, not the accent. */
@@ -37,6 +37,7 @@ const emit = defineEmits<{ 'update:modelValue': [T] }>()
       @click="emit('update:modelValue', option.id)"
     >
       <ToolIcon v-if="option.icon" :name="option.icon" :size="15" />
+      <span v-if="option.swatch" class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: option.swatch }" aria-hidden="true" />
       <span class="truncate">{{ option.label }}</span>
       <span
         v-if="option.modified && modelValue !== option.id"

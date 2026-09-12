@@ -710,15 +710,16 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
   parameter on it, a one-finger drag across the picture moves it too, with
   a readout under the finger. Reset is a long press on a cell or the dial
   (or a double tap on the dial): nothing on screen for it.
-- Small canvas-like controls (the tone curve) are one more cell and swap
-  in for the dial, with 44px hit areas around their handles.
-- **The panel stands still.** Within a family the panel is one height
-  whatever the row or a segment picks: the grid is a fixed number of rows
-  (three for Adjust, two for the brushes and selection tools, one for
-  Paint and Annotate), the segment slot and the dial slot stand even when
-  empty, and a tool with no numbers keeps the space. A tab bar that moves
-  out from under the finger is worse than a blank row. The large
-  exceptions (the tone curve, the Looks strip) may grow.
+- **Segments stand still.** A segment row never moves when one of its
+  segments is tapped: the grid beneath holds the height of the largest set
+  (Detail's four). Different groups and tools may differ in height; only
+  the sets a segment row switches between must not.
+- **Large controls take a level.** The tone curve and the color pickers
+  are too tall to share the panel with a grid. Choosing one drills the row
+  one level further: the panel is that control alone at the panel's width
+  with the picture above it, and the row is ‹ plus the control's own cells
+  (the curve's channels, presets and reset; the tool's color wells, so
+  Stroke and Fill swap without leaving). ‹ returns to the grid.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 

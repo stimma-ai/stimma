@@ -172,7 +172,16 @@ import { FragileEntryTracker } from '../imageEditor/stack/fragileEntries'
 import {
   CROP_ASPECTS, cropRectForAspect, adjustLabel,
 } from '../imageEditor/stack/adjustSections'
-import { toneCurveHistogramFromCanvas } from '../imageEditor/stack/toneCurve'
+import {
+  TONE_CURVE_CHANNELS, TONE_CURVE_PRESETS, defaultToneCurve, toneCurveHistogramFromCanvas, toneCurveValueOf,
+} from '../imageEditor/stack/toneCurve'
+import type { ToneCurveChannel } from '../imageEditor/stack/toneCurve'
+import ColorPicker from '../imageEditor/ported/ColorPicker.vue'
+import PaintPicker from '../imageEditor/components/PaintPicker.vue'
+import ToneCurveControl from '../imageEditor/components/ToneCurveControl.vue'
+import type { OverlayCell } from '../imageEditor/components/EditorToolStrip.vue'
+import type { PickerRequest } from '../imageEditor/components/EditorSubbar.vue'
+import { paintCss, paintSolid } from '../imageEditor/stack/paints'
 import {
   familyById, TOOL_FAMILIES, SELECT_TOOLS, PAINT_ENGINES,
 } from '../imageEditor/stack/toolFamilies'
@@ -282,8 +291,71 @@ function closeStack() {
   stackHosted.value = false
   nextTick(() => { stackOpen.value = false })
 }
-/** Adjust's row can show the Autos or the Looks instead of a step's controls. */
-const compactLevelsMode = ref<'auto' | 'looks' | null>(null)
+/**
+ * Adjust's panel can show the Autos or the Looks instead of a step's
+ * controls; `curve` is a level of its own (the plot needs the whole panel),
+ * with the row carrying its channels, presets and reset.
+ */
+const compactLevelsMode = ref<'auto' | 'looks' | 'curve' | null>(null)
+const compactCurveChannel = ref<ToneCurveChannel>('rgb')
+/** A color well opened on its own level: which target, and the wells it can switch to. */
+const compactPicker = ref<PickerRequest | null>(null)
+const CURVE_CHANNEL_CELLS: Array<{ id: ToneCurveChannel; label: string; swatch: string }> = [
+  { id: 'rgb', label: 'RGB', swatch: '#e4e4e7' },
+  { id: 'red', label: 'Red', swatch: '#f87171' },
+  { id: 'green', label: 'Green', swatch: '#4ade80' },
+  { id: 'blue', label: 'Blue', swatch: '#60a5fa' },
+]
+function pickerSwatch(id: PickerRequest['active']) {
+  const state = subbarState.value as any
+  if (id === 'paintColor') return paintCss(state.paintColor)
+  if (id === 'paintGradient') return paintCss(state.paintGradient)
+  if (id === 'annotateFillColor') return state.annotateFillColor ? paintCss(state.annotateFillColor) : 'repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.25) 3px 5px)'
+  return paintCss(compactPicker.value?.allowGradient ? state.annotatePaint : paintSolid(state.annotatePaint))
+}
+/** The row while a large control has the panel: ‹ and that control's own cells. */
+const compactOverlay = computed<{ label: string; cells: OverlayCell[] } | null>(() => {
+  if (!isCompact.value) return null
+  if (compactPicker.value) {
+    return {
+      label: 'Color',
+      cells: compactPicker.value.targets.map(t => ({ id: t.id, label: t.label, swatch: pickerSwatch(t.id), active: t.id === compactPicker.value!.active })),
+    }
+  }
+  if (family.value === 'levels' && compactLevelsMode.value === 'curve') {
+    return {
+      label: 'Curve',
+      cells: [
+        ...CURVE_CHANNEL_CELLS.map(c => ({ id: `channel:${c.id}`, label: c.label, swatch: c.swatch, active: compactCurveChannel.value === c.id })),
+        { id: 'sep-1', label: '' },
+        { id: 'preset:linear', label: 'Linear', icon: 'histogram' as const },
+        { id: 'preset:medium', label: 'Medium', icon: 'histogram' as const },
+        { id: 'preset:strong', label: 'Strong', icon: 'histogram' as const },
+        { id: 'sep-2', label: '' },
+        { id: 'reset', label: 'Reset', icon: 'rotateCcw' as const },
+      ],
+    }
+  }
+  return null
+})
+function onCompactOverlay(id: string) {
+  if (compactPicker.value) {
+    compactPicker.value = { ...compactPicker.value, active: id as PickerRequest['active'] }
+    return
+  }
+  if (id.startsWith('channel:')) { compactCurveChannel.value = id.slice('channel:'.length) as ToneCurveChannel; return }
+  const current = toneCurveValueOf(adjustInspectorParams.value?.curve)
+  if (id.startsWith('preset:')) {
+    const preset = TONE_CURVE_PRESETS[id.slice('preset:'.length) as keyof typeof TONE_CURVE_PRESETS]
+    if (!preset) return
+    onAdjustInspectorChange({ curve: { ...current, [compactCurveChannel.value]: preset.map(pt => [...pt]) } }, 'adjust:curve')
+  } else if (id === 'reset') {
+    onAdjustInspectorChange({ curve: defaultToneCurve() }, 'adjust:curve')
+  }
+  void commitAdjustInspectorChange()
+}
+function onCompactPick(request: PickerRequest) { compactPicker.value = request }
+function onCompactCurve() { compactLevelsMode.value = 'curve'; looksOpen.value = false }
 /** Adjust: the parameter the picture drag drives (from the deck). */
 const deckParam = ref<ActiveParam | null>(null)
 /** The floating readout while the picture is being dragged: "value|label". */
@@ -292,6 +364,7 @@ const activeLevelSection = computed(() => (selectedAdjustOp.value as any)?.param
 /** Edits, from the row or the document menu: the stack as a sheet. */
 function onCompactEdits() {
   docSheetOpen.value = false
+  compactPicker.value = null
   disarmSelect()
   sidebarTab.value = 'edits'
   openStack()
@@ -302,6 +375,7 @@ function onCompactEdits() {
  */
 function onCompactFamily(id: FamilyId) {
   disarmSelect()
+  compactPicker.value = null
   compactLevelsMode.value = null
   looksOpen.value = false
   if (family.value !== id) selectFamily(id)
@@ -312,6 +386,8 @@ function onCompactFamily(id: FamilyId) {
  * sits under the root. Auto and Looks are panel states of Adjust, not levels.
  */
 function onCompactBack() {
+  if (compactPicker.value) { compactPicker.value = null; return }
+  if (compactLevelsMode.value === 'curve') { compactLevelsMode.value = null; return }
   if (armedSelectTool.value) { disarmSelect(); return }
   compactLevelsMode.value = null
   looksOpen.value = false
@@ -323,6 +399,7 @@ function onCompactBack() {
  * the panel shows.
  */
 function onCompactSub(id: string) {
+  compactPicker.value = null
   if (family.value !== 'levels') { selectSub(id); return }
   if (id === 'auto') { compactLevelsMode.value = 'auto'; looksOpen.value = false; return }
   if (id === 'looks') { compactLevelsMode.value = 'looks'; looksOpen.value = true; return }
@@ -353,7 +430,7 @@ function onCompactRowOpen(op: any) {
 let scrub: { id: number; x: number; start: number } | null = null
 function scrubEligible(event: PointerEvent) {
   return isCompact.value && event.isPrimary && family.value === 'levels' && !armedSelectTool.value
-    && !!deckParam.value && !!selectedAdjustOp.value && !pointPicking.value
+    && compactLevelsMode.value === null && !!deckParam.value && !!selectedAdjustOp.value && !pointPicking.value
 }
 function scrubValueText(p: ActiveParam, v: number) {
   const text = p.step < 1 ? v.toFixed(p.step < 0.1 ? 2 : 1) : String(Math.round(v))
@@ -8961,7 +9038,9 @@ function onPointColorPick(event: PointerEvent) {
   }
   // The dropper STAYS armed: sampling is a hunt, and the second click is
   // usually a correction of the first. Esc, the chip, or leaving the step
-  // puts it away.
+  // puts it away. A phone has no Esc and the chip is the only sign, so there
+  // one tap is one pick; the chip re-arms it.
+  if (isCompact.value) pointPickTarget.value = null
 }
 
 function pointPickKeydown(event: KeyboardEvent) {
@@ -9810,10 +9889,54 @@ watch(
             class="editor-drawer-body flex-none max-h-[46vh] overflow-y-auto px-3 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden empty:hidden"
           >
             <template v-if="!armedSelectTool && family">
-              <!-- Adjust's panel is one height whatever it shows — a step's
-                   grid and dial, the Autos, the Looks, or nothing yet — so the
-                   row beneath never moves while the group changes. -->
-              <div class="flex flex-col" :class="family === 'levels' && 'min-h-[228px]'">
+              <!-- A color well on its own level: the picker at the panel's full
+                   width, the picture above it, the row naming the wells. -->
+              <template v-if="compactPicker">
+                <PaintPicker
+                  v-if="compactPicker.active === 'paintGradient'"
+                  :model-value="subbarState.paintGradient"
+                  :image-palette="imagePalette"
+                  gradient-only
+                  @update:model-value="onSubbarSet({ paintGradient: $event })"
+                />
+                <ColorPicker
+                  v-else-if="compactPicker.active === 'paintColor'"
+                  :model-value="subbarState.paintColor"
+                  :image-palette="imagePalette"
+                  embedded
+                  @update:model-value="onSubbarSet({ paintColor: $event })"
+                />
+                <PaintPicker
+                  v-else-if="compactPicker.active === 'annotateFillColor'"
+                  :model-value="subbarState.annotateFillColor ?? null"
+                  :image-palette="imagePalette"
+                  :allow-gradient="compactPicker.allowGradient"
+                  allow-null
+                  @update:model-value="onSubbarSet({ annotateFillColor: $event })"
+                />
+                <PaintPicker
+                  v-else
+                  :model-value="compactPicker.allowGradient ? subbarState.annotatePaint : paintSolid(subbarState.annotatePaint)"
+                  :image-palette="imagePalette"
+                  :allow-gradient="compactPicker.allowGradient"
+                  @update:model-value="onSubbarSet({ annotatePaint: $event })"
+                />
+              </template>
+              <!-- The curve on its own level: the plot, and nothing under it. -->
+              <div v-else-if="family === 'levels' && compactLevelsMode === 'curve'" class="py-1">
+                <ToneCurveControl
+                  plot-only
+                  :channel="compactCurveChannel"
+                  :value="toneCurveValueOf(adjustInspectorParams?.curve)"
+                  :histogram="toneCurveHistogram"
+                  :clip-shadows="clipShadows"
+                  :clip-highlights="clipHighlights"
+                  @input="onAdjustInspectorChange({ curve: $event }, 'adjust:curve')"
+                  @commit="commitAdjustInspectorChange"
+                  @clip="setClipIndicators"
+                />
+              </div>
+              <template v-else>
               <AdjustDeck
                 v-if="family === 'levels' && compactLevelsMode === null && selectedAdjustOp"
                 :section="activeLevelSection ?? 'tone'"
@@ -9827,6 +9950,7 @@ watch(
                 @pick="armPointColorPick"
                 @clip="setClipIndicators"
                 @active="deckParam = $event"
+                @curve="onCompactCurve"
               />
               <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
                 <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
@@ -9858,10 +9982,11 @@ watch(
                 @commit="onSubbarCommit"
                 @run="run"
                 @open-tool-picker="onOpenToolPicker"
+                @pick="onCompactPick"
                 @refresh-loras="refreshEditorLoras"
                 @upload-loras="uploadEditorLoras"
               />
-              </div>
+              </template>
               <!-- The selected step's properties, where the desktop keeps them in
                    the sidebar: the phone shows them under the tool's controls. -->
               <AnnotationInspector
@@ -9901,6 +10026,8 @@ watch(
             :active-level="activeLevelSection"
             :looks="family === 'levels' && compactLevelsMode === 'looks'"
             :auto="family === 'levels' && compactLevelsMode === 'auto'"
+            :overlay="compactOverlay"
+            @overlay="onCompactOverlay"
             @family="onCompactFamily"
             @edits="onCompactEdits"
             @back="onCompactBack"

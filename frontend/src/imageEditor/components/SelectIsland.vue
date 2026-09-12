@@ -436,10 +436,8 @@ function buttonClass(active: boolean, enabled = true) {
          the canvas back and the family's controls return underneath. -->
     <Teleport v-if="armed && panelTarget" :to="panelTarget" defer>
       <div class="pb-1 flex flex-col" data-select-panel>
-        <!-- What can be done to the selection that exists. Bare verbs, no
-             fills; the row stands (dimmed) without a selection so the panel
-             is the same height whichever tool is armed. -->
-        <div class="flex items-center min-h-11 -mx-2 whitespace-nowrap overflow-hidden">
+        <!-- What can be done to the selection that exists. Bare verbs, no fills. -->
+        <div v-if="hasSelection || armed === 'wand'" class="flex items-center min-h-11 -mx-2 whitespace-nowrap overflow-hidden">
           <button type="button" class="min-h-11 px-2 text-[13px] font-medium rounded-md text-content-secondary disabled:opacity-40" :disabled="!hasSelection" @click="emit('invert')">Invert</button>
           <button type="button" class="min-h-11 px-2 text-[13px] font-medium rounded-md text-content-secondary disabled:opacity-40" :disabled="!hasSelection" @click="emit('clear')">Deselect</button>
           <span class="flex-1" />
@@ -466,7 +464,7 @@ function buttonClass(active: boolean, enabled = true) {
 
         <!-- Object's prompt and picks stand as tall as the grid and dial do
              for the other tools: the same panel height whichever tool is armed. -->
-        <div v-if="armed === 'object'" class="min-h-[140px] flex flex-col justify-start pt-1">
+        <div v-if="armed === 'object'" class="flex flex-col pt-1">
           <div class="relative transition-opacity" :class="aiProgressVisible ? 'opacity-60' : ''">
             <input
               ref="aiInput"
@@ -529,7 +527,6 @@ function buttonClass(active: boolean, enabled = true) {
           <ParamDeck
             :params="deckParams"
             :active="deckActive"
-            :rows="2"
             @update:active="deckActive = $event"
             @change="onDeckChange"
             @commit="onDeckCommit"

@@ -483,7 +483,7 @@ const TABS = [
     </div>
 
     <!-- Grid -->
-    <div v-if="activeTab === 'grid'" class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
+    <div v-if="activeTab === 'grid'" class="grid grid-cols-12 gap-0.5">
       <button
         v-for="(color, i) in gridColors"
         :key="i"
@@ -581,7 +581,7 @@ const TABS = [
     <!-- Swatches: the image's own colors, then what was actually used. -->
     <template v-if="imageChips.length">
       <div class="mt-3 mb-1.5 text-[11px] text-content-tertiary">From this image</div>
-      <div class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
+      <div class="grid grid-cols-12 gap-0.5">
         <button
           v-for="(color, i) in imageChips"
           :key="'image-' + i"
@@ -596,7 +596,7 @@ const TABS = [
 
     <template v-if="recents.length">
       <div class="mt-3 mb-1.5 text-[11px] text-content-tertiary">Recent</div>
-      <div class="grid grid-cols-12 compact:grid-cols-6 gap-0.5">
+      <div class="grid grid-cols-12 gap-0.5">
         <button
           v-for="hex in recents"
           :key="'recent-' + hex"

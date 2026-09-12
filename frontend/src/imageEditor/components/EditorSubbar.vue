@@ -83,6 +83,8 @@ const emit = defineEmits<{
   commit: ['crop' | 'annotation']
   run: []
   openToolPicker: [MouseEvent]
+  /** Phone: a color well opens the picker on a level of its own (DESIGN.md §3.6a). */
+  pick: [PickerRequest]
   refreshLoras: [string]
   uploadLoras: [string, string, File[]]
 }>()
@@ -124,6 +126,29 @@ const strengthSubs = ['sponge', 'blur', 'sharpen']
  * resting settings so a long-press reset lands where a fresh install would.
  */
 const compactActive = ref<string | null>(null)
+export interface PickerTarget { id: 'paintColor' | 'paintGradient' | 'annotatePaint' | 'annotateFillColor'; label: string }
+export interface PickerRequest { active: PickerTarget['id']; targets: PickerTarget[]; allowGradient: boolean }
+/** The wells the current tool has, so the picker's level can switch between them. */
+const pickerTargets = computed<PickerTarget[]>(() => {
+  if (props.family === 'paint') {
+    const engine = props.state.engineId
+    if (engine === 'gradient') return [{ id: 'paintGradient', label: 'Gradient' }]
+    if (engine === 'paint' || engine === 'fill') return [{ id: 'paintColor', label: 'Color' }]
+    return []
+  }
+  if (props.family === 'annotate') {
+    const list: PickerTarget[] = []
+    if (showText.value) list.push({ id: 'annotatePaint', label: 'Text color' })
+    else if (showStroke.value) list.push({ id: 'annotatePaint', label: 'Stroke' })
+    if (showFill.value) list.push({ id: 'annotateFillColor', label: 'Fill' })
+    return list
+  }
+  return []
+})
+function openPicker(id: PickerTarget['id']) {
+  emit('pick', { active: id, targets: pickerTargets.value, allowGradient: allowGradient.value })
+}
+const WELL_CHIP = 'min-h-11 px-3 rounded-md text-[13px] font-medium text-content-secondary flex items-center gap-2 whitespace-nowrap'
 const RETOUCH_RANGES = [
   { id: 'shadows', label: 'Shadows' },
   { id: 'midtones', label: 'Midtones' },
@@ -320,9 +345,6 @@ function chipClass(active: boolean, pending = false) {
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
     <template v-if="family.id === 'retouch' && compact">
-      <!-- The segment slot and two grid rows stand for every brush, so
-           switching brushes never moves the row. -->
-      <div class="min-h-11 flex flex-col justify-end">
       <DeckSegments
         v-if="dodgeBurnSubs.includes(sub ?? '')"
         :model-value="state.retouchRange"
@@ -337,11 +359,10 @@ function chipClass(active: boolean, pending = false) {
         aria-label="Sponge"
         @update:model-value="emit('set', { retouchSaturate: $event === 'saturate' })"
       />
-      </div>
       <ParamDeck
+        v-if="compactParams.length"
         :params="compactParams"
         :active="compactActive"
-        :rows="2"
         @update:active="compactActive = $event"
         @change="onCompactChange"
         @commit="onCompactCommit"
@@ -727,6 +748,16 @@ function chipClass(active: boolean, pending = false) {
       <!-- A brush is not a property of the layer it painted, so it hangs off
            the toolbar rather than appearing in the Edits inspector. -->
       <div :class="ROW">
+      <template v-if="compact">
+        <button v-if="state.engineId !== 'erase' && state.engineId !== 'gradient'" type="button" :class="WELL_CHIP" @click="openPicker('paintColor')">
+          <span class="w-5 h-5 rounded-full border border-edge-subtle" :style="{ background: wellCss(state.paintColor) }" />
+          Color
+        </button>
+        <button v-if="state.engineId === 'gradient'" type="button" :class="WELL_CHIP" @click="openPicker('paintGradient')">
+          <span class="w-9 h-5 rounded-md border border-edge-subtle" :style="{ background: wellCss(state.paintGradient) }" />
+          Gradient
+        </button>
+      </template>
       <ToolbarPopover
         v-if="!compact && (state.engineId === 'paint' || state.engineId === 'erase')"
         :label="`${Math.round(state.paintBrush.size)}px`"
@@ -750,7 +781,7 @@ function chipClass(active: boolean, pending = false) {
       </ToolbarPopover>
       <!-- Erase has no color: its stroke is an alpha mask. -->
       <ToolbarPopover
-        v-if="state.engineId !== 'erase' && state.engineId !== 'gradient'"
+        v-if="!compact && state.engineId !== 'erase' && state.engineId !== 'gradient'"
         label="Color"
         :width="292"
       >
@@ -768,7 +799,7 @@ function chipClass(active: boolean, pending = false) {
         />
       </ToolbarPopover>
       <template v-if="state.engineId === 'gradient'">
-        <ToolbarPopover label="Gradient" :width="292">
+        <ToolbarPopover v-if="!compact" label="Gradient" :width="292">
           <template #trigger>
             <span
               class="w-16 h-4 rounded-md border border-edge-subtle"
@@ -815,10 +846,9 @@ function chipClass(active: boolean, pending = false) {
       </template>
       </div>
       <ParamDeck
-        v-if="compact"
+        v-if="compact && compactParams.length"
         :params="compactParams"
         :active="compactActive"
-        :rows="1"
         @update:active="compactActive = $event"
         @change="onCompactChange"
         @commit="onCompactCommit"
@@ -1004,7 +1034,18 @@ function chipClass(active: boolean, pending = false) {
         </ToolbarPopover>
 
         <!-- Stroke color: a ring, because the stroke is an outline. -->
-        <ToolbarPopover :label="compact ? 'Stroke' : ''" aria-label="Stroke color" :width="292">
+        <button v-if="compact" type="button" :class="WELL_CHIP" aria-label="Stroke color" @click="openPicker('annotatePaint')">
+          <span
+            class="w-5 h-5 rounded-full"
+            :style="{
+              background: wellCss(allowGradient ? state.annotatePaint : paintSolid(state.annotatePaint)),
+              mask: 'radial-gradient(circle, transparent 0 34%, #000 34%)',
+              WebkitMask: 'radial-gradient(circle, transparent 0 34%, #000 34%)',
+            }"
+          />
+          Stroke
+        </button>
+        <ToolbarPopover v-else label="" aria-label="Stroke color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-full ring-inset"
@@ -1025,7 +1066,16 @@ function chipClass(active: boolean, pending = false) {
         </ToolbarPopover>
 
         <!-- Fill: a solid square, because the fill is the inside. -->
-        <ToolbarPopover v-if="showFill" :label="compact ? 'Fill' : ''" aria-label="Fill color" :width="292">
+        <button v-if="compact && showFill" type="button" :class="WELL_CHIP" aria-label="Fill color" @click="openPicker('annotateFillColor')">
+          <span
+            class="w-5 h-5 rounded-[5px] border border-edge-subtle"
+            :style="state.annotateFillColor
+              ? { background: wellCss(state.annotateFillColor) }
+              : { background: 'repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.25) 3px 5px)' }"
+          />
+          Fill
+        </button>
+        <ToolbarPopover v-else-if="showFill" label="" aria-label="Fill color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-[4px] border border-edge-subtle"
@@ -1083,7 +1133,18 @@ function chipClass(active: boolean, pending = false) {
 
       <template v-if="showText">
         <!-- Text color shares the stroke well; the presets carry the rest. -->
-        <ToolbarPopover :label="compact ? 'Text color' : ''" aria-label="Text color" :width="292">
+        <button v-if="compact" type="button" :class="WELL_CHIP" aria-label="Text color" @click="openPicker('annotatePaint')">
+          <span
+            class="w-5 h-5 rounded-full"
+            :style="{
+              background: wellCss(state.annotatePaint),
+              mask: 'radial-gradient(circle, transparent 0 34%, #000 34%)',
+              WebkitMask: 'radial-gradient(circle, transparent 0 34%, #000 34%)',
+            }"
+          />
+          Color
+        </button>
+        <ToolbarPopover v-else label="" aria-label="Text color" :width="292">
           <template #trigger>
             <span
               class="w-4 h-4 rounded-full"
@@ -1149,9 +1210,9 @@ function chipClass(active: boolean, pending = false) {
       </div>
       <template v-if="compact">
         <ParamDeck
+          v-if="compactParams.length"
           :params="compactParams"
           :active="compactActive"
-          :rows="1"
           @update:active="compactActive = $event"
           @change="onCompactChange"
           @commit="onCompactCommit"

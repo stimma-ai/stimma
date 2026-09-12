@@ -33,7 +33,20 @@ const props = defineProps<{
   looks?: boolean
   /** Adjust: the Autos are what the panel shows. */
   auto?: boolean
+  /**
+   * A level of the host's own, over everything else: a large control (the
+   * curve, a color picker) that took the panel, with its own cells here.
+   */
+  overlay?: { label: string; cells: OverlayCell[] } | null
 }>()
+export interface OverlayCell {
+  id: string
+  label: string
+  icon?: IconName
+  /** A color dot instead of an icon. */
+  swatch?: string
+  active?: boolean
+}
 const emit = defineEmits<{
   family: [FamilyId]
   edits: []
@@ -41,6 +54,7 @@ const emit = defineEmits<{
   sub: [string]
   set: [Record<string, any>]
   arm: [SelectToolId]
+  overlay: [string]
 }>()
 
 interface Cell {
@@ -48,6 +62,7 @@ interface Cell {
   label: string
   icon?: IconName
   svg?: string
+  swatch?: string
   aspect?: number | null
   active: boolean
   /** Selection cells light up in the selection color, not the accent. */
@@ -70,9 +85,16 @@ const familySvg = Object.fromEntries(TOOL_FAMILIES.map(f => [f.id, sanitizeSvg(
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>`
 )]))
 
-const level = computed<'root' | 'family' | 'selection'>(() => props.armed ? 'selection' : props.family ? 'family' : 'root')
+const level = computed<'root' | 'family' | 'selection' | 'overlay'>(() =>
+  props.overlay ? 'overlay' : props.armed ? 'selection' : props.family ? 'family' : 'root')
 
 const items = computed<Item[]>(() => {
+  if (props.overlay) {
+    return props.overlay.cells.map<Item>(cell => cell.id.startsWith('sep') ? 'sep' : ({
+      id: cell.id, label: cell.label, icon: cell.icon, swatch: cell.swatch, active: !!cell.active,
+      pick: () => emit('overlay', cell.id),
+    }))
+  }
   if (props.armed) {
     const cells = SELECT_TOOLS.map<Cell>(tool => ({
       id: tool.id, label: tool.label.replace(' gradient', ''), icon: tool.icon,
@@ -162,7 +184,7 @@ watch([activeId, () => props.family, () => props.armed], () => {
     class="editor-tool-strip flex items-stretch gap-0.5 h-[60px] overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     :class="level === 'root' ? 'px-1 justify-between' : 'px-1.5'"
     role="toolbar"
-    :aria-label="level === 'root' ? 'Editor families' : level === 'selection' ? 'Selection tools' : 'Tools'"
+    :aria-label="level === 'root' ? 'Editor families' : level === 'selection' ? 'Selection tools' : level === 'overlay' ? overlay!.label : 'Tools'"
     :data-level="level"
   >
     <!-- The way up: always the same cell in the same place, one level at a
@@ -197,6 +219,7 @@ watch([activeId, () => props.family, () => props.armed], () => {
         @click="item.pick()"
       >
         <span v-if="item.svg" class="w-[22px] h-[22px] shrink-0" v-html="item.svg" />
+        <span v-else-if="item.swatch" class="w-[20px] h-[20px] my-px rounded-full border border-edge-subtle shrink-0" :style="{ background: item.swatch }" />
         <svg v-else-if="item.aspect !== undefined && aspectRect(item.aspect)" viewBox="0 0 24 24" class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect v-bind="aspectRect(item.aspect)!" rx="1.5" :stroke-dasharray="item.aspect === -1 ? '3 2' : undefined" />
         </svg>

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import {
   TONE_CURVE_CHANNELS,
+  TONE_CURVE_PRESETS,
   defaultToneCurve,
   toneCurvePointValue,
   toneCurveValueOf,
@@ -19,6 +20,13 @@ const props = defineProps<{
   /** Clipping overlays on the canvas — workspace state owned by the view. */
   clipShadows?: boolean
   clipHighlights?: boolean
+  /** The host owns the channel (the phone's row picks it). */
+  channel?: ToneCurveChannel
+  /**
+   * Just the plot, as wide as its host allows: the phone gives the curve a
+   * level of its own, with the channels, presets and reset in the row.
+   */
+  plotOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -35,7 +43,8 @@ function toggleClip(edge: 'shadows' | 'highlights') {
 }
 
 const plot = ref<HTMLDivElement | null>(null)
-const channel = ref<ToneCurveChannel>('rgb')
+const channelRef = ref<ToneCurveChannel>('rgb')
+const channel = computed(() => props.channel ?? channelRef.value)
 const selectedIndex = ref<number | null>(null)
 const dragging = ref<number | null>(null)
 
@@ -71,11 +80,7 @@ const CHANNEL_STROKE: Record<ToneCurveChannel, string> = {
   blue: 'text-blue-400',
 }
 
-const PRESETS: Record<string, ToneCurvePoint[]> = {
-  linear: [[0, 0], [1, 1]],
-  medium: [[0, 0], [0.25, 0.20], [0.5, 0.5], [0.75, 0.80], [1, 1]],
-  strong: [[0, 0], [0.25, 0.14], [0.5, 0.5], [0.75, 0.86], [1, 1]],
-}
+const PRESETS: Record<string, ToneCurvePoint[]> = TONE_CURVE_PRESETS
 
 function cloneCurve(): ToneCurve {
   const source = curve.value
@@ -277,7 +282,7 @@ function reset() {
 
 <template>
   <div class="space-y-2.5">
-    <div class="flex items-center justify-between gap-2">
+    <div v-if="!plotOnly" class="flex items-center justify-between gap-2">
       <span class="text-xs font-semibold text-content-secondary">
         {{ label ?? 'Tone curve' }}
       </span>
@@ -296,8 +301,8 @@ function reset() {
 
     <!-- The plot is capped, so the rows that belong to it are capped with it —
          a narrow graph between full-width rows reads as a mistake. -->
-    <div class="mx-auto w-full max-w-[264px] space-y-2.5">
-      <div class="grid grid-cols-[minmax(0,1fr)_32px] items-center gap-1.5">
+    <div class="mx-auto w-full space-y-2.5" :class="plotOnly ? 'max-w-[40vh]' : 'max-w-[264px]'">
+      <div v-if="!plotOnly" class="grid grid-cols-[minmax(0,1fr)_32px] items-center gap-1.5">
         <div
           class="grid min-w-0 grid-cols-4 items-center gap-1"
           role="radiogroup"
@@ -316,7 +321,7 @@ function reset() {
             ]"
             :aria-checked="channel === option"
             role="radio"
-            @click="channel = option"
+            @click="channelRef = option"
           >
             {{ CHANNEL_LABELS[option] }}
           </button>
