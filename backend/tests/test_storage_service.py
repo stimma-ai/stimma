@@ -393,7 +393,23 @@ async def test_legacy_duplicate_path_survives_single_media_deletion(
 
 
 @pytest.mark.asyncio
-async def test_concurrent_delete_workers_claim_each_media_once(db_session, tmp_path):
+@pytest.mark.parametrize("checkpoint_deferrals", [0, 12])
+async def test_concurrent_delete_workers_claim_each_media_once(
+    db_session, tmp_path, monkeypatch, checkpoint_deferrals
+):
+    import delete_operations
+
+    real_checkpoint = delete_operations._truncate_privacy_wal
+    attempts = 0
+
+    async def temporarily_busy_checkpoint(db):
+        nonlocal attempts
+        attempts += 1
+        if attempts <= checkpoint_deferrals:
+            return False
+        return await real_checkpoint(db)
+
+    monkeypatch.setattr(delete_operations, "_truncate_privacy_wal", temporarily_busy_checkpoint)
     source = tmp_path / "concurrent-delete.png"
     source.write_bytes(b"concurrent")
     async with db_session() as session:
@@ -412,21 +428,31 @@ async def test_concurrent_delete_workers_claim_each_media_once(db_session, tmp_p
         _process_profile("default"),
         _process_profile("default"),
     )
-    for _ in range(8):
+    # Checkpoint attempts are nonblocking and can legitimately return busy.
+    # Worker passes are not a completion clock; yield between attempts and
+    # bound the wait by elapsed time, while still running the real checkpoint.
+    deadline = asyncio.get_running_loop().time() + 5.0
+    while asyncio.get_running_loop().time() < deadline:
         await _process_profile("default")
         async with db_session() as session:
             operation = await session.get(DeleteOperation, operation_id)
-            if operation.status == "completed":
+            if operation.status in {"completed", "failed"}:
                 break
+        await asyncio.sleep(0.01)
 
     async with db_session() as session:
         operation = await session.get(DeleteOperation, operation_id)
-        assert operation.status == "completed"
+        assert operation.status == "completed", (
+            f"status={operation.status} phase={operation.current_phase} "
+            f"processed={operation.processed_items}/{operation.total_items} "
+            f"checkpoint_attempts={attempts} error={operation.last_error}"
+        )
         assert operation.total_items == 1
         assert operation.claimed_items == 1
         assert operation.processed_items == 1
         assert operation.deleted_items == 1
         assert operation.failed_items == 0
+    assert attempts > checkpoint_deferrals
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import pytest
-import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -325,7 +324,8 @@ def test_materialize_prunes_removed_tools(tmp_path: Path):
     assert (t2i / "flux_klein_9b.py").exists()
 
 
-def test_runtime_namespace_binds_to_sdk():
+@pytest.mark.asyncio
+async def test_runtime_namespace_binds_to_sdk():
     m = tool_fs.build_manifest(_registry())
 
     calls: list[tuple] = []
@@ -340,13 +340,13 @@ def test_runtime_namespace_binds_to_sdk():
     mod = extra["stimma.tools.text_to_image"]
     fn = getattr(mod, "flux_klein_9b")
 
-    asyncio.get_event_loop().run_until_complete(fn(prompt="a cat", width=512))
+    await fn(prompt="a cat", width=512)
     assert calls == [("comfyui:flux-klein-9b", "text-to-image", {"prompt": "a cat", "width": 512})]
 
     # The multi-task tool dispatches with the task_type of the namespace used.
     i2i = extra["stimma.tools.image_to_image"]
     calls.clear()
-    asyncio.get_event_loop().run_until_complete(getattr(i2i, "big_lora_model")(prompt="x"))
+    await getattr(i2i, "big_lora_model")(prompt="x")
     assert calls[0][1] == "image-to-image"
 
 

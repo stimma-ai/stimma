@@ -11,6 +11,7 @@ Provides:
 import asyncio
 import os
 import pytest
+import pytest_asyncio
 import tempfile
 import shutil
 from pathlib import Path
@@ -344,6 +345,21 @@ async def db_session(test_app):
     registry = get_database_registry()
     db = registry.get_database("default")
     return db.async_session_maker
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="function")
+async def delete_worker_test_lifetime():
+    """Close worker sessions on the test's loop, before that loop shuts down.
+
+    Databases are module-scoped, but async tests use function-scoped loops.
+    Waiting until test_app's module teardown is too late to await a worker
+    from a previous test; cancellation during loop shutdown can leave its
+    SQLite connections holding locks against the next test's checkpoint.
+    """
+    yield
+    from delete_operations import stop_delete_worker
+
+    await stop_delete_worker()
 
 
 @pytest.fixture(scope="module")
