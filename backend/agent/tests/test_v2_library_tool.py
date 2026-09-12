@@ -57,7 +57,7 @@ async def test_library_get_prioritizes_prompt_and_includes_history(session):
 
 
 @pytest.mark.asyncio
-async def test_library_lineage_returns_slideshow_history_without_media_lineage_rows(session):
+async def test_library_inspect_retains_history_without_inventing_lineage_edges(session):
     media = await create_media_item(
         session,
         generation_metadata=json.dumps({
@@ -87,11 +87,11 @@ async def test_library_lineage_returns_slideshow_history_without_media_lineage_r
     raw = await library(action="lineage", media_id=media.id, session=session)
     data = json.loads(raw)
 
-    assert data["media_id"] == media.id
-    assert data["history"][0]["prompt"] == "current prompt"
-    assert data["history"][1]["prompt"] == "source prompt"
-    assert data["sources"] == []
-    assert data["derivatives"] == []
+    assert data["roots"] == [media.id]
+    assert data["edges"] == []
+    inspected = json.loads(await library(action="inspect", media_id=media.id, session=session))["items"][0]
+    assert inspected["history"][0]["prompt"] == "current prompt"
+    assert inspected["history"][1]["prompt"] == "source prompt"
 
 
 @pytest.mark.asyncio

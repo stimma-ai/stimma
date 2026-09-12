@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, delete, func, Integer, literal, update
 
 from ..tools_registry import tool, ToolParameter
+from ..library_query import TEXT_FIELDS, METADATA_FACETS, normalize_match, field_match, metadata_values, text_match
 
 from board_service import serialize_board
 import app_dirs
@@ -33,6 +34,7 @@ STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "spr
 STATIC_RESOLUTIONS = ["small", "medium", "large", "huge"]
 STATIC_SORTS = ["created_desc", "created_asc", "indexed_desc", "indexed_asc", "random"]
 OPTION_FACETS = ["media_types", "resolutions", "generated", "folders", "keywords", "tags", "markers", "tools"]
+OPTION_FACETS += sorted(METADATA_FACETS)
 FACET_TO_FILTER_KEY = {
     "media_types": "media_types",
     "resolutions": "resolutions",
@@ -43,6 +45,7 @@ FACET_TO_FILTER_KEY = {
     "markers": "markers",
     "tools": "tools",
 }
+FACET_TO_FILTER_KEY.update({name: name for name in METADATA_FACETS})
 
 
 def _get_default_folder(workspace_dir: Optional[Path] = None) -> str:
@@ -55,6 +58,16 @@ def _get_default_folder(workspace_dir: Optional[Path] = None) -> str:
 
 def _media_summary(item: MediaItem, asset_id: int | None = None) -> Dict[str, Any]:
     """Compact summary of a media item for search/browse results."""
+    gen = _parse_generation_metadata(item) or {}
+    params = gen.get("parameters") if isinstance(gen.get("parameters"), dict) else {}
+    loras = []
+    for values in (params.get("loras"), gen.get("loras")):
+        if isinstance(values, list):
+            for value in values:
+                entries = [{"path": value, "weight": None}] if isinstance(value, str) else _normalize_loras_for_input([value])
+                for entry in entries:
+                    if entry not in loras:
+                        loras.append(entry)
     return {
         "asset_id": asset_id,
         "media_id": item.id,
@@ -63,8 +76,14 @@ def _media_summary(item: MediaItem, asset_id: int | None = None) -> Dict[str, An
         "caption": item.vlm_caption,
         "width": item.width,
         "height": item.height,
-        "tool_id": item.tool_id,
+        "tool_id": item.tool_id or gen.get("tool_id"),
         "created_at": item.created_date.isoformat() if item.created_date else None,
+        "file_format": item.file_format,
+        "model": gen.get("model") or params.get("model") or params.get("checkpoint") or params.get("ckpt_name"),
+        "loras": loras,
+        "task_type": gen.get("task_type"),
+        "metadata_status": item.metadata_status,
+        "file_unavailable": bool(item.file_unavailable),
     }
 
 
@@ -117,6 +136,21 @@ def _as_csv(values: List[Any]) -> Optional[str]:
     return ",".join(cleaned) if cleaned else None
 
 
+def _validate_media_ids(values):
+    if not isinstance(values, list) or not values or len(values) > 500 or any(
+        type(value) is not int or value < 1 for value in values
+    ):
+        raise ValueError("media_ids must be a nonempty list of up to 500 positive integers")
+    return list(dict.fromkeys(values))
+
+
+def _validate_page(limit, offset):
+    if type(limit) is not int or not 1 <= limit <= 500:
+        raise ValueError("limit must be an integer from 1 to 500")
+    if type(offset) is not int or offset < 0:
+        raise ValueError("offset must be a nonnegative integer")
+
+
 def _normalize_filters(filters: Any) -> Dict[str, Any]:
     """Normalize browse filters into a predictable dict shape."""
     parsed = _safe_parse_json(filters)
@@ -126,13 +160,19 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
         raise ValueError("filters must be an object")
 
     normalized: Dict[str, Any] = {}
+    allowed = TEXT_FIELDS | {"generated", "media_types", "resolutions", "folders", "keywords", "tags", "markers", "tools", "created_at", "media_ids"}
+    unknown = set(parsed) - allowed
+    if unknown:
+        raise ValueError(f"Unknown library filters: {sorted(unknown)}. Use browse_schema to discover supported fields.")
+    for text_key in TEXT_FIELDS & parsed.keys():
+        normalized[text_key] = normalize_match(parsed[text_key], text_key)
 
-    for text_key in ("query", "caption_query", "prompt_query"):
-        value = parsed.get(text_key)
-        if isinstance(value, str) and value.strip():
-            normalized[text_key] = value.strip()
+    if "media_ids" in parsed:
+        normalized["media_ids"] = _validate_media_ids(parsed["media_ids"])
 
     generated = parsed.get("generated")
+    if "generated" in parsed and not isinstance(generated, bool):
+        raise ValueError("generated must be a boolean")
     if isinstance(generated, bool):
         normalized["generated"] = generated
 
@@ -141,11 +181,21 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
         if raw is None:
             continue
         if isinstance(raw, dict):
+            if set(raw) - {"include", "exclude"}:
+                raise ValueError(f"{facet} accepts only include/exclude; use browse_options for exact values")
             include = _normalize_list(raw.get("include"))
             exclude = _normalize_list(raw.get("exclude"))
         else:
             include = _normalize_list(raw)
             exclude = []
+        for value in include + exclude:
+            if isinstance(value, bool) or not isinstance(value, (str, int)) or (isinstance(value, str) and not value.strip()):
+                raise ValueError(f"{facet}: include/exclude values must be names or IDs")
+            if isinstance(value, int) and facet not in {"tags", "markers"}:
+                raise ValueError(f"{facet}: values must be strings")
+        choices = {"media_types": STATIC_MEDIA_TYPES, "resolutions": STATIC_RESOLUTIONS}.get(facet)
+        if choices and set(include + exclude) - set(choices):
+            raise ValueError(f"{facet}: use values from {choices}")
         facet_value: Dict[str, List[Any]] = {}
         if include:
             facet_value["include"] = include
@@ -155,7 +205,11 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
             normalized[facet] = facet_value
 
     created_at = parsed.get("created_at")
+    if "created_at" in parsed and (not isinstance(created_at, dict) or set(created_at) - {"after", "before"}):
+        raise ValueError("created_at accepts after/before ISO datetimes")
     if isinstance(created_at, dict):
+        if not created_at or any(not isinstance(v, str) or not v.strip() for v in created_at.values()):
+            raise ValueError("created_at requires nonempty ISO datetime strings")
         after = created_at.get("after")
         before = created_at.get("before")
         created_filter = {}
@@ -164,6 +218,8 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
         if isinstance(before, str) and before.strip():
             created_filter["before"] = before.strip()
         if created_filter:
+            for date_value in created_filter.values():
+                datetime.fromisoformat(date_value)
             normalized["created_at"] = created_filter
 
     return normalized
@@ -172,7 +228,7 @@ def _normalize_filters(filters: Any) -> Dict[str, Any]:
 def _sort_spec(sort_by: Optional[str], random_seed: Optional[int]) -> Dict[str, Any]:
     effective = (sort_by or "created_desc").strip().lower()
     if effective not in STATIC_SORTS:
-        effective = "created_desc"
+        raise ValueError(f"sort_by must be one of {STATIC_SORTS}")
     spec: Dict[str, Any] = {"by": effective}
     if effective == "random":
         spec["random_seed"] = random_seed if random_seed is not None else 42
@@ -254,41 +310,54 @@ async def _build_browse_query(
     filters: Dict[str, Any],
     sort_by: str,
     random_seed: Optional[int],
+    scope: str = "assets",
+    project_id: Optional[int] = None,
 ):
     from utils.query_builder import build_filtered_query
 
-    stmt = (
-        select(MediaItem)
-        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
-        .join(Asset, Asset.current_revision_id == AssetRevision.id)
-        .where(
-        Asset.state == "active",
-        Asset.deleted_at.is_(None),
-        AssetRevision.deleted_at.is_(None),
+    if scope not in {"assets", "media"}:
+        raise ValueError("scope must be assets (current library items) or media (all retained payloads)")
+    stmt = select(MediaItem).where(
         MediaItem.deleted_at.is_(None),
-        MediaItem.metadata_status == "completed",
-        (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
-        or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow()),
-    ))
-
-    query_value = filters.get("query")
-    if query_value:
-        stmt = stmt.where(
-            or_(
-                MediaItem.vlm_caption.ilike(f"%{query_value}%"),
-                MediaItem.extracted_prompt.ilike(f"%{query_value}%"),
+        MediaItem.deletion_pending_at.is_(None),
+        MediaItem.ephemeral_run_id.is_(None),
+    )
+    if scope == "assets":
+        stmt = (
+            stmt.join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+                AssetRevision.deleted_at.is_(None),
+                or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow()),
             )
         )
+        if project_id is not None:
+            stmt = stmt.join(ProjectAsset, (ProjectAsset.asset_id == Asset.id) & ProjectAsset.deleted_at.is_(None)).where(ProjectAsset.project_id == project_id)
+    else:
+        # Metadata searches can find intermediates and historical revisions.
+        # Organizational facets describe Assets, so require the Assets scope.
+        if set(filters) & {"tags", "markers"}:
+            raise ValueError("tags/markers require scope='assets'; use media_ids or lineage for retained payloads")
+
+    for key in TEXT_FIELDS & filters.keys():
+        stmt = stmt.where(field_match(key, filters[key]))
+    if "media_ids" in filters:
+        stmt = stmt.where(MediaItem.id.in_(filters["media_ids"]))
 
     tag_include = await _resolve_filter_tag_ids(session, filters.get("tags", {}).get("include", []))
     tag_exclude = await _resolve_filter_tag_ids(session, filters.get("tags", {}).get("exclude", []))
     marker_include = await _resolve_filter_marker_ids(session, filters.get("markers", {}).get("include", []))
     marker_exclude = await _resolve_filter_marker_ids(session, filters.get("markers", {}).get("exclude", []))
+    # An unknown include must not broaden a query to the entire library.
+    if filters.get("tags", {}).get("include") and not tag_include:
+        stmt = stmt.where(False)
+    if filters.get("markers", {}).get("include") and not marker_include:
+        stmt = stmt.where(False)
 
     stmt = build_filtered_query(
         stmt,
-        caption_query=filters.get("caption_query"),
-        prompt_query=filters.get("prompt_query"),
         media_types=_as_csv(filters.get("media_types", {}).get("include", [])),
         excluded_media_types=_as_csv(filters.get("media_types", {}).get("exclude", [])),
         resolutions=_as_csv(filters.get("resolutions", {}).get("include", [])),
@@ -305,7 +374,7 @@ async def _build_browse_query(
         tool_ids=_as_csv(filters.get("tools", {}).get("include", [])),
         excluded_tool_ids=_as_csv(filters.get("tools", {}).get("exclude", [])),
         exclude_expired=False,
-        asset_id_column=Asset.id,
+        asset_id_column=Asset.id if scope == "assets" else None,
         expiration_column=Asset.expires_at,
     )
     stmt = _apply_created_at_filters(stmt, filters.get("created_at"))
@@ -331,7 +400,7 @@ async def _build_browse_query(
 
 
 def _browse_schema() -> Dict[str, Any]:
-    return {
+    schema = {
         "action": "browse",
         "filters": {
             "query": {"type": "string", "description": "Caption OR prompt substring search"},
@@ -385,23 +454,57 @@ def _browse_schema() -> Dict[str, Any]:
             "For tags and markers, browse consumes IDs or exact names; browse_options returns IDs for dynamic facets.",
         ],
     }
+    for field in sorted(TEXT_FIELDS):
+        schema["filters"][field] = {
+            "type": "string | string[] | {include?: string[], exclude?: string[], match?: string, mode?: string}",
+            "match": "contains (default) | exact | glob (* and ? only); case-insensitive",
+            "mode": "any (default) | all; combines included terms; excluded terms must all be absent",
+        }
+    schema["filters"]["media_ids"] = {"type": "integer[]", "description": "Restrict to these exact payload IDs (up to 500)"}
+    schema["scopes"] = {
+        "assets": "Default: current active library Assets, scoped to the chat project when present.",
+        "media": "Explicit profile-wide search of nondeleted, nonephemeral payloads, including intermediates and historical revisions. No tags/markers.",
+    }
+    schema["sdk"] = {
+        "find": "await stimma.library.query(filters=None, query=None, tags=None, limit=20, offset=0, sort_by='created_desc', random_seed=None, scope='assets')",
+        "schema": "await stimma.library.schema()",
+        "options": "await stimma.library.options(facet, filters=None, query=None, limit=25, cursor=None, scope='assets')",
+        "inspect": "await stimma.library.inspect(media_ids)",
+        "lineage": "await stimma.library.lineage(media_id=None, media_ids=None, direction='parents', relationship='derived', filters=None, limit=20, offset=0)",
+    }
+    schema["notes"] += [
+        "Text filters combine with AND. Prompts search extracted, rendered, and original user prompts; query also searches captions and keywords.",
+        "models, loras, task_types, and direct_tools describe the item's OWN recorded generation. tools is the legacy ancestor-inclusive tool facet.",
+        "Model/LoRA/filename exact and glob matching accepts a full path or basename. SQL % and _ are literal characters. Glob brackets are literal.",
+        "Use inspect(media_ids) for batch metadata without copying files; get copies one file into the workspace.",
+        "Use lineage(media_ids, direction='parents|children|ancestors|descendants', relationship='derived|inspired|all'). Edges preserve source/output IDs and input order for pairing.",
+        "Lineage filters select the source (upstream) or output (downstream); they never prune intermediate traversal. Results are paginated edges with endpoint summaries.",
+        "Lineage traverses recorded relational edges, including retained intermediates; metadata history snapshots are separately available through inspect. Missing history is not proof of no ancestry.",
+        "Use limit/offset for browse and lineage pages; SDK query returns the full browse page including total/has_more. SDK search/browse retain list results for compatibility.",
+    ]
+    return schema
 
 
 def _cursor_to_offset(cursor: Optional[str]) -> int:
     if not cursor:
         return 0
     try:
-        return max(0, int(cursor))
-    except ValueError:
-        return 0
+        value = int(cursor)
+        if value < 0:
+            raise ValueError
+        return value
+    except (ValueError, TypeError):
+        raise ValueError("cursor must be a next_cursor returned by browse_options") from None
 
 
 async def _browse_options_static(
     session: AsyncSession,
     facet: str,
     filters: Dict[str, Any],
+    scope: str = "assets",
+    project_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None)
+    stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id)
     base_subquery = stmt.with_only_columns(MediaItem.id, MediaItem.file_format, MediaItem.megapixels, MediaItem.generation_metadata).subquery()
     result_rows: List[Dict[str, Any]] = []
 
@@ -470,15 +573,27 @@ async def _browse_options_dynamic(
     query: str,
     limit: int,
     offset: int,
+    scope: str = "assets",
+    project_id: Optional[int] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[int]]:
-    base_stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None)
+    base_stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id)
+    if scope == "media" and facet in {"tags", "markers"}:
+        raise ValueError("tags/markers facets require scope='assets'")
     asset_media_ids = base_stmt.with_only_columns(
         MediaItem.id.label("media_id"),
-        Asset.id.label("asset_id"),
+        (Asset.id if scope == "assets" else literal(None)).label("asset_id"),
     ).subquery()
     search = f"%{query.lower()}%" if query else None
 
-    if facet == "tags":
+    if facet in METADATA_FACETS:
+        values = metadata_values(facet, select(asset_media_ids.c.media_id))
+        stmt = select(values.c.value.label("id"), values.c.value.label("label"),
+                      func.count(func.distinct(values.c.media_id)).label("count")).where(
+            values.c.value.is_not(None), values.c.value != "").group_by(values.c.value)
+        if query:
+            stmt = stmt.where(text_match(values.c.value, query))
+        stmt = stmt.order_by(func.count(func.distinct(values.c.media_id)).desc(), values.c.value)
+    elif facet == "tags":
         stmt = (
             select(
                 Tag.id.label("id"),
@@ -854,68 +969,6 @@ async def resolve_params_from(
     return {**base, **explicit}
 
 
-async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, Any]:
-    """Load immediate parents/children with the same semantics as the media API."""
-    sources_result = await session.execute(
-        select(MediaLineage)
-        .where(MediaLineage.media_id == media_id)
-        .order_by(MediaLineage.source_order)
-    )
-    sources = sources_result.scalars().all()
-
-    derivatives_result = await session.execute(
-        select(MediaLineage)
-        .where(MediaLineage.source_media_id == media_id)
-        .order_by(MediaLineage.created_at.desc())
-    )
-    derivatives = derivatives_result.scalars().all()
-
-    source_data = []
-    source_ids = set()
-    for source in sources:
-        entry = {
-            "order": source.source_order,
-            "task_type": source.task_type,
-        }
-        if source.source_media_id:
-            media_result = await session.execute(
-                select(MediaItem).where(MediaItem.id == source.source_media_id)
-            )
-            media = media_result.scalar_one_or_none()
-            if media and not media.deleted_at:
-                entry["type"] = "internal"
-                entry["media"] = media.to_dict()
-                source_ids.add(media.id)
-            else:
-                entry["type"] = "deleted"
-                entry["media_id"] = source.source_media_id
-        else:
-            entry["type"] = "external"
-            entry["file_path"] = source.source_file_path
-        source_data.append(entry)
-
-    derivative_data = []
-    derivative_ids = set()
-    for derivative in derivatives:
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id == derivative.media_id)
-        )
-        media = media_result.scalar_one_or_none()
-        if media and not media.deleted_at:
-            derivative_data.append({
-                "media": media.to_dict(),
-                "task_type": derivative.task_type,
-                "relationship_type": getattr(derivative, "relationship_type", "derived"),
-                "created_at": derivative.created_at.isoformat() if derivative.created_at else None,
-            })
-            derivative_ids.add(media.id)
-
-    return {
-        "sources": source_data,
-        "derivatives": derivative_data,
-    }
-
-
 @tool(
     name="library",
     description=(
@@ -924,13 +977,14 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         "target an item by the media_id you already have (from show/create_layout/media_info/"
         "generation) — it resolves to the owning Asset automatically; you do NOT need to look up "
         "an asset_id first. Browse/search results return both asset_id and media_id. "
-        "Use browse_schema and browse_options for progressive disclosure of browse facets. Inspect lineage. "
+        "Find with browse (structured filters, glob matching, pagination); discover fields/values with browse_schema/browse_options. "
+        "Inspect batches without file copies using inspect. Traverse parents/children or ancestors/descendants with lineage, which returns source/output edges for pairing. "
         "Use generation_params to get a call_tool-ready flow for reproducing an existing image (tweak one field, then call_tool)."
     ),
     parameters=[
-        ToolParameter("action", "string", "search | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),
+        ToolParameter("action", "string", "search | inspect | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),
         ToolParameter("query", "string", "Text query. Search matches against generation prompts by default (best signal). Use search_fields to broaden.", required=False),
-        ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields to search. Only broaden when prompt search returns nothing useful.", required=False),
+        ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields search.query matches. Structured filters compose with search too.", required=False),
         ToolParameter("media_id", "integer", "Exact Media payload ID. Used for get/lineage, and ALSO accepted as the target for tag/marker/board actions (resolved to its owning Asset — just pass the media_id you already have).", required=False),
         ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations, or as bulk targets for tag/marker/board actions.", required=False, items={"type": "integer"}),
         ToolParameter("asset_id", "integer", "Asset ID for tag/marker/board actions. Optional — if you only have a media_id, pass that instead (do not mix asset and media IDs in one call).", required=False),
@@ -938,7 +992,10 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         ToolParameter("tags", "array", "Filter by tag names (browse) or tag names to add/remove (tag action)", required=False, items={"type": "string"}),
         ToolParameter("limit", "integer", "Max results, default 20", required=False),
         ToolParameter("offset", "integer", "Browse result offset, default 0", required=False),
-        ToolParameter("filters", "object", "Structured browse filters object", required=False),
+        ToolParameter("filters", "object", "Structured search/browse/options filters, or reached-endpoint filters for lineage. Call browse_schema for fields and glob matching.", required=False),
+        ToolParameter("scope", "string", "assets (default, current library/project) | media (explicit profile-wide retained payloads, including intermediates and old revisions). For browse/search/options.", required=False),
+        ToolParameter("direction", "string", "Lineage: parents (default) | children | ancestors | descendants. Recursive traversal follows recorded edges, preserving pairs.", required=False),
+        ToolParameter("relationship", "string", "Lineage: derived (default) | inspired | all. Filters apply to the reached endpoint, not intermediate traversal.", required=False),
         ToolParameter("sort_by", "string", "Browse sort: created_desc | created_asc | indexed_desc | indexed_asc | random", required=False),
         ToolParameter("random_seed", "integer", "Seed for random browse ordering", required=False),
         ToolParameter("facet", "string", "Facet name for browse_options", required=False),
@@ -965,6 +1022,9 @@ async def library(
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     filters: Optional[Dict[str, Any]] = None,
+    scope: Optional[str] = None,
+    direction: Optional[str] = None,
+    relationship: Optional[str] = None,
     sort_by: Optional[str] = None,
     random_seed: Optional[int] = None,
     facet: Optional[str] = None,
@@ -989,15 +1049,39 @@ async def library(
     op = (operation or "add").lower().strip()
 
     project_id = kwargs.get("project_id")
+    if action in {"search", "browse", "browse_options", "lineage"}:
+        _validate_page(limit if limit is not None else 20, offset if offset is not None else 0)
+    query_actions = {
+        "search": {"query", "search_fields", "tags", "limit", "offset", "filters", "scope", "sort_by", "random_seed"},
+        "browse": {"query", "tags", "limit", "offset", "filters", "scope", "sort_by", "random_seed"},
+        "browse_schema": set(),
+        "browse_options": {"facet", "filters", "query", "limit", "cursor", "scope"},
+        "inspect": {"media_id", "media_ids"},
+        "lineage": {"media_id", "media_ids", "direction", "relationship", "filters", "limit", "offset"},
+    }
+    if action in query_actions:
+        context_keys = {"session", "workspace_dir", "project_workspace_dir", "project_id", "chat_id", "session_media_ids", "interrupt_checker"}
+        unknown = [key for key in kwargs if key not in context_keys and not key.startswith("_")]
+        if unknown:
+            raise ValueError(f"Unknown library arguments: {sorted(unknown)}. Put supported criteria in filters; see browse_schema.")
+        arguments = locals().copy()
+        parameter_names = {"query", "search_fields", "media_id", "media_ids", "asset_id", "asset_ids", "tags", "limit", "offset", "filters", "scope", "direction", "relationship", "sort_by", "random_seed", "facet", "cursor", "path", "save_tags", "marker_name", "board_name", "board_id", "section_name", "section_id", "operation"}
+        invalid = [name for name in parameter_names - query_actions[action] if arguments[name] is not None]
+        if invalid:
+            raise ValueError(f"{action} does not accept {sorted(invalid)}; use browse_schema for query capabilities")
 
     if action == "search":
-        return await _search(session, query, search_fields, limit or 20, project_id=project_id)
+        return await _search(session, query, search_fields, limit or 20, project_id=project_id,
+                             filters=filters, tags=tags, offset=offset or 0, scope=scope or "assets", sort_by=sort_by, random_seed=random_seed)
     elif action == "browse":
-        return await _browse(session, query, tags, filters, sort_by, random_seed, limit or 20, offset or 0, project_id=project_id)
+        return await _browse(session, query, tags, filters, sort_by, random_seed, limit or 20, offset or 0, project_id=project_id, scope=scope or "assets")
     elif action == "browse_schema":
         return json.dumps(_browse_schema(), default=str)
     elif action == "browse_options":
-        return await _browse_options(session, facet, filters, query, limit or 25, cursor)
+        return await _browse_options(session, facet, filters, query, limit or 25, cursor, scope=scope or "assets", project_id=project_id)
+    elif action == "inspect":
+        from ..library_graph import inspect_media
+        return json.dumps(await inspect_media(session, _validate_media_ids(_collect_media_ids(media_id, media_ids))), default=str)
     elif action == "get":
         return await _get(session, media_id, workspace_dir)
     elif action == "generation_params":
@@ -1005,7 +1089,10 @@ async def library(
     elif action == "save":
         return await _save(session, path, workspace_dir, save_tags, project_id=project_id)
     elif action == "lineage":
-        return await _lineage(session, media_id)
+        from ..library_graph import traverse_lineage
+        return json.dumps(await traverse_lineage(session, _validate_media_ids(_collect_media_ids(media_id, media_ids)),
+            direction=direction or "parents", relationship=relationship or "derived", filters=filters,
+            limit=limit or 20, offset=offset or 0), default=str)
     elif action == "tag":
         return await _tag(
             session, asset_id, asset_ids, media_id, media_ids, tags, op
@@ -1032,7 +1119,7 @@ async def library(
     else:
         return (
             "Error: Unknown action "
-            f"'{action}'. Use: search, get, generation_params, browse, browse_schema, browse_options, "
+            f"'{action}'. Use: search, inspect, get, generation_params, browse, browse_schema, browse_options, "
             "save, lineage, tag, marker, board"
         )
 
@@ -1043,6 +1130,12 @@ async def _search(
     search_fields: Optional[str],
     limit: int,
     project_id: Optional[int] = None,
+    filters=None,
+    tags=None,
+    offset=0,
+    scope="assets",
+    sort_by=None,
+    random_seed=None,
 ) -> str:
     if not query:
         return "Error: query is required for search"
@@ -1052,47 +1145,14 @@ async def _search(
     if fields not in valid_fields:
         return f"Error: search_fields must be one of: {', '.join(sorted(valid_fields))}"
 
-    conditions = []
-    if fields in ("prompt", "all"):
-        conditions.append(MediaItem.extracted_prompt.ilike(f"%{query}%"))
-    if fields in ("caption", "all"):
-        conditions.append(MediaItem.vlm_caption.ilike(f"%{query}%"))
-    if fields in ("keywords", "all"):
-        conditions.append(MediaItem.keywords.ilike(f"%{query}%"))
-
-    stmt = (
-        select(MediaItem)
-        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
-        .join(Asset, Asset.current_revision_id == AssetRevision.id)
-        .where(
-            Asset.state == "active",
-            Asset.deleted_at.is_(None),
-            AssetRevision.deleted_at.is_(None),
-            MediaItem.deleted_at.is_(None),
-            or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow()),
-            or_(*conditions),
-        )
-    )
-    # Scope to project when in project context
-    if project_id is not None:
-        stmt = stmt.join(
-            ProjectAsset,
-            (ProjectAsset.asset_id == Asset.id)
-            & ProjectAsset.deleted_at.is_(None),
-        ).where(
-            ProjectAsset.project_id == project_id
-        )
-    stmt = stmt.order_by(MediaItem.created_date.desc()).limit(limit)
-
-    result = await session.execute(stmt)
-    items = result.scalars().all()
-
-    if not items:
-        return "No results found."
-
-    asset_ids = await _asset_ids_for_media(session, [item.id for item in items])
-    summaries = [_media_summary(item, asset_ids.get(item.id)) for item in items]
-    return json.dumps(summaries, default=str)
+    normalized = _normalize_filters(filters)
+    key = {"prompt": "prompt_query", "caption": "caption_query", "keywords": "keyword_query", "all": "query"}[fields]
+    if key in normalized:
+        raise ValueError(f"Pass either query/search_fields or filters.{key}, not both")
+    normalized[key] = normalize_match(query, key)
+    page = json.loads(await _browse(session, None, tags, normalized, sort_by, random_seed,
+                                   limit, offset, project_id=project_id, scope=scope))
+    return json.dumps(page["items"], default=str) if page["items"] else "No results found."
 
 
 async def _browse(
@@ -1105,14 +1165,18 @@ async def _browse(
     limit: int,
     offset: int,
     project_id: Optional[int] = None,
+    scope: str = "assets",
 ) -> str:
+    _validate_page(limit, offset)
     normalized_filters = _normalize_filters(filters)
     if tags:
         normalized_filters.setdefault("tags", {})
         existing = normalized_filters["tags"].get("include", [])
         normalized_filters["tags"]["include"] = list(dict.fromkeys(existing + tags))
-    if query and "query" not in normalized_filters:
-        normalized_filters["query"] = query
+    if query:
+        if "query" in normalized_filters:
+            raise ValueError("Pass query or filters.query, not both")
+        normalized_filters["query"] = normalize_match(query, "query")
 
     sort_spec = _sort_spec(sort_by, random_seed)
     stmt = await _build_browse_query(
@@ -1120,16 +1184,9 @@ async def _browse(
         normalized_filters,
         sort_spec["by"],
         sort_spec.get("random_seed"),
+        scope,
+        project_id,
     )
-    # Scope to project when in project context
-    if project_id is not None:
-        stmt = stmt.join(
-            ProjectAsset,
-            (ProjectAsset.asset_id == Asset.id)
-            & ProjectAsset.deleted_at.is_(None),
-        ).where(
-            ProjectAsset.project_id == project_id
-        )
     total_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
     total = (await session.execute(total_stmt)).scalar() or 0
     result = await session.execute(stmt.limit(limit).offset(offset))
@@ -1166,6 +1223,8 @@ async def _browse_options(
     query: Optional[str],
     limit: int,
     cursor: Optional[str],
+    scope: str = "assets",
+    project_id: Optional[int] = None,
 ) -> str:
     if not facet:
         return "Error: facet is required for browse_options"
@@ -1176,9 +1235,10 @@ async def _browse_options(
 
     normalized_filters = _normalize_filters(filters)
     offset = _cursor_to_offset(cursor)
+    _validate_page(limit, offset)
 
     if normalized_facet in {"media_types", "resolutions", "generated"}:
-        items = await _browse_options_static(session, normalized_facet, normalized_filters)
+        items = await _browse_options_static(session, normalized_facet, normalized_filters, scope, project_id)
         if query:
             lowered = query.lower()
             items = [item for item in items if lowered in str(item["label"]).lower()]
@@ -1200,6 +1260,8 @@ async def _browse_options(
         query or "",
         limit,
         offset,
+        scope,
+        project_id,
     )
     return json.dumps({
         "facet": normalized_facet,
@@ -1704,37 +1766,6 @@ async def _generation_params(session: AsyncSession, media_id: Optional[int]) -> 
             "so it cannot be reproduced directly — choose a tool_id before calling call_tool."
         )
     return json.dumps(payload, default=str)
-
-
-async def _lineage(session: AsyncSession, media_id: Optional[int]) -> str:
-    if not media_id:
-        return "Error: media_id is required for lineage action"
-
-    # Verify item exists
-    result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        return f"Error: Media {media_id} not found"
-
-    generation_metadata = _parse_generation_metadata(item)
-    history = _build_generation_history(item, generation_metadata)
-    lineage_data = await _load_lineage_data(session, media_id)
-
-    result_data = {
-        "media_id": media_id,
-        "prompt": _best_prompt(item, generation_metadata),
-        "history": history,
-        "sources": lineage_data["sources"],
-        "derivatives": lineage_data["derivatives"],
-    }
-
-    output = json.dumps(result_data, default=str)
-    # Truncate if very large
-    if len(output) > 8000:
-        output = output[:8000] + '...(truncated)"}'
-    return output
 
 
 async def _tag(

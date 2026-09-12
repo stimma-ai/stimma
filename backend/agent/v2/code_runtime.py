@@ -688,30 +688,80 @@ class StimmaLibraryAPI:
         query: str,
         limit: int = 20,
         tags: list[str] | None = None,
+        *,
+        search_fields: str = "prompt",
+        filters: dict | None = None,
+        offset: int = 0,
+        scope: str = "assets",
     ) -> list[dict[str, Any]]:
         from .tools.library import _search
 
         raw = await _search(
-            self._sdk.session, query=query, search_fields=None, limit=limit,
+            self._sdk.session, query=query, search_fields=search_fields, limit=limit,
             project_id=self._sdk.project_id,
+            filters=filters, tags=tags, offset=offset, scope=scope,
         )
+        if raw.startswith("Error:"):
+            raise ValueError(raw)
         return [] if raw == "No results found." else [MediaRecord(i) for i in json.loads(raw)]
 
     async def browse(
         self,
         limit: int = 20,
         tags: list[str] | None = None,
+        *,
+        filters: dict | None = None,
+        query: str | None = None,
+        offset: int = 0,
+        sort_by: str = "created_desc",
+        random_seed: int | None = None,
+        scope: str = "assets",
     ) -> list[dict[str, Any]]:
+        """List-compatible browse; query() returns pagination information too."""
+        page = await self.query(filters=filters, query=query, tags=tags, limit=limit, offset=offset,
+                                sort_by=sort_by, random_seed=random_seed, scope=scope)
+        return page["items"]
+
+    async def query(self, filters: dict | None = None, *, query: str | None = None,
+                    tags: list[str] | None = None, limit: int = 20, offset: int = 0,
+                    sort_by: str = "created_desc", random_seed: int | None = None,
+                    scope: str = "assets") -> dict[str, Any]:
+        """Find items. Returns items, total, has_more, offset and applied_filters.
+
+        schema() describes matching and scopes; options() discovers recorded
+        values. Use lineage() for ancestor conditions and source/output pairs.
+        """
         from .tools.library import _browse
 
         raw = await _browse(
-            self._sdk.session, query=None, tags=tags, filters=None,
-            sort_by=None, random_seed=None, limit=limit, offset=0,
-            project_id=self._sdk.project_id,
+            self._sdk.session, query=query, tags=tags, filters=filters,
+            sort_by=sort_by, random_seed=random_seed, limit=limit, offset=offset,
+            project_id=self._sdk.project_id, scope=scope,
         )
         parsed = json.loads(raw)
-        items = parsed.get("items", []) if isinstance(parsed, dict) else parsed
-        return [MediaRecord(i) if isinstance(i, dict) else i for i in items]
+        parsed["items"] = [MediaRecord(item) for item in parsed["items"]]
+        return parsed
+
+    async def schema(self) -> dict[str, Any]:
+        """Discover query fields, text/glob matching, scopes and lineage semantics."""
+        from .tools.library import _browse_schema
+        return _browse_schema()
+
+    async def options(self, facet: str, *, filters: dict | None = None,
+                      query: str | None = None, limit: int = 25,
+                      cursor: str | None = None, scope: str = "assets") -> dict[str, Any]:
+        """Discover facet values/counts (including models, loras, task_types)."""
+        from .tools.library import _browse_options
+        raw = await _browse_options(self._sdk.session, facet, filters, query, limit, cursor,
+                                   scope=scope, project_id=self._sdk.project_id)
+        if raw.startswith("Error:"):
+            raise ValueError(raw)
+        return json.loads(raw)
+
+    async def inspect(self, media_ids: list[int]) -> dict[str, Any]:
+        """Batch metadata/history without copying files; unavailable IDs retain status."""
+        from .library_graph import inspect_media
+        return await inspect_media(self._sdk.session, media_ids)
 
     async def get(self, media_id: int) -> "MediaRecord":
         raw = await get_media_for_workspace(
@@ -791,11 +841,20 @@ class StimmaLibraryAPI:
             out_dir = self._sdk.workspace_dir
         return [str(p) for p in unpack_export(result, out_dir)]
 
-    async def lineage(self, media_id: int) -> dict[str, Any]:
-        from .tools.library import _lineage
+    async def lineage(self, media_id: int | None = None, *, media_ids: list[int] | None = None,
+                      direction: str = "parents", relationship: str = "derived",
+                      filters: dict | None = None, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """Traverse recorded edges; returns roots, edges, items, total and has_more.
 
-        raw = await _lineage(self._sdk.session, media_id)
-        return json.loads(raw)
+        parents/children are immediate; ancestors/descendants are recursive.
+        Filters apply to reached endpoints, never prune intermediate steps.
+        Each edge preserves root, source/output IDs, task, relationship and order.
+        """
+        from .library_graph import traverse_lineage
+        from .tools.library import _collect_media_ids
+        return await traverse_lineage(self._sdk.session, _collect_media_ids(media_id, media_ids),
+                                      direction=direction, relationship=relationship,
+                                      filters=filters, limit=limit, offset=offset)
 
     async def generation_params(self, media_id: int) -> dict[str, Any]:
         """Return a flat dict of params that reproduces an existing image.

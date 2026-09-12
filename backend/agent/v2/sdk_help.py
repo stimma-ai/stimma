@@ -89,7 +89,7 @@ Example:
     "library.search": SDKMethodHelp(
         name="library.search",
         signature="await stimma.library.search(query: str, *, limit=20)",
-        summary="Semantic/text search of the media library.",
+        summary="Literal prompt text search; accepts structured filters and pagination.",
         details="""\
 Find existing media before generating or editing.
 
@@ -100,13 +100,39 @@ Example:
     ),
     "library.browse": SDKMethodHelp(
         name="library.browse",
-        signature="await stimma.library.browse(**filters)",
+        signature="await stimma.library.browse(*, filters=None, query=None, tags=None, limit=20, offset=0, sort_by='created_desc', scope='assets')",
         summary="Browse library media with structured filters.",
         details="""\
 Use browse when the user asks for recent items, media types, tags, or other
-library filters rather than a semantic query.""",
+library filters. Returns a list; query() returns the full page with total/has_more.
+Call schema() for fields and matching; options('loras') discovers recorded values.""",
         group="library",
         is_async=True,
+    ),
+    "library.query": SDKMethodHelp(
+        name="library.query",
+        signature="await stimma.library.query(filters=None, *, query=None, tags=None, limit=20, offset=0, sort_by='created_desc', random_seed=None, scope='assets')",
+        summary="Search metadata with an explicit paginated response.",
+        details="Returns items, total, has_more, limit, offset and applied_filters. Filters use strings or {include, exclude, match: contains|exact|glob, mode: any|all}. Call schema() for all fields. scope='media' explicitly searches profile-wide retained intermediates and old revisions as well as current Assets.",
+        group="library", is_async=True,
+    ),
+    "library.schema": SDKMethodHelp(
+        name="library.schema", signature="await stimma.library.schema()",
+        summary="Discover filters and lineage semantics.",
+        details="Returns supported filters, facets, matching rules, scopes and lineage semantics. Same as library(action='browse_schema').",
+        group="library", is_async=True,
+    ),
+    "library.options": SDKMethodHelp(
+        name="library.options", signature="await stimma.library.options(facet, *, filters=None, query=None, limit=25, cursor=None, scope='assets')",
+        summary="Discover recorded facet values and counts.",
+        details="Facets include models, loras, task_types, direct_tools, tags, markers and folders. Returns items and next_cursor. Counts respect other filters and the current project in Assets scope.",
+        group="library", is_async=True,
+    ),
+    "library.inspect": SDKMethodHelp(
+        name="library.inspect", signature="await stimma.library.inspect(media_ids: list[int])",
+        summary="Batch metadata/history without copying media files.",
+        details="Returns items in requested order, each with status and recorded metadata/history. Deleted, missing and ephemeral IDs return status placeholders. Accepts up to 500 IDs. History snapshots do not necessarily have traversable relational edges.",
+        group="library", is_async=True,
     ),
     "library.get": SDKMethodHelp(
         name="library.get",
@@ -165,11 +191,15 @@ Example:
     ),
     "library.lineage": SDKMethodHelp(
         name="library.lineage",
-        signature="await stimma.library.lineage(media_id: int)",
-        summary="Return provenance for a media item.",
+        signature="await stimma.library.lineage(media_id=None, *, media_ids=None, direction='parents', relationship='derived', filters=None, limit=20, offset=0)",
+        summary="Traverse provenance edges, preserving source/output pairs.",
         details="""\
-Use lineage when the user asks where an asset came from, what tool made it, or
-which source images were used.""",
+parents/children follow one hop; ancestors/descendants recursively follow recorded
+edges, including retained intermediates. relationship is derived, inspired or all.
+Returns roots, edges, endpoint items, total and has_more. Each edge carries
+root_media_id, source_media_id, output_media_id, task_type, relationship_type,
+source_order and input_role when recorded. Filters select reached endpoints
+without pruning intermediate traversal. Use inspect() for full history snapshots.""",
         group="library",
         is_async=True,
     ),
@@ -372,6 +402,10 @@ stimma quick reference (inside run_code / run_file):
     from stimma.tools.<category> import <name_from_catalog>
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
   stimma.show(r, role="final") commits+displays produced results ("intermediate" = display only); asyncio.gather() for parallel batches.
-  stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces(),
+  Library: await stimma.library.schema() for fields; .query(filters, limit=20, offset=0)
+    returns items/total/has_more; .options('loras') discovers recorded names.
+    .inspect([ids]) reads metadata/history without copying files.
+    .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
+  stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

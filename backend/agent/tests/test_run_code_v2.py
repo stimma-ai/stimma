@@ -217,6 +217,29 @@ async def test_run_code_library_get_copies_media_to_workspace(session, test_chat
 
 
 @pytest.mark.asyncio
+async def test_run_code_library_queries_and_graph_discovery(session, test_chat, tmp_path):
+    result = await run_code(
+        code=(
+            "schema = await stimma.library.schema()\n"
+            "assert 'loras' in schema['filters']\n"
+            "page = await stimma.library.query(filters={'models': 'nonexistent-library-query-model'}, scope='media')\n"
+            "assert page['total'] == 0\n"
+            "options = await stimma.library.options('loras', query='nonexistent-library-query-lora')\n"
+            "assert options['items'] == []\n"
+            "graph = await stimma.library.lineage(media_ids=[99999999], direction='ancestors')\n"
+            "assert graph['edges'] == []\n"
+            "details = await stimma.library.inspect([99999999])\n"
+            "assert details['items'][0]['status'] == 'missing'\n"
+            "print('library query SDK works')"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=tmp_path,
+    )
+    assert result.strip() == "library query SDK works"
+
+
+@pytest.mark.asyncio
 async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_chat, tmp_path, monkeypatch):
     workspace = tmp_path / "workspace"
     output_dir = tmp_path / "output"
