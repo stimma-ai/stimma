@@ -345,6 +345,20 @@ function chipClass(active: boolean, pending = false) {
          chips because it belongs to whichever brush is armed. Patch is
          selection-driven, so it alone has no brush. -->
     <template v-if="family.id === 'retouch' && compact">
+      <!-- Clone's source, which the desktop sets with Alt-click: here a chip
+           arms the next tap on the picture (a finger held still does it too). -->
+      <div v-if="sub === 'clone'" class="flex items-center min-h-11">
+        <button
+          type="button"
+          class="min-h-11 px-2.5 rounded-md text-[13px] font-medium flex items-center gap-1.5"
+          :class="state.cloneSourceArming ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary'"
+          :aria-pressed="!!state.cloneSourceArming"
+          @click="emit('set', { armCloneSource: !state.cloneSourceArming })"
+        >
+          <ToolIcon name="focus" :size="16" />
+          {{ state.cloneSourceArming ? 'Tap the source…' : state.cloneSourceSet ? 'Source set' : 'Set source' }}
+        </button>
+      </div>
       <DeckSegments
         v-if="dodgeBurnSubs.includes(sub ?? '')"
         :model-value="state.retouchRange"

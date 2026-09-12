@@ -92,6 +92,8 @@ const emit = defineEmits<{
   stroke: [HTMLCanvasElement, boolean, number, RasterGestureMetadata]
   /** A patch landed: the selection it consumed should clear. */
   patchApplied: []
+  /** Clone's source point changed (null: none yet). */
+  cloneSource: [Point | null]
 }>()
 
 const overlay = ref<HTMLCanvasElement | null>(null)
@@ -124,6 +126,24 @@ let strokeStart: Point | null = null
 let gradientGesture: { start: Point; end: Point } | null = null
 /** Where clone samples from, set by alt-click and kept across strokes. */
 const cloneAnchor = ref<Point | null>(null)
+watch(cloneAnchor, anchor => emit('cloneSource', anchor))
+/** The host asked for the next tap to set Clone's source (the phone's way in). */
+let cloneSourceArm = false
+/**
+ * A touch on Clone waits before it paints: held still it sets the source
+ * (the Alt-click of a finger), moved it becomes the stroke it was going to
+ * be, lifted early it is one dab.
+ */
+let cloneHold: { id: number; event: PointerEvent; point: Point; timer: ReturnType<typeof setTimeout> } | null = null
+function clearCloneHold() {
+  if (cloneHold) { clearTimeout(cloneHold.timer); cloneHold = null }
+}
+function setCloneAnchor(point: Point) {
+  cloneAnchor.value = point
+  cloneSourceArm = false
+  navigator.vibrate?.(10)
+  drawOverlay()
+}
 let drawing = false
 let activePointerId: number | null = null
 /** Phase-2 sample→dab runtime, used by color paint and erase. */
@@ -451,6 +471,24 @@ function drawOverlay() {
   if (!canvas) return
   const ctx = canvas.getContext('2d')!
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  // Clone's source: a crosshair ring, so where the pixels come from is never a guess.
+  if (props.engineId === 'clone' && cloneAnchor.value) {
+    const { x, y } = cloneAnchor.value
+    const r = 9 * scale.value
+    ctx.save()
+    ctx.lineWidth = Math.max(1, 1.5 * scale.value)
+    for (const [color, offset] of [['rgba(0,0,0,0.6)', 1], ['rgba(255,255,255,0.95)', 0]] as const) {
+      ctx.strokeStyle = color
+      ctx.beginPath()
+      ctx.arc(x, y, r + offset * scale.value, 0, Math.PI * 2)
+      ctx.moveTo(x - r * 1.6, y); ctx.lineTo(x - r * 0.6, y)
+      ctx.moveTo(x + r * 0.6, y); ctx.lineTo(x + r * 1.6, y)
+      ctx.moveTo(x, y - r * 1.6); ctx.lineTo(x, y - r * 0.6)
+      ctx.moveTo(x, y + r * 0.6); ctx.lineTo(x, y + r * 1.6)
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
   for (const pending of pendingPreviews) {
     if (pending.wash) {
       ctx.save()
@@ -581,12 +619,34 @@ function onPointerDown(event: PointerEvent) {
 
   // Alt-click sets the clone source, the way it works everywhere else. The
   // OFFSET is only known once painting starts, so the anchor is held here and
-  // resolved against the first destination point of the stroke.
-  if (props.engineId === 'clone' && event.altKey) {
-    cloneAnchor.value = point
+  // resolved against the first destination point of the stroke. A finger has
+  // no Alt: the host can arm the next tap, and a touch held still does it too.
+  if (props.engineId === 'clone' && (event.altKey || cloneSourceArm)) {
+    setCloneAnchor(point)
+    return
+  }
+  if (props.engineId === 'clone' && event.pointerType === 'touch') {
+    clearCloneHold()
+    activePointerId = event.pointerId
+    overlay.value?.setPointerCapture(event.pointerId)
+    cloneHold = {
+      id: event.pointerId, event, point,
+      timer: setTimeout(() => {
+        if (!cloneHold) return
+        cloneHold = null
+        releasePointer(event.pointerId)
+        activePointerId = null
+        setCloneAnchor(point)
+      }, 500),
+    }
     return
   }
   if (props.engineId === 'clone' && !cloneAnchor.value) return
+  beginStroke(event, point)
+}
+
+/** Start the live stroke at `point`: the part of pointerdown that paints. */
+function beginStroke(event: PointerEvent, point: Point) {
   layerRevision += 1
   prepareStroke()
   strokeStart = point
@@ -613,6 +673,15 @@ function onPointerDown(event: PointerEvent) {
 
 function onPointerMove(event: PointerEvent) {
   if (activePointerId !== null && event.pointerId !== activePointerId) return
+  if (cloneHold && cloneHold.id === event.pointerId) {
+    const point = pointFrom(event)
+    if (Math.hypot(point.x - cloneHold.point.x, point.y - cloneHold.point.y) * (1 / Math.max(scale.value, 0.001)) < 6) return
+    // Moved: it was a stroke after all, from where the finger landed.
+    const held = cloneHold
+    clearCloneHold()
+    if (!cloneAnchor.value) { releasePointer(event.pointerId); activePointerId = null; return }
+    beginStroke(held.event, held.point)
+  }
   const rect = overlay.value?.getBoundingClientRect()
   if (rect) cursor.value = { x: event.clientX - rect.left, y: event.clientY - rect.top }
   // A few Wacom/Chromium combinations can transition straight from contact to
@@ -666,6 +735,15 @@ async function onPointerUp(event: PointerEvent) {
   if (activePointerId === null || event.pointerId !== activePointerId) return
   releasePointer(event.pointerId)
   activePointerId = null
+  if (cloneHold && cloneHold.id === event.pointerId) {
+    // Lifted before the hold resolved: one dab where the finger landed.
+    const held = cloneHold
+    clearCloneHold()
+    if (!cloneAnchor.value) return
+    beginStroke(held.event, held.point)
+    commitActiveStroke()
+    return
+  }
 
   if (patchDrag) {
     // The final pointer position is authoritative. A coalesced or lost move
@@ -753,6 +831,7 @@ function onWindowPointerUp(event: PointerEvent) {
 
 function onPointerCancel(event: PointerEvent) {
   if (activePointerId !== event.pointerId) return
+  clearCloneHold()
   releasePointer(event.pointerId)
   activePointerId = null
   drawing = false
@@ -801,6 +880,8 @@ function resize() {
 
 defineExpose({
   reset,
+  /** The next tap on the canvas sets Clone's source (a finger's Alt-click). */
+  armCloneSource() { cloneSourceArm = true },
   /**
    * End the live stroke on the host's word.
    *

@@ -299,6 +299,37 @@ function closeStack() {
  */
 const compactLevelsMode = ref<'auto' | 'looks' | 'curve' | null>(null)
 const compactCurveChannel = ref<ToneCurveChannel>('rgb')
+/** Clone on a phone: whether a source is set, and whether the next tap will set it. */
+const cloneSourceSet = ref(false)
+const cloneSourceArming = ref(false)
+function onCloneSource(point: { x: number; y: number } | null) {
+  cloneSourceSet.value = !!point
+  cloneSourceArming.value = false
+}
+/**
+ * The Generate panel's results on a phone: the step just run (or the one
+ * being iterated), its candidates as a strip to flip through, where the
+ * desktop keeps them in the Edits sidebar.
+ */
+const compactGenerateOp = computed(() => {
+  if (!isCompact.value || family.value !== 'generate') return null
+  return iterationOp.value ?? selectedModelOp.value
+})
+const compactCandidates = computed(() => {
+  const op = compactGenerateOp.value
+  if (!op) return []
+  return candidateThumbs.value[op.id] ?? []
+})
+const compactPendingCount = computed(() => {
+  const op = compactGenerateOp.value
+  return op ? (pendingByOp.value[op.id] ?? 0) : 0
+})
+function pickCompactCandidate(id: string) {
+  const op = compactGenerateOp.value
+  if (!op) return
+  stack.pickCandidate(op.id, id)
+  render()
+}
 /** A color well opened on its own level: which target, and the wells it can switch to. */
 const compactPicker = ref<PickerRequest | null>(null)
 const CURVE_CHANNEL_CELLS: Array<{ id: ToneCurveChannel; label: string; swatch: string }> = [
@@ -2715,6 +2746,8 @@ const subbarState = computed(() => ({
   retouchRange: retouchRange.value,
   retouchStrength: retouchStrength.value,
   retouchSaturate: retouchSaturate.value,
+  cloneSourceSet: cloneSourceSet.value,
+  cloneSourceArming: cloneSourceArming.value,
   activeTool: activeTool.value,
   toolParams: activeToolParamValues.value,
   loraToolId: activeLoraToolId.value,
@@ -2762,6 +2795,11 @@ const SUBBAR_KEEPS_SELECT = new Set([
 ])
 
 function onSubbarSet(patch: Record<string, any>, continuous = false) {
+  if ('armCloneSource' in patch) {
+    cloneSourceArming.value = !!patch.armCloneSource
+    if (patch.armCloneSource) retouchRef.value?.armCloneSource()
+    return
+  }
   if (Object.keys(patch).some(key => !SUBBAR_KEEPS_SELECT.has(key))) disarmSelect()
   if ('prompt' in patch) prompt.value = patch.prompt
   if ('candidateCount' in patch) candidateCount.value = patch.candidateCount
@@ -9312,6 +9350,7 @@ watch(
           <StackPaintCanvas
             v-if="family === 'retouch'"
             ref="retouchRef"
+            @clone-source="onCloneSource"
             :source="retouchInput || composite"
             :selection-mask="selection"
             :display-width="zoomedDisplayBox.width"
@@ -10008,23 +10047,36 @@ watch(
                 @commit="commitSelectedShapesChange"
                 @remove="annotateRef?.deleteSelected()"
               />
-              <ModelEditInspector
-                v-else-if="family === 'generate' && inspectorKind === 'model' && selectedModelOp"
-                :op="selectedModelOp"
-                :tool="selectedModelTool"
-                :running="runningOpIds.has(selectedModelOp.id)"
-                :is-refreshing-loras="isRefreshingLoras"
-                :is-uploading-lora="isUploadingLora"
-                :lora-upload-progress="loraUploadProgress"
-                :lora-upload-file-name="loraUploadFileName"
-                @params="setSelectedModelParams"
-                @references="setSelectedModelReferences"
-                @blend="setSelectedModelBlend"
-                @blend-commit="commitSelectedModelBlend"
-                @run="resample(selectedModelOp.id)"
-                @refresh-loras="refreshEditorLoras"
-                @upload-loras="uploadEditorLoras"
-              />
+              <!-- Generate's results, right here: the run's candidates as a
+                   strip, tap one to make it the picture. -->
+              <div
+                v-if="family === 'generate' && (compactCandidates.length || compactPendingCount)"
+                class="flex gap-1.5 overflow-x-auto -mx-3 px-3 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                role="group"
+                aria-label="Results"
+                data-compact-candidates
+              >
+                <button
+                  v-for="(candidate, index) in compactCandidates"
+                  :key="candidate.id"
+                  type="button"
+                  class="relative flex-none w-16 h-16 rounded-media overflow-hidden bg-matte"
+                  :class="candidate.id === (compactGenerateOp as any)?.picked ? 'ring-2 ring-selection' : 'opacity-70'"
+                  :aria-label="`Result ${index + 1} of ${compactCandidates.length}`"
+                  :aria-pressed="candidate.id === (compactGenerateOp as any)?.picked"
+                  @click="pickCompactCandidate(candidate.id)"
+                >
+                  <img :src="candidate.url" class="w-full h-full object-cover" alt="" />
+                </button>
+                <div
+                  v-for="n in compactPendingCount"
+                  :key="`pending-${n}`"
+                  class="relative flex-none w-16 h-16 rounded-media overflow-hidden bg-matte"
+                  aria-hidden="true"
+                >
+                  <span class="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-content/15 to-transparent bg-[length:300%_100%]" />
+                </div>
+              </div>
             </template>
           </div>
           <EditorToolStrip
