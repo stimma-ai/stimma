@@ -247,7 +247,7 @@
           <div
             v-for="item in topLevelItems"
             :key="item.id"
-            class="chat-item"
+            class="chat-item [content-visibility:auto] [contain-intrinsic-size:auto_80px] empty:[content-visibility:visible] empty:[contain-intrinsic-size:none] print:[content-visibility:visible] print:[contain-intrinsic-size:none]"
           >
           <!-- Activity Group: skip non-first items (they render as part of the group) -->
           <template v-if="getActivityGroup(item.id) && !isFirstInActivityGroup(item.id)"></template>
@@ -393,11 +393,11 @@
                               <summary class="activity-step-summary">
                                 <span class="activity-step-name">{{ getToolCallDisplayName(childItem) }}</span>
                                 <span v-if="devModeRef && getToolCallPreview(childItem)" class="activity-step-preview">{{ getToolCallPreview(childItem) }}</span>
-                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
-                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'running'" :class="ACTIVITY_RUNNING_BADGE_CLASS">running</span>
+                                <span v-if="getDelegateChildToolStatus(childItem) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
+                                <span v-if="getDelegateChildToolStatus(childItem) === 'running'" :class="ACTIVITY_RUNNING_BADGE_CLASS">running</span>
                               </summary>
-                              <div v-if="getDelegateChildToolDetails(childItem) || getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed' || (devModeRef && getToolCallResultData(childItem))" class="activity-step-content">
-                                <div v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" class="text-sm text-red-400/80 mb-1">
+                              <div v-if="getDelegateChildToolDetails(childItem) || getDelegateChildToolStatus(childItem) === 'failed' || (devModeRef && getToolCallResultData(childItem))" class="activity-step-content">
+                                <div v-if="getDelegateChildToolStatus(childItem) === 'failed'" class="text-sm text-red-400/80 mb-1">
                                   {{ getDelegateChildToolError(childItem) }}
                                 </div>
                                 <template v-if="getDelegateChildToolDetails(childItem)">
@@ -1242,7 +1242,7 @@
       </div>
       <ChatInputBox
         ref="chatInputBoxRef"
-        v-model="messageInput"
+        :draft="composerDraft"
         :attachments="inputAttachments"
         :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"
         :disabled="sending"
@@ -1275,7 +1275,7 @@
             @update:reasoning-effort="effort => chat.reasoning_effort = effort"
           />
         </template>
-        <template #actions>
+        <template #actions="{ text }">
           <button
             v-if="showStopButton"
             @click="stopAgent"
@@ -1289,7 +1289,7 @@
           <button
             v-else
             @click="sendMessage()"
-            :disabled="(!messageInput.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
+            :disabled="(!text.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
             class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             :title="modelUnavailableMessage || 'Send'"
           >
@@ -1476,6 +1476,9 @@ import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
 import { marked } from 'marked'
+import { buildChatItemIndex } from '../utils/chatItemIndex'
+import { createBoundedTextCache } from '../utils/boundedTextCache'
+import { useTheme } from '../composables/useTheme'
 import axios from 'axios'
 import { devModeRef } from '../appConfig'
 import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
@@ -1519,7 +1522,16 @@ const loading = ref(true)
 const loadError = ref(false)
 const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load (404/deleted)
 const hasMore = ref(false)
-const messageInput = ref('')
+// Keep draft reads inside ChatInputBox's render effect, away from history.
+const composerDraft = reactive({ text: '' })
+const messageInput = computed({
+  get: () => composerDraft.text,
+  set: text => { composerDraft.text = text },
+})
+const { resolvedTheme } = useTheme()
+const textRenderCache = createBoundedTextCache()
+watch(chatId, () => textRenderCache.clear())
+const itemIndex = computed(() => buildChatItemIndex(items.value))
 const sending = ref(false)
 const messageHistory = ref([])  // History of sent messages
 const historyIndex = ref(-1)    // -1 = current input, 0+ = history position
@@ -1861,24 +1873,13 @@ function isToolResultInActivityGroup(toolResultItem) {
   // Check if this tool_result's parent tool_call is inside an activity group
   const toolCallId = toolResultItem.tool_call_id
   if (!toolCallId) return false
-  const parentToolCall = items.value.find(i => i.item_type === 'tool_call' && i.tool_call_id === toolCallId)
+  const parentToolCall = itemIndex.value.firstToolCalls.get(toolCallId)
   if (!parentToolCall) return false
   return !!activityGroupInfo.value.get(parentToolCall.id)
 }
 
 function findToolResult(toolCallItem) {
-  const itemIdx = items.value.findIndex(i => i.id === toolCallItem.id)
-  if (itemIdx < 0) return null
-  for (let i = itemIdx + 1; i < items.value.length; i++) {
-    const candidate = items.value[i]
-    if (candidate.item_type === 'tool_result' && candidate.tool_call_id === toolCallItem.tool_call_id) {
-      return candidate
-    }
-    if (candidate.item_type === 'tool_call' && candidate.tool_call_id === toolCallItem.tool_call_id) {
-      break
-    }
-  }
-  return null
+  return itemIndex.value.toolResults.get(toolCallItem.id) || null
 }
 
 function getToolCallResultData(toolCallItem) {
@@ -2187,21 +2188,37 @@ function handleSkillsChanged() {
 
 // Get child items for a given parent (delegate tool_call)
 function getChildItems(parentItemId) {
-  return items.value.filter(item => item.parent_item_id === parentItemId)
+  return itemIndex.value.children.get(parentItemId) || []
 }
 
 // Get visible activity items for a delegate's nested timeline
+const delegateActivityItems = computed(() => {
+  const byParent = new Map()
+  for (const [parentId, children] of itemIndex.value.children) {
+    byParent.set(parentId, children.filter(item =>
+      item.item_type === 'tool_call' || (item.item_type === 'assistant_message' && hasThinking(item))
+    ))
+  }
+  return byParent
+})
 function getDelegateActivityItems(parentItemId) {
-  const children = getChildItems(parentItemId)
-  return children.filter(item => {
-    if (item.item_type === 'tool_call') return true
-    if (item.item_type === 'assistant_message' && hasThinking(item)) return true
-    return false
-  })
+  return delegateActivityItems.value.get(parentItemId) || []
 }
 
 // Get delegate nested activity summary (mirrors getActivityGroupSummaryRaw)
+const delegateSummaries = computed(() => {
+  const summaries = new Map()
+  for (const parentId of itemIndex.value.children.keys()) {
+    summaries.set(parentId, computeDelegateActivitySummary(parentId))
+  }
+  return summaries
+})
+const EMPTY_DELEGATE_SUMMARY = { toolNames: [], isRunning: false, hasRunningThinking: false }
 function getDelegateActivitySummary(parentItemId) {
+  return delegateSummaries.value.get(parentItemId) || EMPTY_DELEGATE_SUMMARY
+}
+
+function computeDelegateActivitySummary(parentItemId) {
   const children = getChildItems(parentItemId)
   const toolNames = []
   let hasRunningTool = false
@@ -2209,7 +2226,7 @@ function getDelegateActivitySummary(parentItemId) {
 
   for (const item of children) {
     if (item.item_type === 'tool_call') {
-      if (getDelegateChildToolStatus(item, children) === 'running') hasRunningTool = true
+      if (getDelegateChildToolStatus(item) === 'running') hasRunningTool = true
       if (HIDDEN_TOOLS.has(item.tool_name)) continue
       const displayName = getToolCallDisplayName(item)
       if (toolNames.length === 0 || toolNames[toolNames.length - 1] !== displayName) {
@@ -2228,10 +2245,8 @@ function getDelegateActivitySummary(parentItemId) {
 }
 
 // Find tool result among child items (not main items list)
-function getDelegateChildToolStatus(toolCallItem, children) {
-  const result = children.find(
-    c => c.item_type === 'tool_result' && c.tool_call_id === toolCallItem.tool_call_id
-  )
+function getDelegateChildToolStatus(toolCallItem) {
+  const result = itemIndex.value.childResults.get(toolCallItem.parent_item_id)?.get(toolCallItem.tool_call_id)
   if (!result) return 'running'
   const payload = result.tool_result
   if (!payload) return 'running'
@@ -2250,10 +2265,7 @@ function getDelegateChildToolDetails(toolCallItem) {
 
 // Get error message for a failed delegate child tool call
 function getDelegateChildToolError(toolCallItem) {
-  const children = getChildItems(toolCallItem.parent_item_id)
-  const result = children.find(
-    c => c.item_type === 'tool_result' && c.tool_call_id === toolCallItem.tool_call_id
-  )
+  const result = itemIndex.value.childResults.get(toolCallItem.parent_item_id)?.get(toolCallItem.tool_call_id)
   if (!result?.tool_result) return ''
   const payload = typeof result.tool_result === 'string'
     ? (() => { try { return JSON.parse(result.tool_result) } catch { return result.tool_result } })()
@@ -2289,14 +2301,20 @@ function getActivityGroup(itemId) {
 }
 
 // Filter out activity items that would render as blank (e.g. thinking with no content and not in progress)
+const visibleActivityItems = computed(() => {
+  const byGroup = new Map()
+  for (const group of activityGroupInfo.value.values()) {
+    if (byGroup.has(group.id)) continue
+    byGroup.set(group.id, group.items.filter(item => {
+      if (item.item_type === 'tool_call') return true
+      return item.item_type === 'assistant_message' && hasThinking(item)
+        && (!!getThinkingContent(item) || isThinkingInProgress(item))
+    }))
+  }
+  return byGroup
+})
 function getVisibleActivityItems(group) {
-  return group.items.filter(item => {
-    if (item.item_type === 'tool_call') return true
-    if (item.item_type === 'assistant_message' && hasThinking(item)) {
-      return !!getThinkingContent(item) || isThinkingInProgress(item)
-    }
-    return false
-  })
+  return visibleActivityItems.value.get(group.id) || []
 }
 
 function isFirstInActivityGroup(itemId) {
@@ -2355,7 +2373,7 @@ function autoExpandRunningDelegates() {
 watch(() => items.value.length, autoExpandRunningDelegates)
 
 // Check if this is the last activity group (failures in non-last groups were self-healed)
-function isLastActivityGroup(group) {
+const lastActivityGroup = computed(() => {
   let lastSeen = null
   const seen = new Set()
   for (const g of activityGroupInfo.value.values()) {
@@ -2364,7 +2382,10 @@ function isLastActivityGroup(group) {
       lastSeen = g
     }
   }
-  return lastSeen && lastSeen.id === group.id
+  return lastSeen
+})
+function isLastActivityGroup(group) {
+  return lastActivityGroup.value?.id === group.id
 }
 
 // Track assistant messages whose thinking is absorbed by a preceding activity group
@@ -2439,15 +2460,35 @@ function getActivityGroupSummaryRaw(group) {
   return { toolNames, totalThinkingSeconds, isRunning, hasFailed, hasRunningTool, hasRunningThinking }
 }
 
+// Pre-index absorbed thinking rather than scanning every group's followers
+// again for each pill. Summaries are shared by the template and status header.
+const thinkingItemsByGroup = computed(() => {
+  const byGroup = new Map()
+  for (const [itemId, group] of itemsFollowingActivityGroup.value) {
+    let following = byGroup.get(group.id)
+    if (!following) byGroup.set(group.id, following = [])
+    const item = itemIndex.value.byId.get(itemId)
+    if (item) following.push(item)
+  }
+  return byGroup
+})
+const activitySummaries = computed(() => {
+  const summaries = new Map()
+  for (const group of activityGroupInfo.value.values()) {
+    if (!summaries.has(group.id)) summaries.set(group.id, computeActivityGroupSummary(group))
+  }
+  return summaries
+})
 function getActivityGroupSummary(group) {
+  return activitySummaries.value.get(group.id)
+}
+
+function computeActivityGroupSummary(group) {
   const raw = getActivityGroupSummaryRaw(group)
   let { toolNames, totalThinkingSeconds, isRunning, hasFailed, hasRunningThinking } = raw
 
   // Include trailing thinking from assistant messages that follow this group
-  for (const [itemId, g] of itemsFollowingActivityGroup.value) {
-    if (g.id !== group.id) continue
-    const item = items.value.find(i => i.id === itemId)
-    if (!item) continue
+  for (const item of thinkingItemsByGroup.value.get(group.id) || []) {
     if (isThinkingInProgress(item)) {
       hasRunningThinking = true
       isRunning = true
@@ -3690,18 +3731,19 @@ function getMessageAttachments(item) {
 
 // Cached parse of a user_message's flow-reference header, so the chip row
 // and the remaining-text block don't redo the regex scan three times per
-// render. Keyed by item id + message_text so edits invalidate.
-const parsedMessageCache = new Map<string, { refs: FlowReference[]; text: string }>()
+// render. Track the complete source so same-length edits invalidate, and let
+// old records be collected when history or the current chat changes.
+const parsedMessageCache = new WeakMap<object, { source: string; parsed: { refs: FlowReference[]; text: string } }>()
 function parsedUserMessage(item: any): { refs: FlowReference[]; text: string } {
-  const key = `${item?.id ?? ''}:${(item?.message_text ?? '').length}`
-  let cached = parsedMessageCache.get(key)
-  if (!cached || parsedMessageCache.size > 1000) {
-    if (parsedMessageCache.size > 1000) parsedMessageCache.clear()
-    cached = parseMessageReferences(item?.message_text)
-    parsedMessageCache.set(key, cached)
+  const source = item.message_text || ''
+  let cached = parsedMessageCache.get(item)
+  if (!cached || cached.source !== source) {
+    cached = { source, parsed: parseMessageReferences(source) }
+    parsedMessageCache.set(item, cached)
   }
-  return cached
+  return cached.parsed
 }
+
 function getMessageRefs(item: any): FlowReference[] {
   return parsedUserMessage(item).refs
 }
@@ -3778,7 +3820,7 @@ function escapeHtml(text) {
 }
 
 function tokenClass(kind) {
-  const theme = document.documentElement.getAttribute('data-theme') || 'dark'
+  const theme = resolvedTheme.value
   if (theme === 'light') {
     if (kind === 'string') return 'text-emerald-700'
     if (kind === 'keyword') return 'text-blue-700'
@@ -3828,6 +3870,10 @@ function highlightHtml(code) {
 }
 
 function renderHighlightedCode(code, language = 'text') {
+  return textRenderCache.get(JSON.stringify(['code', resolvedTheme.value, language, code]), () => renderHighlightedCodeUncached(code, language))
+}
+
+function renderHighlightedCodeUncached(code, language = 'text') {
   const lines = escapeHtml(code)
     .split('\n')
     .map((line, index) => {
@@ -3852,6 +3898,10 @@ function parseMediaIdFromHref(href) {
 }
 
 function renderMarkdown(text) {
+  return textRenderCache.get(JSON.stringify(['markdown', resolvedTheme.value, text]), () => renderMarkdownUncached(text))
+}
+
+function renderMarkdownUncached(text) {
   if (!text) return ''
   const renderer = new marked.Renderer()
   renderer.code = (token) => {
@@ -3876,6 +3926,10 @@ function renderMarkdown(text) {
 
 // Split rendered markdown into segments of html and media references
 function parseMarkdownSegments(text) {
+  return textRenderCache.get(JSON.stringify(['segments', resolvedTheme.value, text]), () => parseMarkdownSegmentsUncached(text))
+}
+
+function parseMarkdownSegmentsUncached(text) {
   if (!text) return [{ type: 'html', content: '' }]
   const html = renderMarkdown(text)
   const segments = []

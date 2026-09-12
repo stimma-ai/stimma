@@ -41,8 +41,8 @@
       <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-3 mt-2 compact:mx-4 compact:mt-3">
         <textarea v-no-autocorrect
           ref="textareaRef"
-          :value="modelValue"
-          @input="$emit('update:modelValue', $event.target.value); autoResize()"
+          :value="inputText"
+          @input="setText($event.target.value)"
           :placeholder="placeholder"
           :rows="rows"
           class="chat-input-textarea w-full bg-transparent text-content pl-1 pr-1 pb-2 focus:outline-none resize-none block"
@@ -103,10 +103,10 @@
             <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
           </svg>
         </button>
-        <slot v-else name="actions">
+        <slot v-else name="actions" :text="inputText">
           <button
             @click="$emit('submit')"
-            :disabled="(!modelValue?.trim() && attachments.length === 0) || disabled"
+            :disabled="(!inputText.trim() && attachments.length === 0) || disabled"
             class="w-8 h-8 compact:w-9 compact:h-9 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             title="Send"
           >
@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
 import ChatInputAttachments from './ChatInputAttachments.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
@@ -140,6 +140,10 @@ import { insertNewlineAtCaret } from '../../utils/textInput'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
+  // Optional shared draft: only the composer reads its text during rendering.
+  // The host can read/write it in event handlers without rendering history on
+  // every keystroke. Existing v-model consumers retain their usual behavior.
+  draft: { type: Object, default: null },
   placeholder: { type: String, default: 'Type a message...' },
   rows: { type: Number, default: 2 },
   disabled: { type: Boolean, default: false },
@@ -161,13 +165,14 @@ const scrollWrapRef = ref(null)
 const uploadInputRef = ref(null)
 const dragging = ref(false)
 const voiceBtn = ref(null)
+const inputText = computed(() => props.draft ? props.draft.text : props.modelValue)
+let resizeFrame = null
 
 // Shift+Enter breaks the line (plain Enter submits).
 function insertNewline() {
   const el = textareaRef.value
   if (!el) return
-  emit('update:modelValue', insertNewlineAtCaret(el))
-  nextTick(autoResize)
+  setText(insertNewlineAtCaret(el))
 }
 
 // Space-to-dictate (when empty) + propagate keydown for history nav etc.
@@ -192,12 +197,13 @@ defineExpose({
 // ==================== Voice input ====================
 
 function getText() {
-  return props.modelValue || ''
+  return inputText.value || ''
 }
 
 function setText(text) {
-  emit('update:modelValue', text)
-  nextTick(autoResize)
+  if (props.draft) props.draft.text = text
+  else emit('update:modelValue', text)
+  autoResize()
 }
 
 function focusTextarea() {
@@ -205,6 +211,14 @@ function focusTextarea() {
 }
 
 function autoResize() {
+  if (resizeFrame !== null) return
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = null
+    resizeTextarea()
+  })
+}
+
+function resizeTextarea() {
   const el = textareaRef.value
   const wrap = scrollWrapRef.value
   if (!el) return
@@ -316,6 +330,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (resizeFrame !== null) cancelAnimationFrame(resizeFrame)
   window.removeEventListener('dragend', resetDragging, true)
   window.removeEventListener('drop', resetDragging, true)
 })
@@ -323,4 +338,7 @@ onUnmounted(() => {
 watch(() => props.agentUnavailable, unavailable => {
   if (unavailable) resetDragging()
 })
+
+// Includes programmatic changes (history navigation, send/restore, dictation).
+watch(inputText, autoResize, { flush: 'post' })
 </script>

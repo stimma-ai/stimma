@@ -9,6 +9,7 @@
     "url": "git+https://github.com/stimma-ai/stimma.git"
   },
   "scripts": {
+    "test:chat-performance": "node --test tests/chatPerformance.test.mjs tests/chatPerformance.browser.test.mjs",
     "build:seamless-patch-wasm": "bash scripts/build-seamless-patch-wasm.sh",
     "dev": "vite",
     "build": "vite build",
