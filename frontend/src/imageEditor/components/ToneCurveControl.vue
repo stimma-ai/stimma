@@ -557,7 +557,7 @@ function reset() {
         </label>
       </div>
 
-      <p class="text-[11px] text-content-tertiary">
+      <p v-if="!plotOnly" class="text-[11px] text-content-tertiary">
         Click the graph to add a point. Double-click a point to remove it.
       </p>
     </div>

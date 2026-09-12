@@ -714,12 +714,14 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
   segments is tapped: the grid beneath holds the height of the largest set
   (Detail's four). Different groups and tools may differ in height; only
   the sets a segment row switches between must not.
-- **Large controls take a level.** The tone curve and the color pickers
-  are too tall to share the panel with a grid. Choosing one drills the row
-  one level further: the panel is that control alone at the panel's width
-  with the picture above it, and the row is ‹ plus the control's own cells
-  (the curve's channels, presets and reset; the tool's color wells, so
-  Stroke and Fill swap without leaving). ‹ returns to the grid.
+- **Large controls take a drawer** (`DeckDrawer`). The tone curve and the
+  color pickers are too tall to share the panel with a grid. Choosing one
+  raises a drawer in the deck's place — the picture resizes above it,
+  nothing is covered — holding everything the control needs (the curve's
+  channel segments, plot, numerics, presets and reset; a picker's wells as
+  segments and the picker). Its handle dismisses it by tap or a downward
+  swipe, and the row returns exactly as it was. It is not a level of the
+  row: ‹ in the row always means the row's own level, never a drawer.
 
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 
