@@ -50,8 +50,21 @@
             img-class="w-full h-full object-cover"
             loading="lazy"
           />
-          <span v-else class="text-content-tertiary text-[10px]">{{ tile.status }}</span>
-          <span class="absolute bottom-0 left-0 bg-matte/80 px-1 text-content-secondary text-[10px] font-mono tabular-nums">{{ tile.option }}</span>
+          <!-- Empty slot: a ghost of the tile to come. No ring, no number —
+               just a faint square that breathes while it's pending and fills
+               in when the image lands. Failure is a small red mark; anything
+               else that will never fill is simply a dimmer ghost. -->
+          <span
+            v-else
+            :class="[
+              'absolute inset-0 rounded-media flex items-center justify-center',
+              tile.status === 'pending' ? 'bg-surface-active animate-pulse-soft' : 'bg-surface-hover',
+            ]"
+          >
+            <svg v-if="tile.status === 'error'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="['w-4 h-4', textClass('failed')]">
+              <path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd" />
+            </svg>
+          </span>
         </button>
       </div>
       <button
@@ -69,7 +82,7 @@
 import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { MediaImage } from '../media'
 import ProgressBar from '../ui/ProgressBar.vue'
-import { dotClass } from '../../utils/statusColors'
+import { dotClass, textClass } from '../../utils/statusColors'
 import { progressPreviewTiles } from '../../utils/chatMedia'
 
 const props = defineProps({
