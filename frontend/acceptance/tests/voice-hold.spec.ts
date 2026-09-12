@@ -125,53 +125,24 @@ test.describe('voice input acceptance', () => {
     }
   });
 
-  test('remoted-keyboard hold (press+release pairs) starts dictation', async ({ page }) => {
-    // Deskflow-style KVMs deliver a held key as rapid full press+release
-    // pairs (~25ms apart) instead of down…repeat…up; the chain-grace logic
-    // must treat an unbroken chain as one hold.
+  test('rapid press/release pairs type spaces without starting dictation', async ({ page }) => {
     await page.goto('/browse');
     await waitForShell(page);
-
-    const chat = await createChat(page, 'Voice Hold KVM Chat');
+    const chat = await createChat(page, 'Voice Rapid Spaces Chat');
     await page.goto(`/chat/${chat.id}`);
-
     const input = page.getByRole('textbox', { name: 'Type a message...' });
     await expect(input).toBeVisible({ timeout: 30000 });
     await input.click();
+    const micButton = page.locator('button[title*="Hold to talk"]').first();
+    await expect(micButton).toBeVisible();
 
-    const session = await page.context().newCDPSession(page);
-    const key = {
-      key: ' ',
-      code: 'Space',
-      windowsVirtualKeyCode: 32,
-      nativeVirtualKeyCode: 49,
-    };
-    const pairTimer = setInterval(() => {
-      void (async () => {
-        await session.send('Input.dispatchKeyEvent', { type: 'keyDown', text: ' ', ...key });
-        await session.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
-      })().catch(() => {});
-    }, 25);
-
-    try {
-      await expect
-        .poll(
-          async () =>
-            page.evaluate(() => {
-              const spinner = document.querySelector('button .animate-spin');
-              const buttons = Array.from(document.querySelectorAll('button[title]'));
-              const micChanged = buttons.some((b) => {
-                const t = b.getAttribute('title') || '';
-                return /Downloading voice model|Transcribing|Recording|Lockdown|error/i.test(t);
-              });
-              return Boolean(spinner) || micChanged;
-            }),
-          { timeout: 10000, message: 'press+release chain must trigger start()' },
-        )
-        .toBe(true);
-    } finally {
-      clearInterval(pairTimer);
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(25);
     }
+    await page.waitForTimeout(350);
+    await expect(input).toHaveValue(' '.repeat(20));
+    await expect(micButton).toBeVisible();
   });
 
   test('a single space tap does not start dictation', async ({ page }) => {

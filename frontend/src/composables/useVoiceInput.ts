@@ -245,32 +245,17 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // key-repeat during the hold — the lone space becomes the word separator,
   // and an all-whitespace field is normalized away in start().
   //
-  // Remoted keyboards (Deskflow and similar KVMs) deliver a physical hold as
-  // rapid full press+release pairs (~25ms apart) instead of down…repeat…up,
-  // so a keyup doesn't immediately end the gesture: release is finalized only
-  // after SPACE_CHAIN_GAP_MS with no re-press. A keydown inside that grace
-  // window continues the original hold (and is suppressed so the chain
-  // doesn't type a run of spaces). Real keyboards are unaffected apart from
-  // the imperceptible grace delay on release — a deliberate human double-tap
-  // has a much larger up-to-down gap than the chain window.
+  // Every keyup ends the gesture immediately. Inferring a hold from rapid
+  // press/release pairs also merges normal typing and can swallow spaces.
   const SPACE_HOLD_MS = 250
-  const SPACE_CHAIN_GAP_MS = 80
   let spacePending = false
   let spaceDictating = false
   let spaceTimer: ReturnType<typeof setTimeout> | null = null
-  let spaceChainGraceTimer: ReturnType<typeof setTimeout> | null = null
 
   function clearSpaceTimer() {
     if (spaceTimer != null) {
       clearTimeout(spaceTimer)
       spaceTimer = null
-    }
-  }
-
-  function clearSpaceChainGrace() {
-    if (spaceChainGraceTimer != null) {
-      clearTimeout(spaceChainGraceTimer)
-      spaceChainGraceTimer = null
     }
   }
 
@@ -284,21 +269,18 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   }
 
   function handleInputKeydown(e: KeyboardEvent) {
-    if (e.code !== 'Space' && e.key !== ' ') return
-    if (!supported.value) return
+    if (e.code !== 'Space' && e.key !== ' ') {
+      // Typing another character means this is text entry, even if Space
+      // has not been released yet (overlapping keystrokes).
+      clearSpaceTimer()
+      spacePending = false
+      return
+    }
+    if (!supported.value || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
     if (e.repeat) {
       // Suppress auto-repeat spaces while deciding tap-vs-hold or dictating.
       if (spacePending || spaceDictating) e.preventDefault()
       return
-    }
-    if (spaceChainGraceTimer != null) {
-      // Re-press within the grace window: the previous keyup was a synthetic
-      // repeat, not a release — the original hold (and its timer) continues.
-      clearSpaceChainGrace()
-      if (spacePending || spaceDictating) {
-        e.preventDefault()
-        return
-      }
     }
     if (state.value !== 'idle') return
     spacePending = true
@@ -317,11 +299,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   function handleInputKeyup(e: KeyboardEvent) {
     if (e.code !== 'Space' && e.key !== ' ') return
     if (!spacePending && !spaceDictating) return
-    clearSpaceChainGrace()
-    spaceChainGraceTimer = setTimeout(() => {
-      spaceChainGraceTimer = null
-      finalizeSpaceRelease()
-    }, SPACE_CHAIN_GAP_MS)
+    finalizeSpaceRelease()
   }
 
   /** Abort without committing (best effort). */
@@ -331,7 +309,6 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     }
     stopKeepalive()
     clearSpaceTimer()
-    clearSpaceChainGrace()
     spacePending = false
     spaceDictating = false
     if (state.value === 'recording') {
@@ -349,13 +326,13 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // these don't fire, the Rust lease still catches it; this just makes it
   // immediate.)
   function onWindowBlur() {
-    if (state.value === 'recording') void cancel('window-blur')
+    if (state.value === 'recording' || spacePending || spaceDictating) void cancel('window-blur')
   }
   function onVisibilityChange() {
-    if (document.hidden && state.value === 'recording') void cancel('visibility-hidden')
+    if (document.hidden && (state.value === 'recording' || spacePending || spaceDictating)) void cancel('visibility-hidden')
   }
   function onPageHide() {
-    if (state.value === 'recording') void cancel('page-hide')
+    if (state.value === 'recording' || spacePending || spaceDictating) void cancel('page-hide')
   }
 
   onMounted(() => {
