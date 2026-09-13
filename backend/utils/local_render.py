@@ -260,7 +260,7 @@ def inline_bundle_html(bundle_dir):
         key = posixpath.normpath(posixpath.join(parent, name.lstrip('/')))
         if key not in assets or key in seen:
             return name
-        mime = mimetypes.guess_type(key)[0] or 'application/octet-stream'
+        mime = {'.ttf':'font/ttf', '.otf':'font/otf', '.woff':'font/woff', '.woff2':'font/woff2'}.get(Path(key).suffix) or mimetypes.guess_type(key)[0] or 'application/octet-stream'
         data = assets[key]
         if key.endswith('.css'):
             css = base64.b64decode(data).decode('utf-8')
