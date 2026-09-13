@@ -215,7 +215,7 @@ class LocalRenderer:
                 await self.close()
                 if isinstance(exc, (asyncio.CancelledError, LayoutRenderUnavailable, LayoutRenderFailed)):
                     raise
-                raise LayoutRenderFailed('Local rendering failed or exceeded its deadline') from exc
+                raise LayoutRenderFailed('Local rendering failed or exceeded its deadline: ' + self.stderr_tail.decode(errors='replace')[-2000:]) from exc
         finally:
             self.waiting -= 1
             if acquired:

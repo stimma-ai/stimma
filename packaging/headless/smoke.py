@@ -125,7 +125,8 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
             raise RuntimeError('Container did not become ready')
         try:
             docker('volume', 'create', volume)
-            docker('run', '-d', '--name', name, '--network', 'host', '-v', f'{volume}:/data',
+            docker('run', '-d', '--name', name, '--network', 'host',
+                '--security-opt', f'seccomp={ROOT / "packaging/headless/render-seccomp.json"}', '-v', f'{volume}:/data',
                    '-v', f'{root}/test.pub:/opt/stimma/updater.pub:ro', '-v', f'{cert}:/opt/stimma/test-ca.pem:ro',
                    '-e', 'SSL_CERT_FILE=/opt/stimma/test-ca.pem', '-e', f'STIMMA_UPDATE_BASE_URL={base}',
                    '-e', f'STIMMA_CLOUD_BASE_URL={base}', '-e', f'STIMMA_LOCAL_PORT={port}', '-e', f"BRANCH={manifest['branch']}", image)

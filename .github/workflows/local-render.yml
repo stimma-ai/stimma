@@ -34,6 +34,11 @@ jobs:
       - name: Linux browser libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2t64 xvfb
+      - name: Configure Electron sandbox helper
+        if: runner.os == 'Linux'
+        run: |
+          sudo chown root:root electron/node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 electron/node_modules/electron/dist/chrome-sandbox
       - name: Linux captures
         if: runner.os == 'Linux'
         run: xvfb-run -a tools/stimma render-test

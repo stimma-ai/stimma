@@ -1206,10 +1206,8 @@ async def _generate_layout_preview(
     re-raise instead of collapsing to ``None`` so callers can tell a transient
     miss (retry later) apart from a genuine render failure.
 
-    ``size`` is the longest-side target for the returned image. We render at a
-    dpr scaled to that target rather than a fixed 2x — a full-res canvas of a
-    large layout is dramatically slower to rasterize (WebKit's foreignObject
-    filter path) for no benefit when we're only going to downscale to ``size``.
+    ``size`` is the longest-side target. Scale the browser capture to avoid
+    rasterizing a full-resolution canvas only to downsample it immediately.
     """
     from pathlib import Path as PathLib
 
@@ -1317,13 +1315,13 @@ async def _generate_svg_preview(
 # Formats rasterized asynchronously by the private local browser worker.
 BROWSER_RENDERED_FORMATS = {'stimmalayout', 'svg'}
 
-# Result of an on-demand browser-rendered thumbnail. "transient" means the UI
-# renderer was busy or not yet connected — the same content will render fine
+# Result of an on-demand browser-rendered thumbnail. "transient" means the local
+# renderer was busy or unavailable — the same content will render fine
 # moments later, so the caller should tell the client to retry rather than
 # surface a hard error.
-UI_THUMB_OK = "ok"
-UI_THUMB_TRANSIENT = "transient"
-UI_THUMB_FAILED = "failed"
+BROWSER_THUMB_OK = "ok"
+BROWSER_THUMB_TRANSIENT = "transient"
+BROWSER_THUMB_FAILED = "failed"
 
 # Bump when the vector-thumbnail grounding or rasterization below changes.
 # Scoped to SVG in the cache key so it does not invalidate the rest of the
@@ -1351,7 +1349,7 @@ async def _generate_browser_thumbnail_to_cache(
 ) -> str:
     """Render a layout bundle or SVG document and cache the thumbnail.
 
-    Returns one of ``UI_THUMB_{OK,TRANSIENT,FAILED}``. ``TRANSIENT`` means the
+    Returns one of ``BROWSER_THUMB_{OK,TRANSIENT,FAILED}``. ``TRANSIENT`` means the
     local render slot was momentarily unavailable (e.g. right after the
     document is created, while the agent is still rendering) — retrying shortly
     will succeed. We wait a little longer here than the agent-vision path since
@@ -1387,9 +1385,9 @@ async def _generate_browser_thumbnail_to_cache(
                 raise_transient=True,
             )
     except (LayoutRenderBusy, LayoutRenderUnavailable):
-        return UI_THUMB_TRANSIENT
+        return BROWSER_THUMB_TRANSIENT
     if img is None:
-        return UI_THUMB_FAILED
+        return BROWSER_THUMB_FAILED
     if is_svg:
         if img.mode != 'RGBA':
             img = img.convert('RGBA')
@@ -1404,7 +1402,7 @@ async def _generate_browser_thumbnail_to_cache(
         if img.mode not in ('RGB',):
             img = img.convert('RGB')
         _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
-    return UI_THUMB_OK
+    return BROWSER_THUMB_OK
 
 
 def _atomic_save(img: Image.Image, cache_path: Path, format: str, **kwargs):
@@ -2287,7 +2285,7 @@ async def get_thumbnail(
         browser_render_status = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
         )
-        success = browser_render_status == UI_THUMB_OK
+        success = browser_render_status == BROWSER_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         try:
@@ -2332,7 +2330,7 @@ async def get_thumbnail(
         if cache_path_jpg.exists():
             await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
-        if browser_render_status == UI_THUMB_TRANSIENT:
+        if browser_render_status == BROWSER_THUMB_TRANSIENT:
             # local renderer was busy/unconnected — the same layout will render
             # fine shortly. Signal a retry instead of a hard failure so the
             # client refetches rather than showing a permanent broken image.
@@ -2890,7 +2888,7 @@ async def get_thumbnail_by_db_guid(
         browser_render_status = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
         )
-        success = browser_render_status == UI_THUMB_OK
+        success = browser_render_status == BROWSER_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         try:
@@ -2935,7 +2933,7 @@ async def get_thumbnail_by_db_guid(
         if cache_path_jpg.exists():
             await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
-        if browser_render_status == UI_THUMB_TRANSIENT:
+        if browser_render_status == BROWSER_THUMB_TRANSIENT:
             # local renderer momentarily busy/unconnected — retryable, not a hard
             # failure. Client should refetch rather than show a broken image.
             raise HTTPException(
@@ -3241,7 +3239,7 @@ async def get_thumbnail_path_by_media_id(
     if file_format.lower() in BROWSER_RENDERED_FORMATS:
         success = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
-        ) == UI_THUMB_OK
+        ) == BROWSER_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         try:
