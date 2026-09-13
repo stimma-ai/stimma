@@ -335,7 +335,7 @@ struct StimmaWebView: UIViewRepresentable {
         func restoreTerminatedPageIfReady() {
             guard pageNeedsReload, isCurrentOrigin,
                   UIApplication.shared.applicationState == .active,
-                  model.connectionState == "ready" else { return }
+                  connectionScreen ? model.transport?.isListening == true : model.connectionState == "ready" else { return }
             pageNeedsReload = false
             webView?.reload()
         }

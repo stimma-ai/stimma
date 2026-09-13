@@ -251,6 +251,8 @@ final class MobileTransport: @unchecked Sendable {
         self.shellFrontend = (shellFrontend ?? frontend).resolvingSymlinksInPath().standardizedFileURL
     }
 
+    var isListening: Bool { queue.sync { listener?.state == .ready } }
+
     func start() async throws -> URL {
         // cancel() is asynchronous. Wait for the old listener's cancellation
         // callback before rebinding its port, including rapid background/resume.

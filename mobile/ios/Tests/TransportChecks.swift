@@ -34,7 +34,9 @@ struct TransportChecks {
         try await check("/library", status: 200)
         for _ in 0..<3 {
             transport.suspend()
+            precondition(!transport.isListening)
             let resumedOrigin = try await transport.start()
+            precondition(transport.isListening)
             precondition(resumedOrigin == origin, "Resume must preserve the WebView origin")
             try await check("/library", status: 200)
             try await check("/", status: 403, authorized: false)
