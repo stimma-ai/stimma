@@ -1,0 +1,202 @@
+"""App icon output checked against the platform rules, transcribed from vendor docs.
+
+The tables live here independently of the recipe, so a typo or a dropped size
+in the recipe fails a test instead of reaching someone's app submission. These
+checks are what you can do without building an app; `xcrun actool` on a Mac is
+the step beyond them.
+"""
+
+from __future__ import annotations
+
+import json
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+import pytest
+from PIL import Image, ImageDraw
+
+from packages.recipes import ResolvedInput, describe_file, get_recipe, run_recipe
+from packages.manifest import sha256_file
+
+# Apple: every (idiom, size, scale) an iOS AppIcon set is expected to carry.
+# Transcribed from the asset catalog format, not from the recipe.
+APPLE_IOS_ENTRIES = {
+    ("iphone", "20x20", "2x"), ("iphone", "20x20", "3x"),
+    ("iphone", "29x29", "2x"), ("iphone", "29x29", "3x"),
+    ("iphone", "40x40", "2x"), ("iphone", "40x40", "3x"),
+    ("iphone", "60x60", "2x"), ("iphone", "60x60", "3x"),
+    ("ipad", "20x20", "1x"), ("ipad", "20x20", "2x"),
+    ("ipad", "29x29", "1x"), ("ipad", "29x29", "2x"),
+    ("ipad", "40x40", "1x"), ("ipad", "40x40", "2x"),
+    ("ipad", "76x76", "2x"), ("ipad", "83.5x83.5", "2x"),
+    ("ios-marketing", "1024x1024", "1x"),
+}
+
+# Android: launcher px per density bucket, and the adaptive layer canvas.
+# Both adaptive layers are 108dp at every density; the launcher icon is 48dp.
+ANDROID_LAUNCHER_PX = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+ANDROID_ADAPTIVE_PX = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
+
+
+def _master(path: Path, size: int = 1200) -> Path:
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse((size * 0.1, size * 0.1, size * 0.9, size * 0.9), fill=(20, 120, 200, 255))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, format="PNG")
+    return path
+
+
+def _resolved(role: str, path: Path) -> ResolvedInput:
+    return ResolvedInput(role=role, path=path, hash=sha256_file(path), **describe_file(path))
+
+
+@pytest.fixture
+async def icons(tmp_path):
+    out = tmp_path / "out"
+    await run_recipe(
+        get_recipe("app-icons"),
+        {"master": _resolved("master", _master(tmp_path / "master.png"))},
+        {"platforms": ["ios", "android", "macos", "windows", "web"], "app_name": "Acme"},
+        out,
+        slug="acme",
+    )
+    return out
+
+
+@pytest.mark.asyncio
+async def test_ios_catalog_covers_every_apple_entry(icons):
+    catalog = json.loads((icons / "ios/AppIcon.appiconset/Contents.json").read_text())
+    present = {(e["idiom"], e["size"], e["scale"]) for e in catalog["images"]}
+    assert present == APPLE_IOS_ENTRIES
+
+
+@pytest.mark.asyncio
+async def test_ios_files_exist_at_exactly_size_times_scale(icons):
+    catalog = json.loads((icons / "ios/AppIcon.appiconset/Contents.json").read_text())
+    for entry in catalog["images"]:
+        assert "filename" in entry, f"{entry} has no file"
+        path = icons / "ios/AppIcon.appiconset" / entry["filename"]
+        assert path.is_file(), f"{entry['filename']} missing"
+        want = round(float(entry["size"].split("x")[0]) * float(entry["scale"].rstrip("x")))
+        with Image.open(path) as img:
+            assert img.size == (want, want), f"{entry['filename']} is {img.size}, want {want}"
+
+
+@pytest.mark.asyncio
+async def test_app_store_icon_has_no_alpha(icons):
+    """Apple rejects an App Store icon with an alpha channel."""
+    store = icons / "ios/acme-appstore-1024.png"
+    with Image.open(store) as img:
+        assert img.size == (1024, 1024)
+        assert "A" not in img.mode and "transparency" not in img.info
+
+
+@pytest.mark.asyncio
+async def test_android_adaptive_foreground_is_a_108dp_canvas(icons):
+    """Both adaptive layers are 108dp at every density, not the launcher size.
+
+    Shipping the foreground at the launcher size makes the system scale it up
+    and pushes artwork into the ring the launcher mask crops.
+    """
+    for density, launcher_px in ANDROID_LAUNCHER_PX.items():
+        with Image.open(icons / f"android/mipmap-{density}/ic_launcher.png") as legacy:
+            assert legacy.size == (launcher_px, launcher_px)
+        with Image.open(icons / f"android/mipmap-{density}/ic_launcher_foreground.png") as fg:
+            want = ANDROID_ADAPTIVE_PX[density]
+            assert fg.size == (want, want), f"{density} foreground is {fg.size}, want {want}"
+
+
+@pytest.mark.asyncio
+async def test_android_resources_resolve(icons):
+    """Every resource ic_launcher.xml points at has to exist."""
+    root = ET.fromstring((icons / "android/mipmap-anydpi-v26/ic_launcher.xml").read_text())
+    ns = "{http://schemas.android.com/apk/res/android}"
+    refs = {child.tag: child.attrib[f"{ns}drawable"] for child in root}
+    assert refs["foreground"] == "@mipmap/ic_launcher_foreground"
+    assert refs["background"] == "@color/ic_launcher_background"
+    colors = ET.fromstring((icons / "android/values/ic_launcher_background.xml").read_text())
+    assert {c.attrib["name"] for c in colors} == {"ic_launcher_background"}
+    for density in ANDROID_LAUNCHER_PX:
+        assert (icons / f"android/mipmap-{density}/ic_launcher_foreground.png").is_file()
+
+
+@pytest.mark.asyncio
+async def test_containers_carry_the_expected_sizes(icons):
+    with Image.open(icons / "windows/acme-windows.ico") as ico:
+        assert {s[0] for s in ico.info["sizes"]} >= {16, 24, 32, 48, 64, 128, 256}
+    with Image.open(icons / "web/favicon.ico") as fav:
+        assert {s[0] for s in fav.info["sizes"]} == {16, 32, 48}
+    with Image.open(icons / "macos/acme-macos.icns") as icns:
+        assert icns.size[0] >= 512
+
+
+@pytest.mark.asyncio
+async def test_web_manifest_points_at_files_that_exist(icons):
+    manifest = json.loads((icons / "web/site.webmanifest").read_text())
+    assert manifest["name"] == "Acme"
+    for entry in manifest["icons"]:
+        # Manifest srcs are site-root absolute; the files ship beside it.
+        assert (icons / "web" / Path(entry["src"]).name).is_file()
+        px = int(entry["sizes"].split("x")[0])
+        with Image.open(icons / "web" / Path(entry["src"]).name) as img:
+            assert img.size == (px, px)
+
+
+# Vector masters --------------------------------------------------------------
+
+SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">' \
+      '<circle cx="256" cy="256" r="240" fill="#0a84ff"/></svg>'
+
+
+@pytest.mark.asyncio
+async def test_vector_master_is_rendered_natively_at_every_size(tmp_path):
+    """A vector is drawn at each output size, never resampled from one render."""
+    svg = tmp_path / "mark.svg"
+    svg.write_text(SVG)
+    asked: list[int] = []
+
+    async def renderer(given: ResolvedInput, size: int) -> bytes:
+        asked.append(size)
+        import io
+
+        img = Image.new("RGBA", (size, size), (10, 132, 255, 255))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    out = tmp_path / "out"
+    await run_recipe(
+        get_recipe("app-icons"),
+        {"master": _resolved("master", svg)},
+        {"platforms": ["ios"]},
+        out,
+        slug="acme",
+        renderer=renderer,
+    )
+    catalog = json.loads((out / "ios/AppIcon.appiconset/Contents.json").read_text())
+    wanted = {round(float(e["size"].split("x")[0]) * float(e["scale"].rstrip("x"))) for e in catalog["images"]}
+    assert wanted <= set(asked), f"sizes never rendered natively: {sorted(wanted - set(asked))}"
+
+
+@pytest.mark.asyncio
+async def test_non_square_vector_is_rejected_like_a_non_square_raster(tmp_path):
+    """Shape constraints have to apply to vectors too, or a wide logo silently letterboxes."""
+    from packages.recipes import RecipeError
+
+    svg = tmp_path / "wide.svg"
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><rect width="300" height="80"/></svg>')
+    with pytest.raises(RecipeError, match="square"):
+        await run_recipe(get_recipe("app-icons"), {"master": _resolved("master", svg)}, {}, tmp_path / "o")
+
+
+@pytest.mark.asyncio
+async def test_vector_without_a_renderer_says_so(tmp_path):
+    from packages.recipes import RecipeError
+
+    svg = tmp_path / "mark.svg"
+    svg.write_text(SVG)
+    with pytest.raises(RecipeError, match="renderer"):
+        await run_recipe(
+            get_recipe("app-icons"), {"master": _resolved("master", svg)},
+            {"platforms": ["web"]}, tmp_path / "o",
+        )

@@ -63,10 +63,11 @@ def test_builtin_recipes_are_listed():
     assert {"app-icons", "logo", "key-art-crops"} <= ids
 
 
-def test_app_icons_recipe_builds_xcode_tree(tmp_path):
+@pytest.mark.asyncio
+async def test_app_icons_recipe_builds_xcode_tree(tmp_path):
     _write_icon(tmp_path / "master.png")
     spec = get_recipe("app-icons")
-    result = run_recipe(spec, {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios", "web"]}, tmp_path / "out", slug="acme")
+    result = await run_recipe(spec, {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios", "web"]}, tmp_path / "out", slug="acme")
     paths = {f.path for f in result.files}
     assert "ios/AppIcon.appiconset/Contents.json" in paths
     assert "ios/AppIcon.appiconset/icon-1024.png" in paths
@@ -76,21 +77,23 @@ def test_app_icons_recipe_builds_xcode_tree(tmp_path):
     assert "ios/acme-appstore-1024.png" in paths  # free name through the naming template
 
 
-def test_app_icons_rejects_non_square(tmp_path):
+@pytest.mark.asyncio
+async def test_app_icons_rejects_non_square(tmp_path):
     img = Image.new("RGBA", (1200, 800), (255, 0, 0, 255))
     img.save(tmp_path / "wide.png")
     spec = get_recipe("app-icons")
     with pytest.raises(RecipeError, match="square"):
-        run_recipe(spec, {"master": _resolved("master", tmp_path / "wide.png")}, {}, tmp_path / "out")
+        await run_recipe(spec, {"master": _resolved("master", tmp_path / "wide.png")}, {}, tmp_path / "out")
 
 
-def test_builtin_recipes_are_deterministic(tmp_path):
+@pytest.mark.asyncio
+async def test_builtin_recipes_are_deterministic(tmp_path):
     _write_icon(tmp_path / "master.png")
     hero = Image.new("RGB", (2400, 1600), (200, 80, 40))
     hero.save(tmp_path / "hero.jpg", quality=90)
-    assert check_determinism(get_recipe("app-icons"), {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios"]}) == []
-    assert check_determinism(get_recipe("key-art-crops"), {"master": _resolved("master", tmp_path / "hero.jpg")}, {"aspects": ["16x9", "1x1"]}) == []
-    assert check_determinism(get_recipe("logo"), {"primary": _resolved("primary", tmp_path / "master.png")}, {"png_widths": ["512"]}) == []
+    assert await check_determinism(get_recipe("app-icons"), {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios"]}) == []
+    assert await check_determinism(get_recipe("key-art-crops"), {"master": _resolved("master", tmp_path / "hero.jpg")}, {"aspects": ["16x9", "1x1"]}) == []
+    assert await check_determinism(get_recipe("logo"), {"primary": _resolved("primary", tmp_path / "master.png")}, {"png_widths": ["512"]}) == []
 
 
 def test_naming_templates():

@@ -60,8 +60,8 @@ def crop_to_aspect(img: Image.Image, aw: int, ah: int, fx: float, fy: float) -> 
               default="{slug}-{aspect}-{width}x{height}"),
     ],
 )
-def build(b: Build) -> None:
-    master = b.image("master")
+async def build(b: Build) -> None:
+    master = await b.image("master")
     fmt = b.params.format
     for aspect in b.params.aspects:
         aw, ah = ASPECTS[aspect]

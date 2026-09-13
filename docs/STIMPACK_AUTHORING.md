@@ -233,15 +233,15 @@ from packages.recipes import recipe, Input, Param, Build, png_bytes, fit_square
 @recipe(
     id="social-kit", version=1, display_name="Social kit",
     description="Avatar and banner sizes for the usual networks from one mark",
-    inputs=[Input("mark", kind="image", square=True, min_size=512, raster=(1024,))],
+    inputs=[Input("mark", kind="image", square=True, min_size=512)],
     params=[
         Param("background", type="color", default="#FFFFFF"),
         Param("naming", type="naming", fields=["slug", "network", "size"], default="{slug}-{network}-{size}"),
     ],
 )
-def build(b: Build) -> None:
-    mark = b.image("mark", size=1024)
+async def build(b: Build) -> None:
     for network, size in (("x", 400), ("mastodon", 400), ("linkedin", 400)):
+        mark = await b.image("mark", size=size)
         b.derive(b.name(ext="png", slug=b.slug, network=network, size=size),
                  png_bytes(fit_square(mark, size, background=b.params.background)), source="mark")
 ```
@@ -253,9 +253,15 @@ Rules:
   bytes; a recipe that differs is rejected. Judgment goes in params, which the
   package records so rebuilds replay them.
 - **Inputs are validated for you** from the `Input` declarations (`kind`,
-  `square`, `min_size`, `alpha`). Vector inputs are pre-rendered at the
-  `raster` sizes you declare, so `b.image(role, size=...)` always returns a
-  PIL image and the recipe stays synchronous.
+  `square`, `min_size`, `alpha`). Shape rules apply to vectors as well as
+  rasters; `min_size` and `alpha` are raster-only, since a vector has no pixel
+  ceiling and is transparent where it draws nothing.
+- **Ask for pixels at the size you are about to write**: `await b.image(role,
+  size=N)`. A vector is rendered natively at N — every size is its own render,
+  which is the point of vector artwork — while a raster comes back as-is for
+  you to resample. How a vector becomes pixels is the framework's problem, so
+  a recipe never declares render sizes and never learns which engine drew it.
+  `build` may be sync or async; it has to be async to await `b.image`.
 - **Free names go through `b.name(...)`** (the `naming` param the user can set);
   platform-fixed names (`Contents.json`, `mipmap-*`) are written with
   `fixed=True` and never renamed.

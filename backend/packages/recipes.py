@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import inspect
 import io
 import json
 import platform
@@ -32,9 +33,9 @@ import re
 import shutil
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Protocol
 
 from PIL import Image
 
@@ -69,8 +70,9 @@ class Input:
     """One declared input role.
 
     ``kind``: ``image`` (raster or vector), ``raster``, ``vector``, ``video``,
-    ``file``. ``raster`` sizes are the pixel sizes at which a vector input is
-    pre-rendered before ``build`` runs, so recipes stay synchronous and pure.
+    ``file``. A recipe asks for pixels with ``await b.image(role, size)``; how
+    a vector becomes pixels at that size is the framework's problem, not the
+    recipe's, so nothing about rendering is declared here.
     """
     name: str
     kind: str = "image"
@@ -79,12 +81,10 @@ class Input:
     square: bool = False
     min_size: Optional[int] = None
     alpha: Optional[bool] = None
-    raster: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in INPUT_KINDS:
             raise ValueError(f"Input {self.name!r}: kind must be one of {INPUT_KINDS}")
-        self.raster = tuple(int(s) for s in self.raster)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,7 +215,6 @@ class ResolvedInput:
     width: int = 0
     height: int = 0
     has_alpha: Optional[bool] = None
-    rasters: dict[int, Path] = field(default_factory=dict)  # size -> pre-rendered PNG (vector inputs)
     member_id: Optional[str] = None
 
 
@@ -231,7 +230,12 @@ def classify_file(path: Path) -> str:
 
 
 def describe_file(path: Path) -> dict[str, Any]:
-    """Facts the validator needs (dimensions, alpha) for a raster file."""
+    """Facts the validator needs: nominal dimensions and alpha.
+
+    Vectors report their intrinsic size (or viewBox) so shape constraints like
+    ``square`` apply to them the same way they apply to rasters. They have no
+    pixel ceiling, so ``min_size`` does not constrain them.
+    """
     kind = classify_file(path)
     facts: dict[str, Any] = {"kind": kind, "width": 0, "height": 0, "has_alpha": None}
     if kind == "raster":
@@ -243,6 +247,15 @@ def describe_file(path: Path) -> dict[str, Any]:
                 )
         except Exception as exc:  # noqa: BLE001
             raise RecipeError(f"{path.name} is not a readable image: {exc}") from exc
+    elif kind == "vector":
+        try:
+            from utils.svg_doc import intrinsic_size, parse_svg, read_svg_file
+
+            facts["width"], facts["height"] = intrinsic_size(parse_svg(read_svg_file(path)))
+        except Exception as exc:  # noqa: BLE001
+            raise RecipeError(f"{path.name} is not a readable SVG: {exc}") from exc
+        # A vector paints only what it draws; anything it leaves is transparent.
+        facts["has_alpha"] = True
     return facts
 
 
@@ -261,11 +274,14 @@ def validate_inputs(spec: RecipeSpec, inputs: dict[str, ResolvedInput]) -> list[
         if decl.kind in ("raster", "vector", "video") and given.kind != decl.kind:
             problems.append(f"input {decl.name!r} must be a {decl.kind} file")
             continue
-        if given.kind == "raster":
+        # Shape applies to every image, whatever it is made of.
+        if given.kind in ("raster", "vector"):
             if decl.square and given.width != given.height:
                 problems.append(
                     f"input {decl.name!r} must be square; got {given.width}x{given.height}"
                 )
+        if given.kind == "raster":
+            # Only a raster has a pixel ceiling; a vector renders at any size.
             if decl.min_size and min(given.width, given.height) < decl.min_size:
                 problems.append(
                     f"input {decl.name!r} must be at least {decl.min_size}px; got {given.width}x{given.height}"
@@ -274,12 +290,6 @@ def validate_inputs(spec: RecipeSpec, inputs: dict[str, ResolvedInput]) -> list[
                 problems.append(f"input {decl.name!r} must have a transparent background")
             if decl.alpha is False and given.has_alpha:
                 problems.append(f"input {decl.name!r} must be opaque (no alpha channel)")
-        if given.kind == "vector" and decl.raster:
-            missing = [s for s in decl.raster if s not in given.rasters]
-            if missing:
-                problems.append(
-                    f"input {decl.name!r} is a vector and needs renders at {missing}px before the recipe can run"
-                )
     unknown = set(inputs) - {i.name for i in spec.inputs}
     if unknown:
         problems.append(f"unknown input role(s): {', '.join(sorted(unknown))}")
@@ -394,6 +404,17 @@ class _Params:
         return dict(self._data)
 
 
+class VectorRenderer(Protocol):
+    """Renders a vector input to PNG bytes at a given longest-side size.
+
+    Injected by whoever runs the recipe. That it is currently satisfied by the
+    app's browser engine is an implementation detail: recipes ask for pixels at
+    a size and never learn where they came from.
+    """
+
+    async def __call__(self, given: "ResolvedInput", size: int) -> bytes: ...
+
+
 @dataclass
 class WrittenFile:
     path: str
@@ -414,12 +435,14 @@ class Build:
         out_dir: Path,
         *,
         slug: str = "package",
+        renderer: Optional["VectorRenderer"] = None,
     ):
         self.spec = spec
         self._inputs = inputs
         self.params = _Params(params)
         self.out_dir = Path(out_dir)
         self.slug = slug
+        self._renderer = renderer
         self.files: list[WrittenFile] = []
         self._naming: Optional[Naming] = None
         naming_decl = next((p for p in spec.params if p.type == "naming"), None)
@@ -451,20 +474,31 @@ class Build:
     def text(self, role: str) -> str:
         return self.path(role).read_text(encoding="utf-8")
 
-    def image(self, role: str, size: Optional[int] = None) -> Image.Image:
-        """Open a raster input, or the pre-rendered PNG of a vector input.
+    async def image(self, role: str, size: Optional[int] = None) -> Image.Image:
+        """Pixels for ``role``, as good as they can be at ``size``. Always RGBA.
 
-        For vectors, ``size`` picks the declared render; omitted means the
-        largest declared. Always returns RGBA.
+        A vector is rendered natively at ``size`` — every size is its own
+        render, which is the whole reason to author artwork as vector, so a
+        16px icon is drawn at 16px rather than resampled from a large one.
+        A raster has no more detail than it has, so it comes back as-is and
+        the recipe resamples it.
+
+        ``size`` is the target longest side. Omit it only when the role's own
+        size is what you want.
         """
         given = self.input(role)
-        if given.kind == "vector":
-            if not given.rasters:
-                raise RecipeError(f"input {role!r} is a vector with no renders; declare raster sizes on the Input")
-            key = size if size in given.rasters else max(given.rasters)
-            img = Image.open(given.rasters[key])
-        else:
+        if given.kind != "vector":
             img = Image.open(given.path)
+            img.load()
+            return img.convert("RGBA")
+        if size is None:
+            size = max(given.width, given.height) or 1024
+        if self._renderer is None:
+            raise RecipeError(
+                f"input {role!r} is a vector and this run has no renderer available"
+            )
+        png = await self._renderer(given, int(size))
+        img = Image.open(io.BytesIO(png))
         img.load()
         return img.convert("RGBA")
 
@@ -636,24 +670,32 @@ class RunResult:
     cache_key: str
 
 
-def run_recipe(
+async def run_recipe(
     spec: RecipeSpec,
     inputs: dict[str, ResolvedInput],
     params: Optional[dict[str, Any]],
     out_dir: Path,
     *,
     slug: str = "package",
+    renderer: Optional[VectorRenderer] = None,
 ) -> RunResult:
-    """Validate, then build into ``out_dir``. Synchronous; call from a thread."""
+    """Validate, then build into ``out_dir``.
+
+    ``build`` may be sync or async; an async one can await ``b.image`` for
+    natively rendered vector artwork. Determinism is unchanged by that: the
+    same inputs and params still produce the same bytes.
+    """
     problems = validate_inputs(spec, inputs)
     if problems:
         raise RecipeError("; ".join(problems))
     canonical = validate_params(spec, params)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    b = Build(spec, inputs, canonical, out_dir, slug=slug)
+    b = Build(spec, inputs, canonical, out_dir, slug=slug, renderer=renderer)
     try:
-        spec.build(b)
+        outcome = spec.build(b)
+        if inspect.isawaitable(outcome):
+            await outcome
     except RecipeError:
         shutil.rmtree(out_dir, ignore_errors=True)
         raise
@@ -666,8 +708,12 @@ def run_recipe(
     return RunResult(files=b.files, params=canonical, cache_key=cache_key(spec, inputs, canonical))
 
 
-def check_determinism(
-    spec: RecipeSpec, inputs: dict[str, ResolvedInput], params: Optional[dict[str, Any]]
+async def check_determinism(
+    spec: RecipeSpec,
+    inputs: dict[str, ResolvedInput],
+    params: Optional[dict[str, Any]],
+    *,
+    renderer: Optional[VectorRenderer] = None,
 ) -> list[str]:
     """Build twice; return the paths whose bytes differed (empty means deterministic).
 
@@ -676,8 +722,8 @@ def check_determinism(
     """
     problems: list[str] = []
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
-        ra = run_recipe(spec, inputs, params, Path(a))
-        rb = run_recipe(spec, inputs, params, Path(b))
+        ra = await run_recipe(spec, inputs, params, Path(a), renderer=renderer)
+        rb = await run_recipe(spec, inputs, params, Path(b), renderer=renderer)
         ha = {f.path: f.hash for f in ra.files}
         hb = {f.path: f.hash for f in rb.files}
         for path in sorted(set(ha) | set(hb)):
@@ -688,7 +734,7 @@ def check_determinism(
         alt = dict(params or {})
         alt[naming.name] = {"template": "x-" + "-".join("{%s}" % f for f in naming.fields), "case": "snake"}
         with tempfile.TemporaryDirectory() as c:
-            rc = run_recipe(spec, inputs, alt, Path(c))
+            rc = await run_recipe(spec, inputs, alt, Path(c), renderer=renderer)
             fixed_a = {f.path for f in ra.files if f.fixed}
             fixed_c = {f.path for f in rc.files if f.fixed}
             for path in sorted(fixed_a ^ fixed_c):

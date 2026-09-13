@@ -27,6 +27,7 @@ log = get_logger(__name__)
 
 DEFAULT_MAX_ENTRIES = 2000
 DEFAULT_MAX_BYTES = 4 * 1024 ** 3  # 4 GiB
+DEFAULT_MAX_RENDER_BYTES = 512 * 1024 ** 2  # 512 MiB of cached vector renders
 
 
 @dataclass
@@ -153,3 +154,86 @@ def enforce_budget(
 
 def clear(profile_id: str) -> None:
     shutil.rmtree(cache_root(profile_id), ignore_errors=True)
+    shutil.rmtree(render_root(profile_id), ignore_errors=True)
+
+
+# Vector renders -------------------------------------------------------------
+#
+# The same mark at the same size is the same pixels, and rendering goes out to
+# the app's engine over a socket, so these are worth keeping. Content-addressed
+# by (source hash, size): nothing here is the only copy of anything, and a miss
+# costs one render.
+
+def render_root(profile_id: str) -> Path:
+    return app_dirs.get_cache_dir() / "package-renders" / profile_id
+
+
+def _render_path(profile_id: str, source_hash: str, size: int) -> Path:
+    return render_root(profile_id) / source_hash[:2] / source_hash / f"{int(size)}.png"
+
+
+def render_lookup(profile_id: str, source_hash: str, size: int) -> Optional[bytes]:
+    path = _render_path(profile_id, source_hash, size)
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if not data:
+        return None
+    try:
+        os.utime(path, None)  # LRU touch
+    except OSError:
+        pass
+    return data
+
+
+def render_store(profile_id: str, source_hash: str, size: int, png: bytes) -> None:
+    path = _render_path(profile_id, source_hash, size)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".png.tmp")
+    try:
+        tmp.write_bytes(png)
+        os.replace(tmp, path)
+    except OSError as exc:  # noqa: BLE001
+        log.debug(f"could not cache vector render: {exc}")
+        tmp.unlink(missing_ok=True)
+
+
+def render_stats(profile_id: str) -> CacheStats:
+    root = render_root(profile_id)
+    if not root.is_dir():
+        return CacheStats(entries=0, bytes=0, root=str(root))
+    files = [p for p in root.rglob("*.png") if p.is_file()]
+    total = 0
+    for p in files:
+        try:
+            total += p.stat().st_size
+        except OSError:
+            pass
+    return CacheStats(entries=len(files), bytes=total, root=str(root))
+
+
+def enforce_render_budget(profile_id: str, *, max_bytes: int = DEFAULT_MAX_RENDER_BYTES) -> int:
+    """Evict least-recently-used renders until within budget."""
+    root = render_root(profile_id)
+    if not root.is_dir():
+        return 0
+    entries = []
+    for p in root.rglob("*.png"):
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        entries.append((st.st_mtime, st.st_size, p))
+    entries.sort()
+    total = sum(size for _, size, _ in entries)
+    evicted = 0
+    while entries and total > max_bytes:
+        _, size, p = entries.pop(0)
+        try:
+            p.unlink()
+        except OSError:
+            pass
+        total -= size
+        evicted += 1
+    return evicted

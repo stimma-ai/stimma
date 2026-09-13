@@ -16,7 +16,6 @@ from PIL import Image
 from packages.recipes import Build, Input, Param, flatten, png_bytes, recipe
 
 VARIANTS = ("primary", "mark", "wordmark", "stacked")
-RASTER_SIZES = (2048, 1024, 512)
 PNG_WIDTHS = (2048, 1024, 512, 256)
 AVATAR_SIZES = {"social-avatar": 800, "social-avatar-small": 400}
 
@@ -64,10 +63,10 @@ def _avatar(img: Image.Image, size: int, background: str) -> Image.Image:
     display_name="Logo kit",
     description="Logo variants in full color, one-color black and reversed, as SVG/PDF/PNG plus social avatars",
     inputs=[
-        Input("primary", kind="image", raster=RASTER_SIZES, description="Primary lockup on a transparent background"),
-        Input("mark", kind="image", required=False, raster=RASTER_SIZES, description="Icon mark alone"),
-        Input("wordmark", kind="image", required=False, raster=RASTER_SIZES, description="Wordmark alone"),
-        Input("stacked", kind="image", required=False, raster=RASTER_SIZES, description="Stacked or secondary lockup"),
+        Input("primary", kind="image", description="Primary lockup on a transparent background"),
+        Input("mark", kind="image", required=False, description="Icon mark alone"),
+        Input("wordmark", kind="image", required=False, description="Wordmark alone"),
+        Input("stacked", kind="image", required=False, description="Stacked or secondary lockup"),
     ],
     params=[
         Param("black", type="color", default="#111111", description="Ink for the one-color treatment"),
@@ -80,7 +79,7 @@ def _avatar(img: Image.Image, size: int, background: str) -> Image.Image:
               default="{slug}-logo-{variant}-{color}-{size}", description="Template for every free filename"),
     ],
 )
-def build(b: Build) -> None:
+async def build(b: Build) -> None:
     slug = b.slug
     widths = [int(w) for w in b.params.png_widths]
     ink = b.params.black
@@ -100,7 +99,7 @@ def build(b: Build) -> None:
                 data = pdf_target.read_bytes()
                 pdf_target.unlink(missing_ok=True)
                 b.derive(f"{folder}/" + b.name(ext="pdf", slug=slug, variant=variant, color="fullcolor"), data, source=variant)
-        master = b.image(variant)
+        master = await b.image(variant, size=max(widths))
         treatments: dict[str, Image.Image] = {
             "fullcolor": master,
             "black": _one_color(master, black_rgb),
@@ -119,7 +118,7 @@ def build(b: Build) -> None:
                          png_bytes(out), source=variant)
 
     avatar_source = "mark" if b.has("mark") else "primary"
-    avatar_img = b.image(avatar_source)
+    avatar_img = await b.image(avatar_source, size=max(AVATAR_SIZES.values()))
     for label, size in AVATAR_SIZES.items():
         b.derive("social/" + b.name(ext="png", slug=slug, variant=label, color="", size=size),
                  png_bytes(_avatar(avatar_img, size, b.params.avatar_background)), source=avatar_source)

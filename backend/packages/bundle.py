@@ -18,7 +18,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -253,37 +253,52 @@ class PackageBuilder:
             member = self.member(member_id)
             path = Path(member.media.file_path)
             facts = describe_file(path)
-            ri = ResolvedInput(role=role, path=path, hash=member.media.file_hash, member_id=member.id, **facts)
-            decl = spec.input(role)
-            if ri.kind == "vector" and decl is not None and decl.raster:
-                ri.rasters = await self._render_vector(path, member.media.file_hash, decl.raster)
-            resolved[role] = ri
+            resolved[role] = ResolvedInput(
+                role=role, path=path, hash=member.media.file_hash, member_id=member.id, **facts
+            )
         return resolved
 
-    async def _render_vector(self, path: Path, digest: str, sizes: Iterable[int]) -> dict[int, Path]:
-        """Pre-render an SVG at the declared sizes through the UI browser engine."""
-        from utils.svg_doc import intrinsic_size, parse_svg, read_svg_file
-        from utils.ui_render import render_svg_document
+    async def _render_vector(self, given: ResolvedInput, size: int) -> bytes:
+        """Render one vector input at ``size``, natively, memoized by content.
 
-        text = read_svg_file(path)
+        Every size is its own render, so small artwork is drawn small instead
+        of being resampled from a large raster. Renders are cached by (content
+        hash, size) across runs and rebuilds, since the same mark at the same
+        size is the same pixels.
+        """
+        from utils.svg_doc import intrinsic_size, parse_svg, read_svg_file
+        from utils.ui_render import (
+            LayoutRenderBusy,
+            LayoutRenderUnavailable,
+            render_svg_document,
+        )
+
+        size = max(1, int(size))
+        cached = run_cache.render_lookup(self.profile_id, given.hash, size)
+        if cached is not None:
+            return cached
+
+        text = read_svg_file(given.path)
         try:
             w, h = intrinsic_size(parse_svg(text))
         except Exception:  # noqa: BLE001
             w, h = 1, 1
-        out: dict[int, Path] = {}
-        renders = self._scratch / "renders" / digest[:16]
-        renders.mkdir(parents=True, exist_ok=True)
-        for size in sizes:
-            target = renders / f"{size}.png"
-            if not target.exists():
-                if w >= h:
-                    rw, rh = int(size), max(1, int(round(size * h / w)))
-                else:
-                    rw, rh = max(1, int(round(size * w / h))), int(size)
-                png = await render_svg_document(text, rw, rh, wait_for_client_timeout_s=10.0, queue_timeout_s=60.0)
-                target.write_bytes(png)
-            out[int(size)] = target
-        return out
+        if w >= h:
+            rw, rh = size, max(1, int(round(size * h / w)))
+        else:
+            rw, rh = max(1, int(round(size * w / h))), size
+        try:
+            png = await render_svg_document(
+                text, rw, rh, wait_for_client_timeout_s=10.0, queue_timeout_s=60.0
+            )
+        except (LayoutRenderBusy, LayoutRenderUnavailable) as exc:
+            raise RecipeError(
+                "Vector artwork is rendered by the app's own engine, so Stimma has to be "
+                f"open to build this package from {given.path.name}. "
+                "Open Stimma and try again, or use a raster master."
+            ) from exc
+        run_cache.render_store(self.profile_id, given.hash, size, png)
+        return png
 
     async def run(
         self,
@@ -317,7 +332,10 @@ class PackageBuilder:
             out_dir = self._scratch / "runs" / rid
             try:
                 result = await asyncio.wait_for(
-                    asyncio.to_thread(run_recipe, spec, resolved, canonical, out_dir, slug=self.slug),
+                    run_recipe(
+                        spec, resolved, canonical, out_dir,
+                        slug=self.slug, renderer=self._render_vector,
+                    ),
                     timeout=RUN_TIMEOUT_S,
                 )
             except asyncio.TimeoutError as exc:
@@ -532,6 +550,7 @@ class PackageBuilder:
 
         try:
             run_cache.enforce_budget(self.profile_id)
+            run_cache.enforce_render_budget(self.profile_id)
         except Exception as exc:  # noqa: BLE001
             log.warning(f"package run cache budget enforcement failed: {exc}")
 
