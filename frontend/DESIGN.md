@@ -775,3 +775,13 @@ cloud-gradient reservation and `.stimma-cloud-*` treatments; chat bubbles
 scoping; segmented-control height matching rule; the RGB-channel alpha
 convention; `custom-scrollbar` (and the chat-input native-scrollbar
 exception); EXIF/contain-mode behaviors in AppImage.
+
+### File references
+
+File chips use a compact type badge, filename, and mono size with a format
+subtitle. Their hover toolbar floats above the chip; touch actions use the kit
+Sheet. The file-type badge palette is semantic, not interactive: code blue,
+tables green, Markdown purple, archives orange, JSON yellow, images pink.
+`--file-type-*-rgb` tokens in style.css provide the dark and light values;
+selection still uses `selection`, and file actions still use `accent`.
+Read-only code shares the flow editor's syntax palette.

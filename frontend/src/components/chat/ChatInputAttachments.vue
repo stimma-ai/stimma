@@ -1,13 +1,18 @@
 <template>
-  <div v-if="attachments.length > 0" class="chat-attachments flex gap-2 p-2 bg-surface/50 border-b border-edge">
+  <div v-if="attachments.length > 0" class="chat-attachments flex gap-2 overflow-x-auto p-2 bg-surface/50 border-b border-edge">
     <div
       v-for="(attachment, index) in attachments"
       :key="attachment.id || index"
-      class="relative w-16 h-16 bg-matte rounded-media overflow-hidden group flex-shrink-0"
+      class="relative overflow-hidden group flex-shrink-0"
+      :class="attachment.workspace_ref ? 'flex items-center gap-2 min-h-11 max-w-64 pl-2 pr-10 rounded-md bg-surface-raised' : 'w-16 h-16 bg-matte rounded-media'"
     >
       <!-- Library media (has media_id) - draggable with context menu -->
+      <template v-if="attachment.workspace_ref">
+        <FileTypeBadge :name="attachment.filename || attachment.workspace_ref.path" />
+        <span class="text-xs truncate text-content">{{ attachment.filename }}</span>
+      </template>
       <MediaImage
-        v-if="attachment.media_id"
+        v-else-if="attachment.media_id"
         :media-id="attachment.media_id"
         :thumbnail="true"
         :thumbnail-size="128"
@@ -21,19 +26,17 @@
         container-class="w-full h-full"
       />
       <!-- Remove button -->
-      <button
-        @click="removeAttachment(index)"
-        class="absolute top-0.5 right-0.5 w-5 h-5 bg-black/55 backdrop-blur-sm hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content">
-          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-        </svg>
-      </button>
+      <IconButton title="Remove attachment" class="absolute top-0 right-0" @click="removeAttachment(index)">
+        <XMarkIcon class="w-3.5 h-3.5" />
+      </IconButton>
     </div>
   </div>
 </template>
 
 <script setup>
+import FileTypeBadge from './FileTypeBadge.vue'
+import IconButton from '../ui/IconButton.vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { MediaImage, AppImage } from '../media'
 import { getApiBase } from '../../apiConfig'
 import { getCurrentProfileId } from '../../composables/useProfile'

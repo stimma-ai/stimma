@@ -301,6 +301,9 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
             files = metadata["workspace_files"]
             file_list = ", ".join(_workspace_file_note(f) for f in files)
             text += f"\n\n[Attached files in workspace: {file_list}. Use view_image to see them, or media_id for call_tool input_images. media_info(media_id) returns the recorded settings and full ancestor chain.]"
+        if metadata and metadata.get('workspace_refs'):
+            refs = json.dumps(metadata['workspace_refs'], ensure_ascii=False)
+            text += f"\n\n[Attached workspace files: {refs}. Chat paths are relative to your workspace; project paths are relative to stimma.project_path(). Read these files for context.]"
         return {"role": "user", "content": text}
 
     if item.item_type == "assistant_message":

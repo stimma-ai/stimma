@@ -29,12 +29,19 @@
     "test:image-stack": "node --test --experimental-strip-types src/imageEditor/stack/*.test.ts",
     "test:desktop-bridge": "node --test --experimental-strip-types src/desktop/bridge.test.ts",
     "test:terms": "node --test --experimental-strip-types src/utils/terms.test.ts",
-    "test:directory-picker": "node --test --experimental-strip-types src/utils/directoryPicker.test.ts"
+    "test:directory-picker": "node --test --experimental-strip-types src/utils/directoryPicker.test.ts",
+    "test:file-refs": "node --test tests/fileRefs.browser.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",
     "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.3",
     "@codemirror/search": "^6.7.0",
     "@codemirror/state": "^6.6.0",

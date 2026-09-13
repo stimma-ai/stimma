@@ -23,10 +23,14 @@
 
     <!-- Content area: artifact stage (standalone only) + chat column -->
     <div class="flex flex-1 min-h-0 relative">
-      <template v-if="!embedded">
+      <template v-if="!embedded || artifactStage.workspaceFile.value">
         <ArtifactStage
           v-if="artifactStage.stageOpen.value"
           class="compact:absolute compact:inset-0 compact:z-chrome"
+          :workspace-file="artifactStage.workspaceFile.value"
+          :chat-id="chatId"
+          @attach-file="attachWorkspaceFile"
+          @save-file="saveWorkspaceFile"
           :asset="artifactStage.asset.value"
           :revisions="artifactStage.revisions.value"
           :viewed-revision-id="artifactStage.viewedRevisionId.value"
@@ -48,7 +52,7 @@
         />
       </template>
 
-    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="!embedded && artifactStage.stageOpen.value && !isCompact ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
+    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="(!embedded || artifactStage.workspaceFile.value) && artifactStage.stageOpen.value && !isCompact ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
       <!-- Chat + Settings horizontal row -->
       <div class="flex flex-1 min-h-0 relative">
         <!-- Main chat area -->
@@ -508,6 +512,7 @@
                       </svg>
                     </div>
                     <!-- Library media (has media_id) — click opens generation/image details -->
+                    <span v-else-if="attachment.workspace_ref" class="text-xs font-mono p-2 break-all">{{ attachment.filename }}</span>
                     <MediaImage
                       v-else-if="attachment.media_id"
                       :mediaId="attachment.media_id"
@@ -932,6 +937,7 @@
                belonging to this chat's staged asset collapse to a compact
                version chip (Mock A/B) — clicking navigates the stage, or
                reopens it if the user closed it. -->
+          <FileChips v-else-if="item.item_type === 'file_display'" :files="sharedFiles(item)" :chat-id="chatId" :selected="artifactStage.stageOpen.value ? artifactStage.workspaceFile.value : null" @refreshed="refreshStagedFile" @preview="artifactStage.openFile" @attach="attachWorkspaceFile" @save="saveWorkspaceFile" />
           <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) }">
             <ChatItemWrapper
               :class="getStagedItemArtifact(item) ? '' : 'w-full'"
@@ -945,7 +951,7 @@
                 v-if="getStagedItemArtifact(item)"
                 :artifact="getStagedItemArtifact(item)"
                 :revision="artifactStage.findRevision(getStagedItemArtifact(item).revision_id)"
-                :is-current="artifactStage.viewedRevisionId.value === getStagedItemArtifact(item).revision_id"
+                :is-current="!artifactStage.workspaceFile.value && artifactStage.viewedRevisionId.value === getStagedItemArtifact(item).revision_id"
                 :is-latest="artifactStage.latestRevisionId.value === getStagedItemArtifact(item).revision_id"
                 @click="artifactStage.selectFromChip(getStagedItemArtifact(item))"
               />
@@ -1151,6 +1157,7 @@
                   </svg>
                 </div>
                 <!-- Library media (has media_id) -->
+                <span v-else-if="attachment.workspace_ref" class="text-xs font-mono p-2 break-all">{{ attachment.filename }}</span>
                 <MediaImage
                   v-else-if="attachment.media_id"
                   :mediaId="attachment.media_id"
@@ -1182,7 +1189,7 @@
               />
             </div>
             <span v-if="stripQueuedRefs(queuedMsg.text)">{{ stripQueuedRefs(queuedMsg.text) }}</span>
-            <span v-else-if="!queuedMsg.text && queuedMsg.attachments.length > 0" class="italic text-content-muted">Image only</span>
+            <span v-else-if="!queuedMsg.text && queuedMsg.attachments.length > 0" class="italic text-content-muted">Attachment only</span>
             <span v-else-if="!stripQueuedRefs(queuedMsg.text) && parseQueuedRefs(queuedMsg.text).length > 0" class="italic text-content-muted">(references only)</span>
           </div>
           <button
@@ -1428,6 +1435,8 @@ defineOptions({
   name: 'ChatView'
 })
 import MediaDisplay from '../components/chat/MediaDisplay.vue'
+import FileChips from '../components/chat/FileChips.vue'
+import { fileUrl, type WorkspaceFile } from '../utils/fileRefs'
 import ArtifactStage from '../components/chat/ArtifactStage.vue'
 import ArtifactVersionChip from '../components/chat/ArtifactVersionChip.vue'
 import { useArtifactStage, parseArtifactMeta } from '../composables/useArtifactStage'
@@ -1518,6 +1527,25 @@ const items = ref([])
 // and sendMessage). Instantiated unconditionally — cheap when there's no
 // artifact in the chat — so embedded usage never has to special-case it.
 const artifactStage = useArtifactStage(chatId, items)
+function refreshStagedFile(file: WorkspaceFile) {
+  const staged = artifactStage.workspaceFile.value
+  if (staged?.root === file.root && staged?.path === file.path) artifactStage.workspaceFile.value = file
+}
+function sharedFiles(item) {
+  try { const meta = typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata; return meta?.files || [] } catch { return [] }
+}
+async function attachWorkspaceFile(file: WorkspaceFile) {
+  try {
+    const { data } = await axios.post(fileUrl(chatId.value, file, 'attach'), { path: file.path, entry: file.entry, media_id: file.media_id })
+    inputAttachments.value.push({ filename: data.filename, workspace_ref: data })
+  } catch { console.error('Unable to attach workspace file'); addToast('Unable to attach file', 'error') }
+}
+async function saveWorkspaceFile(file: WorkspaceFile) {
+  try {
+    await axios.post(fileUrl(chatId.value, file, 'save'), { path: file.path, entry: file.entry, media_id: file.media_id })
+    addToast('Saved to library', 'success')
+  } catch { addToast('Unable to save file', 'error') }
+}
 const loading = ref(true)
 const loadError = ref(false)
 const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load (404/deleted)
@@ -2122,7 +2150,7 @@ function isInvisiblePassthroughItem(item) {
   if (item.item_type === 'hitl_response') return true
   if (item.item_type === 'hitl_request' && !shouldShowHITLRequest(item)) return true
   // Output items rendered elsewhere but shouldn't break tool call grouping
-  if (item.item_type === 'media_display') return true
+  if (item.item_type === 'media_display' || item.item_type === 'file_display') return true
   if (item.item_type === 'progress_display') return true
   if (item.item_type === 'generated_media') return true
   if (item.item_type === 'grid_generation') return true
@@ -3130,7 +3158,8 @@ function queueMessage() {
   const attachments = inputAttachments.value.map(a => ({
     media_id: a.media_id || null,
     path: a.path || null,
-    filename: a.filename || null
+    filename: a.filename || null,
+    workspace_ref: a.workspace_ref || null
   }))
 
   // Fold any attached flow references into the queued message body. The
@@ -3280,7 +3309,7 @@ async function sendMessage(queuedMessage = null) {
 
   const pendingAttachments = queuedMessage?.attachments || inputAttachments.value
   const model = selectedChatModel.value
-  if (pendingAttachments.length > 0 && modelRejectsImageInput(model)) {
+  if (pendingAttachments.some(a => !a.workspace_ref) && modelRejectsImageInput(model)) {
     addToast(`${model.name} can't use images. Choose another model.`, 'error')
     if (queuedMessage) messageQueue.value.unshift(queuedMessage)
     return
@@ -3335,7 +3364,8 @@ async function sendMessage(queuedMessage = null) {
     attachments = inputAttachments.value.map(a => ({
       media_id: a.media_id || null,
       path: a.path || null,
-      filename: a.filename || null
+      filename: a.filename || null,
+      workspace_ref: a.workspace_ref || null
     }))
   }
 
@@ -3411,7 +3441,7 @@ async function sendMessage(queuedMessage = null) {
         // Sent while pinned to an older artifact revision: tells the agent
         // which version the user means so an edit branches from there
         // instead of continuing off the latest.
-        artifact_context: (!props.embedded && artifactStage.stageOpen.value && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
+        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
           ? {
               asset_id: artifactStage.assetId.value,
               revision_id: artifactStage.viewedRevisionId.value,

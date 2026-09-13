@@ -2,7 +2,7 @@
 import asyncio
 from core.logging import get_logger
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_, and_, desc, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +51,14 @@ class ChatUpdateRequest(PydanticBaseModel):
     reasoning_effort: Optional[str] = None
 
 
+class WorkspaceAttachmentRef(PydanticBaseModel):
+    root: Literal['chat', 'project'] = 'chat'
+    path: str
+    entry: Optional[str] = None
+
+
 class AttachmentInfo(PydanticBaseModel):
+    workspace_ref: Optional[WorkspaceAttachmentRef] = None
     media_id: Optional[int] = None  # For images from library
     path: Optional[str] = None  # For uploaded files
     filename: Optional[str] = None
@@ -1660,6 +1667,16 @@ async def create_chat_item(
             except json.JSONDecodeError:
                 pass
         metadata_dict["attachments"] = [a.dict() for a in request.attachments]
+        workspace_refs = []
+        from routes.workspace_files import attachment_file
+        for attachment in request.attachments:
+            if attachment.workspace_ref:
+                ref = attachment.workspace_ref
+                workspace_refs.append(await attachment_file(
+                    session, chat_id, ref.root, ref.path, ref.entry,
+                ))
+        if workspace_refs:
+            metadata_dict['workspace_refs'] = workspace_refs
         item_metadata = json.dumps(metadata_dict)
 
     # Create chat item
@@ -2355,36 +2372,14 @@ async def get_workspace_path(
     return {"path": str(workspace)}
 
 
-@router.get("/{chat_id}/workspace/{filename}")
-async def get_workspace_file(
-    chat_id: int,
-    filename: str,
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Serve a file from the chat's workspace directory."""
-    from fastapi.responses import FileResponse
-    from agent.v2.workspace import get_workspace_dir
+from routes.workspace_files import router as workspace_files_router
+router.include_router(workspace_files_router)
 
-    # Security: reject path traversal
-    if "/" in filename or "\\" in filename or ".." in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
 
-    # Verify chat exists
-    result = await session.execute(select(Chat).where(Chat.id == chat_id))
-    chat = result.scalar_one_or_none()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-
-    workspace = get_workspace_dir(chat_id, chat.project_id)
-    file_path = workspace / filename
-
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # Guess content type
-    import mimetypes
-    content_type, _ = mimetypes.guess_type(filename)
-    return FileResponse(file_path, media_type=content_type or "application/octet-stream")
+@router.get("/{chat_id}/workspace/{filename:path}")
+async def get_workspace_file(chat_id: int, filename: str, session: AsyncSession = Depends(get_db_session)):
+    from routes.workspace_files import file_content
+    return await file_content(chat_id, 'chat', filename, session=session)
 
 
 async def _cleanup_stale_v2_items(
