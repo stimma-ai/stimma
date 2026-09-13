@@ -63,12 +63,10 @@ def present(run: dict, manifest: dict) -> str:
         for key in (run.get("params") or {}).get("platforms") or []
     ]
 
-    out = [kit.section(kit.hero(
-        f'<div class="sp-hero-icon"><img src="{kit.escape(hero_ref)}" alt=""></div>',
-        kit.device(hero_ref, kind="iphone", label=app_name),
-    ))]
+    out = [kit.section(kit.device_pair(hero_ref, app_name), label="On a home screen")]
     if swatches:
         out.append(kit.section(kit.sizes(swatches), label="At actual size"))
+    out.append(kit.section(kit.contexts_markup(hero_ref, app_name), label="Everywhere else it appears"))
     if included:
         out.append(kit.section(kit.columns(included), label="Included"))
     return "".join(out)
@@ -101,10 +99,12 @@ The master does the work: a square mark that still reads at 20px. Thin strokes
 and fine detail disappear at the small end — check the actual-size row before
 calling it done, and simplify the mark rather than the sizes.
 
-`background` is composited behind the artwork wherever a platform forbids
-transparency (iOS, the Play Store icon, the Apple touch icon) and is the
-Android adaptive background layer. Pick it deliberately: a mark drawn for a
-light UI on a white background disappears in a dark dock.
+`background` is the icon's own canvas — composited behind the artwork wherever
+a platform forbids transparency (iOS, the Play Store icon, the Apple touch
+icon) and used as the Android adaptive background layer. Take it from the
+artwork's palette rather than defaulting to white or near-black: an icon is a
+small piece of brand, and a neutral canvas wastes it. The cover shows the
+result on a light and a dark home screen, so check both before settling.
 
 Supply `android_foreground` when the mark needs to sit differently inside
 Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
