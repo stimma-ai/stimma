@@ -990,3 +990,18 @@ license:
 | zvariant_derive | 5.9.2 | MIT | https://github.com/z-galaxy/zbus/ |  |
 | zvariant_utils | 3.3.0 | MIT | https://github.com/z-galaxy/zbus/ |  |
 <!-- END GENERATED: rust -->
+
+## Local document rendering resources
+
+- [Liberation Fonts](https://github.com/liberationfonts/liberation-fonts),
+  bundled in `backend/render_fonts`, provide the default sans, serif and
+  monospace document fonts (regular, bold, italic and bold italic).
+  Licensed under SIL Open Font License 1.1; the full license and copyright
+  notices are included in `backend/render_fonts/LICENSE`.
+- [Playwright](https://github.com/microsoft/playwright) (Apache-2.0) and one
+  [Chromium headless shell](https://www.chromium.org/) (BSD-style and its bundled
+  third-party licenses) are included only in the Linux server image. Desktop
+  rendering reuses Electron. The distributions retain their license files.
+- `packaging/headless/render-seccomp.json` is derived from the
+  [Moby default seccomp profile](https://github.com/moby/profiles/blob/main/seccomp/default.json)
+  (Apache-2.0), with user namespace creation permitted for Chromium's sandbox.

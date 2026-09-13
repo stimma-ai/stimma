@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.12.7 AS uv
 FROM debian:bookworm-slim
-ARG BOOTSTRAP_VERSION=1.0.5
+ARG BOOTSTRAP_VERSION=1.0.6
 ARG BOOTSTRAP_FINGERPRINT=local
 LABEL org.opencontainers.image.title="Stimma Server" \
       org.opencontainers.image.source="https://github.com/stimma-ai/stimma" \
@@ -15,6 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 1000 --create-home stimma \
     && mkdir -p /data /opt/stimma && chown stimma:stimma /data
 COPY --from=uv /uv /uvx /usr/local/bin/
+# One browser only: install the headless shell in a separate bootstrap runtime.
+COPY packaging/headless/render-requirements.txt /opt/stimma/render-requirements.txt
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/stimma/browsers
+RUN uv venv --python /usr/bin/python3 /opt/stimma/render-python \
+    && uv pip install --python /opt/stimma/render-python/bin/python -r /opt/stimma/render-requirements.txt \
+    && /opt/stimma/render-python/bin/python -m playwright install --with-deps --only-shell chromium \
+    && /opt/stimma/render-python/bin/python -m playwright --version > /opt/stimma/render-version \
+    && rm -rf /var/lib/apt/lists/* /root/.cache/uv /opt/stimma/browsers/ffmpeg-*
 COPY packaging/headless/supervisor.py /opt/stimma/supervisor.py
 COPY packaging/headless/updater.pub /opt/stimma/updater.pub
 COPY packaging/headless/stimma-server /usr/local/bin/stimma-server

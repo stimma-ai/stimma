@@ -9,6 +9,7 @@
 
 import { app } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs'
 import { APP_ORIGIN, installAppProtocolHandler, registerAppScheme } from './appProtocol'
 import { shutdownBackend, startBackend } from './backend'
 import { initHelper, shutdownHelper } from './helper'
@@ -35,6 +36,13 @@ import {
 
 // Packaged bundle id is stamped into package.json by the build (electron-
 // builder extraMetadata) and must be read at runtime (see readPackagedMetadata).
+if (process.argv.includes('--stimma-render-worker')) {
+  require(path.join(__dirname, 'render-worker.cjs'))
+} else {
+  startShell()
+}
+
+function startShell() {
 const pkg = readPackagedMetadata(app.getAppPath())
 const PACKAGED_BUNDLE_ID = pkg.stimmaBundleId || 'ai.stimma.stimma.debug'
 
@@ -69,6 +77,15 @@ if (process.argv.includes('--prepare-python-runtime')) {
   log.info('stimma', 'Another instance owns this sandbox; focusing it and exiting.')
   app.exit(0)
 } else {
+  // This is a local installation descriptor, not a network renderer registry.
+  // Retain it after shell exit so a standalone backend can reuse the runtime.
+  fs.mkdirSync(identity.dataDir, {recursive:true})
+  const descriptor = path.join(identity.dataDir, 'render-worker.json')
+  fs.writeFileSync(descriptor + '.tmp', JSON.stringify({
+    command: [app.isPackaged && process.platform === 'linux' && process.env.APPIMAGE ? process.env.APPIMAGE : process.execPath, ...(app.isPackaged ? [] : [app.getAppPath()]), '--stimma-render-worker'],
+    chromium: process.versions.chrome,
+  }), {mode:0o600})
+  fs.renameSync(descriptor + '.tmp', descriptor)
   app.on('second-instance', () => {
     showAllWindows()
   })
@@ -134,4 +151,6 @@ if (process.argv.includes('--prepare-python-runtime')) {
     restoreWindows()
     log.info('stimma', 'Windows restored')
   })
+}
+
 }

@@ -120,15 +120,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         agent_state_manager.request_cancel(chat_id)
                         await ws_manager.send_to(websocket, "agent_cancelled", {"chat_id": chat_id})
 
-                elif message.get("event") == "render_layout_response":
-                    from utils.ui_render import complete_request
-                    data = message.get("data", {})
-                    complete_request(
-                        request_id=data.get("request_id", ""),
-                        png_b64=data.get("png_b64"),
-                        error=data.get("error"),
-                    )
-
             except WebSocketDisconnect:
                 break
             except json.JSONDecodeError:

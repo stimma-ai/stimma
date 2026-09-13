@@ -3114,7 +3114,6 @@ class RasterizeLayoutEvaluator:
             img = await _generate_layout_preview(
                 media.file_path,
                 int(target_width),
-                wait_for_client_timeout_s=5.0,
                 queue_timeout_s=10.0,
                 render_timeout_s=60.0,
             )

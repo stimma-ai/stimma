@@ -1193,19 +1193,16 @@ async def _generate_layout_preview(
     size: int,
     palette=None,
     *,
-    wait_for_client_timeout_s: float = 0.25,
     queue_timeout_s: float = 0.25,
     render_timeout_s: float = 30.0,
     raise_transient: bool = False,
 ) -> Optional[Image.Image]:
-    """Render a .stimmalayout bundle to a PIL image via the connected UI client.
+    """Render a .stimmalayout bundle to a PIL image using the local browser.
 
-    The UI's real browser engine (WKWebView in Tauri, the user's browser
-    elsewhere) does the rasterization over a WebSocket RPC. Returns ``None``
-    on failure, including the timeout-with-no-client case — callers treat
-    that as "thumbnail not available right now" and may retry later.
+    Returns None on failure. The backend owns a private local browser worker;
+    connected frontend clients never participate in thumbnail generation.
 
-    When ``raise_transient`` is set, the "renderer busy / no client yet" cases
+    When ``raise_transient`` is set, the "renderer busy / unavailable" cases
     re-raise instead of collapsing to ``None`` so callers can tell a transient
     miss (retry later) apart from a genuine render failure.
 
@@ -1221,14 +1218,13 @@ async def _generate_layout_preview(
         return None
 
     try:
-        from utils.ui_render import (
+        from utils.document_render import (
             LayoutRenderBusy,
             LayoutRenderUnavailable,
             render_layout_bundle,
         )
         png_bytes, _w, _h = await render_layout_bundle(
             bundle_dir,
-            wait_for_client_timeout_s=wait_for_client_timeout_s,
             render_timeout_s=render_timeout_s,
             queue_timeout_s=queue_timeout_s,
             target_long_side=size,
@@ -1264,14 +1260,13 @@ async def _generate_svg_preview(
     file_path: str,
     size: int,
     *,
-    wait_for_client_timeout_s: float = 0.25,
     queue_timeout_s: float = 0.25,
     render_timeout_s: float = 30.0,
     raise_transient: bool = False,
 ) -> Optional[Image.Image]:
-    """Render an .svg document to a PIL image via the connected UI client.
+    """Render an .svg document to a PIL image using the local browser.
 
-    Same UI-render RPC as layouts, and the same transient-vs-failed contract.
+    Same local browser renderer as layouts, and the same transient-vs-failed contract.
     Alpha is preserved: transparency is the normal state for an icon or logo,
     and flattening it here would be a lie about the document.
     """
@@ -1284,7 +1279,7 @@ async def _generate_svg_preview(
         return None
 
     try:
-        from utils.ui_render import (
+        from utils.document_render import (
             LayoutRenderBusy,
             LayoutRenderUnavailable,
             render_svg_document,
@@ -1301,7 +1296,6 @@ async def _generate_svg_preview(
             svg_text,
             render_w,
             render_h,
-            wait_for_client_timeout_s=wait_for_client_timeout_s,
             render_timeout_s=render_timeout_s,
             queue_timeout_s=queue_timeout_s,
             target_long_side=size * 2,
@@ -1320,11 +1314,10 @@ async def _generate_svg_preview(
         return None
 
 
-# Formats whose thumbnails are rasterized by the connected UI client rather than
-# in the sync thread pool. Both hand HTML to a real browser engine over the WS.
-UI_RENDERED_FORMATS = {'stimmalayout', 'svg'}
+# Formats rasterized asynchronously by the private local browser worker.
+BROWSER_RENDERED_FORMATS = {'stimmalayout', 'svg'}
 
-# Result of an on-demand UI-rendered thumbnail. "transient" means the UI
+# Result of an on-demand browser-rendered thumbnail. "transient" means the UI
 # renderer was busy or not yet connected — the same content will render fine
 # moments later, so the caller should tell the client to retry rather than
 # surface a hard error.
@@ -1336,7 +1329,7 @@ UI_THUMB_FAILED = "failed"
 # Scoped to SVG in the cache key so it does not invalidate the rest of the
 # library. v2: render at the requested thumbnail size instead of the document's
 # own (often tiny) work area.
-SVG_GROUND_VERSION = 2
+SVG_GROUND_VERSION = 3
 
 # Grounds for a vector thumbnail whose ink tone is known. A near-black rather
 # than pure black, so a white mark reads as artwork sitting on a surface instead
@@ -1353,13 +1346,13 @@ def _svg_ink_tone(file_path: str) -> str:
         return "mixed"
 
 
-async def _generate_ui_rendered_thumbnail_to_cache(
+async def _generate_browser_thumbnail_to_cache(
     file_path: str, file_format: str, cache_path: Path, size: int, palette=None,
 ) -> str:
     """Render a layout bundle or SVG document and cache the thumbnail.
 
     Returns one of ``UI_THUMB_{OK,TRANSIENT,FAILED}``. ``TRANSIENT`` means the
-    render slot/UI client was momentarily unavailable (e.g. right after the
+    local render slot was momentarily unavailable (e.g. right after the
     document is created, while the agent is still rendering) — retrying shortly
     will succeed. We wait a little longer here than the agent-vision path since
     a thumbnail GET can afford to block briefly for the slot.
@@ -1374,7 +1367,7 @@ async def _generate_ui_rendered_thumbnail_to_cache(
     chips, grids, boards. Deciding it once, where the thumbnail is made, is what
     keeps every one of those surfaces from having to solve it separately.
     """
-    from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
+    from utils.document_render import LayoutRenderBusy, LayoutRenderUnavailable
 
     is_svg = file_format.lower() == 'svg'
     try:
@@ -1382,7 +1375,6 @@ async def _generate_ui_rendered_thumbnail_to_cache(
             img = await _generate_svg_preview(
                 file_path,
                 size,
-                wait_for_client_timeout_s=2.0,
                 queue_timeout_s=5.0,
                 raise_transient=True,
             )
@@ -1391,7 +1383,6 @@ async def _generate_ui_rendered_thumbnail_to_cache(
                 file_path,
                 size,
                 palette=palette,
-                wait_for_client_timeout_s=2.0,
                 queue_timeout_s=5.0,
                 raise_transient=True,
             )
@@ -1645,9 +1636,9 @@ def _generate_thumbnail_sync(
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
-        if format_lower in UI_RENDERED_FORMATS:
-            # These route through the UI client (async) — callers must dispatch
-            # via _generate_ui_rendered_thumbnail_to_cache, not the sync path.
+        if format_lower in BROWSER_RENDERED_FORMATS:
+            # These route through the local browser (async) — callers must dispatch
+            # via _generate_browser_thumbnail_to_cache, not the sync path.
             log.error(
                 f"{format_lower} dispatched to sync thumbnail path; "
                 "this is a bug in the calling code"
@@ -2015,48 +2006,8 @@ async def get_layout_html(
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Layout index.html not found")
 
-    html_content = index_path.read_text(encoding='utf-8')
-
-    # Inline local file references as data URIs
-    def _inline_ref(src_value):
-        """Convert a local filename to a data URI, or return None to skip."""
-        if src_value.startswith(('data:', 'http://', 'https://')):
-            return None
-        asset_path = bundle_dir / src_value
-        if not asset_path.exists():
-            return None
-        mime_type = mimetypes.guess_type(str(asset_path))[0] or 'application/octet-stream'
-        data = base64.b64encode(asset_path.read_bytes()).decode('ascii')
-        return f'data:{mime_type};base64,{data}'
-
-    # Inline src="..." attributes (img tags etc.)
-    def replace_src(match):
-        attr, quote, src_value = match.group(1), match.group(2), match.group(3)
-        data_uri = _inline_ref(src_value)
-        if data_uri is None:
-            return match.group(0)
-        return f'{attr}={quote}{data_uri}{quote}'
-
-    html_content = re_mod.sub(
-        r'(src)\s*=\s*(["\'])([^"\']+)\2',
-        replace_src,
-        html_content,
-        flags=re_mod.IGNORECASE,
-    )
-
-    # Inline CSS url() references (background-image etc.)
-    def replace_css_url(match):
-        keyword, quote, src_value = match.group(1), match.group(2), match.group(3)
-        data_uri = _inline_ref(src_value)
-        if data_uri is None:
-            return match.group(0)
-        return f'{keyword}({quote}{data_uri}{quote})'
-
-    html_content = re_mod.sub(
-        r'(url)\((["\']?)([^"\')\s]+)\2\)',
-        replace_css_url,
-        html_content,
-    )
+    from utils.local_render import inline_bundle_html
+    html_content = inline_bundle_html(bundle_dir)
 
     from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html_content, headers={'Access-Control-Allow-Origin': '*'})
@@ -2114,40 +2065,8 @@ async def export_layout(
     fmt = request.format.lower()
 
     if fmt == "html":
-        # Return self-contained HTML with inlined assets
-        def _inline_ref(src_value):
-            if src_value.startswith(('data:', 'http://', 'https://')):
-                return None
-            asset_path = bundle_dir / src_value
-            if not asset_path.exists():
-                return None
-            mime_type = mimetypes.guess_type(str(asset_path))[0] or 'application/octet-stream'
-            data = base64.b64encode(asset_path.read_bytes()).decode('ascii')
-            return f'data:{mime_type};base64,{data}'
-
-        def replace_src(match):
-            attr, quote, src_value = match.group(1), match.group(2), match.group(3)
-            data_uri = _inline_ref(src_value)
-            if data_uri is None:
-                return match.group(0)
-            return f'{attr}={quote}{data_uri}{quote}'
-
-        inlined = re_mod.sub(
-            r'(src)\s*=\s*(["\'])([^"\']+)\2',
-            replace_src, html_content, flags=re_mod.IGNORECASE,
-        )
-
-        def replace_css_url(match):
-            keyword, quote, src_value = match.group(1), match.group(2), match.group(3)
-            data_uri = _inline_ref(src_value)
-            if data_uri is None:
-                return match.group(0)
-            return f'{keyword}({quote}{data_uri}{quote})'
-
-        inlined = re_mod.sub(
-            r'(url)\((["\']?)([^"\')\s]+)\2\)',
-            replace_css_url, inlined,
-        )
+        from utils.local_render import inline_bundle_html
+        inlined = inline_bundle_html(bundle_dir)
 
         filename = f"{base_name}.html"
         return StreamingResponse(
@@ -2328,6 +2247,10 @@ async def get_thumbnail(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
+    if fmt_lower in BROWSER_RENDERED_FORMATS:
+        from utils.local_render import renderer_version
+        mtime_suffix += f'_{renderer_version()}'
+
     cache_key = hashlib.md5(f"{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     # Check for cached thumbnail (PNG for transparent images, JPG otherwise)
@@ -2343,7 +2266,7 @@ async def get_thumbnail(
         return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
 
     # Determine if source might have transparency (PNG format)
-    # SVG thumbnails keep their alpha (see _generate_ui_rendered_thumbnail_to_cache)
+    # SVG thumbnails keep their alpha (see _generate_browser_thumbnail_to_cache)
     might_have_alpha = file_format.lower() in ('png', 'svg')
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
@@ -2353,18 +2276,18 @@ async def get_thumbnail(
     # Resolve palette for synthetic thumbnails
     palette = THEME_PALETTES.get(theme, THEME_PALETTES['dark'])
 
-    # Generate thumbnail. Layouts go through the async UI-render path; everything
+    # Generate thumbnail. Layouts go through the async browser-render path; everything
     # else runs in the thread pool.
-    ui_render_status = None
+    browser_render_status = None
     if not _source_path_exists(file_path, file_format):
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
     normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
-    if file_format.lower() in UI_RENDERED_FORMATS:
-        ui_render_status = await _generate_ui_rendered_thumbnail_to_cache(
+    if file_format.lower() in BROWSER_RENDERED_FORMATS:
+        browser_render_status = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
         )
-        success = ui_render_status == UI_THUMB_OK
+        success = browser_render_status == UI_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         try:
@@ -2409,8 +2332,8 @@ async def get_thumbnail(
         if cache_path_jpg.exists():
             await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
-        if ui_render_status == UI_THUMB_TRANSIENT:
-            # UI renderer was busy/unconnected — the same layout will render
+        if browser_render_status == UI_THUMB_TRANSIENT:
+            # local renderer was busy/unconnected — the same layout will render
             # fine shortly. Signal a retry instead of a hard failure so the
             # client refetches rather than showing a permanent broken image.
             raise HTTPException(
@@ -2932,6 +2855,10 @@ async def get_thumbnail_by_db_guid(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
+    if fmt_lower in BROWSER_RENDERED_FORMATS:
+        from utils.local_render import renderer_version
+        mtime_suffix += f'_{renderer_version()}'
+
     cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
@@ -2944,7 +2871,7 @@ async def get_thumbnail_by_db_guid(
         await _record_thumbnail_cache(session, media_id, cache_path_jpg)
         return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
 
-    # SVG thumbnails keep their alpha (see _generate_ui_rendered_thumbnail_to_cache)
+    # SVG thumbnails keep their alpha (see _generate_browser_thumbnail_to_cache)
     might_have_alpha = file_format.lower() in ('png', 'svg')
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
@@ -2954,16 +2881,16 @@ async def get_thumbnail_by_db_guid(
     # Resolve palette for synthetic thumbnails
     palette = THEME_PALETTES.get(theme, THEME_PALETTES['dark'])
 
-    ui_render_status = None
+    browser_render_status = None
     if not _source_path_exists(file_path, file_format):
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
     normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
-    if file_format.lower() in UI_RENDERED_FORMATS:
-        ui_render_status = await _generate_ui_rendered_thumbnail_to_cache(
+    if file_format.lower() in BROWSER_RENDERED_FORMATS:
+        browser_render_status = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
         )
-        success = ui_render_status == UI_THUMB_OK
+        success = browser_render_status == UI_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         try:
@@ -3008,8 +2935,8 @@ async def get_thumbnail_by_db_guid(
         if cache_path_jpg.exists():
             await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
-        if ui_render_status == UI_THUMB_TRANSIENT:
-            # UI renderer momentarily busy/unconnected — retryable, not a hard
+        if browser_render_status == UI_THUMB_TRANSIENT:
+            # local renderer momentarily busy/unconnected — retryable, not a hard
             # failure. Client should refetch rather than show a broken image.
             raise HTTPException(
                 status_code=503,
@@ -3279,6 +3206,10 @@ async def get_thumbnail_path_by_media_id(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
+    if fmt_lower in BROWSER_RENDERED_FORMATS:
+        from utils.local_render import renderer_version
+        mtime_suffix += f'_{renderer_version()}'
+
     cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
@@ -3293,7 +3224,7 @@ async def get_thumbnail_path_by_media_id(
         return {"path": str(cache_path_jpg)}
 
     # Generate thumbnail
-    # SVG thumbnails keep their alpha (see _generate_ui_rendered_thumbnail_to_cache)
+    # SVG thumbnails keep their alpha (see _generate_browser_thumbnail_to_cache)
     might_have_alpha = file_format.lower() in ('png', 'svg')
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
@@ -3307,8 +3238,8 @@ async def get_thumbnail_path_by_media_id(
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
     normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
-    if file_format.lower() in UI_RENDERED_FORMATS:
-        success = await _generate_ui_rendered_thumbnail_to_cache(
+    if file_format.lower() in BROWSER_RENDERED_FORMATS:
+        success = await _generate_browser_thumbnail_to_cache(
             file_path, file_format, cache_path, size, palette=palette,
         ) == UI_THUMB_OK
     else:

@@ -1542,6 +1542,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.exception("error disposing databases")
 
+    from utils.local_render import renderer
+    await renderer.close()
     log.info("shutdown complete")
 
 

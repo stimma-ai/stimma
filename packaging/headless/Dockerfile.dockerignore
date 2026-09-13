@@ -5,3 +5,5 @@
 !packaging/headless/supervisor.py
 !packaging/headless/stimma-server
 !packaging/headless/updater.pub
+
+!packaging/headless/render-requirements.txt

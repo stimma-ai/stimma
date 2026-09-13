@@ -1065,7 +1065,7 @@ class StimmaSDK:
         something other than the deliverable.
         """
         from utils.svg_doc import intrinsic_size, parse_svg
-        from utils.ui_render import render_svg_document
+        from utils.document_render import render_svg_document
 
         text = str(svg)
         if "<svg" not in text:
@@ -1087,7 +1087,6 @@ class StimmaSDK:
             text,
             width,
             height,
-            wait_for_client_timeout_s=10.0,
             queue_timeout_s=30.0,
         )
 

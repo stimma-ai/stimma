@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'packaging/headless/render-requirements.txt'
       - 'packaging/headless/Dockerfile'
       - 'packaging/headless/Dockerfile.dockerignore'
       - 'packaging/headless/supervisor.py'
@@ -38,7 +39,7 @@ jobs:
           test -n "$PUBLIC_KEY"
           printf '%s' "$PUBLIC_KEY" | base64 -d > packaging/headless/updater.pub
           echo "version=$(cat packaging/headless/VERSION)" >> "$GITHUB_OUTPUT"
-          echo "fingerprint=$(cat packaging/headless/Dockerfile packaging/headless/supervisor.py packaging/headless/stimma-server packaging/headless/updater.pub packaging/headless/VERSION | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "fingerprint=$(cat packaging/headless/render-requirements.txt packaging/headless/Dockerfile packaging/headless/supervisor.py packaging/headless/stimma-server packaging/headless/updater.pub packaging/headless/VERSION | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: headless-public-key

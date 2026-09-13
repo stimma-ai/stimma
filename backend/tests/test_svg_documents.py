@@ -304,10 +304,10 @@ class TestFormatRegistration:
 
     def test_svg_thumbnails_never_take_the_sync_path(self):
         """SVG rasterizes through the UI client, so the sync path must refuse it."""
-        from routes.media_files import UI_RENDERED_FORMATS
+        from routes.media_files import BROWSER_RENDERED_FORMATS
 
-        assert "svg" in UI_RENDERED_FORMATS
-        assert "stimmalayout" in UI_RENDERED_FORMATS
+        assert "svg" in BROWSER_RENDERED_FORMATS
+        assert "stimmalayout" in BROWSER_RENDERED_FORMATS
 
     def test_render_box_follows_the_thumbnail_size_not_the_work_area(self):
         """A 24px icon must rasterize at thumbnail size — vector has no native px."""
@@ -691,28 +691,28 @@ class TestRasterizeSvgSandbox:
         from unittest.mock import patch
 
         sdk = self._sdk(tmp_path)
-        with patch("utils.ui_render.render_svg_document", self._fake_renderer(True)):
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(True)):
             assert (await sdk.rasterize_svg(self.SVG, width=16)).size == (16, 8)
 
     async def test_defaults_to_the_documents_own_size(self, tmp_path):
         from unittest.mock import patch
 
         sdk = self._sdk(tmp_path)
-        with patch("utils.ui_render.render_svg_document", self._fake_renderer(True)):
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(True)):
             assert (await sdk.rasterize_svg(self.SVG)).size == (100, 50)
 
     async def test_one_dimension_derives_the_other(self, tmp_path):
         from unittest.mock import patch
 
         sdk = self._sdk(tmp_path)
-        with patch("utils.ui_render.render_svg_document", self._fake_renderer(True)):
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(True)):
             assert (await sdk.rasterize_svg(self.SVG, height=100)).size == (200, 100)
 
     async def test_written_file_is_also_the_requested_size(self, tmp_path):
         from unittest.mock import patch
 
         sdk = self._sdk(tmp_path)
-        with patch("utils.ui_render.render_svg_document", self._fake_renderer(True)):
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(True)):
             out = await sdk.rasterize_svg(self.SVG, width=32, out="icon.png")
         with Image.open(out) as written:
             assert written.size == (32, 16)
@@ -722,7 +722,7 @@ class TestRasterizeSvgSandbox:
         from unittest.mock import patch
 
         sdk = self._sdk(tmp_path)
-        with patch("utils.ui_render.render_svg_document", self._fake_renderer(False)):
+        with patch("utils.document_render.render_svg_document", self._fake_renderer(False)):
             await sdk.rasterize_svg(self.SVG, width=64)
         assert "rendered completely empty" in capsys.readouterr().out
 
@@ -776,7 +776,7 @@ class TestViewBoxOverflowCheck:
             f'width="1000" height="1000">{body}</svg>'
         )
         _clean, doc = svg_doc.prepare_text(text)
-        with patch("utils.ui_render.render_svg_document", self._renderer()):
+        with patch("utils.document_render.render_svg_document", self._renderer()):
             return await _render_check(doc.root, doc.width, doc.height)
 
     async def test_artwork_well_inside_is_quiet(self):
@@ -813,13 +813,13 @@ class TestViewBoxOverflowCheck:
         from unittest.mock import patch
 
         from agent.v2.tools.create_svg import _render_check
-        from utils.ui_render import LayoutRenderUnavailable
+        from utils.document_render import LayoutRenderUnavailable
 
         async def _unavailable(*a, **k):
             raise LayoutRenderUnavailable("no client")
 
         _clean, doc = svg_doc.prepare_text(SIMPLE)
-        with patch("utils.ui_render.render_svg_document", _unavailable):
+        with patch("utils.document_render.render_svg_document", _unavailable):
             blank, warnings = await _render_check(doc.root, doc.width, doc.height)
         assert blank is None and warnings == []
 

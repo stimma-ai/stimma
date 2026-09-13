@@ -568,6 +568,7 @@ Commands:
   lint frontend   Small-screen ratchet (scripts/lint-mobile.sh; DESIGN.md §1.11)
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
+  render-test [--docker IMAGE]  Validate the local browser renderer with real captures
   test backend    Run backend pytest tests
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
@@ -2445,6 +2446,10 @@ async function main(): Promise<void> {
   switch (command) {
     case "mobile": {
       await run(pythonCommand, [join(repoRoot, "tools", "mobile.py"), ...args.slice(1)]);
+      break;
+    }
+    case "render-test": {
+      await run(Deno.build.os === "windows" ? "python" : "python3", [join(repoRoot, "tools", "render_test.py"), ...args.slice(1)]);
       break;
     }
     case "headless": {

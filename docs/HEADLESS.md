@@ -86,3 +86,22 @@ when bootstrap files change or on manual dispatch; each base change must bump
 `packaging/headless/VERSION`. Existing version tags should never be repurposed
 for different base contents. The signed runtime manifest declares its minimum
 and recommended bootstrap versions so incompatible packages are blocked.
+
+## Local document rendering
+
+Base 1.0.6 adds one Chromium headless shell and its pinned Playwright runtime.
+SVG/layout thumbnails, agent inspection and rasterization run on the server,
+including when no desktop or browser client is connected. No browser is
+installed or downloaded at runtime. A separate full Chromium is not included.
+
+Use the supplied `packaging/headless/compose.yaml` together with
+`packaging/headless/render-seccomp.json` in the same directory. The seccomp
+profile allows Chromium to create its user namespace sandbox while retaining
+Docker's other syscall restrictions. The host must support unprivileged user
+namespaces. Existing Compose installations need this configuration addition
+when upgrading to base 1.0.6; a container-image refresh alone does not update
+Compose files. No privileged mode or Docker socket is needed.
+
+Run `tools/stimma render-test --docker stimma-server:test` after building the
+image to verify real captures with network access disabled. Desktop rendering
+uses the installed Electron executable; `tools/stimma render-test` verifies it.

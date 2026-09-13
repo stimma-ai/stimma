@@ -229,7 +229,7 @@ async def _rasterize(
     """
     from PIL import Image
 
-    from utils.ui_render import (
+    from utils.document_render import (
         LayoutRenderBusy,
         LayoutRenderFailed,
         LayoutRenderUnavailable,
@@ -244,13 +244,12 @@ async def _rasterize(
             svg_text,
             inner_w,
             inner_h,
-            wait_for_client_timeout_s=10.0,
             queue_timeout_s=30.0,
         )
     except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Rendering needs the Stimma UI open: {e}",
+            detail=f"Local rendering is unavailable: {e}",
             headers={"Retry-After": "2"},
         )
     except LayoutRenderFailed as e:

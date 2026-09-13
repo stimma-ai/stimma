@@ -27,11 +27,11 @@ def _downscale(img: Image.Image, max_side: int) -> Image.Image:
 
 
 class _LayoutRenderBusyError(Exception):
-    """The UI renderer was busy/unconnected — a transient miss, not a bad layout."""
+    """The local renderer was busy/unconnected — a transient miss, not a bad layout."""
 
 
 async def _rasterize_layout(bundle_path: Path, max_side: int) -> Image.Image | None:
-    """Rasterize a .stimmalayout bundle to a PIL Image via the UI client.
+    """Rasterize a .stimmalayout bundle to a PIL Image using the local browser.
 
     Waits a few seconds for the render slot (the agent often calls this right
     after create_layout, while the thumbnail render is still holding the slot)
@@ -40,12 +40,11 @@ async def _rasterize_layout(bundle_path: Path, max_side: int) -> Image.Image | N
     latter sends the agent off editing perfectly good HTML.
     """
     from routes.media_files import _generate_layout_preview
-    from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
+    from utils.document_render import LayoutRenderBusy, LayoutRenderUnavailable
     try:
         return await _generate_layout_preview(
             str(bundle_path),
             max_side,
-            wait_for_client_timeout_s=2.0,
             queue_timeout_s=5.0,
             render_timeout_s=30.0,
             raise_transient=True,
@@ -59,18 +58,17 @@ async def _rasterize_layout(bundle_path: Path, max_side: int) -> Image.Image | N
 
 
 async def _rasterize_svg(svg_path: Path, max_side: int) -> Image.Image | None:
-    """Rasterize an .svg document to a PIL Image via the UI client.
+    """Rasterize an .svg document to a PIL Image using the local browser.
 
     Same transient-vs-failed contract as layouts: a busy renderer must not be
     reported as a broken document, or the agent goes off editing correct markup.
     """
     from routes.media_files import _generate_svg_preview
-    from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
+    from utils.document_render import LayoutRenderBusy, LayoutRenderUnavailable
     try:
         return await _generate_svg_preview(
             str(svg_path),
             max_side,
-            wait_for_client_timeout_s=2.0,
             queue_timeout_s=5.0,
             render_timeout_s=30.0,
             raise_transient=True,
@@ -196,7 +194,7 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
 
     max_side = MAX_HIGH if detail == "high" else MAX_LOW
 
-    # Handle .stimmalayout bundles — rasterize via UI client + copy to workspace
+    # Handle .stimmalayout bundles — rasterize using the local browser + copy to workspace
     if resolved.is_dir() and resolved.name.lower().endswith('.stimmalayout'):
         try:
             img = await _rasterize_layout(resolved, max_side)
@@ -230,7 +228,7 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
 
         return json.dumps(result_data)
 
-    # Handle .svg documents — rasterize via UI client + copy to workspace
+    # Handle .svg documents — rasterize using the local browser + copy to workspace
     if resolved.is_file() and resolved.suffix.lower() == '.svg':
         try:
             img = await _rasterize_svg(resolved, max_side)

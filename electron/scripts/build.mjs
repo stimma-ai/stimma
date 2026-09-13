@@ -16,9 +16,11 @@ const common = {
   // runtime; electron-updater ships as a real dependency in node_modules.
   external: ['electron', 'electron-updater'],
   logLevel: 'info',
+  loader: { '.txt': 'text' },
 }
 
 const targets = [
+  {...common, entryPoints: [join(root, 'src', 'renderWorker.ts')], outfile: join(root, 'dist', 'render-worker.cjs')},
   {
     ...common,
     entryPoints: [join(root, 'src', 'main.ts')],

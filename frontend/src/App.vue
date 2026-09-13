@@ -321,7 +321,6 @@ import { useToasts } from './composables/useToasts'
 import { useAppUpdater, markUpdaterOwner } from './composables/useAppUpdater'
 import { useReleaseNotes } from './composables/useReleaseNotes'
 import { useStimpacksApi } from './composables/useStimpacksApi'
-import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
 import { adoptLegacyAcceptance } from './utils/terms'
 import { updateCheckIntervalMs } from './utils/updateCheckSchedule'
@@ -1248,7 +1247,6 @@ onMounted(async () => {
 
   // Register the WS handler that lets the backend ask us to render
   // .stimmalayout HTML to PNG bytes via the real browser engine.
-  setupLayoutRenderer()
 
   // Start idle tracking for PIN timeout
   startIdleTracking()

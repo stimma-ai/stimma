@@ -191,7 +191,7 @@ def _expanded_document(root) -> tuple[str, float]:
 async def _render_check(root, width: int, height: int) -> tuple[str | None, list[str]]:
     """Inspect the document by rendering it. Returns (blank_reason, warnings).
 
-    A render that cannot run at all (no UI client, renderer busy) is not a
+    A render that cannot run at all (local renderer unavailable, renderer busy) is not a
     failure of the document, so it passes — blocking a save on renderer
     availability would be worse than saving something unverified.
     """
@@ -199,7 +199,7 @@ async def _render_check(root, width: int, height: int) -> tuple[str | None, list
 
     from PIL import Image
 
-    from utils.ui_render import (
+    from utils.document_render import (
         LayoutRenderBusy,
         LayoutRenderUnavailable,
         render_svg_document,
@@ -220,7 +220,6 @@ async def _render_check(root, width: int, height: int) -> tuple[str | None, list
             svg_text,
             check_w,
             check_h,
-            wait_for_client_timeout_s=2.0,
             queue_timeout_s=5.0,
         )
     except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
