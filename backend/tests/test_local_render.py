@@ -152,3 +152,11 @@ async def test_render_media_does_not_follow_desktop_theme(browser):
     html = '<style>body{margin:0;background:red}@media(prefers-color-scheme:dark){body{background:blue}}@media(prefers-reduced-motion:reduce){body{background:lime}}</style><body></body>'
     image = await capture(browser, html)
     assert image.getpixel((50,40)) == (0,255,0,255)
+
+
+@pytest.mark.asyncio
+async def test_css_background_with_parentheses_in_filename(browser):
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="80"><rect width="100" height="80" fill="red"/></svg>'
+    html = '<style>body{margin:0;background-image:url("picture (copy).svg")}</style><body></body>'
+    image = await capture(browser, html, assets={'picture (copy).svg':base64.b64encode(svg.encode()).decode()})
+    assert image.getpixel((50,40)) == (255,0,0,255)
