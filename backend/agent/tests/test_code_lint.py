@@ -392,3 +392,33 @@ class TestFormatting:
         assert "stimma.generate" in output
         assert "Fix the code" in output
         assert ".stimma/tools/" in output
+
+
+class TestSDKNamespaces:
+    """Every namespace on the SDK has to lint as real.
+
+    A namespace is an instance attribute, so class introspection cannot see it.
+    When one is missing from the linter, agent code using a perfectly good API
+    is told it does not exist — and the agent believes the linter and builds a
+    worse thing by hand. That is how packages got hand-rolled as zip files.
+    """
+
+    def test_every_declared_namespace_is_known(self):
+        from agent.v2.code_runtime import StimmaSDK
+
+        for namespace in StimmaSDK.NAMESPACES:
+            warnings = lint_code(f"x = stimma.{namespace}\n")
+            assert not warnings, f"stimma.{namespace} linted as nonexistent: {[w.message for w in warnings]}"
+
+    def test_packages_api_lints_clean(self):
+        code = (
+            "pkg = stimma.packages.new('Icons')\n"
+            "m = await pkg.add_member(1, role='master')\n"
+            "await pkg.run('app-icons', {'master': m}, {'platforms': ['ios']})\n"
+            "media_id = await pkg.save()\n"
+        )
+        assert not lint_code(code)
+
+    def test_a_typo_in_a_namespace_is_still_caught(self):
+        warnings = lint_code("stimma.packages.recipe()\n")
+        assert any("does not exist" in w.message for w in warnings)

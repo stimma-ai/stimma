@@ -1116,6 +1116,12 @@ class StimmaPackagesAPI:
 
 
 class StimmaSDK:
+    # Sub-API namespaces reachable as ``stimma.<name>``. Declared here because
+    # they are instance attributes, which introspection of the class cannot
+    # see — the code linter reads this to know they exist. A namespace missing
+    # from this map gets linted as "does not exist" and the agent believes it.
+    NAMESPACES: dict[str, type] = {}
+
     def __init__(
         self,
         *,
@@ -2790,3 +2796,6 @@ def compute_file_hash(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI}
