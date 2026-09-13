@@ -63,8 +63,6 @@ class WebSocketManager:
         self._generator_instance_websockets: Dict[str, WebSocket] = {}
         # Callback for when a generator instance disconnects
         self._on_generator_disconnect: Optional[Callable[[str], Awaitable[None]]] = None
-        # Event set whenever at least one client is connected; cleared when none
-        self._client_present = asyncio.Event()
 
     def set_on_generator_disconnect(self, callback: Callable[[str], Awaitable[None]]):
         """Set callback to be called when a generator instance disconnects."""
@@ -74,7 +72,6 @@ class WebSocketManager:
         """Accept a new WebSocket connection."""
         await websocket.accept()
         self.active_connections.append(websocket)
-        self._client_present.set()
         log.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
 
     def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str):
@@ -86,9 +83,6 @@ class WebSocketManager:
         """Remove a disconnected WebSocket and clean up associated generator instances."""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-
-        if not self.active_connections:
-            self._client_present.clear()
 
         # Find and clean up any generator instances associated with this websocket
         disconnected_instances = [
@@ -194,42 +188,6 @@ class WebSocketManager:
             return websocket in self.active_connections
         except Exception:
             return False
-
-    async def send_to_any(self, event: str, data: dict) -> bool:
-        """Send to the first available client. Returns True on success, False if no clients.
-
-        Used for backend→frontend RPC where any connected UI can service the
-        request (e.g. layout rendering). Tries each connection in turn; if a send
-        fails the connection is dropped and the next is tried.
-        """
-        message = json.dumps({"event": event, "data": data})
-        # Snapshot the list — disconnect() mutates active_connections.
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_text(message)
-                if event not in ("pong",):
-                    log.info(f"WS OUT (any): {event} - request_id={data.get('request_id')}")
-                return True
-            except Exception as e:
-                log.error(f"send_to_any: failed to send to a client, trying next: {e}")
-                await self.disconnect(connection)
-        return False
-
-    async def wait_for_client(self, timeout: Optional[float] = None) -> bool:
-        """Block until at least one client is connected. Returns True if a client
-        is (or becomes) present, False on timeout.
-        """
-        if self.active_connections:
-            return True
-        try:
-            if timeout is None:
-                await self._client_present.wait()
-            else:
-                await asyncio.wait_for(self._client_present.wait(), timeout=timeout)
-            return True
-        except asyncio.TimeoutError:
-            return False
-
 
 # Global WebSocket manager instance
 ws_manager = WebSocketManager()
