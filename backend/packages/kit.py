@@ -309,82 +309,120 @@ stimma-contexts{display:grid;gap:14px}
 KIT_JS = r"""
 (function(){
   if (window.__stimmaKit) return; window.__stimmaKit = true;
+
   var manifestEl = document.getElementById('stimma-package-manifest');
   var manifest = null;
   try { manifest = manifestEl ? JSON.parse(manifestEl.textContent) : null; } catch (e) { manifest = null; }
-  window.stimmaPackage = { manifest: manifest, kitVersion: %(kit_version)d, host: document.documentElement.getAttribute('data-stimma-host') || null };
-  function define(name, cls){ if (window.customElements && !customElements.get(name)) customElements.define(name, cls); }
-  var Passive = function(){ return Reflect.construct(HTMLElement, [], this.constructor); };
-  Passive.prototype = Object.create(HTMLElement.prototype); Passive.prototype.constructor = Passive;
-  // Static-first: the server already expanded these. The classes only enhance.
-  define('stimma-media', class extends HTMLElement {});
-  define('stimma-grid', class extends HTMLElement {});
-  define('stimma-pick', class extends HTMLElement {});
-  define('stimma-approve', class extends HTMLElement {});
-  define('stimma-comments', class extends HTMLElement {});
-  define('stimma-files', class extends HTMLElement {
-    connectedCallback(){
-      var self = this;
-      var box = self.querySelector('.sp-lightbox');
-      if (box) { box.hidden = false; }
+  window.stimmaPackage = {
+    manifest: manifest,
+    kitVersion: %(kit_version)d,
+    host: document.documentElement.getAttribute('data-stimma-host') || null
+  };
 
-      function toggle(head){
-        var li = head.parentElement;
-        var folded = li.classList.toggle('sp-collapsed');
-        head.setAttribute('aria-expanded', folded ? 'false' : 'true');
-      }
-      self.querySelectorAll('li.sp-dir > .sp-row').forEach(function(head){
-        head.addEventListener('click', function(ev){
-          if (ev.target && ev.target.closest('a')) return;
-          toggle(head);
-        });
-        head.addEventListener('keydown', function(ev){
-          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(head); }
-        });
-      });
+  // Components are registered so the page has stable element names, but none
+  // of them wire themselves up. A custom element's connectedCallback runs when
+  // its opening tag is parsed, before any of its children exist, so anything
+  // that queries inside itself there finds an empty element — which is exactly
+  // how the file tree ended up inert. Behaviour is attached once the document
+  // is parsed, by delegation from the document, which also survives content
+  // arriving later.
+  function define(name){
+    if (window.customElements && !customElements.get(name)) {
+      customElements.define(name, class extends HTMLElement {});
+    }
+  }
+  ['stimma-section','stimma-media','stimma-grid','stimma-sizes','stimma-device',
+   'stimma-columns','stimma-column','stimma-files','stimma-compare',
+   'stimma-pick','stimma-approve','stimma-comments'].forEach(define);
 
-      if (!box) return;
+  function ready(fn){
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  function closest(el, sel){
+    return (el && el.closest) ? el.closest(sel) : null;
+  }
+
+  function setupFiles(){
+    document.querySelectorAll('stimma-files .sp-lightbox').forEach(function(box){
+      box.hidden = false;
+    });
+
+    function fold(head){
+      var li = head.parentElement;
+      var folded = li.classList.toggle('sp-collapsed');
+      head.setAttribute('aria-expanded', folded ? 'false' : 'true');
+    }
+
+    function openPreview(row){
+      var li = row.parentElement;
+      var src = li.getAttribute('data-preview');
+      var files = closest(row, 'stimma-files');
+      var box = files ? files.querySelector('.sp-lightbox') : null;
+      if (!src || !box) return;
       var img = box.querySelector('img');
       var cap = box.querySelector('figcaption');
-      function close(){ box.classList.remove('sp-open'); img.removeAttribute('src'); }
-      box.addEventListener('click', close);
-      document.addEventListener('keydown', function(ev){
-        if (ev.key === 'Escape') close();
-      });
-      self.querySelectorAll('li.sp-previewable > .sp-row').forEach(function(row){
-        row.addEventListener('click', function(ev){
-          if (ev.target && ev.target.closest('a')) return;
-          var src = row.parentElement.getAttribute('data-preview');
-          if (!src) return;
-          img.setAttribute('src', src);
-          var name = row.querySelector('.sp-name');
-          var size = row.querySelector('.sp-meta');
-          img.onload = function(){
-            cap.textContent = (name ? name.textContent : '') +
-              '  ·  ' + img.naturalWidth + ' × ' + img.naturalHeight +
-              (size ? '  ·  ' + size.textContent : '');
-          };
-          box.classList.add('sp-open');
-        });
+      var name = row.querySelector('.sp-name');
+      var size = row.querySelector('.sp-meta');
+      var label = (name ? name.textContent : '') + (size ? '  ·  ' + size.textContent : '');
+      // Name it straight away; the pixel dimensions arrive with the image.
+      cap.textContent = label;
+      img.onload = function(){
+        cap.textContent = (name ? name.textContent : '') +
+          '  ·  ' + img.naturalWidth + ' × ' + img.naturalHeight +
+          (size ? '  ·  ' + size.textContent : '');
+      };
+      img.setAttribute('src', src);
+      box.classList.add('sp-open');
+    }
+
+    function closePreview(){
+      document.querySelectorAll('.sp-lightbox.sp-open').forEach(function(box){
+        box.classList.remove('sp-open');
+        var img = box.querySelector('img');
+        if (img) img.removeAttribute('src');
       });
     }
-  });
-  define('stimma-compare', class extends HTMLElement {
-    connectedCallback(){
-      var self = this;
-      if (self.getAttribute('mode') !== 'slider') return;
-      var wrap = self.querySelector('.sp-cmp'); if (!wrap) return;
-      var first = wrap.querySelector('figure:first-child'); var imgs = wrap.querySelectorAll('img');
+
+    document.addEventListener('click', function(ev){
+      var target = ev.target;
+      if (closest(target, '.sp-lightbox')) { closePreview(); return; }
+      if (closest(target, 'a')) return;
+      var head = closest(target, 'li.sp-dir > .sp-row');
+      if (head) { fold(head); return; }
+      var row = closest(target, 'li.sp-previewable > .sp-row');
+      if (row) openPreview(row);
+    });
+
+    document.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape') { closePreview(); return; }
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      var head = closest(document.activeElement, 'li.sp-dir > .sp-row');
+      if (head) { ev.preventDefault(); fold(head); }
+    });
+  }
+
+  function setupCompare(){
+    document.querySelectorAll('stimma-compare[mode="slider"]').forEach(function(el){
+      var wrap = el.querySelector('.sp-cmp');
+      if (!wrap) return;
+      var imgs = wrap.querySelectorAll('img');
       if (imgs.length < 2) return;
-      self.classList.add('sp-slider');
-      var range = document.createElement('input'); range.type = 'range'; range.min = 0; range.max = 100; range.value = 50;
-      function apply(){ self.style.setProperty('--sp-split', range.value + '%'); }
-      function size(){ self.style.setProperty('--sp-w', wrap.clientWidth + 'px'); }
-      range.addEventListener('input', apply); window.addEventListener('resize', size);
-      self.appendChild(range); size(); apply();
+      el.classList.add('sp-slider');
+      var range = document.createElement('input');
+      range.type = 'range'; range.min = 0; range.max = 100; range.value = 50;
+      range.setAttribute('aria-label', 'Compare');
+      function apply(){ el.style.setProperty('--sp-split', range.value + '%'); }
+      function size(){ el.style.setProperty('--sp-w', wrap.clientWidth + 'px'); }
+      range.addEventListener('input', apply);
+      window.addEventListener('resize', size);
       imgs[1].addEventListener('load', size);
-    }
-  });
+      el.appendChild(range); size(); apply();
+    });
+  }
+
+  ready(function(){ setupFiles(); setupCompare(); });
 })();
 """
 
