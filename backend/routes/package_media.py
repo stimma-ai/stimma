@@ -227,7 +227,14 @@ async def post_rebuild(asset_id: int, body: RebuildRequest | None = None, sessio
         )
     except (PackageError, RecipeError, CoverError, ManifestError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return {"media_id": media.id, "asset_id": asset.id, "revision_id": asset.current_revision_id, "report": report}
+    head = await session.get(AssetRevision, asset.current_revision_id) if asset.current_revision_id else None
+    return {
+        "media_id": media.id,
+        "asset_id": asset.id,
+        "revision_id": asset.current_revision_id,
+        "revision_number": head.revision_number if head is not None else None,
+        "report": report,
+    }
 
 
 @router.get("/packages/cache")

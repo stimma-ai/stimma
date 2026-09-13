@@ -105,8 +105,45 @@
               <p v-if="spriteError" class="text-xs text-red-400">{{ spriteError }}</p>
             </template>
 
+            <!-- Package targets: one row each — every choice carries a qualifier
+                 that a three-up grid would clip. Same radio grammar. -->
+            <template v-if="mediaCategory === 'package'">
+              <div class="space-y-2">
+                <p class="text-xs font-semibold text-content-secondary">Format</p>
+                <div class="space-y-1.5" role="radiogroup" aria-label="Package export format">
+                  <label
+                    v-for="fmt in PACKAGE_EXPORT_FORMATS"
+                    :key="fmt.value"
+                    :class="fmt.disabled ? 'block cursor-not-allowed' : 'block cursor-pointer'"
+                  >
+                    <input
+                      v-model="format"
+                      type="radio"
+                      name="export-format"
+                      :value="fmt.value"
+                      :disabled="fmt.disabled"
+                      class="peer sr-only"
+                    >
+                    <span
+                      :class="[
+                        'flex min-h-9 items-center gap-1 rounded-md px-3 py-2 text-xs transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60',
+                        fmt.disabled
+                          ? 'bg-overlay-faint text-content-muted'
+                          : format === fmt.value
+                            ? 'bg-accent/15 text-accent'
+                            : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
+                      ]"
+                    >
+                      <span class="font-medium">{{ fmt.label }}</span>
+                      <span class="text-content-tertiary">— {{ fmt.hint }}</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </template>
+
             <!-- Formats are a grid so every choice stays legible at modal width. -->
-            <div v-if="mediaCategory !== 'sprite'" class="space-y-2">
+            <div v-if="mediaCategory !== 'sprite' && mediaCategory !== 'package'" class="space-y-2">
               <p class="text-xs font-semibold text-content-secondary">Format</p>
               <div
                 class="grid grid-cols-3 gap-1.5"
@@ -543,6 +580,14 @@ const CODE_VARIANTS = [
   { label: 'Sprite', value: 'symbol' },
 ]
 
+// Hosted links are not built yet; the row stays so the shape of the feature is
+// visible rather than appearing later out of nowhere.
+const PACKAGE_EXPORT_FORMATS = [
+  { value: 'zip', label: 'Zip', hint: 'full package' },
+  { value: 'html', label: 'Single HTML file', hint: 'cover with previews, read-only' },
+  { value: 'link', label: 'Hosted link', hint: 'coming soon', disabled: true },
+]
+
 const ICON_PLATFORMS = [
   { label: 'macOS', value: 'icon-macos' },
   { label: 'Windows', value: 'icon-windows' },
@@ -565,6 +610,7 @@ const mediaCategory = computed(() => {
     const fmt = (item.file_format || '').toLowerCase()
     if (fmt === 'stimmalayout') categories.add('layout')
     else if (fmt === 'stimmasprite.json') categories.add('sprite')
+    else if (fmt === 'stimmapackage') categories.add('package')
     else if (fmt === 'svg') categories.add('vector')
     else if (IMAGE_FORMATS.includes(fmt)) categories.add('image')
     else if (VIDEO_FORMATS.includes(fmt)) categories.add('video')
@@ -721,6 +767,10 @@ const availableFormats = computed(() => {
     return SPRITE_FORMAT_GROUPS.flatMap(group => group.formats)
   }
 
+  if (mediaCategory.value === 'package') {
+    return PACKAGE_EXPORT_FORMATS
+  }
+
   if (mediaCategory.value === 'vector') {
     return [
       { label: 'SVG', value: 'svg' },
@@ -788,7 +838,7 @@ const iconPlatformHint = computed(() => ({
 const isClipboardExport = computed(() => mediaCategory.value === 'vector' && format.value === 'html')
 
 const isOriginalExport = computed(() => {
-  if (mediaCategory.value === 'layout' || mediaCategory.value === 'vector' || mediaCategory.value === 'sprite') return false
+  if (mediaCategory.value === 'layout' || mediaCategory.value === 'vector' || mediaCategory.value === 'sprite' || mediaCategory.value === 'package') return false
   return format.value === 'original'
     && resizeMode.value === 'none'
     && !stripMetadata.value
@@ -871,6 +921,8 @@ watch(() => props.show, (newVal) => {
       spriteExtrude.value = 1
       spriteImageFormat.value = 'png'
       spriteError.value = ''
+    } else if (mediaCategory.value === 'package') {
+      format.value = 'zip'
     } else if (mediaCategory.value === 'vector') {
       format.value = 'svg'
       codeVariant.value = 'inline'
@@ -923,6 +975,8 @@ async function handleExport() {
   try {
     if (mediaCategory.value === 'sprite') {
       await handleSpriteExport()
+    } else if (mediaCategory.value === 'package') {
+      await handlePackageExport()
     } else if (mediaCategory.value === 'vector') {
       await handleVectorExport()
     } else if (mediaCategory.value === 'layout') {
@@ -989,6 +1043,35 @@ async function handleExport() {
   } finally {
     exporting.value = false
   }
+}
+
+async function handlePackageExport() {
+  const mediaId = props.mediaIds[0]
+  let response
+  try {
+    response = await axios.post(
+      `${getApiBase()}/media/${mediaId}/package-export`,
+      { format: format.value },
+      { responseType: 'blob' }
+    )
+  } catch (error) {
+    // Blob error bodies hide the backend's explanation until read back as text.
+    const blob = error?.response?.data
+    let detail = ''
+    if (blob && typeof blob.text === 'function') {
+      try { detail = JSON.parse(await blob.text())?.detail || '' } catch { /* not JSON */ }
+    }
+    throw new Error(detail || 'Export failed. Please try again.')
+  }
+
+  const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
+  let filename = format.value === 'zip' ? 'package.zip' : 'package.html'
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="([^"]+)"/)
+    if (match) filename = match[1]
+  }
+
+  await downloadFromResponse(response.data, filename)
 }
 
 async function handleVectorExport() {

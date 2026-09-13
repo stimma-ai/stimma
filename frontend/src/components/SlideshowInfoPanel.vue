@@ -1415,6 +1415,7 @@ function formatFileFormat(format) {
     'stimmaset.json': 'Set',
     'stimmagrid.json': 'Grid',
     'stimmasprite.json': 'Sprite',
+    'stimmapackage': 'Package',
     'md': 'Markdown',
     'txt': 'Text'
   }

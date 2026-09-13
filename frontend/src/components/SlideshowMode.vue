@@ -502,6 +502,16 @@
           class="absolute inset-0"
         />
 
+        <!-- Package: the cover page plus its own details panel -->
+        <PackageViewer
+          v-else-if="isPackage"
+          :style="galleryPictureStyle"
+          :key="`package-${displayItem?.id}-${refreshKey}`"
+          :media-id="mediaIdOf(displayItem)"
+          class="absolute inset-0"
+          @refresh="handlePackageRebuilt"
+        />
+
         <!-- Video -->
         <!-- MSE presents repeated A/V fragments on one forward-moving timeline,
              so loop boundaries never trigger a media-element seek. -->
@@ -1374,8 +1384,8 @@ import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
-import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType } from '../utils/mediaTypes'
-import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer } from './viewers'
+import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType, isVector as isVectorType, isSprite as isSpriteType, isPackage as isPackageType } from '../utils/mediaTypes'
+import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
@@ -1695,7 +1705,7 @@ const slideshowSwipe = createSlideshowSwipe({
   release: releaseGallery,
 })
 function pictureGesturesEnabled() {
-  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isSet.value && !isGrid.value
+  return !isAudio.value && !isText.value && !isLayout.value && !isVector.value && !isSprite.value && !isPackage.value && !isSet.value && !isGrid.value
 }
 // Phones: the bar lies along the bottom edge; the vertical pill was a desktop choice.
 const controlBarOrientation = ref(slideshowCompact.value ? 'horizontal' : (savedSettings.controlBarOrientation ?? 'vertical'))
@@ -2285,6 +2295,18 @@ const isSprite = computed(() => {
   if (!displayItem.value) return false
   return isSpriteType(displayItem.value)
 })
+
+const isPackage = computed(() => {
+  if (!displayItem.value) return false
+  return isPackageType(displayItem.value)
+})
+
+// A rebuild commits a new revision of the same Asset; pull the head so the
+// slideshow's own projection (title, revision count, thumbnail) catches up.
+function handlePackageRebuilt() {
+  const assetId = itemIdentity(displayItem.value)
+  if (assetId) void refreshAssetHead(assetId, { force: true })
+}
 
 // Navigation availability (handles set view mode)
 const canGoPrevious = computed(() => {
@@ -4694,7 +4716,7 @@ function handleWheel(event) {
   if (!mediaContainerRef.value?.contains(event.target)) return
 
   // Only zoom for images and videos, let other types (text, sets, grids) scroll naturally
-  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value) return
+  if (isAudio.value || isText.value || isSet.value || isGrid.value || isLayout.value || isSprite.value || isPackage.value) return
 
   event.preventDefault()
 

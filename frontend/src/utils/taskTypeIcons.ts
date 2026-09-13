@@ -251,6 +251,7 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
     case 'text':
     case 'grid':
     case 'sprite':
+    case 'package':
     case null:
     default:
       return []
@@ -316,12 +317,15 @@ export function isToolCompatibleWithMediaType(
   tool: { task_type?: string; task_types?: string[]; parameter_schema?: Record<string, any> },
   mediaType: MediaType | null
 ): { compatible: boolean; reason?: string } {
-  // Grids and sprites cannot be sent to any tool
+  // Grids, sprites and packages cannot be sent to any tool
   if (mediaType === 'grid') {
     return { compatible: false, reason: 'Grids cannot be sent to tools' }
   }
   if (mediaType === 'sprite') {
     return { compatible: false, reason: 'Sprites cannot be sent to tools' }
+  }
+  if (mediaType === 'package') {
+    return { compatible: false, reason: 'Packages cannot be sent to tools' }
   }
 
   // Sets default to image inputs; caller resolves the real content type when known.
