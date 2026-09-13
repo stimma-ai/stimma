@@ -568,7 +568,7 @@ Commands:
   lint frontend   Small-screen ratchet (scripts/lint-mobile.sh; DESIGN.md §1.11)
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
-  render-test [--docker IMAGE]  Validate the local browser renderer with real captures
+  render-test [--docker IMAGE | --executable FILE]  Validate real browser captures
   test backend    Run backend pytest tests
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)

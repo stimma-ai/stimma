@@ -145,3 +145,10 @@ async def test_cancellation_releases_worker(browser):
     assert browser.process is None
     browser.start = original_start
     await capture(browser, '<body>Recovered</body>')
+
+
+@pytest.mark.asyncio
+async def test_render_media_does_not_follow_desktop_theme(browser):
+    html = '<style>body{margin:0;background:red}@media(prefers-color-scheme:dark){body{background:blue}}@media(prefers-reduced-motion:reduce){body{background:lime}}</style><body></body>'
+    image = await capture(browser, html)
+    assert image.getpixel((50,40)) == (0,255,0,255)

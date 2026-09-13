@@ -105,3 +105,4 @@ Compose files. No privileged mode or Docker socket is needed.
 Run `tools/stimma render-test --docker stimma-server:test` after building the
 image to verify real captures with network access disabled. Desktop rendering
 uses the installed Electron executable; `tools/stimma render-test` verifies it.
+Use `tools/stimma render-test --executable FILE` to test a built desktop app.

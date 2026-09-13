@@ -8,7 +8,9 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser()
-parser.add_argument('--docker', metavar='IMAGE')
+runtime = parser.add_mutually_exclusive_group()
+runtime.add_argument('--docker', metavar='IMAGE')
+runtime.add_argument('--executable', metavar='FILE')
 args = parser.parse_args()
 if args.docker:
     command = ['docker','run','--rm','--init','-i','--network=none',
@@ -16,6 +18,8 @@ if args.docker:
                '-v',f'{ROOT / "backend/utils"}:/render:ro',
                '--entrypoint','/opt/stimma/render-python/bin/python',args.docker,
                '/render/headless_render_worker.py']
+elif args.executable:
+    command = [str(Path(args.executable).resolve()), '--stimma-render-worker']
 else:
     subprocess.run(['node','scripts/build.mjs'],cwd=ROOT/'electron',check=True)
     binary = subprocess.check_output(['node','-e',"console.log(require('electron'))"],cwd=ROOT/'electron',text=True).strip().splitlines()[-1]

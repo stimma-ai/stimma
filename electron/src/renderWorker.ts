@@ -11,6 +11,7 @@ const MIME: Record<string, string> = {html:'text/html', css:'text/css', svg:'ima
 type Job = {html: string; assets: Record<string,string>; width:number; height:number|null; dpr:number}
 app.setPath('userData', process.env.STIMMA_RENDER_PROFILE!)
 app.disableHardwareAcceleration()
+app.commandLine.appendSwitch('lang', 'en-US')
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.on('window-all-closed', () => {})
 let current: BrowserWindow | undefined
@@ -41,6 +42,7 @@ async function render(job: Job) {
     debug.attach('1.3')
     const metrics = (height:number) => debug.sendCommand('Emulation.setDeviceMetricsOverride', {width:job.width,height,deviceScaleFactor:job.dpr,mobile:false})
     await metrics(job.height || 1)
+    await debug.sendCommand('Emulation.setEmulatedMedia', {features:[{name:'prefers-color-scheme',value:'light'},{name:'prefers-reduced-motion',value:'reduce'}]})
     await debug.sendCommand('Emulation.setDefaultBackgroundColorOverride', {color:{r:0,g:0,b:0,a:0}})
     const measured = await win.webContents.executeJavaScript(ready)
     const height = job.height || Math.min(measured, job.width * 5)

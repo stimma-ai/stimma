@@ -16,7 +16,8 @@ READY = Path(__file__).with_name('render_ready.txt').read_text()
 
 def render(browser, job):
     context = browser.new_context(viewport={'width': job['width'], 'height': job['height'] or 1},
-                                  device_scale_factor=job['dpr'], service_workers='block')
+                                  device_scale_factor=job['dpr'], service_workers='block',
+                                  color_scheme='light', reduced_motion='reduce', locale='en-US', timezone_id='UTC')
     missing = set()
     def route(request):
         url = urlsplit(request.request.url)
