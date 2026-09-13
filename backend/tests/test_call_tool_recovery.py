@@ -13,6 +13,21 @@ from unittest.mock import AsyncMock, patch
 from agent.v2.tools.call_tool import call_tool
 
 
+def test_retry_allowance_is_not_renewed_after_third_failure():
+    from agent.v2.tools.call_tool import _clear_failure_streak, _with_retry_guidance
+
+    workspace, tool = "retry-guidance-test", "test:remove-background"
+    try:
+        _with_retry_guidance(workspace, tool, "upload rejected")
+        second = _with_retry_guidance(workspace, tool, "upload rejected")
+        third = _with_retry_guidance(workspace, tool, "upload rejected")
+        assert "one more retry" in second
+        assert "STOP retrying" in third
+        assert "one more retry" not in third
+    finally:
+        _clear_failure_streak(workspace, tool)
+
+
 @pytest.mark.asyncio
 async def test_call_tool_lifts_tool_id_nested_under_parameters():
     """A model that puts tool_id inside ``parameters`` should still succeed —

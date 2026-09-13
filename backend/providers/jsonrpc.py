@@ -1780,14 +1780,15 @@ class JsonRpcProvider(ToolProvider):
 
             # WebSocket: upload as asset and return asset ID
             mime_type, _ = mimetypes.guess_type(str(path))
-            if not mime_type:
-                mime_type = "application/octet-stream"
+            data = path.read_bytes()
+            accepted_mimes = (accept or {}).get("mime_types") or []
+            category = (mime_type or (accepted_mimes[0] if accepted_mimes else "")).split("/")[0]
+            mime_type = _sniff_mime(data, category) or mime_type or "application/octet-stream"
 
             # Schema-driven conversion: if the tool declared accepted MIME types
             # (`x-accept-media`) and the source isn't one of them, transcode to the
             # provider's preferred format (only when needed, lossless-first).
             if accept and accept.get("mime_types"):
-                data = path.read_bytes()
                 prepared = await _prepare_media_for_accept(path, data, mime_type, accept)
                 if prepared is not None:
                     out_bytes, out_mime = prepared
@@ -1798,7 +1799,6 @@ class JsonRpcProvider(ToolProvider):
                 log.debug(f"Uploaded input asset (accepted as-is): {path.name} ({len(data)} bytes) -> {asset_id}")
                 return asset_id
 
-            data = path.read_bytes()
             asset_id = await self.upload_asset(data, mime_type)
             log.debug(f"Uploaded input asset: {path.name} ({len(data)} bytes) -> {asset_id}")
             return asset_id

@@ -151,7 +151,7 @@ def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
 # tool / task type.
 _failure_streaks: Dict[tuple, int] = {}
 _FAILURE_STREAK_WARN = 2
-_FAILURE_STREAK_MAX = 4
+_FAILURE_STREAK_MAX = 3
 _FAILURE_STREAK_BLOCK = 5
 _TASK_TYPE_STREAK_BLOCK = 8
 

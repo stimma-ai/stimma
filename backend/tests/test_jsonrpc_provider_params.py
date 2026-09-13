@@ -9,6 +9,33 @@ from providers.jsonrpc import JsonRpcProvider, StdioProviderConfig, _strip_undec
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("filename", ["contenthash", "image.png", "image.webp"])
+@pytest.mark.parametrize("accepted", [False, True])
+async def test_upload_detects_webp_from_bytes(tmp_path, filename, accepted):
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), "orange").save(buffer, format="WEBP")
+    payload = buffer.getvalue()
+    path = tmp_path / filename
+    path.write_bytes(payload)
+    provider = JsonRpcProvider(StdioProviderConfig(id="test", command="noop"))
+    provider.upload_asset = AsyncMock(return_value="uploaded.webp")
+    prop = {"type": "array", "x-control": "image_picker"}
+    if accepted:
+        prop["x-accept-media"] = {"mime_types": ["image/webp"]}
+
+    result = await provider._upload_input_assets(
+        {"input_images": [str(path)]},
+        {"properties": {"input_images": prop}},
+    )
+
+    assert result == {"input_images": ["uploaded.webp"]}
+    provider.upload_asset.assert_awaited_once_with(payload, "image/webp")
+
+
+@pytest.mark.asyncio
 async def test_provider_accepts_in_progress_state():
     provider = JsonRpcProvider(StdioProviderConfig(id="comfyui", command="noop"))
 
