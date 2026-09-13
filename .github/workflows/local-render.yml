@@ -37,6 +37,7 @@ jobs:
       - name: Configure Electron sandbox helper
         if: runner.os == 'Linux'
         run: |
+          node -e "require('./electron/node_modules/electron')"
           sudo chown root:root electron/node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 electron/node_modules/electron/dist/chrome-sandbox
       - name: Linux captures

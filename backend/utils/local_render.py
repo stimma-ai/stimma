@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import secrets
 import psutil
 
 from app_dirs import get_data_dir
@@ -101,6 +102,9 @@ class LocalRenderer:
         self.stderr_task = None
         self.stderr_tail = b''
         self.waiting = 0
+        self.server = None
+        self.reader = None
+        self.writer = None
 
     def command(self):
         if os.environ.get('STIMMA_HEADLESS') == '1':
@@ -125,6 +129,24 @@ class LocalRenderer:
         env = dict(os.environ, STIMMA_RENDER_PROFILE=self.profile.name)
         env.pop('ELECTRON_RUN_AS_NODE', None)
         env.pop('NODE_OPTIONS', None)
+        connection = None
+        if (os.name == 'nt' or os.environ.get('STIMMA_RENDER_TCP') == '1') and os.environ.get('STIMMA_HEADLESS') != '1':
+            # Windows GUI executables do not reliably inherit console pipes.
+            # Bind only loopback and authenticate the child with a fresh secret.
+            token = secrets.token_hex(32)
+            connection = asyncio.get_running_loop().create_future()
+            async def accept(reader, writer):
+                try:
+                    hello = await asyncio.wait_for(reader.readline(), 5)
+                    if hello.strip() == token.encode() and not connection.done():
+                        connection.set_result((reader, writer))
+                        return
+                except Exception:
+                    pass
+                writer.close()
+            self.server = await asyncio.start_server(accept, '127.0.0.1', 0, limit=MAX_INPUT_BYTES * 4)
+            env['STIMMA_RENDER_PORT'] = str(self.server.sockets[0].getsockname()[1])
+            env['STIMMA_RENDER_TOKEN'] = token
         try:
             self.process = await asyncio.create_subprocess_exec(
                 *command, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
@@ -136,11 +158,36 @@ class LocalRenderer:
                 while chunk := await stderr.read(4096):
                     self.stderr_tail = (self.stderr_tail + chunk)[-8192:]
             self.stderr_task = asyncio.create_task(drain_errors())
+            if connection is not None:
+                connected = asyncio.ensure_future(connection)
+                exited = asyncio.create_task(self.process.wait())
+                try:
+                    done, _ = await asyncio.wait([connected, exited], return_when=asyncio.FIRST_COMPLETED)
+                    if connected not in done:
+                        raise LayoutRenderUnavailable('Rendering worker exited before local handshake: ' + self.stderr_tail.decode(errors='replace')[-2000:])
+                    self.reader, self.writer = connected.result()
+                finally:
+                    exited.cancel()
+                    connected.cancel()
+                    await asyncio.gather(exited, connected, return_exceptions=True)
+                    self.server.close()
+                    await self.server.wait_closed()
+                    self.server = None
+            else:
+                self.reader, self.writer = self.process.stdout, self.process.stdin
+
         except OSError as exc:
             await self.close()
             raise LayoutRenderUnavailable('Could not launch the local rendering worker') from exc
 
     async def close(self):
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+            self.server = None
+        if self.writer:
+            self.writer.close()
+        self.reader = self.writer = None
         process, self.process = self.process, None
         children = []
         if process and process.returncode is None:
@@ -197,9 +244,9 @@ class LocalRenderer:
             acquired = True
             async def exchange():
                 await self.start()
-                self.process.stdin.write(json.dumps(job).encode() + b'\n')
-                await self.process.stdin.drain()
-                line = await self.process.stdout.readline()
+                self.writer.write(json.dumps(job).encode() + b'\n')
+                await self.writer.drain()
+                line = await self.reader.readline()
                 if not line:
                     raise LayoutRenderFailed('Local rendering worker exited: ' + self.stderr_tail.decode(errors='replace')[-2000:])
                 result = json.loads(line)

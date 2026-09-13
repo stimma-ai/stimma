@@ -1,6 +1,7 @@
 /** Private, backend-owned worker. Uses the installed Electron, never app windows. */
 import { app, BrowserWindow, session } from 'electron'
 import readline from 'node:readline'
+import net from 'node:net'
 import ready from '../../backend/utils/render_ready.txt'
 
 const ORIGIN = 'https://render.stimma.invalid'
@@ -61,11 +62,20 @@ process.on('SIGINT', stop)
 process.stdout.on('error', stop)
 void app.whenReady().then(async () => {
   app.dock?.hide()
-  const input = readline.createInterface({input:process.stdin, crlfDelay:Infinity})
+  let source: NodeJS.ReadableStream = process.stdin
+  let output: NodeJS.WritableStream = process.stdout
+  if (process.env.STIMMA_RENDER_PORT) {
+    const socket = net.createConnection({host:'127.0.0.1', port:Number(process.env.STIMMA_RENDER_PORT)})
+    socket.on('error', stop)
+    await new Promise<void>(resolve => socket.once('connect', resolve))
+    socket.write(process.env.STIMMA_RENDER_TOKEN + '\n')
+    source = output = socket
+  }
+  const input = readline.createInterface({input:source, crlfDelay:Infinity})
   input.on('close', stop)
   for await (const line of input) {
-    try { process.stdout.write(JSON.stringify(await render(JSON.parse(line))) + '\n') }
-    catch (error) { process.stdout.write(JSON.stringify({error:String(error)}) + '\n') }
+    try { output.write(JSON.stringify(await render(JSON.parse(line))) + '\n') }
+    catch (error) { output.write(JSON.stringify({error:String(error)}) + '\n') }
   }
   stop()
 })
