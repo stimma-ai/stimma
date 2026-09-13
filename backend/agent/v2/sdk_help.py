@@ -72,9 +72,14 @@ to honor the user's filename conventions; platform-fixed names never change.""",
         summary="List installed recipes with their input roles, constraints and parameters.",
         details="""\
 Each entry has id, version, display_name, description, inputs (name, kind,
-required, square, min_size, alpha) and params (name, type, default, options).
-Read it before running a recipe so you gather the right masters first:
-a recipe never generates anything, it only arranges what you give it.""",
+required, square, min_size, alpha), params (name, type, default, options) and
+has_guidance. Read it before running a recipe so you gather the right masters
+first: a recipe never generates anything, it only arranges what you give it.
+
+  stimma.packages.guidance("app-icons")   # notes from that recipe, on demand
+
+Fetch guidance for the recipe you settled on, not for all of them — that is
+what keeps a profile with fifty recipes as cheap to work with as one.""",
         group="packages",
         is_async=False,
     ),

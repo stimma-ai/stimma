@@ -24,18 +24,25 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from packages.manifest import (
-    COVER_NAME,
+from packages.kit import (
+    IMAGE_EXTS,
+    KIT_CSS,
+    KIT_JS,
     KIT_VERSION,
-    member_by_id,
-    resolve_ref,
-    run_by_id,
+    VIDEO_EXTS,
+    escape,
+    expand_kit_elements,
+    files,
+    footer,
+    grid,
+    human_size,
+    media,
+    section,
 )
+from packages.manifest import COVER_NAME
 
 KIT_ELEMENTS = ("stimma-media", "stimma-files", "stimma-compare", "stimma-grid")
 RESERVED_ELEMENTS = ("stimma-pick", "stimma-approve", "stimma-comments")
-IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico"}
-VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 PREVIEW_MAX_SIDE = 1600
 
 
@@ -44,410 +51,6 @@ class CoverError(ValueError):
 
 
 # Kit assets ----------------------------------------------------------------
-
-KIT_CSS = """
-:root{
-  --sp-bg:#0d0d0e; --sp-fg:#ededee; --sp-muted:#8b8b8f; --sp-faint:#5c5c60;
-  --sp-line:#232325; --sp-accent:#2dd4bf; --sp-plate:#151517;
-}
-@media (prefers-color-scheme: light){
-  :root{--sp-bg:#faf9f7; --sp-fg:#17171a; --sp-muted:#6b6b70; --sp-faint:#97979c;
-        --sp-line:#e5e2dd; --sp-accent:#0d9488; --sp-plate:#f1efec;}
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);
-  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased}
-a{color:inherit;text-decoration:none}
-img{display:block}
-.sp-page{max-width:880px;margin:0 auto;padding:56px 28px 88px}
-.sp-title{font-size:clamp(28px,4vw,42px);line-height:1.05;letter-spacing:-0.022em;margin:0;font-weight:600}
-.sp-sub{color:var(--sp-muted);margin:8px 0 0;font-size:14px}
-.sp-sub b{color:var(--sp-fg);font-weight:500}
-.sp-section{margin-top:56px}
-.sp-label{font-size:12px;letter-spacing:.02em;color:var(--sp-muted);margin:0 0 18px;font-weight:500}
-.sp-note{color:var(--sp-muted);font-size:13px;margin:12px 0 0}
-.sp-num{font-variant-numeric:tabular-nums}
-.sp-hr{border:0;border-top:1px solid var(--sp-line);margin:0}
-
-/* Media: artwork sits on a matte, never in a bordered card. */
-stimma-media{display:block}
-stimma-media img,stimma-media video{max-width:100%;height:auto;border-radius:2px}
-stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10px}
-stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
-stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,200px),1fr));gap:28px}
-
-/* Files: a quiet list. One icon button per row, no repeated link text. */
-stimma-files{display:block}
-.sp-files-top{display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding-bottom:12px;border-bottom:1px solid var(--sp-line);margin-bottom:6px}
-.sp-files-what{font-size:13px;color:var(--sp-muted)}
-stimma-files ul{list-style:none;margin:0;padding:0}
-stimma-files li>div{display:flex;align-items:center;gap:10px;padding:5px 0;min-height:30px}
-stimma-files li.sp-dir>ul{margin-left:9px;padding-left:13px;border-left:1px solid var(--sp-line)}
-stimma-files li.sp-dir>div{cursor:pointer;user-select:none}
-stimma-files li.sp-dir.sp-collapsed>ul{display:none}
-stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:13.5px;color:var(--sp-fg)}
-stimma-files li.sp-dir>div .sp-name{color:var(--sp-muted)}
-stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
-stimma-files .sp-caret{width:12px;height:12px;flex:none;color:var(--sp-faint);
-  transition:transform .15s}
-stimma-files li.sp-dir.sp-collapsed>div .sp-caret{transform:rotate(-90deg)}
-stimma-files .sp-caret svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;
-  stroke-linecap:round;stroke-linejoin:round}
-.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-  border-radius:6px;color:var(--sp-faint);flex:none;opacity:0;transition:color .15s,background-color .15s,opacity .15s}
-stimma-files li>div:hover .sp-dl{opacity:1}
-.sp-dl:hover{color:var(--sp-fg);background:var(--sp-plate)}
-.sp-dl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
-  stroke-linecap:round;stroke-linejoin:round}
-.sp-zip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-fg);
-  padding:7px 12px;border-radius:7px;background:var(--sp-plate);flex:none;
-  transition:background-color .15s}
-.sp-zip:hover{background:var(--sp-line)}
-.sp-zip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
-  stroke-linecap:round;stroke-linejoin:round;color:var(--sp-accent)}
-.sp-zip b{font-weight:500}
-.sp-zip em{font-style:normal;color:var(--sp-faint);font-variant-numeric:tabular-nums}
-
-/* Compare */
-stimma-compare{display:block}
-stimma-compare .sp-cmp{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-stimma-compare figure{margin:0}
-stimma-compare figcaption{font-size:12px;color:var(--sp-muted);padding-top:8px}
-stimma-compare.sp-slider .sp-cmp{display:block;position:relative}
-stimma-compare.sp-slider figure:first-child{position:absolute;inset:0;overflow:hidden;width:var(--sp-split,50%)}
-stimma-compare.sp-slider figure:first-child img{width:var(--sp-w,100%);max-width:none}
-stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bottom:10px;width:100%;margin:0}
-
-/* Reserved widgets render their children and nothing else for now. */
-stimma-pick,stimma-approve,stimma-comments{display:block}
-
-.sp-footer{margin-top:72px;padding-top:18px;border-top:1px solid var(--sp-line);
-  color:var(--sp-faint);font-size:12px}
-
-/* Recipe presentations ---------------------------------------------------- */
-.sp-hero{display:flex;align-items:center;justify-content:center;gap:64px;flex-wrap:wrap;margin-top:36px}
-.sp-hero-icon{flex:none}
-.sp-hero-icon img{width:172px;height:172px;border-radius:22.37%;
-  box-shadow:0 20px 44px rgba(0,0,0,.5)}
-.sp-hero-icon span{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums}
-
-.sp-phone{flex:none;width:228px;aspect-ratio:9/19.5;border-radius:38px;padding:8px;
-  background:#2c2c30;
-  box-shadow:0 26px 64px rgba(0,0,0,.55)}
-.sp-screen{width:100%;height:100%;border-radius:31px;overflow:hidden;position:relative;
-  background:radial-gradient(130% 90% at 20% 0%,#5a6d8c 0%,#2b3548 45%,#161b27 100%);
-  display:flex;flex-direction:column}
-.sp-statusbar{display:flex;align-items:center;justify-content:space-between;
-  padding:9px 16px 0;font-size:9px;color:#fff;opacity:.92;font-weight:600}
-.sp-statusbar .sp-bars{display:flex;align-items:flex-end;gap:1.5px}
-.sp-statusbar .sp-bars i{display:block;width:2px;background:#fff;border-radius:1px}
-.sp-statusbar .sp-batt{width:14px;height:7px;border:1px solid rgba(255,255,255,.85);
-  border-radius:2px;position:relative}
-.sp-statusbar .sp-batt::after{content:"";position:absolute;inset:1px;right:4px;background:#fff;border-radius:1px}
-.sp-apps{flex:1;display:grid;grid-template-columns:repeat(4,1fr);
-  align-content:start;gap:14px 8px;padding:14px 12px 0}
-.sp-app{display:grid;justify-items:center;gap:4px}
-.sp-app img,.sp-app i{display:block;width:40px;height:40px;border-radius:22.37%}
-.sp-app i{background:rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
-.sp-app em{font-style:normal;font-size:7.5px;line-height:1;color:#fff;opacity:.92;
-  text-shadow:0 1px 2px rgba(0,0,0,.5);max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sp-app.sp-mine img{box-shadow:0 4px 12px rgba(0,0,0,.4)}
-.sp-dock{margin:0 10px 10px;padding:8px;border-radius:24px;background:rgba(255,255,255,.14);
-  display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.sp-dock i{display:block;width:40px;height:40px;border-radius:22.37%;
-  background:rgba(255,255,255,.18);justify-self:center}
-
-.sp-sizes{display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap}
-.sp-size{display:grid;justify-items:center;gap:9px}
-.sp-size img{border-radius:22.37%}
-.sp-size span{font-size:11px;color:var(--sp-faint);font-variant-numeric:tabular-nums}
-.sp-platforms{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px}
-.sp-platform h3{margin:0 0 5px;font-size:13.5px;font-weight:500}
-.sp-platform p{margin:0;font-size:13px;color:var(--sp-muted);line-height:1.5}
-"""
-
-KIT_JS = r"""
-(function(){
-  if (window.__stimmaKit) return; window.__stimmaKit = true;
-  var manifestEl = document.getElementById('stimma-package-manifest');
-  var manifest = null;
-  try { manifest = manifestEl ? JSON.parse(manifestEl.textContent) : null; } catch (e) { manifest = null; }
-  window.stimmaPackage = { manifest: manifest, kitVersion: %(kit_version)d, host: document.documentElement.getAttribute('data-stimma-host') || null };
-  function define(name, cls){ if (window.customElements && !customElements.get(name)) customElements.define(name, cls); }
-  var Passive = function(){ return Reflect.construct(HTMLElement, [], this.constructor); };
-  Passive.prototype = Object.create(HTMLElement.prototype); Passive.prototype.constructor = Passive;
-  // Static-first: the server already expanded these. The classes only enhance.
-  define('stimma-media', class extends HTMLElement {});
-  define('stimma-grid', class extends HTMLElement {});
-  define('stimma-pick', class extends HTMLElement {});
-  define('stimma-approve', class extends HTMLElement {});
-  define('stimma-comments', class extends HTMLElement {});
-  define('stimma-files', class extends HTMLElement {
-    connectedCallback(){
-      var self = this;
-      self.querySelectorAll('li.sp-dir > div').forEach(function(head){
-        head.addEventListener('click', function(ev){
-          if (ev.target && ev.target.tagName === 'A') return;
-          head.parentElement.classList.toggle('sp-collapsed');
-        });
-      });
-    }
-  });
-  define('stimma-compare', class extends HTMLElement {
-    connectedCallback(){
-      var self = this;
-      if (self.getAttribute('mode') !== 'slider') return;
-      var wrap = self.querySelector('.sp-cmp'); if (!wrap) return;
-      var first = wrap.querySelector('figure:first-child'); var imgs = wrap.querySelectorAll('img');
-      if (imgs.length < 2) return;
-      self.classList.add('sp-slider');
-      var range = document.createElement('input'); range.type = 'range'; range.min = 0; range.max = 100; range.value = 50;
-      function apply(){ self.style.setProperty('--sp-split', range.value + '%'); }
-      function size(){ self.style.setProperty('--sp-w', wrap.clientWidth + 'px'); }
-      range.addEventListener('input', apply); window.addEventListener('resize', size);
-      self.appendChild(range); size(); apply();
-      imgs[1].addEventListener('load', size);
-    }
-  });
-})();
-"""
-
-
-# Expansion ------------------------------------------------------------------
-
-_TAG_RE_TEMPLATE = r"<{tag}\b(?P<attrs>[^>]*?)(?:/>|>(?P<inner>.*?)</{tag}>)"
-_ATTR_RE = re.compile(r'([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'=<>`]+)))?')
-
-
-def _parse_attrs(text: str) -> dict[str, str]:
-    attrs: dict[str, str] = {}
-    for m in _ATTR_RE.finditer(text or ""):
-        name = m.group(1)
-        value = m.group(2) if m.group(2) is not None else (m.group(3) if m.group(3) is not None else m.group(4))
-        attrs[name.lower()] = "" if value is None else value
-    return attrs
-
-
-def _attr_str(attrs: dict[str, str]) -> str:
-    return "".join(f' {k}="{htmllib.escape(v, quote=True)}"' for k, v in attrs.items())
-
-
-def _human_size(n: int) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if n < 1024 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} GB"
-
-
-def _media_markup(path: str, *, alt: str = "", caption: str = "") -> str:
-    ext = Path(path).suffix.lower()
-    src = htmllib.escape(path, quote=True)
-    if ext in VIDEO_EXTS:
-        body = f'<video controls preload="metadata" src="{src}"></video>'
-    elif ext in IMAGE_EXTS:
-        body = f'<img src="{src}" alt="{htmllib.escape(alt, quote=True)}" loading="lazy">'
-    else:
-        body = f'<a href="{src}" download>{htmllib.escape(Path(path).name)}</a>'
-    if caption:
-        body += f'<div class="sp-caption">{htmllib.escape(caption)}</div>'
-    return body
-
-
-def _tree(entries: list[dict[str, Any]], root: str) -> dict[str, Any]:
-    """Nest flat file entries under ``root`` into {name: {..}} folders."""
-    tree: dict[str, Any] = {}
-    for entry in entries:
-        rel = entry["path"][len(root):] if root and entry["path"].startswith(root) else entry["path"]
-        parts = rel.split("/")
-        node = tree
-        for part in parts[:-1]:
-            node = node.setdefault(part, {"__dir__": True})
-        node[parts[-1]] = {"__file__": entry}
-    return tree
-
-
-_ICON_DOWNLOAD = (
-    '<svg viewBox="0 0 24 24" aria-hidden="true">'
-    '<path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'
-)
-_ICON_ARCHIVE = (
-    '<svg viewBox="0 0 24 24" aria-hidden="true">'
-    '<path d="M3 7h18M4 7v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7M3 7l1.6-3h14.8L21 7M10 12h4"/></svg>'
-)
-
-
-_CARET = '<span class="sp-caret"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>'
-
-
-def _download_href(path: str) -> str:
-    sep = "&" if "?" in path else "?"
-    return htmllib.escape(f"{path}{sep}download=1", quote=True)
-
-
-def _render_tree(node: dict[str, Any], prefix: str) -> str:
-    items = sorted(node.items(), key=lambda kv: (not isinstance(kv[1], dict) or "__file__" in kv[1], kv[0].lower()))
-    out = ["<ul>"]
-    for name, child in items:
-        if name in ("__dir__", "__file__"):
-            continue
-        safe = htmllib.escape(name)
-        if "__file__" in child:
-            entry = child["__file__"]
-            out.append(
-                f'<li><div><span class="sp-name">{safe}</span>'
-                f'<span class="sp-meta">{_human_size(int(entry.get("size") or 0))}</span>'
-                f'<a class="sp-dl" href="{_download_href(entry["path"])}" download'
-                f' aria-label="Download {htmllib.escape(name, quote=True)}">{_ICON_DOWNLOAD}</a></div></li>'
-            )
-        else:
-            count = _count_files(child)
-            out.append(
-                f'<li class="sp-dir"><div>{_CARET}<span class="sp-name">{safe}</span>'
-                f'<span class="sp-meta">{count}</span></div>{_render_tree(child, prefix + name + "/")}</li>'
-            )
-    out.append("</ul>")
-    return "".join(out)
-
-
-def _count_files(node: dict[str, Any]) -> int:
-    total = 0
-    for name, child in node.items():
-        if name in ("__dir__", "__file__") or not isinstance(child, dict):
-            continue
-        total += 1 if "__file__" in child else _count_files(child)
-    return total
-
-
-def _files_markup(manifest: dict[str, Any], ref: str) -> str:
-    run = run_by_id(manifest, ref)
-    if run is not None:
-        root = (run.get("root") or "").rstrip("/")
-        entries = run.get("files") or []
-        total = sum(int(e.get("size") or 0) for e in entries)
-        zip_href = _download_href(f"{root}.zip")
-        head = (
-            f'<div class="sp-files-top">'
-            f'<span class="sp-files-what">{len(entries)} files</span>'
-            f'<a class="sp-zip" href="{zip_href}" download>{_ICON_ARCHIVE}'
-            f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a></div>'
-        )
-        return head + _render_tree(_tree(entries, root + "/"), root + "/")
-
-    sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
-    for run in manifest.get("runs") or []:
-        sections.extend(run.get("files") or [])
-    for extra in manifest.get("extras") or []:
-        sections.append({"path": extra["path"], "size": extra.get("size", 0)})
-    total = sum(int(e.get("size") or 0) for e in sections)
-    head = (
-        f'<div class="sp-files-top"><span class="sp-files-what">{len(sections)} files</span>'
-        f'<span class="sp-meta">{_human_size(total)}</span></div>'
-    )
-    return head + _render_tree(_tree(sections, ""), "")
-
-
-def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:
-    resolved = resolve_ref(manifest, ref)
-    if resolved is None or resolved["kind"] == "run":
-        return None
-    return resolved["path"]
-
-
-def expand_kit_elements(manifest: dict[str, Any], body: str) -> tuple[str, list[str]]:
-    """Expand empty kit elements into static HTML. Returns (html, problems)."""
-    problems: list[str] = []
-    counters: dict[str, int] = {}
-    seen_ids: set[str] = set()
-
-    def next_id(tag: str, ref: str) -> str:
-        counters[tag] = counters.get(tag, 0) + 1
-        base = re.sub(r"[^a-z0-9-]+", "-", (ref or tag).lower()).strip("-") or tag
-        candidate = f"{base}-{counters[tag]}"
-        while candidate in seen_ids:
-            counters[tag] += 1
-            candidate = f"{base}-{counters[tag]}"
-        return candidate
-
-    def register_id(attrs: dict[str, str], tag: str) -> None:
-        el_id = attrs.get("id")
-        if el_id:
-            if el_id in seen_ids:
-                problems.append(f"duplicate id {el_id!r} on <{tag}>")
-            seen_ids.add(el_id)
-        else:
-            attrs["id"] = next_id(tag, attrs.get("ref", ""))
-            seen_ids.add(attrs["id"])
-
-    def media_sub(m: re.Match) -> str:
-        attrs = _parse_attrs(m.group("attrs"))
-        inner = (m.group("inner") or "").strip()
-        register_id(attrs, "stimma-media")
-        ref = attrs.get("ref", "")
-        path = _resolve_path(manifest, ref)
-        if path is None:
-            problems.append(f"<stimma-media ref=\"{ref}\"> does not resolve to a member or file in this package")
-            return f"<stimma-media{_attr_str(attrs)}>{inner}</stimma-media>"
-        attrs["data-path"] = path
-        if inner:
-            return f"<stimma-media{_attr_str(attrs)}>{inner}</stimma-media>"
-        member = member_by_id(manifest, ref)
-        alt = attrs.get("alt") or (member.get("name") if member else Path(path).name)
-        return f"<stimma-media{_attr_str(attrs)}>{_media_markup(path, alt=alt, caption=attrs.get('caption', ''))}</stimma-media>"
-
-    def files_sub(m: re.Match) -> str:
-        attrs = _parse_attrs(m.group("attrs"))
-        inner = (m.group("inner") or "").strip()
-        register_id(attrs, "stimma-files")
-        ref = attrs.get("ref", "")
-        if ref and run_by_id(manifest, ref) is None and ref != "package":
-            problems.append(f"<stimma-files ref=\"{ref}\"> does not name a run in this package (use a run id or omit ref)")
-            return f"<stimma-files{_attr_str(attrs)}>{inner}</stimma-files>"
-        if inner:
-            return f"<stimma-files{_attr_str(attrs)}>{inner}</stimma-files>"
-        return f"<stimma-files{_attr_str(attrs)}>{_files_markup(manifest, ref)}</stimma-files>"
-
-    def compare_sub(m: re.Match) -> str:
-        attrs = _parse_attrs(m.group("attrs"))
-        inner = (m.group("inner") or "").strip()
-        register_id(attrs, "stimma-compare")
-        if inner:
-            return f"<stimma-compare{_attr_str(attrs)}>{inner}</stimma-compare>"
-        a, bref = attrs.get("a", ""), attrs.get("b", "")
-        pa, pb = _resolve_path(manifest, a), _resolve_path(manifest, bref)
-        if pa is None or pb is None:
-            problems.append(f"<stimma-compare a=\"{a}\" b=\"{bref}\"> has an unresolved side")
-            return f"<stimma-compare{_attr_str(attrs)}></stimma-compare>"
-        la = htmllib.escape(attrs.get("label-a", "A"))
-        lb = htmllib.escape(attrs.get("label-b", "B"))
-        body = (
-            f'<div class="sp-cmp"><figure>{_media_markup(pa)}<figcaption>{la}</figcaption></figure>'
-            f'<figure>{_media_markup(pb)}<figcaption>{lb}</figcaption></figure></div>'
-        )
-        return f"<stimma-compare{_attr_str(attrs)}>{body}</stimma-compare>"
-
-    def grid_sub(m: re.Match) -> str:
-        attrs = _parse_attrs(m.group("attrs"))
-        register_id(attrs, "stimma-grid")
-        return f"<stimma-grid{_attr_str(attrs)}>"
-
-    flags = re.IGNORECASE | re.DOTALL
-    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-media"), media_sub, body, flags=flags)
-    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-files"), files_sub, body, flags=flags)
-    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-compare"), compare_sub, body, flags=flags)
-    body = re.sub(r"<stimma-grid\b(?P<attrs>[^>]*)>", grid_sub, body, flags=flags)
-    for tag in RESERVED_ELEMENTS:
-        for m in re.finditer(rf"<{tag}\b(?P<attrs>[^>]*)>", body, flags=flags):
-            attrs = _parse_attrs(m.group("attrs"))
-            if attrs.get("id"):
-                if attrs["id"] in seen_ids:
-                    problems.append(f"duplicate id {attrs['id']!r} on <{tag}>")
-                seen_ids.add(attrs["id"])
-    return body, problems
-
 
 # Lint -----------------------------------------------------------------------
 
@@ -529,56 +132,44 @@ def _run_presentation(run: dict[str, Any], manifest: dict[str, Any]) -> Optional
 def auto_cover_body(manifest: dict[str, Any]) -> str:
     """The cover a package gets when nobody designed one.
 
-    It leads with the work, says what is inside in the words someone receiving
-    it would use, and keeps the file list quiet and last. Nothing structural
-    about how the package was assembled belongs on this page.
+    Components only: the same vocabulary an authored cover uses, so a package
+    made without a designer still reads as part of the same family.
     """
-    title = htmllib.escape(manifest.get("title") or "Package")
-    parts = [f'<div class="sp-page"><h1 class="sp-title">{title}</h1>']
+    parts = [f'<h1 class="sp-title">{escape(manifest.get("title") or "Package")}</h1>']
 
     runs = manifest.get("runs") or []
     labels = [
         (run.get("recipe") or {}).get("display_name") or (run.get("recipe") or {}).get("id") or ""
         for run in runs
     ]
-    labels = [label for label in labels if label]
-    summary = " · ".join(filter(None, [
-        ", ".join(labels),
+    summary = " · ".join(x for x in [
+        ", ".join(label for label in labels if label),
         f"{_total_files(manifest)} files",
-        _human_size(_total_size(manifest)),
-    ]))
+        human_size(_total_size(manifest)),
+    ] if x)
     if summary:
-        parts.append(f'<p class="sp-sub">{htmllib.escape(summary)}</p>')
+        parts.append(f'<p class="sp-sub">{escape(summary)}</p>')
 
     presented = False
     for run in runs:
         fragment = _run_presentation(run, manifest)
         if fragment:
-            parts.append(f'<div class="sp-section">{fragment}</div>')
+            parts.append(fragment)
             presented = True
 
     if not presented:
         members = manifest.get("members") or []
         if members:
-            parts.append('<div class="sp-section"><stimma-grid>')
-            for member in members:
-                ref = htmllib.escape(member["id"], quote=True)
-                parts.append(f'<stimma-media ref="{ref}" plate></stimma-media>')
-            parts.append("</stimma-grid></div>")
+            parts.append(section(grid(media(m["id"], plate=True) for m in members)))
 
-    extras = manifest.get("extras") or []
-    if extras:
-        parts.append('<div class="sp-section"><p class="sp-label">Also included</p><stimma-files></stimma-files></div>')
+    if manifest.get("extras"):
+        parts.append(section(files(), label="Files"))
     else:
         for run in runs:
-            ref = htmllib.escape(run["id"], quote=True)
-            parts.append(
-                f'<div class="sp-section"><p class="sp-label">Files</p>'
-                f'<stimma-files ref="{ref}"></stimma-files></div>'
-            )
+            parts.append(section(files(run["id"]), label="Files"))
 
-    parts.append('<p class="sp-footer">Made with Stimma.</p></div>')
-    return "".join(parts)
+    parts.append(footer())
+    return f'<div class="sp-page">{"".join(parts)}</div>'
 
 
 def render_cover_document(

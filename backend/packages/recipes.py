@@ -152,6 +152,9 @@ class RecipeSpec:
     # so it can show it properly — an icon set at real sizes on a home screen
     # beats a file listing. Pure and deterministic, like build.
     present: Optional[Callable[[dict, dict], str]] = None
+    # Notes the agent fetches only when it is about to use this recipe, so a
+    # profile with fifty recipes costs no more context than one with three.
+    guidance: str = ""
     source: str = "builtin"  # "builtin" or the stimpack name
     module_path: Optional[str] = None
 
@@ -170,6 +173,7 @@ class RecipeSpec:
             "source": self.source,
             "inputs": [i.to_dict() for i in self.inputs],
             "params": [p.to_dict() for p in self.params],
+            "has_guidance": bool(self.guidance),
         }
 
 
@@ -182,6 +186,7 @@ def recipe(
     inputs: Iterable[Input] = (),
     params: Iterable[Param] = (),
     present: Optional[Callable[[dict, dict], str]] = None,
+    guidance: str = "",
 ):
     """Declare a recipe. The decorated function is the ``build`` step."""
     if not re.match(r"^[a-z0-9][a-z0-9-]*$", id):
@@ -197,6 +202,7 @@ def recipe(
             params=list(params),
             build=fn,
             present=present,
+            guidance=(guidance or "").strip(),
         )
         names = [i.name for i in spec.inputs]
         if len(names) != len(set(names)):

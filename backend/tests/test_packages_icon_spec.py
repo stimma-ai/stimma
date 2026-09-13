@@ -328,3 +328,50 @@ async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_pa
     assert all("download=1" in href for href in hrefs)
     assert 'href="app-icons.zip?download=1"' in html
     assert "Download app-icons.zip" in html
+
+
+@pytest.mark.asyncio
+async def test_presentations_are_built_from_kit_components(tmp_path):
+    """A recipe presents with the shared vocabulary, not markup of its own.
+
+    Components are what keep two packages made a year apart looking related,
+    and what lets a change to the look reach every cover without touching a
+    recipe.
+    """
+    from packages import kit
+    from packages.manifest import new_manifest
+
+    out = tmp_path / "out"
+    result = await run_recipe(
+        get_recipe("app-icons"),
+        {"master": _resolved("master", _master(tmp_path / "master.png"))},
+        {"platforms": ["ios"], "app_name": "Sunburst"}, out, slug="sunburst",
+    )
+    manifest = new_manifest(title="Sunburst iOS icon")
+    manifest["runs"] = [{
+        "id": "r1", "recipe": {"id": "app-icons", "version": 2, "display_name": "App icon set"},
+        "inputs": {}, "params": result.params, "root": "app-icons/",
+        "files": [{"path": "app-icons/" + f.path, "hash": f.hash, "size": f.size} for f in result.files],
+    }]
+    fragment = get_recipe("app-icons").present(manifest["runs"][0], manifest)
+    for component in ("stimma-section", "stimma-device", "stimma-sizes", "stimma-media", "stimma-columns"):
+        assert f"<{component}" in fragment, f"presentation does not use <{component}>"
+
+    from packages.cover import render_cover_document
+
+    html, problems = render_cover_document(manifest)
+    assert not problems
+    # The device mockup and the real-size row must actually render.
+    assert "sp-phone" in html and "sp-statusbar" in html and "sp-dock" in html
+    assert 'width="20" height="20"' in html
+    # And the page signs itself.
+    assert kit.LOGO_SVG.split(">", 1)[0] in html and "sp-wordmark" in html
+
+
+def test_the_file_tree_is_one_shared_component():
+    """Every surface that lists package files uses the same component."""
+    from packages import cover, kit
+
+    assert hasattr(kit, "_files_markup"), "the tree lives in the kit"
+    assert not hasattr(cover, "_files_markup"), "the cover must not carry a second copy"
+    assert "stimma-files" in kit.COMPONENTS

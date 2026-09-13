@@ -1101,6 +1101,21 @@ class StimmaPackagesAPI:
 
         return [spec.to_dict() for spec in list_recipes(_profile())]
 
+    def guidance(self, recipe_id: str) -> str:
+        """Notes from one recipe about how to use it well.
+
+        Fetch this when you are about to use a recipe, not before. Recipes
+        carry their own knowledge so the packaging skill stays the same size
+        however many are installed.
+        """
+        from core.profile_context import get_current_profile as _profile
+        from packages.recipes import get_recipe
+
+        spec = get_recipe(recipe_id, _profile())
+        if spec is None:
+            raise ValueError(f"no recipe named {recipe_id!r}")
+        return spec.guidance or f"{spec.display_name}: {spec.description}"
+
     def new(self, title: str, *, slug: str | None = None) -> PackageDraft:
         """Start a package. Add members, run recipes, set a cover, then save()."""
         return PackageDraft(self._sdk, title, slug=slug)

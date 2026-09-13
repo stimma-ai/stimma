@@ -7,9 +7,8 @@ size the spec names and write the files where each platform expects them.
 
 from __future__ import annotations
 
-import html as htmllib
-
 import icon_spec
+from packages import kit
 from packages.recipes import Build, Input, Param, recipe
 
 # Sizes worth showing at their true scale: the ones that decide whether a mark
@@ -43,76 +42,36 @@ def _by_px(run: dict) -> dict[int, str]:
     return found
 
 
-# Tints for the placeholder apps around ours, so the mockup reads as a home
-# screen rather than a wireframe of grey boxes.
-_NEIGHBOURS = (
-    "rgba(255,255,255,.18)", "rgba(120,180,255,.30)", "rgba(255,190,120,.26)",
-    "rgba(150,230,190,.26)", "rgba(220,150,235,.24)", "rgba(255,255,255,.13)",
-    "rgba(255,150,150,.24)", "rgba(160,190,255,.22)", "rgba(255,255,255,.20)",
-    "rgba(200,235,150,.24)", "rgba(255,255,255,.15)",
-)
-
-
-def _home_screen(hero: str, app_name: str) -> str:
-    """A believable springboard: status bar, a grid of apps, a dock."""
-    cells = [
-        f'<div class="sp-app sp-mine"><img src="{hero}" alt=""><em>{htmllib.escape(app_name)}</em></div>'
-    ]
-    for tint in _NEIGHBOURS:
-        cells.append(f'<div class="sp-app"><i style="background:{tint}"></i><em></em></div>')
-    status = (
-        '<div class="sp-statusbar"><span>9:41</span>'
-        '<span style="display:flex;align-items:center;gap:4px">'
-        '<span class="sp-bars"><i style="height:3px"></i><i style="height:5px"></i>'
-        '<i style="height:7px"></i><i style="height:9px"></i></span>'
-        '<span class="sp-batt"></span></span></div>'
-    )
-    dock = '<div class="sp-dock">' + "<i></i>" * 4 + "</div>"
-    return (
-        f'<div class="sp-phone"><div class="sp-screen">{status}'
-        f'<div class="sp-apps">{"".join(cells)}</div>{dock}</div></div>'
-    )
-
-
 def present(run: dict, manifest: dict) -> str:
-    """Show the icon the way it will be seen: on a home screen, and at real size."""
+    """Show the icon the way it will be seen: on a home screen, and at real size.
+
+    Built from kit components, so this reads like every other Stimma cover and
+    picks up any change to the look without being touched.
+    """
     by_px = _by_px(run)
     if not by_px:
         return ""
-    hero = htmllib.escape(by_px[max(by_px)], quote=True)
+    hero_ref = by_px[max(by_px)]
     app_name = (run.get("params") or {}).get("app_name") or ""
     if not app_name or app_name == "App":
-        app_name = (manifest.get("title") or "").split()[0] if manifest.get("title") else "App"
-    platforms = (run.get("params") or {}).get("platforms") or []
+        title = manifest.get("title") or ""
+        app_name = title.split()[0] if title else "App"
 
-    swatches = []
-    for px in PREVIEW_SIZES:
-        path = by_px.get(px)
-        if not path:
-            continue
-        src = htmllib.escape(path, quote=True)
-        swatches.append(
-            f'<div class="sp-size"><img src="{src}" width="{px}" height="{px}" alt="{px} pixels">'
-            f'<span>{px}</span></div>'
-        )
+    swatches = [kit.media(by_px[px], size=px) for px in PREVIEW_SIZES if px in by_px]
+    included = [
+        PLATFORM_BLURB.get(key, (key.title(), ""))
+        for key in (run.get("params") or {}).get("platforms") or []
+    ]
 
-    cards = []
-    for key in platforms:
-        name, blurb = PLATFORM_BLURB.get(key, (key.title(), ""))
-        cards.append(
-            f'<div class="sp-platform"><h3>{htmllib.escape(name)}</h3>'
-            f'<p>{htmllib.escape(blurb)}</p></div>'
-        )
-
-    return (
-        '<div class="sp-hero">'
-        f'<div class="sp-hero-icon"><img src="{hero}" alt=""></div>'
-        f'{_home_screen(hero, app_name)}</div>'
-        '<div class="sp-section"><p class="sp-label">At actual size</p>'
-        f'<div class="sp-sizes">{"".join(swatches)}</div></div>'
-        + (f'<div class="sp-section"><p class="sp-label">Included</p>'
-           f'<div class="sp-platforms">{"".join(cards)}</div></div>' if cards else "")
-    )
+    out = [kit.section(kit.hero(
+        f'<div class="sp-hero-icon"><img src="{kit.escape(hero_ref)}" alt=""></div>',
+        kit.device(hero_ref, kind="iphone", label=app_name),
+    ))]
+    if swatches:
+        out.append(kit.section(kit.sizes(swatches), label="At actual size"))
+    if included:
+        out.append(kit.section(kit.columns(included), label="Included"))
+    return "".join(out)
 
 
 @recipe(
@@ -137,6 +96,22 @@ def present(run: dict, manifest: dict) -> str:
               description="Template for free filenames; platform-fixed names are exempt"),
     ],
     present=present,
+    guidance="""\
+The master does the work: a square mark that still reads at 20px. Thin strokes
+and fine detail disappear at the small end — check the actual-size row before
+calling it done, and simplify the mark rather than the sizes.
+
+`background` is composited behind the artwork wherever a platform forbids
+transparency (iOS, the Play Store icon, the Apple touch icon) and is the
+Android adaptive background layer. Pick it deliberately: a mark drawn for a
+light UI on a white background disappears in a dark dock.
+
+Supply `android_foreground` when the mark needs to sit differently inside
+Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
+so a wide lockup that works on iOS loses its edges there.
+
+An SVG master is worth more than a raster: every size is drawn at that size
+rather than resampled.""",
 )
 async def build(b: Build) -> None:
     platforms = b.params.platforms
