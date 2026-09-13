@@ -122,7 +122,9 @@ def _safe_bundle_path(bundle_dir: Path, rel: str) -> Path:
     return target
 
 
-async def _serve_bundle_file(session: AsyncSession, media_id: int, path: str) -> Response:
+async def _serve_bundle_file(
+    session: AsyncSession, media_id: int, path: str, *, download: bool = False
+) -> Response:
     media = await _package_media(session, media_id)
     bundle_dir = Path(media.file_path)
     rel = path or COVER_NAME
@@ -130,6 +132,11 @@ async def _serve_bundle_file(session: AsyncSession, media_id: int, path: str) ->
     if target.is_file():
         mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
         headers = {**ID_KEYED_CACHE_HEADERS, "Access-Control-Allow-Origin": "*"}
+        if download:
+            # Without this the browser just navigates to anything it can render
+            # — a JSON or a PNG opens in place of downloading, which inside the
+            # cover's frame looks like the page broke.
+            headers["Content-Disposition"] = content_disposition("attachment", target.name)
         if target.name == COVER_NAME:
             html = target.read_text(encoding="utf-8").replace(
                 '<html lang="en" data-stimma-package="1">', '<html lang="en" data-stimma-package="1" data-stimma-host="local">', 1
@@ -149,16 +156,19 @@ async def _serve_bundle_file(session: AsyncSession, media_id: int, path: str) ->
 
 
 @router.get("/media/{media_id}/package-file/{path:path}")
-async def get_package_file(media_id: int, path: str, session: AsyncSession = Depends(get_db_session)):
+async def get_package_file(
+    media_id: int, path: str, download: bool = False, session: AsyncSession = Depends(get_db_session)
+):
     """A file inside the bundle. ``<run-root>.zip`` is produced on the fly."""
-    return await _serve_bundle_file(session, media_id, path)
+    return await _serve_bundle_file(session, media_id, path, download=download)
 
 
 @router.get("/db/{db_guid}/media/{media_id}/package-file/{path:path}")
 async def get_package_file_by_db_guid(
-    db_guid: str, media_id: int, path: str, session: AsyncSession = Depends(get_db_session_by_guid)
+    db_guid: str, media_id: int, path: str, download: bool = False,
+    session: AsyncSession = Depends(get_db_session_by_guid),
 ):
-    return await _serve_bundle_file(session, media_id, path)
+    return await _serve_bundle_file(session, media_id, path, download=download)
 
 
 @router.get("/media/{media_id}/package-cover")

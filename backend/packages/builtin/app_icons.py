@@ -16,12 +16,14 @@ from packages.recipes import Build, Input, Param, recipe
 # survives. A designer checks the small end first.
 PREVIEW_SIZES = (180, 120, 87, 60, 40, 29, 20)
 
+# What each folder holds, in the recipient's words. No instructions: the page
+# has no affordance behind a "drag this into Xcode", so it does not say one.
 PLATFORM_BLURB = {
-    "ios": ("iPhone and iPad", "Drop AppIcon.appiconset into your Xcode asset catalog."),
-    "android": ("Android", "Copy mipmap and values into res. Adaptive layers included."),
-    "macos": ("macOS", "A ready .icns, plus every size as a PNG."),
+    "ios": ("iPhone and iPad", "An Xcode asset catalog, every size with its Contents.json."),
+    "android": ("Android", "Launcher icons per density, adaptive layers, and the Play Store icon."),
+    "macos": ("macOS", "An .icns, and every size as a PNG."),
     "windows": ("Windows", "A multi-resolution .ico, 16 through 256."),
-    "web": ("Web", "Favicons, an Apple touch icon, a manifest, and the tags to paste."),
+    "web": ("Web", "Favicons, an Apple touch icon, a manifest, and the head tags."),
 }
 
 
@@ -41,20 +43,47 @@ def _by_px(run: dict) -> dict[int, str]:
     return found
 
 
+# Tints for the placeholder apps around ours, so the mockup reads as a home
+# screen rather than a wireframe of grey boxes.
+_NEIGHBOURS = (
+    "rgba(255,255,255,.18)", "rgba(120,180,255,.30)", "rgba(255,190,120,.26)",
+    "rgba(150,230,190,.26)", "rgba(220,150,235,.24)", "rgba(255,255,255,.13)",
+    "rgba(255,150,150,.24)", "rgba(160,190,255,.22)", "rgba(255,255,255,.20)",
+    "rgba(200,235,150,.24)", "rgba(255,255,255,.15)",
+)
+
+
+def _home_screen(hero: str, app_name: str) -> str:
+    """A believable springboard: status bar, a grid of apps, a dock."""
+    cells = [
+        f'<div class="sp-app sp-mine"><img src="{hero}" alt=""><em>{htmllib.escape(app_name)}</em></div>'
+    ]
+    for tint in _NEIGHBOURS:
+        cells.append(f'<div class="sp-app"><i style="background:{tint}"></i><em></em></div>')
+    status = (
+        '<div class="sp-statusbar"><span>9:41</span>'
+        '<span style="display:flex;align-items:center;gap:4px">'
+        '<span class="sp-bars"><i style="height:3px"></i><i style="height:5px"></i>'
+        '<i style="height:7px"></i><i style="height:9px"></i></span>'
+        '<span class="sp-batt"></span></span></div>'
+    )
+    dock = '<div class="sp-dock">' + "<i></i>" * 4 + "</div>"
+    return (
+        f'<div class="sp-phone"><div class="sp-screen">{status}'
+        f'<div class="sp-apps">{"".join(cells)}</div>{dock}</div></div>'
+    )
+
+
 def present(run: dict, manifest: dict) -> str:
     """Show the icon the way it will be seen: on a home screen, and at real size."""
     by_px = _by_px(run)
     if not by_px:
         return ""
     hero = htmllib.escape(by_px[max(by_px)], quote=True)
+    app_name = (run.get("params") or {}).get("app_name") or ""
+    if not app_name or app_name == "App":
+        app_name = (manifest.get("title") or "").split()[0] if manifest.get("title") else "App"
     platforms = (run.get("params") or {}).get("platforms") or []
-
-    apps = [f'<div class="sp-app"><img src="{hero}" alt=""><em>App</em></div>']
-    apps += ['<div class="sp-app"><span class="sp-blank"></span><em></em></div>'] * 7
-    phone = (
-        '<div class="sp-phone"><div class="sp-screen">'
-        f'<div class="sp-apps">{"".join(apps)}</div></div></div>'
-    )
 
     swatches = []
     for px in PREVIEW_SIZES:
@@ -77,14 +106,13 @@ def present(run: dict, manifest: dict) -> str:
 
     return (
         '<div class="sp-hero">'
-        f'<div class="sp-hero-icon"><img src="{hero}" alt=""></div>{phone}</div>'
+        f'<div class="sp-hero-icon"><img src="{hero}" alt=""></div>'
+        f'{_home_screen(hero, app_name)}</div>'
         '<div class="sp-section"><p class="sp-label">At actual size</p>'
-        f'<div class="sp-sizes">{"".join(swatches)}</div>'
-        '<p class="sp-note">Every size is its own render, so the mark stays legible where it gets small.</p></div>'
-        + (f'<div class="sp-section"><p class="sp-label">What is included</p>'
+        f'<div class="sp-sizes">{"".join(swatches)}</div></div>'
+        + (f'<div class="sp-section"><p class="sp-label">Included</p>'
            f'<div class="sp-platforms">{"".join(cards)}</div></div>' if cards else "")
     )
-
 
 
 @recipe(

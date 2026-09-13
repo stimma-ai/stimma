@@ -60,11 +60,11 @@ html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);
   -webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 img{display:block}
-.sp-page{max-width:920px;margin:0 auto;padding:72px 28px 120px}
-.sp-title{font-size:clamp(30px,5vw,52px);line-height:1.02;letter-spacing:-0.025em;margin:0;font-weight:600}
-.sp-sub{color:var(--sp-muted);margin:10px 0 0;font-size:15px}
+.sp-page{max-width:880px;margin:0 auto;padding:56px 28px 88px}
+.sp-title{font-size:clamp(28px,4vw,42px);line-height:1.05;letter-spacing:-0.022em;margin:0;font-weight:600}
+.sp-sub{color:var(--sp-muted);margin:8px 0 0;font-size:14px}
 .sp-sub b{color:var(--sp-fg);font-weight:500}
-.sp-section{margin-top:72px}
+.sp-section{margin-top:56px}
 .sp-label{font-size:12px;letter-spacing:.02em;color:var(--sp-muted);margin:0 0 18px;font-weight:500}
 .sp-note{color:var(--sp-muted);font-size:13px;margin:12px 0 0}
 .sp-num{font-variant-numeric:tabular-nums}
@@ -79,26 +79,37 @@ stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-
 
 /* Files: a quiet list. One icon button per row, no repeated link text. */
 stimma-files{display:block}
-.sp-files-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px}
+.sp-files-top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-bottom:12px;border-bottom:1px solid var(--sp-line);margin-bottom:6px}
+.sp-files-what{font-size:13px;color:var(--sp-muted)}
 stimma-files ul{list-style:none;margin:0;padding:0}
-stimma-files li>div{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--sp-line)}
-stimma-files li:last-child>div{border-bottom:0}
-stimma-files li.sp-dir>ul{margin-left:18px;padding-left:14px;border-left:1px solid var(--sp-line)}
-stimma-files li.sp-dir>div{cursor:pointer;user-select:none;color:var(--sp-fg)}
+stimma-files li>div{display:flex;align-items:center;gap:10px;padding:5px 0;min-height:30px}
+stimma-files li.sp-dir>ul{margin-left:9px;padding-left:13px;border-left:1px solid var(--sp-line)}
+stimma-files li.sp-dir>div{cursor:pointer;user-select:none}
 stimma-files li.sp-dir.sp-collapsed>ul{display:none}
-stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-stimma-files .sp-dir>div .sp-name{color:var(--sp-muted)}
-stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums}
-.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
-  border-radius:6px;color:var(--sp-muted);flex:none;transition:color .15s,background-color .15s}
+stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13.5px;color:var(--sp-fg)}
+stimma-files li.sp-dir>div .sp-name{color:var(--sp-muted)}
+stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
+stimma-files .sp-caret{width:12px;height:12px;flex:none;color:var(--sp-faint);
+  transition:transform .15s}
+stimma-files li.sp-dir.sp-collapsed>div .sp-caret{transform:rotate(-90deg)}
+stimma-files .sp-caret svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:6px;color:var(--sp-faint);flex:none;opacity:0;transition:color .15s,background-color .15s,opacity .15s}
+stimma-files li>div:hover .sp-dl{opacity:1}
 .sp-dl:hover{color:var(--sp-fg);background:var(--sp-plate)}
-.sp-dl svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;
+.sp-dl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
   stroke-linecap:round;stroke-linejoin:round}
-.sp-getall{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-accent);
-  padding:6px 10px;border-radius:6px;transition:background-color .15s}
-.sp-getall:hover{background:var(--sp-plate)}
-.sp-getall svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;
-  stroke-linecap:round;stroke-linejoin:round}
+.sp-zip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-fg);
+  padding:7px 12px;border-radius:7px;background:var(--sp-plate);flex:none;
+  transition:background-color .15s}
+.sp-zip:hover{background:var(--sp-line)}
+.sp-zip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round;color:var(--sp-accent)}
+.sp-zip b{font-weight:500}
+.sp-zip em{font-style:normal;color:var(--sp-faint);font-variant-numeric:tabular-nums}
 
 /* Compare */
 stimma-compare{display:block}
@@ -113,33 +124,49 @@ stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bott
 /* Reserved widgets render their children and nothing else for now. */
 stimma-pick,stimma-approve,stimma-comments{display:block}
 
-.sp-footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--sp-line);
+.sp-footer{margin-top:72px;padding-top:18px;border-top:1px solid var(--sp-line);
   color:var(--sp-faint);font-size:12px}
 
 /* Recipe presentations ---------------------------------------------------- */
-.sp-hero{display:flex;align-items:center;justify-content:center;gap:64px;flex-wrap:wrap;padding:8px 0}
+.sp-hero{display:flex;align-items:center;justify-content:center;gap:64px;flex-wrap:wrap;margin-top:36px}
 .sp-hero-icon{flex:none}
-.sp-hero-icon img{width:180px;height:180px;border-radius:22.37%;
-  box-shadow:0 18px 40px rgba(0,0,0,.45)}
-.sp-phone{flex:none;width:216px;aspect-ratio:9/19.5;border-radius:34px;padding:9px;
-  background:#0b0b0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
-.sp-screen{width:100%;height:100%;border-radius:26px;overflow:hidden;position:relative;
-  background:linear-gradient(165deg,#3a4a63,#141a26 70%)}
-.sp-screen .sp-apps{position:absolute;top:11%;left:0;right:0;display:grid;
-  grid-template-columns:repeat(4,1fr);gap:14px 10px;padding:0 14px}
-.sp-screen .sp-app{display:grid;justify-items:center;gap:5px}
-.sp-screen .sp-app img,.sp-screen .sp-app span.sp-blank{width:38px;height:38px;border-radius:22.37%}
-.sp-screen .sp-app span.sp-blank{background:rgba(255,255,255,.14)}
-.sp-screen .sp-app em{font-style:normal;font-size:7px;color:#fff;opacity:.9;
-  text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.sp-sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
-.sp-size{display:grid;justify-items:center;gap:8px}
-.sp-size img{border-radius:22.37%;image-rendering:auto}
-.sp-size span{font-size:11px;color:var(--sp-muted);font-variant-numeric:tabular-nums}
-.sp-platforms{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0}
-.sp-platform{padding:16px 0;border-top:1px solid var(--sp-line)}
-.sp-platform h3{margin:0 0 4px;font-size:14px;font-weight:500}
-.sp-platform p{margin:0;font-size:13px;color:var(--sp-muted)}
+.sp-hero-icon img{width:172px;height:172px;border-radius:22.37%;
+  box-shadow:0 20px 44px rgba(0,0,0,.5)}
+.sp-hero-icon span{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums}
+
+.sp-phone{flex:none;width:228px;aspect-ratio:9/19.5;border-radius:38px;padding:8px;
+  background:#2c2c30;
+  box-shadow:0 26px 64px rgba(0,0,0,.55)}
+.sp-screen{width:100%;height:100%;border-radius:31px;overflow:hidden;position:relative;
+  background:radial-gradient(130% 90% at 20% 0%,#5a6d8c 0%,#2b3548 45%,#161b27 100%);
+  display:flex;flex-direction:column}
+.sp-statusbar{display:flex;align-items:center;justify-content:space-between;
+  padding:9px 16px 0;font-size:9px;color:#fff;opacity:.92;font-weight:600}
+.sp-statusbar .sp-bars{display:flex;align-items:flex-end;gap:1.5px}
+.sp-statusbar .sp-bars i{display:block;width:2px;background:#fff;border-radius:1px}
+.sp-statusbar .sp-batt{width:14px;height:7px;border:1px solid rgba(255,255,255,.85);
+  border-radius:2px;position:relative}
+.sp-statusbar .sp-batt::after{content:"";position:absolute;inset:1px;right:4px;background:#fff;border-radius:1px}
+.sp-apps{flex:1;display:grid;grid-template-columns:repeat(4,1fr);
+  align-content:start;gap:14px 8px;padding:14px 12px 0}
+.sp-app{display:grid;justify-items:center;gap:4px}
+.sp-app img,.sp-app i{display:block;width:40px;height:40px;border-radius:22.37%}
+.sp-app i{background:rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.sp-app em{font-style:normal;font-size:7.5px;line-height:1;color:#fff;opacity:.92;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-app.sp-mine img{box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.sp-dock{margin:0 10px 10px;padding:8px;border-radius:24px;background:rgba(255,255,255,.14);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sp-dock i{display:block;width:40px;height:40px;border-radius:22.37%;
+  background:rgba(255,255,255,.18);justify-self:center}
+
+.sp-sizes{display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap}
+.sp-size{display:grid;justify-items:center;gap:9px}
+.sp-size img{border-radius:22.37%}
+.sp-size span{font-size:11px;color:var(--sp-faint);font-variant-numeric:tabular-nums}
+.sp-platforms{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px}
+.sp-platform h3{margin:0 0 5px;font-size:13.5px;font-weight:500}
+.sp-platform p{margin:0;font-size:13px;color:var(--sp-muted);line-height:1.5}
 """
 
 KIT_JS = r"""
@@ -253,42 +280,62 @@ _ICON_ARCHIVE = (
 )
 
 
+_CARET = '<span class="sp-caret"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>'
+
+
+def _download_href(path: str) -> str:
+    sep = "&" if "?" in path else "?"
+    return htmllib.escape(f"{path}{sep}download=1", quote=True)
+
+
 def _render_tree(node: dict[str, Any], prefix: str) -> str:
     items = sorted(node.items(), key=lambda kv: (not isinstance(kv[1], dict) or "__file__" in kv[1], kv[0].lower()))
     out = ["<ul>"]
     for name, child in items:
         if name in ("__dir__", "__file__"):
             continue
+        safe = htmllib.escape(name)
         if "__file__" in child:
             entry = child["__file__"]
-            href = htmllib.escape(entry["path"], quote=True)
             out.append(
-                f'<li><div><span class="sp-name">{htmllib.escape(name)}</span>'
+                f'<li><div><span class="sp-name">{safe}</span>'
                 f'<span class="sp-meta">{_human_size(int(entry.get("size") or 0))}</span>'
-                f'<a class="sp-dl" href="{href}" download title="Download {htmllib.escape(name, quote=True)}"'
+                f'<a class="sp-dl" href="{_download_href(entry["path"])}" download'
                 f' aria-label="Download {htmllib.escape(name, quote=True)}">{_ICON_DOWNLOAD}</a></div></li>'
             )
         else:
+            count = _count_files(child)
             out.append(
-                f'<li class="sp-dir"><div><span class="sp-name">{htmllib.escape(name)}</span></div>'
-                f'{_render_tree(child, prefix + name + "/")}</li>'
+                f'<li class="sp-dir"><div>{_CARET}<span class="sp-name">{safe}</span>'
+                f'<span class="sp-meta">{count}</span></div>{_render_tree(child, prefix + name + "/")}</li>'
             )
     out.append("</ul>")
     return "".join(out)
 
 
+def _count_files(node: dict[str, Any]) -> int:
+    total = 0
+    for name, child in node.items():
+        if name in ("__dir__", "__file__") or not isinstance(child, dict):
+            continue
+        total += 1 if "__file__" in child else _count_files(child)
+    return total
+
+
 def _files_markup(manifest: dict[str, Any], ref: str) -> str:
     run = run_by_id(manifest, ref)
     if run is not None:
-        root = run.get("root") or ""
+        root = (run.get("root") or "").rstrip("/")
         entries = run.get("files") or []
-        zip_name = htmllib.escape(root.rstrip("/") + ".zip", quote=True)
         total = sum(int(e.get("size") or 0) for e in entries)
+        zip_href = _download_href(f"{root}.zip")
         head = (
-            f'<div class="sp-files-top"><span class="sp-meta sp-num">{len(entries)} files · {_human_size(total)}</span>'
-            f'<a class="sp-getall" href="{zip_name}" download>{_ICON_ARCHIVE}<span>Download all</span></a></div>'
+            f'<div class="sp-files-top">'
+            f'<span class="sp-files-what">{len(entries)} files</span>'
+            f'<a class="sp-zip" href="{zip_href}" download>{_ICON_ARCHIVE}'
+            f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a></div>'
         )
-        return head + _render_tree(_tree(entries, root), root)
+        return head + _render_tree(_tree(entries, root + "/"), root + "/")
 
     sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:
@@ -297,7 +344,8 @@ def _files_markup(manifest: dict[str, Any], ref: str) -> str:
         sections.append({"path": extra["path"], "size": extra.get("size", 0)})
     total = sum(int(e.get("size") or 0) for e in sections)
     head = (
-        f'<div class="sp-files-top"><span class="sp-meta sp-num">{len(sections)} files · {_human_size(total)}</span></div>'
+        f'<div class="sp-files-top"><span class="sp-files-what">{len(sections)} files</span>'
+        f'<span class="sp-meta">{_human_size(total)}</span></div>'
     )
     return head + _render_tree(_tree(sections, ""), "")
 

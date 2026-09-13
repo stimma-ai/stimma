@@ -10,6 +10,7 @@ an app; ``xcrun actool`` on a Mac is the step beyond them.
 from __future__ import annotations
 
 import json
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -258,3 +259,72 @@ async def test_vector_without_a_renderer_says_so(tmp_path):
             get_recipe("app-icons"), {"master": _resolved("master", svg)},
             {"platforms": ["web"]}, tmp_path / "o",
         )
+
+
+# Presentation ----------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_cover_does_not_instruct_or_editorialize(tmp_path):
+    """The page must not claim affordances it lacks or admire its own work.
+
+    A cover that says "drag this into Xcode" is describing a gesture the page
+    cannot offer, and a line explaining why the output is good is the sound of
+    a machine talking to itself.
+    """
+    from packages.cover import render_cover_document
+    from packages.manifest import new_manifest
+
+    out = tmp_path / "out"
+    result = await run_recipe(
+        get_recipe("app-icons"),
+        {"master": _resolved("master", _master(tmp_path / "master.png"))},
+        {"platforms": ["ios"], "app_name": "Sunburst"},
+        out,
+        slug="sunburst",
+    )
+    manifest = new_manifest(title="Sunburst iOS icon")
+    manifest["runs"] = [{
+        "id": "r1",
+        "recipe": {"id": "app-icons", "version": 2, "display_name": "App icon set"},
+        "inputs": {}, "params": result.params, "root": "app-icons/",
+        "files": [{"path": "app-icons/" + f.path, "hash": f.hash, "size": f.size} for f in result.files],
+    }]
+    html, problems = render_cover_document(manifest)
+    assert not problems
+    # Only what a reader sees: the manifest the kit reads is data, not prose.
+    visible = re.sub(r"<(script|style)\b.*?</\1>", " ", html, flags=re.S | re.I)
+    visible = re.sub(r"<[^>]+>", " ", visible).lower()
+    for phrase in ("drag ", "drop appicon", "click here", "simply ", "its own render"):
+        assert phrase not in visible, f"cover says {phrase!r}"
+    for jargon in ("recipe run", "member", "cache_key", "stimmapackage"):
+        assert jargon not in visible, f"cover leaks {jargon!r}"
+
+
+@pytest.mark.asyncio
+async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_path):
+    """Every file link forces a download, and the archive action names the file.
+
+    Without download=1 the browser renders what it can — a JSON or a PNG opens
+    in place of the cover, which inside the frame looks like the page broke.
+    """
+    from packages.cover import render_cover_document
+    from packages.manifest import new_manifest
+
+    out = tmp_path / "out"
+    result = await run_recipe(
+        get_recipe("app-icons"),
+        {"master": _resolved("master", _master(tmp_path / "master.png"))},
+        {"platforms": ["ios"]}, out, slug="sunburst",
+    )
+    manifest = new_manifest(title="Icons")
+    manifest["runs"] = [{
+        "id": "r1", "recipe": {"id": "app-icons", "version": 2, "display_name": "App icon set"},
+        "inputs": {}, "params": result.params, "root": "app-icons/",
+        "files": [{"path": "app-icons/" + f.path, "hash": f.hash, "size": f.size} for f in result.files],
+    }]
+    html, _ = render_cover_document(manifest)
+    hrefs = re.findall(r'<a class="sp-dl" href="([^"]+)"', html)
+    assert hrefs, "no per-file download links"
+    assert all("download=1" in href for href in hrefs)
+    assert 'href="app-icons.zip?download=1"' in html
+    assert "Download app-icons.zip" in html
