@@ -9,7 +9,8 @@ from PIL import Image, ImageDraw
 from sqlalchemy import select
 
 from database import Chat, MediaItem, MediaLineage
-from packages.manifest import read_manifest
+from packages.manifest import read_manifest, sha256_file
+from tests.helpers.media import create_media_item
 
 
 def _icon(path: Path) -> None:
@@ -63,3 +64,45 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         assert media_id in sdk._session_media_ids
         status = await sdk.packages.status(media_id)
         assert status["stale"] is False
+
+
+@pytest.mark.asyncio
+async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
+    """A package belongs on the artifact stage, not in the image viewer.
+
+    The caller does not have to ask for that: a deliverable with revisions is
+    an artifact by nature, and requiring `artifact=True` is how it ended up
+    opening in the slideshow.
+    """
+    import json as _json
+
+    from agent.v2.tools.show import show
+    from database import ChatItem
+    from packages.bundle import PackageBuilder
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    _icon(workspace / "mark.png")
+
+    async with db_session() as session:
+        chat = Chat(name="stage")
+        session.add(chat)
+        await session.commit()
+
+        media = await create_media_item(
+            session, file_path=workspace / "mark.png", file_hash=sha256_file(workspace / "mark.png"),
+            file_format="png", width=1200, height=1200,
+        )
+        async with PackageBuilder(session, profile_id="default", title="Staged icons") as builder:
+            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"platforms": ["web"]})
+            package, _asset = await builder.save()
+
+        result = await show(role="final", media_id=package.id, session=session, chat_id=chat.id)
+        assert not result.startswith("Error")
+
+        item = await session.scalar(
+            select(ChatItem).where(ChatItem.chat_id == chat.id, ChatItem.item_type == "media_display")
+        )
+        display = _json.loads(item.item_metadata)["display_data"] if isinstance(item.item_metadata, str) else item.item_metadata["display_data"]
+        assert display.get("artifact"), "a package must carry the artifact blob the stage routes on"
+        assert display["artifact"]["asset_id"]

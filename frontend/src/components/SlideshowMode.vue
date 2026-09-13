@@ -58,6 +58,7 @@
       @navigate-to-source-media="navigateToSourceMedia"
       @view-in-tool="viewInTool"
       @jump-to-chat="jumpToChat"
+      @package-rebuilt="handlePackageRebuilt"
       @toggle-marker="toggleMarker"
       @tags-saved="handleTagsSaved"
       @tags-updated="handleTagsUpdated"
@@ -502,14 +503,14 @@
           class="absolute inset-0"
         />
 
-        <!-- Package: the cover page plus its own details panel -->
+        <!-- Package: the cover page, full bleed. Its facts and its rebuild
+             live in the media info panel, not in a second sidebar here. -->
         <PackageViewer
           v-else-if="isPackage"
           :style="galleryPictureStyle"
           :key="`package-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0"
-          @refresh="handlePackageRebuilt"
         />
 
         <!-- Video -->

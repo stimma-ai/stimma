@@ -954,7 +954,7 @@
                 :display-data="parseMediaDisplayData(item)"
                 :chat-item-id="item.id"
                 :show-role="item.show_role"
-                @view-image="openSlideshow"
+                @view-image="(mediaId) => openFromMediaDisplay(item, mediaId)"
                 @show-job-info="showJobInfoById"
               />
             </ChatItemWrapper>
@@ -1472,6 +1472,7 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
 import { collectChatMedia } from '../utils/chatMedia'
+import { getMediaType } from '../utils/mediaTypes'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -1753,6 +1754,33 @@ function parseMediaDisplayData(item) {
     console.error('Failed to parse media display data:', e)
     return { rows: [], status: 'pending' }
   }
+}
+
+// A package is a deliverable you read, not a picture you zoom: opening one
+// from a chat message lands on the artifact stage for its Asset — the same
+// surface show(artifact=) opens — instead of the slideshow. Everything else
+// keeps the slideshow. Embedded chats have no stage, so they keep it too.
+async function openFromMediaDisplay(item, mediaId) {
+  if (!props.embedded) {
+    const row = (parseMediaDisplayData(item).rows || []).find(r => r?.output?.media_id === mediaId)
+    const output = row?.output
+    if (output?.file_format && getMediaType({ file_format: output.file_format }) === 'package') {
+      let assetId = output.asset_id
+      if (!assetId) {
+        // Older display rows predate asset_id on the row; the media itself knows.
+        try {
+          assetId = (await getMediaItem(mediaId, { includeTrashed: true }))?.asset_id
+        } catch {
+          assetId = null
+        }
+      }
+      if (assetId) {
+        await artifactStage.openOnAsset(assetId)
+        return
+      }
+    }
+  }
+  openSlideshow(mediaId)
 }
 
 // Artifact chip collapse: only in standalone chats, and only once this chat's

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
+
+from packages.manifest import is_package_format
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
@@ -213,6 +215,11 @@ async def show(
             "title": asset.title if asset else None,
         }
     else:
+        # A package is an artifact whether or not the caller said so: it is a
+        # deliverable with revisions, and it belongs on the stage rather than in
+        # the image viewer. Making it implicit means no caller has to remember.
+        if normalized_media_ids and is_package_format(format_map.get(normalized_media_ids[0])):
+            artifact = True
         if artifact and normalized_media_ids:
             artifact_media_id = normalized_media_ids[0]
             if format_map.get(artifact_media_id) in {"stimmaset.json", "stimmagrid.json"}:
@@ -307,8 +314,6 @@ async def _commit_show_artifact(
         # content endpoint reports this revision's members, not a hash guess.
         from database import Asset, MediaItem
         from sprite_document import is_sprite_format
-
-        from packages.manifest import is_package_format
 
         media = await session.get(MediaItem, media_id)
         container_kind = None

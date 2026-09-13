@@ -89,8 +89,9 @@
         </button>
 
         <div
-          class="relative flex-1 min-h-0 rounded-media overflow-hidden cursor-zoom-in"
-          @click="$emit('open-slideshow', viewedRevision.media_id)"
+          class="relative flex-1 min-h-0 rounded-media overflow-hidden"
+          :class="heroKind === 'package' ? '' : 'cursor-zoom-in'"
+          @click="onHeroClick"
           @contextmenu="onHeroContextMenu"
         >
           <LayoutViewer v-if="heroKind === 'layout'" :media-id="viewedRevision.media_id" class="w-full h-full" />
@@ -193,6 +194,13 @@ const heroKind = computed(() => {
 const showDimensionChip = computed(() =>
   heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
+
+// A package's cover is a page you read in place; zooming it into the slideshow
+// is the surface a package must never land on.
+function onHeroClick() {
+  if (heroKind.value === 'package') return
+  if (props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
+}
 
 function contextMenuTarget() {
   const mediaId = props.viewedRevision?.media_id

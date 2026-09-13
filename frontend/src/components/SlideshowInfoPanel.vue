@@ -203,6 +203,29 @@
         </div>
       </div>
 
+      <!-- Package: what this deliverable holds, and the one thing you can do
+           to it. Its members are NOT re-listed — Lineage below already shows
+           the inputs this bundle was built from. -->
+      <div v-if="packageStatus" class="mb-6">
+        <div class="flex items-center justify-between mb-1">
+          <h4 class="m-0 text-xs font-semibold text-content-secondary">Package</h4>
+          <button
+            class="flex items-center gap-1 rounded-md bg-transparent border-none cursor-pointer text-[11px] text-content-secondary transition-colors duration-150 hover:text-content disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+            :disabled="rebuildingPackage"
+            @click="rebuildPackage"
+          >
+            <ArrowPathIcon class="w-3.5 h-3.5" />
+            {{ rebuildingPackage ? 'Rebuilding…' : 'Rebuild' }}
+          </button>
+        </div>
+        <KeyValueList :rows="packageRows" />
+        <!-- Warning family per DESIGN §1.9; only when a member has moved on. -->
+        <p v-if="packageStatus.stale" class="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
+          <ExclamationTriangleIcon class="w-3.5 h-3.5 flex-shrink-0" />
+          <span>An input has a newer version</span>
+        </p>
+      </div>
+
       <!-- Lineage (MOVED UP - now right after org/divider) -->
       <div v-if="effectiveGenerationHistory.length > 0" class="mb-6">
         <div class="flex items-center justify-between mb-3">
@@ -737,7 +760,7 @@ import {
   ArchiveBoxIcon,
   TagIcon
 } from '@heroicons/vue/24/solid'
-import { ClipboardDocumentIcon, FolderOpenIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, ClipboardDocumentIcon, ExclamationTriangleIcon, FolderOpenIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import ActionMenu from './ActionMenu.vue'
 import TagEditor from './TagEditor.vue'
 import InlineTagEditor from './InlineTagEditor.vue'
@@ -880,7 +903,8 @@ const emit = defineEmits([
   'manage-tags',
   'tags-updated',
   'edit-image',
-  'download-version'
+  'download-version',
+  'package-rebuilt'
 ])
 
 const { cachedTools } = useProvidersApi()
@@ -919,6 +943,82 @@ async function loadVersions() {
     assetContainers.value = containers
   } catch (error) {
     console.error('Failed to load asset versions:', error)
+  }
+}
+
+// --- Package ---------------------------------------------------------------
+// A package is a deliverable: the panel states what the bundle holds, warns
+// when an input has moved on, and offers the rebuild. It deliberately does not
+// list members — that is lineage, and Lineage already draws it.
+
+const packageManifest = ref(null)
+const packageStatus = ref(null)
+const rebuildingPackage = ref(false)
+let packageLoadToken = 0
+
+const packageMediaId = computed(() => {
+  const item = props.currentItem
+  if (!item || getMediaType(item) !== 'package') return null
+  return mediaIdOf(item)
+})
+
+function fileCountLabel(count) {
+  return `${count} ${count === 1 ? 'file' : 'files'}`
+}
+
+const packageRows = computed(() => {
+  const status = packageStatus.value
+  if (!status) return []
+  const rows = (status.runs || []).map(run => ({
+    key: `run-${run.id}`,
+    label: run.recipe?.display_name || run.recipe?.id || (run.root || '').replace(/\/$/, '') || 'Files',
+    value: fileCountLabel(run.file_count || 0),
+  }))
+  const extras = packageManifest.value?.extras?.length || 0
+  if (extras) rows.push({ key: 'extras', label: 'Extras', value: fileCountLabel(extras) })
+  if (!rows.length) {
+    const count = (status.members || []).length
+    rows.push({ key: 'contents', label: 'Contents', value: `${count} ${count === 1 ? 'item' : 'items'}` })
+  }
+  return rows
+})
+
+async function loadPackageInfo(mediaId) {
+  const token = ++packageLoadToken
+  if (!mediaId) {
+    packageManifest.value = null
+    packageStatus.value = null
+    return
+  }
+  try {
+    const { data } = await axios.get(`${getApiBase()}/media/${mediaId}/package`)
+    if (token !== packageLoadToken) return
+    packageManifest.value = data.manifest
+    packageStatus.value = data.status
+  } catch (error) {
+    if (token !== packageLoadToken) return
+    packageManifest.value = null
+    packageStatus.value = null
+  }
+}
+
+watch(packageMediaId, (mediaId) => { void loadPackageInfo(mediaId) }, { immediate: true })
+
+async function rebuildPackage() {
+  const assetId = packageStatus.value?.asset_id ?? props.currentItem?.asset_id
+  if (!assetId || rebuildingPackage.value) return
+  rebuildingPackage.value = true
+  try {
+    const { data } = await axios.post(`${getApiBase()}/assets/${assetId}/package/rebuild`, {})
+    addToast(`Rebuilt as revision ${data?.revision_number ?? ''}`.trim(), 'success')
+    // The rebuild is a new revision with a new payload: reload from it, and let
+    // the host refresh the asset head it is projecting.
+    await loadPackageInfo(data?.media_id ?? packageMediaId.value)
+    emit('package-rebuilt', assetId)
+  } catch (error) {
+    addToast(error?.response?.data?.detail || error?.message || 'Rebuild failed.', 'error', 6000)
+  } finally {
+    rebuildingPackage.value = false
   }
 }
 

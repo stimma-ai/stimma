@@ -166,10 +166,11 @@ export function getBadgeConfig(item: MediaItem): BadgeConfig | null {
         borderColor: 'border-gray-500/50',
         label: 'Sprite'
       }
-    // Monochrome too: a package is a deliverable, not a new hue.
+    // Monochrome too: a package is a deliverable, not a new hue. The glyph is
+    // the archive box every package surface draws — never a cube.
     case 'package':
       return {
-        icon: 'package',
+        icon: 'archive-box',
         color: 'text-gray-400',
         bgColor: 'bg-gray-500/15',
         borderColor: 'border-gray-500/50',
