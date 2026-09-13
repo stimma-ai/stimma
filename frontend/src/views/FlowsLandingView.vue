@@ -125,14 +125,17 @@ watch(() => route.query.q, (q) => {
 const renamingId = ref<number | null>(null)
 const unsubs: Array<() => void> = []
 
-async function load() {
-  loading.value = true
+let loaded = false
+async function load(quiet = false) {
+  quiet = quiet === true && loaded
+  loading.value = quiet !== true
   loadError.value = null
   try {
     const params = props.projectId ? { project_id: props.projectId } : {}
     flows.value = await api.listFlows(params)
+    loaded = true
   } catch (err: any) {
-    loadError.value = err?.message || 'Failed to load flows'
+    if (quiet !== true) loadError.value = err?.message || 'Failed to load flows'
   } finally {
     loading.value = false
   }
@@ -294,7 +297,7 @@ onMounted(() => {
     if (!r || !matchesScope(r)) return
     if (!flows.value.find(x => x.id === r.id)) flows.value = [r, ...flows.value]
   }))
-  unsubs.push(on('websocket_reconnected', () => load()))
+  unsubs.push(on('websocket_reconnected', () => load(true)))
 })
 
 onUnmounted(() => {

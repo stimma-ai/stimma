@@ -19,7 +19,7 @@ function fixture() {
   const window = new EventTarget()
   const timers = new Map()
   let timerId = 0
-  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', `${source}; return useWebSocket`)
+  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', `const setMobileSocketReady = () => {}; ${source}; return useWebSocket`)
   const useSocket = create(value => ({ value }), () => 'test', () => 'ws://localhost/ws', () => true,
     () => {}, () => {}, window, Socket,
     fn => { timers.set(++timerId, fn); return timerId }, id => timers.delete(id))

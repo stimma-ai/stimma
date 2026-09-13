@@ -13,7 +13,7 @@ final class ShellUITests: XCTestCase {
             connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
                 let html = """
                 <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
-                <body><h1>Live dev frontend</h1><p id="result">Waiting for native bridge</p>
+                <body><h1>Live dev frontend</h1><p>Page instance \(UUID().uuidString)</p><p id="result">Waiting for native bridge</p>
                 <button onclick="native('disconnect')">Disconnect</button>
                 <script>
                 const native = (method) => window.webkit.messageHandlers.stimma.postMessage({method});
@@ -46,6 +46,12 @@ final class ShellUITests: XCTestCase {
         app.webViews.buttons["Connect to dev server"].tap()
         XCTAssertTrue(app.webViews.staticTexts["Dev bridge ready"].waitForExistence(timeout: 15), app.debugDescription)
         XCTAssertFalse(app.buttons["Dev"].exists)
+        let instance = app.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Page instance '")).firstMatch
+        let identity = instance.label
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 10)
+        app.activate()
+        XCTAssertTrue(app.webViews.staticTexts[identity].waitForExistence(timeout: 10), "Resume must retain the document, not merely restore its route")
         app.webViews.buttons["Disconnect"].tap()
         XCTAssertTrue(app.webViews.buttons["Dev server"].waitForExistence(timeout: 10), app.debugDescription)
     }

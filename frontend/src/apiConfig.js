@@ -5,6 +5,7 @@
  * In Tauri production: Uses dynamic port from sidecar
  */
 import axios from 'axios'
+import { waitForMobileTransport } from './composables/useMobileRecovery.js'
 import { desktop, isDesktop } from './desktop'
 import { getStartupWaitMessage, waitForBackendHealth } from './utils/backendStartup'
 
@@ -44,6 +45,14 @@ function isSidecarUrl(url) {
   return false
 }
 
+function isBackendRequest(url) {
+  try {
+    const target = new URL(url, window.location.href)
+    return target.origin === (backendOrigin || window.location.origin)
+      && (target.pathname === '/api' || target.pathname.startsWith('/api/'))
+  } catch { return false }
+}
+
 function currentSessionId() {
   const now = Date.now()
   if (now - lastActivityAt > SESSION_IDLE_ROTATE_MS) {
@@ -62,11 +71,12 @@ export function getSessionId() {
 
 function installSessionHeaderInterceptors() {
   // Axios — covers all axios.* call sites across the app.
-  axios.interceptors.request.use((config) => {
+  axios.interceptors.request.use(async (config) => {
     const url = config.url || ''
     const isAbsolute = /^https?:/i.test(url)
     const fullUrl = isAbsolute ? url : `${config.baseURL || ''}${url}`
     if (isSidecarUrl(fullUrl)) {
+      if (isBackendRequest(fullUrl)) await waitForMobileTransport(config.signal)
       const sid = currentSessionId()
       if (sid) {
         config.headers = config.headers || {}
@@ -83,9 +93,10 @@ function installSessionHeaderInterceptors() {
   if (window.__stimmaFetchSessionPatched) return
   window.__stimmaFetchSessionPatched = true
   const originalFetch = window.fetch.bind(window)
-  window.fetch = (input, init = {}) => {
-    const url = typeof input === 'string' ? input : input?.url
+  window.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url
     if (isSidecarUrl(url)) {
+      if (isBackendRequest(url)) await waitForMobileTransport(init.signal ?? input?.signal)
       const sid = currentSessionId()
       if (sid) {
         const headers = new Headers(

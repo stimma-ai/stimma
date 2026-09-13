@@ -2967,10 +2967,12 @@ async function resyncItems() {
     const unchanged = fresh.length === items.value.length
       && fresh.every((item, i) => item.id === items.value[i].id)
     if (unchanged) return
+    const container = messagesContainer.value
+    const follow = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 80
     items.value = fresh
     hasMore.value = data.has_more
     await nextTick()
-    scrollToBottom()
+    if (follow) scrollToBottom()
   } catch (error) {
     console.error('Error resyncing chat items:', error)
   }
@@ -3351,9 +3353,11 @@ async function sendMessage(queuedMessage = null) {
     .map(a => a.media_id)
 
   // Clear input immediately (only if not from queue)
+  let clearedText = ''
   let clearedAttachments = []
   let clearedRefs = []
   if (!queuedMessage) {
+    clearedText = messageInput.value
     messageInput.value = ''
     clearedAttachments = [...inputAttachments.value]
     inputAttachments.value = []
@@ -3447,6 +3451,7 @@ async function sendMessage(queuedMessage = null) {
     // user can retry without re-attaching). If the message already committed,
     // leave the composer cleared — restoring would bring sent attachments back.
     if (!queuedMessage && !sent) {
+      if (!messageInput.value) messageInput.value = clearedText
       inputAttachments.value = clearedAttachments
       for (const r of clearedRefs) refsApi.add(r)
     }

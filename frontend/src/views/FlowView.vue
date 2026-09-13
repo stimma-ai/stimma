@@ -765,6 +765,7 @@
 </template>
 
 <script setup lang="ts">
+import { mobileRecoveryEnabled } from '../composables/useMobileRecovery.js'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, onActivated, provide, type WatchStopHandle } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import RenameSheet from '../components/compact/RenameSheet.vue'
@@ -2120,7 +2121,7 @@ onMounted(() => {
     }
   })
   offWsDisconnected = onWs('websocket_disconnected', () => {
-    agentRunningInChat.value = false
+    if (!mobileRecoveryEnabled) agentRunningInChat.value = false
   })
   offWsReconnected = onWs('websocket_reconnected', () => {
     syncFlowAgentStatus()

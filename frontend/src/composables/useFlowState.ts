@@ -76,13 +76,13 @@ export function useFlowState(flowId: Ref<number | string | null>) {
     return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
   }
 
-  async function loadFlow() {
+  async function loadFlow(quiet = false) {
     const id = flowId.value
     if (id == null) return
     try {
       flow.value = await api.getFlow(id)
     } catch (err: any) {
-      loadError.value = err?.message || 'Failed to load flow'
+      if (quiet !== true) loadError.value = err?.message || 'Failed to load flow'
     }
   }
 
@@ -141,13 +141,14 @@ export function useFlowState(flowId: Ref<number | string | null>) {
     })
   }
 
-  async function loadAll() {
+  async function loadAll(quiet = false) {
+    quiet = quiet === true && flow.value !== null
     const id = flowId.value
     if (id == null) return
-    loading.value = true
+    loading.value = quiet !== true
     loadError.value = null
     try {
-      await Promise.all([loadFlow(), loadPhaseTree(), loadEquations(), loadTasks()])
+      await Promise.all([loadFlow(quiet), loadPhaseTree(), loadEquations(), loadTasks()])
     } finally {
       loading.value = false
     }
@@ -231,7 +232,7 @@ export function useFlowState(flowId: Ref<number | string | null>) {
     )
     unsubs.push(
       on('websocket_reconnected', () => {
-        loadAll()
+        loadAll(true)
       })
     )
     unsubs.push(

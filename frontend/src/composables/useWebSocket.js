@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { setMobileSocketReady } from './useMobileRecovery.js'
 import { getCurrentProfileId } from './useProfile'
 import { getWsBase, isInitialized as isApiInitialized } from '../apiConfig'
 import { addToast, removeToast } from './useToasts'
@@ -54,6 +55,7 @@ export function useWebSocket() {
       ws.value.onopen = () => {
         console.log('[WebSocket] Connected')
         connected.value = true
+        setMobileSocketReady(true)
         reconnecting.value = false
         reconnectAttempts.value = 0
 
@@ -89,9 +91,10 @@ export function useWebSocket() {
       ws.value.onclose = () => {
         console.log('[WebSocket] Disconnected')
         connected.value = false
+        setMobileSocketReady(false)
         ws.value = null
 
-        // Notify listeners immediately - backend is gone, jobs are dead
+        // Lost contact does not imply that remote jobs have stopped.
         handleMessage({ event: 'websocket_disconnected', data: {} })
 
         // Auto-reconnect with fixed interval
@@ -141,6 +144,7 @@ export function useWebSocket() {
     }
 
     connected.value = false
+    setMobileSocketReady(false)
     reconnecting.value = false
   }
 

@@ -1,3 +1,4 @@
+import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
 
@@ -70,7 +71,7 @@ function init() {
 
   on('websocket_disconnected', () => {
     for (const id of generatingChatIds.value) lostWhileDisconnected.add(id)
-    replaceSet(new Set())
+    if (!mobileRecoveryEnabled) replaceSet(new Set())
   })
 
   on('websocket_reconnected', () => {

@@ -8,6 +8,9 @@
   <template v-else>
     <!-- Toast notifications (global, always visible) -->
     <ToastContainer />
+    <div v-if="mobileRecoveryVisible && !showConnectionScreen" class="fixed inset-x-0 top-0 pt-safe z-toast flex justify-center pointer-events-none" role="status">
+      <span class="rounded-md bg-surface-overlay px-3 py-2 text-xs text-content-secondary shadow-lg">Reconnecting…</span>
+    </div>
 
     <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
     <MediaDetailsModal />
@@ -235,6 +238,8 @@
 </template>
 
 <script setup>
+import { mobileRecoveryVisible } from './composables/useMobileRecovery.js'
+
 import axios from 'axios'
 import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'

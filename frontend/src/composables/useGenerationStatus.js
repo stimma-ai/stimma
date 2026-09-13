@@ -1,3 +1,4 @@
+import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref, computed } from 'vue'
 import { useWebSocket } from './useWebSocket'
 
@@ -19,6 +20,44 @@ const foreverModeByInstanceId = ref({})
 const countedJobs = new Map()
 let initialized = false
 let pendingWorkEpoch = 0
+let jobEventEpoch = 0
+let recoverySequence = 0
+
+async function reconcileMobileJobs() {
+  const sequence = ++recoverySequence
+  const epoch = jobEventEpoch
+  try {
+    const pages = await Promise.all(['queued', 'assigned', 'processing'].map(async status => {
+      const jobs = []
+      for (let offset = 0; ; offset += 500) {
+        const response = await fetch(`/api/generate/jobs?status=${status}&limit=500&offset=${offset}`)
+        if (!response.ok) throw new Error('Could not refresh running jobs')
+        const page = (await response.json()).jobs || []
+        jobs.push(...page)
+        if (page.length < 500) return jobs
+      }
+    }))
+    if (sequence !== recoverySequence) return
+    // Do not overwrite events that arrived after this snapshot was requested.
+    if (epoch !== jobEventEpoch) { void reconcileMobileJobs(); return }
+    const tasks = {}, instances = {}
+    countedJobs.clear()
+    for (const job of pages.flat()) {
+      if (countedJobs.has(job.id)) continue
+      const instanceId = job.generator_instance_id
+      if (instanceId?.startsWith('tool-')) {
+        countedJobs.set(job.id, { instanceId })
+        instances[instanceId] = (instances[instanceId] || 0) + 1
+      } else {
+        const taskType = job.task_type || 'text-to-image'
+        countedJobs.set(job.id, { taskType })
+        tasks[taskType] = (tasks[taskType] || 0) + 1
+      }
+    }
+    activeJobsByTaskType.value = tasks
+    activeJobsByInstanceId.value = instances
+  } catch { /* Retain the last known state until contact is restored. */ }
+}
 
 function incrementInstanceCount(counts, instanceId) {
   counts.value[instanceId] = (counts.value[instanceId] || 0) + 1
@@ -73,6 +112,7 @@ export function useGenerationStatus() {
 
     // Listen for job queue/start events (increment)
     onWebSocketEvent('generation_job_queued', (data) => {
+      jobEventEpoch++
       const jobId = data?.job?.id
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
@@ -107,6 +147,7 @@ export function useGenerationStatus() {
     // settle event for a job whose queue event we never saw (queued before
     // connect, or dropped) must not eat another job's count.
     const onJobSettled = (label) => (data) => {
+      jobEventEpoch++
       const jobId = data?.job?.id
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
@@ -142,8 +183,22 @@ export function useGenerationStatus() {
     onWebSocketEvent('generation_job_failed', onJobSettled('failed'))
     onWebSocketEvent('generation_job_cancelled', onJobSettled('cancelled'))
 
-    // Clear all counts on disconnect - jobs are dead
+    if (mobileRecoveryEnabled) {
+      window.addEventListener('profile-will-change', () => {
+        recoverySequence++
+        countedJobs.clear()
+        activeJobsByTaskType.value = {}
+        activeJobsByInstanceId.value = {}
+      })
+      window.addEventListener('profile-changed', () => { void reconcileMobileJobs() })
+    }
+    // Phone disconnections retain counts until the server can reconcile them.
+    onWebSocketEvent('websocket_reconnected', () => {
+      if (mobileRecoveryEnabled) void reconcileMobileJobs()
+    })
     onWebSocketEvent('websocket_disconnected', () => {
+      recoverySequence++
+      if (mobileRecoveryEnabled) return
       console.log('[useGenerationStatus] WebSocket disconnected - clearing all job counts')
       activeJobsByTaskType.value = {}
       activeJobsByInstanceId.value = {}

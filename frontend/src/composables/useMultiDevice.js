@@ -193,6 +193,7 @@ async function loadSelf() {
  */
 async function switchToDevice(deviceId) {
   if (deviceId === activeDeviceId.value) return
+  window.dispatchEvent(new Event('stimma:workspace-changing'))
   connectionState.value = 'connecting'
   activeDeviceId.value = deviceId
   try {
@@ -205,6 +206,7 @@ async function switchToDevice(deviceId) {
 
 /** Explicit escape hatch from the unreachable screen — never automatic. */
 async function useLocalServer() {
+  window.dispatchEvent(new Event('stimma:workspace-changing'))
   connectionState.value = 'connecting'
   activeDeviceId.value = LOCAL_DEVICE
   try {

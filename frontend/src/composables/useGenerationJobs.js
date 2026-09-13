@@ -1,3 +1,4 @@
+import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref, computed, unref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
@@ -311,20 +312,26 @@ export function useGenerationJobs(options = {}) {
     }
   }
 
+  let jobLoadSequence = 0
+
   // Load jobs from API
-  async function loadJobs() {
+  async function loadJobs(quiet = false) {
+    const sequence = ++jobLoadSequence
+    const profileId = getCurrentProfileId()
     try {
       // Clear all cached media data when reloading jobs (important for profile switches)
       // Media IDs are only valid within the same profile's database
-      mediaHashes.value = {}
-      mediaData.value = {}
-      mediaMarkers.value = {}
-      mediaGenerationTimes.value = {}
-      failedMediaLoads.value = new Set()
-      dismissedJobs.value = new Set()
-      dismissedBatches.value = new Set()
-      chainRuns.value = {}
-      dismissedChainRuns.value = new Set()
+      if (quiet !== true) {
+        mediaHashes.value = {}
+        mediaData.value = {}
+        mediaMarkers.value = {}
+        mediaGenerationTimes.value = {}
+        failedMediaLoads.value = new Set()
+        dismissedJobs.value = new Set()
+        dismissedBatches.value = new Set()
+        chainRuns.value = {}
+        dismissedChainRuns.value = new Set()
+      }
 
       let url = `${getAPIBase()}/generate/jobs?limit=100`
       if (generatorInstanceId) {
@@ -332,6 +339,7 @@ export function useGenerationJobs(options = {}) {
       }
 
       const response = await axios.get(url)
+      if (sequence !== jobLoadSequence || profileId !== getCurrentProfileId()) return
       let jobsList = response.data.jobs || []
 
       // Filter by task type if specified
@@ -346,7 +354,7 @@ export function useGenerationJobs(options = {}) {
         .filter(j => j.status === 'failed')
         .map(j => j.id)
 
-      if (failedJobIds.length > 0) {
+      if (quiet !== true && failedJobIds.length > 0) {
         console.log(`Auto-dismissing ${failedJobIds.length} failed job(s) from previous session`)
         dismissedJobs.value = new Set(failedJobIds)
       }
@@ -1200,8 +1208,12 @@ export function useGenerationJobs(options = {}) {
     ])
     await loadChainRuns()
 
-    // On disconnect, remove all in-flight jobs - they're dead
+    // Retain remote work through phone suspension and reconcile on return.
+    unsubscribers.push(onWebSocketEvent('websocket_reconnected', () => {
+      if (mobileRecoveryEnabled) void loadJobs(true).then(() => loadChainRuns())
+    }))
     unsubscribers.push(onWebSocketEvent('websocket_disconnected', () => {
+      if (mobileRecoveryEnabled) return
       const deadStatuses = ['queued', 'assigned', 'processing']
       const deadCount = jobs.value.filter(j => deadStatuses.includes(j.status)).length
       if (deadCount > 0) {

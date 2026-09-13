@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { mobileDevReconnect } from './plugins/mobileDevReconnect.js'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
@@ -63,7 +64,7 @@ const distributionAliases = [
 ]
 
 export default defineConfig(() => ({
-  plugins: [vue()],
+  plugins: [vue(), mobileDevReconnect()],
   build: {
     outDir: mobileShell ? 'dist-mobile' : 'dist',
     rollupOptions: {

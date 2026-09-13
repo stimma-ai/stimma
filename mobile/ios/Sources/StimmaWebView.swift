@@ -74,6 +74,7 @@ struct StimmaWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        context.coordinator.restoreTerminatedPageIfReady()
         if context.coordinator.lastTransportRevision != model.transportRevision {
             context.coordinator.lastTransportRevision = model.transportRevision
             uiView.evaluateJavaScript("window.dispatchEvent(new Event('stimma:transport-resumed'))")
@@ -92,6 +93,7 @@ struct StimmaWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         private let storage: LocalStoragePersistence?
         private let connectionScreen: Bool
+        private var pageNeedsReload = false
         var lastState = "ready"
         var lastTransportRevision = 0
         init(model: ShellModel, origin: URL, connectionScreen: Bool) {
@@ -116,6 +118,7 @@ struct StimmaWebView: UIViewRepresentable {
         }
 
         @objc private func resumeInterface() {
+            restoreTerminatedPageIfReady()
             webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('stimma:app-active', {detail:true}))")
         }
 
@@ -325,10 +328,26 @@ struct StimmaWebView: UIViewRepresentable {
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             if !connectionScreen, isCurrentOrigin { model.setSlideshowActive(false) }
-            webView.reload()
+            pageNeedsReload = true
+            restoreTerminatedPageIfReady()
         }
+
+        func restoreTerminatedPageIfReady() {
+            guard pageNeedsReload, isCurrentOrigin,
+                  UIApplication.shared.applicationState == .active,
+                  model.connectionState == "ready" else { return }
+            pageNeedsReload = false
+            webView?.reload()
+        }
+
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             guard (error as NSError).code != NSURLErrorCancelled, isCurrentOrigin else { return }
+            // A reload interrupted by another suspension must wait for the
+            // same foreground transport gate, not open server selection.
+            if !connectionScreen && (UIApplication.shared.applicationState != .active || model.connectionState == "connecting") {
+                pageNeedsReload = true
+                return
+            }
             model.message = "Connection interrupted. \(error.localizedDescription)"
             if model.selected != nil { model.showConnections = true }
         }
