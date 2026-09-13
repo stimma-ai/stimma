@@ -375,3 +375,29 @@ def test_the_file_tree_is_one_shared_component():
     assert hasattr(kit, "_files_markup"), "the tree lives in the kit"
     assert not hasattr(cover, "_files_markup"), "the cover must not carry a second copy"
     assert "stimma-files" in kit.COMPONENTS
+
+
+@pytest.mark.asyncio
+async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
+    """An orange mark on an orange ground is a solid square at 29px.
+
+    This is measurable, so the recipe measures it rather than leaving it to
+    whoever picks the colour — which is how a sunburst ended up invisible on
+    its own hue.
+    """
+    from packages.recipes import RecipeError
+
+    master = _master(tmp_path / "master.png")
+    inputs = {"master": _resolved("master", master)}
+
+    with pytest.raises(RecipeError, match="same tone"):
+        await run_recipe(get_recipe("app-icons"), inputs,
+                         {"platforms": ["web"], "background": "#1E7BC8"}, tmp_path / "clash")
+
+    # A deep ground and a near-white both separate it, and the flat look is
+    # still reachable on purpose.
+    await run_recipe(get_recipe("app-icons"), inputs,
+                     {"platforms": ["web"], "background": "#0B1B2B"}, tmp_path / "deep")
+    await run_recipe(get_recipe("app-icons"), inputs,
+                     {"platforms": ["web"], "background": "#1E7BC8", "allow_low_contrast": True},
+                     tmp_path / "deliberate")

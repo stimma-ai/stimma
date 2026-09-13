@@ -211,6 +211,56 @@ WEB_HEAD_SNIPPET = """<link rel="icon" href="/favicon.ico" sizes="any">
 
 # Composition and containers --------------------------------------------------
 
+def _srgb_to_linear(channel: float) -> float:
+    c = channel / 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(rgb: tuple[int, int, int]) -> float:
+    r, g, b = (_srgb_to_linear(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def parse_hex(value: str) -> tuple[int, int, int]:
+    value = value.strip().lstrip("#")
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+
+def contrast_ratio(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
+    la, lb = relative_luminance(a), relative_luminance(b)
+    lighter, darker = max(la, lb), min(la, lb)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def ink_color(img: Image.Image) -> Optional[tuple[int, int, int]]:
+    """The artwork's average colour where it is actually opaque.
+
+    Alpha-weighted, so a mark with a soft edge is judged by its body rather
+    than by the transparency around it. None when nothing is opaque enough to
+    judge.
+    """
+    small = img.convert("RGBA")
+    small.thumbnail((64, 64), Image.LANCZOS)
+    total = 0.0
+    acc = [0.0, 0.0, 0.0]
+    for r, g, b, a in small.getdata():
+        if a < 24:
+            continue
+        weight = a / 255.0
+        total += weight
+        acc[0] += r * weight
+        acc[1] += g * weight
+        acc[2] += b * weight
+    if total < 1.0:
+        return None
+    return tuple(int(round(c / total)) for c in acc)  # type: ignore[return-value]
+
+
+# Below this the mark stops separating from its own canvas. Deliberately
+# generous: this is the "you cannot see it" floor, not a design opinion.
+MIN_ICON_CONTRAST = 1.55
+
+
 def compose(art: Image.Image, spec: IconImage, background: str = "#FFFFFF") -> Image.Image:
     """Place ``art`` on ``spec``'s canvas, honoring its safe area and opacity.
 

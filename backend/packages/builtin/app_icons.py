@@ -89,6 +89,8 @@ def present(run: dict, manifest: dict) -> str:
         Param("background", type="color", default="#FFFFFF",
               description="Background baked in where a platform forbids transparency (iOS, the Play Store icon, Apple touch icon) and used as the Android adaptive background layer"),
         Param("app_name", type="string", default="App", description="Name used in the web manifest"),
+        Param("allow_low_contrast", type="boolean", default=False,
+              description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
         Param("naming", type="naming", fields=["slug", "size", "platform"],
               default="{slug}-{platform}-{size}",
               description="Template for free filenames; platform-fixed names are exempt"),
@@ -101,10 +103,13 @@ calling it done, and simplify the mark rather than the sizes.
 
 `background` is the icon's own canvas — composited behind the artwork wherever
 a platform forbids transparency (iOS, the Play Store icon, the Apple touch
-icon) and used as the Android adaptive background layer. Take it from the
-artwork's palette rather than defaulting to white or near-black: an icon is a
-small piece of brand, and a neutral canvas wastes it. The cover shows the
-result on a light and a dark home screen, so check both before settling.
+icon) and used as the Android adaptive background layer. Its job is to make
+the mark read, so it must contrast with the mark, never echo it: a warm mark
+on a warm ground is a solid square at 29px. Reach for a deep tone or a near
+white, or a colour from the artwork that the mark is not made of. The build
+measures this and refuses a canvas the mark disappears into. The cover then
+shows the result on a light and a dark home screen; check both before
+settling.
 
 Supply `android_foreground` when the mark needs to sit differently inside
 Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
@@ -117,6 +122,23 @@ async def build(b: Build) -> None:
     platforms = b.params.platforms
     background = b.params.background
     fg_role = "android_foreground" if b.has("android_foreground") else "master"
+
+    # The canvas exists to make the mark readable. Choosing it from the
+    # artwork's own hue is the easy mistake — an orange sun on an orange
+    # ground is invisible — and it is cheap to measure rather than warn about.
+    if not b.params.allow_low_contrast:
+        ink = icon_spec.ink_color(await b.image("master", size=256))
+        if ink is not None:
+            ratio = icon_spec.contrast_ratio(ink, icon_spec.parse_hex(background))
+            if ratio < icon_spec.MIN_ICON_CONTRAST:
+                b.fail(
+                    f"the artwork and the background are the same tone "
+                    f"(contrast {ratio:.2f}:1, needs {icon_spec.MIN_ICON_CONTRAST:.2f}). "
+                    f"The mark averages #{'%02X%02X%02X' % ink} and the background is "
+                    f"{background}, so the icon reads as a solid square. Pick a canvas "
+                    f"much darker or much lighter than the mark — not another shade of it. "
+                    f"Pass allow_low_contrast=true if the flat look is deliberate."
+                )
 
     async def composed(spec: icon_spec.IconImage):
         # Vector artwork is drawn at this exact size; a raster is resampled.
