@@ -173,7 +173,7 @@ async def _download(url: str, path: str, workspace_dir: str | None) -> str:
     if not url.lower().startswith(("http://", "https://")):
         return "Error: url must be http(s)"
 
-    ro_err = readonly_workspace_error(path)
+    ro_err = readonly_workspace_error(path, workspace_dir)
     if ro_err:
         return ro_err
     resolved, err = resolve_workspace_path(workspace_dir, path)

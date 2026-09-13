@@ -18,7 +18,7 @@ READONLY_PREFIX = ".stimma/"
 SKILLS_MOUNT = "skills"
 
 
-def readonly_workspace_error(file_path: str) -> str | None:
+def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -> str | None:
     """Return an error if file_path targets a read-only tree, else None.
 
     Read-only trees: the generated ``.stimma/`` tool catalog, and any
@@ -26,8 +26,12 @@ def readonly_workspace_error(file_path: str) -> str | None:
     would overwrite edits; the agent forks instead).
     """
     normalized = (file_path or "").replace("\\", "/")
-    while normalized.startswith("./"):
-        normalized = normalized[2:]
+    normalized = "/".join(part for part in normalized.split("/") if part not in ("", "."))
+    if workspace_dir is not None:
+        resolved, err = resolve_workspace_path(workspace_dir, file_path)
+        if err:
+            return err
+        normalized = workspace_relative(Path(workspace_dir).resolve(), resolved) or normalized
     if normalized == ".stimma" or normalized.startswith(READONLY_PREFIX):
         return (
             "Error: .stimma/ is a generated, read-only view of available tools — "
@@ -92,7 +96,7 @@ def ensure_skills_mount(workspace_dir: str | Path) -> None:
 
 
 def _is_within(path: Path, root: Path) -> bool:
-    return path == root or str(path).startswith(str(root) + "/")
+    return path.is_relative_to(root)
 
 
 def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, str | None]:
@@ -109,7 +113,7 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
         return Path(), "Error: file_path must be relative to workspace, not absolute"
     # Reject obvious traversal before resolution
     normalized = file_path.replace("\\", "/")
-    parts = normalized.split("/")
+    parts = [part for part in normalized.split("/") if part not in ("", ".")]
     if ".." in parts:
         return Path(), "Error: file_path must not contain '..'"
 
@@ -130,13 +134,13 @@ def workspace_relative(workspace: Path, path: Path) -> str | None:
     """Display form of a resolved path: workspace-relative, with the skills
     mount shown as ``skills/...``. None if the path is outside both."""
     try:
-        return str(path.relative_to(workspace))
+        return path.relative_to(workspace).as_posix()
     except ValueError:
         pass
     skills_root = skills_mount_target()
     if skills_root is not None:
         try:
-            return f"{SKILLS_MOUNT}/{path.relative_to(skills_root)}".rstrip("/")
+            return f"{SKILLS_MOUNT}/{path.relative_to(skills_root).as_posix()}".rstrip("/")
         except ValueError:
             pass
     return None

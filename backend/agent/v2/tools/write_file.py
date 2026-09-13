@@ -38,7 +38,7 @@ async def write_file(file_path: str | None = None, content: str | None = None, *
     if content is None:
         return "Error: content is required. Pass the full file content as a string."
 
-    ro_err = readonly_workspace_error(file_path)
+    ro_err = readonly_workspace_error(file_path, workspace_dir)
     if ro_err:
         return ro_err
 

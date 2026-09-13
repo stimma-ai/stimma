@@ -52,7 +52,7 @@ async def edit_file(
     if new_string is None:
         return "Error: new_string is required."
 
-    ro_err = readonly_workspace_error(file_path)
+    ro_err = readonly_workspace_error(file_path, workspace_dir)
     if ro_err:
         return ro_err
 

@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import resolve_workspace_path, workspace_relative
+from ._workspace_files import SKILLS_MOUNT, resolve_workspace_path, workspace_relative
 
 MAX_RESULTS = 1000
 
@@ -46,8 +46,20 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
     else:
         search_root = workspace
 
+    # Resolve a literal mount prefix before searching, including on platforms
+    # where the workspace symlink could not be created.
+    search_pattern = pattern.replace("\\", "/")
+    parts = [part for part in search_pattern.split("/") if part not in ("", ".")]
+    if ".." in parts or search_pattern.startswith("/"):
+        return "Error: pattern must be relative and must not contain '..'"
+    if search_root == workspace and parts and parts[0] == SKILLS_MOUNT:
+        search_root, err = resolve_workspace_path(workspace_dir, SKILLS_MOUNT)
+        if err:
+            return err
+        search_pattern = "/".join(parts[1:])
+
     start = time.monotonic()
-    matches = sorted(search_root.glob(pattern))
+    matches = sorted(search_root.glob(search_pattern)) if search_pattern else [search_root]
     duration_ms = round((time.monotonic() - start) * 1000, 1)
 
     # Directories are included (with a trailing '/') so discovery patterns like

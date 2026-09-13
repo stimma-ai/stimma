@@ -14,13 +14,13 @@ invokes, flat across packs. A stimpack holds one or more skills:
             .marketplace.json   # optional — tracks marketplace origin
 
 Skills are **discovered** by scanning ``skills/*/SKILL.md``; targeting lives in
-each skill's frontmatter (`environments:`), not the manifest. A legacy pack
-with a root ``SKILL.md`` (with or without a manifest) still loads as a
+each skill's frontmatter (`environments:`), not the manifest. A pack
+with a root ``SKILL.md`` (with or without a manifest) loads as a
 single-skill stimpack — that's the format ``save_stimpack`` (user/agent
 authoring) writes.
 
 Resource types (manifest ``resources[].type``):
-    skill            -> legacy root SKILL.md declaration. FULLY WIRED.
+    skill            -> root SKILL.md declaration. FULLY WIRED.
     tool | flow | asset | model | flow_guidance
                      -> manifest schema + a lander interface are defined, but
                         the landers are stubs that log "recognized, not yet
@@ -178,7 +178,7 @@ def _parse_environments(fm: dict) -> SkillEnvironments:
 @dataclass
 class SkillInfo:
     """One skill inside a stimpack — the flat unit the agent discovers/invokes."""
-    slug: str  # skill directory name (or frontmatter name for legacy root skills)
+    slug: str  # skill directory name (or frontmatter name for root skills)
     display_name: str
     description: str
     environments: SkillEnvironments
@@ -200,8 +200,7 @@ class SkillInfo:
     def qualified_name(self) -> str:
         """Pack-qualified identity (collision-safe across packs).
 
-        Collapses to the bare slug for legacy single-skill packs where the
-        skill is named after its pack.
+        Collapses to the bare slug when the skill is named after its pack.
         """
         if self.slug == self.pack_name:
             return self.slug
@@ -796,9 +795,9 @@ def _discover_skills(stimpack_dir: Path, manifest: StimpackManifest) -> list[Ski
     """Discover a pack's skills.
 
     Primary layout: ``skills/<slug>/SKILL.md`` — one skill per subfolder, slug
-    from the folder name. Legacy layout: manifest-declared `skill` resources
+    from the folder name. Root layout: manifest-declared `skill` resources
     (typically a root SKILL.md), slug from frontmatter name (falling back to
-    the pack name so a bare legacy pack keeps its old identity).
+    the pack name).
     """
     skills: list[SkillInfo] = []
     skills_root = stimpack_dir / SKILLS_DIRNAME
@@ -814,7 +813,7 @@ def _discover_skills(stimpack_dir: Path, manifest: StimpackManifest) -> list[Ski
     if skills:
         return skills
 
-    # Legacy: manifest-declared skill resources rooted in the pack dir.
+    # Manifest-declared skill resources rooted in the pack dir.
     for resource in manifest.resources_of_type(RESOURCE_TYPE_SKILL):
         skill_md = stimpack_dir / (resource.path or SKILL_FILENAME)
         if not skill_md.is_file():
@@ -999,9 +998,8 @@ def find_skill(
     """Resolve a skill by pack-qualified name, or by bare slug when unique.
 
     Precedence applies: a local fork answers to both its own name and the
-    qualified name of the marketplace skill it shadows. Also accepts a pack
-    name for legacy single-skill packs (old chat history and old prompts
-    address packs by name).
+    qualified name of the marketplace skill it shadows. Pack names are not
+    aliases for differently named skills.
     """
     if not name:
         return None
@@ -1024,10 +1022,6 @@ def find_skill(
     if len(bare_matches) > 1:
         log.warning(f"Skill name '{name}' is ambiguous across packs — use the qualified name")
         return None
-    # Legacy: a pack name addressing its only skill.
-    for pack in packs:
-        if pack.name == name and len(pack.skills) == 1:
-            return pack, pack.skills[0]
     return None
 
 
@@ -1263,7 +1257,7 @@ def save_stimpack(
 
     stimpack_dir = get_user_stimpacks_dir(profile_id) / slug
     if (stimpack_dir / SKILLS_DIRNAME).is_dir():
-        # This editor writes the legacy root-SKILL.md layout; overwriting a
+        # This editor writes the root-SKILL.md layout; overwriting a
         # multi-skill pack with it would orphan the pack's other skills.
         raise ValueError(
             f"Stimpack '{name}' contains multiple skills and cannot be edited here"

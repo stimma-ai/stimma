@@ -90,12 +90,12 @@ def multi_skill_pack(stimpacks_dir) -> Path:
 
 
 @pytest.fixture
-def legacy_pack(stimpacks_dir) -> Path:
-    """A legacy single-skill pack: root SKILL.md, no skills/ dir."""
-    pack = stimpacks_dir / "legacy-pack"
+def single_skill_pack(stimpacks_dir) -> Path:
+    """A single-skill pack: root SKILL.md, no skills/ dir."""
+    pack = stimpacks_dir / "single-pack"
     pack.mkdir()
     (pack / "SKILL.md").write_text(
-        "---\nname: legacy-pack\ndisplay_name: Legacy Pack\ndescription: Old layout\n---\n\nLegacy body",
+        "---\nname: single-pack\ndisplay_name: Single Pack\ndescription: Root layout\n---\n\nSingle body",
         encoding="utf-8",
     )
     return pack
@@ -133,14 +133,14 @@ class TestMultiSkillLoad:
         assert find_skill("test-pack/alpha") is not None
         assert find_skill("other-pack/alpha") is not None
 
-    def test_legacy_root_skill_md_still_loads(self, legacy_pack):
-        info = sp._parse_stimpack_dir(legacy_pack)
+    def test_root_skill_md_loads(self, single_skill_pack):
+        info = sp._parse_stimpack_dir(single_skill_pack)
         assert len(info.skills) == 1
         skill = info.skills[0]
         # Slug matches the pack name, so the qualified name collapses.
-        assert skill.qualified_name == "legacy-pack"
-        loaded = load_skill("legacy-pack")
-        assert loaded.content.strip() == "Legacy body"
+        assert skill.qualified_name == "single-pack"
+        loaded = load_skill("single-pack")
+        assert loaded.content.strip() == "Single body"
 
     def test_pack_level_load_returns_first_skill(self, multi_skill_pack):
         loaded = load_stimpack("test-pack")
@@ -620,3 +620,64 @@ class TestForkPrecedence:
         assert await skill_tool(action="invoke", name="essentials/variations", session=session, chat_id=test_chat.id, _injected_messages=injected) == "Loaded skill 'My Variations'."
         assert injected[0]["content"] == "## Skill: My Variations (your version, overrides essentials/variations)\n\nFork body"
         assert injected[0]["skill_name"] == "variations"
+
+
+class TestSkillLookupWithoutPackAliases:
+    def test_single_skill_uses_skill_names_not_pack_alias(self, stimpacks_dir):
+        pack = stimpacks_dir / "original"
+        _write_manifest(pack, "original")
+        _write_skill(pack, "example", "name: example\ndescription: Original", "Original body")
+        assert load_skill("original/example").content == "Original body"
+        assert load_skill("example").content == "Original body"
+        assert find_skill("original") is None
+        _write_sidecar(pack, "original")
+        _write_fork(stimpacks_dir, "example", "name: example\ndescription: Fork", "Fork body")
+        assert load_skill("original/example").content == "Fork body"
+        assert load_skill("example").content == "Fork body"
+        assert find_skill("original") is None
+
+
+class TestSkillsPathAliases:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mounted", [False, True])
+    @pytest.mark.parametrize("prefix", ["skills/./", "skills//", "./skills/", "skills/alias/../"])
+    async def test_marketplace_aliases_cannot_be_written(
+        self, stimpacks_dir, marketplace_pack, workspace, mounted, prefix
+    ):
+        from agent.v2.tools.write_file import write_file
+        from agent.v2.tools.edit_file import edit_file
+        from agent.v2.tools.browse_web import _download
+        if mounted:
+            ensure_skills_mount(workspace)
+        path = prefix + "essentials/skills/variations/SKILL.md"
+        original = (marketplace_pack / "skills/variations/SKILL.md").read_text()
+        assert (await write_file(file_path=path, content="changed", workspace_dir=str(workspace))).startswith("Error")
+        assert (await edit_file(file_path=path, old_string="Upstream", new_string="changed", workspace_dir=str(workspace))).startswith("Error")
+        # Rejected before any network request.
+        assert (await _download("https://example.invalid/skill", path, str(workspace))).startswith("Error")
+        assert (marketplace_pack / "skills/variations/SKILL.md").read_text() == original
+
+    @pytest.mark.asyncio
+    async def test_symlink_alias_cannot_write_marketplace(self, stimpacks_dir, marketplace_pack, workspace):
+        from agent.v2.tools.write_file import write_file
+        alias = workspace / "upstream"
+        try:
+            alias.symlink_to(marketplace_pack, target_is_directory=True)
+        except OSError:
+            pytest.skip("Symlink creation unavailable")
+        result = await write_file(file_path="upstream/skills/variations/SKILL.md", content="changed", workspace_dir=str(workspace))
+        assert "marketplace-installed" in result
+        assert (marketplace_pack / "skills/variations/SKILL.md").read_text().endswith("Upstream body")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mounted", [False, True])
+    async def test_glob_and_read_agree_with_or_without_mount(self, stimpacks_dir, single_skill_pack, workspace, mounted):
+        from agent.v2.tools.glob_files import glob_files
+        from agent.v2.tools.read_file import read_file
+        if mounted:
+            ensure_skills_mount(workspace)
+        for pattern, path in [("skills/*/SKILL.md", None), ("./skills/*/SKILL.md", "."), ("*/SKILL.md", "./skills")]:
+            result = await glob_files(pattern=pattern, path=path, workspace_dir=str(workspace))
+            assert result == "skills/single-pack/SKILL.md"
+            assert "Single body" in await read_file(file_path=result, workspace_dir=str(workspace))
+        assert "must not contain" in await glob_files(pattern="skills/../*", workspace_dir=str(workspace))

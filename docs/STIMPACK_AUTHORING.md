@@ -75,7 +75,7 @@ targeting travels with it.
 | `format` | no | **Container-format version** (integer, default `1`). Loaders warn on packs newer than they support and load best-effort. Always write `1` today. |
 | `author` | yes | `user`, `agent`, or `system` (first-party) |
 | `tags` | no | Discovery/categorization |
-| `resources` | no | Legacy: declares a root-level `skill` resource for single-skill packs (see below). Reserved for future declared resource types. |
+| `resources` | no | Declares a root-level `skill` resource for single-skill packs (see below). Reserved for future declared resource types. |
 
 ### Extensibility contract
 
@@ -90,11 +90,12 @@ This is a container format; extend it without breaking old loaders:
 - **Incompatible changes bump `format`.** An old app loads a newer pack
   best-effort and logs a warning telling the user to update.
 
-### Legacy single-skill layout
+### Single-skill layout
 
 A pack may instead be a bare root `SKILL.md` (with or without a manifest) —
-this is what the in-app editor and the agent's `skill(action="create")` write.
-It loads as a one-skill pack whose skill is named after the pack. If both a
+this is what the in-app editor and filesystem authoring use.
+It loads as a one-skill pack. Invoke skills by their qualified name or unique
+bare slug; a pack name is not an alias for a differently named skill. If both a
 root `SKILL.md` and a `skills/` directory exist, `skills/` wins and the root
 file is ignored. New multi-skill packs should always use `skills/`.
 
