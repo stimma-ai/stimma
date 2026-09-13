@@ -260,6 +260,12 @@ body {
 }
 
 [data-theme="dark"] {
+  --file-type-code-rgb: 124 196 255;
+  --file-type-table-rgb: 143 214 148;
+  --file-type-markdown-rgb: 201 179 255;
+  --file-type-archive-rgb: 240 183 106;
+  --file-type-json-rgb: 245 215 110;
+  --file-type-image-rgb: 255 159 181;
   color-scheme: dark;
 
   /* Surfaces — "Slate": neutrals carry a faint cool-blue cast so the
@@ -401,6 +407,12 @@ body {
 }
 
 [data-theme="light"] {
+  --file-type-code-rgb: 35 103 165;
+  --file-type-table-rgb: 44 116 54;
+  --file-type-markdown-rgb: 120 71 165;
+  --file-type-archive-rgb: 153 91 25;
+  --file-type-json-rgb: 128 106 17;
+  --file-type-image-rgb: 174 58 93;
   color-scheme: light;
 
   /* Surfaces — channels for `<alpha-value>` support; see the dark block. */

@@ -1965,6 +1965,8 @@ async def get_asset(asset_id: int, session: AsyncSession = Depends(get_db_sessio
 
 def _revision_entry(revision: AssetRevision, media: MediaItem) -> dict:
     """Flattened revision + primary-media projection used by revision pickers."""
+    from utils.file_mime import guess_file_mime
+
     return {
         "id": revision.id,
         "revision_number": revision.revision_number,
@@ -1973,6 +1975,9 @@ def _revision_entry(revision: AssetRevision, media: MediaItem) -> dict:
         "created_at": revision.created_at.isoformat(),
         "media_id": media.id,
         "media_hash": media.file_hash,
+        "filename": media.original_filename or f"artifact.{media.file_format}",
+        "file_size": media.file_size,
+        "mime": guess_file_mime(f"file.{media.file_format}"),
         "file_format": media.file_format,
         "width": media.width,
         "height": media.height,
