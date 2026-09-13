@@ -1,5 +1,5 @@
 <template>
-  <!-- Fill-only input recipe: one wash, no border box, no internal rules —
+  <!-- Fill-only input pattern: one wash, no border box, no internal rules —
        the action bar is a quiet ghost row inside the same fill. -->
   <div class="segment-editor rounded-md bg-overlay-subtle border border-transparent overflow-hidden focus-within:border-accent transition-colors">
     <div ref="editorMount"></div>

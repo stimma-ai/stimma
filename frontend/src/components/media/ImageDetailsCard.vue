@@ -269,7 +269,7 @@ const toolHeading = computed(() => {
   return toolDisplayName(genStep.value?.tool_id, cachedTools.value)
 })
 
-/** The editor's recipe, recorded on the Media it saved. */
+/** The editor's composition, recorded on the Media it saved. */
 const editStack = computed(() => genStep.value?.parameters?.stack ?? null)
 
 // Flow lineage (pulled from generation_metadata when source=flow)

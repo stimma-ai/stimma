@@ -848,7 +848,7 @@ export class StackCompositor {
    * One component's positioned coverage. The component carries the same
    * anchor fields a region does, so it rides the identical positioning path.
    * An unreadable component contributes nothing rather than blanking the
-   * whole recipe — the same posture one unreadable op takes toward the stack.
+   * whole composition — the same posture one unreadable op takes toward the stack.
    */
   private async loadComponentMask(
     component: MaskComponent,
@@ -1051,7 +1051,7 @@ export class StackCompositor {
         })
       }
       // The patch was generated FOR a mask in the same frame, so the two
-      // travel together. A composite mask recipe outranks the stored
+      // travel together. A composite mask composition outranks the stored
       // submission mask: candidates recomposite LIVE through the composed
       // coverage — shrinking it needs no resample, and coverage the samples
       // never painted honestly shows the input beneath.
@@ -1071,7 +1071,7 @@ export class StackCompositor {
               revision: anyOp._revision ?? 0,
             }),
       ])
-      // A recipe composed to nothing keeps the input untouched — and owes
+      // A composition composed to nothing keeps the input untouched — and owes
       // nothing.
       if (!mask) {
         this.maskDebt.delete(op.id)

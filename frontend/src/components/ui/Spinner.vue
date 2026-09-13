@@ -7,7 +7,7 @@
 // §4: inline `<svg class="animate-spin">` and bespoke bordered-div spinners
 // are a review rejection outside this component). `hue` lets a caller swap
 // the leading-edge color for a status-specific spinner (e.g. purple for
-// "enhancing") without duplicating the border/animation recipe — pass the
+// "enhancing") without duplicating the border/animation pattern — pass the
 // full class (e.g. `border-t-purple-500`) so Tailwind's static scanner can
 // see it; a bare color stem interpolated at runtime would be purged.
 import { computed } from 'vue'

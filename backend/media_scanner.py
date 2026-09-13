@@ -22,7 +22,7 @@ TEXT_EXTENSIONS = {'.md'}
 VECTOR_EXTENSIONS = {'.svg'}  # Self-contained vector documents (single flat file)
 SET_EXTENSIONS = {'.stimmaset.json'}
 GRID_EXTENSIONS = {'.stimmagrid.json'}
-SPRITE_EXTENSIONS = {'.stimmasprite.json'}  # Sprite documents: recipe + media refs (see sprite_document.py)
+SPRITE_EXTENSIONS = {'.stimmasprite.json'}  # Sprite documents: composition + media refs (see sprite_document.py)
 LAYOUT_EXTENSIONS = {'.stimmalayout'}  # Directory-based bundles (contains index.html + assets)
 # Compound-extension lookup set: only types whose extension is more than a plain
 # suffix need to be here, so .svg is deliberately absent.

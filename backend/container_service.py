@@ -655,7 +655,7 @@ async def infer_structured_member_specs(
     Sets and grids: existing Assets become live links, bare Media remains exact
     embedded content (the expected shape for newly generated agent grids).
     Sprites: every reference is an exact embedded member keyed by role — the
-    document is a recipe and pins specific artifacts.
+    document is a composition and pins specific artifacts.
     """
     if container_media.file_format not in CONTAINER_FORMATS:
         raise AssetServiceError("Media is not a set, grid, or sprite")

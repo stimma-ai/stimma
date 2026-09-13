@@ -66,7 +66,7 @@ defineEmits(['clear', 'select-all', 'delete'])
 
 <style scoped>
 /* Slide up animation (positional transform, kept as scoped CSS — not a
-   color/opacity transition covered by the global recipe vocabulary). */
+   color/opacity transition covered by the global pattern vocabulary). */
 .entity-bar-slide-up-enter-active,
 .entity-bar-slide-up-leave-active {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;

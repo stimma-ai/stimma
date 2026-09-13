@@ -13,6 +13,8 @@ from core.profile_context import get_current_profile
 log = get_logger(__name__)
 
 _MIGRATION_OWNER_FILE = "flow_dir_migration_owner"
+# Historical Flow storage only; never use this directory for a new feature.
+_PRE_RENAME_FLOW_DIR = "recipes"
 
 
 def _merge_legacy_root(source: Path, target: Path) -> None:
@@ -93,8 +95,8 @@ def migrate_legacy_flow_dirs(target_profile_id: str | None = None) -> str | None
     """Move pre-profile flow directories into one selected profile.
 
     Older releases stored every profile's flow data under the sandbox-wide
-    ``flows/`` directory (and, earlier, ``recipes/``). Flow IDs are only unique
-    inside a profile database, so that layout allowed profiles to collide.
+    legacy directories. Flow IDs are only unique inside a profile database,
+    so that layout allowed profiles to collide.
 
     Startup selects the profile with the most Assets and passes it here. Both
     legacy roots are then merged into that profile's private flow root. Safe to
@@ -102,21 +104,21 @@ def migrate_legacy_flow_dirs(target_profile_id: str | None = None) -> str | None
     """
     requested_profile_id = target_profile_id or get_current_profile()
     data_dir = app_dirs.get_data_dir()
-    legacy_roots = (data_dir / "flows", data_dir / "recipes")
+    legacy_roots = (data_dir / "flows", data_dir / _PRE_RENAME_FLOW_DIR)
     owner_path = data_dir / _MIGRATION_OWNER_FILE
     if owner_path.exists():
         profile_id = _legacy_migration_owner(data_dir, requested_profile_id)
     else:
-        requested_recipes = (
-            app_dirs.get_profile_dir(profile_id=requested_profile_id) / "recipes"
+        requested_legacy_root = (
+            app_dirs.get_profile_dir(profile_id=requested_profile_id) / _PRE_RENAME_FLOW_DIR
         )
-        if not any(root.is_dir() for root in (*legacy_roots, requested_recipes)):
+        if not any(root.is_dir() for root in (*legacy_roots, requested_legacy_root)):
             return requested_profile_id
         profile_id = _legacy_migration_owner(data_dir, requested_profile_id)
     if profile_id is None:
         return None
-    profile_recipes = app_dirs.get_profile_dir(profile_id=profile_id) / "recipes"
-    if not any(root.is_dir() for root in (*legacy_roots, profile_recipes)):
+    profile_legacy_root = app_dirs.get_profile_dir(profile_id=profile_id) / _PRE_RENAME_FLOW_DIR
+    if not any(root.is_dir() for root in (*legacy_roots, profile_legacy_root)):
         return profile_id
     if profile_id != requested_profile_id:
         log.info(
@@ -127,8 +129,8 @@ def migrate_legacy_flow_dirs(target_profile_id: str | None = None) -> str | None
     target = get_flows_root(profile_id)
     for legacy_root in legacy_roots:
         _merge_legacy_root(legacy_root, target)
-    # Defensive support for an intermediate profile-scoped recipes layout.
-    _merge_legacy_root(profile_recipes, target)
+    # Defensive support for an intermediate profile-scoped pre-rename layout.
+    _merge_legacy_root(profile_legacy_root, target)
     return profile_id
 
 

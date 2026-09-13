@@ -9,7 +9,7 @@ Light theme is the same gallery at noon (see the two-lights law).
 
 Status: **Atelier v3, in force** (2026-07-18). All prior open questions are
 decided: General Sans display, teal accent, indigo selection, magenta live,
-sentence-case labels, two-lights law. Recipes reference semantic tokens.
+sentence-case labels, two-lights law. Patterns reference semantic tokens.
 
 This file is the answer to "how do we do X in this app." If a pattern isn't
 here, extend this file first, then build. It is derived from the 2026-07-17
@@ -387,9 +387,9 @@ Kit-wide contracts: both themes from day one; focus-visible built in;
 disabled = `disabled:opacity-50 disabled:cursor-not-allowed` (the one
 spelling); loading states built into Button/Tile, never hand-rolled spinners.
 
-## 3. Canonical recipes (pre-kit and for review)
+## 3. Canonical patterns (pre-kit and for review)
 
-Until a kit component exists, new code uses these exact recipes:
+Until a kit component exists, new code uses these exact patterns:
 
 - **Primary button**: `bg-accent hover:bg-accent/90 text-white rounded-md
   px-3 py-2 text-sm font-medium` — hover always DARKENS in light / BRIGHTENS
@@ -450,7 +450,7 @@ The stress test for the depth budget. Rules (mock §9 is the reference):
   are flat, pending additionally at ~55% opacity. Never expand transient
   states automatically (existing rule).
 - Rollups (counts/durations) are mono, right-aligned, per level. Per-tile
-  compute times, wall-clock at rollups (existing recipe-duration rule).
+  compute times, wall-clock at rollups (existing flow-duration rule).
 - The flow *graph* canvas keeps its own matte palette — these rules govern
   the run/trace panels, not the graph.
 
@@ -501,7 +501,7 @@ right = retention ghost, forever-mode icon ghost, then the split Run button
 (primary + `×N` count chip + dropdown segment). Batch count lives IN the Run
 button; no separate stepper in the bar.
 
-**Prompt editor:** fill-only field (§3 input recipe), min-height ~3 lines.
+**Prompt editor:** fill-only field (§3 input pattern), min-height ~3 lines.
 The action bar is a single quiet row under the field: Enhance toggle +
 translate chip on the left; editor toggles (mono/vim), help, and the AI
 sparkle on the right — all ghost text/icons, 11px, no pills. The sparkle

@@ -385,7 +385,7 @@ class TestPayloads:
 
 
 class TestSaveEdit:
-    """Save materializes the composite; the stack stays the recipe."""
+    """Save materializes the composite; the stack stays the composition."""
 
     async def test_save_keeps_the_stack_on_the_revision_it_was_built_against(
         self, client: httpx.AsyncClient, db_session, tmp_path
@@ -445,7 +445,7 @@ class TestSaveEdit:
         self, client: httpx.AsyncClient, db_session, tmp_path
     ):
         """The stack keeps applying from the revision it was built against."""
-        asset_id, media_id, _ = await _asset(db_session, tmp_path, name="save-recipe")
+        asset_id, media_id, _ = await _asset(db_session, tmp_path, name="save-composition")
         opened = (await client.post(
             "/api/image-stack/open", json={"asset_id": asset_id}
         )).json()
@@ -526,7 +526,7 @@ class TestSaveEdit:
     async def test_reopen_after_save_reports_the_working_document_base(
         self, client: httpx.AsyncClient, db_session, tmp_path
     ):
-        """Asset head may advance; the live recipe's base must not."""
+        """Asset head may advance; the live composition's base must not."""
         asset_id, media_id, _ = await _asset(db_session, tmp_path, name="save-reopen")
         opened = (await client.post(
             "/api/image-stack/open", json={"asset_id": asset_id}

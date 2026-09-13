@@ -82,7 +82,7 @@ test('undo and redo of a component toggle round-trips the whole component list',
   )
 })
 
-test('undoing a modifier removal restores it at its place in the recipe', () => {
+test('undoing a modifier removal restores it at its place in the composition', () => {
   const before = JSON.parse(JSON.stringify(compositeRegion))
   const after = JSON.parse(JSON.stringify(compositeRegion))
   after.mask_components.splice(1, 1) // delete the Intersect · Linear gradient
@@ -97,7 +97,7 @@ test('undoing a modifier removal restores it at its place in the recipe', () => 
   assert.equal(restored[1].mode, 'intersect')
 })
 
-test('removing the whole scoped op and undoing brings its recipe back', () => {
+test('removing the whole scoped op and undoing brings its composition back', () => {
   const op = scopedAdjust('op1', [JSON.parse(JSON.stringify(compositeRegion))])
   const d = doc([op])
   const entry: JournalEntry = {
@@ -115,7 +115,7 @@ test('removing the whole scoped op and undoing brings its recipe back', () => {
   )
 })
 
-test('reorder round-trips leave region recipes untouched', () => {
+test('reorder round-trips leave region compositions untouched', () => {
   const a = scopedAdjust('a', [JSON.parse(JSON.stringify(compositeRegion))])
   const b = { id: 'b', class: 'parametric', enabled: true, label: 'Crop', exec: { kind: 'crop' }, params: {} }
   const d = doc([a, b])

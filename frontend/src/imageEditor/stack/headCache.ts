@@ -1,7 +1,7 @@
 /**
  * The persisted fast-open projection of a stack document.
  *
- * The recipe remains authoritative. These files only let a cold editor show
+ * The composition remains authoritative. These files only let a cold editor show
  * the exact last rendered head without replaying expensive pixel effects.
  * Hash mismatch means cache miss; no invalidation bookkeeping is needed.
  */

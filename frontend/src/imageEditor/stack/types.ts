@@ -3,7 +3,7 @@ import type { ToneCurve } from './toneCurve.ts'
 /**
  * The op-stack image editor's document model.
  *
- * The stack is a RECIPE, not a log. Chronology appears nowhere: undo (session)
+ * The stack is a COMPOSITION, not a log. Chronology appears nowhere: undo (session)
  * and the version chain (materialized saves) are the only histories. Ops are
  * addressed by stable id, never by index — the UI, undo, and any future agent
  * tooling all need a name for a step that survives reordering.
@@ -115,7 +115,7 @@ export interface GenerativeOp extends BaseOp {
   /** The mask this patch was sampled through. */
   mask_ref?: string
   /**
-   * The recipe the op's effective mask is composed from, once the mask has
+   * The composition the op's effective mask is composed from, once the mask has
    * been made composite — same contract as RetouchRegion.mask_components,
    * with one generative difference: `mask_ref` is NOT cleared. It remains
    * the record of the mask the existing candidates were SAMPLED through
@@ -305,7 +305,7 @@ export type MaskComponentMode = 'add' | 'subtract' | 'intersect'
 /**
  * One editable ingredient of a region's effective mask.
  *
- * A region has ONE effective mask; components are the recipe it is computed
+ * A region has ONE effective mask; components are the composition it is computed
  * from — a base plus Add/Subtract/Intersect modifiers, composed in order in
  * soft alpha (add = max, subtract = ×(1−c), intersect = ×c). The first
  * component is the base: it seeds the coverage, and its stored mode is `add`.
@@ -366,7 +366,7 @@ export interface RetouchRegion {
   /** Absent means `{kind:'raster'}` — see RegionMask. */
   mask?: RegionMask
   /**
-   * The recipe this region's effective mask is composed from, when the mask
+   * The composition this region's effective mask is composed from, when the mask
    * has been made composite. Absent — every document written before this
    * existed, and every region whose mask is still one gesture — means
    * `mask`/`mask_ref` are the authority, exactly as before. Present means

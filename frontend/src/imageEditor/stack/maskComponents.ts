@@ -1,5 +1,5 @@
 /**
- * Composite masks: a region's effective mask as an ordered RECIPE of editable
+ * Composite masks: a region's effective mask as an ordered COMPOSITION of editable
  * components rather than one flattened bitmap.
  *
  * The first component is the base; later components are modifiers, each
@@ -161,7 +161,7 @@ export interface MaskComposeEntry {
  * order. The base is stored with mode `add`, so it seeds the coverage by the
  * same rule everything else follows — and a DISABLED base honestly leaves
  * nothing for an intersect to keep. A component with no alpha yet is skipped:
- * "not authored / unreadable" must dim the recipe, not black out the whole
+ * "not authored / unreadable" must dim the composition, not black out the whole
  * mask through an intersect.
  */
 export function composeMaskAlpha(

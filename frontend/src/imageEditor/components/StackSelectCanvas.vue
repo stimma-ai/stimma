@@ -109,7 +109,7 @@ const emit = defineEmits<{
   /**
    * The gesture that is ABOUT to publish, as its own coverage — emitted
    * immediately before the `change` it belongs to, so the host can keep the
-   * selection as a recipe of editable ingredients instead of only the
+   * selection as a composition of editable ingredients instead of only the
    * flattened bitmap. Gradient gestures use the `gradient` event (geometry
    * beats a raster); AI masks land through applyMask, which the host owns.
    */

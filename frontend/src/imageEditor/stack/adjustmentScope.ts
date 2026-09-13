@@ -1,5 +1,5 @@
 import type { GradientMask, SelectionSemantic } from './types.ts'
-import type { WorkspaceMaskGesture } from './workspaceMaskRecipe.ts'
+import type { WorkspaceMaskGesture } from './workspaceMaskComposition.ts'
 
 /** What a recomputable semantic selection was a selection OF. */
 export type AdjustmentScopeSemantic = SelectionSemantic
@@ -11,7 +11,7 @@ export type AdjustmentScopeSemantic = SelectionSemantic
  * work can render and reproject workspace state, so reading the live selection
  * afterwards makes the click race the housekeeping that precedes it. Capture
  * the representation the scoped step will consume up front: editable geometry
- * for a matching gradient, the gesture RECIPE when the selection was built
+ * for a matching gradient, the gesture COMPOSITION when the selection was built
  * from more than one tracked gesture (each ingredient becomes an editable
  * mask component), or an immutable raster copy for everything else — carrying
  * its semantic identity when the selection IS one recomputable semantic
@@ -20,7 +20,7 @@ export type AdjustmentScopeSemantic = SelectionSemantic
 export type AdjustmentScopeSnapshot<TMask> =
   | { kind: 'gradient'; gradient: GradientMask }
   | { kind: 'raster'; mask: TMask; semantic?: AdjustmentScopeSemantic }
-  | { kind: 'recipe'; entries: WorkspaceMaskGesture<TMask>[] }
+  | { kind: 'composition'; entries: WorkspaceMaskGesture<TMask>[] }
 
 export function captureAdjustmentScope<TMask>(
   selection: TMask | null,
@@ -30,23 +30,23 @@ export function captureAdjustmentScope<TMask>(
   selectionAppliedKey: string | null,
   workspaceSemantic: AdjustmentScopeSemantic | null = null,
   workspaceSemanticKey: string | null = null,
-  workspaceRecipe: WorkspaceMaskGesture<TMask>[] | null = null,
-  workspaceRecipeKey: string | null = null,
+  workspaceComposition: WorkspaceMaskGesture<TMask>[] | null = null,
+  workspaceCompositionKey: string | null = null,
 ): AdjustmentScopeSnapshot<TMask> | null {
   if (!selection) return null
   if (workspaceGradient && workspaceGradientKey === selectionAppliedKey) {
     return { kind: 'gradient', gradient: { ...workspaceGradient } }
   }
   // One tracked gesture is exactly the raster/semantic capture below; the
-  // recipe only earns its structure once there are ingredients to keep.
+  // composition only earns its structure once there are ingredients to keep.
   if (
-    workspaceRecipe
-    && workspaceRecipe.length >= 2
-    && workspaceRecipeKey === selectionAppliedKey
+    workspaceComposition
+    && workspaceComposition.length >= 2
+    && workspaceCompositionKey === selectionAppliedKey
   ) {
     return {
-      kind: 'recipe',
-      entries: workspaceRecipe.map(entry => ({
+      kind: 'composition',
+      entries: workspaceComposition.map(entry => ({
         ...entry,
         ...(entry.mask !== undefined ? { mask: copyMask(entry.mask) } : {}),
         ...(entry.gradient ? { gradient: { ...entry.gradient } } : {}),

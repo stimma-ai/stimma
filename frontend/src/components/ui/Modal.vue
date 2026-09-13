@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Atelier Modal shell (STANDARDS.md §2, §3 "Modal" recipe). The one modal
+// Atelier Modal shell (STANDARDS.md §2, §3 "Modal" pattern). The one modal
 // backdrop/card/transition implementation in the app — everything else in
 // the modal family (ConfirmDialog, and eventually the ~25 ad-hoc modals in
 // INVENTORY.md §2) builds on this rather than re-pasting Teleport/backdrop/

@@ -324,7 +324,7 @@ const measuredDebt = computed(() =>
 )
 /**
  * Staged candidates cannot be measured against the mask (nothing composites
- * until a pick), but a recipe existing at all means the mask was edited
+ * until a pick), but a composition existing at all means the mask was edited
  * after they were sampled — the advisory holds either way.
  */
 const debtAdvisory = computed(() =>

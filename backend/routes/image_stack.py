@@ -123,7 +123,7 @@ async def open_stack(
 
     stored = await stack.read_document(directory)
 
-    # A resumed working document keeps the base its recipe was authored
+    # A resumed working document keeps the base its composition was authored
     # against. Saving advances the Asset's current Revision, but that flattened
     # output must never become the base under the still-live stack or every
     # edit is effectively baked in before it is replayed. The document JSON is

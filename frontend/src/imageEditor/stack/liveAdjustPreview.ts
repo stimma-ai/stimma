@@ -3,7 +3,7 @@
  *
  * The document compositor remains authoritative. During a drag this applies
  * only the delta from the pixels already on screen, which preserves every
- * other edit without replaying the stack. Pointer-up commits the recipe and
+ * other edit without replaying the stack. Pointer-up commits the composition and
  * performs one full-resolution render.
  */
 

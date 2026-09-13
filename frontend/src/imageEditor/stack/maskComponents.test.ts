@@ -109,7 +109,7 @@ test('a component with no alpha yet contributes nothing rather than blacking out
   assert.deepEqual(Array.from(composed), [200, 100])
 })
 
-test('an empty recipe composes to no coverage', () => {
+test('an empty composition composes to no coverage', () => {
   assert.deepEqual(Array.from(composeMaskAlpha([], 2)), [0, 0])
 })
 
@@ -252,7 +252,7 @@ test('mask components participate in the container pixel identity', async () => 
   }) as any
   const before = stackHashes(container([region])).head
   const after = stackHashes(container([withComponents])).head
-  // Editing the recipe invalidates the composite above it, with no new
+  // Editing the composition invalidates the composite above it, with no new
   // dirty logic anywhere.
   assert.notEqual(before, after)
   // Toggling one component off is itself a distinct pixel identity.

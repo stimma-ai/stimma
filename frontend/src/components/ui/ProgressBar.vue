@@ -15,7 +15,7 @@
 <script setup lang="ts">
 // Atelier ProgressBar — the one progress-bar treatment (STANDARDS.md §2).
 // Determinate fill takes a 0-100 `value`; `indeterminate` swaps to the
-// shimmer recipe (PipelineProgressBar.vue's travelling-sheen pattern) for
+// shimmer pattern (PipelineProgressBar.vue's travelling-sheen pattern) for
 // "working, position unknown" states. `hue` overrides the fill color for
 // status-specific bars (e.g. amber for a warning/paused run) — pass the
 // full class so Tailwind's static scanner can see it.

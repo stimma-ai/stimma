@@ -1,5 +1,5 @@
 /**
- * The workspace selection as a RECIPE, not only a bitmap.
+ * The workspace selection as a composition of tracked gestures.
  *
  * The selection model flattens every gesture into one alpha canvas — correct
  * for consumers that want coverage, lossy for the one that wants ingredients:
@@ -7,11 +7,11 @@
  * record: one entry per landed gesture, with the gesture's own coverage,
  * combine mode, and identity (gradient geometry, semantic name, tool label).
  *
- * The recipe is strictly best-effort bookkeeping. Any operation it cannot
+ * The composition is strictly best-effort bookkeeping. Any operation it cannot
  * describe — invert, grow/shrink, a handle drag on the flattened raster, a
  * gesture combined onto a selection that predates tracking — resolves to
  * null, and consumers fall back to the flattened raster exactly as before.
- * A missing recipe is honest; a wrong one is not.
+ * A missing composition is honest; a wrong one is not.
  *
  * Generic over the mask payload so the reducer is testable without a DOM.
  */
@@ -85,29 +85,29 @@ function extendsBrush<TMask>(
 }
 
 /**
- * Fold one landed gesture into the recipe.
+ * Fold one landed gesture into the composition.
  *
  * `mergeMasks` unions two raster coverages (max), used to keep a run of brush
  * strokes one editable Brush component instead of one row per stroke.
  */
 export function appendWorkspaceMaskGesture<TMask>(
-  recipe: WorkspaceMaskGesture<TMask>[] | null,
+  composition: WorkspaceMaskGesture<TMask>[] | null,
   gesture: WorkspaceGestureInput<TMask>,
   mergeMasks?: (a: TMask, b: TMask) => TMask,
 ): WorkspaceMaskGesture<TMask>[] | null {
-  const previous = gesture.replacesPrevious && recipe?.length
-    ? recipe.slice(0, -1)
-    : recipe
+  const previous = gesture.replacesPrevious && composition?.length
+    ? composition.slice(0, -1)
+    : composition
   const hadSelection = gesture.replacesPrevious && previous !== null
     ? previous.length > 0
     : gesture.hadSelection
 
-  // A gesture that IS the whole selection starts the recipe over; its own
+  // A gesture that IS the whole selection starts the composition over; its own
   // combine mode is spent replacing, so it seeds as the base.
   if (gesture.combine === 'new' || !hadSelection) {
     return [entryOf(gesture, 'add')]
   }
-  // Combined onto a selection the recipe cannot describe: stay honest.
+  // Combined onto a selection the composition cannot describe: stay honest.
   if (!previous || !previous.length) return null
 
   const entry = entryOf(gesture, gesture.combine)

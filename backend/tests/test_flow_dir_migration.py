@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import app_dirs
 from core.profile_context import ProfileScope
-from flow_runtime.paths import get_flows_root, migrate_legacy_flow_dirs
+from flow_runtime.paths import _PRE_RENAME_FLOW_DIR, get_flows_root, migrate_legacy_flow_dirs
 
 
 def _seed_legacy_root(data_dir, name, *flow_ids):
@@ -42,14 +42,14 @@ def test_moves_legacy_flows_into_selected_profile(tmp_path, monkeypatch):
         ).is_file()
 
 
-def test_moves_legacy_recipes_into_selected_profile(tmp_path, monkeypatch):
+def test_moves_pre_rename_flow_dirs_into_selected_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(app_dirs, "get_data_dir", lambda: tmp_path)
-    _seed_legacy_root(tmp_path, "recipes", 7)
+    _seed_legacy_root(tmp_path, _PRE_RENAME_FLOW_DIR, 7)
 
     migrate_legacy_flow_dirs("primary")
 
     assert (tmp_path / "primary" / "flows" / "7" / "program.py").is_file()
-    assert not (tmp_path / "recipes").exists()
+    assert not (tmp_path / _PRE_RENAME_FLOW_DIR).exists()
 
 
 def test_merges_both_legacy_roots_without_overwriting(tmp_path, monkeypatch):
@@ -58,7 +58,7 @@ def test_merges_both_legacy_roots_without_overwriting(tmp_path, monkeypatch):
     (target / "1").mkdir(parents=True)
     (target / "1" / "program.py").write_text("# profile copy\n")
     _seed_legacy_root(tmp_path, "flows", 1, 2)
-    _seed_legacy_root(tmp_path, "recipes", 3)
+    _seed_legacy_root(tmp_path, _PRE_RENAME_FLOW_DIR, 3)
 
     migrate_legacy_flow_dirs("primary")
 
@@ -67,7 +67,7 @@ def test_merges_both_legacy_roots_without_overwriting(tmp_path, monkeypatch):
     assert (tmp_path / "flows" / "1" / "program.py").is_file()
     assert (target / "2" / "program.py").is_file()
     assert (target / "3" / "program.py").is_file()
-    assert not (tmp_path / "recipes").exists()
+    assert not (tmp_path / _PRE_RENAME_FLOW_DIR).exists()
 
     # Repeating the startup migration does not overwrite either copy.
     migrate_legacy_flow_dirs("primary")
@@ -92,12 +92,12 @@ def test_conflict_retry_keeps_first_migration_owner(tmp_path, monkeypatch):
     assert not (tmp_path / "new-majority" / "flows").exists()
     assert (tmp_path / "flow_dir_migration_owner").read_text().strip() == "first-majority"
 
-    # Once the global leftovers are gone, an owner-scoped recipes retry still
+    # Once the global leftovers are gone, an owner-scoped pre-rename retry still
     # follows the marker rather than the newly requested majority profile.
     (tmp_path / "flows" / "1" / "program.py").unlink()
     (tmp_path / "flows" / "1").rmdir()
     (tmp_path / "flows").rmdir()
-    _seed_legacy_root(tmp_path / "first-majority", "recipes", 3)
+    _seed_legacy_root(tmp_path / "first-majority", _PRE_RENAME_FLOW_DIR, 3)
     assert migrate_legacy_flow_dirs("new-majority") == "first-majority"
     assert (first_target / "3" / "program.py").is_file()
-    assert not (tmp_path / "first-majority" / "recipes").exists()
+    assert not (tmp_path / "first-majority" / _PRE_RENAME_FLOW_DIR).exists()

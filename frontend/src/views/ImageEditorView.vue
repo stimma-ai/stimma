@@ -166,8 +166,8 @@ import {
 import {
   GESTURE_TOOL_LABELS,
   appendWorkspaceMaskGesture,
-} from '../imageEditor/stack/workspaceMaskRecipe'
-import type { WorkspaceMaskGesture } from '../imageEditor/stack/workspaceMaskRecipe'
+} from '../imageEditor/stack/workspaceMaskComposition'
+import type { WorkspaceMaskGesture } from '../imageEditor/stack/workspaceMaskComposition'
 import { FragileEntryTracker } from '../imageEditor/stack/fragileEntries'
 import {
   CROP_ASPECTS, cropRectForAspect, adjustLabel,
@@ -957,14 +957,14 @@ let pendingGestureCapture: {
  */
 const heldCombineOverride = ref<SelectionMode | null>(null)
 /**
- * The workspace selection as a RECIPE of tracked gestures, so a scoped
+ * The workspace selection as a COMPOSITION of tracked gestures, so a scoped
  * adjustment can keep every ingredient editable. Best-effort bookkeeping:
  * anything it cannot describe (invert, morph, a gesture over an untracked
  * selection, a frame change) nulls it, and consumers fall back to the
  * flattened raster. Key discipline matches `workspaceGradient`.
  */
-let workspaceMaskRecipe: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null
-let workspaceMaskRecipeKey: string | null = null
+let workspaceMaskComposition: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null
+let workspaceMaskCompositionKey: string | null = null
 
 // Retouch
 const retouchRef = ref<InstanceType<typeof StackPaintCanvas> | null>(null)
@@ -1358,7 +1358,7 @@ async function loadStackPayload(ref: string, revision = 0) {
 
 async function loadStackBase() {
   // A flattened document supplies its own base pixels; everything else reads
-  // the revision recorded by the recipe. The Asset's current revision may be
+  // the revision recorded by the composition. The Asset's current revision may be
   // a flattened Save of this same stack and must never be substituted here.
   const ref = stack.doc.value?.base.payload_ref
   if (ref) return loadImage(stack.payloadUrl(ref))
@@ -1469,7 +1469,7 @@ async function previewAdjustment(
 }
 
 /**
- * Restore the exact materialized head on a cold open. The recipe remains
+ * Restore the exact materialized head on a cold open. The composition remains
  * authoritative; a missing hash-addressed PNG is simply a cache miss.
  */
 async function restoreCachedHead(): Promise<boolean> {
@@ -1651,7 +1651,7 @@ async function renderSnapshot(requestRevision: number) {
   if (!stack.doc.value || !baseInfo.value) return
   const liveDoc = displayDoc.value!
   const whole = liveDoc === stack.doc.value
-  // The compositor awaits payloads. Snapshot the plain recipe so a mutation
+  // The compositor awaits payloads. Snapshot the plain composition so a mutation
   // arriving during that await cannot change the array underneath its loop.
   const doc = JSON.parse(JSON.stringify(liveDoc))
   bufferedStepPreviews = whole ? {} : null
@@ -3052,7 +3052,7 @@ async function run() {
       authoredToDocument = payloadTransform(reusableIndex)
       // The step's inspector and future explicit Resample use the latest
       // settings. Existing candidates remain intact and independently
-      // selectable; only the recipe for the next batch moves forward.
+      // selectable; only the composition for the next batch moves forward.
       stack.setParams(opId, {
         ...toolParams,
         prompt: submittedPrompt,
@@ -3158,8 +3158,8 @@ async function run() {
       selectedGenerativeMaskOpId.value = opId
       maskedGenerativeOpId = opId
       maskSessionBound.value = selModel.hasSelection()
-      workspaceMaskRecipe = null
-      workspaceMaskRecipeKey = null
+      workspaceMaskComposition = null
+      workspaceMaskCompositionKey = null
       selectedRetouchFeedbackVisible.value = false
     }
   } catch (err: any) {
@@ -3262,7 +3262,7 @@ async function resample(opId: string) {
     let mask: HTMLCanvasElement
     if (maskComponents?.length) {
       // The composed effective mask IS the submission: regenerating is what
-      // settles the coverage debt the edited recipe created. Rendered as the
+      // settles the coverage debt the edited composition created. Rendered as the
       // white-on-black luminance shape every mask consumer expects.
       const composed = await generativeMaskFeedback(opId)
       if (!composed) {
@@ -3436,8 +3436,8 @@ function activeAdjustmentScope(): AdjustmentScopeSnapshot<HTMLCanvasElement> | n
     selectionAppliedKey,
     workspaceSemantic.value,
     workspaceSemanticKey.value,
-    workspaceMaskRecipe,
-    workspaceMaskRecipeKey,
+    workspaceMaskComposition,
+    workspaceMaskCompositionKey,
   )
 }
 
@@ -3476,7 +3476,7 @@ function addScopedLevelEdit(
     createScopedGradientStep(opId, regionId, scope.gradient)
     return
   }
-  if (scope.kind === 'recipe') {
+  if (scope.kind === 'composition') {
     queueMaskedAdjustmentMask(null, null, scope.entries)
   } else {
     queueMaskedAdjustmentMask(scope.mask, scope.semantic ?? null)
@@ -3753,7 +3753,7 @@ function addScopedLook(
     createScopedGradientStep(opId, regionId, scope.gradient)
     return
   }
-  if (scope.kind === 'recipe') {
+  if (scope.kind === 'composition') {
     queueMaskedAdjustmentMask(null, null, scope.entries)
   } else {
     queueMaskedAdjustmentMask(scope.mask, scope.semantic ?? null)
@@ -3907,13 +3907,13 @@ async function limitSelectedAdjustToSelection() {
       settings,
     }
   } else if (
-    scope.kind === 'recipe'
+    scope.kind === 'composition'
     || (scope.kind === 'raster' && scope.semantic)
   ) {
-    const entries = scope.kind === 'recipe'
+    const entries = scope.kind === 'composition'
       ? scope.entries
       : [{ mode: 'add' as const, mask: scope.mask, semantic: scope.semantic }]
-    const components = await buildRecipeComponents(
+    const components = await buildCompositionComponents(
       entries, opId, regionId, inPlace ? index : undefined,
     )
     if (!components) return
@@ -5008,7 +5008,7 @@ function copyCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
  * own uploaded compact payload or authored gradient geometry, anchored at the
  * frame the target op sits in. Null when nothing usable survived.
  */
-async function buildRecipeComponents(
+async function buildCompositionComponents(
   entries: WorkspaceMaskGesture<HTMLCanvasElement>[],
   opId: string,
   regionId: string,
@@ -5066,15 +5066,15 @@ async function commitMaskedAdjustmentMask(
   regionId: string,
   spec: typeof maskedAdjustSpec,
   semantic: AdjustmentScopeSemantic | null = null,
-  recipe: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null,
+  composition: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null,
 ) {
   const doc = stack.doc.value
   if (!doc) return
   if (fragileRetouchRegions.isCancelled(regionId)) return
 
-  // A semantic single-gesture scope is a recipe of one: the name and the
+  // A semantic single-gesture scope is a composition of one: the name and the
   // cached raster belong together on a base component either way.
-  const entries = recipe
+  const entries = composition
     ?? (semantic && sourceMask
       ? [{ mode: 'add' as const, mask: sourceMask, semantic }]
       : null)
@@ -5085,7 +5085,7 @@ async function commitMaskedAdjustmentMask(
 
   let withComponents: RetouchRegion
   if (entries) {
-    const components = await buildRecipeComponents(entries, opId, regionId, anchorIndex)
+    const components = await buildCompositionComponents(entries, opId, regionId, anchorIndex)
     if (!components) return
     if (fragileRetouchRegions.isCancelled(regionId)) return
     const selected = ((stack.opById(opId) as any)?.regions ?? [] as RetouchRegion[])
@@ -5185,18 +5185,18 @@ async function commitMaskedAdjustmentMask(
 function queueMaskedAdjustmentMask(
   mask: HTMLCanvasElement | null,
   semantic: AdjustmentScopeSemantic | null = null,
-  recipe: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null,
+  composition: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null,
 ) {
   const opId = maskedAdjustOpId
   const regionId = maskedAdjustRegionId
   if (!opId || !regionId) return
   const spec = maskedAdjustSpec
   // Snapshot synchronously: the workspace canvas is mutable and the next
-  // gesture may arrive before this payload upload finishes. Recipe coverages
+  // gesture may arrive before this payload upload finishes. Composition coverages
   // were already captured by copy at scope time.
   const snapshot = mask ? copyCanvas(mask) : null
   maskedAdjustCommitQueue = maskedAdjustCommitQueue
-    .then(() => commitMaskedAdjustmentMask(snapshot, opId, regionId, spec, semantic, recipe))
+    .then(() => commitMaskedAdjustmentMask(snapshot, opId, regionId, spec, semantic, composition))
     .catch(err => {
       console.error('[imageStack] masked adjustment commit failed', err)
       error.value = apiErrorMessage(err, 'Could not save the adjustment mask.')
@@ -6877,10 +6877,10 @@ watch(
 )
 
 /**
- * While bound, the ants track the recipe: component toggles, deletions,
+ * While bound, the ants track the composition: component toggles, deletions,
  * gradient drags, captures, undo — whatever changes the session target's
  * mask re-projects into the selection. The signature only moves on real
- * recipe changes, so ordinary renders never reload the ants.
+ * composition changes, so ordinary renders never reload the ants.
  */
 watch(
   () => {
@@ -7310,8 +7310,8 @@ function clearSelection() {
   workspaceGradientKey.value = null
   workspaceSemantic.value = null
   workspaceSemanticKey.value = null
-  workspaceMaskRecipe = null
-  workspaceMaskRecipeKey = null
+  workspaceMaskComposition = null
+  workspaceMaskCompositionKey = null
   pendingGestureCapture = null
   // Combine modes describe how a gesture meets an existing selection. Once
   // there is no existing selection, the next gesture starts a new one.
@@ -7427,7 +7427,7 @@ function applyAiMask(mask: CanvasImageSource, mode: SelectionMode) {
   }
 }
 
-/** An AI mask comes back at the SENT (possibly downscaled) size; the recipe
+/** An AI mask comes back at the SENT (possibly downscaled) size; the composition
  *  keeps coverage in source pixels like every other gesture. */
 function coverageAtSourceSize(
   mask: CanvasImageSource,
@@ -7613,7 +7613,7 @@ function onObjectPick(pick: { x: number; y: number; combine?: SelectionMode }) {
       replaces: cycle.mode === 'new' || !selModel.hasSelection(),
       coverage: coverageAtSourceSize(cycle.masks[cycle.index], src),
       mode: cycle.mode,
-      // The re-land supersedes the previous granularity's recipe entry.
+      // The re-land supersedes the previous granularity's composition entry.
       cycling: true,
     }
     applyAiMask(cycle.masks[cycle.index], cycle.mode)
@@ -7651,7 +7651,7 @@ function frameAdjust(
 function onSelectionChange(mask: HTMLCanvasElement | null) {
   selectionRevision += 1
   repaintSession = null
-  // Whether a selection existed BEFORE this change — the recipe needs to know
+  // Whether a selection existed BEFORE this change — the composition needs to know
   // if the landing gesture replaced emptiness or combined onto coverage.
   const hadSelection = !!selection.value
   // Any change the Object tool didn't publish itself (a drawn gesture, clear,
@@ -7704,7 +7704,7 @@ function onSelectionChange(mask: HTMLCanvasElement | null) {
 
   // A programmatic re-load of the BOUND selection (the session step's
   // composed mask arriving as ants): bookkeeping only — it must not capture
-  // itself back into the mask or pretend to be a recipe.
+  // itself back into the mask or pretend to be a composition.
   if (syncingBoundSelection && mask) {
     selectCombine.value = combineAfterSelectionChange(selectCombine.value, true)
     selectionMaster = selModel.toSnapshot()
@@ -7729,8 +7729,8 @@ function onSelectionChange(mask: HTMLCanvasElement | null) {
     workspaceGradientKey.value = null
     workspaceSemantic.value = null
     workspaceSemanticKey.value = null
-    workspaceMaskRecipe = null
-    workspaceMaskRecipeKey = null
+    workspaceMaskComposition = null
+    workspaceMaskCompositionKey = null
     return
   }
 
@@ -7800,8 +7800,8 @@ function onSelectionChange(mask: HTMLCanvasElement | null) {
     workspaceGradientKey.value = null
     workspaceSemantic.value = null
     workspaceSemanticKey.value = null
-    workspaceMaskRecipe = null
-    workspaceMaskRecipeKey = null
+    workspaceMaskComposition = null
+    workspaceMaskCompositionKey = null
     selectionIsGradient.value = false
     selectCombine.value = combineAfterSelectionChange(
       selectCombine.value, false, armedSelectTool.value,
@@ -7849,19 +7849,19 @@ function onSelectionChange(mask: HTMLCanvasElement | null) {
     workspaceSemanticKey.value = null
   }
 
-  // The recipe: this change as ONE gesture with its own coverage and
+  // The composition: this change as ONE gesture with its own coverage and
   // identity. A change nothing captured (invert, morph, a snapshot rewrite)
-  // has no gesture to record, and the recipe honestly resigns.
+  // has no gesture to record, and the composition honestly resigns.
   if (gestureInput) {
-    workspaceMaskRecipe = appendWorkspaceMaskGesture(
-      workspaceMaskRecipe,
+    workspaceMaskComposition = appendWorkspaceMaskGesture(
+      workspaceMaskComposition,
       { combine: gestureMode, hadSelection, ...gestureInput },
       mergeCoverageMax,
     )
-    workspaceMaskRecipeKey = workspaceMaskRecipe ? selectionAppliedKey : null
+    workspaceMaskCompositionKey = workspaceMaskComposition ? selectionAppliedKey : null
   } else {
-    workspaceMaskRecipe = null
-    workspaceMaskRecipeKey = null
+    workspaceMaskComposition = null
+    workspaceMaskCompositionKey = null
   }
 }
 
@@ -7954,11 +7954,11 @@ function syncSelectionGeometry() {
     workspaceSemantic.value = null
     workspaceSemanticKey.value = null
   }
-  // Recipe coverages were captured in the old frame too; the carried raster
+  // Composition coverages were captured in the old frame too; the carried raster
   // is the honest selection now.
-  if (workspaceMaskRecipeKey && workspaceMaskRecipeKey !== key) {
-    workspaceMaskRecipe = null
-    workspaceMaskRecipeKey = null
+  if (workspaceMaskCompositionKey && workspaceMaskCompositionKey !== key) {
+    workspaceMaskComposition = null
+    workspaceMaskCompositionKey = null
   }
 
   const adjustNow = frameAdjust(head.width, head.height, frameW, frameH)
@@ -8368,7 +8368,7 @@ async function autosaveEdits(force = false) {
   try {
     await stack.flush()
   } catch {
-    return // The recipe itself did not persist; the next leave retries.
+    return // The composition itself did not persist; the next leave retries.
   }
   if (!stack.doc.value) return
   try {
@@ -8402,7 +8402,7 @@ async function autosaveEdits(force = false) {
     if (sidebarTab.value === 'info') void loadEditorMediaInfo()
     void stack.flush().catch(() => {})
   } catch (err) {
-    // Declined (the Asset moved on) or failed: the recipe is persisted and
+    // Declined (the Asset moved on) or failed: the composition is persisted and
     // the sidebar indicator stays lit; the next leave tries again.
     console.error('[imageEditor] autosave failed', err)
   } finally {
@@ -8714,7 +8714,7 @@ async function hydrateEditorExtras() {
   void stack.hydrateHistory()
     .then(() => { savedCursor.value = stack.openedCursor.value })
     .catch(() => {
-      // The current recipe is already open. History failure disables Undo but
+      // The current composition is already open. History failure disables Undo but
       // must not take the image back down.
     })
 
@@ -8804,7 +8804,7 @@ onMounted(async () => {
       console.warn('[imageEditor] could not clear empty autosave', discardError)
     })
     // A saved Asset head and a working document base are different things.
-    // The recipe owns the latter and is authoritative whenever it exists.
+    // The composition owns the latter and is authoritative whenever it exists.
     baseInfo.value = stack.doc.value?.base
       ? { ...stack.doc.value.base }
       : opened.base
@@ -8813,7 +8813,7 @@ onMounted(async () => {
     await flattenIfNeeded()
 
     // A hash-addressed materialized head makes the common cold open a decode,
-    // not a replay. A first open or evicted cache falls back to the recipe.
+    // not a replay. A first open or evicted cache falls back to the composition.
     if (!await restoreCachedHead()) await render()
 
     // Let Vue create and paint the viewport before starting history, tool
@@ -8860,7 +8860,7 @@ onDeactivated(() => {
   brushHud.value = null
   clearViewportGestureState()
   // Leaving IS saving: the applied stack becomes the Asset's current Revision
-  // (and the recipe is persisted regardless, for eviction or reload).
+  // (and the composition is persisted regardless, for eviction or reload).
   void autosaveEdits()
 })
 

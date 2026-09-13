@@ -1,7 +1,7 @@
 """Sprite documents (.stimmasprite.json): type registration, container members,
 content resolution, library save, revisions through show(), thumbnails, export.
 
-A sprite is a recipe: media references by id + hash, a production block, and one
+A sprite is a composition: media references by id + hash, a production block, and one
 animated WebP per move. These tests build real WebPs and documents on disk and
 drive the same code paths the agent and the UI use.
 """

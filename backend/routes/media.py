@@ -1953,7 +1953,7 @@ async def save_edited_image(
     ``working_document_id`` identifies the stack document, already persisted as
     a directory. ``stack_summary`` records the ops that were enabled at save
     time. Saving advances the Asset head but not the working document's base:
-    the stack is a recipe over the Revision it was authored against.
+    the stack is a composition over the Revision it was authored against.
     """
     from upload_service import UploadService, UploadError
     from utils.lineage import (
@@ -2178,7 +2178,7 @@ async def save_edited_image(
             # The stack keeps its own document AND its base.
             #
             # Save emits a rasterized Revision; it does not re-parent the
-            # recipe. Advancing the base here pointed the stack at its own
+            # composition. Advancing the base here pointed the stack at its own
             # output while every op stayed in place, so the next render applied
             # the whole stack a second time on top of a frame that already had
             # it — the edits appeared doubled, and hiding or deleting a step no
@@ -2233,7 +2233,7 @@ async def save_edited_image(
             role="editor_source",
         )
         # A fork starts from its newly committed Revision. The original stack
-        # keeps the base its recipe was authored against.
+        # keeps the base its composition was authored against.
         if save_as_new:
             document.base_revision_id = committed_revision.id
 

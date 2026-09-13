@@ -1432,7 +1432,7 @@ async def save_workspace_file(
                 break
 
     # Sprite documents are validated before anything is registered: a broken
-    # recipe must fail loudly here, not surface as an empty player later.
+    # composition must fail loudly here, not surface as an empty player later.
     sprite_doc = None
     if ext == "stimmasprite.json":
         from sprite_document import load_sprite_document, validate_sprite_document

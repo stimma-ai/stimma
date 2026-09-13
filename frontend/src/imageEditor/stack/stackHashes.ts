@@ -41,7 +41,7 @@ export function canonicalOp(op: Op): string {
     anyOp.regions ?? null,
     anyOp.defaults ?? null,
     anyOp.mask_ref ?? null,
-    // A generative op's composite mask recipe; absent hashes as before.
+    // A generative op's composite mask composition; absent hashes as before.
     anyOp.mask_components ?? null,
     anyOp.raster_ref ?? null,
     anyOp.payload_to_document ?? null,

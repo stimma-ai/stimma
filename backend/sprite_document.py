@@ -1,4 +1,4 @@
-"""Sprite documents (``.stimmasprite.json``): the recipe for one animated character.
+"""Sprite documents (``.stimmasprite.json``): the composition for one animated character.
 
 A sprite document is one character. It carries a ``production`` block (the
 inputs the code path used: style preset, key colour, cleanup profile, frame
@@ -210,7 +210,7 @@ async def resolve_sprite_refs(
 async def sprite_member_specs(session: AsyncSession, doc: dict) -> list[dict[str, Any]]:
     """Container member specs for a sprite: exact embedded Media, one per role.
 
-    The recipe pins exact artifacts, so members are never live asset links
+    The composition pins exact artifacts, so members are never live asset links
     even when a referenced image happens to be an Asset's payload. A reference
     that cannot be resolved is skipped: the document still validates, and the
     content endpoint reports it as unresolved.

@@ -1,12 +1,12 @@
 FROM ghcr.io/astral-sh/uv:0.12.7 AS uv
 FROM debian:bookworm-slim
-ARG BOOTSTRAP_VERSION=1.0.4
-ARG BOOTSTRAP_RECIPE=local
+ARG BOOTSTRAP_VERSION=1.0.5
+ARG BOOTSTRAP_FINGERPRINT=local
 LABEL org.opencontainers.image.title="Stimma Server" \
       org.opencontainers.image.source="https://github.com/stimma-ai/stimma" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.version=$BOOTSTRAP_VERSION \
-      ai.stimma.bootstrap.recipe=$BOOTSTRAP_RECIPE
+      ai.stimma.bootstrap.fingerprint=$BOOTSTRAP_FINGERPRINT
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates bash python3 python3-venv python3-pip ffmpeg curl git jq ripgrep \
     unzip xz-utils tar tini minisign tzdata libgomp1 libglib2.0-0 libpango-1.0-0 \
