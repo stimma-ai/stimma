@@ -394,6 +394,9 @@ async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
         await run_recipe(get_recipe("app-icons"), inputs,
                          {"platforms": ["web"], "background": "#1E7BC8"}, tmp_path / "clash")
 
+    # Left alone, there is nothing to clash with: the ground is derived.
+    await run_recipe(get_recipe("app-icons"), inputs, {"platforms": ["web"]}, tmp_path / "auto")
+
     # A deep ground and a near-white both separate it, and the flat look is
     # still reachable on purpose.
     await run_recipe(get_recipe("app-icons"), inputs,
@@ -401,3 +404,16 @@ async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
     await run_recipe(get_recipe("app-icons"), inputs,
                      {"platforms": ["web"], "background": "#1E7BC8", "allow_low_contrast": True},
                      tmp_path / "deliberate")
+
+
+def test_the_ground_is_derived_from_the_mark_not_invented():
+    """Packaging does not pick colours. A neutral comes from the mark's tone."""
+    import icon_spec
+
+    assert icon_spec.neutral_ground((18, 18, 20)) == icon_spec.NEUTRAL_LIGHT      # dark mark
+    assert icon_spec.neutral_ground((250, 250, 250)) == icon_spec.NEUTRAL_DARK    # light mark
+    assert icon_spec.neutral_ground((243, 164, 30)) == icon_spec.NEUTRAL_DARK     # a bright brand orange
+    assert icon_spec.neutral_ground(None) == icon_spec.NEUTRAL_LIGHT              # nothing to read
+    for ink in ((18, 18, 20), (250, 250, 250), (243, 164, 30)):
+        ground = icon_spec.parse_hex(icon_spec.neutral_ground(ink))
+        assert icon_spec.contrast_ratio(ink, ground) >= icon_spec.MIN_ICON_CONTRAST

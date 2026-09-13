@@ -256,6 +256,27 @@ def ink_color(img: Image.Image) -> Optional[tuple[int, int, int]]:
     return tuple(int(round(c / total)) for c in acc)  # type: ignore[return-value]
 
 
+# The two neutrals a mark gets grounded on when nobody asked for a colour.
+# Same rule the vector thumbnails use: a dark mark needs a light backdrop and a
+# light mark needs a dark one, and getting it wrong shows an empty rectangle.
+NEUTRAL_LIGHT = "#FFFFFF"
+NEUTRAL_DARK = "#141414"
+# A mark brighter than this reads as light ink and wants a dark ground.
+LIGHT_INK_LUMINANCE = 0.42
+
+
+def neutral_ground(ink: Optional[tuple[int, int, int]]) -> str:
+    """The neutral canvas a mark belongs on, from the mark itself.
+
+    A brand colour behind a brand mark is a decision someone has to make on
+    purpose; this is what to do when they have not. Neutral is also what a
+    studio ships by default, because the icon's colour is the artwork's job.
+    """
+    if ink is None:
+        return NEUTRAL_LIGHT
+    return NEUTRAL_DARK if relative_luminance(ink) > LIGHT_INK_LUMINANCE else NEUTRAL_LIGHT
+
+
 # Below this the mark stops separating from its own canvas. Deliberately
 # generous: this is the "you cannot see it" floor, not a design opinion.
 MIN_ICON_CONTRAST = 1.55
