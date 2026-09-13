@@ -24,9 +24,10 @@ SET_EXTENSIONS = {'.stimmaset.json'}
 GRID_EXTENSIONS = {'.stimmagrid.json'}
 SPRITE_EXTENSIONS = {'.stimmasprite.json'}  # Sprite documents: composition + media refs (see sprite_document.py)
 LAYOUT_EXTENSIONS = {'.stimmalayout'}  # Directory-based bundles (contains index.html + assets)
+PACKAGE_EXTENSIONS = {'.stimmapackage'}  # Directory-based package bundles (manifest + members + runs + cover)
 # Compound-extension lookup set: only types whose extension is more than a plain
 # suffix need to be here, so .svg is deliberately absent.
-STRUCTURED_EXTENSIONS = TEXT_EXTENSIONS | SET_EXTENSIONS | GRID_EXTENSIONS | SPRITE_EXTENSIONS | LAYOUT_EXTENSIONS
+STRUCTURED_EXTENSIONS = TEXT_EXTENSIONS | SET_EXTENSIONS | GRID_EXTENSIONS | SPRITE_EXTENSIONS | LAYOUT_EXTENSIONS | PACKAGE_EXTENSIONS
 
 # All supported extensions
 ALL_EXTENSIONS = (
@@ -58,6 +59,25 @@ def get_file_extension(file_path: Path) -> str:
 def is_layout_directory(dir_path: Path) -> bool:
     """Check if a directory is a .stimmalayout bundle (contains index.html)."""
     return dir_path.name.lower().endswith('.stimmalayout') and (dir_path / 'index.html').exists()
+
+
+def is_package_directory(dir_path: Path) -> bool:
+    """Check if a directory is a .stimmapackage bundle (contains stimma-package.json)."""
+    return dir_path.name.lower().endswith('.stimmapackage') and (dir_path / 'stimma-package.json').exists()
+
+
+def bundle_directory_format(dir_path: Path) -> "str | None":
+    """The media format of a directory-based bundle, or None for an ordinary directory."""
+    if is_layout_directory(dir_path):
+        return 'stimmalayout'
+    if is_package_directory(dir_path):
+        return 'stimmapackage'
+    return None
+
+
+def bundle_anchor_file(dir_path: Path, file_format: str) -> Path:
+    """The file whose stat/hash stands in for a bundle before managed staging hashes the whole tree."""
+    return dir_path / ('stimma-package.json' if file_format == 'stimmapackage' else 'index.html')
 
 
 def is_supported_extension(file_path: Path) -> bool:
@@ -264,15 +284,16 @@ async def fast_scan_directories(
                 layout_dirs = []
                 for d in dirs:
                     dir_path = Path(root) / d
-                    if is_layout_directory(dir_path):
+                    bundle_format = bundle_directory_format(dir_path)
+                    if bundle_format:
                         layout_dirs.append(d)
                         try:
-                            index_path = dir_path / 'index.html'
+                            index_path = bundle_anchor_file(dir_path, bundle_format)
                             stat = index_path.stat()
                             files.append({
                                 'file_path': str(dir_path),
                                 'file_size': stat.st_size,
-                                'file_format': 'stimmalayout',
+                                'file_format': bundle_format,
                                 'created_date': datetime.utcfromtimestamp(getattr(stat, 'st_birthtime', stat.st_mtime)),
                                 'modified_date': datetime.utcfromtimestamp(stat.st_mtime),
                             })
@@ -352,7 +373,7 @@ async def scan_directories(paths: List[str]) -> AsyncGenerator[Path, None]:
                 layout_dirs = []
                 for d in dirs:
                     dir_path = Path(root) / d
-                    if is_layout_directory(dir_path):
+                    if bundle_directory_format(dir_path):
                         layout_dirs.append(d)
                         file_count += 1
                         log.info(f"FILE DISCOVERY: Found layout bundle #{file_count}: {dir_path}")
@@ -513,11 +534,12 @@ def extract_metadata(file_path: Path) -> dict:
     is_audio = ext in AUDIO_EXTENSIONS
     is_structured = ext in STRUCTURED_EXTENSIONS
     is_layout = ext in LAYOUT_EXTENSIONS
+    is_package = ext in PACKAGE_EXTENSIONS
     is_vector = ext in VECTOR_EXTENSIONS
 
-    # Get file info — for directory-based media, use index.html
-    if is_layout and file_path.is_dir():
-        index_file = file_path / 'index.html'
+    # Get file info — for directory-based media, use the bundle's anchor file
+    if (is_layout or is_package) and file_path.is_dir():
+        index_file = bundle_anchor_file(file_path, 'stimmapackage' if is_package else 'stimmalayout')
         file_size = index_file.stat().st_size if index_file.exists() else 0
         created_date, modified_date = get_file_dates(index_file if index_file.exists() else file_path)
         file_hash = compute_file_hash(index_file) if index_file.exists() else ""
@@ -568,6 +590,14 @@ def extract_metadata(file_path: Path) -> dict:
         elif is_layout:
             # Layout bundles are directories (index.html + assets), not flat JSON files
             pass
+        elif is_package:
+            # Package bundles cache their manifest so members and runs are known without a disk read
+            try:
+                manifest_text = (file_path / 'stimma-package.json').read_text(encoding='utf-8')
+                json.loads(manifest_text)
+                raw_metadata = manifest_text
+            except Exception as e:
+                log.warning(f"Failed to read package manifest from {file_path}: {e}")
         else:
             # JSON-based structured types (.stimmaset.json, .stimmagrid.json, .stimmasprite.json)
             parsed = parse_structured_media(file_path)

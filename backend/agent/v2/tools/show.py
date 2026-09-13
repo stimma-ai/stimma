@@ -308,16 +308,23 @@ async def _commit_show_artifact(
         from database import Asset, MediaItem
         from sprite_document import is_sprite_format
 
+        from packages.manifest import is_package_format
+
         media = await session.get(MediaItem, media_id)
+        container_kind = None
         if media is not None and is_sprite_format(media.file_format):
+            container_kind = "sprite"
+        elif media is not None and is_package_format(media.file_format):
+            container_kind = "package"
+        if container_kind is not None:
             from container_service import (
                 infer_structured_member_specs,
                 populate_container_revision_members,
             )
 
             asset = await session.get(Asset, revision.asset_id)
-            if asset is None or asset.asset_type != "sprite":
-                return "Error: revises must name a sprite asset when showing a sprite document"
+            if asset is None or asset.asset_type != container_kind:
+                return f"Error: revises must name a {container_kind} asset when showing a {container_kind}"
             await populate_container_revision_members(
                 session,
                 container_asset_id=revision.asset_id,

@@ -155,6 +155,7 @@ from routes import (
     settings,
     share,
     sprite_media,
+    package_media,
     stimpack_marketplace,
     svg_media,
     tags,
@@ -204,6 +205,7 @@ app.include_router(processing.router)
 app.include_router(media_files.router)
 app.include_router(svg_media.router)
 app.include_router(sprite_media.router)
+app.include_router(package_media.router)
 app.include_router(preferences.router)
 app.include_router(projects.router)
 app.include_router(flows.router)

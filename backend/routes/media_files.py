@@ -54,7 +54,7 @@ ID_KEYED_CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -108,7 +108,7 @@ async def _get_faces_data(session: AsyncSession, media_id: int) -> list[dict] | 
 
 def _source_path_exists(file_path: str, file_format: str) -> bool:
     path = Path(file_path)
-    if file_format.lower() == 'stimmalayout':
+    if file_format.lower() in ('stimmalayout', 'stimmapackage'):
         return path.is_dir() and (path / 'index.html').exists()
     return path.exists()
 
@@ -1247,6 +1247,61 @@ async def _generate_layout_preview(
         return None
 
 
+async def _generate_package_preview(
+    file_path: str,
+    size: int,
+    *,
+    wait_for_client_timeout_s: float = 0.25,
+    queue_timeout_s: float = 0.25,
+    render_timeout_s: float = 30.0,
+    raise_transient: bool = False,
+) -> Optional[Image.Image]:
+    """Render the top of a package cover (previews inlined) to a PIL image via the UI client.
+
+    The cover is a responsive page, not a fixed canvas, so it is rendered into
+    a 4:3 viewport and the tile shows what you would see when the package opens.
+    """
+    import asyncio as _asyncio
+    from pathlib import Path as PathLib
+
+    bundle_dir = PathLib(file_path)
+    if not (bundle_dir / 'index.html').exists():
+        return None
+    try:
+        from packages.export import export_single_html
+        from utils.ui_render import (
+            LayoutRenderBusy,
+            LayoutRenderUnavailable,
+            _dpr_for_target,
+            render_layout_via_ui,
+        )
+
+        html = await _asyncio.to_thread(export_single_html, bundle_dir)
+        width, height = 1200, 900
+        png_bytes = await render_layout_via_ui(
+            html,
+            width=width,
+            height=height,
+            dpr=_dpr_for_target(width, height, size),
+            assets={},
+            wait_for_client_timeout_s=wait_for_client_timeout_s,
+            render_timeout_s=render_timeout_s,
+            queue_timeout_s=queue_timeout_s,
+        )
+        img = Image.open(io.BytesIO(png_bytes))
+        img.load()
+        img.thumbnail((size, size), Image.LANCZOS)
+        return img
+    except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
+        log.debug(f"Skipped package preview for {file_path}: {e}")
+        if raise_transient:
+            raise
+        return None
+    except Exception as e:
+        log.warning(f"Failed to generate package preview for {file_path}: {e}")
+        return None
+
+
 def _svg_render_box(width: int, height: int, target_long_side: int) -> tuple[int, int]:
     """Scale an SVG's intrinsic box so its long side is ``target_long_side``.
 
@@ -1322,7 +1377,7 @@ async def _generate_svg_preview(
 
 # Formats whose thumbnails are rasterized by the connected UI client rather than
 # in the sync thread pool. Both hand HTML to a real browser engine over the WS.
-UI_RENDERED_FORMATS = {'stimmalayout', 'svg'}
+UI_RENDERED_FORMATS = {'stimmalayout', 'svg', 'stimmapackage'}
 
 # Result of an on-demand UI-rendered thumbnail. "transient" means the UI
 # renderer was busy or not yet connected — the same content will render fine
@@ -1377,9 +1432,18 @@ async def _generate_ui_rendered_thumbnail_to_cache(
     from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
 
     is_svg = file_format.lower() == 'svg'
+    is_package = file_format.lower() == 'stimmapackage'
     try:
         if is_svg:
             img = await _generate_svg_preview(
+                file_path,
+                size,
+                wait_for_client_timeout_s=2.0,
+                queue_timeout_s=5.0,
+                raise_transient=True,
+            )
+        elif is_package:
+            img = await _generate_package_preview(
                 file_path,
                 size,
                 wait_for_client_timeout_s=2.0,
@@ -2313,10 +2377,10 @@ async def get_thumbnail(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
@@ -2917,10 +2981,10 @@ async def get_thumbnail_by_db_guid(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
@@ -3264,10 +3328,10 @@ async def get_thumbnail_path_by_media_id(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:

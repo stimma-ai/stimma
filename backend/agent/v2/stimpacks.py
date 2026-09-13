@@ -65,8 +65,11 @@ AUTO_INSTALL_STATE_FILE = ".marketplace-auto-install-state.json"
 # Resource types a stimpack manifest may declare. Only `skill` is fully wired;
 # the rest have a manifest schema + a (stub) lander so the framework is in place.
 RESOURCE_TYPE_SKILL = "skill"
+RESOURCE_TYPE_RECIPE = "recipe"  # a Python module declaring package recipes (see packages/recipes.py)
+RECIPES_DIRNAME = "recipes"  # discovered layout: <pack>/recipes/<name>.py
 KNOWN_RESOURCE_TYPES = (
     RESOURCE_TYPE_SKILL,
+    RESOURCE_TYPE_RECIPE,
     "tool",
     "flow",
     "asset",
@@ -365,10 +368,29 @@ def get_lander(resource_type: str) -> Optional[ResourceLander]:
     return _LANDERS.get(resource_type)
 
 
-# Register the skill lander (wired) + stubs for the remaining known types.
+class RecipeLander(ResourceLander):
+    """Lander for the `recipe` resource: a Python module declaring package recipes.
+
+    Recipes are discovered from ``recipes/*.py`` without a declaration, the way
+    skills are discovered from ``skills/``; a declared resource only adds a
+    module outside that directory. Loading is done by ``packages.recipes`` on
+    demand, so landing just checks that the file exists.
+    """
+
+    type = RESOURCE_TYPE_RECIPE
+
+    def load(self, info: "StimpackInfo", resource: "StimpackResource") -> LanderResult:
+        path = info.dir_path / (resource.path or "")
+        if not resource.path or not path.is_file():
+            return LanderResult(note=f"recipe resource in stimpack '{info.name}' has no file at {resource.path!r}")
+        return LanderResult(note=f"recipe module {resource.path} available")
+
+
+# Register the skill and recipe landers (wired) + stubs for the remaining known types.
 register_lander(SkillLander())
+register_lander(RecipeLander())
 for _t in KNOWN_RESOURCE_TYPES:
-    if _t != RESOURCE_TYPE_SKILL:
+    if _t not in (RESOURCE_TYPE_SKILL, RESOURCE_TYPE_RECIPE):
         register_lander(_StubLander(_t))
 
 
@@ -1045,6 +1067,34 @@ def load_skill(name: str, profile_id: Optional[str] = None) -> Optional[SkillCon
     if isinstance(lander, SkillLander):
         content = lander.load_skill(skill).injection or ""
     return SkillContent(skill=skill, pack=pack, content=content)
+
+
+def list_stimpack_recipe_files(profile_id: Optional[str] = None) -> list[tuple[str, Path]]:
+    """``(pack_name, module_path)`` for every recipe module installed stimpacks ship.
+
+    ``recipes/*.py`` (non-underscore) in the pack root, plus any declared
+    ``recipe`` resources. Dev packs shadow profile copies by name, same as skills.
+    """
+    found: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for pack in list_installed_stimpacks(profile_id=profile_id):
+        candidates: list[Path] = []
+        recipes_dir = pack.dir_path / RECIPES_DIRNAME
+        if recipes_dir.is_dir():
+            candidates.extend(sorted(p for p in recipes_dir.glob("*.py") if not p.name.startswith("_")))
+        for resource in pack.manifest.resources_of_type(RESOURCE_TYPE_RECIPE):
+            if resource.path:
+                candidates.append(pack.dir_path / resource.path)
+        for path in candidates:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                continue
+            if resolved in seen or not path.is_file():
+                continue
+            seen.add(resolved)
+            found.append((pack.name, path))
+    return found
 
 
 def get_stimpack_lib_modules(enabled_skills: list[str] | None) -> dict[str, Path]:

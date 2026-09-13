@@ -34,7 +34,7 @@ from sprite_document import (
     sprite_member_specs,
 )
 
-CONTAINER_TYPES = {"set", "grid", "sprite"}
+CONTAINER_TYPES = {"set", "grid", "sprite", "package"}
 
 
 async def _assert_no_link_cycle(
@@ -243,7 +243,7 @@ async def create_container_asset_from_media(
 ) -> Asset:
     """Create one container Asset; embedded cells remain Media, not Assets."""
     if container_type not in CONTAINER_TYPES:
-        raise AssetServiceError("Container type must be set, grid, or sprite")
+        raise AssetServiceError("Container type must be set, grid, sprite, or package")
     if title is None:
         title = await container_payload_title(session, media_id=media_id)
     asset = await create_asset_from_media(
@@ -443,6 +443,16 @@ async def get_normalized_container_content(
         doc["title"] = base.get("title")
         result = attach_resolved(doc, by_role)
         result.setdefault("version", 1)
+        return result
+
+    if container_media.file_format == "stimmapackage":
+        # Package members are keyed by member id (member.title); attach a
+        # ``resolved`` block to each manifest member from this revision's rows.
+        by_member_id = {entry["title"] or "": entry for entry in members}
+        result = json.loads(json.dumps(base))
+        for member in result.get("members") or []:
+            entry = by_member_id.get(member.get("id"))
+            member["resolved"] = resolved_payload(entry) if entry is not None else None
         return result
 
     result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
@@ -668,6 +678,14 @@ async def infer_structured_member_specs(
         if doc is None:
             raise AssetServiceError("Sprite document is invalid")
         return await sprite_member_specs(session, doc)
+    if container_media.file_format == "stimmapackage":
+        from packages.bundle import package_member_specs
+        from packages.manifest import parse_manifest
+
+        manifest = parse_manifest(payload)
+        if manifest is None:
+            raise AssetServiceError("Package manifest is invalid")
+        return await package_member_specs(session, manifest)
     records = payload.get('items') if container_media.file_format == 'stimmaset.json' else payload.get('cells')
     if not isinstance(records, list):
         raise AssetServiceError("Container manifest has no members")

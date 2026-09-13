@@ -81,10 +81,11 @@ targeting travels with it.
 
 This is a container format; extend it without breaking old loaders:
 
-- **New content types get their own typed root** (like `skills/`) and/or a
-  `resources` declaration. The loader already recognizes `tool`, `flow`,
-  `asset`, `model`, and `flow_guidance` resource types with stub landers —
-  they parse today and activate when wired.
+- **New content types get their own typed root** (like `skills/` and
+  `recipes/`) and/or a `resources` declaration. `skill` and `recipe` are
+  wired; the loader also recognizes `tool`, `flow`, `asset`, `model`, and
+  `flow_guidance` resource types with stub landers — they parse today and
+  activate when wired.
 - **Unknown manifest fields, frontmatter keys, and resource types are
   ignored** (with a warning), never fatal.
 - **Incompatible changes bump `format`.** An old app loads a newer pack
@@ -207,6 +208,59 @@ Rules:
 - **Document the API in the SKILL.md body** — exact import statements,
   function signatures, expected shapes/dtypes/ranges, one complete usage
   example. The markdown *is* the documentation the agent reads.
+
+## Recipes (`recipes/`)
+
+A stimpack may ship **package recipes**: deterministic Python that turns library
+assets with declared roles plus parameters into a file tree (an icon set, a
+logo kit, a crop set). Recipes power "Package as…" in the library, the
+`create_package` flow step, and `stimma.packages` in `run_code`. They are
+discovered from `recipes/*.py` in the pack root, the way skills are discovered
+from `skills/`; a `{"type": "recipe", "path": "..."}` entry in `resources`
+adds a module that lives elsewhere.
+
+```
+my-stimpack/
+    stimpack.json
+    skills/...
+    recipes/
+        social_kit.py        # one or more @recipe declarations
+```
+
+```python
+from packages.recipes import recipe, Input, Param, Build, png_bytes, fit_square
+
+@recipe(
+    id="social-kit", version=1, display_name="Social kit",
+    description="Avatar and banner sizes for the usual networks from one mark",
+    inputs=[Input("mark", kind="image", square=True, min_size=512, raster=(1024,))],
+    params=[
+        Param("background", type="color", default="#FFFFFF"),
+        Param("naming", type="naming", fields=["slug", "network", "size"], default="{slug}-{network}-{size}"),
+    ],
+)
+def build(b: Build) -> None:
+    mark = b.image("mark", size=1024)
+    for network, size in (("x", 400), ("mastodon", 400), ("linkedin", 400)):
+        b.derive(b.name(ext="png", slug=b.slug, network=network, size=size),
+                 png_bytes(fit_square(mark, size, background=b.params.background)), source="mark")
+```
+
+Rules:
+
+- **Deterministic.** No model calls, no tools, no network, no clock or
+  randomness in the output. The runner builds twice in tests and diffs the
+  bytes; a recipe that differs is rejected. Judgment goes in params, which the
+  package records so rebuilds replay them.
+- **Inputs are validated for you** from the `Input` declarations (`kind`,
+  `square`, `min_size`, `alpha`). Vector inputs are pre-rendered at the
+  `raster` sizes you declare, so `b.image(role, size=...)` always returns a
+  PIL image and the recipe stays synchronous.
+- **Free names go through `b.name(...)`** (the `naming` param the user can set);
+  platform-fixed names (`Contents.json`, `mipmap-*`) are written with
+  `fixed=True` and never renamed.
+- Trusted code, same as `lib/`: runs unsandboxed with the backend environment.
+- `stimma stimpacks validate` reports recipe modules that fail to import.
 
 ## Developing and testing
 

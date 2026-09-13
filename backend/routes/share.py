@@ -93,6 +93,8 @@ def _get_media_type(file_format: str) -> str:
         return "grid"
     elif fmt == "stimmasprite.json":
         return "sprite"
+    elif fmt == "stimmapackage":
+        return "package"
     elif fmt == "stimmalayout":
         return "layout"
     elif fmt in VIDEO_FORMATS:
@@ -144,6 +146,8 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
     media_type = _get_media_type(media_item.file_format)
     if media_type == "sprite":
         return ShareResponse(success=False, error="Sharing sprites is not supported yet")
+    if media_type == "package":
+        return ShareResponse(success=False, error="Hosted package links are not available yet; export a zip or single file instead")
 
     # Keyword blocklist safety net — check all text including composite members
     if media_type in ("set", "grid"):
@@ -418,6 +422,8 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
     file_path = Path(media_item.file_path)
     if media_type == "sprite":
         return PreCheckResponse(blocked=True, reason="Sharing sprites is not supported yet")
+    if media_type == "package":
+        return PreCheckResponse(blocked=True, reason="Hosted package links are not available yet; export a zip or single file instead")
 
     # 1. Gather text + image data based on media type
     if media_type in ("set", "grid"):
