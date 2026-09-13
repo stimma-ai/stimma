@@ -1495,7 +1495,9 @@ async def save_workspace_file(
     # Non-visual media should skip AI processing phases (CLIP, face detection, VLM)
     _NON_VISUAL_FORMATS = {'md', 'svg', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg',
                            'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout',
-                           'stimmapackage'}
+                           'stimmapackage',
+                           'txt', 'py', 'js', 'ts', 'json', 'csv', 'tsv', 'zip', 'html', 'css',
+                           'yaml', 'yml', 'toml', 'xml', 'sql', 'sh', 'log', 'pdf'}
     is_non_visual = ext in _NON_VISUAL_FORMATS or is_bundle
 
     # Always stamp the canonical envelope (even for plain code-saved files, which

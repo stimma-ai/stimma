@@ -1323,7 +1323,7 @@ def _generate_package_preview(
             fitted,
         )
 
-        from PIL import ImageDraw
+        from PIL import ImageDraw, ImageFont
 
         draw = ImageDraw.Draw(canvas)
         draw.rectangle([0, size - shelf_h, size, size], fill=palette['package_shelf'])

@@ -8,6 +8,7 @@
  * UI state — no new backend concepts.
  */
 import { ref, computed, watch, type Ref } from 'vue'
+import type { WorkspaceFile } from '../utils/fileRefs'
 import { useAssetApi } from './useAssetApi'
 import { makeStorageKey } from '../utils/storageKeys'
 
@@ -19,6 +20,9 @@ export interface ArtifactRevision {
   created_at: string
   media_id: number
   media_hash?: string | null
+  filename?: string
+  file_size?: number
+  mime?: string
   file_format: string
   width?: number | null
   height?: number | null
@@ -54,6 +58,11 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   const assetApi = useAssetApi()
 
   const stageOpen = ref(false)
+  const workspaceFile = ref<WorkspaceFile | null>(null)
+  function openFile(file: WorkspaceFile) {
+    workspaceFile.value = file
+    stageOpen.value = true
+  }
   const assetId = ref<number | null>(null)
   const asset = ref<{ id: number; title: string | null; current_revision_id: number } | null>(null)
   const revisions = ref<ArtifactRevision[]>([])
@@ -127,6 +136,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   }
 
   async function openOnAsset(id: number, revisionId?: number | null) {
+    workspaceFile.value = null
     await syncAsset(id, { keepViewed: assetId.value === id })
     if (revisionId != null && revisions.value.some(r => r.id === revisionId)) {
       viewedRevisionId.value = revisionId
@@ -139,13 +149,15 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   function close() {
     stageOpen.value = false
-    if (chatId.value != null && assetId.value != null) {
+    if (!workspaceFile.value && chatId.value != null && assetId.value != null) {
       localStorage.setItem(closedKey(chatId.value, assetId.value), 'true')
     }
+    workspaceFile.value = null
   }
 
   // Chip click: navigates within an open stage, or reopens a closed one.
   function selectFromChip(artifact: ArtifactMeta) {
+    workspaceFile.value = null
     if (stageOpen.value && assetId.value === artifact.asset_id) {
       viewedRevisionId.value = artifact.revision_id
       return
@@ -200,6 +212,7 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   // Per-chat width persistence; identity/open-state reset on chat switch.
   watch(chatId, (id) => {
     stageOpen.value = false
+    workspaceFile.value = null
     assetId.value = null
     asset.value = null
     revisions.value = []
@@ -249,6 +262,8 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   return {
     stageOpen,
+    workspaceFile,
+    openFile,
     assetId,
     asset,
     revisions,

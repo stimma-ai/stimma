@@ -240,7 +240,7 @@ license:
 ## Frontend (npm) packages
 
 <!-- BEGIN GENERATED: npm -->
-122 packages (production dependency closure bundled into the UI).
+134 packages (production dependency closure bundled into the UI).
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -250,8 +250,15 @@ license:
 | @babel/types | 7.28.5 | MIT | https://github.com/babel/babel |
 | @codemirror/autocomplete | 6.20.2 | MIT | https://code.haverbeke.berlin/codemirror/autocomplete |
 | @codemirror/commands | 6.10.3 | MIT | https://github.com/codemirror/commands |
+| @codemirror/lang-css | 6.3.1 | MIT | https://github.com/codemirror/lang-css |
+| @codemirror/lang-html | 6.4.12 | MIT | https://code.haverbeke.berlin/codemirror/lang-html |
+| @codemirror/lang-javascript | 6.2.5 | MIT | https://github.com/codemirror/lang-javascript |
+| @codemirror/lang-json | 6.0.2 | MIT | https://github.com/codemirror/lang-json |
+| @codemirror/lang-markdown | 6.5.2 | MIT | https://code.haverbeke.berlin/codemirror/lang-markdown |
 | @codemirror/lang-python | 6.2.1 | MIT | https://github.com/codemirror/lang-python |
+| @codemirror/lang-sql | 6.10.0 | MIT | https://github.com/codemirror/lang-sql |
 | @codemirror/language | 6.12.3 | MIT | https://github.com/codemirror/language |
+| @codemirror/lint | 6.9.7 | MIT | https://code.haverbeke.berlin/codemirror/lint |
 | @codemirror/search | 6.7.0 | MIT | https://code.haverbeke.berlin/codemirror/search |
 | @codemirror/state | 6.6.0 | MIT | https://github.com/codemirror/state |
 | @codemirror/view | 6.43.0 | MIT | https://code.haverbeke.berlin/codemirror/view |
@@ -263,8 +270,13 @@ license:
 | @heroicons/vue | 2.2.0 | MIT | https://github.com/tailwindlabs/heroicons |
 | @jridgewell/sourcemap-codec | 1.5.5 | MIT | https://github.com/jridgewell/sourcemaps |
 | @lezer/common | 1.5.1 | MIT | https://github.com/lezer-parser/common |
+| @lezer/css | 1.3.6 | MIT | https://code.haverbeke.berlin/lezer/css |
 | @lezer/highlight | 1.2.3 | MIT | https://github.com/lezer-parser/highlight |
+| @lezer/html | 1.3.13 | MIT | https://github.com/lezer-parser/html |
+| @lezer/javascript | 1.5.4 | MIT | https://github.com/lezer-parser/javascript |
+| @lezer/json | 1.0.3 | MIT | https://github.com/lezer-parser/json |
 | @lezer/lr | 1.4.8 | MIT | https://github.com/lezer-parser/lr |
+| @lezer/markdown | 1.7.2 | MIT | https://code.haverbeke.berlin/lezer/markdown |
 | @lezer/python | 1.1.18 | MIT | https://github.com/lezer-parser/python |
 | @marijn/find-cluster-break | 1.0.2 | MIT | https://github.com/marijnh/find-cluster-break |
 | @replit/codemirror-vim | 6.3.0 | MIT | https://github.com/replit/codemirror-vim |

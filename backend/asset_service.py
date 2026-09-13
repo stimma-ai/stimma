@@ -40,7 +40,7 @@ def infer_asset_type(media: MediaItem) -> str:
         return "video"
     if fmt in {"mp3", "wav", "flac", "aac", "m4a", "ogg", "opus"}:
         return "audio"
-    if fmt in {"pdf", "doc", "docx", "txt", "md", "rtf"}:
+    if fmt in {"pdf", "doc", "docx", "txt", "md", "rtf", "py", "js", "ts", "json", "csv", "tsv", "zip", "html", "css", "yaml", "yml", "toml", "xml", "sql", "sh", "log"}:
         return "document"
     return "image"
 

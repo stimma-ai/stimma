@@ -1,19 +1,21 @@
 <template>
   <div class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden">
     <!-- Header -->
-    <div class="flex items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
+    <div class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
+      <FileTypeBadge v-if="workspaceFile" :name="workspaceFile.name" :mime="workspaceFile.mime" />
       <div class="min-w-0">
-        <div class="text-[12.5px] font-semibold text-content truncate">{{ asset?.title || 'Untitled' }}</div>
+        <div class="text-[12.5px] font-semibold text-content truncate">{{ workspaceFile?.name || asset?.title || 'Untitled' }}</div>
         <div class="text-[10.5px] text-content-muted">
-          {{ kindLabel }}<template v-if="revisions.length"> · {{ versionSubline }}</template>
+          <span v-if="workspaceFile" class="font-mono">{{ workspaceFile.path }} · {{ fileSize(workspaceFile.size) }}</span>
+          <template v-else>{{ kindLabel }}<template v-if="revisions.length"> · {{ versionSubline }}</template></template>
         </div>
       </div>
 
-      <div class="ml-auto flex items-center gap-0.5 flex-shrink-0">
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-0.5 min-w-0">
         <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
              off-latest state earns the accent because it is a real state, not
              decoration. -->
-        <div class="relative" ref="versionMenuRef">
+        <div v-if="!workspaceFile" class="relative" ref="versionMenuRef">
           <button
             type="button"
             class="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium transition-colors hover:bg-overlay-subtle disabled:opacity-50"
@@ -44,7 +46,7 @@
         </div>
 
         <button
-          v-if="!onNewest"
+          v-if="!workspaceFile && !onNewest"
           type="button"
           class="h-7 px-2 rounded-md text-[11px] font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors disabled:opacity-50"
           :disabled="loading"
@@ -56,7 +58,13 @@
         <!-- The kebab is the same menu the artwork's right-click gives, anchored
              under the button. A second, smaller menu of its own would just be a
              place for actions to go missing. -->
-        <div ref="overflowButtonRef" class="flex">
+        <div ref="fileControlsRef" class="flex items-center" />
+        <template v-if="workspaceFile">
+          <Button variant="ghost" size="sm" @click="$emit('attach-file', workspaceFile)">Attach to reply</Button>
+          <Button variant="ghost" size="sm" @click="$emit('save-file', workspaceFile)">Save to library</Button>
+          <a :href="fileUrl(chatId!, workspaceFile, 'content', true)" class="p-2 text-xs text-accent">Download</a>
+        </template>
+        <div v-else ref="overflowButtonRef" class="flex">
           <IconButton title="Actions" @click="onOverflowClick">
             <EllipsisHorizontalIcon class="w-4 h-4" />
           </IconButton>
@@ -69,8 +77,9 @@
     </div>
 
     <!-- Hero -->
-    <div class="flex-1 min-h-0 flex flex-col relative px-3 pt-3">
-      <div v-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
+    <div class="flex-1 min-h-0 flex flex-col relative" :class="workspaceFile ? '' : 'px-3 pt-3'">
+      <FileViewer v-if="workspaceFile && chatId != null" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
+      <div v-else-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         Loading…
       </div>
       <div v-else-if="!viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
@@ -79,7 +88,7 @@
       <template v-else>
         <!-- Jump to newest -->
         <button
-          v-if="!onNewest"
+          v-if="!workspaceFile && !onNewest"
           type="button"
           class="absolute top-6 left-6 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
           @click="$emit('jump-newest')"
@@ -109,7 +118,7 @@
             @click.stop
           />
           <MediaImage
-            v-else
+            v-else-if="fileKind(viewedRevision.file_format) === 'image'"
             :media-id="viewedRevision.media_id"
             :thumbnail="false"
             :contain="false"
@@ -117,6 +126,7 @@
             img-class="!object-contain !bg-none !bg-transparent"
             alt="Artifact"
           />
+          <FileViewer v-else :controls-target="fileControlsRef" :url="getMediaFileUrl(viewedRevision.media_id)" :name="viewedRevision.filename || 'artifact.' + viewedRevision.file_format" :mime="viewedRevision.mime" :size="viewedRevision.file_size" :media-id="viewedRevision.media_id" :workspace-file="artifactFile" :chat-id="chatId" class="w-full h-full" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
         </div>
 
         <!-- Chip bar beneath the hero. The vector viewer reports the document's
@@ -133,6 +143,10 @@
 </template>
 
 <script setup lang="ts">
+import FileTypeBadge from './FileTypeBadge.vue'
+import FileViewer from '../viewers/FileViewer.vue'
+import Button from '../ui/Button.vue'
+import { fileUrl, fileSize, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
 import { computed, ref, onBeforeUnmount } from 'vue'
 import {
   ChevronDownIcon,
@@ -152,6 +166,8 @@ import { getMediaType } from '../../utils/mediaTypes'
 import type { ArtifactRevision } from '../../composables/useArtifactStage'
 
 const props = defineProps<{
+  workspaceFile?: WorkspaceFile | null
+  chatId?: number | string
   asset: { id: number; title: string | null; current_revision_id: number } | null
   revisions: ArtifactRevision[]
   viewedRevisionId: number | null
@@ -163,6 +179,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  'attach-file': [file: WorkspaceFile]
+  'save-file': [file: WorkspaceFile]
   'select-revision': [revisionId: number]
   'jump-newest': []
   'set-latest': []
@@ -173,6 +191,7 @@ const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
 // The <MediaContextMenu> itself is mounted once by ChatView.
 const contextMenu = useMediaContextMenu()
 
+const fileControlsRef = ref<HTMLElement | null>(null)
 const showVersionMenu = ref(false)
 const versionMenuRef = ref<HTMLElement | null>(null)
 const overflowButtonRef = ref<HTMLElement | null>(null)
@@ -186,6 +205,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
 
 const reversedRevisions = computed(() => [...props.revisions].reverse())
 
+const artifactFile = computed<WorkspaceFile | undefined>(() => props.viewedRevision ? {
+  root: 'chat', path: 'artifact.' + props.viewedRevision.file_format,
+  name: props.viewedRevision.filename || 'artifact.' + props.viewedRevision.file_format, size: props.viewedRevision.file_size || 0, mime: props.viewedRevision.mime || '', media_id: props.viewedRevision.media_id,
+} : undefined)
 const heroKind = computed(() => {
   if (!props.viewedRevision) return 'image'
   return getMediaType({ file_format: props.viewedRevision.file_format })
