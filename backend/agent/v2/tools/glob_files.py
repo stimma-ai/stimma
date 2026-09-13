@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import resolve_workspace_path
+from ._workspace_files import resolve_workspace_path, workspace_relative
 
 MAX_RESULTS = 1000
 
@@ -55,9 +55,8 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
     # come back as "no matches" and send the model hunting outside the workspace.
     filenames = []
     for m in matches:
-        try:
-            rel = m.relative_to(workspace)
-        except ValueError:
+        rel = workspace_relative(workspace, m)
+        if rel is None:
             continue
         if m.is_dir():
             filenames.append(f"{rel}/")

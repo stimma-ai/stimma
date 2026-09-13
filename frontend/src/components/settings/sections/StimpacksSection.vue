@@ -91,7 +91,7 @@
                   <span class="truncate">{{ marketplaceAuthor(stimpack) }}</span>
                 </template>
                 <span v-else class="truncate">
-                  {{ stimpack.is_dev ? 'Dev repo' : (stimpack.author === 'user' ? 'Custom' : stimpack.author) }}
+                  {{ stimpack.is_dev ? 'Dev repo' : (stimpack.author === 'user' ? 'Custom' : stimpack.author === 'agent' ? 'Made by agent' : stimpack.author) }}
                 </span>
               </div>
             </div>

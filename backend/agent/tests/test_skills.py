@@ -394,3 +394,229 @@ class TestInjection:
             session=session, chat_id=test_chat.id, _injected_messages=[],
         )
         assert "already loaded" in result
+
+
+# =============================================================================
+# Filesystem authoring: skills/ mount + list shows paths and problems
+# =============================================================================
+
+from agent.v2.tools._workspace_files import (
+    SKILLS_MOUNT,
+    ensure_skills_mount,
+    resolve_workspace_path,
+    workspace_relative,
+)
+
+
+@pytest.fixture
+def workspace(tmp_path) -> Path:
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    return ws
+
+
+@pytest.fixture
+def dev_pack(stimpacks_dir, tmp_path, monkeypatch) -> Path:
+    """A single-skill pack served from the dev override dir (read-only)."""
+    dev = tmp_path / "dev-packs"
+    pack = dev / "dev-pack"
+    pack.mkdir(parents=True)
+    (pack / "SKILL.md").write_text(
+        "---\nname: dev-pack\ndisplay_name: Dev Pack\ndescription: From the dev repo\n---\n\nDev body",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sp, "_dev_stimpacks_dir", lambda: dev)
+    return pack
+
+
+class TestSkillsMount:
+    def test_mount_symlinks_profile_stimpacks_dir(self, stimpacks_dir, workspace):
+        ensure_skills_mount(workspace)
+        link = workspace / SKILLS_MOUNT
+        assert link.is_symlink() and link.resolve() == stimpacks_dir.resolve()
+        # Idempotent, and re-pointed if the target changes.
+        ensure_skills_mount(workspace)
+        assert link.resolve() == stimpacks_dir.resolve()
+
+    def test_mount_leaves_a_real_skills_dir_alone(self, stimpacks_dir, workspace):
+        (workspace / SKILLS_MOUNT).mkdir()
+        ensure_skills_mount(workspace)
+        assert not (workspace / SKILLS_MOUNT).is_symlink()
+
+    def test_resolve_maps_skills_prefix_with_and_without_symlink(self, stimpacks_dir, workspace):
+        # No symlink: prefix maps straight to the stimpacks dir.
+        resolved, err = resolve_workspace_path(str(workspace), "skills/foo/SKILL.md")
+        assert err is None and resolved == (stimpacks_dir / "foo" / "SKILL.md").resolve()
+        # With symlink: same answer, via the link.
+        ensure_skills_mount(workspace)
+        resolved, err = resolve_workspace_path(str(workspace), "skills/foo/SKILL.md")
+        assert err is None and resolved == (stimpacks_dir / "foo" / "SKILL.md").resolve()
+        assert workspace_relative(workspace.resolve(), resolved) == "skills/foo/SKILL.md"
+        # Traversal is still rejected; the workspace itself still works.
+        _, err = resolve_workspace_path(str(workspace), "skills/../secret")
+        assert err
+        resolved, err = resolve_workspace_path(str(workspace), "out.png")
+        assert err is None and resolved == (workspace / "out.png").resolve()
+
+    @pytest.mark.asyncio
+    async def test_write_read_glob_grep_through_mount(self, stimpacks_dir, workspace, session, test_chat):
+        from agent.v2.tools.write_file import write_file
+        from agent.v2.tools.read_file import read_file
+        from agent.v2.tools.glob_files import glob_files
+        from agent.v2.tools.grep_files import grep_files
+        from agent.v2.tools.skill import skill_tool
+        ensure_skills_mount(workspace)
+        ws = str(workspace)
+        body = (
+            "---\nname: product-photo\ndisplay_name: Product Photo\n"
+            "description: Consistent product shots on white\nauthor: agent\n"
+            "provides: [photo_utils]\n---\n\n# Product Photo\n\nUse soft light."
+        )
+        res = await write_file(file_path="skills/product-photo/SKILL.md", content=body, workspace_dir=ws, session=session, chat_id=test_chat.id)
+        assert not res.startswith("Error"), res
+        res = await write_file(file_path="skills/product-photo/lib/photo_utils.py", content="def pad(x):\n    return x * 1.2\n", workspace_dir=ws, session=session, chat_id=test_chat.id)
+        assert not res.startswith("Error"), res
+        assert (stimpacks_dir / "product-photo" / "SKILL.md").read_text(encoding="utf-8") == body
+
+        read = await read_file(file_path="skills/product-photo/SKILL.md", workspace_dir=ws)
+        assert "Use soft light." in read
+        listed = await glob_files(pattern="skills/*/SKILL.md", workspace_dir=ws)
+        assert listed == "skills/product-photo/SKILL.md"
+        grepped = await grep_files(pattern="soft light", path="skills", workspace_dir=ws, output_mode="files_with_matches")
+        assert "skills/product-photo/SKILL.md" in grepped
+
+        # The loader sees it live: listed with its path, invokable, lib importable.
+        result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
+        assert "| product-photo | Consistent product shots on white | chat | Product Photo | skills/product-photo/SKILL.md | yours |" in result
+        assert "Problems:" not in result
+        injected = []
+        assert await skill_tool(action="invoke", name="product-photo", session=session, chat_id=test_chat.id, _injected_messages=injected) == "Loaded skill 'Product Photo'."
+        assert injected[0]["content"].endswith("Use soft light.")
+        assert "photo_utils" in get_stimpack_lib_modules(["product-photo"])
+
+    @pytest.mark.asyncio
+    async def test_list_reports_loader_problems(self, stimpacks_dir, dev_pack, session, test_chat):
+        from agent.v2.tools.skill import skill_tool
+        broken = stimpacks_dir / "broken"
+        broken.mkdir()
+        (broken / "SKILL.md").write_text("---\nname: broken\ndescription: \nprovides: [nope]\n---\n\nbody", encoding="utf-8")
+        (stimpacks_dir / "empty-dir").mkdir()
+        result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
+        assert "| dev-pack | From the dev repo | chat | Dev Pack | (dev repo, read-only) | dev repo, read-only |" in result
+        assert "Problems:" in result
+        assert "broken: " in result and "nope" in result
+        assert "skills/empty-dir/: not loaded" in result
+
+
+# =============================================================================
+# Precedence: local forks shadow marketplace skills; marketplace is read-only
+# =============================================================================
+
+from agent.v2.stimpacks import shadowed_skills
+from agent.v2.tools._workspace_files import readonly_workspace_error
+
+
+def _write_sidecar(pack_dir: Path, name: str) -> None:
+    (pack_dir / ".marketplace.json").write_text(json.dumps({
+        "stimpackId": "sp_1", "name": name, "version": "1", "versionId": "v_1",
+    }), encoding="utf-8")
+
+
+@pytest.fixture
+def marketplace_pack(stimpacks_dir) -> Path:
+    """A marketplace-installed two-skill pack (has a sidecar)."""
+    pack = stimpacks_dir / "essentials"
+    _write_manifest(pack, "essentials")
+    _write_skill(
+        pack, "variations",
+        "name: variations\ndisplay_name: Variations\ndescription: Upstream variations\n"
+        "environments:\n  chat: true\n  tool: true",
+        "Upstream body",
+    )
+    _write_skill(pack, "grids", "name: grids\ndescription: Upstream grids", "Grid body")
+    _write_sidecar(pack, "essentials")
+    return pack
+
+
+def _write_fork(stimpacks_dir: Path, slug: str, frontmatter: str, body: str) -> Path:
+    d = stimpacks_dir / slug
+    d.mkdir()
+    (d / "SKILL.md").write_text(f"---\n{frontmatter}\n---\n\n{body}", encoding="utf-8")
+    return d
+
+
+class TestForkPrecedence:
+    def test_local_fork_shadows_marketplace_skill_everywhere(self, stimpacks_dir, marketplace_pack):
+        _write_fork(
+            stimpacks_dir, "variations",
+            "name: variations\ndisplay_name: My Variations\ndescription: My variations\nauthor: user\n"
+            "environments:\n  chat: true\n  tool: true",
+            "Fork body",
+        )
+        names = [s.qualified_name for s in list_skills()]
+        assert "variations" in names and "essentials/variations" not in names
+        assert "essentials/grids" in names
+        fork = next(s for s in list_skills() if s.slug == "variations")
+        assert fork.overrides == "essentials/variations" and fork.is_local
+        # Both names resolve to the fork; lib lookups follow.
+        assert find_skill("variations")[1].pack_name == "variations"
+        assert find_skill("essentials/variations")[1].pack_name == "variations"
+        assert [(o.qualified_name, f.qualified_name) for o, f in shadowed_skills()] == [("essentials/variations", "variations")]
+        # Reminder labels the fork as yours and omits the original.
+        reminder = build_skills_reminder(list_skills(), set(), environment="chat")
+        assert "- variations: My variations [yours, overrides essentials/variations]" in reminder
+        assert "essentials/variations" not in reminder.replace("overrides essentials/variations", "")
+
+    @pytest.mark.asyncio
+    async def test_two_local_skills_with_one_slug_both_stay_visible_and_are_flagged(
+        self, stimpacks_dir, multi_skill_pack, session, test_chat
+    ):
+        from agent.v2.tools.skill import skill_tool
+        _write_fork(stimpacks_dir, "alpha", "name: alpha\ndescription: Local alpha", "Local alpha body")
+        # No fork semantics between two locals: both visible, qualified names still distinct.
+        assert len([s for s in list_skills() if s.slug == "alpha"]) == 2
+        assert find_skill("test-pack/alpha")[1].pack_name == "test-pack"
+        # A single-skill pack's qualified name *is* its bare slug, so that exact match wins.
+        assert find_skill("alpha")[1].pack_name == "alpha"
+        result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
+        assert "'alpha' and 'test-pack/alpha' both claim the name 'alpha'" in result
+
+    def test_marketplace_pack_is_readonly_to_write_and_edit_tools(self, stimpacks_dir, marketplace_pack):
+        err = readonly_workspace_error("skills/essentials/skills/variations/SKILL.md")
+        assert err and "marketplace-installed" in err and "skills/<slug>/" in err
+        assert readonly_workspace_error("skills/variations/SKILL.md") is None
+        assert readonly_workspace_error("out.png") is None
+
+    @pytest.mark.asyncio
+    async def test_write_tools_refuse_marketplace_and_allow_fork(self, stimpacks_dir, marketplace_pack, workspace, session, test_chat):
+        from agent.v2.tools.write_file import write_file
+        from agent.v2.tools.edit_file import edit_file
+        ws = str(workspace)
+        res = await write_file(file_path="skills/essentials/skills/variations/SKILL.md", content="x", workspace_dir=ws, session=session, chat_id=test_chat.id)
+        assert res.startswith("Error") and "fork" in res.lower()
+        res = await edit_file(file_path="skills/essentials/skills/variations/SKILL.md", old_string="Upstream", new_string="x", workspace_dir=ws, session=session, chat_id=test_chat.id)
+        assert res.startswith("Error")
+        assert (marketplace_pack / "skills" / "variations" / "SKILL.md").read_text(encoding="utf-8").endswith("Upstream body")
+        res = await write_file(
+            file_path="skills/variations/SKILL.md",
+            content="---\nname: variations\ndescription: Mine\nauthor: agent\nenvironments:\n  chat: true\n---\n\nFork body",
+            workspace_dir=ws, session=session, chat_id=test_chat.id,
+        )
+        assert not res.startswith("Error"), res
+        assert find_skill("essentials/variations")[1].pack_name == "variations"
+
+    @pytest.mark.asyncio
+    async def test_list_and_invoke_label_forks_and_flag_narrower_surface(self, stimpacks_dir, marketplace_pack, session, test_chat):
+        from agent.v2.tools.skill import skill_tool
+        # Fork drops the tool surface the original had.
+        _write_fork(stimpacks_dir, "variations", "name: variations\ndisplay_name: My Variations\ndescription: Mine\nauthor: agent", "Fork body")
+        result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
+        assert "| variations | Mine | chat | My Variations | skills/variations/SKILL.md | yours, overrides essentials/variations |" in result
+        assert "| essentials/grids |" in result and "marketplace, read-only — fork to skills/grids/" in result
+        assert "| essentials/variations |" not in result
+        assert "Hidden by your forks: essentials/variations → variations" in result
+        assert "not offered in tool (the original was)" in result
+        injected = []
+        assert await skill_tool(action="invoke", name="essentials/variations", session=session, chat_id=test_chat.id, _injected_messages=injected) == "Loaded skill 'My Variations'."
+        assert injected[0]["content"] == "## Skill: My Variations (your version, overrides essentials/variations)\n\nFork body"
+        assert injected[0]["skill_name"] == "variations"

@@ -43,7 +43,8 @@ def build_skills_reminder(
         desc = s.description
         if s.provides:
             desc += f" (imports: {', '.join(s.provides)})"
-        lines.append(f"- {s.qualified_name}: {desc} [{s.pack_display_name}]")
+        source = f"yours, overrides {s.overrides}" if s.overrides else s.pack_display_name
+        lines.append(f"- {s.qualified_name}: {desc} [{source}]")
     lines.append("")
     if environment == "flow":
         # Flow builds are mostly plumbing; the historical failure mode was

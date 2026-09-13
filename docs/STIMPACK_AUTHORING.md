@@ -270,8 +270,17 @@ have, module collisions, unknown `environments` keys, empty bodies, a root
 2. **Invocation**: the agent calls `skill(action="invoke", name="<pack>/<slug>")`,
    or the user activates from the skills menu; the body lands in context
 3. **Execution**: the agent works with its normal tools, guided by the skill
-4. **Creation**: the agent can write new single-skill packs via
-   `skill(action="create", ...)`
+4. **Authoring**: the profile's stimpacks folder is mounted into every
+   chat workspace as `skills/`, so the agent develops skills with its
+   ordinary file tools — write `skills/<slug>/SKILL.md` (plus `lib/*.py` and
+   `provides:` for bundled Python), then `skill(action="list")` to confirm
+   it parsed and `invoke` to test it in the same conversation. Ask it to
+   "make a skill for this" or "turn what we just did into a skill".
+   Marketplace-installed packs are read-only to the agent's file tools (an
+   update would overwrite edits). To change one, fork it: copy the skill's
+   folder to `skills/<slug>/` and keep the same `name:` — a local skill
+   shadows a marketplace skill of the same slug everywhere (reminders, menus,
+   tool surfaces, and invoke by either name), and is labeled as yours.
 
 ## Checklist for new stimpacks
 

@@ -15,10 +15,16 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
 # catalog. It is browsable (read/glob/grep) but must not be edited — the runtime
 # owns it and overwrites it.
 READONLY_PREFIX = ".stimma/"
+SKILLS_MOUNT = "skills"
 
 
 def readonly_workspace_error(file_path: str) -> str | None:
-    """Return an error if file_path targets the read-only .stimma/ tree, else None."""
+    """Return an error if file_path targets a read-only tree, else None.
+
+    Read-only trees: the generated ``.stimma/`` tool catalog, and any
+    marketplace-installed stimpack under ``skills/`` (a marketplace update
+    would overwrite edits; the agent forks instead).
+    """
     normalized = (file_path or "").replace("\\", "/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
@@ -28,11 +34,72 @@ def readonly_workspace_error(file_path: str) -> str | None:
             "it cannot be edited. Browse it with read_file/glob/grep; it refreshes "
             "automatically when the tool catalog changes."
         )
+    parts = normalized.split("/")
+    if len(parts) >= 2 and parts[0] == SKILLS_MOUNT and parts[1]:
+        try:
+            from ..stimpacks import marketplace_pack_dir_names
+            marketplace_dirs = marketplace_pack_dir_names()
+        except Exception as e:  # pragma: no cover - defensive
+            _log.debug(f"marketplace pack lookup failed: {e}")
+            marketplace_dirs = set()
+        if parts[1] in marketplace_dirs:
+            return (
+                f"Error: {SKILLS_MOUNT}/{parts[1]}/ is a marketplace-installed stimpack and is read-only — "
+                "a marketplace update would overwrite edits. Fork the skill instead: copy its folder to "
+                f"{SKILLS_MOUNT}/<slug>/ (keep the same `name:` so your copy takes precedence over the original) "
+                "and edit the copy."
+            )
     return None
+
+
+# The profile's stimpacks directory is mounted into every workspace as
+# ``skills/`` so the agent develops skills with its ordinary file tools
+# (read/write/edit/glob/grep/bash) instead of a bespoke editing API. The mount
+# is a symlink where the platform allows it; the path resolver also maps the
+# ``skills/`` prefix directly so the file tools work even without the link.
+
+
+def skills_mount_target() -> Path | None:
+    """The real directory ``skills/`` maps to (the current profile's stimpacks dir)."""
+    try:
+        from ..stimpacks import get_user_stimpacks_dir
+        return get_user_stimpacks_dir().resolve()
+    except Exception as e:  # pragma: no cover - defensive (no profile in some tests)
+        _log.debug(f"skills mount target unavailable: {e}")
+        return None
+
+
+def ensure_skills_mount(workspace_dir: str | Path) -> None:
+    """Create or refresh the ``skills/`` symlink in a workspace. Best-effort."""
+    target = skills_mount_target()
+    if target is None:
+        return
+    link = Path(workspace_dir) / SKILLS_MOUNT
+    try:
+        if link.is_symlink():
+            if link.resolve() == target:
+                return
+            link.unlink()
+        elif link.exists():
+            # A real file/dir the agent or user created with that name; leave it.
+            _log.warning(f"workspace has a non-symlink '{SKILLS_MOUNT}' entry; skills mount skipped")
+            return
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as e:
+        # Windows without symlink privilege, read-only workspace, etc. The
+        # resolver still maps the prefix, so file tools keep working.
+        _log.info(f"could not create skills mount in workspace: {e}")
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    return path == root or str(path).startswith(str(root) + "/")
 
 
 def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, str | None]:
     """Resolve a relative file_path within workspace_dir.
+
+    ``skills/...`` resolves into the profile's stimpacks directory (see
+    ``SKILLS_MOUNT``), whether or not the workspace symlink exists.
 
     Returns (resolved_path, error_string_or_None).
     """
@@ -41,15 +108,38 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
     if file_path.startswith("/"):
         return Path(), "Error: file_path must be relative to workspace, not absolute"
     # Reject obvious traversal before resolution
-    parts = file_path.replace("\\", "/").split("/")
+    normalized = file_path.replace("\\", "/")
+    parts = normalized.split("/")
     if ".." in parts:
         return Path(), "Error: file_path must not contain '..'"
 
     workspace = Path(workspace_dir).resolve()
-    resolved = (workspace / file_path).resolve()
-    if not str(resolved).startswith(str(workspace) + "/") and resolved != workspace:
-        return Path(), "Error: file_path escapes workspace directory"
-    return resolved, None
+    skills_root = skills_mount_target()
+    if parts and parts[0] == SKILLS_MOUNT and skills_root is not None and not (workspace / SKILLS_MOUNT).is_dir():
+        resolved = skills_root.joinpath(*parts[1:]).resolve()
+    else:
+        resolved = (workspace / normalized).resolve()
+    if _is_within(resolved, workspace):
+        return resolved, None
+    if skills_root is not None and _is_within(resolved, skills_root):
+        return resolved, None
+    return Path(), "Error: file_path escapes workspace directory"
+
+
+def workspace_relative(workspace: Path, path: Path) -> str | None:
+    """Display form of a resolved path: workspace-relative, with the skills
+    mount shown as ``skills/...``. None if the path is outside both."""
+    try:
+        return str(path.relative_to(workspace))
+    except ValueError:
+        pass
+    skills_root = skills_mount_target()
+    if skills_root is not None:
+        try:
+            return f"{SKILLS_MOUNT}/{path.relative_to(skills_root)}".rstrip("/")
+        except ValueError:
+            pass
+    return None
 
 
 async def maybe_sync_flow_program(session, chat_id: int | None, file_path: str) -> str | None:

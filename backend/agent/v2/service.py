@@ -1225,6 +1225,14 @@ async def _run_agentic_loop_inner(
     except Exception as e:
         log.warning(f"Failed to materialize .stimma/ tool catalog: {e}")
 
+    # Mount the profile's stimpacks dir as skills/ so the agent develops
+    # skills with its ordinary file tools (see _workspace_files.SKILLS_MOUNT).
+    try:
+        from .tools._workspace_files import ensure_skills_mount
+        ensure_skills_mount(workspace_dir)
+    except Exception as e:
+        log.warning(f"Failed to mount skills/ into workspace: {e}")
+
     # Track invoked skills for run_code lib modules ("stimpack_name" is the
     # legacy metadata key from before skills were addressed flat)
     _invoked_skills: set[str] = set()

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import resolve_workspace_path, IMAGE_EXTENSIONS
+from ._workspace_files import resolve_workspace_path, workspace_relative, IMAGE_EXTENSIONS
 
 MAX_RESULTS = 250
 MAX_CONTENT_LINES = 500
@@ -116,10 +116,7 @@ async def grep_files(
 
 
 def _rel(filepath: Path, workspace: Path) -> str:
-    try:
-        return str(filepath.relative_to(workspace))
-    except ValueError:
-        return str(filepath)
+    return workspace_relative(workspace, filepath) or str(filepath)
 
 
 def _read_text_safe(filepath: Path) -> str | None:

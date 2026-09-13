@@ -187,6 +187,14 @@ class SkillInfo:
     dir_path: Path  # this skill's directory (contains SKILL.md + optional lib/)
     pack_name: str
     pack_display_name: str
+    pack_is_marketplace: bool = False  # pack carries a marketplace sidecar (read-only to the agent)
+    pack_is_dev: bool = False  # pack comes from the dev stimpacks repo
+    overrides: Optional[str] = None  # qualified name of the marketplace skill this local skill shadows
+
+    @property
+    def is_local(self) -> bool:
+        """User- or agent-authored (not a marketplace install, not the dev repo)."""
+        return not self.pack_is_marketplace and not self.pack_is_dev
 
     @property
     def qualified_name(self) -> str:
@@ -834,6 +842,8 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
     # `provides` (advertised importable lib modules) is the union across skills.
     provides: list[str] = []
     for skill in skills:
+        skill.pack_is_marketplace = marketplace is not None
+        skill.pack_is_dev = is_dev
         for module in skill.provides:
             if module not in provides:
                 provides.append(module)
@@ -935,12 +945,52 @@ def load_stimpack(name: str, profile_id: Optional[str] = None) -> Optional[Stimp
 # Flat skill listing and loading (the agent-facing surface)
 # ---------------------------------------------------------------------------
 
+def _split_shadowed(
+    packs: list[StimpackInfo],
+) -> tuple[list[SkillInfo], list[tuple[SkillInfo, SkillInfo]]]:
+    """Apply skill-level precedence: local (user/agent) beats marketplace by slug.
+
+    Dev-repo packs already shadow profile packs by *pack* name upstream; this
+    is the finer rule that lets a fork at ``skills/<slug>/`` take over a
+    marketplace skill of the same slug everywhere (reminders, menus, tool
+    surfaces, invoke by either name). Returns (visible_skills, hidden) where
+    hidden pairs each shadowed marketplace skill with the fork that hides it.
+    Two *local* skills with one slug are not a fork — both stay visible and
+    bare-name lookup stays ambiguous.
+    """
+    all_skills = [skill for pack in packs for skill in pack.skills]
+    forks_by_slug: dict[str, list[SkillInfo]] = {}
+    for skill in all_skills:
+        if not skill.pack_is_marketplace:
+            forks_by_slug.setdefault(skill.slug, []).append(skill)
+    visible: list[SkillInfo] = []
+    hidden: list[tuple[SkillInfo, SkillInfo]] = []
+    for skill in all_skills:
+        forks = forks_by_slug.get(skill.slug) if skill.pack_is_marketplace else None
+        if forks:
+            fork = forks[0]
+            if fork.overrides is None:
+                fork.overrides = skill.qualified_name
+            hidden.append((skill, fork))
+        else:
+            visible.append(skill)
+    return visible, hidden
+
+
 def list_skills(profile_id: Optional[str] = None) -> list[SkillInfo]:
-    """Return all skills across installed stimpacks, flat."""
-    skills: list[SkillInfo] = []
-    for pack in list_installed_stimpacks(profile_id=profile_id):
-        skills.extend(pack.skills)
-    return skills
+    """Return all skills across installed stimpacks, flat, with precedence applied.
+
+    A local skill shadows a marketplace skill of the same slug (see
+    ``_split_shadowed``); the shadowed one is omitted here.
+    """
+    visible, _ = _split_shadowed(list_installed_stimpacks(profile_id=profile_id))
+    return visible
+
+
+def shadowed_skills(profile_id: Optional[str] = None) -> list[tuple[SkillInfo, SkillInfo]]:
+    """(marketplace skill, local fork) pairs where the fork hides the original."""
+    _, hidden = _split_shadowed(list_installed_stimpacks(profile_id=profile_id))
+    return hidden
 
 
 def find_skill(
@@ -948,24 +998,29 @@ def find_skill(
 ) -> Optional[tuple[StimpackInfo, SkillInfo]]:
     """Resolve a skill by pack-qualified name, or by bare slug when unique.
 
-    Also accepts a pack name for legacy single-skill packs (old chat history
-    and old prompts address packs by name).
+    Precedence applies: a local fork answers to both its own name and the
+    qualified name of the marketplace skill it shadows. Also accepts a pack
+    name for legacy single-skill packs (old chat history and old prompts
+    address packs by name).
     """
     if not name:
         return None
     packs = list_installed_stimpacks(profile_id=profile_id)
-    for pack in packs:
-        for skill in pack.skills:
-            if skill.qualified_name == name:
-                return pack, skill
-    bare_matches = [
-        (pack, skill)
-        for pack in packs
-        for skill in pack.skills
-        if skill.slug == name
-    ]
+    packs_by_name = {pack.name: pack for pack in packs}
+    visible, hidden = _split_shadowed(packs)
+
+    def _pair(skill: SkillInfo) -> tuple[StimpackInfo, SkillInfo]:
+        return packs_by_name[skill.pack_name], skill
+
+    for skill in visible:
+        if skill.qualified_name == name:
+            return _pair(skill)
+    for original, fork in hidden:
+        if original.qualified_name == name:
+            return _pair(fork)
+    bare_matches = [skill for skill in visible if skill.slug == name]
     if len(bare_matches) == 1:
-        return bare_matches[0]
+        return _pair(bare_matches[0])
     if len(bare_matches) > 1:
         log.warning(f"Skill name '{name}' is ambiguous across packs — use the qualified name")
         return None
@@ -974,6 +1029,15 @@ def find_skill(
         if pack.name == name and len(pack.skills) == 1:
             return pack, pack.skills[0]
     return None
+
+
+def marketplace_pack_dir_names(profile_id: Optional[str] = None) -> set[str]:
+    """Directory names under the profile stimpacks dir that are marketplace installs."""
+    return {
+        pack.dir_path.name
+        for pack in list_installed_stimpacks(profile_id=profile_id)
+        if pack.marketplace is not None and not pack.is_dev
+    }
 
 
 def load_skill(name: str, profile_id: Optional[str] = None) -> Optional[SkillContent]:
@@ -1180,8 +1244,15 @@ def save_stimpack(
     tags: Optional[list[str]] = None,
     profile_id: Optional[str] = None,
     author: str = "user",
+    environments: Optional[dict] = None,
+    provides: Optional[list[str]] = None,
 ) -> Path:
-    """Save a stimpack (a single `skill` resource + manifest) to the profile dir."""
+    """Save a stimpack (a single `skill` resource + manifest) to the profile dir.
+
+    ``environments`` / ``provides`` are written to the SKILL.md frontmatter
+    verbatim when given (see STIMPACK_AUTHORING.md for the shapes); omitted
+    keys are left out, so an absent ``environments`` means chat-only.
+    """
     if not profile_id:
         profile_id = get_current_profile()
 
@@ -1210,7 +1281,11 @@ def save_stimpack(
         "author": author,
         "tags": resolved_tags,
     }
-    text = "---\n" + yaml.dump(frontmatter, default_flow_style=False).strip() + "\n---\n\n" + content
+    if isinstance(environments, dict) and environments:
+        frontmatter["environments"] = environments
+    if provides:
+        frontmatter["provides"] = list(provides)
+    text = "---\n" + yaml.dump(frontmatter, default_flow_style=False, sort_keys=False).strip() + "\n---\n\n" + content
     path.write_text(text, encoding="utf-8")
     _write_default_manifest(stimpack_dir, name, resolved_display, description, resolved_tags, author)
     _invalidate_cache(profile_id)
