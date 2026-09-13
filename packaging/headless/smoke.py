@@ -109,6 +109,30 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
     assert sum(member.size for member in members) == manifest['unpackedBytes']
 '''
             docker('exec', name, 'python3', '-c', script)
+        def check_local_render():
+            # Exercise the shipped backend helper, browser runtime and font assets
+            # with no frontend connected and no host source bind mounts.
+            script = """
+import asyncio, io
+from PIL import Image
+from utils.document_render import render_svg_document
+from utils.local_render import renderer, render_html
+async def check():
+    try:
+        svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="32" height="32" fill="red"/></svg>'
+        png = await render_svg_document(svg, 64, 64, target_long_side=64)
+        image = Image.open(io.BytesIO(png)).convert('RGBA')
+        assert image.size == (64, 64)
+        assert image.getpixel((8, 8)) == (255, 0, 0, 255)
+        assert image.getpixel((60, 60))[3] == 0
+        png = await render_html('<html><body>Bundled fonts</body></html>', 200, 60, 1)
+        assert Image.open(io.BytesIO(png)).getbbox() is not None
+    finally:
+        await renderer.close()
+asyncio.run(check())
+"""
+            docker('exec', '-e', 'PYTHONPATH=/data/app/current/backend', name,
+                   '/data/app/current/python/bin/python3', '-c', script)
         def wait(version):
             deadline = time.monotonic() + 240
             while time.monotonic() < deadline:
@@ -133,12 +157,14 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
             state = wait('0.0.0-smoke.1')
             assert state['bootstrapVersion'] == base_version
             check_ui_package()
+            check_local_render()
             docker('exec', name, 'bash', '-c', 'ffmpeg -version >/dev/null && python3 --version && git --version && rg --version && jq --version')
             image_id = docker('inspect', name, '--format', '{{.Image}}')
             publish('0.0.0-smoke.2')
             docker('exec', name, 'stimma-server', 'update')
             wait('0.0.0-smoke.2')
             check_ui_package()
+            check_local_render()
             assert docker('inspect', name, '--format', '{{.Image}}') == image_id
             docker('exec', name, 'stimma-server', 'restart')
             time.sleep(5)
@@ -153,6 +179,7 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
             docker('restart', '--time', '120', name)
             wait('0.0.0-smoke.2')
             check_ui_package()
+            check_local_render()
             print('PASS: signed real-package startup, UI package integrity, unchanged-image update, restart, base requirement, cached offline boot')
         except Exception:
             print(docker('inspect', name, '--format', '{{json .State}}'))

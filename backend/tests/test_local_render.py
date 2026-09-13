@@ -126,11 +126,22 @@ async def test_failed_font_is_reported(browser):
 
 @pytest.mark.asyncio
 async def test_cancellation_releases_worker(browser):
+    # Pause after the real child starts so cancellation cannot race a completed
+    # tiny capture on fast hosts or Windows' coarser event-loop timer.
+    started = asyncio.Event()
+    hold = asyncio.Event()
+    original_start = browser.start
+    async def pause_after_start():
+        await original_start()
+        started.set()
+        await hold.wait()
+    browser.start = pause_after_start
     job = prepare_job('<body>Cancelled</body>',100,80,1,{})
     task = asyncio.create_task(browser.render(job,30,5))
-    await asyncio.sleep(0.001)
+    await asyncio.wait_for(started.wait(), 30)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
     assert browser.process is None
+    browser.start = original_start
     await capture(browser, '<body>Recovered</body>')
