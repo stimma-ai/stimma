@@ -52,6 +52,7 @@ const CONTRACT_METHODS = [
   // drag-out
   'startNativeDrag',
   'embedMetadata',
+  'cacheRemoteFile',
   'isShiftKeyDown',
   // voice
   'voiceModelStatus',

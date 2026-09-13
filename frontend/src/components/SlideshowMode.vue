@@ -1127,7 +1127,7 @@
           @dragstart="handleExportDragStart"
           @dragend="handleDragEnd"
           class="bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white"
-          title="Show in Finder (⇧S)"
+          title="Show in file manager (⇧S); drag to copy file"
         >
           <DocumentIcon class="w-5 h-5 pointer-events-none" />
         </button>
@@ -1493,7 +1493,7 @@ const {
 } = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
-const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot } = useTauriDrag()
+const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot, revealMediaFile } = useTauriDrag()
 
 // Tooltip nudge for the (otherwise invisible) ⌥ drag-out modifier. Plain drag
 // is an in-app transfer everywhere; the file-export modifier only applies in
@@ -2441,7 +2441,7 @@ const hasRawMetadata = computed(() => {
 // the control-strip "drag out" handle (and ⌥-drag) can start the native drag
 // synchronously from cache. Embedding inline during dragstart awaits a
 // round-trip that outlives the mouse gesture and crashes the macOS drag plugin.
-watch(currentItem, (newItem) => {
+watch([currentItem, isTauri], ([newItem]) => {
   const mediaId = itemPayloadId(newItem)
   if (isTauri.value && mediaId != null && newItem.file_path) {
     prewarmDragSnapshot(mediaId)
@@ -4652,10 +4652,10 @@ async function revealInFinder() {
 
   if (isTauri.value) {
     try {
-      const { desktop } = await import('../desktop')
-      await desktop.revealItemInDir(currentItem.value.file_path)
+      await revealMediaFile(currentPayloadId.value, currentItem.value.file_path)
     } catch (e) {
-      console.error('Failed to reveal in Finder:', e)
+      console.error('Failed to reveal file:', e)
+      addToast('Could not show the file on this computer.', 'error')
     }
   }
 }

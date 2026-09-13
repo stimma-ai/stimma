@@ -127,6 +127,7 @@ const stimmaDesktop = {
   // ---- drag-out ------------------------------------------------------------
   startNativeDrag: (items: string[], previewImage?: string) =>
     invoke<void>('stimma:start-native-drag', items, previewImage ?? null),
+  cacheRemoteFile: (filename: string, data: Uint8Array) => invoke<string>('stimma:cache-remote-file', filename, data),
   embedMetadata: (req: unknown) => invoke<string | null>('stimma:embed-metadata', req),
   isShiftKeyDown: () => invoke<boolean>('stimma:is-shift-key-down'),
 

@@ -5,11 +5,15 @@
  * with actual file system paths.
  */
 
+import { useMultiDevice } from './useMultiDevice'
+import { addToast } from './useToasts'
 import { ref } from 'vue'
 import { useMediaApi } from './useMediaApi'
 import { getApiBase, isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCurrentDbGuid } from './useProfile'
+
+const { isRemote, activeDeviceId } = useMultiDevice()
 
 // Module-level state
 const isTauri = ref(false)
@@ -55,6 +59,7 @@ async function initTauri(): Promise<void> {
  */
 async function getThumbnailPath(mediaId: number): Promise<string | null> {
   try {
+    if (isRemote.value) return null
     const dbGuid = getCurrentDbGuid()
     if (!dbGuid) return null
 
@@ -99,7 +104,7 @@ const snapshotRequests = new Map<string, Promise<string | null>>()
 const SNAPSHOT_PATH_TTL_MS = 5 * 60 * 1000
 
 function snapshotKey(mediaId: number): string {
-  return `${getCurrentDbGuid()}:${mediaId}`
+  return `${activeDeviceId.value}:${getApiBase()}:${getCurrentDbGuid()}:${mediaId}`
 }
 
 function cachedSnapshotPath(mediaId: number): string | undefined {
@@ -141,6 +146,16 @@ async function resolveExportableSnapshotPath(mediaId: number, key: string): Prom
   try {
     const dbGuid = getCurrentDbGuid()
     if (!dbGuid) return null
+    if (isRemote.value) {
+      const response = await fetch(`${getApiBase()}/db/${dbGuid}/media/${mediaId}/file`)
+      if (!response.ok) return null
+      const disposition = response.headers.get('content-disposition') || ''
+      const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+      const filename = encoded ? decodeURIComponent(encoded) : disposition.match(/filename="([^"]+)"/)?.[1] || `media-${mediaId}`
+      const path = await desktop.cacheRemoteFile(filename, new Uint8Array(await response.arrayBuffer()))
+      if (path) snapshotPathCache.set(key, { path, expires: Date.now() + SNAPSHOT_PATH_TTL_MS })
+      return path
+    }
     const response = await fetch(
       `${getApiBase()}/db/${dbGuid}/media/${mediaId}/exportable-snapshot`,
       { method: 'POST' }
@@ -203,7 +218,11 @@ export function useTauriDrag() {
     filePath?: string
   ): Promise<void> {
     // Ensure Tauri is initialized before checking
-    await initTauri()
+    if (!initComplete) {
+      event.preventDefault()
+      void initTauri()
+      return
+    }
 
     // If in Tauri with file path available, use native file drag exclusively
     // This must happen synchronously before any await to properly prevent browser drag
@@ -226,8 +245,15 @@ export function useTauriDrag() {
       // when the item is displayed, so by drag time the cached snapshot is
       // usually already here. Cold misses fall back to the raw file (drag still
       // works; it just lacks embedded metadata until the warm completes).
-      const cachedPreview = thumbnailPathCache.get(mediaId)
+      const cachedPreview = isRemote.value ? undefined : thumbnailPathCache.get(mediaId)
       const cachedSnapshot = cachedSnapshotPath(mediaId)
+      if (isRemote.value && !cachedSnapshot) {
+        addToast('Preparing a local copy. Drag again when it is ready.')
+        void getExportableSnapshotPath(mediaId).then((path) => {
+          addToast(path ? 'Local copy ready to drag.' : 'Could not prepare a local copy.', path ? 'info' : 'error')
+        })
+        return
+      }
       const dragPath = cachedSnapshot || filePath
 
       startNativeDrag([dragPath], cachedPreview).catch((e) => {
@@ -286,7 +312,11 @@ export function useTauriDrag() {
     filePaths?: string[]
   ): Promise<void> {
     // Ensure Tauri is initialized before checking
-    await initTauri()
+    if (!initComplete) {
+      event.preventDefault()
+      void initTauri()
+      return
+    }
 
     // If in Tauri with file paths available, use native file drag exclusively
     if (isTauri.value && filePaths && filePaths.length > 0) {
@@ -298,8 +328,15 @@ export function useTauriDrag() {
       // or thumbnail fetches before start_drag (doing so ends the mouse gesture
       // and crashes the macOS drag plugin). Use whatever snapshots are already
       // cached, falling back to the raw file path per item.
+      if (isRemote.value && mediaIds.some((id) => !cachedSnapshotPath(id))) {
+        addToast('Preparing local copies. Drag again when they are ready.')
+        void Promise.all(mediaIds.map(getExportableSnapshotPath)).then((paths) => {
+          addToast(paths.every(Boolean) ? 'Local copies ready to drag.' : 'Could not prepare local copies.', paths.every(Boolean) ? 'info' : 'error')
+        })
+        return
+      }
       const resolvedPaths = mediaIds.map((id, i) => cachedSnapshotPath(id) || filePaths[i])
-      const cachedPreview = thumbnailPathCache.get(mediaIds[0])
+      const cachedPreview = isRemote.value ? undefined : thumbnailPathCache.get(mediaIds[0])
 
       startNativeDrag(resolvedPaths, cachedPreview).catch((e) => {
         console.error('[useTauriDrag] Multi-file native drag failed:', e)
@@ -372,6 +409,13 @@ export function useTauriDrag() {
     handleMultiDragStart,
     cacheFilePath,
     getFilePath,
-    prewarmDragSnapshot
+    prewarmDragSnapshot,
+    async revealMediaFile(mediaId: number, filePath: string) {
+      const key = snapshotKey(mediaId)
+      const path = isRemote.value ? await getExportableSnapshotPath(mediaId) : filePath
+      if (key !== snapshotKey(mediaId)) return
+      if (!path) throw new Error("Could not prepare a local copy")
+      await desktop.revealItemInDir(path)
+    },
   }
 }

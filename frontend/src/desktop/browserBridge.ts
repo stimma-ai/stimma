@@ -176,6 +176,10 @@ export const browserBridge: DesktopBridge = {
     throw new Error('Native drag-out is only available in the desktop app')
   },
 
+  async cacheRemoteFile() {
+    return null
+  },
+
   async embedMetadata() {
     return null
   },

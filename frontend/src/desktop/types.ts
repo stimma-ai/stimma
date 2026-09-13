@@ -204,6 +204,8 @@ export interface DesktopBridge {
    * Splice prepared metadata into a media file copy (byte-level, no
    * re-encode). Resolves the path of the embedded snapshot, or null.
    */
+  /** Store a remote file in a local temporary directory for reveal/drag. */
+  cacheRemoteFile(filename: string, data: Uint8Array): Promise<string | null>
   embedMetadata(req: unknown): Promise<string | null>
   /**
    * Current physical shift-key state, readable mid-drag (WKWebView does not

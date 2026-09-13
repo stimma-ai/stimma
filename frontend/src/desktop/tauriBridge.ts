@@ -267,6 +267,10 @@ export const tauriBridge: DesktopBridge = {
     })
   },
 
+  async cacheRemoteFile() {
+    return null
+  },
+
   async embedMetadata(req) {
     const { invoke } = await core()
     const path = await invoke<unknown>('embed_metadata', { req })
