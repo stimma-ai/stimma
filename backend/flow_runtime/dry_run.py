@@ -47,6 +47,7 @@ from .production_evaluators import (
     InfoEvaluator,
     _MAX_LAYOUT_HTML_BYTES,
     _coerce_items_list,
+    _coerce_media_id,
     _format_user_code_error,
     _invoke_code_callable,
     _media_ids_from_code_value,
@@ -327,6 +328,7 @@ def build_dry_run_registry(media_dir: Path) -> EvaluatorRegistry:
     reg.register("create_image", DryRunCreateImageEvaluator(media_path))
     reg.register("create_layout", DryRunCreateLayoutEvaluator(media_path))
     reg.register("create_set", DryRunCreateSetEvaluator())
+    reg.register("create_package", DryRunCreatePackageEvaluator())
     reg.register("create_grid", DryRunCreateGridEvaluator())
     reg.register("create_document", DryRunCreateDocumentEvaluator())
     reg.register("rasterize_layout", DryRunRasterizeLayoutEvaluator())
@@ -537,6 +539,21 @@ class DryRunCreateSetEvaluator:
         media_ids = _coerce_items_list(request.resolved_inputs.get("items"))
         if not media_ids:
             raise EvaluatorError("create_set: items list is empty", category=TOOL_ERROR)
+        media_id = _stable_fake_media_id(request.equation_key)
+        return EvaluationResult(value=media_id, media_ids=[media_id])
+
+
+
+class DryRunCreatePackageEvaluator:
+    async def __call__(self, request: EvaluationRequest) -> EvaluationResult:
+        media_ids = _coerce_items_list(request.resolved_inputs.get("members"))
+        roles = [k for k in request.resolved_inputs if k.startswith("input:")]
+        if not media_ids and not roles:
+            raise EvaluatorError(
+                "create_package: members list is empty", category=TOOL_ERROR,
+            )
+        for key in roles:
+            _coerce_media_id(request.resolved_inputs[key])
         media_id = _stable_fake_media_id(request.equation_key)
         return EvaluationResult(value=media_id, media_ids=[media_id])
 

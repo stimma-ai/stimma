@@ -49,6 +49,7 @@ from flow_runtime.store_key import (
     definition_hash_for_create_grid,
     definition_hash_for_create_image,
     definition_hash_for_create_layout,
+    definition_hash_for_create_package,
     definition_hash_for_create_set,
     definition_hash_for_fetch_media,
     definition_hash_for_info,
@@ -1523,8 +1524,14 @@ def info(
 # ----- Library-assembly primitives (set / grid / document) -----------------
 
 
-def _validate_items_list_of_media(primitive: str, items: Any) -> Any:
+def _validate_items_list_of_media(
+    primitive: str, items: Any, *, field: str = "items",
+) -> Any:
     """Coerce `items` into a dynamic-binding value that resolves to list[media].
+
+    ``field`` is the caller's parameter name, so the error message names
+    the argument the author actually wrote (``members=`` for
+    ``create_package``).
 
     Accepted forms:
       - A collection NodeRef whose shape is list[media] (from foreach output,
@@ -1534,19 +1541,19 @@ def _validate_items_list_of_media(primitive: str, items: Any) -> Any:
     if isinstance(items, NodeRef):
         if not items.collection:
             raise DSLMisuseError(
-                f"{primitive}(): items node {items.equation_key!r} is not a collection",
+                f"{primitive}(): {field} node {items.equation_key!r} is not a collection",
                 suggestion=(
-                    "items must resolve to a list of media ids. Pass the node "
+                    f"{field} must resolve to a list of media ids. Pass the node "
                     "returned by foreach(...) or hitl.select(count=N>1)."
                 ),
             )
         shape = items.shape
         if shape is not None and not shape_matches_array(shape, "media"):
             raise DSLMisuseError(
-                f"{primitive}(): items shape is {describe_shape(shape)}, "
+                f"{primitive}(): {field} shape is {describe_shape(shape)}, "
                 "expected list[media]",
                 suggestion=(
-                    "items must resolve to a list of media ids. If the upstream "
+                    f"{field} must resolve to a list of media ids. If the upstream "
                     "is an llm() result, extract the list field with code() and "
                     "ensure the elements are media nodes."
                 ),
@@ -1555,12 +1562,12 @@ def _validate_items_list_of_media(primitive: str, items: Any) -> Any:
     if isinstance(items, (list, tuple)):
         if not items:
             raise DSLMisuseError(
-                f"{primitive}(items=[]): items list must not be empty",
+                f"{primitive}({field}=[]): {field} list must not be empty",
             )
         for idx, it in enumerate(items):
             if not isinstance(it, NodeRef):
                 raise DSLMisuseError(
-                    f"{primitive}(items=[...][{idx}]): each element must be a "
+                    f"{primitive}({field}=[...][{idx}]): each element must be a "
                     f"media NodeRef, got {type(it).__name__}",
                     suggestion=(
                         "Build the list from media nodes only — results of "
@@ -1571,12 +1578,12 @@ def _validate_items_list_of_media(primitive: str, items: Any) -> Any:
             shape = it.shape
             if shape is not None and not shape_matches_scalar_kind(shape, "media"):
                 raise DSLMisuseError(
-                    f"{primitive}(items=[...][{idx}]): element shape is "
+                    f"{primitive}({field}=[...][{idx}]): element shape is "
                     f"{describe_shape(shape)}, expected media",
                 )
         return list(items)
     raise DSLMisuseError(
-        f"{primitive}(): items must be a list NodeRef or a list of media nodes; "
+        f"{primitive}(): {field} must be a list NodeRef or a list of media nodes; "
         f"got {type(items).__name__}",
         suggestion=(
             "Pass a collection node (foreach result, hitl.select(count>1)) "
@@ -1618,6 +1625,139 @@ def create_set(
         EquationType.CREATE_SET,
         definition,
         {"items": items_binding},
+        shape=Scalar(kind="media"),
+    )
+
+
+def create_package(
+    members: Any,
+    *,
+    recipe: Optional[str] = None,
+    inputs: Optional[dict[str, Any]] = None,
+    params: Optional[dict[str, Any]] = None,
+    title: str = "",
+    description: str = "",
+) -> NodeRef:
+    """Assemble media into a ``.stimmapackage`` deliverable bundle.
+
+    ``members`` is either a collection NodeRef resolving to ``list[media]``
+    or a plain Python list of media NodeRefs; every one becomes a package
+    member. ``recipe`` names an installed recipe to run over the package
+    (``"app-icons"``, ``"logo"``, ...); ``inputs`` maps that recipe's roles
+    to media (a NodeRef or a media id), each of which also joins the package
+    as a member carrying that role. ``params`` is a literal dict of recipe
+    parameters — static only, known at build time.
+
+    Resolves to the package's media id.
+    """
+    if not isinstance(title, str):
+        raise DSLMisuseError(
+            f"create_package(): title must be a string, got {type(title).__name__}",
+        )
+    if not isinstance(description, str):
+        raise DSLMisuseError(
+            f"create_package(): description must be a string, "
+            f"got {type(description).__name__}",
+        )
+    if recipe is not None and (not isinstance(recipe, str) or not recipe.strip()):
+        raise DSLMisuseError(
+            f"create_package(recipe={recipe!r}): recipe must be a non-empty "
+            f"recipe id string or None",
+            suggestion=(
+                "Pass a literal recipe id (e.g. recipe='app-icons') or omit "
+                "recipe= to build a package with no recipe run."
+            ),
+        )
+    if params is not None and not isinstance(params, dict):
+        raise DSLMisuseError(
+            f"create_package(): params must be a dict, got {type(params).__name__}",
+        )
+    params = dict(params or {})
+    if _collect_noderefs(params):
+        raise DSLMisuseError(
+            "create_package(): params must be static — it cannot contain nodes",
+            suggestion=(
+                "Recipe parameters are part of the step's identity and must be "
+                "literal Python values known at build time. Move anything "
+                "node-derived into the recipe's inputs instead."
+            ),
+        )
+    try:
+        canonical_json_hash(params)
+    except Exception as exc:  # noqa: BLE001
+        raise DSLMisuseError(
+            f"create_package(): params must be JSON-serializable ({exc})",
+        ) from exc
+    if inputs is not None and not isinstance(inputs, dict):
+        raise DSLMisuseError(
+            f"create_package(): inputs must be a dict of role -> media, "
+            f"got {type(inputs).__name__}",
+        )
+    inputs = dict(inputs or {})
+    if inputs and recipe is None:
+        raise DSLMisuseError(
+            "create_package(): inputs= is only meaningful with a recipe=",
+            suggestion=(
+                "Pass recipe='...' alongside inputs=, or move those media "
+                "into members= if they are plain package members."
+            ),
+        )
+
+    members_binding = _validate_items_list_of_media(
+        "create_package", members, field="members",
+    )
+
+    input_roles: dict[str, Any] = {}
+    dynamic_bindings: dict[str, Any] = {"members": members_binding}
+    for role, value in inputs.items():
+        if not isinstance(role, str) or not role.strip():
+            raise DSLMisuseError(
+                f"create_package(): input roles must be non-empty strings, "
+                f"got {role!r}",
+            )
+        if isinstance(value, NodeRef):
+            if value.collection:
+                raise DSLMisuseError(
+                    f"create_package(inputs={role!r}): a recipe input takes one "
+                    f"media, got a collection node",
+                    suggestion=(
+                        "Index the item you want with code(), or pass the "
+                        "collection to members= instead."
+                    ),
+                )
+            shape = value.shape
+            if shape is not None and not shape_matches_scalar_kind(shape, "media"):
+                raise DSLMisuseError(
+                    f"create_package(inputs={role!r}): shape is "
+                    f"{describe_shape(shape)}, expected media",
+                )
+            input_roles[role] = "dynamic"
+        elif isinstance(value, int) and not isinstance(value, bool):
+            input_roles[role] = value
+        else:
+            raise DSLMisuseError(
+                f"create_package(inputs={role!r}): each input must be a media "
+                f"NodeRef or a media id, got {type(value).__name__}",
+            )
+        dynamic_bindings[f"input:{role}"] = value
+
+    ctx = current_context()
+    definition = {
+        "title": title,
+        "description": description,
+        "recipe": recipe,
+        "params": params,
+        "input_roles": input_roles,
+        "definition_hash": definition_hash_for_create_package(
+            recipe, params, title, description,
+        ),
+    }
+    return _register_nested_equation(
+        ctx,
+        "create_package",
+        EquationType.CREATE_PACKAGE,
+        definition,
+        dynamic_bindings,
         shape=Scalar(kind="media"),
     )
 

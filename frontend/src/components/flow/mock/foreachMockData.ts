@@ -18,6 +18,7 @@ export type MockNodeKind =
   | 'flow_output'
   | 'control'
   | 'create_set'
+  | 'create_package'
   | 'create_grid'
   | 'create_document'
 

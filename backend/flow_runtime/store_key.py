@@ -45,6 +45,7 @@ STOREABLE_EQUATION_TYPES = frozenset({
     "code",
     "info",
     "create_set",
+    "create_package",
     "create_grid",
     "create_document",
     "create_image",
@@ -156,6 +157,27 @@ def definition_hash_for_create_set(title: str, description: str) -> str:
     inputs and flows into inputs_hash (content-addressable reuse).
     """
     payload = {"title": title, "description": description}
+    return canonical_json_hash(payload)
+
+
+def definition_hash_for_create_package(
+    recipe: str | None,
+    params: Mapping[str, Any] | None,
+    title: str,
+    description: str,
+) -> str:
+    """definition_hash for a create_package() equation.
+
+    The recipe id and its params are the static identity of the build —
+    changing either must produce a different bundle. Members and role
+    inputs arrive as dynamic media and flow into inputs_hash instead.
+    """
+    payload = {
+        "recipe": recipe or None,
+        "params": dict(params or {}),
+        "title": title,
+        "description": description,
+    }
     return canonical_json_hash(payload)
 
 

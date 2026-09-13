@@ -887,6 +887,7 @@ function buildSubSteps(
       || equationType === 'create_layout'
       || equationType === 'create_grid'
       || equationType === 'create_set'
+      || equationType === 'create_package'
       || equationType === 'create_document'
     ) {
       kind = 'producer'
