@@ -46,52 +46,100 @@ class CoverError(ValueError):
 # Kit assets ----------------------------------------------------------------
 
 KIT_CSS = """
-:root{--sp-bg:#0f0f10;--sp-fg:#ececec;--sp-muted:#9a9a9a;--sp-line:#2a2a2b;--sp-card:#171718;--sp-accent:#2dd4bf}
-@media (prefers-color-scheme: light){:root{--sp-bg:#faf9f7;--sp-fg:#1a1a1a;--sp-muted:#6b6b6b;--sp-line:#e4e1dc;--sp-card:#ffffff}}
-html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+:root{
+  --sp-bg:#0d0d0e; --sp-fg:#ededee; --sp-muted:#8b8b8f; --sp-faint:#5c5c60;
+  --sp-line:#232325; --sp-accent:#2dd4bf; --sp-plate:#151517;
+}
+@media (prefers-color-scheme: light){
+  :root{--sp-bg:#faf9f7; --sp-fg:#17171a; --sp-muted:#6b6b70; --sp-faint:#97979c;
+        --sp-line:#e5e2dd; --sp-accent:#0d9488; --sp-plate:#f1efec;}
+}
 *{box-sizing:border-box}
-a{color:inherit}
-.sp-page{max-width:1200px;margin:0 auto;padding:48px 24px 96px}
-.sp-title{font-size:clamp(32px,6vw,64px);line-height:1;letter-spacing:-0.02em;margin:0 0 8px;font-weight:700}
-.sp-sub{color:var(--sp-muted);margin:0 0 40px}
-.sp-h2{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--sp-muted);margin:48px 0 16px;font-weight:600}
-.sp-card{background:var(--sp-card);border:1px solid var(--sp-line);border-radius:8px;overflow:hidden}
+html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{display:block}
+.sp-page{max-width:920px;margin:0 auto;padding:72px 28px 120px}
+.sp-title{font-size:clamp(30px,5vw,52px);line-height:1.02;letter-spacing:-0.025em;margin:0;font-weight:600}
+.sp-sub{color:var(--sp-muted);margin:10px 0 0;font-size:15px}
+.sp-sub b{color:var(--sp-fg);font-weight:500}
+.sp-section{margin-top:72px}
+.sp-label{font-size:12px;letter-spacing:.02em;color:var(--sp-muted);margin:0 0 18px;font-weight:500}
+.sp-note{color:var(--sp-muted);font-size:13px;margin:12px 0 0}
+.sp-num{font-variant-numeric:tabular-nums}
+.sp-hr{border:0;border-top:1px solid var(--sp-line);margin:0}
+
+/* Media: artwork sits on a matte, never in a bordered card. */
 stimma-media{display:block}
-stimma-media img,stimma-media video{display:block;max-width:100%;height:auto;background:
-  linear-gradient(45deg,#8883 25%,transparent 25%,transparent 75%,#8883 75%),linear-gradient(45deg,#8883 25%,transparent 25%,transparent 75%,#8883 75%);
-  background-size:16px 16px;background-position:0 0,8px 8px}
-stimma-media[real-size] img{max-width:none;width:auto;height:auto}
-stimma-media .sp-caption{font-size:13px;color:var(--sp-muted);padding:8px 0 0}
-stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,220px),1fr));gap:16px}
-stimma-grid stimma-media{background:var(--sp-card);border:1px solid var(--sp-line);border-radius:6px;padding:12px}
-stimma-grid stimma-media img{margin:0 auto}
+stimma-media img,stimma-media video{max-width:100%;height:auto;border-radius:2px}
+stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10px}
+stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
+stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,200px),1fr));gap:28px}
+
+/* Files: a quiet list. One icon button per row, no repeated link text. */
 stimma-files{display:block}
-stimma-files .sp-files-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--sp-line);font-weight:600}
-stimma-files .sp-files-head a{font-size:13px;font-weight:500;color:var(--sp-accent);text-decoration:none}
+.sp-files-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px}
 stimma-files ul{list-style:none;margin:0;padding:0}
-stimma-files li{padding:0}
-stimma-files li>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--sp-line);font-size:14px}
+stimma-files li>div{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--sp-line)}
 stimma-files li:last-child>div{border-bottom:0}
-stimma-files li.sp-dir>ul{padding-left:16px;border-left:1px solid var(--sp-line);margin-left:16px}
-stimma-files li.sp-dir>div{cursor:pointer;user-select:none}
+stimma-files li.sp-dir>ul{margin-left:18px;padding-left:14px;border-left:1px solid var(--sp-line)}
+stimma-files li.sp-dir>div{cursor:pointer;user-select:none;color:var(--sp-fg)}
 stimma-files li.sp-dir.sp-collapsed>ul{display:none}
-stimma-files .sp-meta{color:var(--sp-muted);font-size:12px;font-variant-numeric:tabular-nums}
-stimma-files a.sp-dl{color:var(--sp-accent);text-decoration:none;font-size:12px}
-stimma-compare{display:block;position:relative;overflow:hidden;border-radius:6px;background:var(--sp-card);border:1px solid var(--sp-line)}
-stimma-compare .sp-cmp{display:grid;grid-template-columns:1fr 1fr;gap:2px}
-stimma-compare .sp-cmp figure{margin:0}
-stimma-compare .sp-cmp img{display:block;width:100%;height:auto}
-stimma-compare .sp-cmp figcaption{font-size:12px;color:var(--sp-muted);padding:6px 8px}
+stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+stimma-files .sp-dir>div .sp-name{color:var(--sp-muted)}
+stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums}
+.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+  border-radius:6px;color:var(--sp-muted);flex:none;transition:color .15s,background-color .15s}
+.sp-dl:hover{color:var(--sp-fg);background:var(--sp-plate)}
+.sp-dl svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+.sp-getall{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-accent);
+  padding:6px 10px;border-radius:6px;transition:background-color .15s}
+.sp-getall:hover{background:var(--sp-plate)}
+.sp-getall svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* Compare */
+stimma-compare{display:block}
+stimma-compare .sp-cmp{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+stimma-compare figure{margin:0}
+stimma-compare figcaption{font-size:12px;color:var(--sp-muted);padding-top:8px}
 stimma-compare.sp-slider .sp-cmp{display:block;position:relative}
-stimma-compare.sp-slider .sp-cmp figure:first-child{position:absolute;inset:0;overflow:hidden;width:var(--sp-split,50%)}
-stimma-compare.sp-slider .sp-cmp figure:first-child img{width:var(--sp-w,100%);max-width:none}
-stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bottom:8px;width:100%;margin:0;opacity:.85}
-stimma-compare.sp-slider figcaption{position:absolute;top:8px;background:#0008;color:#fff;border-radius:4px}
-stimma-compare.sp-slider figure:first-child figcaption{left:8px}
-stimma-compare.sp-slider figure:last-child figcaption{right:8px}
-.sp-members{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-.sp-footer{margin-top:64px;color:var(--sp-muted);font-size:12px}
+stimma-compare.sp-slider figure:first-child{position:absolute;inset:0;overflow:hidden;width:var(--sp-split,50%)}
+stimma-compare.sp-slider figure:first-child img{width:var(--sp-w,100%);max-width:none}
+stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bottom:10px;width:100%;margin:0}
+
+/* Reserved widgets render their children and nothing else for now. */
 stimma-pick,stimma-approve,stimma-comments{display:block}
+
+.sp-footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--sp-line);
+  color:var(--sp-faint);font-size:12px}
+
+/* Recipe presentations ---------------------------------------------------- */
+.sp-hero{display:flex;align-items:center;justify-content:center;gap:64px;flex-wrap:wrap;padding:8px 0}
+.sp-hero-icon{flex:none}
+.sp-hero-icon img{width:180px;height:180px;border-radius:22.37%;
+  box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.sp-phone{flex:none;width:216px;aspect-ratio:9/19.5;border-radius:34px;padding:9px;
+  background:#0b0b0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.sp-screen{width:100%;height:100%;border-radius:26px;overflow:hidden;position:relative;
+  background:linear-gradient(165deg,#3a4a63,#141a26 70%)}
+.sp-screen .sp-apps{position:absolute;top:11%;left:0;right:0;display:grid;
+  grid-template-columns:repeat(4,1fr);gap:14px 10px;padding:0 14px}
+.sp-screen .sp-app{display:grid;justify-items:center;gap:5px}
+.sp-screen .sp-app img,.sp-screen .sp-app span.sp-blank{width:38px;height:38px;border-radius:22.37%}
+.sp-screen .sp-app span.sp-blank{background:rgba(255,255,255,.14)}
+.sp-screen .sp-app em{font-style:normal;font-size:7px;color:#fff;opacity:.9;
+  text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.sp-sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
+.sp-size{display:grid;justify-items:center;gap:8px}
+.sp-size img{border-radius:22.37%;image-rendering:auto}
+.sp-size span{font-size:11px;color:var(--sp-muted);font-variant-numeric:tabular-nums}
+.sp-platforms{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0}
+.sp-platform{padding:16px 0;border-top:1px solid var(--sp-line)}
+.sp-platform h3{margin:0 0 4px;font-size:14px;font-weight:500}
+.sp-platform p{margin:0;font-size:13px;color:var(--sp-muted)}
 """
 
 KIT_JS = r"""
@@ -195,6 +243,16 @@ def _tree(entries: list[dict[str, Any]], root: str) -> dict[str, Any]:
     return tree
 
 
+_ICON_DOWNLOAD = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    '<path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'
+)
+_ICON_ARCHIVE = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    '<path d="M3 7h18M4 7v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7M3 7l1.6-3h14.8L21 7M10 12h4"/></svg>'
+)
+
+
 def _render_tree(node: dict[str, Any], prefix: str) -> str:
     items = sorted(node.items(), key=lambda kv: (not isinstance(kv[1], dict) or "__file__" in kv[1], kv[0].lower()))
     out = ["<ul>"]
@@ -205,12 +263,16 @@ def _render_tree(node: dict[str, Any], prefix: str) -> str:
             entry = child["__file__"]
             href = htmllib.escape(entry["path"], quote=True)
             out.append(
-                f'<li><div><span>{htmllib.escape(name)}</span>'
-                f'<span class="sp-meta">{_human_size(int(entry.get("size") or 0))} '
-                f'<a class="sp-dl" href="{href}" download>Download</a></span></div></li>'
+                f'<li><div><span class="sp-name">{htmllib.escape(name)}</span>'
+                f'<span class="sp-meta">{_human_size(int(entry.get("size") or 0))}</span>'
+                f'<a class="sp-dl" href="{href}" download title="Download {htmllib.escape(name, quote=True)}"'
+                f' aria-label="Download {htmllib.escape(name, quote=True)}">{_ICON_DOWNLOAD}</a></div></li>'
             )
         else:
-            out.append(f'<li class="sp-dir"><div><span>{htmllib.escape(name)}/</span></div>{_render_tree(child, prefix + name + "/")}</li>')
+            out.append(
+                f'<li class="sp-dir"><div><span class="sp-name">{htmllib.escape(name)}</span></div>'
+                f'{_render_tree(child, prefix + name + "/")}</li>'
+            )
     out.append("</ul>")
     return "".join(out)
 
@@ -220,23 +282,24 @@ def _files_markup(manifest: dict[str, Any], ref: str) -> str:
     if run is not None:
         root = run.get("root") or ""
         entries = run.get("files") or []
-        label = root.rstrip("/") or run["id"]
-        zip_name = root.rstrip("/") + ".zip"
+        zip_name = htmllib.escape(root.rstrip("/") + ".zip", quote=True)
+        total = sum(int(e.get("size") or 0) for e in entries)
         head = (
-            f'<div class="sp-files-head"><span>{htmllib.escape(label)}/</span>'
-            f'<a href="{htmllib.escape(zip_name, quote=True)}" download>Download folder as zip</a></div>'
+            f'<div class="sp-files-top"><span class="sp-meta sp-num">{len(entries)} files · {_human_size(total)}</span>'
+            f'<a class="sp-getall" href="{zip_name}" download>{_ICON_ARCHIVE}<span>Download all</span></a></div>'
         )
-        return f'<div class="sp-card">{head}{_render_tree(_tree(entries, root), root)}</div>'
-    # whole package: members, runs, extras
-    sections = []
-    for member in manifest.get("members") or []:
-        sections.append({"path": member["path"], "size": member.get("size", 0)})
+        return head + _render_tree(_tree(entries, root), root)
+
+    sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:
         sections.extend(run.get("files") or [])
     for extra in manifest.get("extras") or []:
         sections.append({"path": extra["path"], "size": extra.get("size", 0)})
-    head = '<div class="sp-files-head"><span>All files</span></div>'
-    return f'<div class="sp-card">{head}{_render_tree(_tree(sections, ""), "")}</div>'
+    total = sum(int(e.get("size") or 0) for e in sections)
+    head = (
+        f'<div class="sp-files-top"><span class="sp-meta sp-num">{len(sections)} files · {_human_size(total)}</span></div>'
+    )
+    return head + _render_tree(_tree(sections, ""), "")
 
 
 def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:
@@ -379,33 +442,93 @@ def _extract_parts(html_text: str) -> tuple[str, str, str]:
     return head_extra, body, title
 
 
+def _total_size(manifest: dict[str, Any]) -> int:
+    """Bytes of what the recipient receives. Inputs are not part of the count."""
+    total = 0
+    for run in manifest.get("runs") or []:
+        total += sum(int(e.get("size") or 0) for e in run.get("files") or [])
+    total += sum(int(e.get("size") or 0) for e in manifest.get("extras") or [])
+    return total
+
+
+def _total_files(manifest: dict[str, Any]) -> int:
+    produced = sum(len(run.get("files") or []) for run in manifest.get("runs") or [])
+    produced += len(manifest.get("extras") or [])
+    # A package with nothing but inputs is still a package of those files.
+    return produced or len(manifest.get("members") or [])
+
+
+def _run_presentation(run: dict[str, Any], manifest: dict[str, Any]) -> Optional[str]:
+    """Ask the recipe that produced this run to present it, if it can."""
+    from packages.recipes import get_recipe
+
+    recipe_id = (run.get("recipe") or {}).get("id")
+    if not recipe_id:
+        return None
+    try:
+        spec = get_recipe(recipe_id)
+    except Exception:  # noqa: BLE001
+        return None
+    if spec is None or spec.present is None:
+        return None
+    try:
+        fragment = spec.present(run, manifest)
+    except Exception:  # noqa: BLE001
+        return None
+    return fragment or None
+
+
 def auto_cover_body(manifest: dict[str, Any]) -> str:
-    """A plain, competent cover for packages built without an author."""
-    parts = [f'<div class="sp-page"><h1 class="sp-title">{htmllib.escape(manifest.get("title") or "Package")}</h1>']
-    members = manifest.get("members") or []
+    """The cover a package gets when nobody designed one.
+
+    It leads with the work, says what is inside in the words someone receiving
+    it would use, and keeps the file list quiet and last. Nothing structural
+    about how the package was assembled belongs on this page.
+    """
+    title = htmllib.escape(manifest.get("title") or "Package")
+    parts = [f'<div class="sp-page"><h1 class="sp-title">{title}</h1>']
+
     runs = manifest.get("runs") or []
-    subtitle = []
-    if members:
-        subtitle.append(f"{len(members)} member{'s' if len(members) != 1 else ''}")
-    if runs:
-        subtitle.append(f"{len(runs)} recipe run{'s' if len(runs) != 1 else ''}")
-    parts.append(f'<p class="sp-sub">{" · ".join(subtitle) or "Empty package"}</p>')
-    if members:
-        parts.append('<h2 class="sp-h2">Members</h2><stimma-grid>')
-        for member in members:
-            role = f' caption="{htmllib.escape(member.get("role") or "", quote=True)}"' if member.get("role") else ""
-            parts.append(f'<stimma-media ref="{htmllib.escape(member["id"], quote=True)}"{role}></stimma-media>')
-        parts.append("</stimma-grid>")
+    labels = [
+        (run.get("recipe") or {}).get("display_name") or (run.get("recipe") or {}).get("id") or ""
+        for run in runs
+    ]
+    labels = [label for label in labels if label]
+    summary = " · ".join(filter(None, [
+        ", ".join(labels),
+        f"{_total_files(manifest)} files",
+        _human_size(_total_size(manifest)),
+    ]))
+    if summary:
+        parts.append(f'<p class="sp-sub">{htmllib.escape(summary)}</p>')
+
+    presented = False
     for run in runs:
-        label = run.get("recipe", {}).get("display_name") or run.get("recipe", {}).get("id") or run["id"]
-        parts.append(f'<h2 class="sp-h2">{htmllib.escape(label)}</h2><stimma-files ref="{htmllib.escape(run["id"], quote=True)}"></stimma-files>')
+        fragment = _run_presentation(run, manifest)
+        if fragment:
+            parts.append(f'<div class="sp-section">{fragment}</div>')
+            presented = True
+
+    if not presented:
+        members = manifest.get("members") or []
+        if members:
+            parts.append('<div class="sp-section"><stimma-grid>')
+            for member in members:
+                ref = htmllib.escape(member["id"], quote=True)
+                parts.append(f'<stimma-media ref="{ref}" plate></stimma-media>')
+            parts.append("</stimma-grid></div>")
+
     extras = manifest.get("extras") or []
     if extras:
-        parts.append('<h2 class="sp-h2">Also included</h2><div class="sp-card"><ul>')
-        for extra in extras:
-            href = htmllib.escape(extra["path"], quote=True)
-            parts.append(f'<li><div><span>{htmllib.escape(extra.get("name") or Path(extra["path"]).name)}</span><a class="sp-dl" href="{href}" download>Download</a></div></li>')
-        parts.append("</ul></div>")
+        parts.append('<div class="sp-section"><p class="sp-label">Also included</p><stimma-files></stimma-files></div>')
+    else:
+        for run in runs:
+            ref = htmllib.escape(run["id"], quote=True)
+            parts.append(
+                f'<div class="sp-section"><p class="sp-label">Files</p>'
+                f'<stimma-files ref="{ref}"></stimma-files></div>'
+            )
+
     parts.append('<p class="sp-footer">Made with Stimma.</p></div>')
     return "".join(parts)
 

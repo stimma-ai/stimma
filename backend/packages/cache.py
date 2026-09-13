@@ -45,8 +45,8 @@ def _entry_dir(profile_id: str, key: str) -> Path:
     return cache_root(profile_id) / key
 
 
-def lookup(profile_id: str, key: str) -> Optional[list[WrittenFile]]:
-    """Return the memoized file list when every file is present, else None."""
+def lookup(profile_id: str, key: str) -> Optional[tuple[list[WrittenFile], Optional[bytes]]]:
+    """Return the memoized (files, tile) when every file is present, else None."""
     entry = _entry_dir(profile_id, key)
     meta = entry / "run.json"
     if not meta.is_file():
@@ -65,10 +65,15 @@ def lookup(profile_id: str, key: str) -> Optional[list[WrittenFile]]:
         os.utime(meta, None)  # LRU touch
     except OSError:
         pass
-    return files
+    tile_path = entry / "tile.png"
+    tile = tile_path.read_bytes() if tile_path.is_file() else None
+    return files, tile
 
 
-def store(profile_id: str, key: str, tree_dir: Path, files: list[WrittenFile]) -> None:
+def store(
+    profile_id: str, key: str, tree_dir: Path, files: list[WrittenFile],
+    *, tile_png: Optional[bytes] = None,
+) -> None:
     """Copy a finished run subtree into the cache (idempotent)."""
     entry = _entry_dir(profile_id, key)
     if (entry / "run.json").is_file():
@@ -77,6 +82,8 @@ def store(profile_id: str, key: str, tree_dir: Path, files: list[WrittenFile]) -
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
     shutil.copytree(tree_dir, tmp / "tree", dirs_exist_ok=True)
+    if tile_png:
+        (tmp / "tile.png").write_bytes(tile_png)
     (tmp / "run.json").write_text(
         json.dumps({"files": [f.__dict__ for f in files], "stored_at": time.time()}),
         encoding="utf-8",

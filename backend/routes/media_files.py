@@ -186,6 +186,7 @@ THEME_PALETTES = {
         'audio_bg': '#1a1a2e', 'audio_fallback_icon': '#9333ea',
         'placeholder_set_bg': '#1a1a2e', 'placeholder_grid_bg': '#1a1a2e', 'placeholder_default_bg': '#1f2937',
         'sprite_bg': '#07090d', 'sprite_strip_bg': '#000000', 'sprite_strip_cell': '#161a22',
+        'package_bg': '#151517', 'package_shelf': '#0d0d0f', 'package_rule': '#2a2a2b',
     },
     'light': {
         'set_bg': '#f4f4f5', 'set_card_border': '#d4d4d8',
@@ -194,6 +195,7 @@ THEME_PALETTES = {
         'audio_bg': '#f0f0ff', 'audio_fallback_icon': '#7c3aed',
         'placeholder_set_bg': '#f0f0ff', 'placeholder_grid_bg': '#f0f0ff', 'placeholder_default_bg': '#f1f5f9',
         'sprite_bg': '#e4e4e7', 'sprite_strip_bg': '#d4d4d8', 'sprite_strip_cell': '#f4f4f5',
+        'package_bg': '#faf9f7', 'package_shelf': '#eeece8', 'package_rule': '#dedbd5',
     },
 }
 
@@ -1247,59 +1249,100 @@ async def _generate_layout_preview(
         return None
 
 
-async def _generate_package_preview(
+def _generate_package_preview(
     file_path: str,
     size: int,
-    *,
-    wait_for_client_timeout_s: float = 0.25,
-    queue_timeout_s: float = 0.25,
-    render_timeout_s: float = 30.0,
-    raise_transient: bool = False,
-) -> Optional[Image.Image]:
-    """Render the top of a package cover (previews inlined) to a PIL image via the UI client.
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
+    """The package's hero artwork sitting on a shelf, with a count of what is inside.
 
-    The cover is a responsive page, not a fixed canvas, so it is rendered into
-    a 4:3 viewport and the tile shows what you would see when the package opens.
+    Composed here rather than rasterized from the cover: a tile is seen at 128px
+    in a grid, where a shrunken web page reads as noise, and a package has to
+    have a tile whether or not the app is open to render anything.
     """
-    import asyncio as _asyncio
-    from pathlib import Path as PathLib
+    import json
 
-    bundle_dir = PathLib(file_path)
-    if not (bundle_dir / 'index.html').exists():
-        return None
+    palette = palette or THEME_PALETTES['dark']
+    bundle = Path(file_path)
     try:
-        from packages.export import export_single_html
-        from utils.ui_render import (
-            LayoutRenderBusy,
-            LayoutRenderUnavailable,
-            _dpr_for_target,
-            render_layout_via_ui,
+        manifest = normalized_content
+        if manifest is None:
+            manifest = json.loads((bundle / 'stimma-package.json').read_text(encoding='utf-8'))
+
+        # A designed tile wins: the agent, or the recipe that knows what it made,
+        # gets to decide what a package looks like in a grid. Composing one here
+        # is the floor for packages nobody designed a face for.
+        designed = (manifest.get('cover_image') or '').strip()
+        if designed:
+            candidate = bundle / designed
+            if candidate.is_file():
+                with Image.open(candidate) as im:
+                    tile = im.convert('RGB') if im.mode in ('RGB', 'L') else im.convert('RGBA')
+                if tile.mode == 'RGBA':
+                    flat = Image.new('RGB', tile.size, palette['package_bg'])
+                    flat.paste(tile, (0, 0), tile)
+                    tile = flat
+                tile.thumbnail((size, size), Image.LANCZOS)
+                canvas = Image.new('RGB', (size, size), palette['package_bg'])
+                canvas.paste(tile, ((size - tile.width) // 2, (size - tile.height) // 2))
+                return canvas
+
+        hero_path = None
+        for member in manifest.get('members') or []:
+            candidate = bundle / (member.get('path') or '')
+            if candidate.is_file() and candidate.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}:
+                hero_path = candidate
+                break
+        if hero_path is None:
+            # No usable member: fall back to the largest raster any run produced.
+            candidates = []
+            for run in manifest.get('runs') or []:
+                for entry in run.get('files') or []:
+                    path = bundle / entry['path']
+                    if path.suffix.lower() == '.png' and path.is_file():
+                        candidates.append((entry.get('size') or 0, path))
+            if candidates:
+                hero_path = max(candidates)[1]
+        if hero_path is None:
+            return _generate_placeholder_thumbnail(size, 'default', palette=palette)
+
+        file_count = sum(len(run.get('files') or []) for run in manifest.get('runs') or [])
+        file_count += len(manifest.get('extras') or [])
+        file_count += len(manifest.get('members') or [])
+
+        shelf_h = max(10, size // 7)
+        canvas = Image.new('RGB', (size, size), palette['package_bg'])
+        with Image.open(hero_path) as im:
+            hero = im.convert('RGBA')
+        margin = max(3, size // 9)
+        fitted = _fit_rgba(hero, size - 2 * margin, size - shelf_h - 2 * margin, pixelated=False)
+        canvas.paste(
+            fitted,
+            ((size - fitted.width) // 2, max(margin, (size - shelf_h - fitted.height) // 2)),
+            fitted,
         )
 
-        html = await _asyncio.to_thread(export_single_html, bundle_dir)
-        width, height = 1200, 900
-        png_bytes = await render_layout_via_ui(
-            html,
-            width=width,
-            height=height,
-            dpr=_dpr_for_target(width, height, size),
-            assets={},
-            wait_for_client_timeout_s=wait_for_client_timeout_s,
-            render_timeout_s=render_timeout_s,
-            queue_timeout_s=queue_timeout_s,
-        )
-        img = Image.open(io.BytesIO(png_bytes))
-        img.load()
-        img.thumbnail((size, size), Image.LANCZOS)
-        return img
-    except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
-        log.debug(f"Skipped package preview for {file_path}: {e}")
-        if raise_transient:
-            raise
-        return None
-    except Exception as e:
+        from PIL import ImageDraw
+
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([0, size - shelf_h, size, size], fill=palette['package_shelf'])
+        draw.line([(0, size - shelf_h), (size, size - shelf_h)], fill=palette['package_rule'])
+        if file_count and shelf_h >= 14:
+            label = f"{file_count} files"
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", max(9, int(shelf_h * 0.5)))
+            except OSError:
+                font = ImageFont.load_default()
+            left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+            draw.text(
+                ((size - (right - left)) / 2 - left, size - shelf_h + (shelf_h - (bottom - top)) / 2 - top),
+                label, fill=palette['text_body'], font=font,
+            )
+        return canvas
+    except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to generate package preview for {file_path}: {e}")
-        return None
+        return _generate_placeholder_thumbnail(size, 'default', palette=palette)
 
 
 def _svg_render_box(width: int, height: int, target_long_side: int) -> tuple[int, int]:
@@ -1377,7 +1420,7 @@ async def _generate_svg_preview(
 
 # Formats whose thumbnails are rasterized by the connected UI client rather than
 # in the sync thread pool. Both hand HTML to a real browser engine over the WS.
-UI_RENDERED_FORMATS = {'stimmalayout', 'svg', 'stimmapackage'}
+UI_RENDERED_FORMATS = {'stimmalayout', 'svg'}
 
 # Result of an on-demand UI-rendered thumbnail. "transient" means the UI
 # renderer was busy or not yet connected — the same content will render fine
@@ -1432,18 +1475,9 @@ async def _generate_ui_rendered_thumbnail_to_cache(
     from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
 
     is_svg = file_format.lower() == 'svg'
-    is_package = file_format.lower() == 'stimmapackage'
     try:
         if is_svg:
             img = await _generate_svg_preview(
-                file_path,
-                size,
-                wait_for_client_timeout_s=2.0,
-                queue_timeout_s=5.0,
-                raise_transient=True,
-            )
-        elif is_package:
-            img = await _generate_package_preview(
                 file_path,
                 size,
                 wait_for_client_timeout_s=2.0,
@@ -1696,6 +1730,11 @@ def _generate_thumbnail_sync(
                 palette=palette,
                 normalized_content=normalized_content,
             )
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmapackage':
+            img = _generate_package_preview(file_path, size, palette=palette)
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 

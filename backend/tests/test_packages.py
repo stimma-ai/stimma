@@ -74,7 +74,7 @@ async def test_app_icons_recipe_builds_xcode_tree(tmp_path):
     assert "web/favicon.ico" in paths
     contents = json.loads((tmp_path / "out/ios/AppIcon.appiconset/Contents.json").read_text())
     assert any(e.get("filename") == "icon-180.png" for e in contents["images"])
-    assert "ios/acme-appstore-1024.png" in paths  # free name through the naming template
+    assert "web/site.webmanifest" in paths
 
 
 @pytest.mark.asyncio

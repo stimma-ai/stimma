@@ -1,9 +1,10 @@
 """App icon output checked against the platform rules, transcribed from vendor docs.
 
-The tables live here independently of the recipe, so a typo or a dropped size
-in the recipe fails a test instead of reaching someone's app submission. These
-checks are what you can do without building an app; `xcrun actool` on a Mac is
-the step beyond them.
+The tables live here independently of the producers, so a typo or a dropped
+size fails a test instead of reaching someone's app submission. Every rule runs
+against *both* producers — the ``app-icons`` recipe and the SVG export — so the
+two cannot drift apart again. These checks are what you can do without building
+an app; ``xcrun actool`` on a Mac is the step beyond them.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from packages.recipes import ResolvedInput, describe_file, get_recipe, run_recipe
+import icon_spec
 from packages.manifest import sha256_file
 
 # Apple: every (idiom, size, scale) an iOS AppIcon set is expected to carry.
@@ -50,17 +52,66 @@ def _resolved(role: str, path: Path) -> ResolvedInput:
     return ResolvedInput(role=role, path=path, hash=sha256_file(path), **describe_file(path))
 
 
-@pytest.fixture
-async def icons(tmp_path):
-    out = tmp_path / "out"
+async def _from_recipe(tmp_path: Path) -> Path:
+    """The app-icons recipe, writing one tree with a folder per platform."""
+    out = tmp_path / "recipe"
     await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"platforms": ["ios", "android", "macos", "windows", "web"], "app_name": "Acme"},
+        {"platforms": list(icon_spec.PLATFORMS), "app_name": "Acme"},
         out,
         slug="acme",
     )
     return out
+
+
+async def _from_svg_export(tmp_path: Path, monkeypatch) -> Path:
+    """The SVG export, one target at a time, unpacked into the same layout.
+
+    The renderer is stubbed because it needs the app's browser engine; what is
+    under test is which files each target contains and how they are composed,
+    not how a circle gets drawn.
+    """
+    import io as _io
+    import zipfile
+
+    from routes import svg_media
+
+    async def fake_rasterize(svg_text, width, height, *, safe_area=1.0, opaque=False, background="#ffffff"):
+        art = Image.new("RGBA", (max(1, round(width * safe_area)), max(1, round(height * safe_area))),
+                        (20, 120, 200, 255))
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        canvas.paste(art, ((width - art.width) // 2, (height - art.height) // 2), art)
+        if opaque:
+            flat = Image.new("RGBA", (width, height), background)
+            flat.alpha_composite(canvas)
+            return flat.convert("RGB")
+        return canvas
+
+    monkeypatch.setattr(svg_media, "_rasterize", fake_rasterize)
+    out = tmp_path / "svg"
+    for fmt, target in svg_media.ICON_TARGETS.items():
+        platform = target["platform"]
+        payload, filename, _mt = await svg_media._build_icon_bundle("<svg/>", fmt, "Acme", "#FFFFFF")
+        dest = out / platform
+        dest.mkdir(parents=True, exist_ok=True)
+        if filename.endswith(".zip"):
+            with zipfile.ZipFile(_io.BytesIO(payload)) as zf:
+                zf.extractall(dest)
+        else:
+            # macOS and Windows hand back a bare container; name it the way the
+            # recipe does so one set of assertions covers both.
+            suffix = Path(filename).suffix
+            (dest / f"acme-{platform}{suffix}").write_bytes(payload)
+    return out
+
+
+@pytest.fixture(params=["recipe", "svg-export"])
+async def icons(request, tmp_path, monkeypatch):
+    """One icon tree per producer, in the same shape, for the same assertions."""
+    if request.param == "recipe":
+        return await _from_recipe(tmp_path)
+    return await _from_svg_export(tmp_path, monkeypatch)
 
 
 @pytest.mark.asyncio
@@ -84,10 +135,17 @@ async def test_ios_files_exist_at_exactly_size_times_scale(icons):
 
 @pytest.mark.asyncio
 async def test_app_store_icon_has_no_alpha(icons):
-    """Apple rejects an App Store icon with an alpha channel."""
-    store = icons / "ios/acme-appstore-1024.png"
+    """Apple rejects an App Store icon that carries an alpha channel."""
+    store = icons / "ios/AppIcon.appiconset/icon-1024.png"
     with Image.open(store) as img:
         assert img.size == (1024, 1024)
+        assert "A" not in img.mode and "transparency" not in img.info
+
+
+@pytest.mark.asyncio
+async def test_play_store_icon_is_512_and_opaque(icons):
+    with Image.open(icons / "android/play-store-512.png") as img:
+        assert img.size == (512, 512)
         assert "A" not in img.mode and "transparency" not in img.info
 
 

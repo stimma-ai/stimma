@@ -1052,6 +1052,22 @@ class PackageDraft:
         resolved = self._sdk.workspace_dir / str(path) if not Path(str(path)).is_absolute() else Path(str(path))
         return self._builder.add_extra(resolved, name=name)
 
+    def set_tile(self, image: "str | Path | bytes") -> None:
+        """Set the square shown for this package in the library.
+
+        A workspace path or image bytes. Recipes supply a sensible one; set
+        yours when you can present the work better. Never part of the
+        deliverable the recipient receives.
+        """
+        if isinstance(image, (bytes, bytearray)):
+            self._builder.set_tile(bytes(image))
+            return
+        text = str(image)
+        candidate = Path(text) if Path(text).is_absolute() else self._sdk.workspace_dir / text
+        if not candidate.is_file():
+            raise FileNotFoundError(f"tile image not found in workspace: {image}")
+        self._builder.set_tile(candidate)
+
     def set_cover(self, html: str) -> None:
         """Author the cover: an HTML string, or a workspace path to one."""
         text = str(html)

@@ -147,6 +147,11 @@ class RecipeSpec:
     inputs: list[Input]
     params: list[Param]
     build: Callable[["Build"], None]
+    # Optional: given this run and the package manifest, return an HTML
+    # fragment presenting what the run produced. The recipe knows what it made,
+    # so it can show it properly — an icon set at real sizes on a home screen
+    # beats a file listing. Pure and deterministic, like build.
+    present: Optional[Callable[[dict, dict], str]] = None
     source: str = "builtin"  # "builtin" or the stimpack name
     module_path: Optional[str] = None
 
@@ -176,6 +181,7 @@ def recipe(
     description: str,
     inputs: Iterable[Input] = (),
     params: Iterable[Param] = (),
+    present: Optional[Callable[[dict, dict], str]] = None,
 ):
     """Declare a recipe. The decorated function is the ``build`` step."""
     if not re.match(r"^[a-z0-9][a-z0-9-]*$", id):
@@ -190,6 +196,7 @@ def recipe(
             inputs=list(inputs),
             params=list(params),
             build=fn,
+            present=present,
         )
         names = [i.name for i in spec.inputs]
         if len(names) != len(set(names)):
@@ -444,6 +451,7 @@ class Build:
         self.slug = slug
         self._renderer = renderer
         self.files: list[WrittenFile] = []
+        self.tile_png: Optional[bytes] = None
         self._naming: Optional[Naming] = None
         naming_decl = next((p for p in spec.params if p.type == "naming"), None)
         if naming_decl is not None:
@@ -533,6 +541,18 @@ class Build:
         target.write_bytes(data)
         self.files.append(WrittenFile(path=rel, hash=sha256_bytes(data), size=len(data), source=source, fixed=fixed))
         return rel
+
+    def tile(self, data: bytes) -> None:
+        """Nominate a designed square image as the package's face in the library.
+
+        A recipe knows what it made, so it can present it better than anything
+        computed from the files afterwards — an icon set can show the icon the
+        way a device would. Stored outside the deliverable, so it never appears
+        in the file list or the zip. An agent-supplied tile wins over this one.
+        """
+        if not data:
+            raise RecipeError("tile() needs image bytes")
+        self.tile_png = bytes(data)
 
     def fail(self, message: str) -> None:
         raise RecipeError(message)
@@ -668,6 +688,7 @@ class RunResult:
     files: list[WrittenFile]
     params: dict[str, Any]
     cache_key: str
+    tile_png: Optional[bytes] = None
 
 
 async def run_recipe(
@@ -705,7 +726,10 @@ async def run_recipe(
     if not b.files:
         shutil.rmtree(out_dir, ignore_errors=True)
         raise RecipeError(f"recipe {spec.id!r} produced no files")
-    return RunResult(files=b.files, params=canonical, cache_key=cache_key(spec, inputs, canonical))
+    return RunResult(
+        files=b.files, params=canonical,
+        cache_key=cache_key(spec, inputs, canonical), tile_png=b.tile_png,
+    )
 
 
 async def check_determinism(

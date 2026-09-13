@@ -25,6 +25,7 @@ EXTRAS_DIR = "extras"
 INTERNAL_DIR = "_stimma"
 COVER_NAME = "index.html"
 COVER_SOURCE_NAME = f"{INTERNAL_DIR}/cover.src.html"
+TILE_NAME = f"{INTERNAL_DIR}/tile.png"
 KIT_VERSION = 1
 
 # Portability rules every bundle path must satisfy. Windows and macOS collapse
@@ -104,6 +105,9 @@ def new_manifest(*, title: str, slug: Optional[str] = None) -> dict[str, Any]:
         "runs": [],
         "extras": [],
         "cover": {"path": COVER_NAME, "kind": "auto", "kit_version": KIT_VERSION},
+        # A designed square used as the package's face in the library. Lives
+        # outside the deliverable, so it is never part of what the client gets.
+        "cover_image": None,
         "lineage": {"scope": "none"},
     }
 

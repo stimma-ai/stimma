@@ -1,74 +1,95 @@
 """App icon sets from one square master.
 
-Every platform disagrees about safe areas and alpha, and getting that wrong is
-what makes an icon look amateur. The tables here match the vector icon export
-in ``routes/svg_media.py`` so the two never drift.
+Every platform rule lives in ``icon_spec``, which the SVG export reads too, so
+the two producers cannot drift. This recipe's job is to ask for artwork at each
+size the spec names and write the files where each platform expects them.
 """
 
 from __future__ import annotations
 
-import io
-import json
+import html as htmllib
 
-from PIL import Image
+import icon_spec
+from packages.recipes import Build, Input, Param, recipe
 
-from packages.recipes import Build, Input, Param, fit_square, flatten, png_bytes, recipe
+# Sizes worth showing at their true scale: the ones that decide whether a mark
+# survives. A designer checks the small end first.
+PREVIEW_SIZES = (180, 120, 87, 60, 40, 29, 20)
 
-IOS_ENTRIES = [
-    ("iphone", "20x20", "2x", 40), ("iphone", "20x20", "3x", 60),
-    ("iphone", "29x29", "2x", 58), ("iphone", "29x29", "3x", 87),
-    ("iphone", "40x40", "2x", 80), ("iphone", "40x40", "3x", 120),
-    ("iphone", "60x60", "2x", 120), ("iphone", "60x60", "3x", 180),
-    ("ipad", "20x20", "1x", 20), ("ipad", "20x20", "2x", 40),
-    ("ipad", "29x29", "1x", 29), ("ipad", "29x29", "2x", 58),
-    ("ipad", "40x40", "1x", 40), ("ipad", "40x40", "2x", 80),
-    ("ipad", "76x76", "2x", 152), ("ipad", "83.5x83.5", "2x", 167),
-    ("ios-marketing", "1024x1024", "1x", 1024),
-]
-# Legacy launcher icon px per density, and the adaptive-icon layer canvas.
-# Both adaptive layers are 108dp regardless of density, with the artwork living
-# in the inner 72dp — the system masks everything outside it, so shipping the
-# foreground at the launcher size (the mistake that is easy to make here) both
-# softens it and pushes art into the masked ring.
-ANDROID_DENSITIES = [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]
-ADAPTIVE_DP = 108
-LAUNCHER_DP = 48
-ADAPTIVE_SAFE_FRACTION = 72 / 108  # inner 72dp of the 108dp canvas
-MACOS_SIZES = [16, 32, 64, 128, 256, 512, 1024]
-WINDOWS_SIZES = [16, 24, 32, 48, 64, 128, 256]
-WEB_SIZES = [16, 32, 48, 180, 192, 512]
+PLATFORM_BLURB = {
+    "ios": ("iPhone and iPad", "Drop AppIcon.appiconset into your Xcode asset catalog."),
+    "android": ("Android", "Copy mipmap and values into res. Adaptive layers included."),
+    "macos": ("macOS", "A ready .icns, plus every size as a PNG."),
+    "windows": ("Windows", "A multi-resolution .ico, 16 through 256."),
+    "web": ("Web", "Favicons, an Apple touch icon, a manifest, and the tags to paste."),
+}
 
 
-def _icns(images: dict[int, Image.Image]) -> bytes:
-    largest = images[max(images)].convert("RGBA")
-    appended = [img.convert("RGBA") for size, img in sorted(images.items()) if size != max(images)]
-    buf = io.BytesIO()
-    largest.save(buf, "ICNS", append_images=appended)
-    return buf.getvalue()
+def _by_px(run: dict) -> dict[int, str]:
+    """Bundle paths of the iOS renders, keyed by pixel size."""
+    root = run.get("root") or ""
+    found: dict[int, str] = {}
+    for entry in run.get("files") or []:
+        path = entry["path"]
+        name = path.rsplit("/", 1)[-1]
+        if not path.startswith(f"{root}ios/AppIcon.appiconset/") or not name.startswith("icon-"):
+            continue
+        try:
+            found[int(name[5:-4])] = path
+        except ValueError:
+            continue
+    return found
 
 
-def _ico(images: dict[int, Image.Image]) -> bytes:
-    sizes = sorted(images)
-    largest = images[max(sizes)].convert("RGBA")
-    buf = io.BytesIO()
-    largest.save(buf, "ICO", sizes=[(s, s) for s in sizes],
-                 append_images=[images[s].convert("RGBA") for s in sizes if s != max(sizes)])
-    return buf.getvalue()
+def present(run: dict, manifest: dict) -> str:
+    """Show the icon the way it will be seen: on a home screen, and at real size."""
+    by_px = _by_px(run)
+    if not by_px:
+        return ""
+    hero = htmllib.escape(by_px[max(by_px)], quote=True)
+    platforms = (run.get("params") or {}).get("platforms") or []
 
+    apps = [f'<div class="sp-app"><img src="{hero}" alt=""><em>App</em></div>']
+    apps += ['<div class="sp-app"><span class="sp-blank"></span><em></em></div>'] * 7
+    phone = (
+        '<div class="sp-phone"><div class="sp-screen">'
+        f'<div class="sp-apps">{"".join(apps)}</div></div></div>'
+    )
 
-def _contents_json(name_for: dict[int, str]) -> str:
-    images = []
-    for idiom, size, scale, px in IOS_ENTRIES:
-        entry = {"idiom": idiom, "size": size, "scale": scale}
-        if px in name_for:
-            entry["filename"] = name_for[px]
-        images.append(entry)
-    return json.dumps({"images": images, "info": {"version": 1, "author": "stimma"}}, indent=2) + "\n"
+    swatches = []
+    for px in PREVIEW_SIZES:
+        path = by_px.get(px)
+        if not path:
+            continue
+        src = htmllib.escape(path, quote=True)
+        swatches.append(
+            f'<div class="sp-size"><img src="{src}" width="{px}" height="{px}" alt="{px} pixels">'
+            f'<span>{px}</span></div>'
+        )
+
+    cards = []
+    for key in platforms:
+        name, blurb = PLATFORM_BLURB.get(key, (key.title(), ""))
+        cards.append(
+            f'<div class="sp-platform"><h3>{htmllib.escape(name)}</h3>'
+            f'<p>{htmllib.escape(blurb)}</p></div>'
+        )
+
+    return (
+        '<div class="sp-hero">'
+        f'<div class="sp-hero-icon"><img src="{hero}" alt=""></div>{phone}</div>'
+        '<div class="sp-section"><p class="sp-label">At actual size</p>'
+        f'<div class="sp-sizes">{"".join(swatches)}</div>'
+        '<p class="sp-note">Every size is its own render, so the mark stays legible where it gets small.</p></div>'
+        + (f'<div class="sp-section"><p class="sp-label">What is included</p>'
+           f'<div class="sp-platforms">{"".join(cards)}</div></div>' if cards else "")
+    )
+
 
 
 @recipe(
     id="app-icons",
-    version=1,
+    version=2,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows and web icon sets from one square master image",
     inputs=[
@@ -78,103 +99,82 @@ def _contents_json(name_for: dict[int, str]) -> str:
               description="Optional transparent foreground layer for Android adaptive icons"),
     ],
     params=[
-        Param("platforms", type="multi", options=["ios", "android", "macos", "windows", "web"],
+        Param("platforms", type="multi", options=list(icon_spec.PLATFORMS),
               default=["ios", "android", "web"], description="Which platform sets to produce"),
         Param("background", type="color", default="#FFFFFF",
-              description="Background behind the artwork where a platform forbids transparency (iOS) or needs a layer color (Android)"),
+              description="Background baked in where a platform forbids transparency (iOS, the Play Store icon, Apple touch icon) and used as the Android adaptive background layer"),
         Param("app_name", type="string", default="App", description="Name used in the web manifest"),
-        Param("naming", type="naming", fields=["slug", "size", "platform"], default="{slug}-{platform}-{size}",
+        Param("naming", type="naming", fields=["slug", "size", "platform"],
+              default="{slug}-{platform}-{size}",
               description="Template for free filenames; platform-fixed names are exempt"),
     ],
+    present=present,
 )
 async def build(b: Build) -> None:
     platforms = b.params.platforms
     background = b.params.background
-    slug = b.slug
+    fg_role = "android_foreground" if b.has("android_foreground") else "master"
 
-    async def art(role: str, px: int):
-        """Artwork for one output size, drawn at that size when it can be."""
-        return await b.image(role, size=px)
+    async def composed(spec: icon_spec.IconImage):
+        # Vector artwork is drawn at this exact size; a raster is resampled.
+        art = await b.image(spec.role if spec.role != "master" else "master", size=spec.px)
+        return icon_spec.compose(art, spec, background)
 
-    if "ios" in platforms:
-        name_for: dict[int, str] = {}
-        for *_rest, px in IOS_ENTRIES:
-            if px in name_for:
-                continue
-            name = f"icon-{px}.png"
-            name_for[px] = name
-            b.derive(f"ios/AppIcon.appiconset/{name}",
-                     png_bytes(fit_square(await art("master", px), px, background=background)),
+    for platform in platforms:
+        rendered: dict[int, object] = {}
+        for spec in icon_spec.images_for(platform, foreground_role=fg_role):
+            img = await composed(spec)
+            rendered[spec.px] = img
+            if platform == "macos":
+                continue  # written below, named by the user's template
+            b.derive(f"{platform}/{spec.path}", icon_spec.png_bytes(img),
+                     source=spec.role, fixed=True)
+
+        if platform == "ios":
+            b.file("ios/AppIcon.appiconset/Contents.json", icon_spec.ios_contents_json())
+
+        elif platform == "android":
+            b.file("android/mipmap-anydpi-v26/ic_launcher.xml", icon_spec.ANDROID_ADAPTIVE_XML)
+            b.file("android/values/ic_launcher_background.xml",
+                   icon_spec.android_background_xml(background))
+
+        elif platform == "macos":
+            b.derive("macos/" + b.name(ext="icns", slug=b.slug, platform="macos", size=""),
+                     icon_spec.build_icns(rendered), source="master")
+            for spec in icon_spec.macos_images():
+                b.derive("macos/" + b.name(ext="png", slug=b.slug, platform="macos", size=spec.px),
+                         icon_spec.png_bytes(rendered[spec.px]), source="master")
+
+        elif platform == "windows":
+            b.derive("windows/" + b.name(ext="ico", slug=b.slug, platform="windows", size=""),
+                     icon_spec.build_ico(rendered), source="master")
+
+        elif platform == "web":
+            b.derive("web/favicon.ico",
+                     icon_spec.build_ico({px: rendered[px] for px in icon_spec.WEB_ICO_SIZES}),
                      source="master", fixed=True)
-        b.file("ios/AppIcon.appiconset/Contents.json", _contents_json(name_for))
-        b.derive("ios/" + b.name(ext="png", slug=slug, platform="appstore", size=1024),
-                 png_bytes(flatten(fit_square(await art("master", 1024), 1024), background)), source="master")
+            b.file("web/site.webmanifest", icon_spec.web_manifest(b.params.app_name))
+            b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
 
-    if "android" in platforms:
-        fg_role = "android_foreground" if b.has("android_foreground") else "master"
-        for density, px in ANDROID_DENSITIES:
-            b.derive(f"android/mipmap-{density}/ic_launcher.png",
-                     png_bytes(fit_square(await art("master", px), px, background=background)),
-                     source="master", fixed=True)
-            # Adaptive layers are 108dp at every density, with the art inside
-            # the inner 72dp so no launcher mask can clip it.
-            layer_px = round(px * ADAPTIVE_DP / LAUNCHER_DP)
-            b.derive(f"android/mipmap-{density}/ic_launcher_foreground.png",
-                     png_bytes(fit_square(await art(fg_role, layer_px), layer_px,
-                                          safe_area=ADAPTIVE_SAFE_FRACTION)),
-                     source=fg_role, fixed=True)
-        b.file("android/mipmap-anydpi-v26/ic_launcher.xml", (
-            '<?xml version="1.0" encoding="utf-8"?>\n'
-            '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
-            '    <background android:drawable="@color/ic_launcher_background"/>\n'
-            '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
-            '</adaptive-icon>\n'
-        ))
-        b.file("android/values/ic_launcher_background.xml", (
-            '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
-            f'    <color name="ic_launcher_background">{background}</color>\n</resources>\n'
-        ))
-        b.derive("android/" + b.name(ext="png", slug=slug, platform="playstore", size=512),
-                 png_bytes(flatten(fit_square(await art("master", 512), 512), background)), source="master")
+    b.file("README.txt", icon_spec.readme(platforms))
 
-    if "macos" in platforms:
-        macos = {px: fit_square(await art("master", px), px, safe_area=0.82) for px in MACOS_SIZES}
-        b.derive("macos/" + b.name(ext="icns", slug=slug, platform="macos", size=""),
-                 _icns({px: img for px, img in macos.items() if px >= 32}), source="master")
-        for px in MACOS_SIZES:
-            b.derive("macos/" + b.name(ext="png", slug=slug, platform="macos", size=px),
-                     png_bytes(macos[px]), source="master")
+    # The package's face: the icon the way a device draws it, on a plate.
+    # Better than anything computed from the file list afterwards, because the
+    # recipe knows this is an app icon and knows how one is meant to look.
+    b.tile(_tile_png(await b.image("master", size=1024), background))
 
-    if "windows" in platforms:
-        images = {px: fit_square(await art("master", px), px) for px in WINDOWS_SIZES}
-        b.derive("windows/" + b.name(ext="ico", slug=slug, platform="windows", size=""), _ico(images), source="master")
 
-    if "web" in platforms:
-        web = {px: fit_square(await art("master", px), px) for px in sorted(set(WEB_SIZES))}
-        b.derive("web/favicon.ico", _ico({px: web[px] for px in (16, 32, 48)}), source="master", fixed=True)
-        for px in (16, 32, 192, 512):
-            b.derive(f"web/icon-{px}.png", png_bytes(web[px]), source="master", fixed=True)
-        b.derive("web/apple-touch-icon.png", png_bytes(flatten(web[180], background)),
-                 source="master", fixed=True)
-        b.file("web/site.webmanifest", json.dumps({
-            "name": b.params.app_name, "short_name": b.params.app_name,
-            "icons": [
-                {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
-            ],
-        }, indent=2) + "\n")
-        b.file("web/head-snippet.html", (
-            '<link rel="icon" href="/favicon.ico" sizes="any">\n'
-            '<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">\n'
-            '<link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">\n'
-            '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n'
-            '<link rel="manifest" href="/site.webmanifest">\n'
-        ))
+def _tile_png(art, background: str) -> bytes:
+    """A 640px plate with the masked icon centered and a soft drop shadow."""
+    from PIL import Image, ImageFilter
 
-    b.file("README.txt", (
-        "App icons generated by Stimma.\n"
-        f"Platforms: {', '.join(platforms)}\n"
-        "ios/AppIcon.appiconset drops straight into an Xcode asset catalog.\n"
-        "android/ mirrors a res/ directory: copy mipmap-* and values/ into your module.\n"
-        "web/ files are meant to sit at the site root; head-snippet.html shows the tags.\n"
-    ))
+    size, icon_px = 640, 416
+    icon = icon_spec.device_icon(art, icon_px, background)
+    plate = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    left = top = (size - icon_px) // 2
+
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    shadow.paste((0, 0, 0, 90), (left, top + icon_px // 24), icon_spec.rounded_mask(icon_px))
+    plate.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(icon_px // 22)))
+    plate.alpha_composite(icon, (left, top))
+    return icon_spec.png_bytes(plate)

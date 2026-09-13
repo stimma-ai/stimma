@@ -42,7 +42,7 @@ Parallel execution:
     ),
     "packages.new": SDKMethodHelp(
         name="packages.new",
-        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); draft.set_cover(html_or_path); await draft.save() -> media_id",
+        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
         summary="Assemble a deliverable package: members, deterministic recipe runs, extras, and a cover.",
         details="""\
 A package is what you hand over: masters, the derivative tree a recipe
@@ -55,6 +55,7 @@ Members can be media ids, ToolResults, or workspace paths (saved with lineage).
                 {"platforms": ["ios", "android", "web"], "background": "#101820"})
   pkg.add_file("brief.pdf")                                   # optional extras
   pkg.set_cover("cover.html")                                 # optional; see packages.cover
+  pkg.set_tile("tile.png")                                    # optional; the library square
   media_id = await pkg.save()
   stimma.show(media_id=media_id, role="final")                # commits the package Asset
 

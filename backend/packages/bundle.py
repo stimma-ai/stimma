@@ -32,6 +32,7 @@ from packages import cache as run_cache
 from packages.cover import COVER_NAME, CoverError, render_cover_document
 from packages.manifest import (
     COVER_SOURCE_NAME,
+    TILE_NAME,
     EXTRAS_DIR,
     KIT_VERSION,
     MEMBERS_DIR,
@@ -70,6 +71,24 @@ RUN_TIMEOUT_S = 180.0
 
 class PackageError(ValueError):
     pass
+
+
+def _as_png(data: bytes) -> bytes:
+    """Normalize tile bytes to PNG so the thumbnail path has one format to open."""
+    import io
+
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img.load()
+            if (img.format or "").upper() == "PNG":
+                return data
+            buf = io.BytesIO()
+            img.convert("RGBA").save(buf, format="PNG", optimize=True)
+            return buf.getvalue()
+    except Exception as exc:  # noqa: BLE001
+        raise PackageError(f"tile image is not a readable image: {exc}") from exc
 
 
 # Media resolution -----------------------------------------------------------
@@ -140,6 +159,7 @@ class _Run:
     files: list[WrittenFile] = field(default_factory=list)
     key: str = ""
     cached: bool = False
+    tile_png: Optional[bytes] = None
 
 
 @dataclass
@@ -178,6 +198,7 @@ class PackageBuilder:
         self.runs: list[_Run] = []
         self.extras: list[_Extra] = []
         self.cover_source: Optional[str] = None
+        self.tile_png: Optional[bytes] = None
         self._scratch = Path(tempfile.mkdtemp(prefix="stimma-package-"))
         self._bundle_dir: Optional[Path] = None
         self._used_paths: set[str] = set()
@@ -239,6 +260,19 @@ class PackageBuilder:
         rel = self._unique_path(f"{EXTRAS_DIR}/{name}")
         self.extras.append(_Extra(source=path, name=name, rel_path=rel))
         return rel
+
+    # the package's face
+    def set_tile(self, source: "Path | bytes") -> None:
+        """Set the designed square shown for this package in the library.
+
+        Accepts image bytes or a path. Anything the agent can make works — a
+        layout it designed, a render, a mockup. It is stored outside the
+        deliverable and is never part of what the client receives.
+        """
+        data = source if isinstance(source, bytes) else Path(source).read_bytes()
+        if not data:
+            raise PackageError("tile image is empty")
+        self.tile_png = _as_png(data)
 
     # cover
     def set_cover(self, html_text: str) -> None:
@@ -326,7 +360,7 @@ class PackageBuilder:
         run = _Run(id=rid, spec=spec, inputs=dict(inputs), params=canonical, root=root_name + "/", key=key)
         cached = run_cache.lookup(self.profile_id, key)
         if cached is not None:
-            run.files = cached
+            run.files, run.tile_png = cached
             run.cached = True
         else:
             out_dir = self._scratch / "runs" / rid
@@ -341,7 +375,8 @@ class PackageBuilder:
             except asyncio.TimeoutError as exc:
                 raise RecipeError(f"recipe {spec.id!r} exceeded {RUN_TIMEOUT_S:.0f}s; recipes must be quick") from exc
             run.files = result.files
-            run_cache.store(self.profile_id, key, out_dir, result.files)
+            run.tile_png = result.tile_png
+            run_cache.store(self.profile_id, key, out_dir, result.files, tile_png=result.tile_png)
         self.runs.append(run)
         return rid
 
@@ -391,6 +426,8 @@ class PackageBuilder:
                 "hash": sha256_file(e.source),
                 "size": e.source.stat().st_size,
             })
+        tile = self.tile_png or next((r.tile_png for r in self.runs if r.tile_png), None)
+        manifest["cover_image"] = TILE_NAME if tile else None
         manifest["cover"] = {
             "path": COVER_NAME,
             "kind": "authored" if self.cover_source else "auto",
@@ -428,6 +465,11 @@ class PackageBuilder:
                 dst = bundle / e.rel_path
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(e.source, dst)
+            tile = self.tile_png or next((r.tile_png for r in self.runs if r.tile_png), None)
+            if tile:
+                tile_path = bundle / TILE_NAME
+                tile_path.parent.mkdir(parents=True, exist_ok=True)
+                tile_path.write_bytes(tile)
             html_text, problems = render_cover_document(manifest, authored_html=self.cover_source, strict=True)
             if problems:
                 raise CoverError("cover has problems: " + "; ".join(problems))
@@ -789,6 +831,9 @@ async def rebuild_package(
             src = old_bundle / extra["path"]
             if src.is_file():
                 builder.add_extra(src, name=extra.get("name"))
+        old_tile = old_bundle / TILE_NAME
+        if (manifest.get("cover_image") or "") and old_tile.is_file():
+            builder.set_tile(old_tile)
         cover_src = old_bundle / COVER_SOURCE_NAME
         cover_carried = False
         if (manifest.get("cover") or {}).get("kind") == "authored" and cover_src.is_file():
