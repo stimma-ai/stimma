@@ -196,16 +196,17 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
 
     # Packages live in content-addressed directories after save, and workspace
     # draft snapshots have no extension. Identify them by the manifest.
-    from packages.manifest import MANIFEST_NAME, read_manifest
-    if resolved.is_dir() and (resolved / MANIFEST_NAME).is_file():
+    from packages.manifest import COVER_NAME, MANIFEST_NAME, read_manifest
+    package_dir = resolved if resolved.is_dir() else resolved.parent if resolved.name == COVER_NAME else None
+    if package_dir is not None and (package_dir / MANIFEST_NAME).is_file():
         import io
         from utils.local_render import gather_bundle_assets, render_html
         try:
-            manifest = read_manifest(resolved)
+            manifest = read_manifest(package_dir)
             png = await render_html(
-                (resolved / "index.html").read_text(encoding="utf-8").replace('loading="lazy"', 'loading="eager"'),
+                (package_dir / COVER_NAME).read_text(encoding="utf-8").replace('loading="lazy"', 'loading="eager"'),
                 width=960, height=960, dpr=1.0,
-                assets=gather_bundle_assets(resolved),
+                assets=gather_bundle_assets(package_dir),
             )
             img = _downscale(Image.open(io.BytesIO(png)).convert("RGB"), max_side)
             snapshot = write_agent_jpeg(img)

@@ -149,7 +149,8 @@ async def test_library_media_reuses_persistent_jpeg_conversion(tmp_path, monkeyp
     assert first_path.startswith(str(cache_dir / "agent-vision"))
 
 @pytest.mark.asyncio
-async def test_view_package_cover_in_content_addressed_directory(tmp_path, monkeypatch):
+@pytest.mark.parametrize("entrypoint", ["", "index.html"])
+async def test_view_package_cover_in_content_addressed_directory(tmp_path, monkeypatch, entrypoint):
     from packages.manifest import new_manifest, write_manifest
     import io
 
@@ -168,7 +169,7 @@ async def test_view_package_cover_in_content_addressed_directory(tmp_path, monke
         return data.getvalue()
 
     monkeypatch.setattr("utils.local_render.render_html", render)
-    marker = json.loads(await view_image(path=str(bundle), detail="high", workspace_dir=str(tmp_path)))
+    marker = json.loads(await view_image(path=str(bundle / entrypoint), detail="high", workspace_dir=str(tmp_path)))
     assert marker["__view_image__"] is True
     assert marker["size"] == [960, 960]
     assert "first 960px" in marker["description"]
