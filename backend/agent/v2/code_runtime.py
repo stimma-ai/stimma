@@ -2534,6 +2534,7 @@ class StimmaSDK:
 def _format_run_code_receipt(
     successes: list[ToolResult],
     failures: list[dict[str, Any]],
+    *, workspace_dir: Path | None = None,
 ) -> str | None:
     if not successes and not failures:
         return None
@@ -2549,6 +2550,10 @@ def _format_run_code_receipt(
         tool = r.tool_name or "tool"
         sp = _short_prompt(r.prompt)
         line = f"  - {mid} — {tool}" + (f', prompt="{sp}"' if sp else "")
+        if workspace_dir is not None:
+            path = r.path if r.path.is_absolute() else workspace_dir / r.path
+            if path.is_relative_to(workspace_dir):
+                line += f"; workspace_file={path.relative_to(workspace_dir).as_posix()!r}"
         if r.media_id is not None and r.seed is not None:
             # The anchoring handle for follow-ups ("more like this one", "same
             # but ..."): reuse this result's recorded settings rather than
@@ -2566,6 +2571,10 @@ def _format_run_code_receipt(
             lines.extend(_fmt_success(r) for r in successes[:3])
             lines.append(f"  ... ({len(successes) - 6} more)")
             lines.extend(_fmt_success(r) for r in successes[-3:])
+
+    if successes and workspace_dir is not None:
+        lines.append("The workspace files already exist in this chat. Use those relative paths directly "
+                     "with view_image, Python, or package members; no copy or shell lookup is needed.")
 
     if failures:
         if successes:
@@ -2841,7 +2850,7 @@ async def run_code_in_sandbox(
                         pass
                     await sdk._finalize_progress("cancelled")
                     msg = "Error: execution interrupted by user"
-                    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures)
+                    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
                     if receipt:
                         msg = f"{msg}\n\n{receipt}"
                     return msg, sdk_instance.get_llm_usage()
@@ -2907,7 +2916,7 @@ async def run_code_in_sandbox(
             sdk_ref2 = globals_dict.get("stimma")
             if sdk_ref2 is not None:
                 err_usage = sdk_ref2.get_llm_usage()
-                receipt = _format_run_code_receipt(sdk_ref2._tool_results, sdk_ref2._tool_failures)
+                receipt = _format_run_code_receipt(sdk_ref2._tool_results, sdk_ref2._tool_failures, workspace_dir=sdk_ref2.workspace_dir)
                 if receipt:
                     error_msg = f"{error_msg}\n\n{receipt}"
         except Exception:
@@ -2928,7 +2937,7 @@ async def run_code_in_sandbox(
         output += "."
         if shown_media_ids is not None:
             shown_media_ids.update(sdk._shown_media_ids)
-    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures)
+    receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
     if receipt:
         output = f"{output}\n\n{receipt}"
     return output, sdk_instance.get_llm_usage()

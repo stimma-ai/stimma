@@ -859,3 +859,13 @@ def test_glob_preserves_explicit_project_workspace_paths(tmp_path):
     project.mkdir()
     (project / 'notes.txt').write_text('Notes')
     assert _SafeGlob(workspace, project).glob('../project/*.txt') == ['../project/notes.txt']
+
+
+def test_tool_receipt_identifies_existing_workspace_file(tmp_path):
+    from agent.v2.code_runtime import ToolResult, _format_run_code_receipt
+
+    result = ToolResult(path=tmp_path / 'generated.png', media_id=7)
+    receipt = _format_run_code_receipt([result], [], workspace_dir=tmp_path)
+    assert "workspace_file='generated.png'" in receipt
+    assert 'already exist in this chat' in receipt
+    assert str(tmp_path) not in receipt
