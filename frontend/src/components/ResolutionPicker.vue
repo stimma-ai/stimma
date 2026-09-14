@@ -49,7 +49,13 @@
         <!-- Shape -->
         <div class="flex items-center justify-between h-6 mb-1.5">
           <span class="text-[11px] font-semibold text-content-muted">Shape</span>
-          <FollowSwitch v-if="hasImageInput" :on="policy.followShape" @toggle="toggleFollowShape" />
+          <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
+            <span :class="['text-[11px] font-medium', policy.followShape ? 'text-accent' : 'text-content-muted']">{{ followLabel }}</span>
+            <span class="relative inline-flex shrink-0 items-center">
+              <input type="checkbox" role="switch" aria-label="Shape follows the reference image" class="peer sr-only" :checked="policy.followShape" @change="toggleFollowShape" />
+              <span class="peer h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full" />
+            </span>
+          </label>
         </div>
         <div :class="['grid grid-cols-5 gap-1 transition-opacity', resolved.shapeFromImage ? 'opacity-40' : '']">
           <button
@@ -75,7 +81,13 @@
         <!-- Size -->
         <div class="flex items-center justify-between h-6 mt-3 mb-1.5">
           <span class="text-[11px] font-semibold text-content-muted">Size</span>
-          <FollowSwitch v-if="hasImageInput" :on="policy.followSize" @toggle="toggleFollowSize" />
+          <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
+            <span :class="['text-[11px] font-medium', policy.followSize ? 'text-accent' : 'text-content-muted']">{{ followLabel }}</span>
+            <span class="relative inline-flex shrink-0 items-center">
+              <input type="checkbox" role="switch" aria-label="Size follows the reference image" class="peer sr-only" :checked="policy.followSize" @change="toggleFollowSize" />
+              <span class="peer h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full" />
+            </span>
+          </label>
         </div>
         <div :class="['transition-opacity', resolved.sizeFromImage ? 'opacity-40' : '']">
           <template v-if="tiers">
@@ -141,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted, defineComponent, h } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import {
   RATIO_CHOICES,
   resolveResolution,
@@ -184,23 +196,7 @@ const emit = defineEmits<{
   (e: 'update:policy', policy: ResolutionPolicy): void
 }>()
 
-// "From image" switch that lives on the Shape / Size header lines.
-const FollowSwitch = defineComponent({
-  props: { on: { type: Boolean, required: true } },
-  emits: ['toggle'],
-  setup: (p, { emit: e }) => () => h('button', {
-    type: 'button',
-    role: 'switch',
-    'aria-checked': p.on,
-    class: 'flex items-center gap-1.5 group focus-visible:outline-none focus-visible:ring-2 ring-accent/60 rounded-md',
-    onClick: () => e('toggle'),
-  }, [
-    h('span', { class: ['text-[11px] font-medium transition-colors', p.on ? 'text-accent' : 'text-content-muted group-hover:text-content-secondary'] }, 'From image'),
-    h('span', { class: ['relative inline-block w-7 h-4 rounded-full transition-colors', p.on ? 'bg-accent' : 'bg-overlay-light'] }, [
-      h('span', { class: ['absolute top-0.5 w-3 h-3 rounded-full bg-surface transition-transform', p.on ? 'translate-x-3.5' : 'translate-x-0.5'] }),
-    ]),
-  ]),
-})
+const followLabel = 'Match reference'
 
 const MP_MIN_LOG = -2  // 0.25MP
 const MP_MAX_LOG = 3   // 8MP
@@ -249,23 +245,24 @@ function tileClass(on: boolean) {
   ]
 }
 
-// One sentence under the hairline that says what following does right now.
+// One sentence under the hairline: what the reference image does to the size.
 const explanation = computed(() => {
   if (!props.hasImageInput) return ''
   const r = resolved.value
-  if (r.cropWarning) return `${r.cropWarning}. Turn on “From image” for shape to use the whole picture.`
+  if (r.cropWarning) return `${r.cropWarning}.`
   const p = props.policy
-  if (!p.followShape && !p.followSize) return ''
-  const name = props.image?.name ?? 'the image'
-  if (props.armedText && !hasImage.value) return props.armedText
+  const size = sizeLabel.value
   if (!hasImage.value) {
-    if (p.followShape && p.followSize) return 'These settings apply until an image is added; then its shape and size are used instead. Picking a shape or size while an image is present overrides it.'
-    if (p.followShape) return `Until an image is added, ${p.ratio} is used. Once one is present, its shape is used at the size set here.`
-    return `Until an image is added, ${sizeLabel.value} at ${p.ratio} is used. Once one is present, its size is kept and the shape set here is applied.`
+    if (p.followShape && p.followSize) return 'When you add a reference image, the output will be the same size as it.'
+    if (p.followShape) return `When you add a reference image, the output will take its shape at ${size}.`
+    if (p.followSize) return `When you add a reference image, the output will keep its pixel count at ${p.ratio}.`
+    return 'Adding a reference image won’t change the output size.'
   }
-  if (p.followShape && p.followSize) return `Matching ${name} exactly. Pick a shape or size to override it; remove the image and the settings above come back.`
-  if (p.followShape) return `Using ${name}'s shape at ${sizeLabel.value}. Pick a shape to override it.`
-  return `Keeping ${name}'s size and applying ${r.ratioLabel}. Pick a size to override it.`
+  const name = props.image?.name ?? 'the reference image'
+  if (p.followShape && p.followSize) return `Output is the same size as ${name}.`
+  if (p.followShape) return `Output takes ${name}’s shape at ${size}.`
+  if (p.followSize) return `Output keeps ${name}’s pixel count at ${r.ratioLabel}.`
+  return `${name} doesn’t affect the output size.`
 })
 
 function update(patch: Partial<ResolutionPolicy>) {
