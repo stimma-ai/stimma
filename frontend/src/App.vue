@@ -78,10 +78,8 @@
       </div>
     </div>
 
-    <!-- Ambient brand glow: the pinwheel, blurred and slowly turning. -->
-    <div class="lock-glow" aria-hidden="true" />
-    <div class="lock-vignette" aria-hidden="true" />
-    <div class="lock-grain" aria-hidden="true" />
+    <!-- Ambient brand glow: the pinwheel's colours as dithered blobs (see GlowCanvas). -->
+    <GlowCanvas class="absolute inset-0" :blobs="lockGlowBlobs" />
 
     <!-- Centered lock content -->
     <div class="relative z-[1] h-full overflow-y-auto">
@@ -300,6 +298,7 @@ import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
 import CompactHeader from './components/compact/CompactHeader.vue'
 import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
+import GlowCanvas from './components/ui/GlowCanvas.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
@@ -375,7 +374,7 @@ const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
 watch(slideshowActive, active => { void setMobileSlideshowActive(active) }, { immediate: true })
 onUnmounted(() => { void setMobileSlideshowActive(false) })
-const { setTheme } = useTheme()
+const { setTheme, resolvedTheme } = useTheme()
 const {
   allTabs, findNextTab, removeTab,
   reopenLastClosed, getNextTab, getPrevTab
@@ -424,6 +423,21 @@ const lockScreenSubmitting = ref(false)
 const lockScreenPinInput = ref(null)
 const lockScreenProfileDropdownOpen = ref(false)
 const lockScreenShake = ref(false)
+// The eight pinwheel colours arranged in a ring behind the brand block, in
+// canvas unit coords. Alpha drops on light surfaces where the same tint reads
+// far stronger.
+const LOCK_GLOW_COLORS = [
+  [243, 135, 36], [231, 59, 49], [188, 32, 115], [108, 58, 145],
+  [35, 118, 188], [3, 158, 150], [98, 178, 83], [248, 207, 17],
+]
+const lockGlowBlobs = computed(() => {
+  const alpha = resolvedTheme.value === 'light' ? 0.10 : 0.20
+  const cx = 0.5, cy = 0.42, ring = 0.24
+  return LOCK_GLOW_COLORS.map((color, i) => {
+    const angle = (i / LOCK_GLOW_COLORS.length) * Math.PI * 2 - Math.PI / 2
+    return { x: cx + Math.cos(angle) * ring, y: cy + Math.sin(angle) * ring * 1.15, rx: 0.22, ry: 0.30, color, alpha }
+  })
+})
 const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
 function lockScreenKey(k) {
   if (lockScreenSubmitting.value) return
