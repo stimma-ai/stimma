@@ -64,3 +64,26 @@ def test_platform_previews_only_emit_selected_targets_without_network(monkeypatc
     # No second mask or margin is applied to the delivered Windows pixels.
     assert previews['platform-windows-taskbar.png'].getpixel((1042, 397)) == (233, 106, 18)
     assert previews['platform-windows-taskbar.png'].getpixel((1089, 444)) == (233, 106, 18)
+
+
+def test_android_studio_and_lifestyle_share_delivered_adaptive_artwork(monkeypatch):
+    import socket
+    from packages.mockups.platform_study import android_screen
+
+    def denied(*args, **kwargs):
+        raise AssertionError('Android scenes must not access the network')
+
+    monkeypatch.setattr(socket, 'socket', denied)
+    red = Image.new('RGBA', (432, 432), 'red')
+    blue = Image.new('RGBA', (432, 432), 'blue')
+    a = np.asarray(android_screen(red, 'Calendar', '#ffffff'))
+    b = np.asarray(android_screen(blue, 'A very long application name ' * 6, '#ffffff'))
+    changed = np.any(a != b, axis=2)
+    changed[685:940, 45:300] = False
+    assert not changed.any(), 'Native neighboring apps must remain unchanged'
+    previews = dict(platform_previews({'android': red}, 'Calendar', '#ffffff'))
+    assert {name: image.size for name, image in previews.items()} == {
+        'platform-android-studio.png': (1500, 1000),
+        'platform-android.png': (3840, 2560),
+    }
+    assert previews['platform-android-studio.png'].getpixel((255, 500)) == (255, 0, 0)

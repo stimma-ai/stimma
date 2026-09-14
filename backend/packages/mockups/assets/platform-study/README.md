@@ -11,6 +11,9 @@ needed. No designer reference artwork is included.
   Their original alpha is retained; the Maps corner matte was removed. The
   changing app slot and label are blank. Layout is illustrative, not a stock
   installation screenshot. https://play.google.com/store/apps
+- `android-studio.png` and `android-studio.json`: original procedural Galaxy-style
+  phone geometry rendered once with Blender, with a calibrated screen mapping.
+  The renderer adds the populated screen, punch-hole camera, icon and label locally.
 - `galaxy.jpg`: original blank Galaxy S26 scene generated once with GPT Image,
   upscaled once with SeedVR2, stored at 3840 × 2560. Device geometry is illustrative.
 - `macos.png`: native app artwork from Apple's Dock guide, with background pixels

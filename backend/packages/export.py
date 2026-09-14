@@ -1,4 +1,4 @@
-"""Exports: the zip and the single HTML file. Both are views of one bundle."""
+"""Exports: a ZIP with HTML/PDF covers, or one portable HTML file."""
 
 from __future__ import annotations
 
@@ -53,12 +53,22 @@ def run_zip_for_path(bundle_dir: Path, manifest: dict[str, Any], rel_path: str) 
 
 
 def export_zip(bundle_dir: Path, manifest: dict[str, Any], *, folder_name: Optional[str] = None) -> bytes:
-    """The whole package: cover, manifest, members, runs (+ one zip per run), extras."""
+    """The whole package, including a static PDF copy of its cover."""
     bundle_dir = Path(bundle_dir)
     prefix = f"{folder_name.rstrip('/')}/" if folder_name else ""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         _add_dir(zf, bundle_dir, prefix, skip_internal=True)
+        if (bundle_dir / COVER_NAME).is_file():
+            from packages.print_cover import export_pdf
+
+            # Keep any hand-added file with this name; never duplicate ZIP entries.
+            pdf_name = "cover.pdf"
+            suffix = 2
+            while (bundle_dir / pdf_name).exists():
+                pdf_name = f"cover-{suffix}.pdf"
+                suffix += 1
+            zf.writestr(f"{prefix}{pdf_name}", export_pdf(bundle_dir))
         for run in manifest.get("runs") or []:
             root = (run.get("root") or "").rstrip("/")
             data = run_zip_bytes(bundle_dir, manifest, run["id"])

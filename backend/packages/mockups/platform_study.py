@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageChops
 
+from packages.mockups.devices import _warp
 from packages.mockups.fonts import font
 from packages.mockups.draw import rounded_mask
 
@@ -35,8 +36,7 @@ def _paste(canvas, icon, xy, size, radius=None):
     canvas.paste(icon, xy, icon)
 
 
-def android_preview(foreground, label, background):
-    screen = _asset('android-home.png').copy()
+def android_icon(foreground, background):
     # AdaptiveIconDrawable displays the central 72dp of the delivered 108dp
     # layer. Its background is the same color written to the Android resource.
     fg = foreground.convert('RGBA')
@@ -44,8 +44,37 @@ def android_preview(foreground, label, background):
     layer.alpha_composite(fg)
     inset = fg.width / 6
     visible = layer.crop((round(inset), round(inset), round(fg.width-inset), round(fg.height-inset)))
-    _paste(screen, visible, (84, 690), 174, 43)
+    return visible
+
+
+def android_screen(foreground, label, background):
+    screen = _asset('android-home.png').copy()
+    _paste(screen, android_icon(foreground, background), (84, 690), 174, 43)
     _text(ImageDraw.Draw(screen), (171, 912), label, 30, 'white', 225)
+    return screen
+
+
+def android_studio_preview(foreground, label, background):
+    screen = android_screen(foreground, label, background)
+    # A centered punch-hole camera, rather than the iPhone's optical inset.
+    draw = ImageDraw.Draw(screen)
+    draw.ellipse((514, 29, 566, 81), fill='#050608')
+    draw.ellipse((528, 43, 552, 67), fill='#0c1520')
+    with Image.open(ASSETS / 'android-studio.png') as source:
+        plate = source.convert('RGBA')
+    mapped, mask = _warp(screen, 'android-studio', plate.size, assets=ASSETS, radius=110)
+    reflection = np.asarray(plate.convert('RGB')).astype(float)
+    mapped = 255 - (255 - mapped.astype(float)) * (1 - reflection / 255)
+    display = Image.fromarray(np.uint8(np.clip(mapped, 0, 255))).convert('RGBA')
+    phone = Image.composite(display, plate, mask)
+    image = Image.new('RGB', (1500, 1000), '#050608')
+    image.paste(phone, (500, 0), phone)
+    _paste(image, android_icon(foreground, background), (100, 345), 310, 77)
+    return image
+
+
+def android_preview(foreground, label, background):
+    screen = android_screen(foreground, label, background)
     plate = _asset('galaxy.jpg')
     w, h = screen.size
     quad = np.array([(757, 97), (1074, 89), (1080, 747), (765, 748)]) * 2.5
@@ -136,6 +165,7 @@ def linux_preview(icon, label):
 def platform_previews(icons, label, background):
     """Yield only the requested platforms; every image uses its delivered PNG."""
     if 'android' in icons:
+        yield 'platform-android-studio.png', android_studio_preview(icons['android'], label, background)
         yield 'platform-android.png', android_preview(icons['android'], label, background)
     if 'macos' in icons:
         yield 'platform-macos.png', macos_preview(icons['macos'], label)

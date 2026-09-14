@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=8,
+    version=9,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -95,7 +95,9 @@ find templates. The recipe already supplies the context images as run files.
 
 Name the cover's context section "Platform Study". For each selected platform:
 - iOS: `previews/device-studio.png` and `previews/device-lifestyle.png` (4K).
-- Android: `previews/platform-android.png` (4K Galaxy scene, populated screen).
+- Android: `previews/platform-android-studio.png` (large icon beside Galaxy phone)
+  and `previews/platform-android.png` (4K Galaxy lifestyle scene, populated screen).
+  Include both Android views in Platform Study.
 - macOS: `previews/platform-macos.png` (Dock, dark capsule tooltip).
 - Windows: BOTH `previews/platform-windows-start.png` and
   `previews/platform-windows-taskbar.png`.

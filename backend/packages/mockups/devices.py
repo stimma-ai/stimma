@@ -39,13 +39,13 @@ def home_screen(icon: Image.Image, label: str) -> Image.Image:
     return screen
 
 
-def _warp(screen: Image.Image, scene: str, size: tuple[int, int]):
-    calibration = json.loads((ASSETS / f"{scene}.json").read_text())
+def _warp(screen: Image.Image, scene: str, size: tuple[int, int], *, assets=ASSETS, radius=160):
+    calibration = json.loads((assets / f"{scene}.json").read_text())
     if list(size) != calibration["plate_size"]:
         raise ValueError("Device scene dimensions do not match its calibration")
     w, h = screen.size
     mask = Image.new("L", screen.size)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=160, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
     scale = 2 if size[0] >= 3000 else 3
     large = (size[0] * scale, size[1] * scale)
     # Pillow takes the inverse homography: destination pixel -> source pixel.
