@@ -43,7 +43,7 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         pkg = sdk.packages.new("SDK icons")
         master = await pkg.add_member("mark.png", role="master")
         assert master == "m1"
-        run_id = await pkg.run("app-icons", {"master": master}, {"platforms": ["web"], "app_name": "SDK"})
+        run_id = await pkg.run("app-icons", {"master": master}, {"background": "#FFFFFF", "platforms": ["web"], "app_name": "SDK"})
         assert run_id == "r1"
         pkg.add_file("brief.txt")
         pkg.set_cover("cover.html")
@@ -94,7 +94,7 @@ async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
             file_format="png", width=1200, height=1200,
         )
         async with PackageBuilder(session, profile_id="default", title="Staged icons") as builder:
-            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"platforms": ["web"]})
+            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"background": "#FFFFFF", "platforms": ["web"]})
             package, _asset = await builder.save()
 
         result = await show(role="final", media_id=package.id, session=session, chat_id=chat.id)

@@ -73,7 +73,7 @@ def _avatar(img: Image.Image, size: int, background: str) -> Image.Image:
         Param("reversed_background", type="color", default="#111111",
               description="Background baked behind the reversed (white) PNGs so they are visible in a file browser"),
         Param("avatar_background", type="color", default=None,
-              description="Ground for the social avatars. Unset derives a neutral from the mark's own tone; set it only when someone asked for a colour"),
+              description="Ground for the social avatars. Required when the mark is transparent: it is the person's decision, made before packaging"),
         Param("png_widths", type="multi", options=[str(w) for w in PNG_WIDTHS], default=["2048", "1024", "512"],
               description="PNG widths to write per variant and color"),
         Param("naming", type="naming", fields=["slug", "variant", "color", "size"],
@@ -125,7 +125,17 @@ async def build(b: Build) -> None:
     # mark rather than assuming white: a reversed logo on white is nothing.
     import icon_spec
 
-    avatar_ground = b.params.avatar_background or icon_spec.neutral_ground(icon_spec.ink_color(avatar_img))
+    avatar_ground = b.params.avatar_background
+    if not avatar_ground:
+        if b.input(avatar_source).has_alpha:
+            suggested = icon_spec.neutral_ground(icon_spec.ink_color(avatar_img))
+            b.fail(
+                "social avatars are a solid square with the mark on it, and the ground is a "
+                "decision nobody has made. Ask which colour the avatars should sit on — show "
+                "the mark on a few candidates and let the person pick — then pass it as "
+                f"avatar_background. A neutral that would read is {suggested}."
+            )
+        avatar_ground = "#FFFFFF"  # opaque artwork never shows it
     for label, size in AVATAR_SIZES.items():
         b.derive("social/" + b.name(ext="png", slug=slug, variant=label, color="", size=size),
                  png_bytes(_avatar(avatar_img, size, avatar_ground)), source=avatar_source)

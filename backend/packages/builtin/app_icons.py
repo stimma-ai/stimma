@@ -87,7 +87,7 @@ def present(run: dict, manifest: dict) -> str:
         Param("platforms", type="multi", options=list(icon_spec.PLATFORMS),
               default=["ios", "android", "web"], description="Which platform sets to produce"),
         Param("background", type="color", default=None,
-              description="Canvas behind the mark where a platform forbids transparency (iOS, the Play Store icon, the Apple touch icon), and the Android adaptive background layer. Leave it unset for a neutral chosen from the mark's own tone; set it only when someone asked for a specific colour"),
+              description="Canvas behind the mark where a platform forbids transparency (iOS, the Play Store icon, the Apple touch icon), and the Android adaptive background layer. Required when the master is transparent: it is the person's decision, made before packaging"),
         Param("app_name", type="string", default="App", description="Name used in the web manifest"),
         Param("allow_low_contrast", type="boolean", default=False,
               description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
@@ -101,15 +101,18 @@ The master does the work: a square mark that still reads at 20px. Thin strokes
 and fine detail disappear at the small end — check the actual-size row before
 calling it done, and simplify the mark rather than the sizes.
 
-Leave `background` alone. iOS forbids alpha, so something must go behind a
-transparent mark, and the build grounds it on a neutral chosen from the mark's
-own tone — white under a dark mark, near-black under a light one. Set it only
-when someone has asked for a particular colour, and then the build checks the
-mark still separates from it and refuses a canvas it disappears into.
+`background` is required when the master is transparent, because iOS forbids
+alpha and something has to go behind the mark. It is not yours to invent: it is
+the person's decision, made before packaging. If they have not made it, stop
+and ask. The useful way to ask is to show it — put the mark on three or four
+candidate grounds (a white, a near-black, one or two drawn from the artwork's
+own palette that the mark is not made of), show them side by side, and let the
+person pick. Then package with the one they chose. The build refuses a canvas
+the mark disappears into, so a bad pick comes back as a reason, not a file.
 
-Choosing a brand colour to sit behind the mark is design, and design is not
-what this recipe does. If the icon wants a coloured or illustrated ground, that
-belongs in the master — make the artwork, then package the artwork.
+If the icon wants a coloured or illustrated ground rather than a flat one, that
+is design and belongs in the master — make the artwork, then package the
+artwork.
 
 Supply `android_foreground` when the mark needs to sit differently inside
 Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
@@ -122,27 +125,34 @@ async def build(b: Build) -> None:
     platforms = b.params.platforms
     fg_role = "android_foreground" if b.has("android_foreground") else "master"
 
-    # A mark arrives on transparency and something has to go behind it where a
-    # platform forbids alpha. Unless someone asked for a colour, that is a
-    # neutral picked from the mark's own tone — the same rule the app uses to
-    # ground a vector thumbnail. Inventing a brand colour here is not this
-    # recipe's call to make.
+    # iOS forbids alpha, so a transparent mark needs a canvas behind it. What
+    # that canvas is, is a decision — and packaging does not make decisions, it
+    # applies them. A missing one is a gap, and a gap is refused so the person
+    # gets asked rather than surprised.
+    master = b.input("master")
     ink = icon_spec.ink_color(await b.image("master", size=256))
-    chosen = b.params.background
-    background = chosen or icon_spec.neutral_ground(ink)
+    background = b.params.background
+    if master.has_alpha and not background:
+        suggested = icon_spec.neutral_ground(ink)
+        b.fail(
+            "the master is transparent, so a canvas has to go behind it where iOS forbids "
+            "alpha, and that is a decision nobody has made. Ask which background the icon "
+            "should sit on — show the mark on a few candidates and let the person pick — "
+            f"then pass it as background. A neutral that would read is {suggested}."
+        )
+    if not background:
+        background = "#FFFFFF"  # an opaque master never shows it; something must be written
 
-    # Only worth checking when someone chose: the derived neutral cannot clash,
-    # and an already-opaque master never shows the canvas at all.
-    if chosen and not b.params.allow_low_contrast and b.input("master").has_alpha and ink is not None:
+    if master.has_alpha and not b.params.allow_low_contrast and ink is not None:
         ratio = icon_spec.contrast_ratio(ink, icon_spec.parse_hex(background))
         if ratio < icon_spec.MIN_ICON_CONTRAST:
             b.fail(
-                f"the artwork and the background you chose are the same tone "
+                f"the artwork and the chosen background are the same tone "
                 f"(contrast {ratio:.2f}:1, needs {icon_spec.MIN_ICON_CONTRAST:.2f}). "
                 f"The mark averages #{'%02X%02X%02X' % ink} and the background is "
-                f"{background}, so the icon reads as a solid square. Leave background "
-                f"unset for a neutral, or pick one much darker or lighter than the mark. "
-                f"Pass allow_low_contrast=true if the flat look is deliberate."
+                f"{background}, so the icon reads as a solid square. Pick one much darker "
+                f"or lighter than the mark, or pass allow_low_contrast=true if the flat "
+                f"look is deliberate."
             )
 
     async def composed(spec: icon_spec.IconImage):

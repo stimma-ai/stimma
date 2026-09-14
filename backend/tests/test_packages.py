@@ -67,7 +67,7 @@ def test_builtin_recipes_are_listed():
 async def test_app_icons_recipe_builds_xcode_tree(tmp_path):
     _write_icon(tmp_path / "master.png")
     spec = get_recipe("app-icons")
-    result = await run_recipe(spec, {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios", "web"]}, tmp_path / "out", slug="acme")
+    result = await run_recipe(spec, {"master": _resolved("master", tmp_path / "master.png")}, {"background": "#FFFFFF", "platforms": ["ios", "web"]}, tmp_path / "out", slug="acme")
     paths = {f.path for f in result.files}
     assert "ios/AppIcon.appiconset/Contents.json" in paths
     assert "ios/AppIcon.appiconset/icon-1024.png" in paths
@@ -91,9 +91,9 @@ async def test_builtin_recipes_are_deterministic(tmp_path):
     _write_icon(tmp_path / "master.png")
     hero = Image.new("RGB", (2400, 1600), (200, 80, 40))
     hero.save(tmp_path / "hero.jpg", quality=90)
-    assert await check_determinism(get_recipe("app-icons"), {"master": _resolved("master", tmp_path / "master.png")}, {"platforms": ["ios"]}) == []
+    assert await check_determinism(get_recipe("app-icons"), {"master": _resolved("master", tmp_path / "master.png")}, {"background": "#FFFFFF", "platforms": ["ios"]}) == []
     assert await check_determinism(get_recipe("key-art-crops"), {"master": _resolved("master", tmp_path / "hero.jpg")}, {"aspects": ["16x9", "1x1"]}) == []
-    assert await check_determinism(get_recipe("logo"), {"primary": _resolved("primary", tmp_path / "master.png")}, {"png_widths": ["512"]}) == []
+    assert await check_determinism(get_recipe("logo"), {"primary": _resolved("primary", tmp_path / "master.png")}, {"png_widths": ["512"], "avatar_background": "#FFFFFF"}) == []
 
 
 def test_naming_templates():
@@ -116,7 +116,7 @@ async def test_builder_saves_package_with_run_and_asset(db_session, tmp_path):
         master = await _media(session, tmp_path / "master.png")
         async with PackageBuilder(session, profile_id="default", title="Acme icons") as builder:
             mid = await builder.add_member(master.id, role="master")
-            rid = await builder.run("app-icons", {"master": mid}, {"platforms": ["ios"]})
+            rid = await builder.run("app-icons", {"master": mid}, {"background": "#FFFFFF", "platforms": ["ios"]})
             media, asset = await builder.save(materialize_asset=True)
         assert media.file_format == "stimmapackage"
         assert asset is not None and asset.asset_type == "package"
@@ -165,7 +165,7 @@ async def test_stale_after_master_revision_and_rebuild(db_session, tmp_path):
         master = await _media(session, tmp_path / "v1.png", materialize_asset=True)
         master_rev = await session.scalar(select(AssetRevision).where(AssetRevision.primary_media_id == master.id))
         async with PackageBuilder(session, profile_id="default", title="Acme icons") as builder:
-            await builder.run("app-icons", {"master": await builder.add_member(master.id, role="master")}, {"platforms": ["web"]})
+            await builder.run("app-icons", {"master": await builder.add_member(master.id, role="master")}, {"background": "#FFFFFF", "platforms": ["web"]})
             builder.set_cover('<h1>Acme</h1><stimma-media ref="m1"></stimma-media><stimma-files ref="r1"></stimma-files>')
             media, asset = await builder.save(materialize_asset=True)
         rows = list(await session.scalars(select(ContainerMember).where(ContainerMember.container_revision_id == asset.current_revision_id)))
@@ -224,7 +224,7 @@ async def test_exports(db_session, tmp_path):
     async with db_session() as session:
         master = await _media(session, tmp_path / "master.png")
         async with PackageBuilder(session, profile_id="default", title="Export me") as builder:
-            await builder.run("app-icons", {"master": await builder.add_member(master.id)}, {"platforms": ["web"]})
+            await builder.run("app-icons", {"master": await builder.add_member(master.id)}, {"background": "#FFFFFF", "platforms": ["web"]})
             (tmp_path / "brief.txt").write_text("the brief")
             builder.add_extra(tmp_path / "brief.txt")
             media, _ = await builder.save()
@@ -260,7 +260,7 @@ async def test_package_routes(client, db_session, tmp_path):
 
     created = await client.post("/api/packages", json={
         "title": "Route icons", "media_ids": [master_id], "recipe": "app-icons",
-        "inputs": {"master": master_id}, "params": {"platforms": ["ios"]},
+        "inputs": {"master": master_id}, "params": {"background": "#FFFFFF", "platforms": ["ios"]},
     })
     assert created.status_code == 200, created.text
     media_id = created.json()["media_id"]

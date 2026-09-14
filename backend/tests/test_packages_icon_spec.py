@@ -59,7 +59,7 @@ async def _from_recipe(tmp_path: Path) -> Path:
     await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"platforms": list(icon_spec.PLATFORMS), "app_name": "Acme"},
+        {"background": "#FFFFFF", "platforms": list(icon_spec.PLATFORMS), "app_name": "Acme"},
         out,
         slug="acme",
     )
@@ -227,7 +227,7 @@ async def test_vector_master_is_rendered_natively_at_every_size(tmp_path):
     await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", svg)},
-        {"platforms": ["ios"]},
+        {"background": "#FFFFFF", "platforms": ["ios"]},
         out,
         slug="acme",
         renderer=renderer,
@@ -257,7 +257,7 @@ async def test_vector_without_a_renderer_says_so(tmp_path):
     with pytest.raises(RecipeError, match="renderer"):
         await run_recipe(
             get_recipe("app-icons"), {"master": _resolved("master", svg)},
-            {"platforms": ["web"]}, tmp_path / "o",
+            {"background": "#FFFFFF", "platforms": ["web"]}, tmp_path / "o",
         )
 
 
@@ -278,7 +278,7 @@ async def test_cover_does_not_instruct_or_editorialize(tmp_path):
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"platforms": ["ios"], "app_name": "Sunburst"},
+        {"background": "#FFFFFF", "platforms": ["ios"], "app_name": "Sunburst"},
         out,
         slug="sunburst",
     )
@@ -314,7 +314,7 @@ async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_pa
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"platforms": ["ios"]}, out, slug="sunburst",
+        {"background": "#FFFFFF", "platforms": ["ios"]}, out, slug="sunburst",
     )
     manifest = new_manifest(title="Icons")
     manifest["runs"] = [{
@@ -345,7 +345,7 @@ async def test_presentations_are_built_from_kit_components(tmp_path):
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"platforms": ["ios"], "app_name": "Sunburst"}, out, slug="sunburst",
+        {"background": "#FFFFFF", "platforms": ["ios"], "app_name": "Sunburst"}, out, slug="sunburst",
     )
     manifest = new_manifest(title="Sunburst iOS icon")
     manifest["runs"] = [{
@@ -394,8 +394,10 @@ async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
         await run_recipe(get_recipe("app-icons"), inputs,
                          {"platforms": ["web"], "background": "#1E7BC8"}, tmp_path / "clash")
 
-    # Left alone, there is nothing to clash with: the ground is derived.
-    await run_recipe(get_recipe("app-icons"), inputs, {"platforms": ["web"]}, tmp_path / "auto")
+    # Left unset on a transparent master, it is a gap, and gaps are refused
+    # rather than filled: the person gets asked.
+    with pytest.raises(RecipeError, match="decision"):
+        await run_recipe(get_recipe("app-icons"), inputs, {"platforms": ["web"]}, tmp_path / "gap")
 
     # A deep ground and a near-white both separate it, and the flat look is
     # still reachable on purpose.
@@ -406,8 +408,8 @@ async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
                      tmp_path / "deliberate")
 
 
-def test_the_ground_is_derived_from_the_mark_not_invented():
-    """Packaging does not pick colours. A neutral comes from the mark's tone."""
+def test_a_suggested_neutral_always_reads():
+    """The refusal suggests a neutral; the suggestion has to be one that works."""
     import icon_spec
 
     assert icon_spec.neutral_ground((18, 18, 20)) == icon_spec.NEUTRAL_LIGHT      # dark mark
