@@ -139,33 +139,6 @@ body {
 }
 
 /* Lock screen (PIN) — ambient pinwheel glow + keypad. */
-.lock-glow {
-  position: absolute; left: 50%; top: 38%;
-  width: min(120vw, 900px); aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  background: url('/logo.svg') center / contain no-repeat;
-  filter: blur(90px) saturate(1.1);
-  opacity: 0.28; pointer-events: none;
-  animation: lock-glow-spin 120s linear infinite;
-}
-[data-theme="light"] .lock-glow { opacity: 0.16; filter: blur(110px) saturate(0.9); }
-@keyframes lock-glow-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .lock-glow { animation: none; } }
-.lock-vignette {
-  position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 40%, transparent 25%, var(--color-surface-overlay) 100%);
-}
-/* Fine monochrome grain dithers the blurred glow + vignette so 8-bit
-   displays don't show banding in the dark gradients. */
-.lock-grain {
-  position: absolute; inset: 0; pointer-events: none;
-  /* White noise carried in alpha (normal blend), so it still dithers a
-     near-black floor where overlay/soft-light blends would do nothing. */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.34 0.34 0.34 0 -0.25'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  background-size: 200px 200px;
-  opacity: 0.07;
-}
-[data-theme="light"] .lock-grain { opacity: 0.05; }
 .lock-pin-input {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
 }
