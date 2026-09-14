@@ -14,7 +14,7 @@
           class="text-sm"
         >
           <div v-if="entry.label" class="text-content-muted text-xs mb-0.5">{{ entry.label }}</div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2" :class="entry.mediaId ? 'mt-2' : ''">
             <button
               v-if="entry.mediaId"
               type="button"
