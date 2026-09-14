@@ -25,6 +25,9 @@ struct StimmaMobileApp: App {
 final class ShellModel: ObservableObject {
     let auth = MobileAuth()
     @Published var devices: [MobileDevice] = []
+    @Published var discoveryState = "connecting"
+    @Published var discoveryError: String?
+    private let presence = MobilePresence()
     @Published var selected: MobileDevice?
     @Published var origin: URL?
     @Published private(set) var devServerURL: URL?
@@ -99,7 +102,31 @@ final class ShellModel: ObservableObject {
 
     func setAppActive(_ active: Bool) {
         appActive = active
+        if active { startPresence() }
+        else { presence.stop(); discoveryState = "paused" }
         updateOrientation()
+    }
+
+    private func startPresence() {
+        guard appActive, auth.hasSavedSession else { return }
+        presence.start(cloudURL: auth.cloudURL, token: { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.auth.validIDToken()
+        }, refresh: { [weak self] in
+            guard let self else { throw CancellationError() }
+            let roster = try await self.auth.devices()
+            try Task.checkCancellation()
+            self.devices = roster
+            self.discoveryError = nil
+        }, state: { [weak self] state in
+            guard let self else { return }
+            self.discoveryState = state
+            if !self.auth.hasSavedSession {
+                self.presence.stop()
+                self.devices = []
+                self.discoveryState = "paused"
+            }
+        })
     }
 
     private func updateOrientation() {
@@ -205,6 +232,7 @@ final class ShellModel: ObservableObject {
         guard auth.hasSavedSession else { restoring = false; return }
         let rememberedServerID = UserDefaults.standard.string(forKey: "mobile.selectedServer")
         await refresh()
+        startPresence()
         guard restoring, generation == connectionGeneration, !Task.isCancelled else { return }
         if let id = rememberedServerID,
            let device = devices.first(where: { $0.deviceId == id }) {
@@ -239,9 +267,9 @@ final class ShellModel: ObservableObject {
             let roster = try await auth.devices()
             guard generation == connectionGeneration else { return }
             devices = roster
-            message = nil
+            discoveryError = nil
         } catch {
-            if generation == connectionGeneration { message = "Could not load your servers. \(error.localizedDescription)" }
+            if generation == connectionGeneration { discoveryError = "Could not load your servers. \(error.localizedDescription)" }
         }
     }
 
@@ -256,6 +284,7 @@ final class ShellModel: ObservableObject {
         busy = false
         if let error = auth.error { message = error; return }
         await refresh()
+        startPresence()
     }
 
     func connect(_ device: MobileDevice, recovering: Bool = false) async {
@@ -442,6 +471,9 @@ final class ShellModel: ObservableObject {
     }
 
     func logout() {
+        presence.stop()
+        discoveryState = "paused"
+        discoveryError = nil
         auth.logout()
         devices = []
         disconnect()
@@ -488,7 +520,6 @@ struct ShellView: View {
             if let origin = model.appOrigin {
                 StimmaWebView(model: model, origin: origin, connectionScreen: model.selected == nil)
                     .id(model.revision)
-                    .ignoresSafeArea(.container)
                     .accessibilityHidden(!model.interfaceReady)
             }
             if !model.interfaceReady {

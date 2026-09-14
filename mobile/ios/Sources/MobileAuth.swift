@@ -18,6 +18,7 @@ struct MobileDevice: Codable, Identifiable, Hashable {
     let routes: [MobileRoute]
     let certFingerprint: String?
     let serving: Bool
+    var online: Bool? = nil
     var id: String { deviceId }
 }
 

@@ -75,6 +75,7 @@ struct StimmaWebView: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
         context.coordinator.restoreTerminatedPageIfReady()
+        context.coordinator.publishConnectionInfo()
         if context.coordinator.lastTransportRevision != model.transportRevision {
             context.coordinator.lastTransportRevision = model.transportRevision
             uiView.evaluateJavaScript("window.dispatchEvent(new Event('stimma:transport-resumed'))")
@@ -96,6 +97,15 @@ struct StimmaWebView: UIViewRepresentable {
         private var pageNeedsReload = false
         var lastState = "ready"
         var lastTransportRevision = 0
+        private var lastConnectionInfo: Data?
+
+        func publishConnectionInfo() {
+            guard let info = try? connectionInfo(),
+                  let data = try? JSONSerialization.data(withJSONObject: info, options: .sortedKeys),
+                  data != lastConnectionInfo else { return }
+            lastConnectionInfo = data
+            webView?.evaluateJavaScript("window.dispatchEvent(new Event('stimma:connection-info'))")
+        }
         init(model: ShellModel, origin: URL, connectionScreen: Bool) {
             self.model = model; self.origin = origin
             self.connectionScreen = connectionScreen
@@ -280,11 +290,13 @@ struct StimmaWebView: UIViewRepresentable {
         private func connectionInfo() throws -> [String: Any] {
             var info: [String: Any] = [
                 "authenticated": model.auth.user != nil || model.auth.hasSavedSession,
+                "liveDiscovery": true,
+                "discoveryState": model.discoveryState,
                 "devices": try object(model.devices),
                 "selectedDeviceId": model.selected?.deviceId ?? "",
                 "busy": model.busy,
                 "restoring": model.restoring,
-                "message": model.message ?? "",
+                "message": model.message ?? model.discoveryError ?? "",
             ]
             #if DEBUG
             info["devServerAvailable"] = true

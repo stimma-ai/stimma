@@ -145,6 +145,19 @@ sign the home server out.
 
 ## Server UI packages
 
+The iOS connection screen subscribes to the authenticated Cloud account-events
+WebSocket as an observer. Server presence comes from the servers' existing
+account sockets; roster changes and reconnects trigger a fresh registry read.
+The phone stops its subscription while inactive and resynchronizes on resume.
+Online means connected to Cloud, not a guarantee that this phone can reach the
+server over LAN/Tailscale. Offline rows remain selectable for a direct attempt.
+Older servers without presence identification show offline but remain usable;
+no server upgrade is required by this client change.
+
+Debug builds expose **Dev server** at the top of the connection screen. The
+native WebView stays inside the system safe area, and the connection screen's
+scroll region resizes when the keyboard opens.
+
 Build/publish the UI beside the source backend:
 
 ```sh
