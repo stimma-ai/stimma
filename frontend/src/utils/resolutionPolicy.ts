@@ -13,6 +13,12 @@
  */
 import { detectResolutionControls, snapDimsToGrid } from './resolutionControls.ts'
 
+/**
+ * One "megapixel" here is 1024×1024, the unit models are described in:
+ * 1024² is 1MP, 2048² is 4MP. Slider ticks and labels use it throughout.
+ */
+export const MP_UNIT = 1024 * 1024
+
 export const RATIO_CHOICES = ['9:16', '2:3', '3:4', '4:5', '1:1', '5:4', '4:3', '3:2', '16:9', '21:9'] as const
 
 export interface ResolutionPolicy {
@@ -166,13 +172,13 @@ export function megapixelBounds(props: SchemaProps, ratio: number): { min: numbe
   const hiH = Math.min(maxH, maxW / r)
   const loW = Math.max(minW, minH * r)
   const loH = Math.max(minH, minW / r)
-  const max = (hiW * hiH) / 1_000_000
-  const min = Math.min((loW * loH) / 1_000_000, max)
+  const max = (hiW * hiH) / MP_UNIT
+  const min = Math.min((loW * loH) / MP_UNIT, max)
   return { min, max }
 }
 
 export function dimsForMegapixels(mp: number, ratio: number, props: SchemaProps): { width: number; height: number } {
-  const h = Math.sqrt((mp * 1_000_000) / ratio)
+  const h = Math.sqrt((mp * MP_UNIT) / ratio)
   const w = h * ratio
   return snapDimsToGrid(withDefaultStep(props), w, h)
 }
@@ -213,7 +219,7 @@ export function resolveResolution(policy: ResolutionPolicy, image: ImageDims | n
       height: pair[1],
       ratioLabel: group.ratio,
       ratioChoice: group.ratio,
-      mp: (pair[0] * pair[1]) / 1_000_000,
+      mp: (pair[0] * pair[1]) / MP_UNIT,
       tier: Math.min(pair[0], pair[1]),
       shapeFromImage,
       sizeFromImage,
@@ -234,7 +240,7 @@ export function resolveResolution(policy: ResolutionPolicy, image: ImageDims | n
   if (shapeFromImage && sizeFromImage) {
     ;({ width, height } = snapDimsToGrid(props, image!.width, image!.height))
   } else {
-    const mp = sizeFromImage ? (image!.width * image!.height) / 1_000_000 : policy.mp
+    const mp = sizeFromImage ? (image!.width * image!.height) / MP_UNIT : policy.mp
     ;({ width, height } = dimsForMegapixels(mp, rv, props))
   }
   const choice = matchingRatio(width, height)
@@ -243,7 +249,7 @@ export function resolveResolution(policy: ResolutionPolicy, image: ImageDims | n
     height,
     ratioLabel: choice ?? `~${nearestRatio(width, height)}`,
     ratioChoice: choice,
-    mp: (width * height) / 1_000_000,
+    mp: (width * height) / MP_UNIT,
     tier: null,
     shapeFromImage,
     sizeFromImage,
@@ -282,7 +288,7 @@ export function defaultResolutionPolicy(props: SchemaProps, hasImageInput: boole
   }
   return {
     ratio: matchingRatio(w, h) ?? customRatio(w, h),
-    mp: roundMp((w * h) / 1_000_000),
+    mp: roundMp((w * h) / MP_UNIT),
     tier: Math.min(w, h),
     followShape: hasImageInput,
     // Video (list) tools keep their own size; image tools match the image.
@@ -299,7 +305,7 @@ export function policyWithDims(policy: ResolutionPolicy, width: number, height: 
   return {
     ...policy,
     ratio: matchingRatio(width, height) ?? customRatio(width, height),
-    mp: roundMp((width * height) / 1_000_000),
+    mp: roundMp((width * height) / MP_UNIT),
     tier: Math.min(width, height),
   }
 }
