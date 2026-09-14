@@ -109,7 +109,7 @@ test('defaults: image tools match the image, video tools keep their tier, t2i is
   const t2i = defaultResolutionPolicy(freeform, false)
   assert.equal(t2i.followShape, false)
   assert.equal(t2i.ratio, '1:1')
-  assert.equal(t2i.mp, 1.049)
+  assert.equal(t2i.mp, 1)
   const i2i = defaultResolutionPolicy(freeform, true)
   assert.ok(i2i.followShape && i2i.followSize)
   const i2v = defaultResolutionPolicy(videoProps, true)
@@ -155,8 +155,8 @@ test('matchingRatio tolerance', () => {
 test('megapixel bounds follow the per-axis limits at the current ratio', () => {
   const props = { width: { minimum: 128, maximum: 2048, 'x-step': 16 }, height: { minimum: 128, maximum: 2048, 'x-step': 16 } }
   const sq = megapixelBounds(props, 1)
-  assert.ok(Math.abs(sq.max - 4.194) < 0.01, `1:1 max ${sq.max}`)
+  assert.equal(sq.max, 4)
   const wide = megapixelBounds(props, 4 / 3)
-  assert.ok(Math.abs(wide.max - 3.146) < 0.01, `4:3 max ${wide.max}`)
-  assert.ok(Math.abs(wide.min - 0.0218) < 0.001, `4:3 min ${wide.min}`)
+  assert.equal(wide.max, 3)
+  assert.ok(Math.abs(wide.min - 0.0208) < 0.001, `4:3 min ${wide.min}`)
 })

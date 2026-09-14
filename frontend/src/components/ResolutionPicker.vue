@@ -161,6 +161,7 @@ import {
   formatTier,
   tierGroups,
   megapixelBounds,
+  MP_UNIT,
   policyWithDims,
   roundMp,
   type ResolutionPolicy,
@@ -228,7 +229,7 @@ const tiers = computed(() => (allowed.value && allowed.value.length ? tierGroups
 const ratioChoices = computed<readonly string[]>(() => tiers.value ? tiers.value.map(g => g.ratio) : RATIO_CHOICES)
 function tierLabel(shortEdge: number, pair?: [number, number]): string {
   if (props.sizeStyle === 'tier') return formatTier(shortEdge)
-  return formatMegapixels(pair ? (pair[0] * pair[1]) / 1_000_000 : resolved.value.mp)
+  return formatMegapixels(pair ? (pair[0] * pair[1]) / MP_UNIT : resolved.value.mp)
 }
 /** Sizes offered at the current shape, deduped by label. */
 const sizeOptions = computed(() => {
