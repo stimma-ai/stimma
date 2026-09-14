@@ -47,22 +47,16 @@
         @click.stop
       >
         <!-- Shape -->
-        <div class="text-[11px] font-semibold text-content-muted mb-1.5">Shape</div>
-        <div class="grid grid-cols-6 gap-1">
-          <button
-            v-if="hasImageInput"
-            type="button"
-            :class="tileClass(followShapeState)"
-            @click="toggleFollowShape"
-          >
-            <span class="w-5 h-5 grid place-items-center"><ImageGlyph /></span>
-            <span class="text-[10px] leading-none">From image</span>
-          </button>
+        <div class="flex items-center justify-between h-6 mb-1.5">
+          <span class="text-[11px] font-semibold text-content-muted">Shape</span>
+          <FollowSwitch v-if="hasImageInput" :on="policy.followShape" @toggle="toggleFollowShape" />
+        </div>
+        <div :class="['grid grid-cols-5 gap-1 transition-opacity', resolved.shapeFromImage ? 'opacity-40' : '']">
           <button
             v-for="r in ratioChoices"
             :key="r"
             type="button"
-            :class="tileClass(ratioTileState(r))"
+            :class="tileClass(!resolved.shapeFromImage && policy.ratio === r)"
             @click="pickRatio(r)"
           >
             <span class="w-5 h-5 grid place-items-center"><i class="block border-[1.5px] border-current rounded-media" :style="previewStyle(ratioValue(r), 1, 18)"></i></span>
@@ -70,7 +64,7 @@
           </button>
           <div
             v-if="customRatioLabel"
-            :class="tileClass('on')"
+            :class="tileClass(true)"
             class="cursor-default"
           >
             <span class="w-5 h-5 grid place-items-center"><i class="block border-[1.5px] border-current rounded-media" :style="previewStyle(resolved.width, resolved.height, 18)"></i></span>
@@ -79,53 +73,43 @@
         </div>
 
         <!-- Size -->
-        <div class="text-[11px] font-semibold text-content-muted mt-3 mb-1.5">Size</div>
-        <div :class="['grid gap-1 items-center', hasImageInput ? 'grid-cols-6' : 'grid-cols-1']">
-          <button
-            v-if="hasImageInput"
-            type="button"
-            :class="tileClass(followSizeState)"
-            @click="toggleFollowSize"
-          >
-            <span class="w-5 h-5 grid place-items-center"><ImageGlyph /></span>
-            <span class="text-[10px] leading-none">From image</span>
-          </button>
-          <div :class="hasImageInput ? 'col-span-5 pl-1' : ''">
-            <template v-if="tiers">
-              <div class="flex bg-overlay-subtle rounded-md p-0.5 gap-0.5">
-                <button
-                  v-for="opt in sizeOptions"
-                  :key="opt.label"
-                  type="button"
-                  :class="[
-                    'flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors duration-150',
-                    tierState(opt.tier) === 'on' ? 'bg-accent/15 text-accent'
-                      : tierState(opt.tier) === 'echo' ? 'text-accent/60'
-                      : 'text-content-muted hover:text-content-secondary'
-                  ]"
-                  @click="pickTier(opt.tier)"
-                >{{ opt.label }}</button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="flex items-center gap-3">
-                <input v-no-autocorrect
-                  type="range"
-                  :min="MP_MIN_LOG"
-                  :max="MP_MAX_LOG"
-                  step="0.02"
-                  :value="Math.log2(resolved.mp)"
-                  :disabled="resolved.sizeFromImage"
-                  class="flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:cursor-default disabled:opacity-50 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
-                  @input="onSlider(($event.target as HTMLInputElement).value)"
-                >
-                <span :class="['font-mono tabular-nums text-xs font-semibold min-w-[3.25rem] text-right', resolved.sizeFromImage ? 'text-accent' : 'text-content']">{{ formatMegapixels(resolved.mp) }}</span>
-              </div>
-              <div class="flex justify-between text-[10px] text-content-muted px-0.5 mt-0.5 pr-[3.75rem]">
-                <span v-for="m in MP_TICKS" :key="m">{{ m }}</span>
-              </div>
-            </template>
-          </div>
+        <div class="flex items-center justify-between h-6 mt-3 mb-1.5">
+          <span class="text-[11px] font-semibold text-content-muted">Size</span>
+          <FollowSwitch v-if="hasImageInput" :on="policy.followSize" @toggle="toggleFollowSize" />
+        </div>
+        <div :class="['transition-opacity', resolved.sizeFromImage ? 'opacity-40' : '']">
+          <template v-if="tiers">
+            <div class="flex bg-overlay-subtle rounded-md p-0.5 gap-0.5">
+              <button
+                v-for="opt in sizeOptions"
+                :key="opt.label"
+                type="button"
+                :class="[
+                  'flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors duration-150',
+                  !resolved.sizeFromImage && resolved.tier === opt.tier ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
+                ]"
+                @click="pickTier(opt.tier)"
+              >{{ opt.label }}</button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex items-center gap-3">
+              <input v-no-autocorrect
+                type="range"
+                :min="MP_MIN_LOG"
+                :max="MP_MAX_LOG"
+                step="0.02"
+                :value="Math.log2(resolved.mp)"
+                :disabled="resolved.sizeFromImage"
+                class="flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:cursor-default [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
+                @input="onSlider(($event.target as HTMLInputElement).value)"
+              >
+              <span class="font-mono tabular-nums text-xs text-content-secondary min-w-[3.25rem] text-right">{{ formatMegapixels(resolved.mp) }}</span>
+            </div>
+            <div class="flex justify-between text-[10px] text-content-muted px-0.5 mt-0.5 pr-[3.75rem]">
+              <span v-for="m in MP_TICKS" :key="m">{{ m }}</span>
+            </div>
+          </template>
         </div>
 
         <!-- Exact dims -->
@@ -147,12 +131,10 @@
           >
         </div>
 
-        <!-- Result -->
-        <div :class="['mt-2 flex items-center gap-2 text-xs', resolved.cropWarning ? 'text-amber-400' : 'text-content-secondary']">
-          <span class="border border-edge bg-surface-raised flex-shrink-0 rounded-media" :style="previewStyle(resolved.width, resolved.height, 14)"></span>
-          <span>{{ resolved.cropWarning || resultLine }}<template v-if="resolved.tierMissing"> · {{ tierLabel(policy.tier) }} isn't offered at {{ resolved.ratioLabel }}</template></span>
+        <!-- What following means right now -->
+        <div v-if="explanation" class="mt-3 pt-2.5 border-t border-edge-subtle text-[11px] leading-relaxed" :class="resolved.cropWarning ? 'text-amber-400' : 'text-content-muted'">
+          {{ explanation }}
         </div>
-        <div v-if="armedNote" class="mt-1.5 text-[11px] text-accent/80">{{ armedNote }}</div>
       </div>
     </Teleport>
   </div>
@@ -202,11 +184,21 @@ const emit = defineEmits<{
   (e: 'update:policy', policy: ResolutionPolicy): void
 }>()
 
-const ImageGlyph = defineComponent({
-  render: () => h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8 }, [
-    h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2 }),
-    h('circle', { cx: 9, cy: 10, r: 1.6 }),
-    h('path', { d: 'M21 16l-5-5-8 8' }),
+// "From image" switch that lives on the Shape / Size header lines.
+const FollowSwitch = defineComponent({
+  props: { on: { type: Boolean, required: true } },
+  emits: ['toggle'],
+  setup: (p, { emit: e }) => () => h('button', {
+    type: 'button',
+    role: 'switch',
+    'aria-checked': p.on,
+    class: 'flex items-center gap-1.5 group focus-visible:outline-none focus-visible:ring-2 ring-accent/60 rounded-md',
+    onClick: () => e('toggle'),
+  }, [
+    h('span', { class: ['text-[11px] font-medium transition-colors', p.on ? 'text-accent' : 'text-content-muted group-hover:text-content-secondary'] }, 'From image'),
+    h('span', { class: ['relative inline-block w-7 h-4 rounded-full transition-colors', p.on ? 'bg-accent' : 'bg-overlay-light'] }, [
+      h('span', { class: ['absolute top-0.5 w-3 h-3 rounded-full bg-surface transition-transform', p.on ? 'translate-x-3.5' : 'translate-x-0.5'] }),
+    ]),
   ]),
 })
 
@@ -249,46 +241,31 @@ const customRatioLabel = computed(() => {
   return resolved.value.ratioLabel
 })
 
-type TileState = 'on' | 'armed' | 'echo' | 'off'
-const followShapeState = computed<TileState>(() => props.policy.followShape ? (hasImage.value ? 'on' : 'armed') : 'off')
-const followSizeState = computed<TileState>(() => props.policy.followSize ? (hasImage.value ? 'on' : 'armed') : 'off')
-function ratioTileState(r: string): TileState {
-  if (resolved.value.shapeFromImage) return resolved.value.ratioChoice === r ? 'echo' : 'off'
-  return props.policy.ratio === r ? 'on' : 'off'
-}
-function tierState(t: number): TileState {
-  if (resolved.value.sizeFromImage) return resolved.value.tier === t ? 'echo' : 'off'
-  return resolved.value.tier === t ? 'on' : 'off'
-}
-function tileClass(state: TileState) {
+function tileClass(on: boolean) {
   return [
     'aspect-square flex flex-col items-center justify-center gap-1 rounded-md border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60',
-    state === 'on' ? 'bg-accent/15 border-accent/40 text-accent'
-      : state === 'armed' ? 'bg-overlay-subtle border-dashed border-accent/50 text-accent'
-      : state === 'echo' ? 'bg-overlay-subtle border-transparent text-accent/60'
+    on ? 'bg-accent/15 border-accent/40 text-accent'
       : 'bg-overlay-subtle border-transparent text-content-secondary hover:bg-overlay-light hover:text-content',
   ]
 }
 
-const resultLine = computed(() => {
+// One sentence under the hairline that says what following does right now.
+const explanation = computed(() => {
+  if (!props.hasImageInput) return ''
   const r = resolved.value
-  const name = props.image?.name ?? 'the image'
-  const size = sizeLabel.value
-  if (r.shapeFromImage && r.sizeFromImage) return `Same as ${name}: ${r.width}×${r.height}`
-  if (r.shapeFromImage) return `${name}'s shape at ${size}: ${r.width}×${r.height}`
-  if (r.sizeFromImage) return `${r.ratioLabel} at ${name}'s size: ${r.width}×${r.height}`
-  if (customRatioLabel.value) return `Exactly ${r.width}×${r.height}. Tap a shape or size to let go.`
-  return `${r.ratioLabel} at ${size}: ${r.width}×${r.height}`
-})
-
-const armedNote = computed(() => {
-  if (!props.hasImageInput || hasImage.value) return ''
+  if (r.cropWarning) return `${r.cropWarning}. Turn on “From image” for shape to use the whole picture.`
   const p = props.policy
   if (!p.followShape && !p.followSize) return ''
-  if (props.armedText) return props.armedText
-  if (p.followShape && p.followSize) return 'Will match the first image you add.'
-  if (p.followShape) return 'Shape will follow the first image you add.'
-  return 'Size will follow the first image you add.'
+  const name = props.image?.name ?? 'the image'
+  if (props.armedText && !hasImage.value) return props.armedText
+  if (!hasImage.value) {
+    if (p.followShape && p.followSize) return 'These settings apply until an image is added; then its shape and size are used instead. Picking a shape or size while an image is present overrides it.'
+    if (p.followShape) return `Until an image is added, ${p.ratio} is used. Once one is present, its shape is used at the size set here.`
+    return `Until an image is added, ${sizeLabel.value} at ${p.ratio} is used. Once one is present, its size is kept and the shape set here is applied.`
+  }
+  if (p.followShape && p.followSize) return `Matching ${name} exactly. Pick a shape or size to override it; remove the image and the settings above come back.`
+  if (p.followShape) return `Using ${name}'s shape at ${sizeLabel.value}. Pick a shape to override it.`
+  return `Keeping ${name}'s size and applying ${r.ratioLabel}. Pick a size to override it.`
 })
 
 function update(patch: Partial<ResolutionPolicy>) {
