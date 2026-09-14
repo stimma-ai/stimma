@@ -321,8 +321,8 @@ async def test_cover_does_not_instruct_or_editorialize(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_path):
-    """Every file link forces a download, and the archive action names the file.
+async def test_file_downloads_never_navigate(tmp_path):
+    """Every file link forces a download.
 
     Without download=1 the browser renders what it can — a JSON or a PNG opens
     in place of the cover, which inside the frame looks like the page broke.
@@ -346,8 +346,10 @@ async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_pa
     hrefs = re.findall(r'<a class="sp-dl" href="([^"]+)"', html)
     assert hrefs, "no per-file download links"
     assert all("download=1" in href for href in hrefs)
-    assert 'href="app-icons.zip?download=1"' in html
-    assert "Download app-icons.zip" in html
+    # The archive is the app's to offer, from its own header; the page only
+    # opens into its contents.
+    assert "app-icons.zip?download=1" not in html
+    assert "View contents" in html
 
 
 @pytest.mark.asyncio

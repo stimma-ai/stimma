@@ -151,21 +151,28 @@ def auto_cover_body(manifest: dict[str, Any]) -> str:
         parts.append(f'<p class="sp-sub">{escape(summary)}</p>')
 
     presented = False
+    presented_files: set[str] = set()
     for run in runs:
         fragment = _run_presentation(run, manifest)
         if fragment:
             parts.append(fragment)
             presented = True
+            if "<stimma-files" in fragment:
+                presented_files.add(run["id"])
 
     if not presented:
         members = manifest.get("members") or []
         if members:
             parts.append(section(grid(media(m["id"], plate=True) for m in members)))
 
+    # A presentation that already placed its own file browser is not given a
+    # second one.
     if manifest.get("extras"):
         parts.append(section(files()))
     else:
         for run in runs:
+            if run["id"] in presented_files:
+                continue
             parts.append(section(files(run["id"])))
 
     parts.append(footer())

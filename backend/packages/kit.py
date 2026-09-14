@@ -141,37 +141,26 @@ stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-
 /* Scrollbars: one quiet style for the whole page — thin, no track, no arrows. */
 *{scrollbar-width:thin;scrollbar-color:var(--sp-line) transparent}
 
-/* Files: one row, two things to do — take the archive, or look inside. The
-   row opens, in place, into a file manager. Native <details>, so the listing
-   is still reachable with scripts off: the static tree is the data, and the
-   script builds the manager on top of it. */
-stimma-files{display:block}
+/* Files: one button, "View contents", that opens in place into a file
+   manager. Native <details>, so the listing is still reachable with scripts
+   off: the static tree is the data, and the script builds the manager on top
+   of it. The archive itself is the app's to offer, not the page's. */
+stimma-files{display:block;margin-top:28px}
 .sp-files{display:block}
-.sp-files>summary{list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+.sp-files>summary{list-style:none;display:flex;align-items:center;justify-content:center;
   padding:2px 0;cursor:pointer}
 .sp-files>summary::-webkit-details-marker{display:none}
 .sp-files>summary:focus{outline:none}
 .sp-files>summary:focus-visible{outline:2px solid var(--sp-accent);outline-offset:4px;border-radius:8px}
-.sp-browse{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--sp-muted);
-  padding:7px 12px;border-radius:7px;flex:none;transition:color .15s,background-color .15s}
-.sp-browse .sp-num{color:inherit}
-.sp-files>summary:hover .sp-browse{color:var(--sp-fg);background:var(--sp-plate)}
-.sp-files[open]>summary .sp-browse{color:var(--sp-fg)}
+.sp-browse{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;
+  color:var(--sp-fg);background:var(--sp-plate);padding:9px 16px;border-radius:7px;flex:none;
+  transition:background-color .15s}
+.sp-files>summary:hover .sp-browse{background:var(--sp-line)}
 .sp-files[open]>summary .sp-browse .sp-caret{transform:rotate(180deg)}
 .sp-caret{width:11px;height:11px;flex:none;display:inline-flex;align-items:center;
   justify-content:center;transition:transform .15s}
 .sp-caret svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round}
-.sp-zip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-fg);
-  padding:7px 12px;border-radius:7px;background:var(--sp-plate);flex:none;
-  transition:background-color .15s}
-.sp-zip:hover{background:var(--sp-line)}
-.sp-zip:focus{outline:none}
-.sp-zip:focus-visible{outline:2px solid var(--sp-accent);outline-offset:1px}
-.sp-zip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
-  stroke-linecap:round;stroke-linejoin:round;color:var(--sp-accent)}
-.sp-zip b{font-weight:500}
-.sp-zip em{font-style:normal;color:var(--sp-faint);font-variant-numeric:tabular-nums}
 
 /* The surface: one raised container, one hairline between bar and content. */
 .sp-browser{display:flex;flex-direction:column;min-width:0;margin-top:14px;
@@ -963,17 +952,16 @@ def _count_files(node: dict[str, Any]) -> int:
     return total
 
 
-def _browser_markup(count: int, total: int, action: str, tree: str, root_label: str = "") -> str:
-    """The compact row, and the browser it opens into.
+def _browser_markup(tree: str, root_label: str = "") -> str:
+    """The button, and the browser it opens into.
 
     ``<details>`` rather than a scripted toggle: closed is the resting state,
     and a reader with scripts off can still open it and read the tree.
     """
-    plural = "file" if count == 1 else "files"
     root = f' data-root="{htmllib.escape(root_label, quote=True)}"' if root_label else ""
     return (
         '<details class="sp-files"><summary class="sp-files-top">'
-        f'{action}<span class="sp-browse"><span class="sp-num">Browse {count} {plural}</span>{_CARET}</span>'
+        f'<span class="sp-browse"><span>View contents</span>{_CARET}</span>'
         '</summary>'
         f'<div class="sp-browser"><div class="sp-tree"{root}>{tree}</div></div></details>'
     )
@@ -984,23 +972,16 @@ def _files_markup(manifest: dict[str, Any], ref: str, bundle_dir: Optional[Path]
     if run is not None:
         root = (run.get("root") or "").rstrip("/")
         entries = run.get("files") or []
-        total = sum(int(e.get("size") or 0) for e in entries)
-        zip_href = _download_href(f"{root}.zip")
-        action = (
-            f'<a class="sp-zip" href="{zip_href}" download>{_ICON_ARCHIVE}'
-            f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a>'
-        )
         tree = _render_tree(_tree(entries, root + "/"), root + "/", bundle_dir=bundle_dir)
-        return _browser_markup(len(entries), total, action, tree, root_label=f"{root}.zip")
+        return _browser_markup(tree, root_label=f"{root}.zip")
 
     sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:
         sections.extend(run.get("files") or [])
     for extra in manifest.get("extras") or []:
         sections.append({"path": extra["path"], "size": extra.get("size", 0)})
-    total = sum(int(e.get("size") or 0) for e in sections)
     tree = _render_tree(_tree(sections, ""), "", bundle_dir=bundle_dir)
-    return _browser_markup(len(sections), total, "", tree)
+    return _browser_markup(tree)
 
 
 def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:

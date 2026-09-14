@@ -102,9 +102,8 @@ test('the package cover’s file browser actually works', async () => {
 
     // Compact by default: the row states the facts, the browser stays shut.
     assert.equal(await page.locator('.sp-browser').isVisible(), false)
-    assert.match(await page.locator('.sp-browse').textContent(), /Browse 6 files/)
-    assert.match(await page.locator('.sp-zip').textContent(), /Download files\.zip/)
-    assert.equal(await page.locator('.sp-zip').getAttribute('href'), 'files.zip?download=1')
+    assert.match(await page.locator('.sp-browse').textContent(), /View contents/)
+    assert.equal(await page.locator('.sp-zip').count(), 0)
 
     // Open: a list of the root folder, folders first, with the crumb naming the root.
     await page.locator('.sp-browse').click()

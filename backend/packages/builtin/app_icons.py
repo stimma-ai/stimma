@@ -17,12 +17,16 @@ PREVIEW_SIZES = (180, 120, 87, 60, 40, 29, 20)
 
 # What each folder holds, in the recipient's words. No instructions: the page
 # has no affordance behind a "drag this into Xcode", so it does not say one.
+# What each platform folder is, said to the person receiving it: what the
+# thing is called, and where it goes.
 PLATFORM_BLURB = {
-    "ios": ("iPhone and iPad", "An Xcode asset catalog, every size with its Contents.json."),
-    "android": ("Android", "Launcher icons per density, adaptive layers, and the Play Store icon."),
-    "macos": ("macOS", "An .icns, and every size as a PNG."),
-    "windows": ("Windows", "A multi-resolution .ico, 16 through 256."),
-    "web": ("Web", "Favicons, an Apple touch icon, a manifest, and the head tags."),
+    "ios": ("iOS", "AppIcon.appiconset, ready to drop into an Xcode asset catalog. "
+                   "Every iPhone and iPad size, with its Contents.json."),
+    "android": ("Android", "Launcher icons for every screen density, the adaptive foreground and "
+                           "background layers, and the 512px Play Store icon, laid out like a res/ folder."),
+    "macos": ("macOS", "An .icns for the app bundle, and every size as a PNG."),
+    "windows": ("Windows", "One .ico holding every size from 16 to 256, for the executable and the installer."),
+    "web": ("Web", "favicon.ico, an Apple touch icon, a web manifest, and the <head> tags to paste in."),
 }
 
 
@@ -140,8 +144,10 @@ def present(run: dict, manifest: dict) -> str:
         PLATFORM_BLURB.get(key, (key.title(), ""))
         for key in (run.get("params") or {}).get("platforms") or []
     ]
-    if included:
-        parts.append(kit.section(kit.columns(included), label="Included"))
+    # What is in the box, then the box itself: the file browser sits under the
+    # description, one button away, so the cover does not repeat itself.
+    body = (kit.columns(included) if included else "") + kit.files(run["id"])
+    parts.append(kit.section(body, label="Included in this package"))
     return "".join(parts)
 
 
