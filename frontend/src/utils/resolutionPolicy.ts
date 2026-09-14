@@ -157,9 +157,8 @@ function pairByArea(group: TierGroup, area: number): [number, number] {
 
 /**
  * Megapixel range the tool can actually reach at `ratio`, from the schema's
- * per-axis minimum/maximum. This is what the size slider spans, so its top
- * end is where the model really stops (a 2048-per-axis model tops out at
- * ~3.1MP for 4:3, ~4.2MP for 1:1).
+ * per-axis minimum/maximum. A 2048-per-axis tool tops out at 3MP for 4:3
+ * and 4MP for 1:1. The normal slider range may be smaller than this.
  */
 export function megapixelBounds(props: SchemaProps, ratio: number): { min: number; max: number } {
   const p = props || {}
@@ -178,15 +177,26 @@ export function megapixelBounds(props: SchemaProps, ratio: number): { min: numbe
 }
 
 export function dimsForMegapixels(mp: number, ratio: number, props: SchemaProps): { width: number; height: number } {
-  const h = Math.sqrt((mp * MP_UNIT) / ratio)
+  const bounds = megapixelBounds(props, ratio)
+  const area = Math.max(bounds.min, Math.min(bounds.max, mp))
+  const h = Math.sqrt((area * MP_UNIT) / ratio)
   const w = h * ratio
   return snapDimsToGrid(withDefaultStep(props), w, h)
+}
+
+/** Normal slider range, separate from accepted dimensions. Missing hints preserve provider limits. */
+export function megapixelSliderBounds(props: SchemaProps, ratio: number): { min: number; max: number } {
+  const bounds = megapixelBounds(props, ratio)
+  const pixels = Number(props?.width?.['x-resolution-slider-max-pixels'])
+  const max = Number.isFinite(pixels) && pixels > 0
+    ? Math.max(bounds.min, Math.min(bounds.max, pixels / MP_UNIT)) : bounds.max
+  return { min: Math.min(Math.max(bounds.min, 0.1), max), max }
 }
 
 /** Freeform tools without an explicit step still want sensible rounding. */
 function withDefaultStep(props: SchemaProps): Record<string, any> {
   const p = props || {}
-  const fix = (axis: any) => (axis && axis['x-step']) ? axis : { ...(axis || {}), 'x-step': 16 }
+  const fix = (axis: any) => (axis && axis['x-step']) ? axis : { ...(axis || {}), 'x-step': Number(axis?.multipleOf) || 16 }
   return { ...p, width: fix(p.width), height: fix(p.height) }
 }
 
@@ -238,7 +248,10 @@ export function resolveResolution(policy: ResolutionPolicy, image: ImageDims | n
     rv = ratioValue(policy.ratio)
   }
   if (shapeFromImage && sizeFromImage) {
-    ;({ width, height } = snapDimsToGrid(props, image!.width, image!.height))
+    const area = image!.width * image!.height / MP_UNIT
+    const bounds = megapixelBounds(props, rv)
+    const scale = Math.sqrt(Math.max(bounds.min, Math.min(bounds.max, area)) / area)
+    ;({ width, height } = snapDimsToGrid(props, image!.width * scale, image!.height * scale))
   } else {
     const mp = sizeFromImage ? (image!.width * image!.height) / MP_UNIT : policy.mp
     ;({ width, height } = dimsForMegapixels(mp, rv, props))
@@ -304,7 +317,7 @@ export function roundMp(mp: number): number {
 export function policyWithDims(policy: ResolutionPolicy, width: number, height: number): ResolutionPolicy {
   return {
     ...policy,
-    ratio: matchingRatio(width, height) ?? customRatio(width, height),
+    ratio: customRatio(width, height),
     mp: roundMp((width * height) / MP_UNIT),
     tier: Math.min(width, height),
   }
