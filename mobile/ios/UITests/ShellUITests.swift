@@ -36,10 +36,10 @@ final class ShellUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-mobile.devServerAddress", ""]
         app.launch()
-        let options = app.webViews.buttons["Connection options"]
+        let options = app.webViews.descendants(matching: .any).matching(identifier: "Connection options").firstMatch
         XCTAssertTrue(options.waitForExistence(timeout: 10), app.debugDescription)
         options.tap()
-        let dev = app.webViews.buttons["Dev server"]
+        let dev = app.webViews.descendants(matching: .any).matching(identifier: "Dev server").firstMatch
         XCTAssertTrue(dev.waitForExistence(timeout: 15), app.debugDescription)
         dev.tap()
         let address = app.webViews.textFields["Server IP and frontend port"]
@@ -56,7 +56,7 @@ final class ShellUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.webViews.staticTexts[identity].waitForExistence(timeout: 10), "Resume must retain the document, not merely restore its route")
         app.webViews.buttons["Disconnect"].tap()
-        XCTAssertTrue(app.webViews.buttons["Connection options"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.webViews.descendants(matching: .any).matching(identifier: "Connection options").firstMatch.waitForExistence(timeout: 10), app.debugDescription)
     }
 
     func testAuthEndpointConnectivity() {

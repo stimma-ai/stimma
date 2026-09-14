@@ -26,10 +26,10 @@ function closeMenu(restoreFocus = false) {
   menuOpen.value = false
   if (restoreFocus) menuRoot.value?.querySelector<HTMLButtonElement>('[aria-haspopup]')?.focus()
 }
-async function toggleMenu() {
+async function toggleMenu(event: MouseEvent) {
   menuOpen.value = !menuOpen.value
   await nextTick()
-  if (menuOpen.value) menuRoot.value?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
+  if (menuOpen.value && event.detail === 0) menuRoot.value?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
 }
 function dismissMenu(event: PointerEvent) {
   if (event.target instanceof Node && !menuRoot.value?.contains(event.target)) closeMenu()
@@ -193,7 +193,7 @@ onUnmounted(() => {
           <Button v-if="info?.selectedDeviceId" variant="ghost" class="min-h-11" :disabled="pending" @click="act('closeConnections')">
             Back to Stimma
           </Button>
-          <div ref="menuRoot" class="relative" @keydown="menuKeydown" @focusout="(event) => { if (!menuRoot?.contains(event.relatedTarget as Node)) closeMenu() }">
+          <div ref="menuRoot" class="relative" @keydown="menuKeydown" @focusout="(event) => { if (event.relatedTarget && !menuRoot?.contains(event.relatedTarget as Node)) closeMenu() }">
             <Button variant="ghost" class="min-h-11 min-w-11" aria-label="Connection options" aria-haspopup="menu" :aria-expanded="menuOpen" aria-controls="connection-options" @click="toggleMenu">
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
             </Button>
