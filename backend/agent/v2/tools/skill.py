@@ -161,8 +161,9 @@ def _unloadable_dirs(packs: list[StimpackInfo], skills_root: Path | None) -> lis
         ToolParameter(
             name="action",
             type="string",
-            description="list: every installed skill with path/eligibility/problems. invoke: load a skill's body into this conversation.",
-            required=True,
+            description="invoke (default): load the named skill. list: every installed skill with path/eligibility/problems.",
+            required=False,
+            default="invoke",
             enum=["list", "invoke"],
         ),
         ToolParameter(
@@ -177,7 +178,7 @@ def _unloadable_dirs(packs: list[StimpackInfo], skills_root: Path | None) -> lis
     scope="both",
 )
 async def skill_tool(
-    action: str,
+    action: str = "invoke",
     name: str | None = None,
     **kwargs,
 ) -> str:

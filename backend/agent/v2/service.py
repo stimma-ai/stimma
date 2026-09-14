@@ -1412,7 +1412,7 @@ async def _run_agentic_loop_inner(
             if fn_name == "skill":
                 try:
                     skill_args = json.loads(fn_arguments) if fn_arguments else {}
-                    if skill_args.get("action") == "invoke" and skill_args.get("name"):
+                    if skill_args.get("action", "invoke") == "invoke" and skill_args.get("name"):
                         _invoked_skills.add(skill_args["name"])
                         _track_skill_invoked(chat_id, skill_args["name"])
                 except (json.JSONDecodeError, TypeError):
@@ -1701,7 +1701,7 @@ async def _run_agentic_loop_inner(
                 if fn_name == "skill":
                     try:
                         skill_args = json.loads(fn_arguments) if fn_arguments else {}
-                        if skill_args.get("action") == "invoke" and skill_args.get("name"):
+                        if skill_args.get("action", "invoke") == "invoke" and skill_args.get("name"):
                             _invoked_skills.add(skill_args["name"])
                             _track_skill_invoked(chat_id, skill_args["name"])
                     except (json.JSONDecodeError, TypeError):

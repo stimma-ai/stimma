@@ -23,7 +23,9 @@ def get_shell_runtime_name() -> str:
     description=(
         "Run a shell command in the session workspace directory. "
         "Uses PowerShell on Windows and bash on other platforms. "
-        "Use for file operations, ImageMagick, ffmpeg, and other CLI tools."
+        "Use for external CLI tools such as ImageMagick. "
+        "Use glob, grep, read_file, write_file, and edit_file for workspace files; "
+        "run Python and the stimma SDK through run_code or run_file."
     ),
     parameters=[
         ToolParameter(name="command", type="string", description="The shell command to run"),

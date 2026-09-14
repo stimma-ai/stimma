@@ -108,10 +108,11 @@ class _FakeSessionContext:
 
 
 @pytest.mark.asyncio
-async def test_call_tool_routes_input_images(session, test_chat, fake_queue, mock_generation, tmp_path):
+@pytest.mark.parametrize("images", [[101], 101])
+async def test_call_tool_routes_input_images(session, test_chat, fake_queue, mock_generation, tmp_path, images):
     result = await call_tool(
         tool_id="image:model-a",
-        parameters={"prompt": "a cat", "input_images": [101]},
+        parameters={"prompt": "a cat", "input_images": images},
         session=session,
         chat_id=test_chat.id,
         workspace_dir=str(tmp_path),

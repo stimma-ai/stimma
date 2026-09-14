@@ -311,11 +311,12 @@ class TestEligibility:
 
 class TestInjection:
     @pytest.mark.asyncio
-    async def test_invoke_injects_skill_body_labeled_skill(self, multi_skill_pack, session, test_chat):
+    @pytest.mark.parametrize("action_args", [{"action": "invoke"}, {}])
+    async def test_invoke_injects_skill_body_labeled_skill(self, multi_skill_pack, session, test_chat, action_args):
         from agent.v2.tools.skill import skill_tool
         injected = []
         result = await skill_tool(
-            action="invoke",
+            **action_args,
             name="test-pack/alpha",
             session=session,
             chat_id=test_chat.id,

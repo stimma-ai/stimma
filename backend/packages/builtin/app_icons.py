@@ -72,6 +72,12 @@ need vectorization to be packaged.
 supplied master already has a different background, prepare that background
 before running the recipe. Check the resulting iOS icon against the requested
 color, not just the parameter value recorded in the manifest.
+For removing a baked-in background, load Subject Isolation and use its
+background-removal workflow. A square cutout of at least 1024px already meets
+the master constraints: use that output directly, with the requested background
+parameter. Keep its existing scale and placement unless the artwork needs an
+adjustment; no extra canvas or separate Android foreground is required for the
+same centered mark. Inspect the cutout before building.
 
 The Packaging skill has recipe-specific starting points under its resource
 directory. Read `references/app-icons.py` for an editable draft/preview/save

@@ -272,7 +272,8 @@ async def test_unresolvable_input_image_raises_naming_the_value():
 
 
 @pytest.mark.asyncio
-async def test_workspace_file_input_is_imported_for_durable_lineage(tmp_path):
+@pytest.mark.parametrize("images", [["middle_crop.png"], "middle_crop.png"])
+async def test_workspace_file_input_is_imported_for_durable_lineage(tmp_path, images):
     """A workspace file is imported and submitted by media id.
 
     Mock the import boundary explicitly so this test cannot change behavior
@@ -302,7 +303,7 @@ async def test_workspace_file_input_is_imported_for_durable_lineage(tmp_path):
         with pytest.raises(RuntimeError, match="__stop__"):
             await ct.execute_call_tool(
                 tool_id="comfyui:mock-edit",
-                parameters={"prompt": "warm", "input_images": ["middle_crop.png"]},
+                parameters={"prompt": "warm", "input_images": images},
                 task_type_override="image-to-image",
                 session=object(),
                 workspace_dir=str(tmp_path),

@@ -309,6 +309,10 @@ async def execute_call_tool(
     # width/height, seed, loras and every tool-specific knob live together in one
     # dict keyed by name (matching the tool's parameter_schema).
     params: Dict[str, Any] = _json_safe_pathlikes(dict(parameters or {}))
+    # A single image reference is an unambiguous one-item batch. Normalize it
+    # before task routing and lineage resolution, both of which consume lists.
+    if isinstance(params.get("input_images"), (str, int)) and not isinstance(params["input_images"], bool):
+        params["input_images"] = [params["input_images"]]
 
     # Extract controlnet config if the agent passed it inline
     cn_preprocessor, cn_params = _extract_controlnet_config(params)
