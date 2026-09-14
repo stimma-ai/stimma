@@ -78,45 +78,80 @@
       </div>
     </div>
 
+    <!-- Ambient brand glow: the pinwheel, blurred and slowly turning. -->
+    <div class="lock-glow" aria-hidden="true" />
+    <div class="lock-vignette" aria-hidden="true" />
+
     <!-- Centered lock content -->
-    <div class="flex items-center justify-center h-full">
-      <div class="w-80">
-        <!-- Lock icon and title -->
-        <div class="text-center mb-6">
-          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
-            <svg class="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-          </div>
-          <h1 class="text-xl font-semibold text-content">Welcome back</h1>
-          <p class="text-sm text-content-tertiary mt-1">{{ lockedProfileName }}</p>
+    <div class="relative z-[1] h-full overflow-y-auto">
+      <div class="min-h-full flex flex-col items-center justify-center gap-5 sm:gap-6 px-6 pb-6 pt-safe" style="padding-top: calc(var(--safe-top) + 4rem)">
+        <!-- Brand -->
+        <div class="flex flex-col items-center gap-3">
+          <img src="/logo.svg" alt="" class="w-14 h-14 sm:w-[72px] sm:h-[72px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)]" />
+          <span class="font-brand lowercase tracking-[0.12em] text-[19px] sm:text-[22px] font-semibold text-content">stimma</span>
         </div>
 
-        <!-- PIN Input -->
-        <div class="bg-surface border border-edge rounded-lg p-4">
-          <label class="block text-sm text-content-tertiary mb-2">Enter your PIN</label>
-          <input
-            ref="lockScreenPinInput"
-            v-model="lockScreenPin"
-            type="password"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            maxlength="20"
-            class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
-            placeholder="PIN"
-            autocomplete="off"
-            @keydown.enter="submitLockScreenPin"
+        <!-- Greeting -->
+        <div class="text-center">
+          <h1 class="font-brand text-[22px] sm:text-[26px] font-semibold tracking-[-0.01em] text-content">Welcome back, {{ lockedProfileName }}</h1>
+          <p class="text-sm text-content-tertiary mt-1.5">Enter your PIN to unlock this profile</p>
+        </div>
+
+        <!-- Hidden real input keeps keyboard entry, focus management and paste working.
+             On compact the on-screen keypad is the input; inputmode=none stops the
+             soft keyboard from covering it. -->
+        <input
+          ref="lockScreenPinInput"
+          v-model="lockScreenPin"
+          type="password"
+          :inputmode="isCompact ? 'none' : 'numeric'"
+          pattern="[0-9]*"
+          maxlength="20"
+          autocomplete="off"
+          aria-label="PIN"
+          class="lock-pin-input"
+          @keydown.enter="submitLockScreenPin"
+        />
+
+        <!-- PIN dots (one per digit, min 4) -->
+        <div
+          class="lock-dots flex items-center justify-center gap-3.5 min-h-[20px] cursor-text"
+          :class="{ 'lock-dots-error': lockScreenShake }"
+          @click="lockScreenPinInput?.focus()"
+        >
+          <span
+            v-for="i in lockScreenDotCount"
+            :key="i"
+            class="lock-dot"
+            :class="{ 'lock-dot-on': i <= lockScreenPin.length }"
           />
-          <p v-if="lockScreenError" class="mt-2 text-sm text-red-500 text-center">
-            {{ lockScreenError }}
-          </p>
+        </div>
+
+        <p class="text-sm text-red-400 text-center -mt-3 min-h-[20px]">{{ lockScreenError }}</p>
+
+        <!-- Keypad -->
+        <div class="grid grid-cols-3 gap-3 w-full max-w-[280px] sm:max-w-[252px]">
           <button
-            @click="submitLockScreenPin"
+            v-for="k in ['1','2','3','4','5','6','7','8','9']"
+            :key="k"
+            type="button"
+            class="lock-key"
+            :disabled="lockScreenSubmitting"
+            @click="lockScreenKey(k)"
+          >{{ k }}</button>
+          <button type="button" class="lock-key lock-key-ghost" title="Delete" :disabled="lockScreenSubmitting" @click="lockScreenKey('del')">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" /></svg>
+          </button>
+          <button type="button" class="lock-key" :disabled="lockScreenSubmitting" @click="lockScreenKey('0')">0</button>
+          <button
+            type="button"
+            class="lock-key lock-key-go"
+            title="Unlock"
             :disabled="!lockScreenPin || lockScreenSubmitting"
-            class="w-full mt-3 px-4 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+            @click="submitLockScreenPin"
           >
             <Spinner v-if="lockScreenSubmitting" size="sm" hue="border-t-white" />
-            <span>{{ lockScreenSubmitting ? 'Verifying...' : 'Unlock' }}</span>
+            <svg v-else class="w-[26px] h-[26px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
           </button>
         </div>
       </div>
@@ -387,6 +422,21 @@ const lockScreenError = ref('')
 const lockScreenSubmitting = ref(false)
 const lockScreenPinInput = ref(null)
 const lockScreenProfileDropdownOpen = ref(false)
+const lockScreenShake = ref(false)
+const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
+function lockScreenKey(k) {
+  if (lockScreenSubmitting.value) return
+  lockScreenError.value = ''
+  if (k === 'del') lockScreenPin.value = lockScreenPin.value.slice(0, -1)
+  else if (lockScreenPin.value.length < 20) lockScreenPin.value += k
+  lockScreenPinInput.value?.focus()
+}
+// Shake the dots whenever a PIN attempt is rejected.
+watch(lockScreenError, (err) => {
+  if (!err) return
+  lockScreenShake.value = true
+  setTimeout(() => { lockScreenShake.value = false }, 450)
+})
 
 // Clear PIN input when leaving this workspace, but retain it during quiet
 // mobile recovery just like other in-progress input. Server PIN checks remain.
