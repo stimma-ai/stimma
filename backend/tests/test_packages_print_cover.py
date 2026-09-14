@@ -152,3 +152,27 @@ def test_optional_details_stay_in_html_without_duplicating_pdf_slides(tmp_path):
         images = [obj for obj in pdf[1].get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
         assert len(images) >= 2
     assert (tmp_path / 'index.html').read_text() == html
+
+
+@pytest.mark.parametrize("page_rule", ["", "@page { background: #123f86; }"])
+def test_authored_colors_and_print_typography_override_kit_defaults(tmp_path, page_rule):
+    manifest = new_manifest(title='Custom cover')
+    html, problems = render_cover_document(manifest, authored_html='''
+      <style>
+        :root { --sp-bg: #123f86; --sp-fg: white; }
+        PAGE_RULE
+        @media print { .sp-title { font-size: 64px; } }
+      </style>
+      <div class="sp-page"><h1 class="sp-title">Custom cover</h1>
+      <p>Shared content, authored design.</p></div>'''.replace("PAGE_RULE", page_rule), bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        assert len(pdf) == 1
+        image = pdf[0].render(scale=1).to_pil().convert('RGB')
+        assert image.getpixel((2, 2)) == (18, 63, 134)
+        textpage = pdf[0].get_textpage()
+        # 64 CSS px is 48 PDF points, larger than the default 42px heading.
+        sizes = [pdfium.raw.FPDFText_GetFontSize(textpage.raw, i) for i in range(textpage.count_chars())]
+        assert max(sizes) >= 47
+        assert 'Made with' in textpage.get_text_range()

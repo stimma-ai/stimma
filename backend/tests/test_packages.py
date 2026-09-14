@@ -370,3 +370,29 @@ def test_every_cover_has_one_kit_signature(source):
     assert footer() in document
     if source and 'Contents' in source:
         assert 'Contents</div>' + footer() + '</div>' in document
+
+
+@pytest.mark.asyncio
+async def test_vector_builder_uses_current_document_renderer_interface(db_session, tmp_path, monkeypatch):
+    import io
+    from packages.recipes import ResolvedInput, describe_file
+    from packages.manifest import sha256_file
+    import utils.document_render as renderer
+
+    path = tmp_path / 'master.svg'
+    path.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>')
+    given = ResolvedInput(role='master', path=path, hash=sha256_file(path), **describe_file(path))
+    calls = []
+
+    async def transport(html, *, width, height, dpr, assets, render_timeout_s, queue_timeout_s):
+        calls.append((width, height, assets))
+        data = io.BytesIO()
+        Image.new('RGBA', (width, height), 'red').save(data, format='PNG')
+        return data.getvalue()
+
+    monkeypatch.setattr(renderer, 'render_html', transport)
+    async with db_session() as session:
+        async with PackageBuilder(session, profile_id='default', title='Vector') as builder:
+            assert (await builder._render_vector(given, 72)).startswith(b'\x89PNG')
+    assert calls and calls[0][:2] == (72, 72)
+    assert 'document.svg' in calls[0][2]

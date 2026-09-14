@@ -1,6 +1,6 @@
 """Measured source bounds and explicit platform composition for icon recipes.
 
-Optical occupancy is a kit policy, not a claim that vendors prescribe one
+Optical occupancy is a default recipe policy, not a claim that vendors prescribe one
 percentage for every mark. Android's 66dp circle is a platform constraint.
 """
 from dataclasses import dataclass
@@ -60,7 +60,7 @@ class Artwork:
         return min(8192, max(px, math.ceil(px/max(fraction, .01)))) if self.mark else px
 
     def compose(self, image: Image.Image, spec: icon_spec.IconImage,
-                platform: str, background: str) -> Image.Image:
+                platform: str, background: str, *, scale: float = 1.0) -> Image.Image:
         art = self.crop(image)
         bg = self.backdrop or background
         adaptive = platform == 'android' and 'foreground' in spec.path
@@ -70,13 +70,22 @@ class Artwork:
             a = np.array(art.getchannel('A'))
             ys, xs = np.where(a > 8)
             radius = np.max(np.hypot(xs-(art.width-1)/2, ys-(art.height-1)/2)) if len(xs) else 1
-            scale = (spec.px * 66/108 / 2) / max(radius, 1)
-            inner = max(1, round(max(art.size)*scale))
+            fit = (spec.px * 66/108 / 2) / max(radius, 1)
+            inner = max(1, round(max(art.size)*fit))
         elif platform == 'macos':
             inner = max(1, round(spec.px * icon_spec.MACOS_SAFE_AREA * (.86 if self.mark else 1)))
         else:
             occupancy = .86 if spec.opaque else (.98 if platform == 'windows' else .92)
             inner = max(1, round(spec.px * (occupancy if self.mark else 1)))
+        from packages.recipes import RecipeError
+
+        limit = spec.px * (icon_spec.MACOS_SAFE_AREA if platform == 'macos' else 1)
+        if not math.isfinite(scale) or scale <= 0:
+            raise RecipeError(f"{platform}_scale must be a finite positive number")
+        if (adaptive and scale > 1) or inner * scale > limit + .5:
+            constraint = "adaptive safe zone" if adaptive else "platform canvas"
+            raise RecipeError(f"{platform}_scale={scale:g} exceeds the {constraint}; use a smaller scale")
+        inner = max(1, round(inner * scale))
         factor = inner/max(art.size)
         art = art.resize((max(1, round(art.width*factor)), max(1, round(art.height*factor))), Image.Resampling.LANCZOS)
         canvas = Image.new('RGBA', (spec.px, spec.px))

@@ -5,18 +5,17 @@ from copy import deepcopy
 from packages.export import export_single_html
 
 PRINT_CSS = """
-@page { size: 1280px 720px; margin: 48px 48px 64px; background: #0d0d0e;
+@page { size: 1280px 720px; margin: 48px 48px 64px; background: var(--sp-bg, #0d0d0e);
   @bottom-left { content: element(stimma-footer); width: 100%; vertical-align: top; text-align: left; padding-top: 12px; }
 }
-html, body { font-family: sans-serif; }
 .sp-page { width: 100%; max-width: none; margin: 0; padding: 0; }
 .sp-title { font-size: 42px; }
 stimma-section, .sp-section { margin-top: 28px; }
 h1, h2, h3, .sp-label { break-after: avoid; }
 stimma-media, stimma-compare figure { break-inside: avoid; }
 stimma-media img, stimma-compare img { max-width: 100%; max-height: 480px; object-fit: contain; }
-stimma-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 18px; }
-stimma-grid:has(stimma-media[size]) { grid-template-columns: repeat(5, 1fr) !important; }
+stimma-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+stimma-grid:has(stimma-media[size]) { grid-template-columns: repeat(5, 1fr); }
 stimma-columns { grid-template-columns: repeat(3, 1fr); gap: 18px; break-inside: avoid; }
 stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
 .sp-appearance-head .sp-seg, input, button { display: none !important; }
@@ -25,7 +24,7 @@ stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
   visibility: visible !important; margin-top: 18px; break-inside: avoid; }
 .sp-appearance-panel::before { break-after: avoid; content: attr(data-when); display: block;
   text-transform: capitalize; font-size: 12px; margin-bottom: 12px; }
-.sp-appearance-panel > div:has(stimma-media) { display: grid; grid-template-columns: 1fr 1fr !important; gap: 18px; }
+.sp-appearance-panel > div:has(stimma-media) { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 stimma-compare.sp-slider .sp-cmp { display: grid; grid-template-columns: 1fr 1fr; }
 stimma-compare.sp-slider figure:first-child { position: static; width: auto; overflow: visible; }
 stimma-compare.sp-slider figure:first-child img { width: 100%; max-width: 100%; }
@@ -45,12 +44,12 @@ stimma-section[page][layout=stack] .sp-caption, stimma-section[page][layout=sing
 stimma-section[page][layout=stack]>.sp-section-body>stimma-media img { height: 230px; }
 stimma-section[page]:has(.sp-section-details)>.sp-section-body>stimma-media img { height: 325px; }
 stimma-section[page] .sp-section-details { margin-top: 20px; }
-stimma-section[page] .sp-section-details>stimma-grid { grid-template-columns: 1fr 1fr !important; gap: 32px; }
+stimma-section[page] .sp-section-details>stimma-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
 stimma-section[page] .sp-section-details stimma-media img { width: 100%; height: 110px; object-fit: contain; }
 stimma-section[page] .sp-section-details .sp-caption { text-align: center; }
 stimma-section[page] .sp-appearance-panel { margin-top: 0; }
 stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
-stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr) !important; }
+stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr); }
 stimma-section[page] .sp-appearance-panel stimma-media img { max-height: 170px; width: auto; }
 
 """
@@ -65,8 +64,10 @@ def export_pdf(bundle_dir: Path) -> bytes:
             raise ValueError('PDF cover resources must be embedded')
         return default_url_fetcher(url, **kwargs)
 
+    # Kit print defaults follow kit screen CSS, but precede authored styles.
+    # Authors can override typography, page colors and composition normally.
     html = export_single_html(bundle_dir).replace(
-        '</head>', f'<style>{PRINT_CSS}</style></head>', 1,
+        '</style>', f'</style><style>{PRINT_CSS}</style>', 1,
     )
     document = HTML(string=html, url_fetcher=embedded_only)
     # Supplemental HTML disclosures stay out of the deck, including their

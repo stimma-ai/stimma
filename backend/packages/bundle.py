@@ -326,7 +326,7 @@ class PackageBuilder:
             rw, rh = max(1, int(round(size * w / h))), size
         try:
             png = await render_svg_document(
-                text, rw, rh, wait_for_client_timeout_s=10.0, queue_timeout_s=60.0
+                text, rw, rh, queue_timeout_s=60.0
             )
         except (LayoutRenderBusy, LayoutRenderUnavailable) as exc:
             raise RecipeError(

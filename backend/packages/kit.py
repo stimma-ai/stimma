@@ -1,9 +1,8 @@
 """The cover component kit.
 
 One vocabulary every cover uses — the plain auto cover and, above all, the
-cover an agent designs. Components carry the look, so a cover is a choice of
-components and words rather than a fresh design each time, and two packages
-made a year apart still read as coming from the same studio.
+cover an agent designs. Components provide reusable defaults. The author chooses composition and may
+override colors, typography and layout to suit the work and the recipient.
 
 Components, all usable in authored HTML:
 
@@ -32,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 8
+KIT_VERSION = 9
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (

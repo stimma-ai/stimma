@@ -112,3 +112,29 @@ def test_linux_renders_ubuntu_and_kde_from_the_same_delivered_icon(monkeypatch):
     changed[792:888, 484:580] = False
     changed[650:723, 272:793] = False
     assert not changed.any(), 'Native neighboring apps must remain unchanged'
+
+
+def test_scale_changes_artwork_without_changing_platform_canvas():
+    import pytest
+    from packages.recipes import RecipeError
+
+    image = mark(90)
+    plan = Artwork.measure(image)
+    spec = icon_spec.IconImage('icon-256.png', 256)
+    small = plan.compose(image, spec, 'windows', '#ffffff', scale=.8)
+    large = plan.compose(image, spec, 'windows', '#ffffff', scale=.9)
+    assert small.size == large.size == (256, 256)
+    assert small.getbbox()[2]-small.getbbox()[0] < large.getbbox()[2]-large.getbbox()[0]
+    with pytest.raises(RecipeError, match='platform canvas'):
+        plan.compose(image, spec, 'windows', '#ffffff', scale=1.2)
+    ios_spec = icon_spec.ios_images()[-1]
+    normal_ios = plan.compose(image, ios_spec, 'ios', '#ffffff')
+    larger_ios = plan.compose(image, ios_spec, 'ios', '#ffffff', scale=1.1)
+    assert normal_ios.size == larger_ios.size
+    assert np.count_nonzero(np.asarray(larger_ios)[:, :, 1] < 200) > np.count_nonzero(np.asarray(normal_ios)[:, :, 1] < 200)
+    adaptive = icon_spec.IconImage('ic_launcher_foreground.png', 432)
+    with pytest.raises(RecipeError, match='adaptive safe zone'):
+        plan.compose(image, adaptive, 'android', '#ffffff', scale=1.1)
+    for invalid in [float('nan'), float('inf'), 0]:
+        with pytest.raises(RecipeError, match='finite positive'):
+            plan.compose(image, spec, 'windows', '#ffffff', scale=invalid)

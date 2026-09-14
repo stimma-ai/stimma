@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=11,
+    version=12,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -30,6 +30,9 @@ from packages.recipes import Build, Input, Param, recipe
               description="What the app is called: the name under the icon on the home screen, in the store row, in Settings and notifications, and in the web manifest. Required: it is the person's to say, not yours to invent — ask if you do not know"),
         Param("artwork_fit", type="choice", options=["auto", "canvas"], default="auto",
               description="Auto measures transparent or uniform-background margins and fits the mark to each platform. Canvas preserves a deliberately composed full-bleed source. Inspect Platform Study before saving"),
+        *[Param(f"{platform}_scale", type="number", default=1.0, minimum=0.1, maximum=2.0,
+                description=f"Artwork scale for {platform} only, relative to its default fit: 0.9 makes the mark 10% smaller, 1.1 makes it 10% larger. Changes exports and previews together. Refuses scaling beyond the canvas or adaptive safe zone; does not change the platform canvas size")
+          for platform in icon_spec.PLATFORMS],
         Param("allow_low_contrast", type="boolean", default=False,
               description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
         Param("naming", type="naming", fields=["slug", "size", "platform"],
@@ -82,22 +85,35 @@ measures transparent or uniform-background margins and fits the visible mark
 for each platform. iOS uses a full-bleed opaque canvas, macOS adds its outer
 margin once, Windows/Linux use the available transparent icon canvas, and the
 Android foreground fits the guaranteed 66dp circle in its 108dp layer. The
-optical fill of a mark is a kit policy; no one percentage fits all designs.
+optical fill of a mark is a default recipe policy; no one percentage fits all designs.
 Use `artwork_fit="canvas"` only for intentionally composed full-bleed artwork
 whose existing internal spacing must be retained. Inspect the cutout and the
 resulting Platform Study before saving. Never enlarge only a preview to hide
 an undersized exported icon.
+
+For a requested size/padding adjustment, set ios_scale, android_scale,
+macos_scale, windows_scale, linux_scale or web_scale on the run. Each is a
+multiplier relative to that platform's normal fit (1.0): 0.9 is 10% smaller,
+with more padding. Change only the requested platform. The renderer refuses
+clipping or exceeding the Android safe zone; if enlargement is refused, explain
+the limit instead of silently clipping. Re-run and inspect the exported icon
+and its Platform Study. Do not edit only a preview or change the shared SVG
+master to compensate for one platform. Keep the SVG as a reusable member.
 
 Read `references/platform-study.md` in the Packaging skill for this recipe.
 Read it through the skill's resource path supplied at activation, using the
 normal read_file tool. Do not search the Python SDK or leave the workspace to
 find templates. The recipe already supplies the context images as run files.
 
+The following cover composition is a default, not a required design. Honor
+requested colors, branding, grouping and emphasis; keep refs valid and show
+the requested deliverables.
 Group each OS in a sibling <stimma-section page label="Platform Study · OS">.
 Use layout="pair" for iOS, Android and Linux, layout="stack" for Windows,
 and layout="single" for macOS.
 The kit makes responsive HTML and one landscape PDF page per OS from that group.
-Use the current skill reference; do not author a second PDF layout.
+Use the current skill reference as a starting point. Custom CSS, including
+@media print and @page, can adapt the shared cover to the requested design.
 For each selected platform:
 - iOS: `previews/device-studio.png` and `previews/device-lifestyle.png` (4K).
 - Android: `previews/platform-android-studio.png` (large icon beside Galaxy phone)
@@ -202,7 +218,7 @@ async def build(b: Build) -> None:
         # Render vectors with enough pixels for the measured crop; resample rasters.
         plan = plans[spec.role]
         art = await b.image(spec.role, size=plan.render_size(spec.px))
-        return plan.compose(art, spec, platform, background)
+        return plan.compose(art, spec, platform, background, scale=getattr(b.params, f"{platform}_scale"))
 
     study_icons = {}
     store_icons = {}

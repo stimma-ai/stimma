@@ -472,3 +472,24 @@ async def test_fully_opaque_rgba_master_does_not_need_a_transparency_background(
     await run_recipe(get_recipe('app-icons'), {'master': _resolved('master', source)}, params, tmp_path / 'out')
     output = Image.open(tmp_path / 'out/ios/AppIcon.appiconset/icon-1024.png')
     assert output.convert('RGB').getpixel((0, 0)) == (255, 248, 240)
+
+
+@pytest.mark.asyncio
+async def test_platform_scale_changes_only_requested_exports_and_previews(tmp_path):
+    from PIL import ImageChops
+    source = _resolved('master', _master(tmp_path / 'master.png'))
+    params = {'background': '#FFFFFF', 'app_name': 'Example', 'platforms': ['windows', 'linux']}
+    results = []
+    for name, scale in [('normal', 1.0), ('smaller', .8)]:
+        result = await run_recipe(get_recipe('app-icons'), {'master': source},
+                                 {**params, 'windows_scale': scale}, tmp_path / name, slug='example')
+        assert result.params['windows_scale'] == scale
+        results.append({f.path: f.hash for f in result.files})
+    changed = {path for path in results[0] if results[0][path] != results[1][path]}
+    assert 'windows/icon-256.png' in changed
+    assert 'previews/platform-windows-start.png' in changed
+    assert 'previews/platform-windows-taskbar.png' in changed
+    assert not any(path.startswith('linux/') or 'platform-linux' in path for path in changed)
+    a = Image.open(tmp_path / 'normal/windows/icon-256.png').convert('RGBA')
+    b = Image.open(tmp_path / 'smaller/windows/icon-256.png').convert('RGBA')
+    assert ImageChops.difference(a, b).getbbox()
