@@ -367,8 +367,11 @@ async def test_previews_ship_with_the_run(tmp_path):
     )
     shipped = {f.path for f in result.files}
     for name in ("previews/home-light.png", "previews/home-dark.png", "previews/app-store-light.png",
-                 "previews/settings-dark.png", "previews/notification-light.png", "previews/spotlight-dark.png"):
+                 "previews/settings-dark.png", "previews/notification-light.png", "previews/spotlight-dark.png",
+                 "previews/device-studio.png", "previews/device-lifestyle.png"):
         assert name in shipped, f"{name} not shipped"
+    with Image.open(out / "previews/device-lifestyle.png") as image:
+        assert image.size == (3840, 2560)
     spec = get_recipe("app-icons")
     assert not hasattr(spec, "present"), "recipes are formulas; the cover is the agent's"
     assert "previews/" in spec.guidance and "stimma-appearance" in spec.guidance

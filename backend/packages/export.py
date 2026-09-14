@@ -70,4 +70,6 @@ def export_zip(bundle_dir: Path, manifest: dict[str, Any], *, folder_name: Optio
 def export_single_html(bundle_dir: Path) -> str:
     """The cover with previews inlined: opens anywhere, read-only."""
     html_text = (Path(bundle_dir) / COVER_NAME).read_text(encoding="utf-8")
-    return inline_cover_assets(bundle_dir, html_text)
+    # Retain high-resolution device/context imagery in the portable cover.
+    # Thumbnail callers keep inline_cover_assets' smaller default separately.
+    return inline_cover_assets(bundle_dir, html_text, max_side=3840)

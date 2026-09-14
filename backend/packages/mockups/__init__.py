@@ -3,10 +3,11 @@
 What a designer would build in a mockup kit — a phone with a believable home
 screen, the store listing, a settings row, a notification — produced
 deterministically from shipped assets and the artwork in the package, so the
-package carries real presentation images the recipient can drop into a deck.
+package carries real context images the recipient can drop into a deck.
 
-Everything here is drawn: the frame, the wallpaper, the neighbouring apps and
-the OS chrome are original renderings, not screenshots of anyone's product.
+The flat previews use original drawn chrome and neighboring glyphs. The
+device scenes use original scene assets and genuine Apple icons captured
+from iOS; see assets/devices/README.md for their sources.
 """
 
 from packages.mockups.springboard import render_iphone  # noqa: F401

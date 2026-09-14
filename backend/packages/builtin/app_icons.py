@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=4,
+    version=5,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -90,6 +90,15 @@ Windows and Linux outputs, with a file browser for every run. Keep captions
 factual and short; do not add claims about polish, readability or readiness.
 
 What the run gives the cover. `previews/` holds rendered mockups of the icon
+in original device scenes when iOS is included: `device-studio.png` pairs the
+icon with an angled phone, and `device-lifestyle.png` is a 3840 × 2560 cafe
+scene. These use genuine Apple app icons from an iOS 18.4 scene template.
+The delivered icon and app name are composited locally: no image generation,
+upscaling, external tools or manual placement is needed. Use the studio image
+as the lead and the lifestyle image as a large context image when useful.
+Do not place these wide scenes inside the narrow home-screen column. They
+depict iOS only; mixed packages still need the other platforms' actual outputs.
+The existing context previews remain available: the icon
 in place — `home-light.png` / `home-dark.png` (a phone home screen),
 `app-store-*`, `settings-*`, `notification-*`, `spotlight-*` — real files the
 person can drop into a deck. Show the home screen large, one appearance at a
@@ -215,6 +224,11 @@ async def build(b: Build) -> None:
     from packages import mockups
 
     device = icon_spec.device_icon(await b.image("master", size=1024), 1024, background)
+    if "ios" in platforms:
+        from packages.mockups.devices import device_previews
+
+        for filename, image in device_previews(device, name):
+            b.derive(f"previews/{filename}", icon_spec.png_bytes(image), source="master", fixed=True)
     for mode in ("light", "dark"):
         b.derive(f"previews/home-{mode}.png",
                  icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
