@@ -8,7 +8,9 @@ is required. Long labels are truncated within their home-screen slot.
 - `ios-home.png`: an iOS 18.4 context composition with the changing app slot blank.
   Neighboring icons and system indicators come from simulator captures. Static
   labels were rasterized using SF Pro; no Apple font binary is redistributed.
-  The Calendar tile preserves the captured September 14 date.
+  The Calendar tile preserves the captured September 14 date. Native icon
+  cutouts exclude the source wallpaper at their antialiased edges; the app slot
+  and static labels remain separate from those masks.
 - `studio.png`: original procedural phone geometry and lighting rendered once in
   Blender, with a blank screen and transparent surroundings. This is illustrative
   geometry, not an official Apple product render.
