@@ -88,7 +88,7 @@
               v-model="groupedCustomAnswers[activeQuestion.question]"
               placeholder="Or type your own…"
               class="flex-1 bg-transparent text-sm text-content placeholder-content-muted focus:outline-none"
-              @keydown.enter.prevent="submitCurrentTab"
+              @keydown.enter.stop.prevent="submitGroupedAnswerOnEnter"
             />
             <button
               v-if="groupedCustomAnswers[activeQuestion.question]?.trim()"
@@ -319,6 +319,15 @@ function submitAllGroupedAnswers() {
 }
 
 const allAnswered = computed(() => groupedQuestions.value.every((q) => !!groupedAnswer(q.question)))
+
+function submitGroupedAnswerOnEnter(event: KeyboardEvent) {
+  if (event.isComposing || event.repeat) return
+  if (allAnswered.value) {
+    submitAllGroupedAnswers()
+  } else {
+    submitCurrentTab()
+  }
+}
 
 function submitCurrentTab() {
   const question = activeQuestion.value.question
