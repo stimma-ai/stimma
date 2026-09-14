@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=7,
+    version=8,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -28,6 +28,8 @@ from packages.recipes import Build, Input, Param, recipe
               description="Canvas behind the mark where a platform forbids transparency (iOS, the Play Store icon, the Apple touch icon), and the Android adaptive background layer. Required when the master is transparent: it is the person's decision, made before packaging"),
         Param("app_name", type="string", default=None,
               description="What the app is called: the name under the icon on the home screen, in the store row, in Settings and notifications, and in the web manifest. Required: it is the person's to say, not yours to invent — ask if you do not know"),
+        Param("artwork_fit", type="choice", options=["auto", "canvas"], default="auto",
+              description="Auto measures transparent or uniform-background margins and fits the mark to each platform. Canvas preserves a deliberately composed full-bleed source. Inspect Platform Study before saving"),
         Param("allow_low_contrast", type="boolean", default=False,
               description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
         Param("naming", type="naming", fields=["slug", "size", "platform"],
@@ -75,37 +77,44 @@ color, not just the parameter value recorded in the manifest.
 For removing a baked-in background, load Subject Isolation and use its
 background-removal workflow. A square cutout of at least 1024px already meets
 the master constraints: use that output directly, with the requested background
-parameter. Keep its existing scale and placement unless the artwork needs an
-adjustment; no extra canvas or separate Android foreground is required for the
-same centered mark. Inspect the cutout before building.
+parameter. Do not add another padded canvas. The recipe's default `artwork_fit="auto"`
+measures transparent or uniform-background margins and fits the visible mark
+for each platform. iOS uses a full-bleed opaque canvas, macOS adds its outer
+margin once, Windows/Linux use the available transparent icon canvas, and the
+Android foreground fits the guaranteed 66dp circle in its 108dp layer. The
+optical fill of a mark is a kit policy; no one percentage fits all designs.
+Use `artwork_fit="canvas"` only for intentionally composed full-bleed artwork
+whose existing internal spacing must be retained. Inspect the cutout and the
+resulting Platform Study before saving. Never enlarge only a preview to hide
+an undersized exported icon.
 
-The Packaging skill has recipe-specific starting points under its resource
-directory. Read `references/app-icons.py` for an editable draft/preview/save
-script to run with run_file after preparing the master. For an iOS-only cover,
-read `references/app-icons.html`. For a mixed
-platform pack, read `references/app-icons-mixed.html`. Use read_file.
-Use the draft manifest to replace its run-root and run-id placeholders. Adapt
-it for the whole package: a mixed pack should also show actual Android, macOS,
-Windows and Linux outputs, with a file browser for every run. Keep captions
-factual and short; do not add claims about polish, readability or readiness.
+Read `references/platform-study.md` in the Packaging skill for this recipe.
+Read it through the skill's resource path supplied at activation, using the
+normal read_file tool. Do not search the Python SDK or leave the workspace to
+find templates. The recipe already supplies the context images as run files.
 
-What the run gives the cover. `previews/` holds rendered mockups of the icon
-in original device scenes when iOS is included: `device-studio.png` pairs the
-icon with an angled phone, and `device-lifestyle.png` is a 3840 × 2560 cafe
-scene. These use genuine Apple app icons from an iOS 18.4 scene template.
-The delivered icon and app name are composited locally: no image generation,
-upscaling, external tools or manual placement is needed. Use the studio image
-as the lead and the lifestyle image as a large context image when useful.
-Show the device scenes wide. They
-depict iOS only; mixed packages still need the other platforms' actual outputs.
-The existing context previews remain available: the icon
-in place — `home-light.png` / `home-dark.png` (a phone home screen),
-`app-store-*`, `settings-*`, `notification-*`, `spotlight-*` — real files the
-person can drop into a deck. The device scenes replace the older flat phone
-previews in the cover. Use `<stimma-appearance>` for the other light/dark
-context rows when useful; put the iOS renders in a `<stimma-sizes>`
-row at 180, 120, 87, 60, 40, 29 and 20 so the small end is judged at true
-scale; end with `<stimma-files>` for the run. Say what each folder is, in
+Name the cover's context section "Platform Study". For each selected platform:
+- iOS: `previews/device-studio.png` and `previews/device-lifestyle.png` (4K).
+- Android: `previews/platform-android.png` (4K Galaxy scene, populated screen).
+- macOS: `previews/platform-macos.png` (Dock, dark capsule tooltip).
+- Windows: BOTH `previews/platform-windows-start.png` and
+  `previews/platform-windows-taskbar.png`.
+- Linux: `previews/platform-linux.png` (Ubuntu Dock at 2×).
+These are built only for selected platforms, using the delivered files and app
+name. They need no generation, upscaling, model, external tool, demo directory,
+or manual compositing. Inspect them in the folder returned by pkg.preview().
+Use the manifest's actual paths, including its run root, as stimma-media refs.
+The authored cover includes every requested platform and every relevant run.
+The cover is still your design; the recipe emits images, never HTML.
+
+Start with `references/app-icons-mixed.html` for multiple platforms or
+`references/app-icons.html` for iOS alone. Remove unused platform sections;
+never omit requested ones. Show scenes wide, keep copy factual, and retain
+actual-size samples of the delivered PNGs. Do not use the older flat phone
+home-light/home-dark previews in the cover. Localized iOS app-store, settings,
+notification and spotlight rows remain available, optionally inside
+stimma-appearance. End with stimma-files for the run.
+Say what each folder is, in
 the recipient's words: iOS is `AppIcon.appiconset`, ready for an Xcode asset
 catalog, every iPhone and iPad size with its Contents.json. Android is
 launcher icons for every density, the adaptive foreground and background
@@ -118,6 +127,8 @@ manifest and the <head> tags to paste in.""",
 )
 async def build(b: Build) -> None:
     platforms = b.params.platforms
+    if not platforms:
+        b.fail("select at least one platform for the icon package")
     fg_role = "android_foreground" if b.has("android_foreground") else "master"
 
     # iOS forbids alpha, so a transparent mark needs a canvas behind it. What
@@ -162,15 +173,25 @@ async def build(b: Build) -> None:
                 f"look is deliberate."
             )
 
-    async def composed(spec: icon_spec.IconImage):
-        # Vector artwork is drawn at this exact size; a raster is resampled.
-        art = await b.image(spec.role if spec.role != "master" else "master", size=spec.px)
-        return icon_spec.compose(art, spec, background)
+    from packages.mockups.icon_artwork import Artwork
 
+    plans = {"master": Artwork.measure(await b.image("master", size=1024), b.params.artwork_fit)}
+    if b.params.background is None and plans["master"].backdrop:
+        background = plans["master"].backdrop
+    if fg_role != "master":
+        plans[fg_role] = Artwork.measure(await b.image(fg_role, size=1024), b.params.artwork_fit)
+
+    async def composed(spec: icon_spec.IconImage, platform: str):
+        # Render vectors with enough pixels for the measured crop; resample rasters.
+        plan = plans[spec.role]
+        art = await b.image(spec.role, size=plan.render_size(spec.px))
+        return plan.compose(art, spec, platform, background)
+
+    study_icons = {}
     for platform in platforms:
         rendered: dict[int, object] = {}
         for spec in icon_spec.images_for(platform, foreground_role=fg_role):
-            img = await composed(spec)
+            img = await composed(spec, platform)
             rendered[spec.px] = img
             if platform == "macos":
                 continue  # written below, named by the user's template
@@ -181,6 +202,11 @@ async def build(b: Build) -> None:
                 path = f"hicolor/{spec.px}x{spec.px}/apps/{b.slug}.png"
             b.derive(f"{platform}/{path}", icon_spec.png_bytes(img),
                      source=spec.role, fixed=True)
+
+        if platform == "android":
+            study_icons[platform] = rendered[432]
+        else:
+            study_icons[platform] = rendered[max(rendered)]
 
         if platform == "ios":
             b.file("ios/AppIcon.appiconset/Contents.json", icon_spec.ios_contents_json())
@@ -223,34 +249,42 @@ async def build(b: Build) -> None:
     # A designer would build these in a mockup kit; here they come from the
     # same artwork, so they are never out of date.
     from packages import mockups
+    from packages.mockups.platform_study import ASSETS as study_assets, platform_previews
 
-    device = icon_spec.device_icon(await b.image("master", size=1024), 1024, background)
-    if "ios" in platforms:
+    if any(p in platforms for p in ("ios", "android", "macos", "windows", "linux")):
+        b.file("previews/ATTRIBUTION.txt", (study_assets / "README.md").read_text())
+    if "linux" in platforms:
+        b.file("previews/LICENSE-YARU.txt", (study_assets / "YARU-LICENSE.txt").read_text())
+    for filename, image in platform_previews(study_icons, name, background):
+        b.derive(f"previews/{filename}", icon_spec.png_bytes(image), source="master", fixed=True)
+    device = study_icons.get("ios")
+    if device is not None:
         from packages.mockups.devices import device_previews
-
         for filename, image in device_previews(device, name):
             b.derive(f"previews/{filename}", icon_spec.png_bytes(image), source="master", fixed=True)
-    for mode in ("light", "dark"):
-        b.derive(f"previews/home-{mode}.png",
-                 icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
-                 source="master", fixed=True)
-        b.derive(f"previews/app-store-{mode}.png",
-                 icon_spec.png_bytes(mockups.render_app_store_row(device, name, "Productivity", mode=mode)),
-                 source="master", fixed=True)
-        b.derive(f"previews/settings-{mode}.png",
-                 icon_spec.png_bytes(mockups.render_settings_row(device, name, mode=mode)),
-                 source="master", fixed=True)
-        b.derive(f"previews/notification-{mode}.png",
-                 icon_spec.png_bytes(mockups.render_notification(device, name, "Your weekly summary is ready.", mode=mode)),
-                 source="master", fixed=True)
-        b.derive(f"previews/spotlight-{mode}.png",
-                 icon_spec.png_bytes(mockups.render_spotlight_row(device, name, mode=mode)),
-                 source="master", fixed=True)
+    # Existing localized iOS context rows remain available only for iOS runs.
+    if device is not None:
+        for mode in ("light", "dark"):
+            b.derive(f"previews/home-{mode}.png",
+                     icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
+                     source="master", fixed=True)
+            b.derive(f"previews/app-store-{mode}.png",
+                     icon_spec.png_bytes(mockups.render_app_store_row(device, name, "Productivity", mode=mode)),
+                     source="master", fixed=True)
+            b.derive(f"previews/settings-{mode}.png",
+                     icon_spec.png_bytes(mockups.render_settings_row(device, name, mode=mode)),
+                     source="master", fixed=True)
+            b.derive(f"previews/notification-{mode}.png",
+                     icon_spec.png_bytes(mockups.render_notification(device, name, "Your weekly summary is ready.", mode=mode)),
+                     source="master", fixed=True)
+            b.derive(f"previews/spotlight-{mode}.png",
+                     icon_spec.png_bytes(mockups.render_spotlight_row(device, name, mode=mode)),
+                     source="master", fixed=True)
 
     # The package's face: the icon the way a device draws it, on a plate.
     # Better than anything computed from the file list afterwards, because the
     # recipe knows this is an app icon and knows how one is meant to look.
-    b.tile(_tile_png(await b.image("master", size=1024), background))
+    b.tile(_tile_png(study_icons.get("ios") or study_icons[next(iter(study_icons))], background))
 
 
 def _tile_png(art, background: str) -> bytes:

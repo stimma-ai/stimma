@@ -1,0 +1,66 @@
+"""Platform sizing must correct delivered pixels, not only preview scale."""
+import numpy as np
+from PIL import Image, ImageDraw
+
+import icon_spec
+from packages.mockups.icon_artwork import Artwork
+from packages.mockups.platform_study import platform_previews
+
+
+def mark(inset):
+    image = Image.new('RGBA', (1024, 1024))
+    ImageDraw.Draw(image).ellipse((inset, inset, 1023-inset, 1023-inset), fill='#e96a12')
+    return image
+
+
+def test_source_padding_does_not_shrink_delivered_windows_icon():
+    spec = icon_spec.IconImage('icon-256.png', 256)
+    outputs = [Artwork.measure(image).compose(image, spec, 'windows', '#ffffff')
+               for image in [mark(90), mark(400)]]
+    for output in outputs:
+        left, top, right, bottom = output.getchannel('A').point(lambda a: 255 if a > 128 else 0).getbbox()
+        assert 248 <= right-left <= 252
+        assert 248 <= bottom-top <= 252
+        assert abs((left+right)/2-128) <= 1
+    # Deliberate canvas spacing is retained when explicitly requested.
+    image = mark(400)
+    preserved = Artwork.measure(image, 'canvas').compose(image, spec, 'windows', '#ffffff')
+    bounds = preserved.getchannel('A').getbbox()
+    assert bounds[2]-bounds[0] < 70
+
+
+def test_adaptive_square_corners_fit_guaranteed_circle():
+    image = Image.new('RGBA', (1024, 1024))
+    ImageDraw.Draw(image).rectangle((400, 400, 624, 624), fill='red')
+    spec = icon_spec.IconImage('ic_launcher_foreground.png', 432)
+    output = Artwork.measure(image).compose(image, spec, 'android', '#ffffff')
+    y, x = np.where(np.array(output.getchannel('A')) > 32)
+    radius = np.hypot(x-215.5, y-215.5).max()
+    assert radius <= 133  # 33dp at 4x, plus antialiasing tolerance.
+    assert radius >= 129
+
+
+def test_ios_opaque_canvas_and_macos_margin_are_applied_once():
+    image = mark(400)
+    plan = Artwork.measure(image)
+    ios = plan.compose(image, icon_spec.ios_images()[-1], 'ios', '#FFF8F0')
+    assert ios.mode == 'RGB'
+    assert ios.getpixel((0, 0)) == (255, 248, 240)
+    mac = plan.compose(image, icon_spec.macos_images()[-1], 'macos', '#FFF8F0')
+    bounds = mac.getchannel('A').point(lambda a: 255 if a > 128 else 0).getbbox()
+    assert bounds == (100, 100, 924, 924)
+
+
+def test_platform_previews_only_emit_selected_targets_without_network(monkeypatch):
+    import socket
+
+    def denied(*args, **kwargs):
+        raise AssertionError('Platform Study must not access the network')
+
+    monkeypatch.setattr(socket, 'socket', denied)
+    icons = {'windows': Image.new('RGBA', (256, 256), '#e96a12')}
+    previews = dict(platform_previews(icons, 'Example', '#ffffff'))
+    assert set(previews) == {'platform-windows-start.png', 'platform-windows-taskbar.png'}
+    # No second mask or margin is applied to the delivered Windows pixels.
+    assert previews['platform-windows-taskbar.png'].getpixel((1042, 397)) == (233, 106, 18)
+    assert previews['platform-windows-taskbar.png'].getpixel((1089, 444)) == (233, 106, 18)

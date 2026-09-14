@@ -12,9 +12,8 @@ The rules that matter, with the reasoning that is easy to lose:
   that carries an alpha channel, and the system applies its own mask, so
   artwork must reach the edge and must not be pre-rounded.
 - **Android adaptive icons** have two layers, each a *108dp* canvas at every
-  density, with the artwork inside the inner 72dp. The launcher masks
-  everything outside that circle-ish safe zone and animates within the 108dp
-  field. Shipping a layer at the legacy launcher size (48dp) is the classic
+  density, with essential artwork inside the guaranteed 66dp circle. The
+  launcher masks the central 72dp region and animates within the 108dp field. Shipping a layer at the legacy launcher size (48dp) is the classic
   mistake: the system scales it up, so it is soft, and art that looked fine
   lands in the ring the mask crops.
 - **Legacy Android launcher icons** (pre-API-26) are standalone artwork, so
@@ -57,7 +56,7 @@ ANDROID_DENSITIES: tuple[tuple[str, int], ...] = (
 ANDROID_DPI_SCALE = {"mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0}
 LAUNCHER_DP = 48
 ADAPTIVE_DP = 108
-ADAPTIVE_SAFE_DP = 72
+ADAPTIVE_SAFE_DP = 66
 ADAPTIVE_SAFE_AREA = ADAPTIVE_SAFE_DP / ADAPTIVE_DP
 PLAY_STORE_PX = 512
 
@@ -132,7 +131,7 @@ def android_images(foreground_role: str = "master") -> list[IconImage]:
         adaptive_px = android_px(density, ADAPTIVE_DP)
         # Legacy launchers draw this as-is, so it carries the background.
         out.append(IconImage(f"mipmap-{density}/ic_launcher.png", legacy_px, 1.0, True))
-        # Adaptive foreground: 108dp canvas, artwork inside the inner 72dp.
+        # Adaptive foreground: 108dp canvas, artwork inside the inner 66dp.
         out.append(IconImage(
             f"mipmap-{density}/ic_launcher_foreground.png", adaptive_px,
             ADAPTIVE_SAFE_AREA, False, foreground_role,
