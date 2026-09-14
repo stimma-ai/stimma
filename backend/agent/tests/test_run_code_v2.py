@@ -849,3 +849,13 @@ for source, destination in [('cover.html', '../outside.html'), ('../private.txt'
     assert result.splitlines() == ['<p>Cover</p>', 'blocked', 'blocked', 'blocked']
     assert not (tmp_path / 'outside.html').exists()
     assert not (workspace / 'private.txt').exists()
+
+
+def test_glob_preserves_explicit_project_workspace_paths(tmp_path):
+    from agent.v2.code_runtime import _SafeGlob
+
+    workspace, project = tmp_path / 'chat', tmp_path / 'project'
+    workspace.mkdir()
+    project.mkdir()
+    (project / 'notes.txt').write_text('Notes')
+    assert _SafeGlob(workspace, project).glob('../project/*.txt') == ['../project/notes.txt']

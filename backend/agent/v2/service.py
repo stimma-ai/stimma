@@ -1752,8 +1752,21 @@ async def _run_agentic_loop_inner(
         consecutive_textonly += 1
         empty_turn = not (content and content.strip())
         truncated = resp.finish_reason == FinishReason.LENGTH
-        if (needs_continuation or empty_turn or truncated) and consecutive_textonly < 2:
-            if truncated:
+        # Some local providers fail to parse their model's native tool syntax
+        # and return it as ordinary text. Do not execute that text or accept it
+        # as completed work. Ignore quoted examples in Markdown code.
+        unquoted = re.sub(r"```.*?```|`[^`]*`", "", content or "", flags=re.S)
+        malformed_tool = "<tool_call>" in unquoted and "</tool_call>" in unquoted
+        if (needs_continuation or empty_turn or truncated or malformed_tool) and consecutive_textonly < 2:
+            if malformed_tool:
+                pending_stall_nudge = (
+                    "<system-reminder>\n"
+                    "Your last response contained tool-call markup as plain text. No tool was called. "
+                    "Use the available native tool-calling interface for the next action; "
+                    "do not write tool-call tags in your message.\n"
+                    "</system-reminder>"
+                )
+            elif truncated:
                 pending_stall_nudge = (
                     "<system-reminder>\n"
                     "Your response reached the output limit before it finished. Continue from the "

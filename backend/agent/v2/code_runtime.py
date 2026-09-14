@@ -316,7 +316,8 @@ class _SafeGlob:
         if os.path.isabs(pathname):
             return matches
         from .tools._workspace_files import workspace_relative
-        return [relative for match in matches if (relative := workspace_relative(self._workspace_root, Path(match))) is not None]
+        return [workspace_relative(self._workspace_root, Path(match)) or os.path.relpath(match, self._workspace_root)
+                for match in matches]
 
     def iglob(self, pathname: str | os.PathLike[str], *, recursive: bool = False):
         return iter(self.glob(pathname, recursive=recursive))
