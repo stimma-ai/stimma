@@ -27,7 +27,6 @@ stimma-compare.sp-slider .sp-cmp { display: grid; grid-template-columns: 1fr 1fr
 stimma-compare.sp-slider figure:first-child { position: static; width: auto; overflow: visible; }
 stimma-compare.sp-slider figure:first-child img { width: 100%; max-width: 100%; }
 stimma-files .sp-files { display: none; }
-stimma-files::before { content: "Browse the included files in index.html."; font-size: 12px; }
 .sp-footer { break-inside: avoid; margin-top: 28px; padding-top: 14px; }
 .sp-footer .sp-brand { display: block; white-space: nowrap; }
 .sp-footer .sp-wordmark { margin-left: 7px; }

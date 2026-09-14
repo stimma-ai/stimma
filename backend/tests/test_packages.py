@@ -292,6 +292,11 @@ async def test_package_routes(client, db_session, tmp_path):
 
     exported = await client.post(f"/api/media/{media_id}/package-export", json={"format": "zip"})
     assert exported.status_code == 200 and "route-icons.zip" in exported.headers["content-disposition"]
+    pdf = await client.post(f"/api/media/{media_id}/package-export", json={"format": "pdf"})
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert "route-icons.pdf" in pdf.headers["content-disposition"]
+    assert pdf.content.startswith(b"%PDF-")
     html = await client.post(f"/api/media/{media_id}/package-export", json={"format": "html"})
     assert html.status_code == 200 and "data:image" in html.text
     assert (await client.post(f"/api/media/{media_id}/package-export", json={"format": "link"})).status_code == 501

@@ -28,6 +28,7 @@ from packages.bundle import (
 )
 from packages.cover import CoverError
 from packages.export import export_single_html, export_zip, run_zip_for_path
+from packages.print_cover import export_pdf
 from packages.manifest import COVER_NAME, ManifestError, is_package_format, slugify
 from packages.recipes import RecipeError, list_recipes
 from routes.media_files import get_db_session_by_guid
@@ -180,7 +181,7 @@ async def get_package_cover(media_id: int, session: AsyncSession = Depends(get_d
 
 
 class PackageExportRequest(BaseModel):
-    format: str = "zip"  # zip | html
+    format: str = "zip"  # zip | pdf | html
 
 
 @router.post("/media/{media_id}/package-export")
@@ -197,6 +198,13 @@ async def export_package(media_id: int, body: PackageExportRequest, session: Asy
             media_type="application/zip",
             headers={"Content-Disposition": content_disposition("attachment", f"{slug}.zip")},
         )
+    if body.format == "pdf":
+        data = await asyncio.to_thread(export_pdf, Path(media.file_path))
+        return StreamingResponse(
+            io.BytesIO(data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": content_disposition("attachment", f"{slug}.pdf")},
+        )
     if body.format == "html":
         html = await asyncio.to_thread(export_single_html, Path(media.file_path))
         return StreamingResponse(
@@ -206,7 +214,7 @@ async def export_package(media_id: int, body: PackageExportRequest, session: Asy
         )
     if body.format == "link":
         raise HTTPException(status_code=501, detail="Hosted links are not available yet")
-    raise HTTPException(status_code=400, detail="format must be zip or html")
+    raise HTTPException(status_code=400, detail="format must be zip, pdf or html")
 
 
 @router.get("/assets/{asset_id}/package/status")

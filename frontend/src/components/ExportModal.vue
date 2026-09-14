@@ -584,6 +584,7 @@ const CODE_VARIANTS = [
 // visible rather than appearing later out of nowhere.
 const PACKAGE_EXPORT_FORMATS = [
   { value: 'zip', label: 'Zip', hint: 'full package' },
+  { value: 'pdf', label: 'PDF', hint: 'cover, ready to share' },
   { value: 'html', label: 'Single HTML file', hint: 'cover with previews, read-only' },
   { value: 'link', label: 'Hosted link', hint: 'coming soon', disabled: true },
 ]
@@ -1065,7 +1066,7 @@ async function handlePackageExport() {
   }
 
   const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-  let filename = format.value === 'zip' ? 'package.zip' : 'package.html'
+  let filename = `package.${format.value}`
   if (contentDisposition) {
     const match = contentDisposition.match(/filename="([^"]+)"/)
     if (match) filename = match[1]

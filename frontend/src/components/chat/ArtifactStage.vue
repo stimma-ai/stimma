@@ -26,11 +26,21 @@
             class="inline-flex items-center gap-2 h-7 pl-2 pr-2.5 mr-1 rounded-md bg-overlay-subtle hover:bg-overlay-medium text-xs text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50"
             :title="`Download ${packageZipName}`"
             :disabled="downloadingPackage"
-            @click="downloadPackage"
+            @click="downloadPackage('zip')"
           >
             <ArchiveBoxIcon class="w-4 h-4 text-accent" />
             <span class="font-medium">Download {{ packageZipName }}</span>
             <span v-if="packageZipSize" class="font-mono text-content-tertiary">{{ packageZipSize }}</span>
+          </button>
+          <button
+            v-if="heroKind === 'package'"
+            type="button"
+            class="inline-flex items-center gap-2 h-7 px-2.5 mr-1 rounded-md bg-overlay-subtle hover:bg-overlay-medium text-xs text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50"
+            :disabled="downloadingPackage"
+            @click="downloadPackage('pdf')"
+          >
+            <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
+            <span class="font-medium">Download PDF</span>
           </button>
           <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
                off-latest state earns the accent because it is a real state, not
@@ -164,6 +174,7 @@ import {
   EllipsisVerticalIcon,
   ArrowUpIcon,
   ArchiveBoxIcon,
+  DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
@@ -302,19 +313,19 @@ watch(() => [heroKind.value, props.viewedRevision?.media_id] as const, async ([k
   }
 }, { immediate: true })
 
-async function downloadPackage() {
+async function downloadPackage(format: 'zip' | 'pdf') {
   const mediaId = props.viewedRevision?.media_id
   if (!mediaId || downloadingPackage.value) return
   downloadingPackage.value = true
   try {
     const response = await axios.post(
       `${getApiBase()}/media/${mediaId}/package-export`,
-      { format: 'zip' },
+      { format },
       { responseType: 'blob' },
     )
     const disposition = response.headers['content-disposition'] || ''
     const match = disposition.match(/filename="([^"]+)"/)
-    await downloadFromResponse(response.data, match ? match[1] : 'package.zip')
+    await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
   } finally {
     downloadingPackage.value = false
   }
