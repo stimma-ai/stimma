@@ -5,7 +5,9 @@ from copy import deepcopy
 from packages.export import export_single_html
 
 PRINT_CSS = """
-@page { size: 1280px 720px; margin: 48px; background: #0d0d0e; }
+@page { size: 1280px 720px; margin: 48px 48px 64px; background: #0d0d0e;
+  @bottom-left { content: element(stimma-footer); width: 100%; vertical-align: top; text-align: left; padding-top: 12px; }
+}
 html, body { font-family: sans-serif; }
 .sp-page { width: 100%; max-width: none; margin: 0; padding: 0; }
 .sp-title { font-size: 42px; }
@@ -28,7 +30,7 @@ stimma-compare.sp-slider .sp-cmp { display: grid; grid-template-columns: 1fr 1fr
 stimma-compare.sp-slider figure:first-child { position: static; width: auto; overflow: visible; }
 stimma-compare.sp-slider figure:first-child img { width: 100%; max-width: 100%; }
 stimma-files .sp-files { display: none; }
-.sp-footer { break-inside: avoid; margin-top: 28px; padding-top: 14px; }
+.sp-footer { position: running(stimma-footer); width: 100%; margin: 0; padding-top: 10px; }
 .sp-footer .sp-brand { display: block; white-space: nowrap; }
 .sp-footer .sp-wordmark { margin-left: 7px; }
 stimma-section[page] { break-before: page; margin-top: 0; }
@@ -41,6 +43,11 @@ stimma-section[page][layout]>.sp-section-body>stimma-media img { width: 100%; he
 stimma-section[page][layout=stack]>.sp-section-body { gap: 20px; }
 stimma-section[page][layout=stack] .sp-caption, stimma-section[page][layout=single] .sp-caption { text-align: center; }
 stimma-section[page][layout=stack]>.sp-section-body>stimma-media img { height: 230px; }
+stimma-section[page]:has(.sp-section-details)>.sp-section-body>stimma-media img { height: 325px; }
+stimma-section[page] .sp-section-details { margin-top: 20px; }
+stimma-section[page] .sp-section-details>stimma-grid { grid-template-columns: 1fr 1fr !important; gap: 32px; }
+stimma-section[page] .sp-section-details stimma-media img { width: 100%; height: 110px; object-fit: contain; }
+stimma-section[page] .sp-section-details .sp-caption { text-align: center; }
 stimma-section[page] .sp-appearance-panel { margin-top: 0; }
 stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
 stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr) !important; }
@@ -62,6 +69,15 @@ def export_pdf(bundle_dir: Path) -> bytes:
         '</head>', f'<style>{PRINT_CSS}</style></head>', 1,
     )
     document = HTML(string=html, url_fetcher=embedded_only)
+    # Running elements must be encountered before page one is laid out.
+    body = document.etree_element.find('body')
+    if body is not None:
+        for parent in document.etree_element.iter():
+            for node in list(parent):
+                if 'sp-footer' in node.get('class', '').split():
+                    parent.remove(node)
+                    body.insert(0, node)
+                    break
     # An appearance switch is one responsive HTML section, but each of its
     # variants gets its own PDF page. Work on the print tree, never the cover.
     for parent in list(document.etree_element.iter()):

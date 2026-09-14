@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=9,
+    version=10,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -118,9 +118,13 @@ Start with `references/app-icons-mixed.html` for multiple platforms or
 `references/app-icons.html` for iOS alone. Remove unused platform sections;
 never omit requested ones. Show scenes wide, keep copy factual, and retain
 actual-size samples of the delivered PNGs. Do not use the older flat phone
-home-light/home-dark previews in the cover. Localized iOS app-store, settings,
-notification and spotlight rows remain available, optionally inside
-stimma-appearance. End with stimma-files for the run.
+home-light/home-dark previews in the cover. For iOS and Android, add a compact
+<stimma-grid slot="details"> to the same OS section, containing the two files
+previews/{platform}-store-light.png and previews/{platform}-notification-light.png.
+Caption them App Store / Google Play and Notification. Dark alternatives also
+ship; choose one appearance. Do not add a separate In iOS section, Settings,
+Spotlight, or extra detail pages. The kit repeats the PDF footer on every slide.
+End with stimma-files for the run.
 Say what each folder is, in
 the recipient's words: iOS is `AppIcon.appiconset`, ready for an Xcode asset
 catalog, every iPhone and iPad size with its Contents.json. Android is
@@ -130,7 +134,8 @@ an .icns for the app bundle plus every size as a PNG. Windows is one .ico
 holding 16 through 256. Linux is PNGs preserving the master's alpha in hicolor/<size>/apps/
 with one consistent application basename; install into the existing icon theme.
 Web is favicon.ico, an Apple touch icon, a web
-manifest and the <head> tags to paste in.""",
+manifest and the <head> tags to paste in.
+""",
 )
 async def build(b: Build) -> None:
     platforms = b.params.platforms
@@ -195,6 +200,7 @@ async def build(b: Build) -> None:
         return plan.compose(art, spec, platform, background)
 
     study_icons = {}
+    store_icons = {}
     for platform in platforms:
         rendered: dict[int, object] = {}
         for spec in icon_spec.images_for(platform, foreground_role=fg_role):
@@ -212,6 +218,7 @@ async def build(b: Build) -> None:
 
         if platform == "android":
             study_icons[platform] = rendered[432]
+            store_icons[platform] = rendered[512]
         else:
             study_icons[platform] = rendered[max(rendered)]
 
@@ -269,6 +276,20 @@ async def build(b: Build) -> None:
         from packages.mockups.devices import device_previews
         for filename, image in device_previews(device, name):
             b.derive(f"previews/{filename}", icon_spec.png_bytes(image), source="master", fixed=True)
+    from packages.mockups.mobile_details import render_store, render_notification
+    from packages.mockups.platform_study import android_icon
+    for platform in ('ios', 'android'):
+        if platform not in study_icons:
+            continue
+        icon = study_icons[platform]
+        notification_icon = android_icon(icon, background) if platform == 'android' else icon
+        store_icon = store_icons.get(platform, icon)
+        for mode in ('light', 'dark'):
+            for kind, image in (
+                ('store', render_store(store_icon, name, platform, mode=mode)),
+                ('notification', render_notification(notification_icon, name, platform, mode=mode)),
+            ):
+                b.derive(f'previews/{platform}-{kind}-{mode}.png', icon_spec.png_bytes(image), source='master', fixed=True)
     # Existing localized iOS context rows remain available only for iOS runs.
     if device is not None:
         for mode in ("light", "dark"):
@@ -276,13 +297,13 @@ async def build(b: Build) -> None:
                      icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
                      source="master", fixed=True)
             b.derive(f"previews/app-store-{mode}.png",
-                     icon_spec.png_bytes(mockups.render_app_store_row(device, name, "Productivity", mode=mode)),
+                     icon_spec.png_bytes(render_store(device, name, "ios", mode=mode)),
                      source="master", fixed=True)
             b.derive(f"previews/settings-{mode}.png",
                      icon_spec.png_bytes(mockups.render_settings_row(device, name, mode=mode)),
                      source="master", fixed=True)
             b.derive(f"previews/notification-{mode}.png",
-                     icon_spec.png_bytes(mockups.render_notification(device, name, "Your weekly summary is ready.", mode=mode)),
+                     icon_spec.png_bytes(render_notification(device, name, "ios", mode=mode)),
                      source="master", fixed=True)
             b.derive(f"previews/spotlight-{mode}.png",
                      icon_spec.png_bytes(mockups.render_spotlight_row(device, name, mode=mode)),

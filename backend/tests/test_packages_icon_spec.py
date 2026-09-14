@@ -363,7 +363,7 @@ async def test_previews_ship_with_the_run(tmp_path):
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"background": "#FFFFFF", "platforms": ["ios"], "app_name": "Sunburst"}, out, slug="sunburst",
+        {"background": "#FFFFFF", "platforms": ["ios", "android"], "app_name": "Sunburst"}, out, slug="sunburst",
     )
     shipped = {f.path for f in result.files}
     for name in ("previews/home-light.png", "previews/home-dark.png", "previews/app-store-light.png",
@@ -372,9 +372,16 @@ async def test_previews_ship_with_the_run(tmp_path):
         assert name in shipped, f"{name} not shipped"
     with Image.open(out / "previews/device-lifestyle.png") as image:
         assert image.size == (3840, 2560)
+    for platform in ('ios', 'android'):
+        for kind in ('store', 'notification'):
+            for mode in ('light', 'dark'):
+                name = f'previews/{platform}-{kind}-{mode}.png'
+                assert name in shipped
+                with Image.open(out / name) as image:
+                    assert image.size == (1440, 300)
     spec = get_recipe("app-icons")
     assert not hasattr(spec, "present"), "recipes are formulas; the cover is the agent's"
-    assert "previews/" in spec.guidance and "stimma-appearance" in spec.guidance
+    assert "previews/" in spec.guidance and 'slot="details"' in spec.guidance
 
 
 def test_the_file_tree_is_one_shared_component():

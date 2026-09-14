@@ -32,7 +32,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 6
+KIT_VERSION = 7
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -333,6 +333,9 @@ stimma-section[layout]>.sp-section-body{display:grid;gap:24px;align-items:center
 stimma-section[layout=pair]>.sp-section-body{grid-template-columns:repeat(2,minmax(0,1fr))}
 stimma-section[layout=single]>.sp-section-body,stimma-section[layout=stack]>.sp-section-body{grid-template-columns:minmax(0,1fr)}
 stimma-section[layout]>.sp-section-body>stimma-media{min-width:0}
+.sp-section-details{margin-top:24px}
+.sp-section-details>stimma-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+@media(max-width:600px){.sp-section-details>stimma-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){stimma-section[layout=pair]>.sp-section-body{grid-template-columns:minmax(0,1fr)}}
 stimma-sizes{display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap}
 stimma-sizes stimma-media{display:grid;justify-items:center;gap:9px}
@@ -1224,6 +1227,18 @@ def expand_kit_elements(
         inner = m.group("inner") or ""
         label = attrs.pop("label", "")
         layout = attrs.get("layout")
+        details = []
+
+        def take_details(match):
+            grid_attrs = _parse_attrs(match.group("attrs"))
+            if grid_attrs.get("slot") != "details":
+                return match.group(0)
+            details.append(match.group(0))
+            return ""
+
+        inner = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-grid"), take_details, inner, flags=re.IGNORECASE | re.DOTALL)
+        if len(details) > 1 or (details and len(re.findall(r"<stimma-media\b", details[0], re.IGNORECASE)) > 2):
+            problems.append(f"Section {label!r}: use one details grid with at most two media items")
         if layout is not None and layout not in ("single", "pair", "stack"):
             problems.append(f"Section {label!r}: layout must be single, pair or stack")
         if layout in ("single", "pair", "stack"):
@@ -1236,6 +1251,8 @@ def expand_kit_elements(
         if "page" in attrs or layout:
             register_id(attrs, "stimma-section")
             inner = f'<div class="sp-section-body">{inner}</div>'
+        if details:
+            inner += f'<div class="sp-section-details">{"".join(details)}</div>'
         head = f'<p class="sp-label">{htmllib.escape(label)}</p>' if label else ""
         return f"<stimma-section{_attr_str(attrs)}>{head}{inner}</stimma-section>"
 

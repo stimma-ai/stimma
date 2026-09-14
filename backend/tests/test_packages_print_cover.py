@@ -13,7 +13,7 @@ from packages.manifest import new_manifest
 from packages.print_cover import export_pdf
 
 
-def test_zip_includes_readable_pdf_with_both_appearances_and_one_footer(tmp_path, monkeypatch):
+def test_zip_includes_readable_pdf_with_both_appearances_and_repeating_footer(tmp_path, monkeypatch):
     import socket
 
     def denied(*args, **kwargs):
@@ -40,7 +40,7 @@ def test_zip_includes_readable_pdf_with_both_appearances_and_one_footer(tmp_path
     with pdfium.PdfDocument(data) as pdf:
         text = ' '.join(''.join(page.get_textpage().get_text_range() for page in pdf).split())
         assert 'Light example' in text and 'Dark example' in text
-        assert text.count('Made with') == 1
+        assert text.count('Made with') == len(pdf)
         assert 'Example' in text
         assert any(obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE for page in pdf for obj in page.get_objects())
     assert not (tmp_path / 'cover-2.pdf').exists(), 'Export must not mutate the saved bundle'
@@ -74,6 +74,10 @@ def test_page_groups_print_as_landscape_slides(tmp_path, second_layout):
       <div class="sp-page"><h1>Example</h1>
         <stimma-section page label="First platform" layout="pair">
           <stimma-media ref="m1"></stimma-media><stimma-media ref="m1"></stimma-media>
+          <stimma-grid slot="details">
+            <stimma-media ref="m1" caption="Store example"></stimma-media>
+            <stimma-media ref="m1" caption="Notification example"></stimma-media>
+          </stimma-grid>
         </stimma-section>
         <stimma-section page label="Second platform" layout="SECOND_LAYOUT">
           <stimma-media ref="m1"></stimma-media>
@@ -93,10 +97,11 @@ def test_page_groups_print_as_landscape_slides(tmp_path, second_layout):
         assert len(pdf) == 6  # opening, two platforms, two appearances, contents
         texts = [' '.join(page.get_textpage().get_text_range().split()) for page in pdf]
         assert 'First platform' in texts[1] and 'Second platform' not in texts[1]
+        assert 'Store example' in texts[1] and 'Notification example' in texts[1]
         assert 'Second platform' in texts[2]
         assert 'Light example' in texts[3] and 'Dark example' not in texts[3]
         assert 'Dark example' in texts[4] and 'Light example' not in texts[4]
-        assert 'Made with' in texts[-1]
+        assert all(text.count('Made with') == 1 for text in texts)
         assert all(page.get_width() / page.get_height() == 16 / 9 for page in pdf)
     assert (tmp_path / 'index.html').read_text() == html
 
