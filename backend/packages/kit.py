@@ -11,7 +11,6 @@ Components, all usable in authored HTML:
     <stimma-media ref="m1" caption="Primary mark" plate>
     <stimma-grid>…<stimma-media>…</stimma-grid>
     <stimma-sizes>       real-size row; children are <stimma-media ref size="40">
-    <stimma-device kind="iphone" ref="…" label="Sunburst">
     <stimma-columns>…<stimma-column title="…">…</stimma-columns>
     <stimma-files ref="r1">    the shared file tree
     <stimma-compare a="…" b="…" mode="slider">
@@ -30,12 +29,12 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 2
+KIT_VERSION = 3
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
     "stimma-section", "stimma-media", "stimma-grid", "stimma-sizes",
-    "stimma-device", "stimma-columns", "stimma-column", "stimma-files",
+    "stimma-columns", "stimma-column", "stimma-files",
     "stimma-compare",
 )
 # Registered but inert: feedback is a later design pass. An authored cover
@@ -90,11 +89,6 @@ def sizes(items: Iterable[str]) -> str:
     return f"<stimma-sizes>{''.join(items)}</stimma-sizes>"
 
 
-def device(ref: str, *, kind: str = "iphone", label: str = "") -> str:
-    attr = f' label="{escape(label)}"' if label else ""
-    return f'<stimma-device kind="{escape(kind)}" ref="{escape(ref)}"{attr}></stimma-device>'
-
-
 def columns(entries: Iterable[tuple[str, str]]) -> str:
     body = "".join(
         f'<stimma-column title="{escape(title)}">{escape(text)}</stimma-column>'
@@ -144,21 +138,44 @@ stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10
 stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
 stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,200px),1fr));gap:28px}
 
-/* Files: a quiet list. One icon button per row, no repeated link text. */
+/* Files: one quiet row that opens into a browser. Compact until asked, and
+   native <details> so the tree is still reachable with scripts off. */
 stimma-files{display:block}
-.sp-files-top{display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding-bottom:14px;margin-bottom:4px}
-.sp-files-what{font-size:13px;color:var(--sp-muted)}
+.sp-files{display:block}
+.sp-files>summary{list-style:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:2px 0;cursor:pointer}
+.sp-files>summary::-webkit-details-marker{display:none}
+.sp-files>summary:focus{outline:none}
+.sp-files>summary:focus-visible{outline:2px solid var(--sp-accent);outline-offset:4px;border-radius:8px}
+.sp-files-what{font-size:13px;color:var(--sp-muted);flex:1;min-width:110px;
+  font-variant-numeric:tabular-nums}
+.sp-browse{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--sp-muted);
+  padding:7px 12px;border-radius:7px;flex:none;transition:color .15s,background-color .15s}
+.sp-files>summary:hover .sp-browse{color:var(--sp-fg);background:var(--sp-plate)}
+.sp-files[open]>summary .sp-browse{color:var(--sp-fg)}
+.sp-files[open]>summary .sp-browse .sp-caret{transform:rotate(180deg)}
+
+/* The browser: one raised surface, divided by hairlines and nothing else. */
+.sp-browser{display:grid;grid-template-columns:minmax(190px,270px) 1fr;
+  margin-top:14px;border:1px solid var(--sp-line);border-radius:10px;overflow:hidden}
+.sp-tree{padding:8px 6px;max-height:420px;overflow:auto;border-right:1px solid var(--sp-line)}
+.sp-tree:focus{outline:none}
+.sp-tree:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
 stimma-files ul{list-style:none;margin:0;padding:0}
 stimma-files li{position:relative}
-stimma-files .sp-row{display:flex;align-items:center;gap:10px;padding:6px 10px;min-height:34px;
-  border-radius:7px;transition:background-color .12s}
+stimma-files .sp-row{display:flex;align-items:center;gap:10px;padding:5px 9px;min-height:32px;
+  border-radius:7px;cursor:default;transition:background-color .12s}
 stimma-files .sp-row:hover{background:var(--sp-plate)}
+stimma-files .sp-row:focus{outline:none}
+stimma-files .sp-row:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
+stimma-files .sp-row.sp-sel{background:var(--sp-plate);box-shadow:inset 2px 0 0 var(--sp-accent)}
+stimma-files .sp-row.sp-sel .sp-name{color:var(--sp-fg)}
+stimma-files li.sp-file>.sp-row{cursor:pointer}
 stimma-files li.sp-dir>.sp-row{cursor:pointer;user-select:none}
-stimma-files li.sp-dir>ul{margin-left:19px;padding-left:14px;border-left:1px solid var(--sp-line)}
+stimma-files li.sp-dir>ul{margin-left:18px;padding-left:13px;border-left:1px solid var(--sp-line)}
 stimma-files li.sp-dir.sp-collapsed>ul{display:none}
 stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:13.5px;color:var(--sp-fg)}
+  font-size:13px;color:var(--sp-fg)}
 stimma-files li.sp-dir>.sp-row .sp-name{color:var(--sp-muted)}
 stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
 stimma-files .sp-caret{width:14px;height:14px;flex:none;color:var(--sp-faint);
@@ -166,17 +183,17 @@ stimma-files .sp-caret{width:14px;height:14px;flex:none;color:var(--sp-faint);
 stimma-files li.sp-dir.sp-collapsed>.sp-row .sp-caret{transform:rotate(-90deg)}
 stimma-files .sp-caret svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round}
+.sp-browse .sp-caret{color:inherit;width:11px;height:11px}
 stimma-files .sp-thumb{width:22px;height:22px;flex:none;border-radius:4px;object-fit:contain;
   background:var(--sp-plate)}
 stimma-files .sp-glyph{width:22px;height:22px;flex:none;display:inline-flex;align-items:center;
   justify-content:center;color:var(--sp-faint)}
 stimma-files .sp-glyph svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
-stimma-files li.sp-previewable>.sp-row{cursor:zoom-in}
 .sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
   border-radius:6px;color:var(--sp-faint);flex:none;opacity:0;
   transition:color .15s,background-color .15s,opacity .15s}
-stimma-files .sp-row:hover .sp-dl,.sp-dl:focus-visible{opacity:1}
+stimma-files .sp-row:hover .sp-dl,stimma-files .sp-row.sp-sel .sp-dl,.sp-dl:focus-visible{opacity:1}
 .sp-dl:hover{color:var(--sp-fg);background:var(--sp-line)}
 .sp-dl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
   stroke-linecap:round;stroke-linejoin:round}
@@ -189,14 +206,39 @@ stimma-files .sp-row:hover .sp-dl,.sp-dl:focus-visible{opacity:1}
 .sp-zip b{font-weight:500}
 .sp-zip em{font-style:normal;color:var(--sp-faint);font-variant-numeric:tabular-nums}
 
-/* File preview overlay */
-.sp-lightbox{position:fixed;inset:0;z-index:50;display:none;align-items:center;
-  justify-content:center;padding:48px;background:rgba(0,0,0,.82);cursor:zoom-out}
-.sp-lightbox.sp-open{display:flex}
-.sp-lightbox figure{margin:0;display:grid;justify-items:center;gap:14px;max-width:100%;max-height:100%}
-.sp-lightbox img{max-width:min(720px,80vw);max-height:70vh;border-radius:6px;
-  background:repeating-conic-gradient(#8883 0% 25%,transparent 0% 50%) 50%/18px 18px}
-.sp-lightbox figcaption{font-size:12px;color:#d8d8d8;font-variant-numeric:tabular-nums}
+/* The viewer pane: a header line and the file itself. */
+.sp-view{min-width:0;display:flex;flex-direction:column}
+.sp-view-head{display:flex;align-items:center;gap:10px;padding:11px 14px 9px;min-height:42px}
+.sp-vname{font-size:13px;color:var(--sp-fg);flex:none;max-width:45%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.sp-vmeta{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-vact{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sp-muted);
+  padding:5px 10px;border-radius:6px;flex:none;border:0;background:none;cursor:pointer;
+  font-family:inherit;transition:color .15s,background-color .15s}
+.sp-vact:hover{color:var(--sp-fg);background:var(--sp-plate)}
+.sp-vact:focus{outline:none}
+.sp-vact:focus-visible{outline:2px solid var(--sp-accent);outline-offset:1px}
+.sp-vact svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+.sp-vact[aria-pressed=true]{color:var(--sp-accent)}
+.sp-view-body{flex:1;min-height:230px;max-height:420px;overflow:auto;padding:0 14px 14px;
+  display:flex;flex-direction:column;gap:10px}
+.sp-view-body.sp-center{align-items:center;justify-content:center;text-align:center}
+.sp-shot{max-width:100%;width:auto;height:auto;border-radius:2px;
+  background:repeating-conic-gradient(#8883 0% 25%,transparent 0% 50%) 50%/16px 16px}
+video.sp-shot,audio.sp-shot{width:100%;background:none}
+.sp-code{margin:0;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--sp-muted);white-space:pre-wrap;word-break:break-word;tab-size:2}
+.sp-empty{color:var(--sp-faint);font-size:13px;margin:0}
+.sp-blank{display:grid;justify-items:center;gap:8px;color:var(--sp-faint);font-size:13px}
+.sp-blank .sp-glyph{width:40px;height:40px}
+.sp-blank .sp-glyph svg{width:30px;height:30px}
+.sp-vnote{color:var(--sp-faint);font-size:12px;margin:0}
+@media (max-width:640px){
+  .sp-browser{grid-template-columns:1fr}
+  .sp-tree{border-right:0;border-bottom:1px solid var(--sp-line);max-height:220px}
+}
 
 /* Compare */
 stimma-compare{display:block}
@@ -230,80 +272,6 @@ stimma-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1
 stimma-column{display:block}
 stimma-column h3{margin:0 0 5px;font-size:13.5px;font-weight:500}
 stimma-column p{margin:0;font-size:13px;color:var(--sp-muted);line-height:1.5}
-stimma-device{display:block;flex:none}
-stimma-devices{display:flex;align-items:flex-start;justify-content:center;gap:44px;flex-wrap:wrap}
-.sp-devicecase{display:grid;justify-items:center;gap:12px}
-.sp-devicecase>span{font-size:11px;color:var(--sp-faint);letter-spacing:.04em}
-
-/* Phone: proportions, bezel, wallpaper, glare. Rendered rather than mocked up
-   in a photo, so it stays truthful to the pixels the package actually holds. */
-.sp-phone{position:relative;width:232px;aspect-ratio:1170/2532;border-radius:13.5%/6.2%;
-  padding:4px;box-shadow:0 30px 64px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.4)}
-/* Two finishes, deliberately: the pair reads as two devices rather than one
-   device photographed twice, and each frame suits the wallpaper inside it. */
-.sp-phone.sp-dark{background:linear-gradient(150deg,#55555c,#212125 22%,#141417 55%,#3a3a41 100%)}
-.sp-phone.sp-light{background:linear-gradient(150deg,#f2f1ee,#c9c8c5 24%,#a9a8a6 58%,#e7e6e3 100%)}
-.sp-screen{position:relative;width:100%;height:100%;border-radius:12.4%/5.7%;overflow:hidden;
-  display:flex;flex-direction:column}
-.sp-screen::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(128deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.04) 18%,
-    transparent 38%,transparent 100%)}
-.sp-island{position:absolute;top:1.5%;left:50%;transform:translateX(-50%);
-  width:25%;height:2.1%;border-radius:999px;background:#050506;z-index:3}
-.sp-phone.sp-dark .sp-screen{background:
-  radial-gradient(120% 70% at 78% 4%,#4a3d75 0%,transparent 55%),
-  radial-gradient(100% 60% at 10% 30%,#1d3b63 0%,transparent 60%),
-  linear-gradient(178deg,#141826 0%,#0a0b12 100%)}
-.sp-phone.sp-light .sp-screen{background:
-  radial-gradient(120% 70% at 80% 2%,#ffd9a8 0%,transparent 55%),
-  radial-gradient(110% 65% at 6% 26%,#bcd7f5 0%,transparent 62%),
-  linear-gradient(178deg,#f4efe8 0%,#dfe3ee 100%)}
-.sp-statusbar{display:flex;align-items:center;justify-content:space-between;
-  padding:4.2% 7% 0;font-size:8px;font-weight:600;letter-spacing:.01em}
-.sp-phone.sp-dark .sp-statusbar{color:#fff}
-.sp-phone.sp-light .sp-statusbar{color:#15151a}
-.sp-statusbar .sp-bars{display:flex;align-items:flex-end;gap:1.4px}
-.sp-statusbar .sp-bars i{display:block;width:2px;background:currentColor;border-radius:1px}
-.sp-statusbar .sp-batt{width:14px;height:7px;border:1px solid currentColor;border-radius:2px;
-  position:relative;opacity:.9}
-.sp-statusbar .sp-batt::after{content:"";position:absolute;inset:1.5px;right:4px;
-  background:currentColor;border-radius:1px}
-.sp-apps{flex:1;display:grid;grid-template-columns:repeat(4,1fr);align-content:start;
-  gap:4.4% 3%;padding:6% 6% 0}
-.sp-app{display:grid;justify-items:center;gap:4px}
-.sp-app img,.sp-app i{display:block;width:100%;aspect-ratio:1;border-radius:22.37%}
-.sp-app i{box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
-.sp-app em{font-style:normal;font-size:6.5px;line-height:1;max-width:100%;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.sp-phone.sp-dark .sp-app em{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
-.sp-phone.sp-light .sp-app em{color:#1b1b20;text-shadow:0 1px 2px rgba(255,255,255,.5)}
-.sp-app.sp-mine img{box-shadow:0 5px 14px rgba(0,0,0,.45)}
-.sp-dock{margin:0 5% 5%;padding:4.5%;border-radius:26px;
-  display:grid;grid-template-columns:repeat(4,1fr);gap:4%;backdrop-filter:blur(8px)}
-.sp-phone.sp-dark .sp-dock{background:rgba(255,255,255,.13)}
-.sp-phone.sp-light .sp-dock{background:rgba(255,255,255,.45)}
-.sp-dock i,.sp-dock img{display:block;width:100%;aspect-ratio:1;border-radius:22.37%}
-.sp-phone.sp-dark .sp-dock i{background:rgba(255,255,255,.2)}
-.sp-phone.sp-light .sp-dock i{background:rgba(120,120,140,.22)}
-.sp-homebar{height:3px;width:34%;margin:0 auto 6px;border-radius:999px;opacity:.5}
-.sp-phone.sp-dark .sp-homebar{background:#fff}
-.sp-phone.sp-light .sp-homebar{background:#15151a}
-
-/* The other places an icon shows up. Designers show these because this is
-   where an icon actually has to survive. */
-stimma-contexts{display:grid;gap:14px}
-.sp-ctx{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;
-  background:var(--sp-plate)}
-.sp-ctx img{flex:none;border-radius:22.37%}
-.sp-ctx .sp-ctx-body{flex:1;min-width:0}
-.sp-ctx b{display:block;font-size:13.5px;font-weight:500}
-.sp-ctx span{display:block;font-size:12px;color:var(--sp-muted);overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.sp-ctx .sp-get{flex:none;font-size:11.5px;font-weight:600;letter-spacing:.04em;
-  padding:5px 15px;border-radius:999px;background:var(--sp-line);color:var(--sp-fg)}
-.sp-ctx .sp-chev{flex:none;color:var(--sp-faint);font-size:15px;line-height:1}
-.sp-ctx.sp-notify{background:var(--sp-plate);box-shadow:0 8px 22px rgba(0,0,0,.28)}
-.sp-ctx.sp-notify .sp-when{flex:none;font-size:11px;color:var(--sp-faint)}
 """
 
 KIT_JS = r"""
@@ -331,7 +299,7 @@ KIT_JS = r"""
       customElements.define(name, class extends HTMLElement {});
     }
   }
-  ['stimma-section','stimma-media','stimma-grid','stimma-sizes','stimma-device',
+  ['stimma-section','stimma-media','stimma-grid','stimma-sizes',
    'stimma-columns','stimma-column','stimma-files','stimma-compare',
    'stimma-pick','stimma-approve','stimma-comments'].forEach(define);
 
@@ -344,62 +312,258 @@ KIT_JS = r"""
     return (el && el.closest) ? el.closest(sel) : null;
   }
 
+  // The file browser. Compact by default: a <details> whose summary is the
+  // quiet row, and whose open state is a two-pane browser inside the page —
+  // no overlay. The pane reads text straight out of the row, because a cover
+  // has to work from a double-clicked file, where fetch() of a sibling file is
+  // blocked by every browser.
   function setupFiles(){
-    document.querySelectorAll('stimma-files .sp-lightbox').forEach(function(box){
-      box.hidden = false;
-    });
+    var DOT = '  ·  ';
 
-    function fold(head){
-      var li = head.parentElement;
-      var folded = li.classList.toggle('sp-collapsed');
-      head.setAttribute('aria-expanded', folded ? 'false' : 'true');
+    function el(tag, cls){
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      return node;
     }
 
-    function openPreview(row){
+    function unpack(text){
+      return text.replace(/<\\\//g, '</').replace(/<\\!--/g, '<!--');
+    }
+
+    function sourceOf(li){
+      var holder = li.querySelector('script.sp-src');
+      return holder ? unpack(holder.textContent) : null;
+    }
+
+    function fold(row){
       var li = row.parentElement;
-      var src = li.getAttribute('data-preview');
-      var files = closest(row, 'stimma-files');
-      var box = files ? files.querySelector('.sp-lightbox') : null;
-      if (!src || !box) return;
-      var img = box.querySelector('img');
-      var cap = box.querySelector('figcaption');
-      var name = row.querySelector('.sp-name');
-      var size = row.querySelector('.sp-meta');
-      var label = (name ? name.textContent : '') + (size ? '  ·  ' + size.textContent : '');
-      // Name it straight away; the pixel dimensions arrive with the image.
-      cap.textContent = label;
-      img.onload = function(){
-        cap.textContent = (name ? name.textContent : '') +
-          '  ·  ' + img.naturalWidth + ' × ' + img.naturalHeight +
-          (size ? '  ·  ' + size.textContent : '');
-      };
-      img.setAttribute('src', src);
-      box.classList.add('sp-open');
+      var folded = li.classList.toggle('sp-collapsed');
+      row.setAttribute('aria-expanded', folded ? 'false' : 'true');
     }
 
-    function closePreview(){
-      document.querySelectorAll('.sp-lightbox.sp-open').forEach(function(box){
-        box.classList.remove('sp-open');
-        var img = box.querySelector('img');
-        if (img) img.removeAttribute('src');
+    function visibleRows(files){
+      return Array.prototype.filter.call(
+        files.querySelectorAll('.sp-tree .sp-row'),
+        function(row){ return row.offsetParent !== null; }
+      );
+    }
+
+    function pretty(text){
+      try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) { return text; }
+    }
+
+    function blank(body, label){
+      body.className = 'sp-view-body sp-center';
+      var box = el('div', 'sp-blank');
+      var glyph = el('span', 'sp-glyph');
+      glyph.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>' +
+        '<path d="M14 3v5h5"/></svg>';
+      var text = el('span');
+      text.textContent = label;
+      box.appendChild(glyph); box.appendChild(text);
+      body.appendChild(box);
+    }
+
+    function render(files, row){
+      var view = files.querySelector('.sp-view');
+      if (!view) return;
+      view.__row = row;
+      var li = row.parentElement;
+      var kind = li.getAttribute('data-kind') || 'other';
+      var path = li.getAttribute('data-path') || '';
+      var name = li.getAttribute('data-name') || '';
+      var size = li.getAttribute('data-size') || '';
+      var source = sourceOf(li);
+      var showSource = kind === 'svg' && view.getAttribute('data-mode') === 'source';
+
+      view.textContent = '';
+      var header = el('div', 'sp-view-head');
+      var title = el('span', 'sp-vname');
+      title.textContent = name;
+      var meta = el('span', 'sp-vmeta');
+      meta.textContent = size;
+      header.appendChild(title); header.appendChild(meta);
+      var body = el('div', 'sp-view-body');
+
+      if (kind === 'svg' && source !== null) {
+        var toggle = el('button', 'sp-vact sp-src-toggle');
+        toggle.type = 'button';
+        toggle.textContent = 'Source';
+        toggle.setAttribute('aria-pressed', showSource ? 'true' : 'false');
+        header.appendChild(toggle);
+      }
+      // No href means the file is not alongside the page (a single-file
+      // export), and an inert button is worse than no button.
+      var dl = row.querySelector('.sp-dl');
+      if (dl && dl.getAttribute('href') && kind !== 'folder') {
+        var copy = dl.cloneNode(true);
+        copy.className = 'sp-vact';
+        var label = el('span');
+        label.textContent = 'Download';
+        copy.appendChild(label);
+        header.appendChild(copy);
+      }
+      view.appendChild(header); view.appendChild(body);
+
+      if (kind === 'folder') {
+        meta.textContent = 'Folder' + DOT + (li.getAttribute('data-count') || '0') + ' files';
+        body.className = 'sp-view-body sp-center';
+        var hint = el('p', 'sp-empty');
+        hint.textContent = 'Select a file to view it here.';
+        body.appendChild(hint);
+        return;
+      }
+
+      if (kind === 'image' || (kind === 'svg' && !showSource)) {
+        body.className = 'sp-view-body sp-center';
+        var img = el('img', 'sp-shot');
+        img.alt = name;
+        img.addEventListener('load', function(){
+          if (img.naturalWidth) {
+            meta.textContent = img.naturalWidth + ' × ' + img.naturalHeight + DOT + size;
+          }
+        });
+        img.addEventListener('error', function(){
+          body.textContent = '';
+          blank(body, 'This file cannot be shown here' + DOT + size);
+        });
+        // The row's thumbnail is the same file, and it is the one reference a
+        // single-file export rewrites — so it is the one worth following.
+        var thumb = row.querySelector('.sp-thumb');
+        img.src = (thumb && thumb.getAttribute('src')) || path;
+        body.appendChild(img);
+        return;
+      }
+
+      if (kind === 'text' || (kind === 'svg' && showSource)) {
+        if (source === null) {
+          body.className = 'sp-view-body sp-center';
+          var away = el('p', 'sp-empty');
+          away.textContent = 'Open the package to view this file.';
+          body.appendChild(away);
+          return;
+        }
+        var pre = el('pre', 'sp-code');
+        pre.textContent = /\.(json|webmanifest)$/i.test(name) ? pretty(source) : source;
+        body.appendChild(pre);
+        if (li.getAttribute('data-truncated')) {
+          var note = el('p', 'sp-vnote');
+          note.textContent = 'Showing the first 64 KB of ' + size + '.';
+          body.appendChild(note);
+        }
+        return;
+      }
+
+      if (kind === 'video' || kind === 'audio') {
+        var player = el(kind === 'video' ? 'video' : 'audio', 'sp-shot');
+        player.controls = true;
+        player.preload = 'metadata';
+        player.src = path;
+        if (kind === 'video') {
+          player.addEventListener('loadedmetadata', function(){
+            if (player.videoWidth) {
+              meta.textContent = player.videoWidth + ' × ' + player.videoHeight + DOT + size;
+            }
+          });
+        }
+        body.appendChild(player);
+        return;
+      }
+
+      if (kind === 'icns') {
+        blank(body, 'macOS icon' + DOT + size);
+        return;
+      }
+      blank(body, (name.split('.').pop() || 'file').toUpperCase() + ' file' + DOT + size);
+    }
+
+    function select(files, row, focus){
+      files.querySelectorAll('.sp-row.sp-sel').forEach(function(other){
+        other.classList.remove('sp-sel');
+        other.setAttribute('aria-selected', 'false');
+      });
+      row.classList.add('sp-sel');
+      row.setAttribute('aria-selected', 'true');
+      if (focus !== false) {
+        try { row.focus({ preventScroll: true }); } catch (e) { row.focus(); }
+      }
+      render(files, row);
+    }
+
+    function move(files, delta){
+      var list = visibleRows(files);
+      if (!list.length) return;
+      var current = files.querySelector('.sp-row.sp-sel');
+      var at = list.indexOf(current);
+      var next = at < 0 ? (delta > 0 ? 0 : list.length - 1)
+                        : Math.min(list.length - 1, Math.max(0, at + delta));
+      select(files, list[next], true);
+    }
+
+    function collapse(files){
+      var box = files ? files.querySelector('details.sp-files') : null;
+      var open = box ? [box] : Array.prototype.slice.call(
+        document.querySelectorAll('stimma-files details.sp-files[open]'));
+      open.forEach(function(details){
+        if (!details.open) return;
+        details.open = false;
+        var summary = details.querySelector('summary');
+        if (summary) summary.focus();
       });
     }
 
+    // Opening for the first time puts something in the pane, so the browser
+    // never reads as an empty box the reader has to poke at.
+    document.querySelectorAll('stimma-files details.sp-files').forEach(function(details){
+      details.addEventListener('toggle', function(){
+        var files = closest(details, 'stimma-files');
+        if (!details.open || !files || files.querySelector('.sp-row.sp-sel')) return;
+        var first = files.querySelector('.sp-tree li.sp-file > .sp-row');
+        if (first) select(files, first, false);
+      });
+    });
+
     document.addEventListener('click', function(ev){
-      var target = ev.target;
-      if (closest(target, '.sp-lightbox')) { closePreview(); return; }
-      if (closest(target, 'a')) return;
-      var head = closest(target, 'li.sp-dir > .sp-row');
-      if (head) { fold(head); return; }
-      var row = closest(target, 'li.sp-previewable > .sp-row');
-      if (row) openPreview(row);
+      var toggle = closest(ev.target, '.sp-src-toggle');
+      if (toggle) {
+        var holder = closest(toggle, '.sp-view');
+        var owner = closest(toggle, 'stimma-files');
+        if (holder && owner && holder.__row) {
+          holder.setAttribute('data-mode',
+            holder.getAttribute('data-mode') === 'source' ? 'preview' : 'source');
+          render(owner, holder.__row);
+        }
+        return;
+      }
+      // A download is a download: it never moves the selection or folds a row.
+      if (closest(ev.target, 'a')) return;
+      var row = closest(ev.target, 'stimma-files .sp-tree .sp-row');
+      if (!row) return;
+      var files = closest(row, 'stimma-files');
+      if (!files) return;
+      if (row.parentElement.classList.contains('sp-dir')) fold(row);
+      select(files, row);
     });
 
     document.addEventListener('keydown', function(ev){
-      if (ev.key === 'Escape') { closePreview(); return; }
+      var files = closest(ev.target, 'stimma-files') || closest(document.activeElement, 'stimma-files');
+      if (ev.key === 'Escape') { collapse(files); return; }
+      if (!files) return;
+      // The summary, the source toggle and the download links keep their own
+      // keyboard behaviour; the tree only claims keys aimed at the tree.
+      if (closest(ev.target, 'summary') || closest(ev.target, 'a') || closest(ev.target, 'button')) return;
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        move(files, ev.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
       if (ev.key !== 'Enter' && ev.key !== ' ') return;
-      var head = closest(document.activeElement, 'li.sp-dir > .sp-row');
-      if (head) { ev.preventDefault(); fold(head); }
+      var row = closest(ev.target, '.sp-row') || files.querySelector('.sp-row.sp-sel');
+      if (!row) return;
+      ev.preventDefault();
+      if (row.parentElement.classList.contains('sp-dir')) fold(row);
+      select(files, row);
     });
   }
 
@@ -507,9 +671,41 @@ _GLYPH_FOLDER = ('<span class="sp-glyph"><svg viewBox="0 0 24 24">'
 _GLYPH_FILE = ('<span class="sp-glyph"><svg viewBox="0 0 24 24">'
                '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>'
                '<path d="M14 3v5h5"/></svg></span>')
-_PREVIEWABLE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
-_LIGHTBOX = ('<div class="sp-lightbox" hidden><figure><img src="" alt="">'
-             '<figcaption></figcaption></figure></div>')
+
+# What the row can show as a 22px thumbnail: the browser draws these itself.
+_PREVIEWABLE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico"}
+_RASTER_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif"}
+_AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
+# Anything a person would open in a text editor. A package is full of these —
+# Contents.json, a manifest, a readme — and they are the files the engineer
+# integrating the work actually needs to read.
+_TEXT_EXTS = {
+    ".json", ".webmanifest", ".txt", ".md", ".markdown", ".xml", ".html", ".htm",
+    ".css", ".js", ".mjs", ".ts", ".plist", ".tres", ".tscn", ".yaml", ".yml",
+    ".csv", ".tsv", ".toml", ".ini", ".cfg", ".conf", ".svg", ".srt", ".vtt",
+    ".strings", ".gitignore", ".log", ".sql",
+}
+# A viewer shows a slab, not a whole book: past this the page pays for bytes
+# nobody reads. The rest of the file is one download away.
+TEXT_INLINE_MAX = 64 * 1024
+
+
+def _file_kind(name: str) -> str:
+    """Which viewer a file gets. Extension only — the cover is written once."""
+    ext = Path(name).suffix.lower()
+    if ext == ".svg":
+        return "svg"
+    if ext == ".icns":
+        return "icns"
+    if ext in _RASTER_EXTS:
+        return "image"
+    if ext in VIDEO_EXTS:
+        return "video"
+    if ext in _AUDIO_EXTS:
+        return "audio"
+    if ext in _TEXT_EXTS:
+        return "text"
+    return "other"
 
 
 def _download_href(path: str) -> str:
@@ -517,42 +713,103 @@ def _download_href(path: str) -> str:
     return htmllib.escape(f"{path}{sep}download=1", quote=True)
 
 
-def _render_tree(node: dict[str, Any], prefix: str, depth: int = 0) -> str:
+def _inline_text(bundle_dir: Optional[Path], rel: str) -> Optional[tuple[str, bool]]:
+    """The file's text, for embedding in the row. ``(text, truncated)`` or None.
+
+    A cover is opened from a double-clicked file as often as from a server, and
+    there ``fetch()`` of a sibling file is blocked by every browser — so the
+    text has to travel inside the page or not at all.
+    """
+    if bundle_dir is None:
+        return None
+    base = Path(bundle_dir)
+    target = base / rel
+    try:
+        target.resolve().relative_to(base.resolve())
+    except (ValueError, OSError):
+        return None
+    try:
+        if not target.is_file():
+            return None
+        raw = target.read_bytes()[: TEXT_INLINE_MAX + 1]
+    except OSError:
+        return None
+    truncated = len(raw) > TEXT_INLINE_MAX
+    raw = raw[:TEXT_INLINE_MAX]
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        if not truncated:
+            return None  # binary wearing a text extension
+        text = raw.decode("utf-8", errors="ignore")
+    return text, truncated
+
+
+def _source_script(text: str) -> str:
+    """Text as an inert child of the row.
+
+    ``</`` and ``<!--`` are the only sequences that can end or confuse script
+    data, so they are the only ones escaped; the viewer puts them back, which
+    keeps a file's bytes intact through the round trip.
+    """
+    payload = text.replace("</", "<\\/").replace("<!--", "<\\!--")
+    return f'<script type="text/plain" class="sp-src">{payload}</script>'
+
+
+def _render_tree(
+    node: dict[str, Any],
+    prefix: str,
+    depth: int = 0,
+    bundle_dir: Optional[Path] = None,
+) -> str:
     items = sorted(node.items(), key=lambda kv: (not isinstance(kv[1], dict) or "__file__" in kv[1], kv[0].lower()))
-    out = ["<ul>"]
+    out = ['<ul role="group">' if depth else "<ul>"]
     for name, child in items:
         if name in ("__dir__", "__file__"):
             continue
         safe = htmllib.escape(name)
+        quoted = htmllib.escape(name, quote=True)
         if "__file__" in child:
             entry = child["__file__"]
             path = entry["path"]
-            ext = Path(path).suffix.lower()
-            previewable = ext in _PREVIEWABLE
+            size = int(entry.get("size") or 0)
+            kind = _file_kind(name)
+            src_path = htmllib.escape(path, quote=True)
             lead = (
-                f'<img class="sp-thumb" src="{htmllib.escape(path, quote=True)}" alt="" loading="lazy">'
-                if previewable else _GLYPH_FILE
+                f'<img class="sp-thumb" src="{src_path}" alt="" loading="lazy">'
+                if Path(name).suffix.lower() in _PREVIEWABLE else _GLYPH_FILE
             )
-            cls = ' class="sp-previewable"' if previewable else ""
-            data = f' data-preview="{htmllib.escape(path, quote=True)}"' if previewable else ""
+            body = ""
+            extra = ""
+            if kind in ("text", "svg"):
+                inlined = _inline_text(bundle_dir, path)
+                if inlined is None and kind == "text" and bundle_dir is not None:
+                    kind = "other"  # binary wearing a text extension
+                elif inlined is not None:
+                    body = _source_script(inlined[0])
+                    if inlined[1]:
+                        extra = ' data-truncated="1"'
             out.append(
-                f'<li{cls}{data}><div class="sp-row">{lead}<span class="sp-name">{safe}</span>'
-                f'<span class="sp-meta">{human_size(int(entry.get("size") or 0))}</span>'
+                f'<li class="sp-file" data-kind="{kind}" data-path="{src_path}"'
+                f' data-name="{quoted}" data-bytes="{size}"'
+                f' data-size="{human_size(size)}"{extra}>'
+                f'<div class="sp-row" role="treeitem" tabindex="-1" aria-selected="false">'
+                f'{lead}<span class="sp-name">{safe}</span>'
+                f'<span class="sp-meta">{human_size(size)}</span>'
                 f'<a class="sp-dl" href="{_download_href(path)}" download'
-                f' aria-label="Download {htmllib.escape(name, quote=True)}">{_ICON_DOWNLOAD}</a></div></li>'
+                f' aria-label="Download {quoted}">{_ICON_DOWNLOAD}</a></div>{body}</li>'
             )
         else:
             count = _count_files(child)
-            # Open by default: the point of showing files is showing them. Only a
-            # folder big enough to bury the rest of the page arrives folded, and
-            # every folder can be folded by the reader.
-            collapsed = " sp-collapsed" if count > 20 else ""
+            # Open: the reader asked for the browser, so the browser shows what
+            # is in it. Every folder still folds, and the pane scrolls.
             out.append(
-                f'<li class="sp-dir{collapsed}"><div class="sp-row" role="button" tabindex="0"'
-                f' aria-expanded="{"false" if collapsed else "true"}">{_CARET}{_GLYPH_FOLDER}'
+                f'<li class="sp-dir" data-kind="folder" data-name="{quoted}" data-count="{count}">'
+                f'<div class="sp-row" role="treeitem" tabindex="-1" aria-selected="false"'
+                f' aria-expanded="true">{_CARET}{_GLYPH_FOLDER}'
                 f'<span class="sp-name">{safe}</span>'
                 f'<span class="sp-meta">{count}</span></div>'
-                f'{_render_tree(child, prefix + name + "/", depth + 1)}</li>'
+                f'{_render_tree(child, prefix + name + "/", depth + 1, bundle_dir)}</li>'
             )
     out.append("</ul>")
     return "".join(out)
@@ -567,20 +824,40 @@ def _count_files(node: dict[str, Any]) -> int:
     return total
 
 
-def _files_markup(manifest: dict[str, Any], ref: str) -> str:
+def _browser_markup(count: int, total: int, action: str, tree: str) -> str:
+    """The compact row, and the browser it opens into.
+
+    ``<details>`` rather than a scripted toggle: closed is the resting state,
+    and a reader with scripts off can still open it and read the tree.
+    """
+    plural = "file" if count == 1 else "files"
+    return (
+        '<details class="sp-files"><summary class="sp-files-top">'
+        f'<span class="sp-files-what"><span class="sp-num">{count}</span> {plural}'
+        f' · <span class="sp-num">{_human_size(total)}</span></span>{action}'
+        f'<span class="sp-browse">Browse files{_CARET}</span></summary>'
+        '<div class="sp-browser">'
+        f'<div class="sp-tree" role="tree" tabindex="0">{tree}</div>'
+        '<div class="sp-view"><div class="sp-view-head"><span class="sp-vname">Files</span></div>'
+        '<div class="sp-view-body sp-center">'
+        '<p class="sp-empty">Select a file to view it here.</p></div></div>'
+        '</div></details>'
+    )
+
+
+def _files_markup(manifest: dict[str, Any], ref: str, bundle_dir: Optional[Path] = None) -> str:
     run = run_by_id(manifest, ref)
     if run is not None:
         root = (run.get("root") or "").rstrip("/")
         entries = run.get("files") or []
         total = sum(int(e.get("size") or 0) for e in entries)
         zip_href = _download_href(f"{root}.zip")
-        head = (
-            f'<div class="sp-files-top">'
-            f'<span class="sp-files-what">{len(entries)} files</span>'
+        action = (
             f'<a class="sp-zip" href="{zip_href}" download>{_ICON_ARCHIVE}'
-            f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a></div>'
+            f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a>'
         )
-        return head + _render_tree(_tree(entries, root + "/"), root + "/") + _LIGHTBOX
+        tree = _render_tree(_tree(entries, root + "/"), root + "/", bundle_dir=bundle_dir)
+        return _browser_markup(len(entries), total, action, tree)
 
     sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:
@@ -588,11 +865,8 @@ def _files_markup(manifest: dict[str, Any], ref: str) -> str:
     for extra in manifest.get("extras") or []:
         sections.append({"path": extra["path"], "size": extra.get("size", 0)})
     total = sum(int(e.get("size") or 0) for e in sections)
-    head = (
-        f'<div class="sp-files-top"><span class="sp-files-what">{len(sections)} files</span>'
-        f'<span class="sp-meta">{_human_size(total)}</span></div>'
-    )
-    return head + _render_tree(_tree(sections, ""), "") + _LIGHTBOX
+    tree = _render_tree(_tree(sections, ""), "", bundle_dir=bundle_dir)
+    return _browser_markup(len(sections), total, "", tree)
 
 
 def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:
@@ -605,97 +879,18 @@ def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:
 # Tinted neighbours, so a home screen reads as somebody's phone rather than a
 # wireframe of grey boxes. Separate ramps per mode: the same tints that look
 # like apps on a dark wallpaper look like smudges on a light one.
-_NEIGHBOURS_DARK = (
-    "linear-gradient(160deg,#6f8bd6,#3c56a8)", "linear-gradient(160deg,#e59b5a,#c2632c)",
-    "linear-gradient(160deg,#63c49a,#2f8b68)", "linear-gradient(160deg,#b478d6,#6f3fa8)",
-    "linear-gradient(160deg,#e06f7a,#a83c50)", "linear-gradient(160deg,#8a93a8,#555d70)",
-    "linear-gradient(160deg,#e3c65c,#b3902a)", "linear-gradient(160deg,#5fb6cc,#2b7d96)",
-    "linear-gradient(160deg,#9aa4b8,#606a80)", "linear-gradient(160deg,#7fb45e,#4a7f34)",
-    "linear-gradient(160deg,#d67fa8,#a03f72)", "linear-gradient(160deg,#5c7fd0,#31479a)",
-    "linear-gradient(160deg,#d9a15f,#a86c2e)", "linear-gradient(160deg,#72c7b4,#358c7e)",
-    "linear-gradient(160deg,#a88ede,#6a4bb0)", "linear-gradient(160deg,#cf8f6d,#96543a)",
-    "linear-gradient(160deg,#7d8ea6,#4c5a6e)", "linear-gradient(160deg,#c9d36a,#939b32)",
-    "linear-gradient(160deg,#68a8d6,#35688f)", "linear-gradient(160deg,#b0b6c4,#71788a)",
-    "linear-gradient(160deg,#8fc06e,#578c3d)", "linear-gradient(160deg,#d67f92,#a04360)",
-    "linear-gradient(160deg,#6fbfae,#337f75)",
-)
-_NEIGHBOURS_LIGHT = (
-    "linear-gradient(160deg,#89a3e8,#5570c4)", "linear-gradient(160deg,#f3ad69,#d9793f)",
-    "linear-gradient(160deg,#78d9ad,#3f9f78)", "linear-gradient(160deg,#c78ce8,#8452bd)",
-    "linear-gradient(160deg,#f0838f,#c45164)", "linear-gradient(160deg,#a6afc4,#6c7588)",
-    "linear-gradient(160deg,#f2d871,#c7a43a)", "linear-gradient(160deg,#74cbe0,#3b93ad)",
-    "linear-gradient(160deg,#b3bccf,#788298)", "linear-gradient(160deg,#94c973,#5d9442)",
-    "linear-gradient(160deg,#e895bd,#b45286)", "linear-gradient(160deg,#7e9be0,#4a67bb)",
-    "linear-gradient(160deg,#eeb27f,#cc7f47)", "linear-gradient(160deg,#88ddc6,#45a692)",
-    "linear-gradient(160deg,#bb9ae8,#7d5cc0)", "linear-gradient(160deg,#e0a087,#ad6849)",
-    "linear-gradient(160deg,#9aa8bd,#68738a)", "linear-gradient(160deg,#dde386,#a9b046)",
-    "linear-gradient(160deg,#82bde8,#4a83ab)", "linear-gradient(160deg,#c6cddb,#8a93a6)",
-    "linear-gradient(160deg,#a6d78c,#6aa352)", "linear-gradient(160deg,#e8a3bd,#b5637f)",
-    "linear-gradient(160deg,#85cfc0,#48968a)",
-)
+def expand_kit_elements(
+    manifest: dict[str, Any],
+    body: str,
+    bundle_dir: Optional[Path] = None,
+) -> tuple[str, list[str]]:
+    """Expand empty kit elements into static HTML. Returns (html, problems).
 
-_STATUS_BAR = (
-    '<div class="sp-statusbar"><span>9:41</span>'
-    '<span style="display:flex;align-items:center;gap:4px">'
-    '<span class="sp-bars"><i style="height:3px"></i><i style="height:5px"></i>'
-    '<i style="height:7px"></i><i style="height:9px"></i></span>'
-    '<span class="sp-batt"></span></span></div>'
-)
-
-
-def _iphone_markup(src: str, label: str, mode: str = "dark") -> str:
-    """A springboard with the icon in place: status bar, apps, dock, home bar."""
-    tints = _NEIGHBOURS_DARK if mode == "dark" else _NEIGHBOURS_LIGHT
-    cells = [f'<div class="sp-app sp-mine"><img src="{escape(src)}" alt=""><em>{escape(label)}</em></div>']
-    cells += [f'<div class="sp-app"><i style="background:{tint}"></i><em></em></div>' for tint in tints]
-    dock = '<div class="sp-dock">' + "".join(
-        f'<i style="background:{tint}"></i>' for tint in tints[:4]
-    ) + "</div>"
-    return (
-        f'<div class="sp-phone sp-{mode}"><div class="sp-island"></div><div class="sp-screen">'
-        f'{_STATUS_BAR}<div class="sp-apps">{"".join(cells)}</div>{dock}'
-        f'<div class="sp-homebar"></div></div></div>'
-    )
-
-
-DEVICES = {"iphone": _iphone_markup}
-
-
-def device_pair(ref: str, label: str) -> str:
-    """The same icon on a light and a dark home screen, side by side.
-
-    One background flatters an icon and the other exposes it, and which is
-    which depends on the artwork — so a presentation shows both rather than
-    picking the kind one.
+    ``bundle_dir`` is where the package's files are on disk while it is being
+    written. With it, text files travel inside the page and the file browser
+    can show them offline; without it (a cover rendered from a manifest alone)
+    the rows simply carry no source.
     """
-    cases = "".join(
-        f'<div class="sp-devicecase">{_iphone_markup(ref, label, mode)}<span>{mode.title()}</span></div>'
-        for mode in ("light", "dark")
-    )
-    return f"<stimma-devices>{cases}</stimma-devices>"
-
-
-def contexts_markup(src: str, name: str, subtitle: str = "") -> str:
-    """The other surfaces an icon has to survive: a store row, a setting, an alert."""
-    src = escape(src)
-    name = escape(name)
-    sub = escape(subtitle or "Your app")
-    return (
-        '<stimma-contexts>'
-        f'<div class="sp-ctx"><img src="{src}" width="56" height="56" alt="">'
-        f'<div class="sp-ctx-body"><b>{name}</b><span>{sub}</span></div>'
-        '<span class="sp-get">GET</span></div>'
-        f'<div class="sp-ctx"><img src="{src}" width="29" height="29" alt="">'
-        f'<div class="sp-ctx-body"><b>{name}</b></div><span class="sp-chev">›</span></div>'
-        f'<div class="sp-ctx sp-notify"><img src="{src}" width="38" height="38" alt="">'
-        f'<div class="sp-ctx-body"><b>{name}</b><span>Your weekly summary is ready.</span></div>'
-        '<span class="sp-when">now</span></div>'
-        '</stimma-contexts>'
-    )
-
-
-def expand_kit_elements(manifest: dict[str, Any], body: str) -> tuple[str, list[str]]:
-    """Expand empty kit elements into static HTML. Returns (html, problems)."""
     problems: list[str] = []
     counters: dict[str, int] = {}
     seen_ids: set[str] = set()
@@ -757,7 +952,7 @@ def expand_kit_elements(manifest: dict[str, Any], body: str) -> tuple[str, list[
             return f"<stimma-files{_attr_str(attrs)}>{inner}</stimma-files>"
         if inner:
             return f"<stimma-files{_attr_str(attrs)}>{inner}</stimma-files>"
-        return f"<stimma-files{_attr_str(attrs)}>{_files_markup(manifest, ref)}</stimma-files>"
+        return f"<stimma-files{_attr_str(attrs)}>{_files_markup(manifest, ref, bundle_dir)}</stimma-files>"
 
     def compare_sub(m: re.Match) -> str:
         attrs = _parse_attrs(m.group("attrs"))
@@ -790,21 +985,6 @@ def expand_kit_elements(manifest: dict[str, Any], body: str) -> tuple[str, list[
         head = f'<p class="sp-label">{htmllib.escape(label)}</p>' if label else ""
         return f"<stimma-section{_attr_str(attrs)}>{head}{inner}</stimma-section>"
 
-    def device_sub(m: re.Match) -> str:
-        attrs = _parse_attrs(m.group("attrs"))
-        register_id(attrs, "stimma-device")
-        kind = attrs.get("kind", "iphone")
-        ref = attrs.get("ref", "")
-        path = _resolve_path(manifest, ref)
-        builder = DEVICES.get(kind)
-        if path is None or builder is None:
-            problems.append(
-                f'<stimma-device kind="{kind}" ref="{ref}"> could not be placed'
-                + ("" if builder else f'; known devices: {", ".join(DEVICES)}')
-            )
-            return f"<stimma-device{_attr_str(attrs)}></stimma-device>"
-        return f"<stimma-device{_attr_str(attrs)}>{builder(path, attrs.get('label', ''))}</stimma-device>"
-
     def column_sub(m: re.Match) -> str:
         attrs = _parse_attrs(m.group("attrs"))
         inner = (m.group("inner") or "").strip()
@@ -813,7 +993,6 @@ def expand_kit_elements(manifest: dict[str, Any], body: str) -> tuple[str, list[
         return f"<stimma-column{_attr_str(attrs)}>{head}<p>{inner}</p></stimma-column>"
 
     flags = re.IGNORECASE | re.DOTALL
-    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-device"), device_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-column"), column_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-section"), section_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-media"), media_sub, body, flags=flags)

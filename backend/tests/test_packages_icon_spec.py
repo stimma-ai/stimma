@@ -354,15 +354,23 @@ async def test_presentations_are_built_from_kit_components(tmp_path):
         "files": [{"path": "app-icons/" + f.path, "hash": f.hash, "size": f.size} for f in result.files],
     }]
     fragment = get_recipe("app-icons").present(manifest["runs"][0], manifest)
-    for component in ("stimma-section", "stimma-device", "stimma-sizes", "stimma-media", "stimma-columns"):
+    for component in ("stimma-section", "stimma-sizes", "stimma-media", "stimma-columns"):
         assert f"<{component}" in fragment, f"presentation does not use <{component}>"
+
+    # The presentation is built from rendered previews the package ships —
+    # real files a designer can drop into a deck — not from CSS approximations.
+    shipped = {f.path for f in result.files}
+    for name in ("previews/home-light.png", "previews/home-dark.png", "previews/app-store-light.png",
+                 "previews/settings-dark.png", "previews/notification-light.png", "previews/spotlight-dark.png"):
+        assert name in shipped, f"{name} not shipped"
+    assert 'ref="app-icons/previews/home-light.png"' in fragment
+    assert 'ref="app-icons/previews/home-dark.png"' in fragment
 
     from packages.cover import render_cover_document
 
     html, problems = render_cover_document(manifest)
     assert not problems
-    # The device mockup and the real-size row must actually render.
-    assert "sp-phone" in html and "sp-statusbar" in html and "sp-dock" in html
+    assert 'src="app-icons/previews/home-dark.png"' in html
     assert 'width="20" height="20"' in html
     # And the page signs itself.
     assert kit.LOGO_SVG.split(">", 1)[0] in html and "sp-wordmark" in html

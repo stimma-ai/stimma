@@ -470,7 +470,9 @@ class PackageBuilder:
                 tile_path = bundle / TILE_NAME
                 tile_path.parent.mkdir(parents=True, exist_ok=True)
                 tile_path.write_bytes(tile)
-            html_text, problems = render_cover_document(manifest, authored_html=self.cover_source, strict=True)
+            html_text, problems = render_cover_document(
+                manifest, authored_html=self.cover_source, strict=True, bundle_dir=bundle
+            )
             if problems:
                 raise CoverError("cover has problems: " + "; ".join(problems))
             (bundle / COVER_NAME).write_text(html_text, encoding="utf-8")

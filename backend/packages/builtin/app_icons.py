@@ -42,31 +42,57 @@ def _by_px(run: dict) -> dict[int, str]:
     return found
 
 
-def present(run: dict, manifest: dict) -> str:
-    """Show the icon the way it will be seen: on a home screen, and at real size.
+def _preview_paths(run: dict) -> dict[str, str]:
+    root = run.get("root") or ""
+    out: dict[str, str] = {}
+    for entry in run.get("files") or []:
+        path = entry["path"]
+        if path.startswith(f"{root}previews/"):
+            out[path.rsplit("/", 1)[-1][:-4]] = path
+    return out
 
-    Built from kit components, so this reads like every other Stimma cover and
-    picks up any change to the look without being touched.
-    """
+
+_ROW = 'display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;gap:{gap}px'
+
+
+def _pair(previews: dict[str, str], key: str, *, width: str, gap: int) -> str:
+    """A light and a dark rendering side by side, each captioned."""
+    cells = "".join(
+        f'<stimma-media ref="{kit.escape(previews[f"{key}-{mode}"])}" caption="{mode.title()}"'
+        f' style="width:{width};text-align:center"></stimma-media>'
+        for mode in ("light", "dark")
+    )
+    return f'<div style="{_ROW.format(gap=gap)}">{cells}</div>'
+
+
+def present(run: dict, manifest: dict) -> str:
+    """Show the icon where it will be seen, from the rendered previews the package ships."""
     by_px = _by_px(run)
+    previews = _preview_paths(run)
     if not by_px:
         return ""
-    hero_ref = by_px[max(by_px)]
-    app_name = (run.get("params") or {}).get("app_name") or ""
-    if not app_name or app_name == "App":
-        title = manifest.get("title") or ""
-        app_name = title.split()[0] if title else "App"
+
+    def have(key: str) -> bool:
+        return f"{key}-light" in previews and f"{key}-dark" in previews
+
+    out: list[str] = []
+    if have("home"):
+        out.append(kit.section(_pair(previews, "home", width="min(320px,44vw)", gap=40), label="On a home screen"))
 
     swatches = [kit.media(by_px[px], size=px) for px in PREVIEW_SIZES if px in by_px]
+    if swatches:
+        out.append(kit.section(kit.sizes(swatches), label="At actual size"))
+
+    surfaces = [k for k in ("app-store", "settings", "notification", "spotlight") if have(k)]
+    if surfaces:
+        rows = "".join(_pair(previews, k, width="min(390px,46vw)", gap=24) for k in surfaces)
+        out.append(kit.section(f'<div style="display:grid;gap:28px">{rows}</div>',
+                               label="Everywhere else it appears"))
+
     included = [
         PLATFORM_BLURB.get(key, (key.title(), ""))
         for key in (run.get("params") or {}).get("platforms") or []
     ]
-
-    out = [kit.section(kit.device_pair(hero_ref, app_name), label="On a home screen")]
-    if swatches:
-        out.append(kit.section(kit.sizes(swatches), label="At actual size"))
-    out.append(kit.section(kit.contexts_markup(hero_ref, app_name), label="Everywhere else it appears"))
     if included:
         out.append(kit.section(kit.columns(included), label="Included"))
     return "".join(out)
@@ -197,6 +223,31 @@ async def build(b: Build) -> None:
             b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
 
     b.file("README.txt", icon_spec.readme(platforms))
+
+    # Presentation images, shipped with the deliverable: the icon on a home
+    # screen and on the other surfaces it has to survive, in both appearances.
+    # A designer would build these in a mockup kit; here they come from the
+    # same artwork, so they are never out of date.
+    from packages import mockups
+
+    device = icon_spec.device_icon(await b.image("master", size=1024), 1024, background)
+    name = b.params.app_name if b.params.app_name and b.params.app_name != "App" else b.slug.replace("-", " ").title()
+    for mode in ("light", "dark"):
+        b.derive(f"previews/home-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
+                 source="master", fixed=True)
+        b.derive(f"previews/app-store-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_app_store_row(device, name, "Productivity", mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/settings-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_settings_row(device, name, mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/notification-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_notification(device, name, "Your weekly summary is ready.", mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/spotlight-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_spotlight_row(device, name, mode=mode)),
+                 source="master", fixed=True)
 
     # The package's face: the icon the way a device draws it, on a plate.
     # Better than anything computed from the file list afterwards, because the

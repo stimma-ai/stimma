@@ -177,6 +177,7 @@ def render_cover_document(
     *,
     authored_html: Optional[str] = None,
     strict: bool = True,
+    bundle_dir: Optional[Path] = None,
 ) -> tuple[str, list[str]]:
     """Build the final ``index.html`` text. Returns (html, problems).
 
@@ -190,7 +191,7 @@ def render_cover_document(
         problems.extend(lint_cover_source(authored_html))
     else:
         head_extra, body, title = "", auto_cover_body(manifest), ""
-    body, expand_problems = expand_kit_elements(manifest, body)
+    body, expand_problems = expand_kit_elements(manifest, body, bundle_dir)
     problems.extend(expand_problems)
     if strict and problems:
         return "", problems
