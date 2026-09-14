@@ -45,6 +45,9 @@ const ICONS = {
   // Layers — collecting things into a set/grid/document.
   create:
     '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  // Closed box — a package deliverable.
+  package:
+    '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>',
   search:
     '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/>',
   fetch:
@@ -82,6 +85,8 @@ export function flowNodeVisual(
     case 'create_grid':
     case 'create_document':
       return { icon: ICONS.create, tileClass: 'bg-flow-create-tint text-flow-create-strong', label: 'Collect' }
+    case 'create_package':
+      return { icon: ICONS.package, tileClass: 'bg-flow-create-tint text-flow-create-strong', label: 'Package' }
     case 'web_search':
       return { icon: ICONS.search, tileClass: 'bg-flow-tool-tint text-flow-tool-strong', label: 'Search' }
     case 'fetch_media':

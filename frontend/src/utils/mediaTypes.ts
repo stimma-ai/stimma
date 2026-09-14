@@ -11,10 +11,11 @@ export const VECTOR_FORMATS = ['svg']
 export const SET_FORMATS = ['stimmaset.json']
 export const GRID_FORMATS = ['stimmagrid.json']
 export const SPRITE_FORMATS = ['stimmasprite.json']
+export const PACKAGE_FORMATS = ['stimmapackage']
 export const LAYOUT_FORMATS = ['stimmalayout']
-export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...SPRITE_FORMATS, ...LAYOUT_FORMATS]
+export const STRUCTURED_FORMATS = [...TEXT_FORMATS, ...VECTOR_FORMATS, ...SET_FORMATS, ...GRID_FORMATS, ...SPRITE_FORMATS, ...PACKAGE_FORMATS, ...LAYOUT_FORMATS]
 
-export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'sprite' | 'layout'
+export type MediaType = 'image' | 'video' | 'audio' | 'text' | 'vector' | 'set' | 'grid' | 'sprite' | 'package' | 'layout'
 
 export interface MediaItem {
   file_format: string
@@ -32,6 +33,7 @@ export function getMediaType(item: MediaItem): MediaType {
   if (format === 'stimmaset.json') return 'set'
   if (format === 'stimmagrid.json') return 'grid'
   if (format === 'stimmasprite.json') return 'sprite'
+  if (format === 'stimmapackage') return 'package'
   if (format === 'stimmalayout') return 'layout'
   if (AUDIO_FORMATS.includes(format)) return 'audio'
   if (VIDEO_FORMATS.includes(format)) return 'video'
@@ -70,6 +72,10 @@ export function isSprite(item: MediaItem): boolean {
   return SPRITE_FORMATS.includes(item.file_format?.toLowerCase())
 }
 
+export function isPackage(item: MediaItem): boolean {
+  return PACKAGE_FORMATS.includes(item.file_format?.toLowerCase())
+}
+
 export function isVector(item: MediaItem): boolean {
   return VECTOR_FORMATS.includes(item.file_format?.toLowerCase())
 }
@@ -83,7 +89,7 @@ export function isStructured(item: MediaItem): boolean {
  */
 export function hasVisualContent(item: MediaItem): boolean {
   const type = getMediaType(item)
-  return type === 'image' || type === 'video' || type === 'layout' || type === 'vector'
+  return type === 'image' || type === 'video' || type === 'layout' || type === 'vector' || type === 'package'
 }
 
 /**
@@ -159,6 +165,16 @@ export function getBadgeConfig(item: MediaItem): BadgeConfig | null {
         bgColor: 'bg-gray-500/15',
         borderColor: 'border-gray-500/50',
         label: 'Sprite'
+      }
+    // Monochrome too: a package is a deliverable, not a new hue. The glyph is
+    // the archive box every package surface draws — never a cube.
+    case 'package':
+      return {
+        icon: 'archive-box',
+        color: 'text-gray-400',
+        bgColor: 'bg-gray-500/15',
+        borderColor: 'border-gray-500/50',
+        label: 'Package'
       }
     case 'layout':
       return {

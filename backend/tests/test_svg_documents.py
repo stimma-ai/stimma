@@ -600,7 +600,12 @@ class TestExport:
 
 
 class TestIconEncoders:
-    """The icon bundles must build on any platform — no iconutil, no macOS."""
+    """The icon containers must build on any platform — no iconutil, no macOS.
+
+    The tables and writers live in ``icon_spec``, shared with the app-icons
+    recipe. Output-level rules are asserted against both producers in
+    ``tests/test_packages_icon_spec.py``; these cover the encoders themselves.
+    """
 
     @staticmethod
     def _renders(sizes):
@@ -612,51 +617,58 @@ class TestIconEncoders:
         return out
 
     def test_icns_round_trips(self):
-        from routes.svg_media import ICON_TARGETS, _build_icns
+        import icon_spec
 
-        payload = _build_icns(self._renders(ICON_TARGETS["icon-macos"]["sizes"]))
+        payload = icon_spec.build_icns(self._renders(icon_spec.MACOS_SIZES))
         assert payload[:4] == b"icns"
         Image.open(io.BytesIO(payload)).load()
 
     def test_ico_contains_every_requested_size(self):
-        from routes.svg_media import ICON_TARGETS, _build_ico
+        import icon_spec
 
-        sizes = ICON_TARGETS["icon-windows"]["sizes"]
-        payload = _build_ico(self._renders(sizes))
+        sizes = icon_spec.WINDOWS_SIZES
+        payload = icon_spec.build_ico(self._renders(sizes))
         stored = Image.open(io.BytesIO(payload)).ico.sizes()
         assert {(s, s) for s in sizes} == set(stored)
 
     def test_ios_catalog_names_every_entry(self):
         """A Contents.json entry with no filename is a broken asset catalog."""
-        from routes.svg_media import _IOS_ENTRIES, _ios_contents_json
+        import icon_spec
 
-        name_for = {px: f"icon-{px}.png" for *_rest, px in _IOS_ENTRIES}
-        catalog = json.loads(_ios_contents_json(name_for))
+        catalog = json.loads(icon_spec.ios_contents_json())
         assert catalog["images"]
         assert all("filename" in entry for entry in catalog["images"])
 
-    def test_every_icon_target_renders_the_sizes_its_bundle_uses(self):
-        """The bundle builders index images[] directly — a missing size is a KeyError."""
-        from routes.svg_media import _ANDROID_DENSITIES, ICON_TARGETS, _IOS_ENTRIES
+    def test_every_target_renders_the_sizes_its_bundle_uses(self):
+        """Bundle builders index renders by size — a missing one is a KeyError."""
+        import icon_spec
 
-        ios = set(ICON_TARGETS["icon-ios"]["sizes"])
-        assert {px for *_rest, px in _IOS_ENTRIES} <= ios
+        for platform in icon_spec.PLATFORMS:
+            rendered = set(icon_spec.sizes_for(platform))
+            needed = {img.px for img in icon_spec.images_for(platform)}
+            assert needed <= rendered, f"{platform} is missing renders for {needed - rendered}"
 
-        android = set(ICON_TARGETS["icon-android"]["sizes"])
-        assert {px for _d, px in _ANDROID_DENSITIES} | {432, 512} <= android
+        ios = set(icon_spec.sizes_for("ios"))
+        assert {icon_spec.ios_px(size, scale) for _i, size, scale in icon_spec.IOS_ENTRIES} <= ios
 
-        web = set(ICON_TARGETS["icon-web"]["sizes"])
-        assert {16, 32, 48, 180, 192, 512} <= web
+        android = set(icon_spec.sizes_for("android"))
+        for density, _ in icon_spec.ANDROID_DENSITIES:
+            assert icon_spec.android_px(density, icon_spec.LAUNCHER_DP) in android
+            assert icon_spec.android_px(density, icon_spec.ADAPTIVE_DP) in android
+        assert icon_spec.PLAY_STORE_PX in android
+
+        assert {16, 32, 48, 180, 192, 512} <= set(icon_spec.sizes_for("web"))
 
     def test_icns_only_asks_for_sizes_the_container_stores(self):
-        from routes.svg_media import ICON_TARGETS
+        import icon_spec
 
-        assert set(ICON_TARGETS["icon-macos"]["sizes"]) <= {32, 64, 128, 256, 512, 1024}
+        assert set(icon_spec.MACOS_SIZES) <= {16, 32, 64, 128, 256, 512, 1024}
 
     def test_ico_stays_within_the_format_ceiling(self):
-        from routes.svg_media import ICON_TARGETS
+        import icon_spec
 
-        assert max(ICON_TARGETS["icon-windows"]["sizes"]) <= 256
+        assert max(icon_spec.WINDOWS_SIZES) <= 256
+        assert max(icon_spec.WEB_ICO_SIZES) <= 256
 
 
 class TestRasterizeSvgSandbox:

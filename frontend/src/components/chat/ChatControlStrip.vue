@@ -25,7 +25,7 @@
         title="Driven by a connected assistant over MCP"
       >MCP</span>
       <span
-        v-else
+        v-if="!chatName && !editingName"
         @click="startEditName"
         class="text-sm font-medium text-content-muted italic cursor-pointer hover:text-content-secondary"
       >

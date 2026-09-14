@@ -30,7 +30,7 @@ from generation_metadata import build_parameters, dump_generation_metadata
 
 log = get_logger(__name__)
 
-STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "sprites", "structured"]
+STATIC_MEDIA_TYPES = ["images", "videos", "audio", "text", "sets", "grids", "sprites", "packages", "structured"]
 STATIC_RESOLUTIONS = ["small", "medium", "large", "huge"]
 STATIC_SORTS = ["created_desc", "created_asc", "indexed_desc", "indexed_asc", "random"]
 OPTION_FACETS = ["media_types", "resolutions", "generated", "folders", "keywords", "tags", "markers", "tools"]
@@ -1391,6 +1391,8 @@ async def save_workspace_file(
         return f"Error: File not found: {source}"
 
     is_layout_bundle = source.is_dir() and source.name.lower().endswith('.stimmalayout')
+    is_package_bundle = source.is_dir() and source.name.lower().endswith('.stimmapackage')
+    is_bundle = is_layout_bundle or is_package_bundle
 
     # Copy to output folder
     output_folder = _get_default_folder(workspace_dir)
@@ -1399,12 +1401,12 @@ async def save_workspace_file(
 
     # Avoid overwriting existing files/dirs
     if os.path.exists(dest):
-        if is_layout_bundle:
-            base = source.name
+        if is_bundle:
+            bundle_ext = '.stimmalayout' if is_layout_bundle else '.stimmapackage'
             counter = 1
             while os.path.exists(dest):
-                stem = source.name.rsplit('.stimmalayout', 1)[0]
-                dest = os.path.join(output_folder, f"{stem}_{counter}.stimmalayout")
+                stem = source.name[: -len(bundle_ext)]
+                dest = os.path.join(output_folder, f"{stem}_{counter}{bundle_ext}")
                 counter += 1
         else:
             base, ext = os.path.splitext(source.name)
@@ -1413,14 +1415,14 @@ async def save_workspace_file(
                 dest = os.path.join(output_folder, f"{base}_{counter}{ext}")
                 counter += 1
 
-    if is_layout_bundle:
+    if is_bundle:
         shutil.copytree(str(source), dest)
     else:
         shutil.copy2(str(source), dest)
 
     # Determine file format
-    if is_layout_bundle:
-        ext = "stimmalayout"
+    if is_bundle:
+        ext = "stimmalayout" if is_layout_bundle else "stimmapackage"
     else:
         ext = os.path.splitext(dest)[1].lstrip(".").lower()
         if ext == "jpg":
@@ -1446,6 +1448,18 @@ async def save_workspace_file(
                 pass
             return "Error: invalid sprite document: " + "; ".join(problems[:5])
 
+    # Package bundles likewise: a manifest that does not validate never lands.
+    if is_package_bundle:
+        from packages.manifest import ManifestError, read_manifest, validate_manifest
+
+        try:
+            problems = validate_manifest(read_manifest(Path(dest)))
+        except (ManifestError, OSError) as exc:
+            problems = [str(exc)]
+        if problems:
+            shutil.rmtree(dest, ignore_errors=True)
+            return "Error: invalid package: " + "; ".join(problems[:5])
+
     # Get dimensions. SVG is text, so PIL cannot open it — and it must land
     # sanitized like every other SVG ingest path. Rewriting here, before the
     # size and hash below, keeps the record describing the stored bytes.
@@ -1459,7 +1473,7 @@ async def save_workspace_file(
         except Exception as e:
             log.warning(f"Failed to normalize SVG {dest}: {e}")
             width, height = DEFAULT_SIZE, DEFAULT_SIZE
-    elif not is_layout_bundle:
+    elif not is_bundle:
         try:
             from utils.image_ops import open_oriented
             with open_oriented(dest) as img:
@@ -1468,8 +1482,8 @@ async def save_workspace_file(
             pass
 
     # Create MediaItem
-    if is_layout_bundle:
-        index_path = Path(dest) / "index.html"
+    if is_bundle:
+        index_path = Path(dest) / ("index.html" if is_layout_bundle else "stimma-package.json")
         file_size = index_path.stat().st_size if index_path.exists() else 0
         file_hash = _compute_file_hash(index_path) if index_path.exists() else ""
     else:
@@ -1481,9 +1495,10 @@ async def save_workspace_file(
     # Non-visual media should skip AI processing phases (CLIP, face detection, VLM)
     _NON_VISUAL_FORMATS = {'md', 'svg', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg',
                            'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout',
+                           'stimmapackage',
                            'txt', 'py', 'js', 'ts', 'json', 'csv', 'tsv', 'zip', 'html', 'css',
                            'yaml', 'yml', 'toml', 'xml', 'sql', 'sh', 'log', 'pdf'}
-    is_non_visual = ext in _NON_VISUAL_FORMATS or is_layout_bundle
+    is_non_visual = ext in _NON_VISUAL_FORMATS or is_bundle
 
     # Always stamp the canonical envelope (even for plain code-saved files, which
     # used to land with NULL metadata) so every library item has a uniform shape.
@@ -1535,7 +1550,11 @@ async def save_workspace_file(
         indexed_date=datetime.utcnow(),
         tool_id=provenance.get("tool_id") if provenance else None,
         generation_metadata=generation_metadata,
-        raw_metadata=json.dumps(sprite_doc) if sprite_doc is not None else None,
+        raw_metadata=(
+            json.dumps(sprite_doc) if sprite_doc is not None
+            else (Path(dest) / "stimma-package.json").read_text(encoding="utf-8") if is_package_bundle
+            else None
+        ),
     )
     session.add(media_item)
     await session.flush()  # Get the ID
@@ -1613,6 +1632,10 @@ async def save_workspace_file(
                 origin_type="library_save",
                 idempotency_key=f"library-save:media:{media_item.id}",
             )
+        elif ext == "stimmapackage":
+            from packages.bundle import create_package_asset
+
+            asset = await create_package_asset(session, media=media_item, origin_type="library_save")
         else:
             asset = await create_asset_from_media(
                 session,

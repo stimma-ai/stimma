@@ -2,8 +2,7 @@
   <div class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden">
     <!-- Header -->
     <div class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
-      <FileTypeBadge v-if="workspaceFile" :name="workspaceFile.name" :mime="workspaceFile.mime" />
-      <div class="min-w-0">
+      <div v-if="!workspaceArchive" class="min-w-0" :draggable="!!workspaceFile" @dragstart="workspaceFile && chatId != null && dragWorkspaceFile($event, chatId, workspaceFile)">
         <div class="text-[12.5px] font-semibold text-content truncate">{{ workspaceFile?.name || asset?.title || 'Untitled' }}</div>
         <div class="text-[10.5px] text-content-muted">
           <span v-if="workspaceFile" class="font-mono">{{ workspaceFile.path }} · {{ fileSize(workspaceFile.size) }}</span>
@@ -11,7 +10,7 @@
         </div>
       </div>
 
-      <div class="ml-auto flex flex-wrap items-center justify-end gap-0.5 min-w-0">
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-0.5 min-w-0" :class="workspaceArchive ? 'w-full' : ''">
         <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
              off-latest state earns the accent because it is a real state, not
              decoration. -->
@@ -58,21 +57,36 @@
         <!-- The kebab is the same menu the artwork's right-click gives, anchored
              under the button. A second, smaller menu of its own would just be a
              place for actions to go missing. -->
-        <div ref="fileControlsRef" class="flex items-center" />
-        <template v-if="workspaceFile">
-          <Button variant="ghost" size="sm" @click="$emit('attach-file', workspaceFile)">Attach to reply</Button>
-          <Button variant="ghost" size="sm" @click="$emit('save-file', workspaceFile)">Save to library</Button>
-          <a :href="fileUrl(chatId!, workspaceFile, 'content', true)" class="p-2 text-xs text-accent">Download</a>
+        <div ref="fileControlsRef" class="flex items-center min-w-0" :class="workspaceArchive ? 'flex-1' : ''" />
+        <template v-if="workspaceFile && !workspaceArchive">
+          <FileActions :file="workspaceFile" :url="fileUrl(chatId!, workspaceFile, 'content', true)" @attach="$emit('attach-file', workspaceFile)" @save="$emit('save-file', workspaceFile)" />
         </template>
-        <div v-else ref="overflowButtonRef" class="flex">
-          <IconButton title="Actions" @click="onOverflowClick">
-            <EllipsisHorizontalIcon class="w-4 h-4" />
+        <template v-else-if="!workspaceFile">
+          <!-- A package is a deliverable: the zip is one click, named and sized, not a menu away. -->
+          <button
+            v-if="heroKind === 'package'"
+            type="button"
+            class="inline-flex items-center gap-2 h-7 pl-2 pr-2.5 mr-1 rounded-md bg-overlay-subtle hover:bg-overlay-medium text-xs text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50"
+            :title="`Download ${packageZipName}`"
+            :disabled="downloadingPackage"
+            @click="downloadPackage"
+          >
+            <ArchiveBoxIcon class="w-4 h-4 text-accent" />
+            <span class="font-medium">Download {{ packageZipName }}</span>
+            <span v-if="packageZipSize" class="font-mono text-content-tertiary">{{ packageZipSize }}</span>
+          </button>
+          <div ref="overflowButtonRef" class="flex">
+            <IconButton title="Actions" @click="onOverflowClick">
+              <EllipsisHorizontalIcon class="w-4 h-4" />
+            </IconButton>
+          </div>
+        </template>
+
+        <div class="ml-3 pl-3 border-l border-edge-subtle shrink-0">
+          <IconButton title="Close stage" aria-label="Close stage" @click="$emit('close')">
+            <PanelLeftCloseIcon class="w-4 h-4" />
           </IconButton>
         </div>
-
-        <IconButton title="Close stage" @click="$emit('close')">
-          <XMarkIcon class="w-4 h-4" />
-        </IconButton>
       </div>
     </div>
 
@@ -98,13 +112,15 @@
         </button>
 
         <div
-          class="relative flex-1 min-h-0 rounded-media overflow-hidden cursor-zoom-in"
-          @click="$emit('open-slideshow', viewedRevision.media_id)"
+          class="relative flex-1 min-h-0 rounded-media overflow-hidden"
+          :class="heroKind === 'package' ? '' : 'cursor-zoom-in'"
+          @click="onHeroClick"
           @contextmenu="onHeroContextMenu"
         >
           <LayoutViewer v-if="heroKind === 'layout'" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <SvgViewer v-else-if="heroKind === 'vector'" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <SpritePlayer v-else-if="heroKind === 'sprite'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
+          <PackageViewer v-else-if="heroKind === 'package'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <video
             v-else-if="heroKind === 'video'"
             :key="viewedRevision.media_id"
@@ -141,22 +157,27 @@
 </template>
 
 <script setup lang="ts">
-import FileTypeBadge from './FileTypeBadge.vue'
+import PanelLeftCloseIcon from '../ui/PanelLeftCloseIcon.vue'
+import FileActions from './FileActions.vue'
 import FileViewer from '../viewers/FileViewer.vue'
 import Button from '../ui/Button.vue'
-import { fileUrl, fileSize, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
-import { computed, ref, onBeforeUnmount } from 'vue'
+import { fileUrl, fileSize, dragWorkspaceFile, fileKind, type WorkspaceFile } from '../../utils/fileRefs'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import {
   ChevronDownIcon,
   EllipsisHorizontalIcon,
-  XMarkIcon,
   ArrowUpIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/vue/24/outline'
+import axios from 'axios'
+import { getApiBase } from '../../apiConfig'
+import { useTauriDownload } from '../../composables/useTauriDownload'
 import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
 import LayoutViewer from '../viewers/LayoutViewer.vue'
 import SvgViewer from '../viewers/SvgViewer.vue'
 import SpritePlayer from '../viewers/SpritePlayer.vue'
+import PackageViewer from '../viewers/PackageViewer.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { getMediaType } from '../../utils/mediaTypes'
@@ -188,6 +209,7 @@ const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
 // The <MediaContextMenu> itself is mounted once by ChatView.
 const contextMenu = useMediaContextMenu()
 
+const workspaceArchive = computed(() => !!props.workspaceFile && fileKind(props.workspaceFile.name, props.workspaceFile.mime) === 'zip')
 const fileControlsRef = ref<HTMLElement | null>(null)
 const showVersionMenu = ref(false)
 const versionMenuRef = ref<HTMLElement | null>(null)
@@ -212,8 +234,15 @@ const heroKind = computed(() => {
 })
 
 const showDimensionChip = computed(() =>
-  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
+  heroKind.value !== 'vector' && heroKind.value !== 'sprite' && heroKind.value !== 'package' && !!props.viewedRevision?.width && !!props.viewedRevision?.height
 )
+
+// A package's cover is a page you read in place; zooming it into the slideshow
+// is the surface a package must never land on.
+function onHeroClick() {
+  if (heroKind.value === 'package') return
+  if (props.viewedRevision) emit('open-slideshow', props.viewedRevision.media_id)
+}
 
 function contextMenuTarget() {
   const mediaId = props.viewedRevision?.media_id
@@ -232,7 +261,10 @@ function onHeroContextMenu(event: MouseEvent) {
   contextMenu.show({ event, ...target })
 }
 
-function onOverflowClick() {
+function onOverflowClick(event?: MouseEvent) {
+  // The menu closes on any document click, and this click is still on its
+  // way up the tree — so it would open and close in the same beat.
+  event?.stopPropagation()
   const target = contextMenuTarget()
   if (!target) return
   const rect = overflowButtonRef.value?.getBoundingClientRect()
@@ -241,6 +273,51 @@ function onOverflowClick() {
     y: rect ? rect.bottom + 4 : 0,
     ...target,
   })
+}
+
+const { downloadFromResponse } = useTauriDownload()
+const downloadingPackage = ref(false)
+
+// The button says what it hands over: the export's real filename, and how
+// much is in it. Both come from the manifest.
+const packageZipName = ref('package.zip')
+const packageZipSize = ref('')
+watch(() => [heroKind.value, props.viewedRevision?.media_id] as const, async ([kind, mediaId]) => {
+  packageZipName.value = 'package.zip'
+  packageZipSize.value = ''
+  if (kind !== 'package' || !mediaId) return
+  try {
+    const { data } = await axios.get(`${getApiBase()}/media/${mediaId}/package`)
+    const manifest = data?.manifest || {}
+    if (props.viewedRevision?.media_id !== mediaId) return
+    const slug = manifest.slug || String(manifest.title || 'package').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    packageZipName.value = `${slug}.zip`
+    let bytes = 0
+    for (const m of manifest.members || []) bytes += Number(m.size || 0)
+    for (const run of manifest.runs || []) for (const f of run.files || []) bytes += Number(f.size || 0)
+    for (const e of manifest.extras || []) bytes += Number(e.size || 0)
+    packageZipSize.value = bytes ? fileSize(bytes) : ''
+  } catch {
+    /* the button still downloads; it just says less */
+  }
+}, { immediate: true })
+
+async function downloadPackage() {
+  const mediaId = props.viewedRevision?.media_id
+  if (!mediaId || downloadingPackage.value) return
+  downloadingPackage.value = true
+  try {
+    const response = await axios.post(
+      `${getApiBase()}/media/${mediaId}/package-export`,
+      { format: 'zip' },
+      { responseType: 'blob' },
+    )
+    const disposition = response.headers['content-disposition'] || ''
+    const match = disposition.match(/filename="([^"]+)"/)
+    await downloadFromResponse(response.data, match ? match[1] : 'package.zip')
+  } finally {
+    downloadingPackage.value = false
+  }
 }
 
 const kindLabel = computed(() => {

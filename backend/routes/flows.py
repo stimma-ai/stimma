@@ -795,6 +795,11 @@ def _display_name_for_equation(
         if isinstance(title, str) and title.strip():
             return f"Set: {title.strip()}"
         return "Set"
+    if equation_type == "create_package":
+        title = d.get("title")
+        if isinstance(title, str) and title.strip():
+            return f"Package: {title.strip()}"
+        return "Package"
     if equation_type == "create_grid":
         title = d.get("title")
         rows = d.get("rows")

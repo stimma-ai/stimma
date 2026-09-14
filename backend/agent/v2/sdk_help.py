@@ -40,6 +40,70 @@ Parallel execution:
         group="core",
         is_async=True,
     ),
+    "packages.new": SDKMethodHelp(
+        name="packages.new",
+        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
+        summary="Assemble a deliverable package: members, deterministic recipe runs, extras, and a cover.",
+        details="""\
+A package is what you hand over: masters, the derivative tree a recipe
+produced (icon sets, logo variants, crops), loose extras, and a cover page.
+Members can be media ids, ToolResults, or workspace paths (saved with lineage).
+
+  pkg = stimma.packages.new("Acme logo")
+  master = await pkg.add_member(result, role="master")       # a ToolResult or "mark.png"
+  await pkg.run("app-icons", {"master": master},
+                {"platforms": ["ios", "android", "web"], "background": "#101820"})
+  pkg.add_file("brief.pdf")                                   # optional extras
+  pkg.set_cover("cover.html")                                 # optional; see packages.cover
+  pkg.set_tile("tile.png")                                    # optional; the library square
+  media_id = await pkg.save()
+  stimma.show(media_id=media_id, role="final")                # commits the package Asset
+
+Recipes are deterministic and memoized; judgment (focal points, colors,
+naming) goes in params. stimma.packages.recipes() lists roles and params.
+Naming: pass {"naming": {"template": "{slug}-{variant}-{color}", "case": "kebab"}}
+to honor the user's filename conventions; platform-fixed names never change.""",
+        group="packages",
+        is_async=True,
+    ),
+    "packages.recipes": SDKMethodHelp(
+        name="packages.recipes",
+        signature="stimma.packages.recipes() -> list[dict]",
+        summary="List installed recipes with their input roles, constraints and parameters.",
+        details="""\
+Each entry has id, version, display_name, description, inputs (name, kind,
+required, square, min_size, alpha), params (name, type, default, options) and
+has_guidance. Read it before running a recipe so you gather the right masters
+first: a recipe never generates anything, it only arranges what you give it.
+
+  stimma.packages.guidance("app-icons")   # notes from that recipe, on demand
+
+Fetch guidance for the recipe you settled on, not for all of them — that is
+what keeps a profile with fifty recipes as cheap to work with as one.""",
+        group="packages",
+        is_async=False,
+    ),
+    "packages.cover": SDKMethodHelp(
+        name="packages.cover",
+        signature="draft.set_cover(html)  # arbitrary HTML/CSS/JS plus kit elements",
+        summary="Author the package cover: free HTML with kit elements that reference members by ref.",
+        details="""\
+The cover is a responsive web page. Write any HTML, CSS and classic JS, and
+use kit elements wherever the page touches package content:
+
+  <stimma-media ref="m1" caption="Primary mark"></stimma-media>   member, run file path, or extra
+  <stimma-grid><stimma-media ref="m1"/><stimma-media ref="m2"/></stimma-grid>   contact-sheet grid
+  <stimma-files ref="r1"></stimma-files>                           browsable tree + downloads for a run
+  <stimma-compare a="m1" b="app-icons/ios/icon-1024.png" mode="slider"></stimma-compare>
+
+Refs are member ids (m1), run ids (r1), or bundle-relative paths from the
+manifest. Rules: no external URLs (bundle fonts and images as members),
+no <script type="module">, unique ids. A cover that breaks a rule is
+refused with the reason, so fix and save again. Without a cover, the package
+gets a plain auto-generated one.""",
+        group="packages",
+        is_async=False,
+    ),
     "project_path": SDKMethodHelp(
         name="project_path",
         signature="stimma.project_path(*parts: str) -> Path",
@@ -330,7 +394,7 @@ Example:
 }
 
 
-_GROUP_ORDER = ["core", "display", "library", "image", "ai"]
+_GROUP_ORDER = ["core", "display", "library", "packages", "image", "ai"]
 _GROUP_LABELS = {
     "core": "Core",
     "display": "Display",
@@ -406,6 +470,8 @@ stimma quick reference (inside run_code / run_file):
     returns items/total/has_more; .options('loras') discovers recorded names.
     .inspect([ids]) reads metadata/history without copying files.
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
+  Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
+    media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). stimma.packages.recipes() lists recipes.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

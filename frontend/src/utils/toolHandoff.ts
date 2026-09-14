@@ -83,6 +83,9 @@ export function planToolHandoff({
   if (resolvedTypes.includes('sprite')) {
     return { eligible: false, reason: 'Sprites cannot be sent to tools', mediaTypes: resolvedTypes, count: selectionCount }
   }
+  if (resolvedTypes.includes('package')) {
+    return { eligible: false, reason: 'Packages cannot be sent to tools', mediaTypes: resolvedTypes, count: selectionCount }
+  }
   const unsupported = resolvedTypes.find(type => type === 'text' || type === 'layout')
   if (unsupported) {
     return { eligible: false, reason: `No tools support ${unsupported} input`, mediaTypes: resolvedTypes, count: selectionCount }

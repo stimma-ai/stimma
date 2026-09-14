@@ -120,7 +120,7 @@ can be nodes; the runtime resolves them at evaluation time.
 from stimma.flow import (
     flow, input, output, phase, foreach, tool, llm, code, hitl, info,
     switch, when, gate, filter, filter_items, partition, take, zip_nodes,
-    create_set, create_grid, create_document, create_image,
+    create_set, create_package, create_grid, create_document, create_image,
     create_layout, rasterize_layout, web_search, fetch_media,
 )
 ```
@@ -158,6 +158,7 @@ hitl.approve_each(items, generate, *, instructions, **kwargs)
 hitl.approve(count, generate, *, instructions, **kwargs)
 
 create_set(items, *, title="", description="")
+create_package(members, *, recipe=None, inputs=None, params=None, title="", description="")
 create_grid(items, *, rows, cols, row_headers, col_headers, title="", description="")
 create_document(content, *, title="", format="markdown")
 create_image(fn, *, inputs, title="", description="", format="png")
@@ -756,6 +757,19 @@ set). Membership does not hide or replace independently rooted Assets; bare
 intermediate Media can remain embedded in the set. Use when the user wants the
 flow's outputs bundled as one browsable collection rather than loose siblings.
 
+**create_package(members, *, recipe=None, inputs=None, params=None, title="", description="")**
+— assemble media into a ``.stimmapackage`` deliverable: members plus an
+optional deterministic **recipe** run (app icons, logo variants, key-art
+crops) and a cover page, exportable as a zip or a single HTML file.
+``members`` is a collection node or a list of media nodes — every one
+becomes a member. ``recipe`` is a literal recipe id; ``inputs`` maps that
+recipe's roles to media (``{"master": logo}``), and each of those also
+joins the package under that role. ``params`` is a literal dict of recipe
+parameters (``{"platforms": ["ios", "web"]}``) — static, known at build
+time. Resolves to a single media id (the package). Use when the user wants
+a handoff deliverable rather than a browsable collection; use
+``create_set`` for the latter.
+
 **create_grid(items, *, rows, cols, row_headers=[...], col_headers=[...], title="", description="")**
 — assemble a list of media ids into a ``.stimmagrid.json`` library asset
 (a **parameter-sweep grid** — not a rendered image). The grid renders as a
@@ -982,6 +996,7 @@ Each primitive has a fixed shape contract:
 | ``foreach(items, cb)``                       | list whose element shape = cb's return shape     |
 | ``zip_nodes(a, b, ...)``                     | list of tuples aligned by iteration key          |
 | ``create_set(items)``                        | media (the set)                                  |
+| ``create_package(members, recipe=...)``      | media (the package)                              |
 | ``create_grid(items, rows, cols, ...)``      | media (the grid)                                 |
 | ``create_document(content)``                 | media (the document)                             |
 | ``create_image(fn, inputs)``                 | media (the rendered image)                       |

@@ -980,7 +980,163 @@ class StimmaLibraryAPI:
         return json.loads(raw)
 
 
+class PackageDraft:
+    """A package being assembled from code: members, recipe runs, extras, a cover.
+
+    Members are library media. Workspace files and ToolResults are saved to the
+    library first (with lineage) so the package can reference them by hash.
+    ``save()`` writes the bundle and returns its media id; commit it with
+    ``stimma.show(media_id=..., role="final")`` like any produced result.
+    """
+
+    def __init__(self, sdk: "StimmaSDK", title: str, *, slug: str | None = None):
+        from packages.bundle import PackageBuilder
+        from core.profile_context import get_current_profile as _profile
+
+        self._sdk = sdk
+        self._builder = PackageBuilder(
+            sdk.session,
+            profile_id=_profile(),
+            title=title,
+            slug=slug,
+            chat_id=sdk.chat_id,
+            project_id=sdk.project_id,
+            source="agent_v2_run_code",
+        )
+        self.media_id: int | None = None
+
+    @property
+    def title(self) -> str:
+        return self._builder.title
+
+    async def _media_id_for(self, item: Any, *, sources: Sequence[int] | None = None) -> int:
+        if isinstance(item, bool):
+            raise TypeError("member must be a media id, ToolResult, or workspace path")
+        if isinstance(item, int):
+            return item
+        if isinstance(item, ToolResult):
+            if item.media_id is None:
+                saved = await self._sdk.library.save(item)
+                return int(saved["media_id"])
+            return int(item.media_id)
+        if isinstance(item, (str, Path)):
+            text = str(item)
+            if text.isdigit():
+                return int(text)
+            saved = await self._sdk.library.save(text, sources=list(sources) if sources else None)
+            return int(saved["media_id"])
+        raise TypeError(f"member must be a media id, ToolResult, or workspace path; got {type(item).__name__}")
+
+    async def add_member(self, item: Any, *, role: str | None = None, sources: Sequence[int] | None = None) -> str:
+        """Add a library item (media id / ToolResult / workspace path). Returns the member id."""
+        media_id = await self._media_id_for(item, sources=sources)
+        return await self._builder.add_member(media_id, role=role)
+
+    async def run(self, recipe: str, inputs: dict[str, Any], params: dict[str, Any] | None = None) -> str:
+        """Run a recipe. ``inputs`` maps each role to a member id or anything add_member accepts.
+
+        Returns the run id. Deterministic and memoized: the same inputs and
+        params never build twice.
+        """
+        resolved: dict[str, str] = {}
+        known = {m.id for m in self._builder.members}
+        for role, value in (inputs or {}).items():
+            if isinstance(value, str) and value in known:
+                resolved[role] = value
+            else:
+                resolved[role] = await self.add_member(value, role=role)
+        return await self._builder.run(recipe, resolved, params or {})
+
+    def add_file(self, path: "str | Path", *, name: str | None = None) -> str:
+        """Include a loose workspace file (a brief, a PDF) as-is. Returns its bundle path."""
+        resolved = self._sdk.workspace_dir / str(path) if not Path(str(path)).is_absolute() else Path(str(path))
+        return self._builder.add_extra(resolved, name=name)
+
+    def set_tile(self, image: "str | Path | bytes") -> None:
+        """Set the square shown for this package in the library.
+
+        A workspace path or image bytes. Recipes supply a sensible one; set
+        yours when you can present the work better. Never part of the
+        deliverable the recipient receives.
+        """
+        if isinstance(image, (bytes, bytearray)):
+            self._builder.set_tile(bytes(image))
+            return
+        text = str(image)
+        candidate = Path(text) if Path(text).is_absolute() else self._sdk.workspace_dir / text
+        if not candidate.is_file():
+            raise FileNotFoundError(f"tile image not found in workspace: {image}")
+        self._builder.set_tile(candidate)
+
+    def set_cover(self, html: str) -> None:
+        """Author the cover: an HTML string, or a workspace path to one."""
+        text = str(html)
+        if "<" not in text:
+            candidate = self._sdk.workspace_dir / text
+            if candidate.is_file():
+                text = candidate.read_text(encoding="utf-8")
+            else:
+                raise FileNotFoundError(f"cover file not found in workspace: {html}")
+        self._builder.set_cover(text)
+
+    async def save(self) -> int:
+        """Write the bundle into the library. Returns the package media id."""
+        media, _asset = await self._builder.save()
+        self._builder.cleanup()
+        self.media_id = media.id
+        self._sdk._session_media_ids.append(media.id)
+        return media.id
+
+
+class StimmaPackagesAPI:
+    """``stimma.packages``: build deliverables from library assets with deterministic recipes."""
+
+    def __init__(self, sdk: "StimmaSDK"):
+        self._sdk = sdk
+
+    def recipes(self) -> list[dict[str, Any]]:
+        """Installed recipes with their input roles and parameters."""
+        from core.profile_context import get_current_profile as _profile
+        from packages.recipes import list_recipes
+
+        return [spec.to_dict() for spec in list_recipes(_profile())]
+
+    def guidance(self, recipe_id: str) -> str:
+        """Notes from one recipe about how to use it well.
+
+        Fetch this when you are about to use a recipe, not before. Recipes
+        carry their own knowledge so the packaging skill stays the same size
+        however many are installed.
+        """
+        from core.profile_context import get_current_profile as _profile
+        from packages.recipes import get_recipe
+
+        spec = get_recipe(recipe_id, _profile())
+        if spec is None:
+            raise ValueError(f"no recipe named {recipe_id!r}")
+        return spec.guidance or f"{spec.display_name}: {spec.description}"
+
+    def new(self, title: str, *, slug: str | None = None) -> PackageDraft:
+        """Start a package. Add members, run recipes, set a cover, then save()."""
+        return PackageDraft(self._sdk, title, slug=slug)
+
+    async def status(self, media_id: int) -> dict[str, Any]:
+        """Stale members and runs for a saved package revision."""
+        from packages.bundle import package_status
+
+        media = await self._sdk.session.get(MediaItem, int(media_id))
+        if media is None:
+            raise ValueError(f"media {media_id} not found")
+        return await package_status(self._sdk.session, media)
+
+
 class StimmaSDK:
+    # Sub-API namespaces reachable as ``stimma.<name>``. Declared here because
+    # they are instance attributes, which introspection of the class cannot
+    # see — the code linter reads this to know they exist. A namespace missing
+    # from this map gets linted as "does not exist" and the agent believes it.
+    NAMESPACES: dict[str, type] = {}
+
     def __init__(
         self,
         *,
@@ -1001,6 +1157,7 @@ class StimmaSDK:
         self.project_id = project_id if project_id is not None else infer_project_id_from_workspace_path(project_workspace_dir)
         self._effective_model_slug = effective_model_slug
         self.library = StimmaLibraryAPI(self)
+        self.packages = StimmaPackagesAPI(self)
         self._pending_display_calls: list[dict[str, Any]] = []
         self._tool_results: list[ToolResult] = []
         self._tool_failures: list[dict[str, Any]] = []
@@ -2663,3 +2820,6 @@ def compute_file_hash(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+StimmaSDK.NAMESPACES = {"library": StimmaLibraryAPI, "packages": StimmaPackagesAPI}

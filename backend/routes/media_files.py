@@ -54,7 +54,7 @@ ID_KEYED_CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
+THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -108,7 +108,7 @@ async def _get_faces_data(session: AsyncSession, media_id: int) -> list[dict] | 
 
 def _source_path_exists(file_path: str, file_format: str) -> bool:
     path = Path(file_path)
-    if file_format.lower() == 'stimmalayout':
+    if file_format.lower() in ('stimmalayout', 'stimmapackage'):
         return path.is_dir() and (path / 'index.html').exists()
     return path.exists()
 
@@ -186,6 +186,7 @@ THEME_PALETTES = {
         'audio_bg': '#1a1a2e', 'audio_fallback_icon': '#9333ea',
         'placeholder_set_bg': '#1a1a2e', 'placeholder_grid_bg': '#1a1a2e', 'placeholder_default_bg': '#1f2937',
         'sprite_bg': '#07090d', 'sprite_strip_bg': '#000000', 'sprite_strip_cell': '#161a22',
+        'package_bg': '#151517', 'package_shelf': '#0d0d0f', 'package_rule': '#2a2a2b',
     },
     'light': {
         'set_bg': '#f4f4f5', 'set_card_border': '#d4d4d8',
@@ -194,6 +195,7 @@ THEME_PALETTES = {
         'audio_bg': '#f0f0ff', 'audio_fallback_icon': '#7c3aed',
         'placeholder_set_bg': '#f0f0ff', 'placeholder_grid_bg': '#f0f0ff', 'placeholder_default_bg': '#f1f5f9',
         'sprite_bg': '#e4e4e7', 'sprite_strip_bg': '#d4d4d8', 'sprite_strip_cell': '#f4f4f5',
+        'package_bg': '#faf9f7', 'package_shelf': '#eeece8', 'package_rule': '#dedbd5',
     },
 }
 
@@ -1241,6 +1243,102 @@ async def _generate_layout_preview(
         return None
 
 
+def _generate_package_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
+    """The package's hero artwork sitting on a shelf, with a count of what is inside.
+
+    Composed here rather than rasterized from the cover: a tile is seen at 128px
+    in a grid, where a shrunken web page reads as noise, and a package has to
+    have a tile whether or not the app is open to render anything.
+    """
+    import json
+
+    palette = palette or THEME_PALETTES['dark']
+    bundle = Path(file_path)
+    try:
+        manifest = normalized_content
+        if manifest is None:
+            manifest = json.loads((bundle / 'stimma-package.json').read_text(encoding='utf-8'))
+
+        # A designed tile wins: the agent, or the recipe that knows what it made,
+        # gets to decide what a package looks like in a grid. Composing one here
+        # is the floor for packages nobody designed a face for.
+        designed = (manifest.get('cover_image') or '').strip()
+        if designed:
+            candidate = bundle / designed
+            if candidate.is_file():
+                with Image.open(candidate) as im:
+                    tile = im.convert('RGB') if im.mode in ('RGB', 'L') else im.convert('RGBA')
+                if tile.mode == 'RGBA':
+                    flat = Image.new('RGB', tile.size, palette['package_bg'])
+                    flat.paste(tile, (0, 0), tile)
+                    tile = flat
+                tile.thumbnail((size, size), Image.LANCZOS)
+                canvas = Image.new('RGB', (size, size), palette['package_bg'])
+                canvas.paste(tile, ((size - tile.width) // 2, (size - tile.height) // 2))
+                return canvas
+
+        hero_path = None
+        for member in manifest.get('members') or []:
+            candidate = bundle / (member.get('path') or '')
+            if candidate.is_file() and candidate.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}:
+                hero_path = candidate
+                break
+        if hero_path is None:
+            # No usable member: fall back to the largest raster any run produced.
+            candidates = []
+            for run in manifest.get('runs') or []:
+                for entry in run.get('files') or []:
+                    path = bundle / entry['path']
+                    if path.suffix.lower() == '.png' and path.is_file():
+                        candidates.append((entry.get('size') or 0, path))
+            if candidates:
+                hero_path = max(candidates)[1]
+        if hero_path is None:
+            return _generate_placeholder_thumbnail(size, 'default', palette=palette)
+
+        file_count = sum(len(run.get('files') or []) for run in manifest.get('runs') or [])
+        file_count += len(manifest.get('extras') or [])
+        file_count += len(manifest.get('members') or [])
+
+        shelf_h = max(10, size // 7)
+        canvas = Image.new('RGB', (size, size), palette['package_bg'])
+        with Image.open(hero_path) as im:
+            hero = im.convert('RGBA')
+        margin = max(3, size // 9)
+        fitted = _fit_rgba(hero, size - 2 * margin, size - shelf_h - 2 * margin, pixelated=False)
+        canvas.paste(
+            fitted,
+            ((size - fitted.width) // 2, max(margin, (size - shelf_h - fitted.height) // 2)),
+            fitted,
+        )
+
+        from PIL import ImageDraw, ImageFont
+
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([0, size - shelf_h, size, size], fill=palette['package_shelf'])
+        draw.line([(0, size - shelf_h), (size, size - shelf_h)], fill=palette['package_rule'])
+        if file_count and shelf_h >= 14:
+            label = f"{file_count} files"
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", max(9, int(shelf_h * 0.5)))
+            except OSError:
+                font = ImageFont.load_default()
+            left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+            draw.text(
+                ((size - (right - left)) / 2 - left, size - shelf_h + (shelf_h - (bottom - top)) / 2 - top),
+                label, fill=palette['text_body'], font=font,
+            )
+        return canvas
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"Failed to generate package preview for {file_path}: {e}")
+        return _generate_placeholder_thumbnail(size, 'default', palette=palette)
+
+
 def _svg_render_box(width: int, height: int, target_long_side: int) -> tuple[int, int]:
     """Scale an SVG's intrinsic box so its long side is ``target_long_side``.
 
@@ -1621,6 +1719,11 @@ def _generate_thumbnail_sync(
                 palette=palette,
                 normalized_content=normalized_content,
             )
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmapackage':
+            img = _generate_package_preview(file_path, size, palette=palette)
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
@@ -2230,10 +2333,10 @@ async def get_thumbnail(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
@@ -2838,10 +2941,10 @@ async def get_thumbnail_by_db_guid(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
@@ -3189,10 +3292,10 @@ async def get_thumbnail_path_by_media_id(
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
+    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
         try:
             mtime_path = Path(file_path)
-            if fmt_lower == 'stimmalayout':
+            if fmt_lower in ('stimmalayout', 'stimmapackage'):
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:

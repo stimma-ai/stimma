@@ -45,6 +45,7 @@ class EquationType(str, Enum):
     FLOW_INPUT = "flow_input"
     INFO = "info"
     CREATE_SET = "create_set"
+    CREATE_PACKAGE = "create_package"
     CREATE_GRID = "create_grid"
     CREATE_DOCUMENT = "create_document"
     CREATE_IMAGE = "create_image"

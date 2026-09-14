@@ -157,6 +157,7 @@ const emit = defineEmits([
   'update:modelValue',
   'submit',
   'keydown',
+  'attach-workspace-file',
   'update:attachments'
 ])
 
@@ -301,6 +302,13 @@ function onDragLeave(event) {
 async function onDrop(event) {
   resetDragging()
   if (props.agentUnavailable) return
+
+  const workspaceFile = event.dataTransfer?.getData('application/x-stimma-workspace-file')
+  if (workspaceFile) {
+    try { emit('attach-workspace-file', JSON.parse(workspaceFile)) } catch { /* Ignore malformed external drags. */ }
+    nextTick(() => textareaRef.value?.focus())
+    return
+  }
 
   // Check for media_id from in-app drag
   const mediaId = event.dataTransfer?.getData('application/x-media-id')

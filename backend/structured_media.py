@@ -532,6 +532,11 @@ async def get_structured_content(
             return await resolve_sprite_content(session, doc)
         return await resolve_grid_references(session, content, base_path)
 
+    if file_format == 'stimmapackage':
+        from packages.bundle import manifest_for_media
+
+        return await manifest_for_media(session, media_item)
+
     return None
 
 

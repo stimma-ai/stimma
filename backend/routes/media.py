@@ -1000,7 +1000,7 @@ async def get_media_content(
         raise HTTPException(status_code=404, detail="Asset not found")
 
     # Check if this is a structured type
-    structured_formats = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json'}
+    structured_formats = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmapackage'}
     if item.file_format.lower() not in structured_formats:
         raise HTTPException(
             status_code=404,
@@ -1010,7 +1010,7 @@ async def get_media_content(
     # Normalized containers resolve linked Assets through their current heads;
     # legacy manifests remain the compatibility fallback during migration.
     content = None
-    if item.file_format.lower() in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json"}:
+    if item.file_format.lower() in {"stimmaset.json", "stimmagrid.json", "stimmasprite.json", "stimmapackage"}:
         from container_service import get_normalized_container_content
         content = await get_normalized_container_content(
             session, container_media=item

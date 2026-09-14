@@ -13,14 +13,13 @@ from ..tools_registry import tool, ToolParameter
         ToolParameter(
             name="files",
             type="array",
-            description="Files to share, with optional captions and workspace root.",
+            description="Files to show, with an optional workspace root.",
             required=True,
             items={
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
                     "root": {"type": "string", "enum": ["chat", "project"]},
-                    "caption": {"type": "string"},
                 },
                 "required": ["path"],
             },
@@ -47,7 +46,7 @@ async def share_files(files: list[dict], **kwargs) -> str:
         try:
             _, _, file = await file_context(session, chat_id, root, path)
             row = await asyncio.to_thread(describe_file, chat_id, root, path, file)
-            rows.append({**row, "caption": item.get("caption")})
+            rows.append(row)
         except HTTPException as exc:
             return f"Error: {exc.detail}"
     item = ChatItem(

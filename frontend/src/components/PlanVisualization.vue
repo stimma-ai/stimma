@@ -854,6 +854,7 @@ function getNodeDisplayName(node) {
 }
 
 function formatToolName(name) {
+  if (name === 'share_files') return 'Show Files'
   if (!name) return 'Tool'
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }

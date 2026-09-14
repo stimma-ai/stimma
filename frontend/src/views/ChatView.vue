@@ -47,7 +47,7 @@
         />
         <div
           v-if="artifactStage.stageOpen.value"
-          class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
+          class="w-1 border-l border-edge-subtle flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
           @mousedown="artifactStage.startResize"
         />
       </template>
@@ -960,7 +960,7 @@
                 :display-data="parseMediaDisplayData(item)"
                 :chat-item-id="item.id"
                 :show-role="item.show_role"
-                @view-image="openSlideshow"
+                @view-image="(mediaId) => openFromMediaDisplay(item, mediaId)"
                 @show-job-info="showJobInfoById"
               />
             </ChatItemWrapper>
@@ -1257,6 +1257,7 @@
         :disabled="sending"
         :agent-unavailable="noUsableChatModels"
         @update:attachments="inputAttachments = $event"
+        @attach-workspace-file="attachDroppedWorkspaceFile"
         @submit="handleEnterKey"
         @keydown="handleKeyDown"
       >
@@ -1405,6 +1406,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed } from 'vue'
 import { useViewport } from '../composables/useViewport'
+import { useBackOverride } from '../composables/useBackOverride'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
@@ -1484,6 +1486,7 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
 import { collectChatMedia } from '../utils/chatMedia'
+import { getMediaType } from '../utils/mediaTypes'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -1530,6 +1533,7 @@ const items = ref([])
 // and sendMessage). Instantiated unconditionally — cheap when there's no
 // artifact in the chat — so embedded usage never has to special-case it.
 const artifactStage = useArtifactStage(chatId, items)
+useBackOverride(() => artifactStage.stageOpen.value, artifactStage.close)
 function refreshStagedFile(file: WorkspaceFile) {
   const staged = artifactStage.workspaceFile.value
   if (staged?.root === file.root && staged?.path === file.path) artifactStage.workspaceFile.value = file
@@ -1537,6 +1541,15 @@ function refreshStagedFile(file: WorkspaceFile) {
 function sharedFiles(item) {
   try { const meta = typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata; return meta?.files || [] } catch { return [] }
 }
+function attachDroppedWorkspaceFile(payload) {
+  if (!payload?.file || payload.profile !== getCurrentProfileId()) return
+  if (String(payload.chatId) !== String(chatId.value)) {
+    addToast('Attach this file from its original chat.', 'error')
+    return
+  }
+  attachWorkspaceFile(payload.file)
+}
+
 async function attachWorkspaceFile(file: WorkspaceFile) {
   try {
     const { data } = await axios.post(fileUrl(chatId.value, file, 'attach'), { path: file.path, entry: file.entry, media_id: file.media_id })
@@ -1786,6 +1799,33 @@ function parseMediaDisplayData(item) {
   }
 }
 
+// A package is a deliverable you read, not a picture you zoom: opening one
+// from a chat message lands on the artifact stage for its Asset — the same
+// surface show(artifact=) opens — instead of the slideshow. Everything else
+// keeps the slideshow. Embedded chats have no stage, so they keep it too.
+async function openFromMediaDisplay(item, mediaId) {
+  if (!props.embedded) {
+    const row = (parseMediaDisplayData(item).rows || []).find(r => r?.output?.media_id === mediaId)
+    const output = row?.output
+    if (output?.file_format && getMediaType({ file_format: output.file_format }) === 'package') {
+      let assetId = output.asset_id
+      if (!assetId) {
+        // Older display rows predate asset_id on the row; the media itself knows.
+        try {
+          assetId = (await getMediaItem(mediaId, { includeTrashed: true }))?.asset_id
+        } catch {
+          assetId = null
+        }
+      }
+      if (assetId) {
+        await artifactStage.openOnAsset(assetId)
+        return
+      }
+    }
+  }
+  openSlideshow(mediaId)
+}
+
 // Artifact chip collapse: only in standalone chats, and only once this chat's
 // active artifact asset is known (composable loads it lazily on first sight).
 function getStagedItemArtifact(item) {
@@ -1993,6 +2033,7 @@ const ALL_TOOL_DISPLAY_NAMES = {
   notepad: 'Taking Notes',
   sdk_help: 'Reading Docs',
   show: 'Showing Work',
+  share_files: 'Show Files',
 }
 
 function formatToolCallName(name) {

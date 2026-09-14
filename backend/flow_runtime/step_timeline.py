@@ -704,6 +704,7 @@ def _substep_kind(eq: Optional[Row]) -> str:
         "create_layout",
         "create_grid",
         "create_set",
+        "create_package",
         "create_document",
         "web_search",
         "fetch_media",

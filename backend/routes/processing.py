@@ -1122,6 +1122,32 @@ async def get_filter_counts(
     layouts_result = await session.execute(layouts_query)
     layouts_count = layouts_result.scalar()
 
+    # Packages count
+    package_formats = ['stimmapackage']
+    packages_query = get_base_query()
+    packages_query = build_filtered_query(
+        packages_query,
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        exclude_category='media_types'
+    )
+    packages_query = packages_query.where(MediaItem.file_format.in_(package_formats))
+    packages_result = await session.execute(packages_query)
+    packages_count = packages_result.scalar()
+
     # Resolution preview counts (exclude resolutions category from filters)
     small_query = get_base_query()
     small_query = build_filtered_query(
@@ -1571,7 +1597,8 @@ async def get_filter_counts(
             "sets": sets_count,
             "grids": grids_count,
             "sprites": sprites_count,
-            "layouts": layouts_count
+            "layouts": layouts_count,
+            "packages": packages_count
         },
         "resolution": {
             "small": small_count,

@@ -47,6 +47,7 @@ from .primitives import (
     create_grid,
     create_image,
     create_layout,
+    create_package,
     create_set,
     fetch_media,
     filter as dsl_filter,
@@ -102,6 +103,7 @@ def _dsl_namespace() -> dict[str, Any]:
         "hitl": hitl,
         "info": info,
         "create_set": create_set,
+        "create_package": create_package,
         "create_grid": create_grid,
         "create_document": create_document,
         "create_image": create_image,
@@ -635,6 +637,7 @@ _TERMINAL_REQUIRED_TYPES = frozenset({
     EquationType.HITL,
     EquationType.CONTROL,
     EquationType.CREATE_SET,
+    EquationType.CREATE_PACKAGE,
     EquationType.CREATE_GRID,
     EquationType.CREATE_DOCUMENT,
     EquationType.CREATE_IMAGE,
@@ -877,7 +880,8 @@ def _classify_exception(exc: Exception, tb: str) -> ProgramLoadError:
                 "Flow programs only have access to the DSL surface "
                 "(flow, input, output, phase, foreach, tool, llm, code, "
                 "hitl, switch, when, gate, filter, partition, take, "
-                "zip_nodes, info, create_set, create_grid, create_document). "
+                "zip_nodes, info, create_set, create_package, create_grid, "
+                "create_document). "
                 "Stimma's runtime resolves tool "
                 "IDs via tool() — don't import Stimma modules directly."
             ),

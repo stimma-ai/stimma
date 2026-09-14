@@ -83,15 +83,28 @@ _stimma_kwargs: dict[str, set[str]] | None = None
 _library_kwargs: dict[str, set[str]] | None = None
 
 
+# {namespace: {method: is_async}} for every sub-API reachable as stimma.<ns>.
+_ns_methods: dict[str, dict[str, bool]] | None = None
+_ns_kwargs: dict[str, dict[str, set[str]]] | None = None
+
+
 def _ensure_tables():
     global _stimma_methods, _library_methods, _stimma_kwargs, _library_kwargs
+    global _ns_methods, _ns_kwargs
     if _stimma_methods is not None:
         return
     from .code_runtime import StimmaSDK, StimmaLibraryAPI
     _stimma_methods = _build_method_table(StimmaSDK)
-    _library_methods = _build_method_table(StimmaLibraryAPI)
     _stimma_kwargs = _build_kwargs_table(StimmaSDK)
-    _library_kwargs = _build_kwargs_table(StimmaLibraryAPI)
+    # Namespaces are instance attributes, so the class introspection above
+    # cannot see them. StimmaSDK.NAMESPACES is the one declaration of them:
+    # anything missing there gets linted as nonexistent, and the agent will
+    # believe the linter and work around a perfectly good API.
+    namespaces = dict(getattr(StimmaSDK, "NAMESPACES", None) or {"library": StimmaLibraryAPI})
+    _ns_methods = {name: _build_method_table(cls) for name, cls in namespaces.items()}
+    _ns_kwargs = {name: _build_kwargs_table(cls) for name, cls in namespaces.items()}
+    _library_methods = _ns_methods.get("library", {})
+    _library_kwargs = _ns_kwargs.get("library", {})
 
 
 @dataclass
@@ -163,20 +176,21 @@ class _LintVisitor(ast.NodeVisitor):
     # ── stimma.foo / stimma.library.foo attribute access ────────────
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        # stimma.library.X
+        # stimma.<namespace>.X
         if (
             isinstance(node.value, ast.Attribute)
-            and node.value.attr == "library"
             and isinstance(node.value.value, ast.Name)
             and node.value.value.id == "stimma"
+            and node.value.attr in (_ns_methods or {})
         ):
+            namespace = node.value.attr
+            known = (_ns_methods or {})[namespace]
             method = node.attr
-            if method not in self.library_methods and not method.startswith("_"):
-                suggestion = _suggest(method, self.library_methods)
+            if method not in known and not method.startswith("_"):
                 self.warnings.append(LintWarning(
                     line=node.lineno,
-                    message=f"stimma.library.{method}() does not exist.",
-                    suggestion=suggestion,
+                    message=f"stimma.{namespace}.{method}() does not exist.",
+                    suggestion=_suggest(method, known),
                 ))
 
         # stimma.X (direct attribute)
@@ -193,7 +207,7 @@ class _LintVisitor(ast.NodeVisitor):
                 ))
             elif (
                 attr not in self.stimma_methods
-                and attr != "library"
+                and attr not in (_ns_methods or {})
                 and not attr.startswith("_")
             ):
                 if attr in AGENT_ONLY_TOOLS:

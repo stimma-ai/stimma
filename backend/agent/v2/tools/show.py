@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
+
+from packages.manifest import is_package_format
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
@@ -213,6 +215,11 @@ async def show(
             "title": asset.title if asset else None,
         }
     else:
+        # A package is an artifact whether or not the caller said so: it is a
+        # deliverable with revisions, and it belongs on the stage rather than in
+        # the image viewer. Making it implicit means no caller has to remember.
+        if normalized_media_ids and is_package_format(format_map.get(normalized_media_ids[0])):
+            artifact = True
         if artifact and normalized_media_ids:
             artifact_media_id = normalized_media_ids[0]
             if format_map.get(artifact_media_id) in {"stimmaset.json", "stimmagrid.json"}:
@@ -309,15 +316,20 @@ async def _commit_show_artifact(
         from sprite_document import is_sprite_format
 
         media = await session.get(MediaItem, media_id)
+        container_kind = None
         if media is not None and is_sprite_format(media.file_format):
+            container_kind = "sprite"
+        elif media is not None and is_package_format(media.file_format):
+            container_kind = "package"
+        if container_kind is not None:
             from container_service import (
                 infer_structured_member_specs,
                 populate_container_revision_members,
             )
 
             asset = await session.get(Asset, revision.asset_id)
-            if asset is None or asset.asset_type != "sprite":
-                return "Error: revises must name a sprite asset when showing a sprite document"
+            if asset is None or asset.asset_type != container_kind:
+                return f"Error: revises must name a {container_kind} asset when showing a {container_kind}"
             await populate_container_revision_members(
                 session,
                 container_asset_id=revision.asset_id,

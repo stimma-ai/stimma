@@ -189,6 +189,10 @@ async def backfill_structured_media_raw_metadata(profile_id: str) -> int:
                 elif ext == '.stimmalayout':
                     # Layout bundles are directories (index.html + assets), not flat JSON files
                     pass
+                elif ext == '.stimmapackage':
+                    manifest_path = file_path / 'stimma-package.json'
+                    if manifest_path.is_file():
+                        raw_metadata = manifest_path.read_text(encoding='utf-8')
                 else:
                     # JSON-based: store full parsed content
                     parsed = parse_structured_media(file_path)
@@ -981,6 +985,7 @@ async def lifespan(app: FastAPI):
                             "stimmagrid.json",
                             "stimmasprite.json",
                             "stimmalayout",
+                            "stimmapackage",
                         },
                         limit=100,
                     )

@@ -2,6 +2,7 @@
 
 from utils.file_mime import guess_file_mime
 from pathlib import Path, PurePosixPath
+from functools import lru_cache
 from urllib.parse import quote
 from zipfile import ZipFile, BadZipFile
 
@@ -31,6 +32,52 @@ def resolve_file(root: Path, path: str) -> Path:
     if not resolved.is_file():
         raise HTTPException(404, "File no longer in workspace")
     return resolved
+
+
+@lru_cache(maxsize=256)
+def _file_stats(path: str, modified_ns: int, size: int, mime: str) -> dict:
+    """Cache bounded metadata reads until the file changes."""
+    file = Path(path)
+    ext = file.suffix.lower()
+    stats = {}
+    try:
+        if mime.startswith("image/") and ext != ".svg":
+            from PIL import Image
+            with Image.open(file) as image:
+                stats["width"], stats["height"] = image.size
+        elif mime.startswith(("video/", "audio/")):
+            import json
+            import subprocess
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries",
+                 "format=duration:stream=codec_type,width,height,duration:stream_side_data=rotation",
+                 "-of", "json", str(file)], capture_output=True, timeout=5, check=True,
+            )
+            info = json.loads(result.stdout)
+            stats["duration"] = float(info.get("format", {}).get("duration") or 0)
+            for stream in info.get("streams", []):
+                if stream.get("codec_type") != "video":
+                    continue
+                width, height = stream.get("width", 0), stream.get("height", 0)
+                rotation = next((float(sd["rotation"]) for sd in stream.get("side_data_list", []) if "rotation" in sd), 0)
+                if abs(rotation) % 180 == 90:
+                    width, height = height, width
+                stats.update(width=width, height=height)
+                if not stats["duration"]:
+                    stats["duration"] = float(stream.get("duration") or 0)
+                break
+        elif size <= 8 * 1024 * 1024:
+            if ext in {".csv", ".tsv"}:
+                import csv
+                with file.open(encoding="utf-8-sig", newline="") as stream:
+                    stats["rows"] = max(0, sum(1 for _ in csv.reader(stream, delimiter="\t" if ext == ".tsv" else ",")) - 1)
+            elif mime.startswith("text/") or ext in {".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go", ".java", ".cpp", ".c", ".h", ".rb", ".sh", ".sql", ".yaml", ".yml", ".toml"}:
+                with file.open(encoding="utf-8") as stream:
+                    stats["lines"] = sum(1 for _ in stream)
+    except Exception:
+        # Preview metadata is optional; unreadable media still downloads normally.
+        pass
+    return stats
 
 
 def describe_file(chat_id: int, root: str, path: str, file: Path) -> dict:
@@ -66,6 +113,7 @@ def describe_file(chat_id: int, root: str, path: str, file: Path) -> dict:
         except HTTPException:
             pass
     return {
+        **_file_stats(str(file), file.stat().st_mtime_ns, file.stat().st_size, mime),
         "subtitle": subtitle,
         "modified_ns": file.stat().st_mtime_ns,
         "root": root,

@@ -1824,7 +1824,8 @@ class InfoEvaluator:
 
 
 # =============================================================================
-# Library-assembly evaluators (create_set / create_grid / create_document)
+# Library-assembly evaluators (create_set / create_package / create_grid /
+# create_document)
 # =============================================================================
 
 
@@ -1939,6 +1940,103 @@ class CreateSetEvaluator:
             raise  # unreachable
 
         produced = _parse_assembly_result(result_str, primitive="create_set")
+        await self._tag([produced], request)
+        return EvaluationResult(value=produced, media_ids=[produced])
+
+    async def _tag(self, media_ids: list[int], request: EvaluationRequest) -> None:
+        try:
+            await _tag_media_with_flow(
+                media_ids,
+                flow_id=request.flow_id,
+                equation_key=request.equation_key,
+                phase_path=request.phase_path,
+            )
+        except Exception:
+            log.exception(
+                "flow media tagging failed for %s (flow=%s)",
+                request.equation_key,
+                request.flow_id,
+            )
+
+
+class CreatePackageEvaluator:
+    """Evaluate a ``create_package()`` equation.
+
+    Assembles a ``.stimmapackage`` bundle with ``PackageBuilder``: every
+    resolved member joins the package, role inputs join carrying their role,
+    and a ``recipe=`` runs over those roles with the step's static params.
+    The bundle is saved as a library MediaItem owned by this flow equation —
+    no Asset is materialized here, flows promote results the same way sets
+    are promoted.
+    """
+
+    async def __call__(self, request: EvaluationRequest) -> EvaluationResult:
+        from core.profile_context import get_current_profile
+        from packages.bundle import PackageBuilder, PackageError
+        from packages.cover import CoverError
+        from packages.manifest import ManifestError
+        from packages.recipes import RecipeError
+
+        member_ids = _coerce_items_list(request.resolved_inputs.get("members"))
+        role_inputs: dict[str, int] = {}
+        for key, value in request.resolved_inputs.items():
+            if not key.startswith("input:"):
+                continue
+            role_inputs[key[len("input:"):]] = _coerce_media_id(value)
+
+        title = request.definition.get("title", "") or ""
+        recipe = request.definition.get("recipe") or None
+        params = dict(request.definition.get("params") or {})
+        if not member_ids and not role_inputs:
+            raise EvaluatorError(
+                "create_package: members list is empty", category=TOOL_ERROR,
+            )
+
+        # One member per media: an input role attaches to the member it
+        # names rather than adding a second copy of the same file.
+        role_by_media: dict[int, str] = {
+            media_id: role for role, media_id in role_inputs.items()
+        }
+        ordered = list(member_ids) + [
+            m for m in role_by_media if m not in member_ids
+        ]
+
+        try:
+            async with _open_session() as session:
+                async with PackageBuilder(
+                    session,
+                    profile_id=get_current_profile(),
+                    title=title,
+                    output_context_kind="flow_equation",
+                    output_context_id=f"{request.flow_id}:{request.equation_key}",
+                    source="flow_create_package",
+                ) as builder:
+                    by_media: dict[int, str] = {}
+                    for media_id in ordered:
+                        by_media[media_id] = await builder.add_member(
+                            media_id, role=role_by_media.get(media_id),
+                        )
+                    if recipe:
+                        await builder.run(
+                            recipe,
+                            {
+                                role: by_media[media_id]
+                                for role, media_id in role_inputs.items()
+                            },
+                            params,
+                        )
+                    media, _asset = await builder.save()
+                    produced = int(media.id)
+        except EvaluatorError:
+            raise
+        except (RecipeError, PackageError, CoverError, ManifestError) as exc:
+            raise EvaluatorError(
+                f"create_package: {exc}", category=TOOL_ERROR,
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            _raise_tool_error(exc)
+            raise  # unreachable
+
         await self._tag([produced], request)
         return EvaluationResult(value=produced, media_ids=[produced])
 
@@ -3614,6 +3712,7 @@ def build_production_registry(
     code_evaluator: Optional[Evaluator] = None,
     info_evaluator: Optional[Evaluator] = None,
     create_set_evaluator: Optional[Evaluator] = None,
+    create_package_evaluator: Optional[Evaluator] = None,
     create_grid_evaluator: Optional[Evaluator] = None,
     create_document_evaluator: Optional[Evaluator] = None,
     create_image_evaluator: Optional[Evaluator] = None,
@@ -3651,6 +3750,10 @@ def build_production_registry(
     reg.register("code", code_evaluator or CodeEvaluator())
     reg.register("info", info_evaluator or InfoEvaluator())
     reg.register("create_set", create_set_evaluator or CreateSetEvaluator())
+    reg.register(
+        "create_package",
+        create_package_evaluator or CreatePackageEvaluator(),
+    )
     reg.register("create_grid", create_grid_evaluator or CreateGridEvaluator())
     reg.register(
         "create_document",
@@ -3685,6 +3788,7 @@ __all__ = [
     "CreateGridEvaluator",
     "CreateImageEvaluator",
     "CreateLayoutEvaluator",
+    "CreatePackageEvaluator",
     "CreateSetEvaluator",
     "FetchMediaEvaluator",
     "InfoEvaluator",

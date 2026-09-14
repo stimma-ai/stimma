@@ -13,7 +13,6 @@ Two jobs:
 
 import base64
 import io
-import json
 import zipfile
 from pathlib import Path
 from typing import Optional
@@ -26,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from database import MediaItem
+import icon_spec
 from core.dependencies import get_db_session
 from routes.media_files import get_db_session_by_guid
 from utils.http_headers import content_disposition
@@ -53,69 +53,19 @@ SVG_RENDER_HEADERS = {
 }
 
 
-_IOS_ENTRIES = [
-    ("iphone", "20x20", "2x", 40), ("iphone", "20x20", "3x", 60),
-    ("iphone", "29x29", "2x", 58), ("iphone", "29x29", "3x", 87),
-    ("iphone", "40x40", "2x", 80), ("iphone", "40x40", "3x", 120),
-    ("iphone", "60x60", "2x", 120), ("iphone", "60x60", "3x", 180),
-    ("ipad", "20x20", "1x", 20), ("ipad", "20x20", "2x", 40),
-    ("ipad", "29x29", "1x", 29), ("ipad", "29x29", "2x", 58),
-    ("ipad", "40x40", "1x", 40), ("ipad", "40x40", "2x", 80),
-    ("ipad", "76x76", "2x", 152), ("ipad", "83.5x83.5", "2x", 167),
-    ("ios-marketing", "1024x1024", "1x", 1024),
-]
-
-# Platform icon bundles ──────────────────────────────────────────────────────
-#
-# Each target renders the SVG once per size rather than downsampling one large
-# raster: crisp small sizes are the whole reason to author an icon as vector.
-#
-# `safe_area` is the fraction of the canvas the artwork may occupy. Platforms
-# disagree about this and getting it wrong is what makes an icon look amateur:
-# macOS insets its artwork inside a rounded-rect grid, Android's adaptive icons
-# crop aggressively to arbitrary masks, iOS and Windows bleed to the edge.
+# Platform icon rules live in ``icon_spec``, which the app-icons recipe reads
+# too, so this export and that recipe cannot disagree about a size, a safe area
+# or an alpha rule. Each target still renders the SVG once per size rather than
+# downsampling one large raster: crisp small sizes are the whole reason to
+# author an icon as vector.
 ICON_TARGETS = {
-    "icon-macos": {
-        "label": "macOS .icns",
-        # The sizes an .icns container actually stores.
-        "sizes": [32, 64, 128, 256, 512, 1024],
-        "safe_area": 0.82,
-        "opaque": False,
-    },
-    "icon-windows": {
-        "label": "Windows .ico",
-        "sizes": [16, 24, 32, 48, 64, 128, 256],
-        "safe_area": 1.0,
-        "opaque": False,
-    },
-    "icon-ios": {
-        "label": "iOS app icon set",
-        # Filled in below from _IOS_ENTRIES so the renders and the asset
-        # catalog can never drift apart.
-        "sizes": [],
-        "safe_area": 1.0,
-        # iOS rejects alpha in app icons outright.
-        "opaque": True,
-    },
-    "icon-android": {
-        "label": "Android launcher icons",
-        # Launcher densities + the 432px adaptive foreground canvas + the
-        # 512px Play Store listing icon.
-        "sizes": [48, 72, 96, 144, 192, 432, 512],
-        "safe_area": 0.66,
-        "opaque": False,
-    },
-    "icon-web": {
-        "label": "Web favicon set",
-        "sizes": [16, 32, 48, 180, 192, 512],
-        "safe_area": 1.0,
-        "opaque": False,
-    },
+    "icon-macos": {"label": "macOS .icns", "platform": "macos"},
+    "icon-windows": {"label": "Windows .ico", "platform": "windows"},
+    "icon-ios": {"label": "iOS app icon set", "platform": "ios"},
+    "icon-android": {"label": "Android launcher icons", "platform": "android"},
+    "icon-web": {"label": "Web favicon set", "platform": "web"},
 }
 
-_ANDROID_DENSITIES = [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]
-
-ICON_TARGETS["icon-ios"]["sizes"] = sorted({px for *_rest, px in _IOS_ENTRIES})
 
 MAX_RASTER_DIMENSION = 4096
 MAX_PNG_SET_SIZES = 12
@@ -334,137 +284,52 @@ def _embed_code(svg_text: str, variant: str, base_name: str, width: int, height:
 
 # Icon bundles ───────────────────────────────────────────────────────────────
 
-async def _render_icon_sizes(svg_text: str, target: dict, background: str) -> dict[int, object]:
-    """Render one image per required size. Each size gets its own render pass."""
-    images = {}
-    for size in target["sizes"]:
-        images[size] = await _rasterize(
-            svg_text,
-            size,
-            size,
-            safe_area=target["safe_area"],
-            opaque=target["opaque"],
-            background=background,
+async def _render_icon_images(svg_text: str, platform: str, background: str) -> dict:
+    """One render per file the platform needs, at that file's own size."""
+    images: dict = {}
+    for spec in icon_spec.images_for(platform):
+        images[spec.path] = await _rasterize(
+            svg_text, spec.px, spec.px,
+            safe_area=spec.safe_area, opaque=spec.opaque, background=background,
         )
     return images
-
-
-def _build_icns(images: dict[int, object]) -> bytes:
-    """Write a .icns container from per-size renders.
-
-    Pillow's ICNS writer is pure Python (it packs PNG streams), so this works on
-    every platform — no `iconutil`, no macOS requirement.
-    """
-    largest = images[max(images)]
-    appended = [img.convert("RGBA") for size, img in sorted(images.items()) if size != max(images)]
-    buf = io.BytesIO()
-    base = largest.convert("RGBA")
-    # Pillow's ICNS writer requires a seekable, real file-like object.
-    base.save(buf, "ICNS", append_images=appended)
-    return buf.getvalue()
-
-
-def _build_ico(images: dict[int, object]) -> bytes:
-    sizes = sorted(images)
-    largest = images[max(sizes)].convert("RGBA")
-    buf = io.BytesIO()
-    largest.save(
-        buf,
-        "ICO",
-        sizes=[(s, s) for s in sizes],
-        append_images=[images[s].convert("RGBA") for s in sizes if s != max(sizes)],
-    )
-    return buf.getvalue()
-
-
-def _ios_contents_json(name_for: dict[int, str]) -> str:
-    images = []
-    for idiom, size, scale, px in _IOS_ENTRIES:
-        entry = {"idiom": idiom, "size": size, "scale": scale}
-        if px in name_for:
-            entry["filename"] = name_for[px]
-        images.append(entry)
-    return json.dumps({"images": images, "info": {"version": 1, "author": "stimma"}}, indent=2)
-
-
-def _web_manifest(base_name: str) -> str:
-    return json.dumps(
-        {
-            "name": base_name,
-            "short_name": base_name,
-            "icons": [
-                {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
-            ],
-        },
-        indent=2,
-    )
-
-
-_WEB_SNIPPET = """<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
-"""
 
 
 async def _build_icon_bundle(
     svg_text: str, fmt: str, base_name: str, background: str
 ) -> tuple[bytes, str, str]:
     """Return (payload, filename, media_type) for one icon target."""
-    target = ICON_TARGETS[fmt]
-    images = await _render_icon_sizes(svg_text, target, background)
+    platform = ICON_TARGETS[fmt]["platform"]
+    images = await _render_icon_images(svg_text, platform, background)
+    by_px = {spec.px: images[spec.path] for spec in icon_spec.images_for(platform)}
 
-    if fmt == "icon-macos":
-        return _build_icns(images), f"{base_name}.icns", "image/icns"
+    if platform == "macos":
+        return icon_spec.build_icns(by_px), f"{base_name}.icns", "image/icns"
 
-    if fmt == "icon-windows":
-        return _build_ico(images), f"{base_name}.ico", "image/x-icon"
+    if platform == "windows":
+        return icon_spec.build_ico(by_px), f"{base_name}.ico", "image/x-icon"
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        if fmt == "icon-ios":
-            name_for = {px: f"icon-{px}.png" for *_rest, px in _IOS_ENTRIES if px in images}
-            for px, name in name_for.items():
-                zf.writestr(f"AppIcon.appiconset/{name}", _png_bytes(images[px]))
-            zf.writestr("AppIcon.appiconset/Contents.json", _ios_contents_json(name_for))
+        for path, img in images.items():
+            zf.writestr(path, _png_bytes(img))
 
-        elif fmt == "icon-android":
-            for density, px in _ANDROID_DENSITIES:
-                zf.writestr(f"mipmap-{density}/ic_launcher.png", _png_bytes(images[px]))
-                # Adaptive icons composite a foreground layer over a background
-                # layer; shipping the artwork as the foreground with the safe
-                # area already respected is what keeps masks from clipping it.
-                zf.writestr(f"mipmap-{density}/ic_launcher_foreground.png", _png_bytes(images[px]))
-            zf.writestr("mipmap-anydpi-v26/ic_launcher.xml", (
-                '<?xml version="1.0" encoding="utf-8"?>\n'
-                '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
-                '    <background android:drawable="@color/ic_launcher_background"/>\n'
-                '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
-                '</adaptive-icon>\n'
+        if platform == "ios":
+            zf.writestr("AppIcon.appiconset/Contents.json", icon_spec.ios_contents_json())
+
+        elif platform == "android":
+            zf.writestr("mipmap-anydpi-v26/ic_launcher.xml", icon_spec.ANDROID_ADAPTIVE_XML)
+            zf.writestr("values/ic_launcher_background.xml",
+                        icon_spec.android_background_xml(background))
+
+        elif platform == "web":
+            zf.writestr("favicon.ico", icon_spec.build_ico(
+                {px: by_px[px] for px in icon_spec.WEB_ICO_SIZES}
             ))
-            zf.writestr("values/ic_launcher_background.xml", (
-                '<?xml version="1.0" encoding="utf-8"?>\n'
-                '<resources>\n'
-                f'    <color name="ic_launcher_background">{background}</color>\n'
-                '</resources>\n'
-            ))
-            zf.writestr("play-store-icon-512.png", _png_bytes(images[512]))
+            zf.writestr("site.webmanifest", icon_spec.web_manifest(base_name))
+            zf.writestr("head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
 
-        elif fmt == "icon-web":
-            zf.writestr("favicon.ico", _build_ico({s: images[s] for s in (16, 32, 48)}))
-            for px in (16, 32, 192, 512):
-                zf.writestr(f"icon-{px}.png", _png_bytes(images[px]))
-            zf.writestr("apple-touch-icon.png", _png_bytes(images[180]))
-            zf.writestr("site.webmanifest", _web_manifest(base_name))
-            zf.writestr("head-snippet.html", _WEB_SNIPPET)
-
-        zf.writestr("README.txt", (
-            f"{target['label']} generated by Stimma from {base_name}.svg\n"
-            f"Every size is an independent render of the vector source, not a\n"
-            f"resample of one raster.\n"
-        ))
+        zf.writestr("README.txt", icon_spec.readme([platform]))
 
     return buf.getvalue(), f"{base_name}-{fmt.removeprefix('icon-')}.zip", "application/zip"
 

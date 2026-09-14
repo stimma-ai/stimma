@@ -1,0 +1,341 @@
+"""App icon sets from one square master.
+
+Every platform rule lives in ``icon_spec``, which the SVG export reads too, so
+the two producers cannot drift. This recipe's job is to ask for artwork at each
+size the spec names and write the files where each platform expects them.
+"""
+
+from __future__ import annotations
+
+import icon_spec
+from packages import kit
+from packages.recipes import Build, Input, Param, recipe
+
+# Sizes worth showing at their true scale: the ones that decide whether a mark
+# survives. A designer checks the small end first.
+PREVIEW_SIZES = (180, 120, 87, 60, 40, 29, 20)
+
+# What each folder holds, in the recipient's words. No instructions: the page
+# has no affordance behind a "drag this into Xcode", so it does not say one.
+# What each platform folder is, said to the person receiving it: what the
+# thing is called, and where it goes.
+PLATFORM_BLURB = {
+    "ios": ("iOS", "AppIcon.appiconset, ready to drop into an Xcode asset catalog. "
+                   "Every iPhone and iPad size, with its Contents.json."),
+    "android": ("Android", "Launcher icons for every screen density, the adaptive foreground and "
+                           "background layers, and the 512px Play Store icon, laid out like a res/ folder."),
+    "macos": ("macOS", "An .icns for the app bundle, and every size as a PNG."),
+    "windows": ("Windows", "One .ico holding every size from 16 to 256, for the executable and the installer."),
+    "web": ("Web", "favicon.ico, an Apple touch icon, a web manifest, and the <head> tags to paste in."),
+}
+
+
+def _by_px(run: dict) -> dict[int, str]:
+    """Bundle paths of the iOS renders, keyed by pixel size."""
+    root = run.get("root") or ""
+    found: dict[int, str] = {}
+    for entry in run.get("files") or []:
+        path = entry["path"]
+        name = path.rsplit("/", 1)[-1]
+        if not path.startswith(f"{root}ios/AppIcon.appiconset/") or not name.startswith("icon-"):
+            continue
+        try:
+            found[int(name[5:-4])] = path
+        except ValueError:
+            continue
+    return found
+
+
+def _preview_paths(run: dict) -> dict[str, str]:
+    root = run.get("root") or ""
+    out: dict[str, str] = {}
+    for entry in run.get("files") or []:
+        path = entry["path"]
+        if path.startswith(f"{root}previews/"):
+            out[path.rsplit("/", 1)[-1][:-4]] = path
+    return out
+
+
+# One appearance at a time, chosen by the reader. Pure CSS: two radios and
+# :has(), so it works from a double-clicked file with scripts off. Until the
+# reader chooses, the system appearance decides.
+_APPEARANCE_CSS = """
+<style>
+.sp-appearance .sp-seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--sp-plate);
+  font-size:12.5px;user-select:none}
+.sp-appearance .sp-seg label{padding:5px 12px;border-radius:6px;color:var(--sp-muted);cursor:pointer;
+  transition:background-color .15s,color .15s}
+.sp-appearance .sp-seg label:hover{color:var(--sp-fg)}
+.sp-appearance input[type=radio]{position:absolute;opacity:0;width:0;height:0}
+.sp-appearance .sp-seg label:has(input:focus-visible){outline:2px solid var(--sp-accent);outline-offset:1px}
+.sp-appearance .sp-when-dark{display:none}
+@media (prefers-color-scheme: dark){
+  .sp-appearance .sp-when-light{display:none}
+  .sp-appearance .sp-when-dark{display:block}
+  .sp-appearance .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+}
+@media (prefers-color-scheme: light){
+  .sp-appearance .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+}
+.sp-appearance:has(.sp-pick-light:checked) .sp-when-light{display:block}
+.sp-appearance:has(.sp-pick-light:checked) .sp-when-dark{display:none}
+.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-dark{background:transparent;color:var(--sp-muted)}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-when-dark{display:block}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-when-light{display:none}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-light{background:transparent;color:var(--sp-muted)}
+.sp-appearance .sp-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px}
+.sp-appearance .sp-head .sp-label{margin:0}
+.sp-appearance .sp-center{display:flex;justify-content:center}
+.sp-appearance .sp-stack{display:grid;gap:22px;justify-items:start}
+</style>
+"""
+
+
+def _both(previews: dict[str, str], key: str, *, width: str) -> str:
+    """The same rendering in both appearances; the switch shows one."""
+    return "".join(
+        f'<div class="sp-when-{mode}"><stimma-media ref="{kit.escape(previews[f"{key}-{mode}"])}"'
+        f' style="width:{width}"></stimma-media></div>'
+        for mode in ("light", "dark")
+    )
+
+
+def _switch() -> str:
+    return (
+        '<div class="sp-seg" role="radiogroup" aria-label="Appearance">'
+        '<label class="sp-light"><input type="radio" name="sp-appearance" class="sp-pick-light">Light</label>'
+        '<label class="sp-dark"><input type="radio" name="sp-appearance" class="sp-pick-dark">Dark</label>'
+        '</div>'
+    )
+
+
+def present(run: dict, manifest: dict) -> str:
+    """Show the icon where it will be seen, from the rendered previews the package ships."""
+    by_px = _by_px(run)
+    previews = _preview_paths(run)
+    if not by_px:
+        return ""
+
+    def have(key: str) -> bool:
+        return f"{key}-light" in previews and f"{key}-dark" in previews
+
+    parts: list[str] = [_APPEARANCE_CSS, '<div class="sp-appearance">']
+    if have("home"):
+        parts.append(
+            '<stimma-section>'
+            f'<div class="sp-head"><p class="sp-label">On a home screen</p>{_switch()}</div>'
+            f'<div class="sp-center">{_both(previews, "home", width="min(360px,70vw)")}</div>'
+            '</stimma-section>'
+        )
+
+    swatches = [kit.media(by_px[px], size=px) for px in PREVIEW_SIZES if px in by_px]
+    if swatches:
+        parts.append(kit.section(kit.sizes(swatches), label="At actual size"))
+
+    surfaces = [k for k in ("app-store", "settings", "notification", "spotlight") if have(k)]
+    if surfaces:
+        stack = "".join(_both(previews, k, width="min(420px,100%)") for k in surfaces)
+        parts.append(kit.section(f'<div class="sp-stack">{stack}</div>', label="Everywhere else it appears"))
+    parts.append("</div>")
+
+    included = [
+        PLATFORM_BLURB.get(key, (key.title(), ""))
+        for key in (run.get("params") or {}).get("platforms") or []
+    ]
+    # What is in the box, then the box itself: the file browser sits under the
+    # description, one button away, so the cover does not repeat itself.
+    body = (kit.columns(included) if included else "") + kit.files(run["id"])
+    parts.append(kit.section(body, label="Included in this package"))
+    return "".join(parts)
+
+
+@recipe(
+    id="app-icons",
+    version=2,
+    display_name="App icon set",
+    description="iOS, Android, macOS, Windows and web icon sets from one square master image",
+    inputs=[
+        Input("master", kind="image", square=True, min_size=1024,
+              description="Square master icon: an SVG, or a raster 1024px or larger"),
+        Input("android_foreground", kind="image", required=False, alpha=True, square=True,
+              description="Optional transparent foreground layer for Android adaptive icons"),
+    ],
+    params=[
+        Param("platforms", type="multi", options=list(icon_spec.PLATFORMS),
+              default=["ios", "android", "web"], description="Which platform sets to produce"),
+        Param("background", type="color", default=None,
+              description="Canvas behind the mark where a platform forbids transparency (iOS, the Play Store icon, the Apple touch icon), and the Android adaptive background layer. Required when the master is transparent: it is the person's decision, made before packaging"),
+        Param("app_name", type="string", default=None,
+              description="What the app is called: the name under the icon on the home screen, in the store row, in Settings and notifications, and in the web manifest. Required: it is the person's to say, not yours to invent — ask if you do not know"),
+        Param("allow_low_contrast", type="boolean", default=False,
+              description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
+        Param("naming", type="naming", fields=["slug", "size", "platform"],
+              default="{slug}-{platform}-{size}",
+              description="Template for free filenames; platform-fixed names are exempt"),
+    ],
+    present=present,
+    guidance="""\
+The master does the work: a square mark that still reads at 20px. Thin strokes
+and fine detail disappear at the small end — check the actual-size row before
+calling it done, and simplify the mark rather than the sizes.
+
+`background` is required when the master is transparent, because iOS forbids
+alpha and something has to go behind the mark. It is not yours to invent: it is
+the person's decision, made before packaging. If they have not made it, stop
+and ask. The useful way to ask is to show it — put the mark on three or four
+candidate grounds (a white, a near-black, one or two drawn from the artwork's
+own palette that the mark is not made of), show them side by side, and let the
+person pick. Then package with the one they chose. The build refuses a canvas
+the mark disappears into, so a bad pick comes back as a reason, not a file.
+
+If the icon wants a coloured or illustrated ground rather than a flat one, that
+is design and belongs in the master — make the artwork, then package the
+artwork.
+
+Supply `android_foreground` when the mark needs to sit differently inside
+Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
+so a wide lockup that works on iOS loses its edges there.
+
+`app_name` is required too, for the same reason. The previews put the name
+under the icon on a home screen, in a store row, in Settings and in a
+notification, and the web manifest carries it — so a made-up name ships in the
+deliverable. If the person has not said what the app is called, ask before
+building; do not derive one from a filename or a slug.
+
+An SVG master is worth more than a raster: every size is drawn at that size
+rather than resampled.""",
+)
+async def build(b: Build) -> None:
+    platforms = b.params.platforms
+    fg_role = "android_foreground" if b.has("android_foreground") else "master"
+
+    # iOS forbids alpha, so a transparent mark needs a canvas behind it. What
+    # that canvas is, is a decision — and packaging does not make decisions, it
+    # applies them. A missing one is a gap, and a gap is refused so the person
+    # gets asked rather than surprised.
+    # The name is the person's too. It is printed under the icon in every
+    # preview and written into the web manifest, so a guess would ship.
+    name = (b.params.app_name or "").strip()
+    if not name:
+        b.fail(
+            "the app's name is not set, and the previews put it under the icon on a home "
+            "screen, in a store row, in Settings and in a notification, and the web manifest "
+            "carries it. Ask what the app is called, then pass it as app_name. Do not make "
+            "one up from a filename."
+        )
+
+    master = b.input("master")
+    ink = icon_spec.ink_color(await b.image("master", size=256))
+    background = b.params.background
+    if master.has_alpha and not background:
+        suggested = icon_spec.neutral_ground(ink)
+        b.fail(
+            "the master is transparent, so a canvas has to go behind it where iOS forbids "
+            "alpha, and that is a decision nobody has made. Ask which background the icon "
+            "should sit on — show the mark on a few candidates and let the person pick — "
+            f"then pass it as background. A neutral that would read is {suggested}."
+        )
+    if not background:
+        background = "#FFFFFF"  # an opaque master never shows it; something must be written
+
+    if master.has_alpha and not b.params.allow_low_contrast and ink is not None:
+        ratio = icon_spec.contrast_ratio(ink, icon_spec.parse_hex(background))
+        if ratio < icon_spec.MIN_ICON_CONTRAST:
+            b.fail(
+                f"the artwork and the chosen background are the same tone "
+                f"(contrast {ratio:.2f}:1, needs {icon_spec.MIN_ICON_CONTRAST:.2f}). "
+                f"The mark averages #{'%02X%02X%02X' % ink} and the background is "
+                f"{background}, so the icon reads as a solid square. Pick one much darker "
+                f"or lighter than the mark, or pass allow_low_contrast=true if the flat "
+                f"look is deliberate."
+            )
+
+    async def composed(spec: icon_spec.IconImage):
+        # Vector artwork is drawn at this exact size; a raster is resampled.
+        art = await b.image(spec.role if spec.role != "master" else "master", size=spec.px)
+        return icon_spec.compose(art, spec, background)
+
+    for platform in platforms:
+        rendered: dict[int, object] = {}
+        for spec in icon_spec.images_for(platform, foreground_role=fg_role):
+            img = await composed(spec)
+            rendered[spec.px] = img
+            if platform == "macos":
+                continue  # written below, named by the user's template
+            b.derive(f"{platform}/{spec.path}", icon_spec.png_bytes(img),
+                     source=spec.role, fixed=True)
+
+        if platform == "ios":
+            b.file("ios/AppIcon.appiconset/Contents.json", icon_spec.ios_contents_json())
+
+        elif platform == "android":
+            b.file("android/mipmap-anydpi-v26/ic_launcher.xml", icon_spec.ANDROID_ADAPTIVE_XML)
+            b.file("android/values/ic_launcher_background.xml",
+                   icon_spec.android_background_xml(background))
+
+        elif platform == "macos":
+            b.derive("macos/" + b.name(ext="icns", slug=b.slug, platform="macos", size=""),
+                     icon_spec.build_icns(rendered), source="master")
+            for spec in icon_spec.macos_images():
+                b.derive("macos/" + b.name(ext="png", slug=b.slug, platform="macos", size=spec.px),
+                         icon_spec.png_bytes(rendered[spec.px]), source="master")
+
+        elif platform == "windows":
+            b.derive("windows/" + b.name(ext="ico", slug=b.slug, platform="windows", size=""),
+                     icon_spec.build_ico(rendered), source="master")
+
+        elif platform == "web":
+            b.derive("web/favicon.ico",
+                     icon_spec.build_ico({px: rendered[px] for px in icon_spec.WEB_ICO_SIZES}),
+                     source="master", fixed=True)
+            b.file("web/site.webmanifest", icon_spec.web_manifest(name))
+            b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
+
+    b.file("README.txt", icon_spec.readme(platforms))
+
+    # Presentation images, shipped with the deliverable: the icon on a home
+    # screen and on the other surfaces it has to survive, in both appearances.
+    # A designer would build these in a mockup kit; here they come from the
+    # same artwork, so they are never out of date.
+    from packages import mockups
+
+    device = icon_spec.device_icon(await b.image("master", size=1024), 1024, background)
+    for mode in ("light", "dark"):
+        b.derive(f"previews/home-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),
+                 source="master", fixed=True)
+        b.derive(f"previews/app-store-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_app_store_row(device, name, "Productivity", mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/settings-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_settings_row(device, name, mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/notification-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_notification(device, name, "Your weekly summary is ready.", mode=mode)),
+                 source="master", fixed=True)
+        b.derive(f"previews/spotlight-{mode}.png",
+                 icon_spec.png_bytes(mockups.render_spotlight_row(device, name, mode=mode)),
+                 source="master", fixed=True)
+
+    # The package's face: the icon the way a device draws it, on a plate.
+    # Better than anything computed from the file list afterwards, because the
+    # recipe knows this is an app icon and knows how one is meant to look.
+    b.tile(_tile_png(await b.image("master", size=1024), background))
+
+
+def _tile_png(art, background: str) -> bytes:
+    """A 640px plate with the masked icon centered and a soft drop shadow."""
+    from PIL import Image, ImageFilter
+
+    size, icon_px = 640, 416
+    icon = icon_spec.device_icon(art, icon_px, background)
+    plate = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    left = top = (size - icon_px) // 2
+
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    shadow.paste((0, 0, 0, 90), (left, top + icon_px // 24), icon_spec.rounded_mask(icon_px))
+    plate.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(icon_px // 22)))
+    plate.alpha_composite(icon, (left, top))
+    return icon_spec.png_bytes(plate)
