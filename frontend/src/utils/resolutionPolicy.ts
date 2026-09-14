@@ -149,6 +149,28 @@ function pairByArea(group: TierGroup, area: number): [number, number] {
   return best
 }
 
+/**
+ * Megapixel range the tool can actually reach at `ratio`, from the schema's
+ * per-axis minimum/maximum. This is what the size slider spans, so its top
+ * end is where the model really stops (a 2048-per-axis model tops out at
+ * ~3.1MP for 4:3, ~4.2MP for 1:1).
+ */
+export function megapixelBounds(props: SchemaProps, ratio: number): { min: number; max: number } {
+  const p = props || {}
+  const maxW = Number(p.width?.maximum) || 4096
+  const maxH = Number(p.height?.maximum ?? p.width?.maximum) || 4096
+  const minW = Number(p.width?.minimum) || 256
+  const minH = Number(p.height?.minimum ?? p.width?.minimum) || 256
+  const r = ratio > 0 ? ratio : 1
+  const hiW = Math.min(maxW, maxH * r)
+  const hiH = Math.min(maxH, maxW / r)
+  const loW = Math.max(minW, minH * r)
+  const loH = Math.max(minH, minW / r)
+  const max = (hiW * hiH) / 1_000_000
+  const min = Math.min((loW * loH) / 1_000_000, max)
+  return { min, max }
+}
+
 export function dimsForMegapixels(mp: number, ratio: number, props: SchemaProps): { width: number; height: number } {
   const h = Math.sqrt((mp * 1_000_000) / ratio)
   const w = h * ratio

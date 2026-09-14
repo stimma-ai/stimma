@@ -7,6 +7,7 @@ import {
   applyCarriedPolicy,
   carriedPolicy,
   tierGroups,
+  megapixelBounds,
   matchingRatio,
   customRatio,
   type ResolutionPolicy,
@@ -149,4 +150,13 @@ test('hop: into an editor that matches the image, shape follows too', () => {
 test('matchingRatio tolerance', () => {
   assert.equal(matchingRatio(1216, 1344), null)
   assert.equal(matchingRatio(1024, 1365), '3:4')
+})
+
+test('megapixel bounds follow the per-axis limits at the current ratio', () => {
+  const props = { width: { minimum: 128, maximum: 2048, 'x-step': 16 }, height: { minimum: 128, maximum: 2048, 'x-step': 16 } }
+  const sq = megapixelBounds(props, 1)
+  assert.ok(Math.abs(sq.max - 4.194) < 0.01, `1:1 max ${sq.max}`)
+  const wide = megapixelBounds(props, 4 / 3)
+  assert.ok(Math.abs(wide.max - 3.146) < 0.01, `4:3 max ${wide.max}`)
+  assert.ok(Math.abs(wide.min - 0.0218) < 0.001, `4:3 min ${wide.min}`)
 })
