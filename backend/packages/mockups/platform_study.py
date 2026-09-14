@@ -162,6 +162,19 @@ def linux_preview(icon, label):
     return canvas
 
 
+def kde_preview(icon, label):
+    canvas = _asset('kde.png').copy()
+    # The same hicolor PNG used by Ubuntu, at the panel's 48px size at 2×.
+    _paste(canvas, icon, (484, 792), 96)
+    draw = ImageDraw.Draw(canvas)
+    face = font('regular', 30)
+    width = min(520, draw.textlength(' '.join(label.split()), font=face) + 64)
+    draw.rounded_rectangle((532-width/2, 650, 532+width/2, 722), radius=10,
+                           fill='#eff0f1', outline='#b8bec4', width=2)
+    _text(draw, (532, 686), label, 30, '#232629', width-32)
+    return canvas
+
+
 def platform_previews(icons, label, background):
     """Yield only the requested platforms; every image uses its delivered PNG."""
     if 'android' in icons:
@@ -174,3 +187,4 @@ def platform_previews(icons, label, background):
         yield 'platform-windows-taskbar.png', windows_taskbar_preview(icons['windows'], label)
     if 'linux' in icons:
         yield 'platform-linux.png', linux_preview(icons['linux'], label)
+        yield 'platform-linux-kde.png', kde_preview(icons['linux'], label)

@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=10,
+    version=11,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -94,8 +94,8 @@ normal read_file tool. Do not search the Python SDK or leave the workspace to
 find templates. The recipe already supplies the context images as run files.
 
 Group each OS in a sibling <stimma-section page label="Platform Study · OS">.
-Use layout="pair" for iOS and Android, layout="stack" for Windows,
-and layout="single" for macOS and Linux.
+Use layout="pair" for iOS, Android and Linux, layout="stack" for Windows,
+and layout="single" for macOS.
 The kit makes responsive HTML and one landscape PDF page per OS from that group.
 Use the current skill reference; do not author a second PDF layout.
 For each selected platform:
@@ -106,7 +106,9 @@ For each selected platform:
 - macOS: `previews/platform-macos.png` (Dock, dark capsule tooltip).
 - Windows: BOTH `previews/platform-windows-start.png` and
   `previews/platform-windows-taskbar.png`.
-- Linux: `previews/platform-linux.png` (Ubuntu Dock at 2×).
+- Linux: `previews/platform-linux.png` (Ubuntu Dock) and
+  `previews/platform-linux-kde.png` (KDE Plasma panel), both at 2×.
+  Show them side by side with Ubuntu and KDE Plasma captions.
 These are built only for selected platforms, using the delivered files and app
 name. They need no generation, upscaling, model, external tool, demo directory,
 or manual compositing. Inspect them in the folder returned by pkg.preview().
@@ -117,8 +119,8 @@ The cover is still your design; the recipe emits images, never HTML.
 Start with `references/app-icons-mixed.html` for multiple platforms or
 `references/app-icons.html` for iOS alone. Remove unused platform sections;
 never omit requested ones. Show scenes wide, keep copy factual, and retain
-actual-size samples of the delivered PNGs. Do not use the older flat phone
-home-light/home-dark previews in the cover. For iOS and Android, add a compact
+actual-size samples of the delivered PNGs on the opening icon overview page.
+Do not use the older flat phone home-light/home-dark previews in the cover. For iOS and Android, add a compact
 <stimma-grid slot="details"> to the same OS section, containing the two files
 previews/{platform}-store-light.png and previews/{platform}-notification-light.png.
 Caption them App Store / Google Play and Notification. Dark alternatives also
@@ -269,6 +271,7 @@ async def build(b: Build) -> None:
         b.file("previews/ATTRIBUTION.txt", (study_assets / "README.md").read_text())
     if "linux" in platforms:
         b.file("previews/LICENSE-YARU.txt", (study_assets / "YARU-LICENSE.txt").read_text())
+        b.file("previews/LICENSE-BREEZE.txt", (study_assets / "BREEZE-LICENSE.txt").read_text())
     for filename, image in platform_previews(study_icons, name, background):
         b.derive(f"previews/{filename}", icon_spec.png_bytes(image), source="master", fixed=True)
     device = study_icons.get("ios")

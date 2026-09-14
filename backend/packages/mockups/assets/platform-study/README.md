@@ -33,5 +33,14 @@ needed. No designer reference artwork is included.
   https://github.com/mozilla-firefox/firefox/blob/main/browser/branding/official/default256.png
   https://ubuntu.com/desktop/docs/en/24.04/tutorial/install-ubuntu-desktop/
 
+- `kde.png`: illustrative Plasma floating-panel crop at 2× over an original
+  geometric wallpaper. Native Breeze icons by KDE contributors: application
+  launcher, Dolphin, web browser, Konsole, System Settings and Discover. The
+  application slot and tooltip are blank. Source SVG artwork is available at
+  https://invent.kde.org/frameworks/breeze-icons (icons/places/96/start-here-kde.svg,
+  icons/apps/64/system-file-manager.svg and icons/apps/48/). See
+  BREEZE-LICENSE.txt for LGPL-3.0-or-later and the artwork library clarification.
+  Panel reference: https://kde.org/plasma-desktop/
+
 Vendor artwork remains its respective owner's artwork. Dynamic labels use the
 kit's bundled Noto Sans font. No proprietary font binary is redistributed.

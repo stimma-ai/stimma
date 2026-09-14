@@ -87,3 +87,28 @@ def test_android_studio_and_lifestyle_share_delivered_adaptive_artwork(monkeypat
         'platform-android.png': (3840, 2560),
     }
     assert previews['platform-android-studio.png'].getpixel((255, 500)) == (255, 0, 0)
+
+
+def test_linux_renders_ubuntu_and_kde_from_the_same_delivered_icon(monkeypatch):
+    import socket
+
+    def denied(*args, **kwargs):
+        raise AssertionError('Linux scenes must not access the network')
+
+    monkeypatch.setattr(socket, 'socket', denied)
+    icon = Image.new('RGBA', (256, 256), '#e96a12')
+    previews = dict(platform_previews({'linux': icon}, 'Example', '#ffffff'))
+    assert {name: image.size for name, image in previews.items()} == {
+        'platform-linux.png': (1600, 1000),
+        'platform-linux-kde.png': (1600, 1000),
+    }
+    assert previews['platform-linux.png'].getpixel((60, 443)) == (233, 106, 18)
+    assert previews['platform-linux-kde.png'].getpixel((532, 840)) == (233, 106, 18)
+    # A different app may only alter its slot and bounded tooltip.
+    other = dict(platform_previews({'linux': Image.new('RGBA', (256, 256), 'blue')},
+                                   'A very long application name ' * 10, '#ffffff'))
+    changed = np.any(np.asarray(previews['platform-linux-kde.png']) !=
+                     np.asarray(other['platform-linux-kde.png']), axis=2)
+    changed[792:888, 484:580] = False
+    changed[650:723, 272:793] = False
+    assert not changed.any(), 'Native neighboring apps must remain unchanged'
