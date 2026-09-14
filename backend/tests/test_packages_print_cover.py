@@ -2,6 +2,8 @@
 import io
 import zipfile
 
+import pytest
+
 from PIL import Image
 import pypdfium2 as pdfium
 
@@ -61,3 +63,50 @@ def test_pdf_does_not_fetch_external_or_ambient_resources(tmp_path, monkeypatch)
       <img src="{secret.as_uri()}"></body></html>''')
     assert export_pdf(tmp_path).startswith(b'%PDF-')
     assert calls == []
+
+
+@pytest.mark.parametrize("second_layout", ["single", "stack"])
+def test_page_groups_print_as_landscape_slides(tmp_path, second_layout):
+    manifest = new_manifest(title='Example')
+    Image.new('RGB', (800, 500), 'orange').save(tmp_path / 'image.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Image', 'path': 'image.png'}]
+    html, problems = render_cover_document(manifest, authored_html='''
+      <div class="sp-page"><h1>Example</h1>
+        <stimma-section page label="First platform" layout="pair">
+          <stimma-media ref="m1"></stimma-media><stimma-media ref="m1"></stimma-media>
+        </stimma-section>
+        <stimma-section page label="Second platform" layout="SECOND_LAYOUT">
+          <stimma-media ref="m1"></stimma-media>
+          EXTRA_MEDIA
+        </stimma-section>
+        <stimma-section page label="Details">
+          <stimma-appearance label="Appearance">
+            <div when="light"><stimma-media ref="m1" caption="Light example"></stimma-media></div>
+            <div when="dark"><stimma-media ref="m1" caption="Dark example"></stimma-media></div>
+          </stimma-appearance>
+        </stimma-section>
+        <stimma-section page label="Contents"><p>One image.</p></stimma-section>
+      </div>'''.replace('SECOND_LAYOUT', second_layout).replace('EXTRA_MEDIA', '<stimma-media ref="m1"></stimma-media>' if second_layout == 'stack' else ''), bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        assert len(pdf) == 6  # opening, two platforms, two appearances, contents
+        texts = [' '.join(page.get_textpage().get_text_range().split()) for page in pdf]
+        assert 'First platform' in texts[1] and 'Second platform' not in texts[1]
+        assert 'Second platform' in texts[2]
+        assert 'Light example' in texts[3] and 'Dark example' not in texts[3]
+        assert 'Dark example' in texts[4] and 'Light example' not in texts[4]
+        assert 'Made with' in texts[-1]
+        assert all(page.get_width() / page.get_height() == 16 / 9 for page in pdf)
+    assert (tmp_path / 'index.html').read_text() == html
+
+
+def test_crowded_pair_reports_an_authoring_problem(tmp_path):
+    manifest = new_manifest(title='Example')
+    _, problems = render_cover_document(manifest, authored_html='''
+      <stimma-section page label="Crowded" layout="pair">
+        <stimma-media ref="missing"></stimma-media>
+        <stimma-media ref="missing"></stimma-media>
+        <stimma-media ref="missing"></stimma-media>
+      </stimma-section>''', bundle_dir=tmp_path)
+    assert any('layout=pair needs 2 media items' in problem for problem in problems)

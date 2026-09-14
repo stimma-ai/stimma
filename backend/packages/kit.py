@@ -7,7 +7,8 @@ made a year apart still read as coming from the same studio.
 
 Components, all usable in authored HTML:
 
-    <stimma-section label="At actual size">…</stimma-section>
+    <stimma-section label="Included work" page layout="pair">…</stimma-section>
+        page: landscape PDF boundary; layout: single, pair, or stack
     <stimma-media ref="m1" caption="Primary mark" plate>
     <stimma-grid>…<stimma-media>…</stimma-grid>
     <stimma-sizes>       real-size row; children are <stimma-media ref size="40">
@@ -31,7 +32,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 5
+KIT_VERSION = 6
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -328,6 +329,11 @@ stimma-pick,stimma-approve,stimma-comments{display:block}
 /* Section, sizes, device, columns ----------------------------------------- */
 stimma-section{display:block;margin-top:56px}
 stimma-section:first-child{margin-top:0}
+stimma-section[layout]>.sp-section-body{display:grid;gap:24px;align-items:center}
+stimma-section[layout=pair]>.sp-section-body{grid-template-columns:repeat(2,minmax(0,1fr))}
+stimma-section[layout=single]>.sp-section-body,stimma-section[layout=stack]>.sp-section-body{grid-template-columns:minmax(0,1fr)}
+stimma-section[layout]>.sp-section-body>stimma-media{min-width:0}
+@media(max-width:600px){stimma-section[layout=pair]>.sp-section-body{grid-template-columns:minmax(0,1fr)}}
 stimma-sizes{display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap}
 stimma-sizes stimma-media{display:grid;justify-items:center;gap:9px}
 stimma-sizes stimma-media img{border-radius:22.37%}
@@ -1217,6 +1223,19 @@ def expand_kit_elements(
         attrs = _parse_attrs(m.group("attrs"))
         inner = m.group("inner") or ""
         label = attrs.pop("label", "")
+        layout = attrs.get("layout")
+        if layout is not None and layout not in ("single", "pair", "stack"):
+            problems.append(f"Section {label!r}: layout must be single, pair or stack")
+        if layout in ("single", "pair", "stack"):
+            count = len(re.findall(r"<stimma-media\b", inner, re.IGNORECASE))
+            expected = 1 if layout == "single" else 2
+            if count != expected:
+                problems.append(f"Section {label!r}: layout={layout} needs {expected} media items; split crowded groups into separate sections")
+        if "page" in attrs and len(re.findall(r"<stimma-appearance\b", inner, re.IGNORECASE)) > 1:
+            problems.append(f"Section {label!r}: use one appearance group per PDF page section")
+        if "page" in attrs or layout:
+            register_id(attrs, "stimma-section")
+            inner = f'<div class="sp-section-body">{inner}</div>'
         head = f'<p class="sp-label">{htmllib.escape(label)}</p>' if label else ""
         return f"<stimma-section{_attr_str(attrs)}>{head}{inner}</stimma-section>"
 

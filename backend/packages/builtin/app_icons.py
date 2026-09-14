@@ -93,7 +93,12 @@ Read it through the skill's resource path supplied at activation, using the
 normal read_file tool. Do not search the Python SDK or leave the workspace to
 find templates. The recipe already supplies the context images as run files.
 
-Name the cover's context section "Platform Study". For each selected platform:
+Group each OS in a sibling <stimma-section page label="Platform Study · OS">.
+Use layout="pair" for iOS and Android, layout="stack" for Windows,
+and layout="single" for macOS and Linux.
+The kit makes responsive HTML and one landscape PDF page per OS from that group.
+Use the current skill reference; do not author a second PDF layout.
+For each selected platform:
 - iOS: `previews/device-studio.png` and `previews/device-lifestyle.png` (4K).
 - Android: `previews/platform-android-studio.png` (large icon beside Galaxy phone)
   and `previews/platform-android.png` (4K Galaxy lifestyle scene, populated screen).

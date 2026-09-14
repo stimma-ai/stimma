@@ -1,17 +1,18 @@
 """A static, paginated copy of the authored cover, using the existing PDF engine."""
 from pathlib import Path
+from copy import deepcopy
 
 from packages.export import export_single_html
 
 PRINT_CSS = """
-@page { size: A4; margin: 16mm; background: #0d0d0e; }
+@page { size: 1280px 720px; margin: 48px; background: #0d0d0e; }
 html, body { font-family: sans-serif; }
 .sp-page { width: 100%; max-width: none; margin: 0; padding: 0; }
-.sp-title { font-size: 32px; }
+.sp-title { font-size: 42px; }
 stimma-section, .sp-section { margin-top: 28px; }
 h1, h2, h3, .sp-label { break-after: avoid; }
 stimma-media, stimma-compare figure { break-inside: avoid; }
-stimma-media img, stimma-compare img { max-width: 100%; max-height: 220mm; object-fit: contain; }
+stimma-media img, stimma-compare img { max-width: 100%; max-height: 480px; object-fit: contain; }
 stimma-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 18px; }
 stimma-grid:has(stimma-media[size]) { grid-template-columns: repeat(5, 1fr) !important; }
 stimma-columns { grid-template-columns: repeat(3, 1fr); gap: 18px; break-inside: avoid; }
@@ -30,6 +31,21 @@ stimma-files .sp-files { display: none; }
 .sp-footer { break-inside: avoid; margin-top: 28px; padding-top: 14px; }
 .sp-footer .sp-brand { display: block; white-space: nowrap; }
 .sp-footer .sp-wordmark { margin-left: 7px; }
+stimma-section[page] { break-before: page; margin-top: 0; }
+stimma-section[page]:first-child { break-before: auto; }
+stimma-section[page]>.sp-label { font-size: 24px; margin-bottom: 28px; }
+stimma-section[page][layout]>.sp-section-body { display: grid; gap: 32px; align-items: center; }
+stimma-section[page][layout=pair]>.sp-section-body { grid-template-columns: 1fr 1fr; }
+stimma-section[page][layout=single]>.sp-section-body, stimma-section[page][layout=stack]>.sp-section-body { grid-template-columns: 1fr; }
+stimma-section[page][layout]>.sp-section-body>stimma-media img { width: 100%; height: 480px; object-fit: contain; }
+stimma-section[page][layout=stack]>.sp-section-body { gap: 20px; }
+stimma-section[page][layout=stack] .sp-caption, stimma-section[page][layout=single] .sp-caption { text-align: center; }
+stimma-section[page][layout=stack]>.sp-section-body>stimma-media img { height: 230px; }
+stimma-section[page] .sp-appearance-panel { margin-top: 0; }
+stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
+stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr) !important; }
+stimma-section[page] .sp-appearance-panel stimma-media img { max-height: 170px; width: auto; }
+
 """
 
 
@@ -45,8 +61,33 @@ def export_pdf(bundle_dir: Path) -> bytes:
     html = export_single_html(bundle_dir).replace(
         '</head>', f'<style>{PRINT_CSS}</style></head>', 1,
     )
+    document = HTML(string=html, url_fetcher=embedded_only)
+    # An appearance switch is one responsive HTML section, but each of its
+    # variants gets its own PDF page. Work on the print tree, never the cover.
+    for parent in list(document.etree_element.iter()):
+        for section in list(parent):
+            if section.tag != 'stimma-section' or 'page' not in section.attrib:
+                continue
+            panels = [node for node in section.iter() if 'sp-appearance-panel' in node.get('class', '').split()]
+            if len(panels) < 2:
+                continue
+            index = list(parent).index(section)
+            for offset, panel in enumerate(panels):
+                clone = deepcopy(section)
+                mode = panel.get('data-when', '')
+                for node in clone.iter():
+                    if offset:
+                        node.attrib.pop('id', None)
+                    for child in list(node):
+                        if 'sp-appearance-panel' in child.get('class', '').split() and child.get('data-when') != mode:
+                            node.remove(child)
+                heading = clone.find("./p[@class='sp-label']")
+                if heading is not None:
+                    heading.text = f"{heading.text} · {mode.title()}"
+                parent.insert(index + offset, clone)
+            parent.remove(section)
     # Keep type/vector artwork sharp and raster scenes at print resolution;
     # the ZIP still contains the original full-resolution preview images.
-    return HTML(string=html, url_fetcher=embedded_only).write_pdf(
+    return document.write_pdf(
         presentational_hints=True, dpi=300,
     )
