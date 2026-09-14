@@ -70,14 +70,6 @@
             <span class="w-5 h-5 grid place-items-center"><i class="block border-[1.5px] border-current rounded-media" :style="previewStyle(ratioValue(r), 1, 18)"></i></span>
             <span class="text-[10px] leading-none">{{ r }}</span>
           </button>
-          <div
-            v-if="customRatioLabel"
-            :class="tileClass(true)"
-            class="cursor-default"
-          >
-            <span class="w-5 h-5 grid place-items-center"><i class="block border-[1.5px] border-current rounded-media" :style="previewStyle(resolved.width, resolved.height, 18)"></i></span>
-            <span class="text-[10px] leading-none">{{ customRatioLabel }}</span>
-          </div>
         </div>
 
         <!-- Size -->
@@ -234,10 +226,6 @@ const sizeLabel = computed(() => tiers.value ? tierLabel(resolved.value.tier ?? 
 const tagClass = 'text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-accent/15 text-accent'
 const dimInputClass = 'w-full px-2.5 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'
 
-const customRatioLabel = computed(() => {
-  if (tiers.value || resolved.value.shapeFromImage || resolved.value.ratioChoice) return null
-  return resolved.value.ratioLabel
-})
 
 function tileClass(on: boolean) {
   return [
