@@ -52,17 +52,59 @@ def _preview_paths(run: dict) -> dict[str, str]:
     return out
 
 
-_ROW = 'display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;gap:{gap}px'
+# One appearance at a time, chosen by the reader. Pure CSS: two radios and
+# :has(), so it works from a double-clicked file with scripts off. Until the
+# reader chooses, the system appearance decides.
+_APPEARANCE_CSS = """
+<style>
+.sp-appearance .sp-seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--sp-plate);
+  font-size:12.5px;user-select:none}
+.sp-appearance .sp-seg label{padding:5px 12px;border-radius:6px;color:var(--sp-muted);cursor:pointer;
+  transition:background-color .15s,color .15s}
+.sp-appearance .sp-seg label:hover{color:var(--sp-fg)}
+.sp-appearance input[type=radio]{position:absolute;opacity:0;width:0;height:0}
+.sp-appearance .sp-seg label:has(input:focus-visible){outline:2px solid var(--sp-accent);outline-offset:1px}
+.sp-appearance .sp-when-dark{display:none}
+@media (prefers-color-scheme: dark){
+  .sp-appearance .sp-when-light{display:none}
+  .sp-appearance .sp-when-dark{display:block}
+  .sp-appearance .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+}
+@media (prefers-color-scheme: light){
+  .sp-appearance .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+}
+.sp-appearance:has(.sp-pick-light:checked) .sp-when-light{display:block}
+.sp-appearance:has(.sp-pick-light:checked) .sp-when-dark{display:none}
+.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-dark{background:transparent;color:var(--sp-muted)}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-when-dark{display:block}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-when-light{display:none}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-light{background:transparent;color:var(--sp-muted)}
+.sp-appearance .sp-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px}
+.sp-appearance .sp-head .sp-label{margin:0}
+.sp-appearance .sp-center{display:flex;justify-content:center}
+.sp-appearance .sp-stack{display:grid;gap:22px;justify-items:start}
+</style>
+"""
 
 
-def _pair(previews: dict[str, str], key: str, *, width: str, gap: int) -> str:
-    """A light and a dark rendering side by side, each captioned."""
-    cells = "".join(
-        f'<stimma-media ref="{kit.escape(previews[f"{key}-{mode}"])}" caption="{mode.title()}"'
-        f' style="width:{width};text-align:center"></stimma-media>'
+def _both(previews: dict[str, str], key: str, *, width: str) -> str:
+    """The same rendering in both appearances; the switch shows one."""
+    return "".join(
+        f'<div class="sp-when-{mode}"><stimma-media ref="{kit.escape(previews[f"{key}-{mode}"])}"'
+        f' style="width:{width}"></stimma-media></div>'
         for mode in ("light", "dark")
     )
-    return f'<div style="{_ROW.format(gap=gap)}">{cells}</div>'
+
+
+def _switch() -> str:
+    return (
+        '<div class="sp-seg" role="radiogroup" aria-label="Appearance">'
+        '<label class="sp-light"><input type="radio" name="sp-appearance" class="sp-pick-light">Light</label>'
+        '<label class="sp-dark"><input type="radio" name="sp-appearance" class="sp-pick-dark">Dark</label>'
+        '</div>'
+    )
 
 
 def present(run: dict, manifest: dict) -> str:
@@ -75,27 +117,32 @@ def present(run: dict, manifest: dict) -> str:
     def have(key: str) -> bool:
         return f"{key}-light" in previews and f"{key}-dark" in previews
 
-    out: list[str] = []
+    parts: list[str] = [_APPEARANCE_CSS, '<div class="sp-appearance">']
     if have("home"):
-        out.append(kit.section(_pair(previews, "home", width="min(320px,44vw)", gap=40), label="On a home screen"))
+        parts.append(
+            '<stimma-section>'
+            f'<div class="sp-head"><p class="sp-label">On a home screen</p>{_switch()}</div>'
+            f'<div class="sp-center">{_both(previews, "home", width="min(360px,70vw)")}</div>'
+            '</stimma-section>'
+        )
 
     swatches = [kit.media(by_px[px], size=px) for px in PREVIEW_SIZES if px in by_px]
     if swatches:
-        out.append(kit.section(kit.sizes(swatches), label="At actual size"))
+        parts.append(kit.section(kit.sizes(swatches), label="At actual size"))
 
     surfaces = [k for k in ("app-store", "settings", "notification", "spotlight") if have(k)]
     if surfaces:
-        rows = "".join(_pair(previews, k, width="min(390px,46vw)", gap=24) for k in surfaces)
-        out.append(kit.section(f'<div style="display:grid;gap:28px">{rows}</div>',
-                               label="Everywhere else it appears"))
+        stack = "".join(_both(previews, k, width="min(420px,100%)") for k in surfaces)
+        parts.append(kit.section(f'<div class="sp-stack">{stack}</div>', label="Everywhere else it appears"))
+    parts.append("</div>")
 
     included = [
         PLATFORM_BLURB.get(key, (key.title(), ""))
         for key in (run.get("params") or {}).get("platforms") or []
     ]
     if included:
-        out.append(kit.section(kit.columns(included), label="Included"))
-    return "".join(out)
+        parts.append(kit.section(kit.columns(included), label="Included"))
+    return "".join(parts)
 
 
 @recipe(

@@ -5,7 +5,7 @@ elements for anything that touches members. The kit is static-first: every
 kit element is expanded server-side into plain HTML when the bundle is
 written, so the page reads correctly with scripts disabled, from a
 double-clicked file, in a sandboxed frame, and in the thumbnail renderer.
-The kit script only enhances (compare sliders, collapsible trees).
+The kit script only enhances (compare sliders, the file browser).
 
 Refs are member ids, run ids, or bundle-relative paths the manifest declares.
 Feedback widgets (``stimma-pick``, ``stimma-approve``, ``stimma-comments``)

@@ -12,7 +12,7 @@ Components, all usable in authored HTML:
     <stimma-grid>…<stimma-media>…</stimma-grid>
     <stimma-sizes>       real-size row; children are <stimma-media ref size="40">
     <stimma-columns>…<stimma-column title="…">…</stimma-columns>
-    <stimma-files ref="r1">    the shared file tree
+    <stimma-files ref="r1">    the file browser
     <stimma-compare a="…" b="…" mode="slider">
 
 Every one expands to plain HTML when the bundle is written, so a cover reads
@@ -29,7 +29,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 3
+KIT_VERSION = 4
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -138,8 +138,12 @@ stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10
 stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
 stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,200px),1fr));gap:28px}
 
-/* Files: one quiet row that opens into a browser. Compact until asked, and
-   native <details> so the tree is still reachable with scripts off. */
+/* Scrollbars: one quiet style for the whole page — thin, no track, no arrows. */
+*{scrollbar-width:thin;scrollbar-color:var(--sp-line) transparent}
+
+/* Files: one quiet row that opens, in place, into a file manager. Native
+   <details>, so the listing is still reachable with scripts off: the static
+   tree is the data, and the script builds the manager on top of it. */
 stimma-files{display:block}
 .sp-files{display:block}
 .sp-files>summary{list-style:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -154,75 +158,111 @@ stimma-files{display:block}
 .sp-files>summary:hover .sp-browse{color:var(--sp-fg);background:var(--sp-plate)}
 .sp-files[open]>summary .sp-browse{color:var(--sp-fg)}
 .sp-files[open]>summary .sp-browse .sp-caret{transform:rotate(180deg)}
-
-/* The browser: one raised surface, divided by hairlines and nothing else. */
-.sp-browser{display:grid;grid-template-columns:minmax(190px,270px) 1fr;
-  margin-top:14px;border:1px solid var(--sp-line);border-radius:10px;overflow:hidden}
-.sp-tree{padding:8px 6px;max-height:420px;overflow:auto;border-right:1px solid var(--sp-line)}
-.sp-tree:focus{outline:none}
-.sp-tree:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
-stimma-files ul{list-style:none;margin:0;padding:0}
-stimma-files li{position:relative}
-stimma-files .sp-row{display:flex;align-items:center;gap:10px;padding:5px 9px;min-height:32px;
-  border-radius:7px;cursor:default;transition:background-color .12s}
-stimma-files .sp-row:hover{background:var(--sp-plate)}
-stimma-files .sp-row:focus{outline:none}
-stimma-files .sp-row:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
-stimma-files .sp-row.sp-sel{background:var(--sp-plate);box-shadow:inset 2px 0 0 var(--sp-accent)}
-stimma-files .sp-row.sp-sel .sp-name{color:var(--sp-fg)}
-stimma-files li.sp-file>.sp-row{cursor:pointer}
-stimma-files li.sp-dir>.sp-row{cursor:pointer;user-select:none}
-stimma-files li.sp-dir>ul{margin-left:18px;padding-left:13px;border-left:1px solid var(--sp-line)}
-stimma-files li.sp-dir.sp-collapsed>ul{display:none}
-stimma-files .sp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:13px;color:var(--sp-fg)}
-stimma-files li.sp-dir>.sp-row .sp-name{color:var(--sp-muted)}
-stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
-stimma-files .sp-caret{width:14px;height:14px;flex:none;color:var(--sp-faint);
-  display:inline-flex;align-items:center;justify-content:center;transition:transform .15s}
-stimma-files li.sp-dir.sp-collapsed>.sp-row .sp-caret{transform:rotate(-90deg)}
-stimma-files .sp-caret svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;
-  stroke-linecap:round;stroke-linejoin:round}
-.sp-browse .sp-caret{color:inherit;width:11px;height:11px}
-stimma-files .sp-thumb{width:22px;height:22px;flex:none;border-radius:4px;object-fit:contain;
-  background:var(--sp-plate)}
-stimma-files .sp-glyph{width:22px;height:22px;flex:none;display:inline-flex;align-items:center;
-  justify-content:center;color:var(--sp-faint)}
-stimma-files .sp-glyph svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;
-  stroke-linecap:round;stroke-linejoin:round}
-.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-  border-radius:6px;color:var(--sp-faint);flex:none;opacity:0;
-  transition:color .15s,background-color .15s,opacity .15s}
-stimma-files .sp-row:hover .sp-dl,stimma-files .sp-row.sp-sel .sp-dl,.sp-dl:focus-visible{opacity:1}
-.sp-dl:hover{color:var(--sp-fg);background:var(--sp-line)}
-.sp-dl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
+.sp-caret{width:11px;height:11px;flex:none;display:inline-flex;align-items:center;
+  justify-content:center;transition:transform .15s}
+.sp-caret svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round}
 .sp-zip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sp-fg);
   padding:7px 12px;border-radius:7px;background:var(--sp-plate);flex:none;
   transition:background-color .15s}
 .sp-zip:hover{background:var(--sp-line)}
+.sp-zip:focus{outline:none}
+.sp-zip:focus-visible{outline:2px solid var(--sp-accent);outline-offset:1px}
 .sp-zip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
   stroke-linecap:round;stroke-linejoin:round;color:var(--sp-accent)}
 .sp-zip b{font-weight:500}
 .sp-zip em{font-style:normal;color:var(--sp-faint);font-variant-numeric:tabular-nums}
 
-/* The viewer pane: a header line and the file itself. */
-.sp-view{min-width:0;display:flex;flex-direction:column}
-.sp-view-head{display:flex;align-items:center;gap:10px;padding:11px 14px 9px;min-height:42px}
-.sp-vname{font-size:13px;color:var(--sp-fg);flex:none;max-width:45%;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.sp-vmeta{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;
-  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sp-vact{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sp-muted);
-  padding:5px 10px;border-radius:6px;flex:none;border:0;background:none;cursor:pointer;
-  font-family:inherit;transition:color .15s,background-color .15s}
+/* The surface: one raised container, one hairline between bar and content. */
+.sp-browser{display:flex;flex-direction:column;min-width:0;margin-top:14px;
+  border:1px solid var(--sp-line);border-radius:10px;overflow:hidden}
+.sp-browser [hidden]{display:none!important}
+stimma-files button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+stimma-files button:focus{outline:none}
+stimma-files button:focus-visible{outline:2px solid var(--sp-accent);outline-offset:1px}
+stimma-files .sp-thumb{width:26px;height:26px;flex:none;border-radius:4px;object-fit:contain;
+  background:var(--sp-plate)}
+stimma-files .sp-glyph{width:26px;height:26px;flex:none;display:inline-flex;align-items:center;
+  justify-content:center;color:var(--sp-faint)}
+stimma-files .sp-glyph svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+stimma-files .sp-name{flex:1;min-width:0;font-size:13px;line-height:1.35;color:var(--sp-fg);
+  overflow-wrap:anywhere}
+stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
+.sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:6px;color:var(--sp-faint);flex:none;transition:color .15s,background-color .15s}
+.sp-dl:hover{color:var(--sp-fg);background:var(--sp-line)}
+.sp-dl:focus{outline:none}
+.sp-dl:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-1px}
+.sp-dl svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* The static tree: what a reader with scripts off gets. */
+.sp-tree{padding:8px 10px;max-height:520px;overflow:auto}
+.sp-live .sp-tree{display:none}
+.sp-tree ul{list-style:none;margin:0;padding:0}
+.sp-tree li.sp-dir>ul{margin-left:12px;padding-left:14px;border-left:1px solid var(--sp-line)}
+.sp-tree .sp-row{display:flex;align-items:center;gap:10px;padding:5px 8px;min-height:34px}
+.sp-tree li.sp-dir>.sp-row .sp-name{color:var(--sp-muted)}
+
+/* The bar: where you are, and how you are looking at it. */
+.sp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;min-height:48px;
+  border-bottom:1px solid var(--sp-line)}
+.sp-crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:1px;flex:1;min-width:0}
+.sp-crumb{font-size:13px;color:var(--sp-muted);padding:5px 8px;border-radius:6px;max-width:100%;
+  text-align:left;overflow-wrap:anywhere;transition:color .15s,background-color .15s}
+.sp-crumb:hover{color:var(--sp-fg);background:var(--sp-plate)}
+.sp-crumb[aria-current]{color:var(--sp-fg);cursor:default}
+.sp-crumb[aria-current]:hover{background:none}
+.sp-crumb-sep{color:var(--sp-faint);font-size:12px;padding:0 2px}
+.sp-seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--sp-plate);flex:none}
+.sp-seg button{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sp-muted);
+  padding:4px 10px;border-radius:6px;transition:color .15s,background-color .15s}
+.sp-seg button:hover{color:var(--sp-fg)}
+.sp-seg button[aria-pressed=true]{background:var(--sp-line);color:var(--sp-fg)}
+.sp-seg svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+.sp-vacts{display:inline-flex;align-items:center;gap:2px;flex:none}
+.sp-vact{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px;
+  color:var(--sp-muted);padding:5px 9px;min-width:28px;min-height:28px;border-radius:6px;
+  transition:color .15s,background-color .15s}
 .sp-vact:hover{color:var(--sp-fg);background:var(--sp-plate)}
-.sp-vact:focus{outline:none}
-.sp-vact:focus-visible{outline:2px solid var(--sp-accent);outline-offset:1px}
+.sp-vact:disabled{opacity:.35;cursor:default}
+.sp-vact:disabled:hover{color:var(--sp-muted);background:none}
+.sp-vact[aria-pressed=true]{color:var(--sp-accent)}
 .sp-vact svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75;
   stroke-linecap:round;stroke-linejoin:round}
-.sp-vact[aria-pressed=true]{color:var(--sp-accent)}
-.sp-view-body{flex:1;min-height:230px;max-height:420px;overflow:auto;padding:0 14px 14px;
+.sp-vpos{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;padding:0 4px}
+
+/* The listing: rows or tiles, never a tree. A click opens. */
+.sp-area{max-height:520px;overflow:auto;padding:6px}
+.sp-area:focus{outline:none}
+.sp-list{display:flex;flex-direction:column;gap:1px}
+.sp-item{display:flex;align-items:center;gap:10px;padding:5px 8px 5px 10px;min-height:38px;
+  border-radius:7px;cursor:pointer;user-select:none;position:relative;
+  transition:background-color .12s}
+.sp-item:hover{background:var(--sp-plate)}
+.sp-item:focus{outline:none}
+.sp-item:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
+.sp-item .sp-dl{opacity:0}
+.sp-item:hover .sp-dl,.sp-item:focus-visible .sp-dl,.sp-item .sp-dl:focus-visible{opacity:1}
+.sp-icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:4px;
+  align-content:start}
+.sp-icons .sp-item{flex-direction:column;justify-content:flex-start;gap:8px;padding:14px 8px 10px;
+  text-align:center;min-height:0}
+.sp-icons .sp-item .sp-thumb,.sp-icons .sp-item .sp-glyph{width:64px;height:64px;border-radius:6px}
+.sp-icons .sp-item .sp-glyph svg{width:30px;height:30px}
+.sp-icons .sp-item .sp-name{flex:none;width:100%;font-size:12.5px}
+.sp-icons .sp-item .sp-meta{font-size:11px}
+.sp-icons .sp-item .sp-dl{position:absolute;top:6px;right:6px}
+.sp-empty{color:var(--sp-faint);font-size:13px;margin:0;padding:24px 10px;text-align:center}
+
+/* The viewer: the file, and its facts. */
+.sp-view{display:flex;flex-direction:column;min-width:0}
+.sp-view:focus{outline:none}
+.sp-facts{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;
+  padding:10px 14px 0;overflow-wrap:anywhere}
+.sp-view-body{max-height:560px;min-height:200px;overflow:auto;padding:12px 14px 14px;
   display:flex;flex-direction:column;gap:10px}
 .sp-view-body.sp-center{align-items:center;justify-content:center;text-align:center}
 .sp-shot{max-width:100%;width:auto;height:auto;border-radius:2px;
@@ -230,15 +270,10 @@ stimma-files .sp-row:hover .sp-dl,stimma-files .sp-row.sp-sel .sp-dl,.sp-dl:focu
 video.sp-shot,audio.sp-shot{width:100%;background:none}
 .sp-code{margin:0;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   color:var(--sp-muted);white-space:pre-wrap;word-break:break-word;tab-size:2}
-.sp-empty{color:var(--sp-faint);font-size:13px;margin:0}
 .sp-blank{display:grid;justify-items:center;gap:8px;color:var(--sp-faint);font-size:13px}
 .sp-blank .sp-glyph{width:40px;height:40px}
 .sp-blank .sp-glyph svg{width:30px;height:30px}
 .sp-vnote{color:var(--sp-faint);font-size:12px;margin:0}
-@media (max-width:640px){
-  .sp-browser{grid-template-columns:1fr}
-  .sp-tree{border-right:0;border-bottom:1px solid var(--sp-line);max-height:220px}
-}
 
 /* Compare */
 stimma-compare{display:block}
@@ -313,257 +348,378 @@ KIT_JS = r"""
   }
 
   // The file browser. Compact by default: a <details> whose summary is the
-  // quiet row, and whose open state is a two-pane browser inside the page —
-  // no overlay. The pane reads text straight out of the row, because a cover
-  // has to work from a double-clicked file, where fetch() of a sibling file is
-  // blocked by every browser.
+  // quiet row, and whose open state is a file manager inside the page — no
+  // overlay, no tree-plus-pane. The static tree the server wrote is the data;
+  // the manager is built from it here, and text is read straight out of the
+  // rows, because a cover has to work from a double-clicked file, where
+  // fetch() of a sibling file is blocked by every browser.
   function setupFiles(){
-    var DOT = '  ·  ';
+    var DOT = ' · ';
+    var ICON = {
+      back: '<path d="m15 6-6 6 6 6"/>',
+      next: '<path d="m9 6 6 6-6 6"/>',
+      list: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+      grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/>' +
+            '<rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
+      code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4"/>',
+      file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>'
+    };
 
     function el(tag, cls){
       var node = document.createElement(tag);
       if (cls) node.className = cls;
       return node;
     }
-
+    function svg(paths){
+      return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>';
+    }
+    function button(cls, label, paths, text){
+      var b = el('button', cls);
+      b.type = 'button';
+      b.setAttribute('aria-label', label);
+      b.innerHTML = paths ? svg(paths) : '';
+      if (text) { var t = el('span'); t.textContent = text; b.appendChild(t); }
+      return b;
+    }
     function unpack(text){
       return text.replace(/<\\\//g, '</').replace(/<\\!--/g, '<!--');
     }
-
     function sourceOf(li){
-      var holder = li.querySelector('script.sp-src');
+      var holder = li.querySelector(':scope > script.sp-src');
       return holder ? unpack(holder.textContent) : null;
     }
-
-    function fold(row){
-      var li = row.parentElement;
-      var folded = li.classList.toggle('sp-collapsed');
-      row.setAttribute('aria-expanded', folded ? 'false' : 'true');
-    }
-
-    function visibleRows(files){
-      return Array.prototype.filter.call(
-        files.querySelectorAll('.sp-tree .sp-row'),
-        function(row){ return row.offsetParent !== null; }
-      );
-    }
-
     function pretty(text){
       try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) { return text; }
     }
-
+    function attr(li, name){ return li.getAttribute('data-' + name) || ''; }
+    function isDir(li){ return li.classList.contains('sp-dir'); }
+    function entries(ul){
+      return Array.prototype.filter.call(ul.children, function(li){ return li.tagName === 'LI'; });
+    }
     function blank(body, label){
       body.className = 'sp-view-body sp-center';
       var box = el('div', 'sp-blank');
       var glyph = el('span', 'sp-glyph');
-      glyph.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>' +
-        '<path d="M14 3v5h5"/></svg>';
+      glyph.innerHTML = svg(ICON.file);
       var text = el('span');
       text.textContent = label;
       box.appendChild(glyph); box.appendChild(text);
       body.appendChild(box);
     }
+    function focusQuiet(node){
+      if (!node) return;
+      try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+    }
 
-    function render(files, row){
-      var view = files.querySelector('.sp-view');
-      if (!view) return;
-      view.__row = row;
-      var li = row.parentElement;
-      var kind = li.getAttribute('data-kind') || 'other';
-      var path = li.getAttribute('data-path') || '';
-      var name = li.getAttribute('data-name') || '';
-      var size = li.getAttribute('data-size') || '';
-      var source = sourceOf(li);
-      var showSource = kind === 'svg' && view.getAttribute('data-mode') === 'source';
+    document.querySelectorAll('stimma-files').forEach(function(files){
+      var details = files.querySelector('details.sp-files');
+      var tree = files.querySelector('.sp-tree');
+      var browser = files.querySelector('.sp-browser');
+      var root = tree ? tree.querySelector('ul') : null;
+      if (!details || !browser || !root) return;
+      files.classList.add('sp-live');
 
-      view.textContent = '';
-      var header = el('div', 'sp-view-head');
-      var title = el('span', 'sp-vname');
-      title.textContent = name;
-      var meta = el('span', 'sp-vmeta');
-      meta.textContent = size;
-      header.appendChild(title); header.appendChild(meta);
-      var body = el('div', 'sp-view-body');
+      // Where we are: a folder (a <ul> in the tree), an open file (its <li>),
+      // and how the folder is shown.
+      var state = { folder: root, file: null, mode: 'list', source: false };
 
-      if (kind === 'svg' && source !== null) {
-        var toggle = el('button', 'sp-vact sp-src-toggle');
-        toggle.type = 'button';
-        toggle.textContent = 'Source';
-        toggle.setAttribute('aria-pressed', showSource ? 'true' : 'false');
-        header.appendChild(toggle);
+      var bar = el('div', 'sp-bar');
+      var crumbs = el('nav', 'sp-crumbs');
+      crumbs.setAttribute('aria-label', 'Location');
+      var seg = el('div', 'sp-seg');
+      seg.setAttribute('role', 'group');
+      seg.setAttribute('aria-label', 'View');
+      var modes = {};
+      [['list', 'List', ICON.list], ['icons', 'Icons', ICON.grid]].forEach(function(spec){
+        var b = button('', spec[1], spec[2], spec[1]);
+        b.addEventListener('click', function(){ state.mode = spec[0]; draw(); });
+        modes[spec[0]] = b;
+        seg.appendChild(b);
+      });
+      var acts = el('div', 'sp-vacts');
+      var area = el('div', 'sp-area');
+      var view = el('div', 'sp-view');
+      view.tabIndex = -1;
+      bar.appendChild(crumbs); bar.appendChild(seg); bar.appendChild(acts);
+      browser.appendChild(bar); browser.appendChild(area); browser.appendChild(view);
+
+      function parentFolder(ul){ return ul === root ? null : ul.parentElement.parentElement; }
+      function chain(){
+        var out = [], ul = state.folder;
+        while (ul) { out.unshift(ul); ul = parentFolder(ul); }
+        return out;
       }
-      // No href means the file is not alongside the page (a single-file
-      // export), and an inert button is worse than no button.
-      var dl = row.querySelector('.sp-dl');
-      if (dl && dl.getAttribute('href') && kind !== 'folder') {
-        var copy = dl.cloneNode(true);
-        copy.className = 'sp-vact';
-        var label = el('span');
-        label.textContent = 'Download';
-        copy.appendChild(label);
-        header.appendChild(copy);
+      function labelOf(ul){
+        return ul === root ? (tree.getAttribute('data-root') || 'Files') : attr(ul.parentElement, 'name');
       }
-      view.appendChild(header); view.appendChild(body);
-
-      if (kind === 'folder') {
-        meta.textContent = 'Folder' + DOT + (li.getAttribute('data-count') || '0') + ' files';
-        body.className = 'sp-view-body sp-center';
-        var hint = el('p', 'sp-empty');
-        hint.textContent = 'Select a file to view it here.';
-        body.appendChild(hint);
-        return;
+      function crumb(label, action){
+        var b = el('button', 'sp-crumb');
+        b.type = 'button';
+        b.textContent = label;
+        if (action) b.addEventListener('click', action);
+        else b.setAttribute('aria-current', 'page');
+        crumbs.appendChild(b);
       }
-
-      if (kind === 'image' || (kind === 'svg' && !showSource)) {
-        body.className = 'sp-view-body sp-center';
-        var img = el('img', 'sp-shot');
-        img.alt = name;
-        img.addEventListener('load', function(){
-          if (img.naturalWidth) {
-            meta.textContent = img.naturalWidth + ' × ' + img.naturalHeight + DOT + size;
-          }
+      function sep(){
+        var s = el('span', 'sp-crumb-sep');
+        s.textContent = '›';
+        s.setAttribute('aria-hidden', 'true');
+        crumbs.appendChild(s);
+      }
+      function drawCrumbs(){
+        crumbs.textContent = '';
+        var path = chain();
+        path.forEach(function(ul, i){
+          if (i) sep();
+          var here = i === path.length - 1 && !state.file;
+          crumb(labelOf(ul), here ? null : function(){ goTo(ul); });
         });
-        img.addEventListener('error', function(){
-          body.textContent = '';
-          blank(body, 'This file cannot be shown here' + DOT + size);
-        });
-        // The row's thumbnail is the same file, and it is the one reference a
-        // single-file export rewrites — so it is the one worth following.
-        var thumb = row.querySelector('.sp-thumb');
-        img.src = (thumb && thumb.getAttribute('src')) || path;
-        body.appendChild(img);
-        return;
+        if (state.file) { sep(); crumb(attr(state.file, 'name'), null); }
       }
 
-      if (kind === 'text' || (kind === 'svg' && showSource)) {
-        if (source === null) {
-          body.className = 'sp-view-body sp-center';
-          var away = el('p', 'sp-empty');
-          away.textContent = 'Open the package to view this file.';
-          body.appendChild(away);
+      function item(li){
+        var dir = isDir(li);
+        var node = el('div', 'sp-item' + (dir ? ' sp-folder' : ''));
+        node.setAttribute('role', 'button');
+        node.tabIndex = -1;
+        node.__li = li;
+        var lead = li.querySelector(':scope > .sp-row > .sp-thumb, :scope > .sp-row > .sp-glyph');
+        if (lead) node.appendChild(lead.cloneNode(true));
+        var name = el('span', 'sp-name');
+        name.textContent = attr(li, 'name');
+        node.appendChild(name);
+        var meta = el('span', 'sp-meta');
+        meta.textContent = dir ? attr(li, 'count') + (attr(li, 'count') === '1' ? ' file' : ' files')
+                               : attr(li, 'size');
+        node.appendChild(meta);
+        // No href means the file is not alongside the page (a single-file
+        // export), and an inert button is worse than no button.
+        var dl = li.querySelector(':scope > .sp-row > .sp-dl');
+        if (dl && dl.getAttribute('href')) node.appendChild(dl.cloneNode(true));
+        return node;
+      }
+      function items(){ return Array.prototype.slice.call(area.querySelectorAll('.sp-item')); }
+      function itemFor(li){
+        return items().filter(function(node){ return node.__li === li; })[0] || null;
+      }
+
+      function drawList(focusLi){
+        view.hidden = true; acts.hidden = true;
+        area.hidden = false; seg.hidden = false;
+        area.className = 'sp-area ' + (state.mode === 'icons' ? 'sp-icons' : 'sp-list');
+        area.textContent = '';
+        Object.keys(modes).forEach(function(key){
+          modes[key].setAttribute('aria-pressed', key === state.mode ? 'true' : 'false');
+        });
+        var list = entries(state.folder);
+        if (!list.length) {
+          var empty = el('p', 'sp-empty');
+          empty.textContent = 'This folder is empty.';
+          area.appendChild(empty);
           return;
         }
-        var pre = el('pre', 'sp-code');
-        pre.textContent = /\.(json|webmanifest)$/i.test(name) ? pretty(source) : source;
-        body.appendChild(pre);
-        if (li.getAttribute('data-truncated')) {
-          var note = el('p', 'sp-vnote');
-          note.textContent = 'Showing the first 64 KB of ' + size + '.';
-          body.appendChild(note);
-        }
-        return;
+        list.forEach(function(li){ area.appendChild(item(li)); });
+        var target = (focusLi && itemFor(focusLi)) || area.querySelector('.sp-item');
+        if (target) target.tabIndex = 0;
+        if (focusLi && target) focusQuiet(target);
       }
 
-      if (kind === 'video' || kind === 'audio') {
-        var player = el(kind === 'video' ? 'video' : 'audio', 'sp-shot');
-        player.controls = true;
-        player.preload = 'metadata';
-        player.src = path;
-        if (kind === 'video') {
-          player.addEventListener('loadedmetadata', function(){
-            if (player.videoWidth) {
-              meta.textContent = player.videoWidth + ' × ' + player.videoHeight + DOT + size;
-            }
+      function facts(li, extra){
+        var name = attr(li, 'name');
+        var ext = (name.split('.').pop() || '').toUpperCase();
+        var parts = [];
+        if (ext && ext !== name.toUpperCase()) parts.push(ext);
+        if (extra) parts.push(extra);
+        parts.push(attr(li, 'size'));
+        return parts.join(DOT);
+      }
+
+      function drawView(){
+        var li = state.file;
+        var kind = attr(li, 'kind');
+        var name = attr(li, 'name');
+        var path = attr(li, 'path');
+        var source = sourceOf(li);
+        var showSource = kind === 'svg' && state.source;
+
+        area.hidden = true; seg.hidden = true;
+        view.hidden = false; acts.hidden = false;
+        acts.textContent = '';
+        var siblings = entries(state.folder).filter(function(x){ return !isDir(x); });
+        var at = siblings.indexOf(li);
+        var prev = button('sp-vact', 'Previous file', ICON.back);
+        prev.disabled = at <= 0;
+        prev.addEventListener('click', function(){ step(-1); });
+        var pos = el('span', 'sp-vpos');
+        pos.textContent = (at + 1) + ' of ' + siblings.length;
+        var next = button('sp-vact', 'Next file', ICON.next);
+        next.disabled = at >= siblings.length - 1;
+        next.addEventListener('click', function(){ step(1); });
+        acts.appendChild(prev); acts.appendChild(pos); acts.appendChild(next);
+        if (kind === 'svg' && source !== null) {
+          var toggle = button('sp-vact sp-src-toggle', 'Source', ICON.code, 'Source');
+          toggle.setAttribute('aria-pressed', showSource ? 'true' : 'false');
+          toggle.addEventListener('click', function(){
+            state.source = !state.source; draw();
+            // The bar was rebuilt under the pointer: keep focus on the toggle,
+            // so Escape and the arrows still reach the browser.
+            focusQuiet(acts.querySelector('.sp-src-toggle'));
           });
+          acts.appendChild(toggle);
         }
-        body.appendChild(player);
-        return;
-      }
-
-      if (kind === 'icns') {
-        blank(body, 'macOS icon' + DOT + size);
-        return;
-      }
-      blank(body, (name.split('.').pop() || 'file').toUpperCase() + ' file' + DOT + size);
-    }
-
-    function select(files, row, focus){
-      files.querySelectorAll('.sp-row.sp-sel').forEach(function(other){
-        other.classList.remove('sp-sel');
-        other.setAttribute('aria-selected', 'false');
-      });
-      row.classList.add('sp-sel');
-      row.setAttribute('aria-selected', 'true');
-      if (focus !== false) {
-        try { row.focus({ preventScroll: true }); } catch (e) { row.focus(); }
-      }
-      render(files, row);
-    }
-
-    function move(files, delta){
-      var list = visibleRows(files);
-      if (!list.length) return;
-      var current = files.querySelector('.sp-row.sp-sel');
-      var at = list.indexOf(current);
-      var next = at < 0 ? (delta > 0 ? 0 : list.length - 1)
-                        : Math.min(list.length - 1, Math.max(0, at + delta));
-      select(files, list[next], true);
-    }
-
-    function collapse(files){
-      var box = files ? files.querySelector('details.sp-files') : null;
-      var open = box ? [box] : Array.prototype.slice.call(
-        document.querySelectorAll('stimma-files details.sp-files[open]'));
-      open.forEach(function(details){
-        if (!details.open) return;
-        details.open = false;
-        var summary = details.querySelector('summary');
-        if (summary) summary.focus();
-      });
-    }
-
-    // Opening for the first time puts something in the pane, so the browser
-    // never reads as an empty box the reader has to poke at.
-    document.querySelectorAll('stimma-files details.sp-files').forEach(function(details){
-      details.addEventListener('toggle', function(){
-        var files = closest(details, 'stimma-files');
-        if (!details.open || !files || files.querySelector('.sp-row.sp-sel')) return;
-        var first = files.querySelector('.sp-tree li.sp-file > .sp-row');
-        if (first) select(files, first, false);
-      });
-    });
-
-    document.addEventListener('click', function(ev){
-      var toggle = closest(ev.target, '.sp-src-toggle');
-      if (toggle) {
-        var holder = closest(toggle, '.sp-view');
-        var owner = closest(toggle, 'stimma-files');
-        if (holder && owner && holder.__row) {
-          holder.setAttribute('data-mode',
-            holder.getAttribute('data-mode') === 'source' ? 'preview' : 'source');
-          render(owner, holder.__row);
+        var dl = li.querySelector(':scope > .sp-row > .sp-dl');
+        if (dl && dl.getAttribute('href')) {
+          var copy = dl.cloneNode(true);
+          copy.className = 'sp-vact';
+          var label = el('span');
+          label.textContent = 'Download';
+          copy.appendChild(label);
+          acts.appendChild(copy);
         }
-        return;
-      }
-      // A download is a download: it never moves the selection or folds a row.
-      if (closest(ev.target, 'a')) return;
-      var row = closest(ev.target, 'stimma-files .sp-tree .sp-row');
-      if (!row) return;
-      var files = closest(row, 'stimma-files');
-      if (!files) return;
-      if (row.parentElement.classList.contains('sp-dir')) fold(row);
-      select(files, row);
-    });
 
-    document.addEventListener('keydown', function(ev){
-      var files = closest(ev.target, 'stimma-files') || closest(document.activeElement, 'stimma-files');
-      if (ev.key === 'Escape') { collapse(files); return; }
-      if (!files) return;
-      // The summary, the source toggle and the download links keep their own
-      // keyboard behaviour; the tree only claims keys aimed at the tree.
-      if (closest(ev.target, 'summary') || closest(ev.target, 'a') || closest(ev.target, 'button')) return;
-      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-        ev.preventDefault();
-        move(files, ev.key === 'ArrowDown' ? 1 : -1);
-        return;
+        view.textContent = '';
+        var meta = el('p', 'sp-facts');
+        meta.textContent = facts(li);
+        var body = el('div', 'sp-view-body');
+        view.appendChild(meta); view.appendChild(body);
+
+        if (kind === 'image' || (kind === 'svg' && !showSource)) {
+          body.className = 'sp-view-body sp-center';
+          var img = el('img', 'sp-shot');
+          img.alt = name;
+          img.addEventListener('load', function(){
+            if (img.naturalWidth) meta.textContent = facts(li, img.naturalWidth + ' × ' + img.naturalHeight);
+          });
+          img.addEventListener('error', function(){
+            body.textContent = '';
+            blank(body, 'This file cannot be shown here');
+          });
+          // The row's thumbnail is the same file, and it is the one reference
+          // a single-file export rewrites — so it is the one worth following.
+          var thumb = li.querySelector(':scope > .sp-row > .sp-thumb');
+          img.src = (thumb && thumb.getAttribute('src')) || path;
+          body.appendChild(img);
+          return;
+        }
+        if (kind === 'text' || (kind === 'svg' && showSource)) {
+          if (source === null) {
+            body.className = 'sp-view-body sp-center';
+            var away = el('p', 'sp-empty');
+            away.textContent = 'Open the package to view this file.';
+            body.appendChild(away);
+            return;
+          }
+          var pre = el('pre', 'sp-code');
+          pre.textContent = /\.(json|webmanifest)$/i.test(name) ? pretty(source) : source;
+          body.appendChild(pre);
+          if (attr(li, 'truncated')) {
+            var note = el('p', 'sp-vnote');
+            note.textContent = 'Showing the first 64 KB of ' + attr(li, 'size') + '.';
+            body.appendChild(note);
+          }
+          return;
+        }
+        if (kind === 'video' || kind === 'audio') {
+          var player = el(kind, 'sp-shot');
+          player.controls = true;
+          player.preload = 'metadata';
+          player.src = path;
+          if (kind === 'video') {
+            player.addEventListener('loadedmetadata', function(){
+              if (player.videoWidth) meta.textContent = facts(li, player.videoWidth + ' × ' + player.videoHeight);
+            });
+          }
+          body.appendChild(player);
+          return;
+        }
+        blank(body, kind === 'icns' ? 'macOS icon' : 'No preview for this file');
       }
-      if (ev.key !== 'Enter' && ev.key !== ' ') return;
-      var row = closest(ev.target, '.sp-row') || files.querySelector('.sp-row.sp-sel');
-      if (!row) return;
-      ev.preventDefault();
-      if (row.parentElement.classList.contains('sp-dir')) fold(row);
-      select(files, row);
+
+      function draw(focusLi){
+        drawCrumbs();
+        if (state.file) drawView(); else drawList(focusLi);
+      }
+      function goTo(ul){
+        var was = state.file, came = state.folder;
+        state.file = null; state.source = false; state.folder = ul;
+        // Backing out lands on what we came from, so the reader keeps their place.
+        var child = came === ul ? null : came;
+        while (child && parentFolder(child) !== ul) child = parentFolder(child);
+        draw(child ? child.parentElement : was);
+      }
+      function open(li){
+        if (isDir(li)) { state.folder = li.querySelector(':scope > ul'); state.file = null; draw(); focusQuiet(area.querySelector('.sp-item')); }
+        else { state.file = li; state.source = false; draw(); focusQuiet(view); }
+      }
+      function step(delta){
+        var list = entries(state.folder).filter(function(x){ return !isDir(x); });
+        var next = list[list.indexOf(state.file) + delta];
+        if (!next) return;
+        state.file = next; state.source = false; draw();
+        focusQuiet(view);
+      }
+      function back(){
+        var was = state.file;
+        state.file = null; state.source = false;
+        draw(was);
+      }
+      function up(){
+        var parent = parentFolder(state.folder);
+        if (parent) goTo(parent);
+      }
+
+      function moveFocus(delta){
+        var list = items();
+        var from = list.indexOf(document.activeElement);
+        var to = from < 0 ? 0 : Math.max(0, Math.min(list.length - 1, from + delta));
+        if (!list[to]) return;
+        list.forEach(function(node){ node.tabIndex = -1; });
+        list[to].tabIndex = 0;
+        list[to].focus();
+      }
+      function columns(){
+        var list = items();
+        if (list.length < 2) return 1;
+        var top = list[0].offsetTop, n = 1;
+        while (n < list.length && list[n].offsetTop === top) n++;
+        return n;
+      }
+
+      area.addEventListener('click', function(ev){
+        if (ev.target.closest('a')) return;  // a download is a download
+        var node = ev.target.closest('.sp-item');
+        if (node && node.__li) open(node.__li);
+      });
+      files.addEventListener('keydown', function(ev){
+        if (ev.target.closest('summary')) return;
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          if (state.file) back();
+          else { details.open = false; focusQuiet(details.querySelector('summary')); }
+          return;
+        }
+        if (state.file) {
+          if (ev.key === 'ArrowLeft') { ev.preventDefault(); step(-1); }
+          else if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
+          return;
+        }
+        if (ev.target.closest('a, button')) return;
+        var node = ev.target.closest('.sp-item');
+        var grid = state.mode === 'icons';
+        switch (ev.key) {
+          case 'Enter': case ' ':
+            if (node && node.__li) { ev.preventDefault(); open(node.__li); }
+            break;
+          case 'ArrowDown': ev.preventDefault(); moveFocus(grid ? columns() : 1); break;
+          case 'ArrowUp': ev.preventDefault(); moveFocus(grid ? -columns() : -1); break;
+          case 'ArrowRight': ev.preventDefault(); moveFocus(1); break;
+          case 'ArrowLeft': ev.preventDefault(); moveFocus(-1); break;
+          case 'Home': ev.preventDefault(); moveFocus(-items().length); break;
+          case 'End': ev.preventDefault(); moveFocus(items().length); break;
+          case 'Backspace': ev.preventDefault(); up(); break;
+        }
+      });
+      draw();
     });
   }
 
@@ -672,7 +828,7 @@ _GLYPH_FILE = ('<span class="sp-glyph"><svg viewBox="0 0 24 24">'
                '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>'
                '<path d="M14 3v5h5"/></svg></span>')
 
-# What the row can show as a 22px thumbnail: the browser draws these itself.
+# What the row can show as a thumbnail: the browser draws these itself.
 _PREVIEWABLE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico"}
 _RASTER_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif"}
 _AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
@@ -762,8 +918,13 @@ def _render_tree(
     depth: int = 0,
     bundle_dir: Optional[Path] = None,
 ) -> str:
+    """The static tree: folders first, then files, each a row of facts.
+
+    This is what a reader with scripts off sees, and the data the scripted
+    file manager is built from — every row carries what its viewer needs.
+    """
     items = sorted(node.items(), key=lambda kv: (not isinstance(kv[1], dict) or "__file__" in kv[1], kv[0].lower()))
-    out = ['<ul role="group">' if depth else "<ul>"]
+    out = ["<ul>"]
     for name, child in items:
         if name in ("__dir__", "__file__"):
             continue
@@ -793,21 +954,16 @@ def _render_tree(
                 f'<li class="sp-file" data-kind="{kind}" data-path="{src_path}"'
                 f' data-name="{quoted}" data-bytes="{size}"'
                 f' data-size="{human_size(size)}"{extra}>'
-                f'<div class="sp-row" role="treeitem" tabindex="-1" aria-selected="false">'
-                f'{lead}<span class="sp-name">{safe}</span>'
+                f'<div class="sp-row">{lead}<span class="sp-name">{safe}</span>'
                 f'<span class="sp-meta">{human_size(size)}</span>'
                 f'<a class="sp-dl" href="{_download_href(path)}" download'
                 f' aria-label="Download {quoted}">{_ICON_DOWNLOAD}</a></div>{body}</li>'
             )
         else:
             count = _count_files(child)
-            # Open: the reader asked for the browser, so the browser shows what
-            # is in it. Every folder still folds, and the pane scrolls.
             out.append(
                 f'<li class="sp-dir" data-kind="folder" data-name="{quoted}" data-count="{count}">'
-                f'<div class="sp-row" role="treeitem" tabindex="-1" aria-selected="false"'
-                f' aria-expanded="true">{_CARET}{_GLYPH_FOLDER}'
-                f'<span class="sp-name">{safe}</span>'
+                f'<div class="sp-row">{_GLYPH_FOLDER}<span class="sp-name">{safe}</span>'
                 f'<span class="sp-meta">{count}</span></div>'
                 f'{_render_tree(child, prefix + name + "/", depth + 1, bundle_dir)}</li>'
             )
@@ -824,24 +980,20 @@ def _count_files(node: dict[str, Any]) -> int:
     return total
 
 
-def _browser_markup(count: int, total: int, action: str, tree: str) -> str:
+def _browser_markup(count: int, total: int, action: str, tree: str, root_label: str = "") -> str:
     """The compact row, and the browser it opens into.
 
     ``<details>`` rather than a scripted toggle: closed is the resting state,
     and a reader with scripts off can still open it and read the tree.
     """
     plural = "file" if count == 1 else "files"
+    root = f' data-root="{htmllib.escape(root_label, quote=True)}"' if root_label else ""
     return (
         '<details class="sp-files"><summary class="sp-files-top">'
         f'<span class="sp-files-what"><span class="sp-num">{count}</span> {plural}'
         f' · <span class="sp-num">{_human_size(total)}</span></span>{action}'
         f'<span class="sp-browse">Browse files{_CARET}</span></summary>'
-        '<div class="sp-browser">'
-        f'<div class="sp-tree" role="tree" tabindex="0">{tree}</div>'
-        '<div class="sp-view"><div class="sp-view-head"><span class="sp-vname">Files</span></div>'
-        '<div class="sp-view-body sp-center">'
-        '<p class="sp-empty">Select a file to view it here.</p></div></div>'
-        '</div></details>'
+        f'<div class="sp-browser"><div class="sp-tree"{root}>{tree}</div></div></details>'
     )
 
 
@@ -857,7 +1009,7 @@ def _files_markup(manifest: dict[str, Any], ref: str, bundle_dir: Optional[Path]
             f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a>'
         )
         tree = _render_tree(_tree(entries, root + "/"), root + "/", bundle_dir=bundle_dir)
-        return _browser_markup(len(entries), total, action, tree)
+        return _browser_markup(len(entries), total, action, tree, root_label=root)
 
     sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:

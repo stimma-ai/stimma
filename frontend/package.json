@@ -31,7 +31,8 @@
     "test:terms": "node --test --experimental-strip-types src/utils/terms.test.ts",
     "test:directory-picker": "node --test --experimental-strip-types src/utils/directoryPicker.test.ts",
     "test:file-refs": "node --test tests/fileRefs.browser.test.mjs",
-    "test:package-cover": "node --test tests/packageCover.test.mjs"
+    "test:package-cover": "node --test tests/packageCover.test.mjs",
+    "test:package-appearance": "node --test tests/packageAppearance.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",
