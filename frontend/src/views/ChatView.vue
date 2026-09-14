@@ -12,6 +12,8 @@
       :chat-id="chatId"
       :view-mode="viewMode"
       :settings-panel-visible="settingsPanelVisible"
+      :artifact-open="artifactStage.stageOpen.value"
+      @toggle-artifact="artifactStage.toggle"
       @toggle-view="toggleView"
       @toggle-settings-panel="toggleSettingsPanel"
       @delete="confirmDelete"
@@ -22,37 +24,14 @@
     />
 
     <!-- Content area: artifact stage (standalone only) + chat column -->
-    <div class="flex flex-1 min-h-0 relative">
-      <template v-if="!embedded || artifactStage.workspaceFile.value">
-        <ArtifactStage
-          v-if="artifactStage.stageOpen.value"
-          class="compact:absolute compact:inset-0 compact:z-chrome"
-          :workspace-file="artifactStage.workspaceFile.value"
-          :chat-id="chatId"
-          @attach-file="attachWorkspaceFile"
-          @save-file="saveWorkspaceFile"
-          :asset="artifactStage.asset.value"
-          :revisions="artifactStage.revisions.value"
-          :viewed-revision-id="artifactStage.viewedRevisionId.value"
-          :viewed-revision="artifactStage.viewedRevision.value"
-          :latest-revision-id="artifactStage.latestRevisionId.value"
-          :on-newest="artifactStage.onNewest.value"
-          :loading="artifactStage.loading.value"
-          :class="artifactStage.resizing.value ? '!transition-none' : ''"
-          @close="artifactStage.close"
-          @select-revision="artifactStage.viewRevision"
-          @jump-newest="artifactStage.jumpToNewest"
-          @set-latest="artifactStage.setAsLatest"
-          @open-slideshow="(mediaId) => openSlideshow(mediaId, 0)"
-        />
-        <div
-          v-if="artifactStage.stageOpen.value"
-          class="w-1 border-l border-edge-subtle flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
-          @mousedown="artifactStage.startResize"
-        />
-      </template>
-
-    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="(!embedded || artifactStage.workspaceFile.value) && artifactStage.stageOpen.value && !isCompact ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
+    <div class="flex flex-1 min-h-0 relative overflow-hidden">
+    <div
+      class="flex flex-1 flex-col min-h-0 min-w-0 transition-[flex-grow] duration-[180ms] ease-out"
+      :class="artifactStage.resizing.value ? '!transition-none' : ''"
+      :style="(!embedded || artifactStage.workspaceFile.value) && !isCompact
+        ? { flex: `${stageSqueezesChat ? '0 0' : '1 1'} ${artifactStage.width.value}px` }
+        : {}"
+    >
       <!-- Chat + Settings horizontal row -->
       <div class="flex flex-1 min-h-0 relative">
         <!-- Main chat area -->
@@ -1369,6 +1348,40 @@
         @drag-media="handleStripDragStart"
       />
     </div>
+      <!-- Artifact stage (standalone only): sits to the right of the chat column.
+           It slides in/out along the right edge at its final width while the chat
+           column is squeezed/released in step (transition on flex-grow, same
+           duration). During the slide the stage is lifted out of the flex flow
+           (see freezeStage*) so its width never changes mid-animation. -->
+      <template v-if="!embedded || artifactStage.workspaceFile.value">
+        <div
+          v-if="artifactStage.stageOpen.value"
+          class="w-1 border-l border-edge-subtle flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors compact:hidden"
+          @mousedown="artifactStage.startResize"
+        />
+        <Transition name="stage" @enter="freezeStageForEnter" @after-enter="unfreezeStage" @enter-cancelled="unfreezeStage" @before-leave="freezeStageForLeave">
+          <ArtifactStage
+            v-if="artifactStage.stageOpen.value"
+            class="compact:absolute compact:inset-0 compact:z-chrome"
+            :workspace-file="artifactStage.workspaceFile.value"
+            :chat-id="chatId"
+            @attach-file="attachWorkspaceFile"
+            @save-file="saveWorkspaceFile"
+            :asset="artifactStage.asset.value"
+            :revisions="artifactStage.revisions.value"
+            :viewed-revision-id="artifactStage.viewedRevisionId.value"
+            :viewed-revision="artifactStage.viewedRevision.value"
+            :latest-revision-id="artifactStage.latestRevisionId.value"
+            :on-newest="artifactStage.onNewest.value"
+            :loading="artifactStage.loading.value"
+            @close="artifactStage.close"
+            @select-revision="artifactStage.viewRevision"
+            @jump-newest="artifactStage.jumpToNewest"
+            @set-latest="artifactStage.setAsLatest"
+            @open-slideshow="(mediaId) => openSlideshow(mediaId, 0)"
+          />
+        </Transition>
+      </template>
     </div>
 
     <!-- Slideshow Mode: mounted at the view root (not inside the chat column) so it
@@ -4582,6 +4595,50 @@ function toggleView() {
   }
 }
 
+// While the artifact stage slides in or out it is taken out of the flex flow
+// and pinned to the right edge at its final size, so the chat column's
+// flex-grow transition (same duration) is the only thing moving the layout:
+// the chat is squeezed as the panel arrives and released as it leaves.
+const STAGE_HANDLE_WIDTH = 4  // the w-1 resize handle stays in flow
+// Drives the chat column's pinned/free state. Flipped from the transition
+// hooks rather than bound to stageOpen directly so the chat's squeeze starts on
+// the same frame as the stage's slide (Vue applies enter-to/leave-to a frame
+// after the hooks run).
+const stageSqueezesChat = ref(artifactStage.stageOpen.value)
+// Vue applies enter-to/leave-to on the second animation frame after the hook
+// (its nextFrame is a double rAF); start the chat's squeeze on the same frame.
+function onTransitionFrame(fn) {
+  requestAnimationFrame(() => requestAnimationFrame(fn))
+}
+watch(artifactStage.stageOpen, (open) => {
+  // Fallback for paths that skip the transition (compact overlay, initial
+  // render, embedded): keep the flag in sync without animation coupling.
+  if (isCompact.value || props.embedded) stageSqueezesChat.value = open
+})
+function pinStage(el, width) {
+  el.style.position = 'absolute'
+  el.style.top = `${el.offsetTop}px`
+  el.style.right = '0'
+  el.style.width = `${width}px`
+  el.style.height = `${el.parentElement.clientHeight}px`
+}
+// `enter` (not `before-enter`): the element must already be in the DOM so its
+// parent's width is known. Arity 1 keeps Vue on CSS transition timing.
+function freezeStageForEnter(el) {
+  if (isCompact.value || !el.parentElement) { stageSqueezesChat.value = true; return }
+  pinStage(el, el.parentElement.clientWidth - artifactStage.width.value - STAGE_HANDLE_WIDTH)
+  onTransitionFrame(() => { stageSqueezesChat.value = true })
+}
+function freezeStageForLeave(el) {
+  if (isCompact.value || !el.parentElement) { stageSqueezesChat.value = false; return }
+  pinStage(el, el.offsetWidth)
+  onTransitionFrame(() => { stageSqueezesChat.value = false })
+}
+function unfreezeStage(el) {
+  stageSqueezesChat.value = true
+  for (const prop of ['position', 'top', 'right', 'width', 'height']) el.style.removeProperty(prop)
+}
+
 function toggleSettingsPanel() {
   settingsPanelVisible.value = !settingsPanelVisible.value
   localStorage.setItem(_chatSettingsKey, String(settingsPanelVisible.value))
@@ -5580,6 +5637,18 @@ onActivated(updateCompactHeader)
 </script>
 
 <style scoped>
+/* Artifact stage enter/leave: slides along the right edge. The content area
+   is overflow-hidden so the off-screen position is clipped. */
+.stage-enter-active,
+.stage-leave-active {
+  /* Same curve as Tailwind's ease-out on the chat column, so the squeeze and
+     the slide track each other exactly. */
+  transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+}
+.stage-enter-from,
+.stage-leave-to {
+  transform: translateX(100%);
+}
 .chat-item {
   animation: fadeIn 0.2s ease-in;
 }

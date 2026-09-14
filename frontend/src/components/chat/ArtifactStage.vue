@@ -1,7 +1,7 @@
 <template>
   <div class="flex-1 min-w-0 bg-matte flex flex-col relative overflow-hidden">
     <!-- Header -->
-    <div class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
+    <div v-if="!isEmpty" class="flex flex-wrap items-center gap-2.5 px-3.5 py-2 border-b border-edge-subtle bg-surface/60 flex-shrink-0">
       <div v-if="!workspaceArchive" class="min-w-0" :draggable="!!workspaceFile" @dragstart="workspaceFile && chatId != null && dragWorkspaceFile($event, chatId, workspaceFile)">
         <div class="text-[12.5px] font-semibold text-content truncate">{{ workspaceFile?.name || asset?.title || 'Untitled' }}</div>
         <div class="text-[10.5px] text-content-muted">
@@ -14,7 +14,7 @@
         <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
              off-latest state earns the accent because it is a real state, not
              decoration. -->
-        <div v-if="!workspaceFile" class="relative" ref="versionMenuRef">
+        <div v-if="!workspaceFile && !isEmpty" class="relative" ref="versionMenuRef">
           <button
             type="button"
             class="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium transition-colors hover:bg-overlay-subtle disabled:opacity-50"
@@ -45,7 +45,7 @@
         </div>
 
         <button
-          v-if="!workspaceFile && !onNewest"
+          v-if="!workspaceFile && !isEmpty && !onNewest"
           type="button"
           class="h-7 px-2 rounded-md text-[11px] font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors disabled:opacity-50"
           :disabled="loading"
@@ -61,7 +61,7 @@
         <template v-if="workspaceFile && !workspaceArchive">
           <FileActions :file="workspaceFile" :url="fileUrl(chatId!, workspaceFile, 'content', true)" @attach="$emit('attach-file', workspaceFile)" @save="$emit('save-file', workspaceFile)" />
         </template>
-        <template v-else-if="!workspaceFile">
+        <template v-else-if="!workspaceFile && !isEmpty">
           <!-- A package is a deliverable: the zip is one click, named and sized, not a menu away. -->
           <button
             v-if="heroKind === 'package'"
@@ -81,12 +81,6 @@
             </IconButton>
           </div>
         </template>
-
-        <div class="ml-3 pl-3 border-l border-edge-subtle shrink-0">
-          <IconButton title="Close stage" aria-label="Close stage" @click="$emit('close')">
-            <PanelLeftCloseIcon class="w-4 h-4" />
-          </IconButton>
-        </div>
       </div>
     </div>
 
@@ -95,6 +89,10 @@
       <FileViewer v-if="workspaceFile && chatId != null" :controls-target="fileControlsRef" :key="fileUrl(chatId, workspaceFile)" :url="fileUrl(chatId, workspaceFile)" :name="workspaceFile.name" :mime="workspaceFile.mime" :size="workspaceFile.size" :workspace-file="workspaceFile" :chat-id="chatId" class="flex-1 min-h-0" @attach="$emit('attach-file', $event)" @save="$emit('save-file', $event)" />
       <div v-else-if="loading && !viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         Loading…
+      </div>
+      <div v-else-if="isEmpty" class="flex-1 flex flex-col items-center justify-center gap-1.5 text-center px-8">
+        <div class="text-sm text-content-secondary">Nothing selected</div>
+        <div class="text-xs text-content-muted max-w-xs leading-relaxed">Click a file or version in the conversation to view it here.</div>
       </div>
       <div v-else-if="!viewedRevision" class="flex-1 flex items-center justify-center text-content-muted text-sm">
         No versions yet
@@ -157,7 +155,6 @@
 </template>
 
 <script setup lang="ts">
-import PanelLeftCloseIcon from '../ui/PanelLeftCloseIcon.vue'
 import FileActions from './FileActions.vue'
 import FileViewer from '../viewers/FileViewer.vue'
 import Button from '../ui/Button.vue'
@@ -228,6 +225,10 @@ const artifactFile = computed<WorkspaceFile | undefined>(() => props.viewedRevis
   root: 'chat', path: 'artifact.' + props.viewedRevision.file_format,
   name: props.viewedRevision.filename || 'artifact.' + props.viewedRevision.file_format, size: props.viewedRevision.file_size || 0, mime: props.viewedRevision.mime || '', media_id: props.viewedRevision.media_id,
 } : undefined)
+// Panel toggled open with nothing to show: neither a previewed file nor an
+// artifact asset for this chat.
+const isEmpty = computed(() => !props.workspaceFile && !props.asset && !props.loading)
+
 const heroKind = computed(() => {
   if (!props.viewedRevision) return 'image'
   return getMediaType({ file_format: props.viewedRevision.file_format })

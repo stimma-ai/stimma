@@ -73,15 +73,32 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
   // Closed-state is per chat AND asset: dismissing one artifact must not
   // suppress the next one the agent starts in the same chat.
-  function closedKey(id: number | string, forAssetId: number) {
-    return makeStorageKey('chat', id, 'artifact_stage_closed', forAssetId)
+  // Per-chat persisted panel state: whether it is open, the file it was
+  // showing (or last showed, so a closed panel reopens onto the same file),
+  // and the artifact asset the chat had at the time. Dismissing one artifact
+  // must not suppress the next one the agent starts in the same chat, which is
+  // why the asset id travels with the closed flag.
+  interface PersistedStageState { open: boolean; file: WorkspaceFile | null; dismissedAssetId: number | null }
+  // The asset whose panel the user explicitly closed; a different asset
+  // arriving later still auto-opens.
+  const dismissedAssetId = ref<number | null>(null)
+  function stateKey(id: number | string) {
+    return makeStorageKey('chat', id, 'artifact_stage_state')
   }
+  function readState(id: number | string): PersistedStageState | null {
+    try {
+      const raw = localStorage.getItem(stateKey(id))
+      return raw ? JSON.parse(raw) as PersistedStageState : null
+    } catch { return null }
+  }
+  // Key bumped when the stage moved to the right of the chat (drag direction
+  // flipped): widths stored under the old key would pin the chat column wide
+  // and squeeze the stage on chats where the handle had been dragged.
   function widthKey(id: number | string) {
-    return makeStorageKey('chat', id, 'artifact_stage_width')
+    return makeStorageKey('chat', id, 'artifact_chat_width')
   }
   function isUserClosed(forAssetId: number | null = assetId.value): boolean {
-    return chatId.value != null && forAssetId != null
-      && localStorage.getItem(closedKey(chatId.value, forAssetId)) === 'true'
+    return forAssetId != null && dismissedAssetId.value === forAssetId
   }
 
   // The most recent artifact-bearing item in the chat wins identity — this
@@ -142,17 +159,32 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       viewedRevisionId.value = revisionId
     }
     stageOpen.value = true
-    if (chatId.value != null && assetId.value != null) {
-      localStorage.removeItem(closedKey(chatId.value, assetId.value))
-    }
+    dismissedAssetId.value = null
   }
+
+  // What the header's "show artifact panel" button brings back: the file that
+  // was being previewed when the panel closed, else the chat's artifact asset.
+  const lastClosedFile = ref<WorkspaceFile | null>(null)
 
   function close() {
     stageOpen.value = false
-    if (!workspaceFile.value && chatId.value != null && assetId.value != null) {
-      localStorage.setItem(closedKey(chatId.value, assetId.value), 'true')
-    }
+    lastClosedFile.value = workspaceFile.value
     workspaceFile.value = null
+    dismissedAssetId.value = assetId.value
+  }
+
+  function toggle() {
+    if (stageOpen.value) close()
+    else reopen()
+  }
+
+  // Always opens: with the last file, else the chat's artifact, else an empty
+  // panel that fills in as soon as the agent produces something.
+  function reopen() {
+    dismissedAssetId.value = null
+    if (lastClosedFile.value) openFile(lastClosedFile.value)
+    else if (assetId.value != null) openOnAsset(assetId.value)
+    else stageOpen.value = true
   }
 
   // Chip click: navigates within an open stage, or reopens a closed one.
@@ -209,21 +241,50 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     }
   })
 
-  // Per-chat width persistence; identity/open-state reset on chat switch.
+  // Per-chat persistence of width and panel state; identity reset on chat
+  // switch, then the stored state for the new chat is restored. A file that
+  // was showing comes straight back; an artifact asset comes back through the
+  // auto-open watch above once the chat's items load.
+  let restoring = false
   watch(chatId, (id) => {
-    stageOpen.value = false
-    workspaceFile.value = null
-    assetId.value = null
-    asset.value = null
-    revisions.value = []
-    viewedRevisionId.value = null
-    if (id == null) return
-    const stored = localStorage.getItem(widthKey(id))
-    if (stored != null) {
-      const parsed = Number(stored)
-      if (Number.isFinite(parsed)) width.value = Math.min(STAGE_MAX_WIDTH, Math.max(STAGE_MIN_WIDTH, parsed))
+    restoring = true
+    try {
+      stageOpen.value = false
+      workspaceFile.value = null
+      lastClosedFile.value = null
+      dismissedAssetId.value = null
+      assetId.value = null
+      asset.value = null
+      revisions.value = []
+      viewedRevisionId.value = null
+      if (id == null) return
+      const stored = localStorage.getItem(widthKey(id))
+      if (stored != null) {
+        const parsed = Number(stored)
+        if (Number.isFinite(parsed)) width.value = Math.min(STAGE_MAX_WIDTH, Math.max(STAGE_MIN_WIDTH, parsed))
+      }
+      const st = readState(id)
+      dismissedAssetId.value = st?.dismissedAssetId ?? null
+      if (st?.file) {
+        if (st.open) openFile(st.file)
+        else lastClosedFile.value = st.file
+      } else if (st?.open) {
+        stageOpen.value = true
+      }
+    } finally {
+      restoring = false
     }
   }, { immediate: true })
+
+  watch([stageOpen, workspaceFile, lastClosedFile, dismissedAssetId], () => {
+    if (restoring || chatId.value == null) return
+    const state: PersistedStageState = {
+      open: stageOpen.value,
+      file: workspaceFile.value ?? lastClosedFile.value,
+      dismissedAssetId: dismissedAssetId.value,
+    }
+    localStorage.setItem(stateKey(chatId.value), JSON.stringify(state))
+  }, { flush: 'sync' })
 
   watch(width, (val) => {
     if (chatId.value != null) localStorage.setItem(widthKey(chatId.value), String(val))
@@ -244,7 +305,8 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
 
     function onMove(ev: MouseEvent) {
       ev.preventDefault()
-      const delta = startX - ev.clientX
+      // Handle sits on the chat column's right edge: dragging right widens the chat.
+      const delta = ev.clientX - startX
       width.value = Math.min(STAGE_MAX_WIDTH, Math.max(STAGE_MIN_WIDTH, startWidth + delta))
     }
     function onUp() {
@@ -277,6 +339,8 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
     resizing,
     findRevision,
     close,
+    toggle,
+    reopen,
     openOnAsset,
     viewRevision,
     jumpToNewest,

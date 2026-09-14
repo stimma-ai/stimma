@@ -53,6 +53,19 @@
         </svg>
       </button>
 
+      <!-- Artifact panel toggle. Always here and always live so it never hops
+           or dead-ends; lit while the panel is open. -->
+      <button
+        @click="$emit('toggle-artifact')"
+        class="w-7 h-7 compact:w-11 compact:h-11 flex items-center justify-center rounded transition-colors"
+        :class="artifactOpen
+          ? 'text-accent bg-accent/15 hover:bg-accent/20'
+          : 'text-content-muted hover:text-content-secondary hover:bg-surface'"
+        :title="artifactOpen ? 'Hide preview panel' : 'Show preview panel'"
+      >
+        <ArtifactPanelIcon />
+      </button>
+
       <!-- Open Workspace (dev mode only) -->
       <button
         v-if="devModeRef"
@@ -154,6 +167,7 @@
 </template>
 
 <script setup lang="ts">
+import ArtifactPanelIcon from './ArtifactPanelIcon.vue'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
 
@@ -163,17 +177,20 @@ interface Props {
   chatId: number
   viewMode: 'raw' | 'chat'
   settingsPanelVisible: boolean
+  artifactOpen?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   chatName: '',
   mcpDriven: false,
   settingsPanelVisible: true,
+  artifactOpen: false,
 })
 
 const emit = defineEmits<{
   (e: 'toggle-view'): void
   (e: 'toggle-settings-panel'): void
+  (e: 'toggle-artifact'): void
   (e: 'delete'): void
   (e: 'clone'): void
   (e: 'clear'): void
