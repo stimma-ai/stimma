@@ -115,3 +115,40 @@ def test_crowded_pair_reports_an_authoring_problem(tmp_path):
         <stimma-media ref="missing"></stimma-media>
       </stimma-section>''', bundle_dir=tmp_path)
     assert any('layout=pair needs 2 media items' in problem for problem in problems)
+
+
+def test_optional_details_stay_in_html_without_duplicating_pdf_slides(tmp_path):
+    manifest = new_manifest(title='Example')
+    Image.new('RGB', (800, 500), 'orange').save(tmp_path / 'image.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Image', 'path': 'image.png'}]
+    html, problems = render_cover_document(manifest, authored_html='''
+      <div class="sp-page"><h1>Example</h1>
+        <stimma-section page label="Phone scenes" layout="pair">
+          <stimma-media ref="m1"></stimma-media><stimma-media ref="m1"></stimma-media>
+          <details slot="details"><summary>Details</summary>
+            <stimma-appearance label="Appearance">
+              <stimma-grid when="light">
+                <stimma-media ref="m1" caption="Light store"></stimma-media>
+                <stimma-media ref="m1" caption="Light notification"></stimma-media>
+              </stimma-grid>
+              <stimma-grid when="dark">
+                <stimma-media ref="m1" caption="Dark store"></stimma-media>
+                <stimma-media ref="m1" caption="Dark notification"></stimma-media>
+              </stimma-grid>
+            </stimma-appearance>
+          </details>
+        </stimma-section>
+      </div>''', bundle_dir=tmp_path)
+    assert not problems
+    assert '<details slot="details">' in html
+    assert 'Light store' in html and 'Dark store' in html
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        assert len(pdf) == 2
+        text = pdf[1].get_textpage().get_text_range()
+        assert 'Phone scenes' in text and text.count('Made with') == 1
+        assert all(word not in text for word in ['Details', 'Appearance', 'store', 'notification'])
+        # The main scene images are still present.
+        images = [obj for obj in pdf[1].get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
+        assert len(images) >= 2
+    assert (tmp_path / 'index.html').read_text() == html

@@ -120,12 +120,15 @@ Start with `references/app-icons-mixed.html` for multiple platforms or
 `references/app-icons.html` for iOS alone. Remove unused platform sections;
 never omit requested ones. Show scenes wide, keep copy factual, and retain
 actual-size samples of the delivered PNGs on the opening icon overview page.
-Do not use the older flat phone home-light/home-dark previews in the cover. For iOS and Android, add a compact
-<stimma-grid slot="details"> to the same OS section, containing the two files
-previews/{platform}-store-light.png and previews/{platform}-notification-light.png.
-Caption them App Store / Google Play and Notification. Dark alternatives also
-ship; choose one appearance. Do not add a separate In iOS section, Settings,
-Spotlight, or extra detail pages. The kit repeats the PDF footer on every slide.
+Do not use the older flat phone home-light/home-dark previews in the cover. For iOS and Android, put store and notification examples inside a native
+<details slot="details"> with <summary>Details</summary>, initially closed.
+Inside it use one stimma-appearance, with light and dark stimma-grid children
+marked when="light" / when="dark". Use previews/{platform}-store-{mode}.png and
+previews/{platform}-notification-{mode}.png, captioned App Store / Google Play
+and Notification. The switch fades between variants. Follow the skill reference.
+The kit omits this disclosure from the PDF, giving both phone scenes the full
+OS slide. Do not add separate In iOS, Settings, Spotlight or detail pages.
+The kit repeats the PDF footer on every slide.
 End with stimma-files for the run.
 Say what each folder is, in
 the recipient's words: iOS is `AppIcon.appiconset`, ready for an Xcode asset

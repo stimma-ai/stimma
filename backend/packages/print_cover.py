@@ -69,6 +69,12 @@ def export_pdf(bundle_dir: Path) -> bytes:
         '</head>', f'<style>{PRINT_CSS}</style></head>', 1,
     )
     document = HTML(string=html, url_fetcher=embedded_only)
+    # Supplemental HTML disclosures stay out of the deck, including their
+    # appearance variants. Remove them before splitting page-level variants.
+    for parent in list(document.etree_element.iter()):
+        for node in list(parent):
+            if 'sp-section-disclosure' in node.get('class', '').split():
+                parent.remove(node)
     # Running elements must be encountered before page one is laid out.
     body = document.etree_element.find('body')
     if body is not None:

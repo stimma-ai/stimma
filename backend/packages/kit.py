@@ -32,7 +32,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 7
+KIT_VERSION = 8
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -334,6 +334,13 @@ stimma-section[layout=pair]>.sp-section-body{grid-template-columns:repeat(2,minm
 stimma-section[layout=single]>.sp-section-body,stimma-section[layout=stack]>.sp-section-body{grid-template-columns:minmax(0,1fr)}
 stimma-section[layout]>.sp-section-body>stimma-media{min-width:0}
 .sp-section-details{margin-top:24px}
+.sp-section-disclosure>details>summary{cursor:pointer;color:var(--sp-muted);font-size:13px;
+  padding:12px 0;border-top:1px solid var(--sp-line)}
+.sp-section-disclosure>details>summary:hover{color:var(--sp-fg)}
+.sp-section-disclosure>details>summary:focus-visible{outline:2px solid var(--sp-accent);outline-offset:4px}
+.sp-section-disclosure>details>stimma-appearance{margin-top:16px}
+.sp-section-disclosure stimma-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+@media(max-width:600px){.sp-section-disclosure stimma-grid{grid-template-columns:minmax(0,1fr)}}
 .sp-section-details>stimma-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 @media(max-width:600px){.sp-section-details>stimma-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){stimma-section[layout=pair]>.sp-section-body{grid-template-columns:minmax(0,1fr)}}
@@ -1236,8 +1243,13 @@ def expand_kit_elements(
             details.append(match.group(0))
             return ""
 
+        # Extract native disclosures before their nested grids/appearance groups.
+        inner = re.sub(_TAG_RE_TEMPLATE.format(tag="details"), take_details, inner, flags=re.IGNORECASE | re.DOTALL)
+        disclosure = bool(details)
         inner = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-grid"), take_details, inner, flags=re.IGNORECASE | re.DOTALL)
-        if len(details) > 1 or (details and len(re.findall(r"<stimma-media\b", details[0], re.IGNORECASE)) > 2):
+        if len(details) > 1:
+            problems.append(f"Section {label!r}: use one details grid or disclosure")
+        if details and not disclosure and len(re.findall(r"<stimma-media\b", details[0], re.IGNORECASE)) > 2:
             problems.append(f"Section {label!r}: use one details grid with at most two media items")
         if layout is not None and layout not in ("single", "pair", "stack"):
             problems.append(f"Section {label!r}: layout must be single, pair or stack")
@@ -1252,7 +1264,8 @@ def expand_kit_elements(
             register_id(attrs, "stimma-section")
             inner = f'<div class="sp-section-body">{inner}</div>'
         if details:
-            inner += f'<div class="sp-section-details">{"".join(details)}</div>'
+            detail_class = "sp-section-details sp-section-disclosure" if disclosure else "sp-section-details"
+            inner += f'<div class="{detail_class}">{"".join(details)}</div>'
         head = f'<p class="sp-label">{htmllib.escape(label)}</p>' if label else ""
         return f"<stimma-section{_attr_str(attrs)}>{head}{inner}</stimma-section>"
 
