@@ -16,6 +16,34 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
 # owns it and overwrites it.
 READONLY_PREFIX = ".stimma/"
 SKILLS_MOUNT = "skills"
+SKILL_RESOURCES = ".stimma/skills"
+
+
+def skill_resource_roots() -> dict[str, Path]:
+    """Read-only views of effective packs, including live dev overrides."""
+    from ..stimpacks import list_installed_stimpacks
+    return {
+        pack.name: pack.dir_path.resolve()
+        for pack in list_installed_stimpacks()
+        if pack.name not in ("", ".", "..") and "/" not in pack.name and "\\" not in pack.name
+    }
+
+
+def ensure_skill_resources(workspace_dir: str | Path) -> None:
+    """Expose pack files for ordinary file discovery; resolution also works without links."""
+    directory = Path(workspace_dir) / SKILL_RESOURCES
+    directory.mkdir(parents=True, exist_ok=True)
+    roots = skill_resource_roots()
+    for link in directory.iterdir():
+        if link.is_symlink() and (link.name not in roots or link.resolve() != roots[link.name]):
+            link.unlink()
+    for name, root in roots.items():
+        link = directory / name
+        if not link.exists() and not link.is_symlink():
+            try:
+                link.symlink_to(root, target_is_directory=True)
+            except OSError:
+                pass  # File tools resolve the virtual path without symlink privileges.
 
 
 def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -> str | None:
@@ -27,6 +55,8 @@ def readonly_workspace_error(file_path: str, workspace_dir: str | None = None) -
     """
     normalized = (file_path or "").replace("\\", "/")
     normalized = "/".join(part for part in normalized.split("/") if part not in ("", "."))
+    if normalized == ".stimma" or normalized.startswith(READONLY_PREFIX):
+        return "Error: .stimma/ is a generated, read-only view; use read_file/glob/grep to read it."
     if workspace_dir is not None:
         resolved, err = resolve_workspace_path(workspace_dir, file_path)
         if err:
@@ -75,6 +105,7 @@ def skills_mount_target() -> Path | None:
 
 def ensure_skills_mount(workspace_dir: str | Path) -> None:
     """Create or refresh the ``skills/`` symlink in a workspace. Best-effort."""
+    ensure_skill_resources(workspace_dir)
     target = skills_mount_target()
     if target is None:
         return
@@ -118,6 +149,14 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
         return Path(), "Error: file_path must not contain '..'"
 
     workspace = Path(workspace_dir).resolve()
+    if len(parts) >= 3 and parts[:2] == [".stimma", "skills"]:
+        root = skill_resource_roots().get(parts[2])
+        if root is None:
+            return Path(), "Error: Skill resource pack is not installed"
+        resolved = root.joinpath(*parts[3:]).resolve()
+        if not _is_within(resolved, root):
+            return Path(), "Error: file_path escapes skill resource directory"
+        return resolved, None
     skills_root = skills_mount_target()
     if parts and parts[0] == SKILLS_MOUNT and skills_root is not None and not (workspace / SKILLS_MOUNT).is_dir():
         resolved = skills_root.joinpath(*parts[1:]).resolve()
@@ -132,7 +171,7 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
 
 def workspace_relative(workspace: Path, path: Path) -> str | None:
     """Display form of a resolved path: workspace-relative, with the skills
-    mount shown as ``skills/...``. None if the path is outside both."""
+    mount shown as ``skills/...`` and dev resources as ``.stimma/skills/...``."""
     try:
         return path.relative_to(workspace).as_posix()
     except ValueError:
@@ -143,6 +182,10 @@ def workspace_relative(workspace: Path, path: Path) -> str | None:
             return f"{SKILLS_MOUNT}/{path.relative_to(skills_root).as_posix()}".rstrip("/")
         except ValueError:
             pass
+    for name, root in skill_resource_roots().items():
+        if path.is_relative_to(root):
+            suffix = path.relative_to(root).as_posix()
+            return f"{SKILL_RESOURCES}/{name}" + (f"/{suffix}" if suffix != "." else "")
     return None
 
 

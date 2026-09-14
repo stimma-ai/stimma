@@ -325,7 +325,9 @@ class TestInjection:
         assert len(injected) == 1
         assert injected[0]["skill_name"] == "test-pack/alpha"
         assert injected[0]["skill_display_name"] == "Alpha"
-        assert injected[0]["content"] == "## Skill: Alpha\n\nAlpha body"
+        assert injected[0]["content"].startswith("## Skill: Alpha\n\nSkill resource directory:")
+        assert "`.stimma/skills/test-pack/skills/alpha/`" in injected[0]["content"]
+        assert injected[0]["content"].endswith("\n\nAlpha body")
 
     @pytest.mark.asyncio
     async def test_invoke_unknown_skill_errors(self, multi_skill_pack, session, test_chat):
@@ -502,7 +504,7 @@ class TestSkillsMount:
         (broken / "SKILL.md").write_text("---\nname: broken\ndescription: \nprovides: [nope]\n---\n\nbody", encoding="utf-8")
         (stimpacks_dir / "empty-dir").mkdir()
         result = await skill_tool(action="list", session=session, chat_id=test_chat.id)
-        assert "| dev-pack | From the dev repo | chat | Dev Pack | (dev repo, read-only) | dev repo, read-only |" in result
+        assert "| dev-pack | From the dev repo | chat | Dev Pack | .stimma/skills/dev-pack/SKILL.md | dev repo, read-only |" in result
         assert "Problems:" in result
         assert "broken: " in result and "nope" in result
         assert "skills/empty-dir/: not loaded" in result
@@ -618,7 +620,9 @@ class TestForkPrecedence:
         assert "not offered in tool (the original was)" in result
         injected = []
         assert await skill_tool(action="invoke", name="essentials/variations", session=session, chat_id=test_chat.id, _injected_messages=injected) == "Loaded skill 'My Variations'."
-        assert injected[0]["content"] == "## Skill: My Variations (your version, overrides essentials/variations)\n\nFork body"
+        assert injected[0]["content"].startswith("## Skill: My Variations (your version, overrides essentials/variations)\n")
+        assert "`.stimma/skills/variations/`" in injected[0]["content"]
+        assert injected[0]["content"].endswith("\n\nFork body")
         assert injected[0]["skill_name"] == "variations"
 
 
@@ -681,3 +685,56 @@ class TestSkillsPathAliases:
             assert result == "skills/single-pack/SKILL.md"
             assert "Single body" in await read_file(file_path=result, workspace_dir=str(workspace))
         assert "must not contain" in await glob_files(pattern="skills/../*", workspace_dir=str(workspace))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mounted", [False, True])
+async def test_dev_skill_companion_files_are_readable_and_readonly(dev_pack, workspace, mounted):
+    from agent.v2.tools.skill import skill_tool
+    from agent.v2.tools.read_file import read_file
+    from agent.v2.tools.glob_files import glob_files
+    from agent.v2.tools.grep_files import grep_files
+    from agent.v2.tools.write_file import write_file
+    from agent.v2.tools.edit_file import edit_file
+
+    templates = dev_pack / "templates"
+    templates.mkdir()
+    template = templates / "delivery.html"
+    template.write_text("<stimma-files></stimma-files>")
+    injected = []
+    await skill_tool(action="invoke", name="dev-pack", _injected_messages=injected,
+                     **({"workspace_dir": str(workspace)} if mounted else {}))
+    base = ".stimma/skills/dev-pack"
+    assert f"`{base}/`" in injected[0]["content"]
+    path = f"{base}/templates/delivery.html"
+    assert await glob_files(pattern="*.html", path=f"{base}/templates", workspace_dir=str(workspace)) == path
+    assert await glob_files(pattern=f"{base}/templates/*.html", workspace_dir=str(workspace)) == path
+    assert "stimma-files" in await read_file(file_path=path, workspace_dir=str(workspace))
+    assert path in await grep_files(pattern="stimma-files", path=f"{base}/templates", workspace_dir=str(workspace))
+    assert "read-only" in await write_file(file_path=path, content="changed", workspace_dir=str(workspace))
+    assert "read-only" in await edit_file(file_path=path, old_string="stimma-files", new_string="changed", workspace_dir=str(workspace))
+    template.write_text("Updated live")
+    assert "Updated live" in await read_file(file_path=path, workspace_dir=str(workspace))
+    assert "must not contain" in await read_file(file_path=f"{base}/../outside", workspace_dir=str(workspace))
+    outside = dev_pack.parent / "outside.txt"
+    outside.write_text("private")
+    (templates / "escape.txt").symlink_to(outside)
+    assert "escapes" in await read_file(file_path=f"{base}/templates/escape.txt", workspace_dir=str(workspace))
+    assert "escape.txt" not in await glob_files(pattern="*.txt", path=f"{base}/templates", workspace_dir=str(workspace))
+
+    assert "private" not in await grep_files(pattern="private", path=f"{base}/templates", output_mode="content", workspace_dir=str(workspace))
+
+
+@pytest.mark.asyncio
+async def test_manual_skill_activation_includes_companion_directory(dev_pack, session, test_chat, monkeypatch):
+    from unittest.mock import AsyncMock
+    from sqlalchemy import select
+    from database import ChatItem
+    from routes.chats import invoke_skill_in_chat, InvokeSkillRequest
+    monkeypatch.setattr("routes.chats.ws_manager.broadcast", AsyncMock())
+    result = await invoke_skill_in_chat(test_chat.id, InvokeSkillRequest(name="dev-pack"), session)
+    assert result["skill_name"] == "dev-pack"
+    item = await session.scalar(select(ChatItem).where(
+        ChatItem.chat_id == test_chat.id, ChatItem.item_type == "stimpack_injection"))
+    assert "`.stimma/skills/dev-pack/`" in item.message_text
+    assert item.message_text.endswith("Dev body")

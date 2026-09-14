@@ -2780,7 +2780,7 @@ async def invoke_skill_in_chat(
     inj_item = ChatItem(
         chat_id=chat_id,
         item_type="stimpack_injection",
-        message_text=f"## Skill: {loaded.skill.display_name}\n\n{loaded.content}",
+        message_text=loaded.injection_text(),
         item_metadata=json.dumps({
             "skill_name": qualified,
             "skill_display_name": loaded.skill.display_name,

@@ -267,6 +267,24 @@ class SkillContent:
     pack: StimpackInfo
     content: str  # markdown body (without frontmatter)
 
+    def injection_text(self) -> str:
+        """Context shared by agent and manual activation, including companion file access."""
+        from .tools._workspace_files import SKILL_RESOURCES
+
+        header = f"## Skill: {self.skill.display_name}"
+        if self.skill.overrides:
+            header += f" (your version, overrides {self.skill.overrides})"
+        relative_dir = self.skill.dir_path.relative_to(self.pack.dir_path).as_posix()
+        resource_dir = f"{SKILL_RESOURCES}/{self.pack.name}"
+        if relative_dir != ".":
+            resource_dir += f"/{relative_dir}"
+        return (
+            f"{header}\n\nSkill resource directory: `{resource_dir}/` (read-only). "
+            "Resolve relative paths in this skill from that directory. "
+            "Use read_file to read files and glob with this directory as path to find them."
+            f"\n\n{self.content}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Resource landers

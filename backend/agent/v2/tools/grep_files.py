@@ -105,6 +105,10 @@ async def grep_files(
             files = sorted(search_root.rglob("*"))
         files = [f for f in files if f.is_file() and f.suffix.lower() not in _BINARY_EXTENSIONS]
 
+    # Follow only files the workspace resolver permits, including within skill resources.
+    files = [f for f in files if (rel := workspace_relative(workspace, f)) is not None
+             and resolve_workspace_path(workspace_dir, rel)[1] is None]
+
     head_limit = min(head_limit, 1000)
 
     if output_mode == "files_with_matches":

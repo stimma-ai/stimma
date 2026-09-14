@@ -1,10 +1,11 @@
 """Glob workspace files — Claude Code compatible."""
 
 import time
+from glob import has_magic
 from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import SKILLS_MOUNT, resolve_workspace_path, workspace_relative
+from ._workspace_files import SKILLS_MOUNT, SKILL_RESOURCES, resolve_workspace_path, workspace_relative
 
 MAX_RESULTS = 1000
 
@@ -58,6 +59,12 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
             return err
         search_pattern = "/".join(parts[1:])
 
+    if search_root == workspace and len(parts) >= 3 and "/".join(parts[:2]) == SKILL_RESOURCES and not has_magic(parts[2]):
+        search_root, err = resolve_workspace_path(workspace_dir, "/".join(parts[:3]))
+        if err:
+            return err
+        search_pattern = "/".join(parts[3:])
+
     start = time.monotonic()
     matches = sorted(search_root.glob(search_pattern)) if search_pattern else [search_root]
     duration_ms = round((time.monotonic() - start) * 1000, 1)
@@ -68,7 +75,7 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
     filenames = []
     for m in matches:
         rel = workspace_relative(workspace, m)
-        if rel is None:
+        if rel is None or resolve_workspace_path(workspace_dir, rel)[1] is not None:
             continue
         if m.is_dir():
             filenames.append(f"{rel}/")

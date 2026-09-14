@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..tools_registry import tool, ToolParameter
 from ..stimpacks import SkillInfo, StimpackInfo, list_installed_stimpacks, list_skills, load_skill, shadowed_skills
 from ..stimpack_validate import validate_pack
-from ._workspace_files import SKILLS_MOUNT, skills_mount_target
+from ._workspace_files import SKILLS_MOUNT, SKILL_RESOURCES, ensure_skill_resources, skills_mount_target
 
 from core.logging import get_logger
 from database import Chat, ChatItem
@@ -75,7 +75,7 @@ def _where(skill: SkillInfo) -> str:
 def _skill_path(pack: StimpackInfo, skill: SkillInfo, skills_root: Path | None) -> str:
     """Workspace-relative path of a skill's SKILL.md, or why it has none."""
     if pack.is_dev:
-        return "(dev repo, read-only)"
+        return f"{SKILL_RESOURCES}/{pack.name}/{skill.skill_md.relative_to(pack.dir_path).as_posix()}"
     if skills_root is not None:
         try:
             return f"{SKILLS_MOUNT}/{skill.skill_md.resolve().relative_to(skills_root)}"
@@ -185,6 +185,8 @@ async def skill_tool(
     chat_id: int = kwargs.get("chat_id")
 
     if action == "list":
+        if kwargs.get("workspace_dir"):
+            ensure_skill_resources(kwargs["workspace_dir"])
         environment = await _chat_environment(session, chat_id)
         packs = list_installed_stimpacks()
         packs_by_name = {pack.name: pack for pack in packs}
@@ -239,13 +241,12 @@ async def skill_tool(
         # _injected_messages mechanism.
         injected = kwargs.get("_injected_messages")
         if injected is not None:
-            header = f"## Skill: {loaded.skill.display_name}"
-            if loaded.skill.overrides:
-                header += f" (your version, overrides {loaded.skill.overrides})"
+            if kwargs.get("workspace_dir"):
+                ensure_skill_resources(kwargs["workspace_dir"])
             injected.append({
                 "skill_name": loaded.skill.qualified_name,
                 "skill_display_name": loaded.skill.display_name,
-                "content": f"{header}\n\n{loaded.content}",
+                "content": loaded.injection_text(),
             })
         return f"Loaded skill '{loaded.skill.display_name}'."
 
