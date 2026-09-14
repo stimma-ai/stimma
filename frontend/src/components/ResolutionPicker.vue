@@ -105,7 +105,9 @@
                 :min="sliderLog.lo"
                 :max="sliderLog.hi"
                 step="0.01"
-                :value="Math.log2(resolved.mp)"
+                :value="Math.min(sliderLog.hi, Math.max(sliderLog.lo, Math.log2(resolved.mp)))"
+                aria-label="Output size"
+                :aria-valuetext="`${customSize ? 'Custom size, ' : ''}${formatMegapixels(resolved.mp)}`"
                 :disabled="resolved.sizeFromImage"
                 class="flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:cursor-default [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
                 @input="onSlider(($event.target as HTMLInputElement).value)"
@@ -120,6 +122,8 @@
                 :style="{ left: `${t.pct}%` }"
               >{{ t.label }}</span>
             </div>
+            <p v-if="customSize" class="mt-2 text-[11px] text-content-muted">Custom size · {{ formatMegapixels(resolved.mp) }}. The slider selects up to {{ formatMegapixels(sliderBounds.max) }}.</p>
+            <p v-if="sizeReduced" class="mt-2 text-[11px] text-content-muted">Size reduced to {{ formatMegapixels(resolved.mp) }} to fit this tool’s dimension limits.</p>
           </template>
         </div>
 
@@ -160,7 +164,7 @@ import {
   formatMegapixels,
   formatTier,
   tierGroups,
-  megapixelBounds,
+  megapixelSliderBounds,
   MP_UNIT,
   policyWithDims,
   roundMp,
@@ -199,12 +203,16 @@ const emit = defineEmits<{
 
 const followLabel = 'Match reference'
 
-// The slider is logarithmic over the range the model can reach at the
-// current shape, so its ends are the model's real limits.
-const sliderBounds = computed(() => {
-  const b = megapixelBounds(props.schemaProps, resolved.value.width / resolved.value.height)
-  // Nothing sensible lives below 0.1MP even when the model technically allows it.
-  return { min: Math.min(Math.max(b.min, 0.1), b.max), max: b.max }
+// A provider may offer a compact normal range while accepting larger custom
+// dimensions. Providers without that hint keep their aspect-dependent range.
+const activeRatio = computed(() => resolved.value.shapeFromImage && props.image
+  ? props.image.width / props.image.height : ratioValue(props.policy.ratio))
+const sliderBounds = computed(() => megapixelSliderBounds(props.schemaProps, activeRatio.value))
+const customSize = computed(() => resolved.value.mp > sliderBounds.value.max * 1.03)
+const sizeReduced = computed(() => {
+  const requested = resolved.value.sizeFromImage && props.image
+    ? props.image.width * props.image.height / MP_UNIT : props.policy.mp
+  return resolved.value.mp < requested * 0.97
 })
 const sliderLog = computed(() => ({ lo: Math.log2(sliderBounds.value.min), hi: Math.log2(sliderBounds.value.max) }))
 const sliderTicks = computed(() => {
@@ -299,7 +307,7 @@ function pickTier(t: number) {
 function onSlider(v: string) {
   const { lo, hi } = sliderLog.value
   const x = Number(v)
-  // Land exactly on the ends so the top of the slider is the model's real maximum.
+  // Land exactly on the normal slider endpoints, including fractional limits.
   const mp = roundMp(x >= hi - 0.011 ? sliderBounds.value.max : x <= lo + 0.011 ? sliderBounds.value.min : Math.pow(2, x))
   update({ mp, followSize: hasImage.value ? false : props.policy.followSize })
 }

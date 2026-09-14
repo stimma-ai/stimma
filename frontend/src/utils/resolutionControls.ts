@@ -131,7 +131,7 @@ export function snapDimsToGrid(props: Props, width: number, height: number): { w
     return { width: best[0], height: best[1] }
   }
   const snapAxis = (v: number, axis: any) => {
-    const step = Number(axis?.['x-step']) || 1
+    const step = Number(axis?.['x-step']) || Number(axis?.multipleOf) || 1
     let x = Math.round(v / step) * step
     if (axis?.minimum != null) x = Math.max(Number(axis.minimum), x)
     if (axis?.maximum != null) x = Math.min(Number(axis.maximum), x)

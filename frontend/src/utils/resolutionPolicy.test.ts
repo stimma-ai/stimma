@@ -8,6 +8,8 @@ import {
   carriedPolicy,
   tierGroups,
   megapixelBounds,
+  megapixelSliderBounds,
+  RATIO_CHOICES,
   matchingRatio,
   customRatio,
   type ResolutionPolicy,
@@ -159,4 +161,49 @@ test('megapixel bounds follow the per-axis limits at the current ratio', () => {
   const wide = megapixelBounds(props, 4 / 3)
   assert.equal(wide.max, 3)
   assert.ok(Math.abs(wide.min - 0.0208) < 0.001, `4:3 min ${wide.min}`)
+})
+
+test('local slider stays at 4 MP across shapes while custom dimensions stay legal', () => {
+  const props = { ...freeform, width: { ...freeform.width, 'x-resolution-slider-max-pixels': 4194304 } }
+  for (const ratio of RATIO_CHOICES) {
+    const [w, h] = ratio.split(':').map(Number)
+    assert.equal(megapixelSliderBounds(props, w / h).max, 4)
+    const r = resolveResolution(fixed(ratio, 4), null, props)
+    assert.equal(r.ratioChoice, ratio)
+    assert.ok(Math.abs(r.mp - 4) < 0.1)
+  }
+  const custom = policyWithDims(fixed('1:1', 1), 3072, 2176)
+  const r = resolveResolution(custom, null, props)
+  assert.deepEqual([r.width, r.height], [3072, 2176])
+  assert.ok(r.mp > 4)
+  assert.equal(megapixelSliderBounds(props, 3072 / 2176).max, 4)
+})
+
+test('the slider hint never caps followed reference dimensions', () => {
+  const props = { ...freeform, width: { ...freeform.width, 'x-resolution-slider-max-pixels': 4194304 } }
+  const r = resolveResolution(follow(), { width: 4096, height: 2048 }, props)
+  assert.deepEqual([r.width, r.height], [4096, 2048])
+  assert.equal(r.mp, 8)
+  assert.equal(megapixelSliderBounds(props, 2).max, 4)
+  const ungridded = resolveResolution(follow(), { width: 1023, height: 1001 }, { width: { maximum: 4096 }, height: { maximum: 4096 } })
+  assert.deepEqual([ungridded.width, ungridded.height], [1023, 1001])
+})
+
+test('older Draw Things descriptors retain their multipleOf grid', () => {
+  const props = { width: { minimum: 64, maximum: 4096, multipleOf: 64 }, height: { minimum: 64, maximum: 4096, multipleOf: 64 } }
+  const r = resolveResolution(fixed('21:9', 4), null, props)
+  assert.deepEqual([r.width, r.height], [3136, 1344])
+})
+
+test('Runware retains variable limits and caps area without clipping shape', () => {
+  const props = { width: { minimum: 128, maximum: 2048, 'x-step': 16 }, height: { minimum: 128, maximum: 2048, 'x-step': 16 } }
+  assert.equal(megapixelSliderBounds(props, 1).max, 4)
+  assert.ok(Math.abs(megapixelSliderBounds(props, 21 / 9).max - 12 / 7) < 0.001)
+  const p = fixed('21:9', 4)
+  const r = resolveResolution(p, null, props)
+  assert.equal(r.ratioChoice, '21:9')
+  assert.equal(r.width, 2048)
+  assert.equal(r.height, 880)
+  assert.equal(p.mp, 4)
+  assert.equal(resolveResolution({ ...p, ratio: '1:1' }, null, props).mp, 4)
 })
