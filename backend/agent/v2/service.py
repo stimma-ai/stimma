@@ -25,7 +25,7 @@ from .conversation import build_messages, response_reserve
 from .agent_config import resolve_agent_config
 from .llm_options import agent_llm_options
 from ..hitl import HumanActionRequired
-from .permissions import check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission
+from .permissions import get_permission_decision, check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission
 from .prompts import get_system_prompt
 from .tools.bash import get_shell_runtime_name
 from .tools_registry import get_tools_schema, get_tool, get_all_tools
@@ -491,6 +491,7 @@ async def _execute_tool_call(
     parent_remaining: list | None = None,
     effective_model_slug: str | None = None,
     needs_continuation_out: list[bool] | None = None,
+    native_shell_approved: bool = False,
 ) -> str:
     """Execute a single tool call and save the result ChatItem. Returns result string.
 
@@ -531,7 +532,15 @@ async def _execute_tool_call(
             kwargs["_injected_messages"] = injected_messages
             if needs_continuation_out is not None:
                 kwargs["_needs_continuation_out"] = needs_continuation_out
-            result_str = await tool.handler(
+            handler = tool.handler
+            if fn_name == "bash" and chat is not None and not native_shell_approved:
+                from .workspace_commands import parse_workspace_command, run_workspace_command
+                if (await get_permission_decision("bash", chat, session) == "ask"
+                        and parse_workspace_command(str(kwargs.get("command", ""))) is not None):
+                    # Revalidate and execute through workspace capabilities. A
+                    # failed validation must never fall through to a real shell.
+                    handler = run_workspace_command
+            result_str = await handler(
                 session=session,
                 chat_id=chat_id,
                 workspace_dir=workspace_dir,
@@ -665,6 +674,11 @@ async def _needs_permission(
     session: AsyncSession,
 ) -> bool:
     """Check if a tool call needs permission — handles both V2 gating and STP tool gating."""
+    if fn_name == "bash" and await get_permission_decision("bash", chat, session) == "ask":
+        from .workspace_commands import can_run_in_workspace
+        args = _parse_tool_args(fn_arguments)
+        if can_run_in_workspace(str(args.get("command", "")), get_workspace_dir(chat.id)):
+            return False
     # V2 tool-level gating (bash, browse_web, run_code)
     if not await check_permission_for_call(fn_name, fn_arguments, chat, session):
         return True
@@ -2079,6 +2093,7 @@ async def resume_after_hitl(
                 shown_media_ids=shown_media_ids,
                 enabled_stimpacks=enabled_stimpacks or None,
                 effective_model_slug=_effective_model_slug,
+                native_shell_approved=True,
             )
 
             # Continue with remaining tool calls from the same batch, then loop
