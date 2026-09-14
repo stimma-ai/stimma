@@ -138,6 +138,57 @@ body {
   50% { transform: rotate(175deg); }
 }
 
+/* Lock screen (PIN) — ambient pinwheel glow + keypad. */
+.lock-glow {
+  position: absolute; left: 50%; top: 38%;
+  width: min(120vw, 900px); aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: url('/logo.svg') center / contain no-repeat;
+  filter: blur(90px) saturate(1.1);
+  opacity: 0.28; pointer-events: none;
+  animation: lock-glow-spin 120s linear infinite;
+}
+[data-theme="light"] .lock-glow { opacity: 0.16; filter: blur(110px) saturate(0.9); }
+@keyframes lock-glow-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lock-glow { animation: none; } }
+.lock-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 40%, transparent 30%, var(--color-surface-overlay) 85%);
+}
+.lock-pin-input {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+}
+.lock-dot {
+  width: 12px; height: 12px; border-radius: 9999px;
+  border: 1.5px solid var(--color-text-muted);
+  transition: background-color .15s, border-color .15s, transform .15s;
+}
+.lock-dot-on { background: var(--color-text-primary); border-color: var(--color-text-primary); transform: scale(1.05); }
+.lock-dots-error .lock-dot { background: #f87171; border-color: #f87171; animation: lock-shake .35s; }
+@keyframes lock-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.lock-key {
+  aspect-ratio: 1 / 1; max-height: 72px; border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-overlay-faint);
+  color: var(--color-text-primary);
+  font: 500 24px 'General Sans', system-ui, sans-serif;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: background-color .1s, transform .1s;
+}
+@media (min-width: 640px) { .lock-key { font-size: 22px; } }
+.lock-key:hover { background: var(--color-overlay-hover); }
+.lock-key:active { background: var(--color-overlay-medium); transform: scale(.96); }
+.lock-key:disabled { cursor: default; opacity: .6; transform: none; }
+.lock-key-ghost { border-color: transparent; background: transparent; color: var(--color-text-secondary); }
+.lock-key-go { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.lock-key-go:hover:not(:disabled) { background: var(--color-accent-hi); }
+.lock-key-go:disabled { background: rgb(var(--color-accent-rgb) / 0.5); border-color: transparent; opacity: 1; }
+
 /* Global subtle scrollbar styling */
 /* Use standard properties first (Safari 16.4+, Firefox), then webkit fallback */
 * {
