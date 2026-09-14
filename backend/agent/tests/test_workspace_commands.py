@@ -12,6 +12,13 @@ from agent.v2.workspace_commands import can_run_in_workspace, parse_workspace_co
 pytestmark = pytest.mark.skipif(sys.platform == 'win32', reason='POSIX command adaptation; PowerShell keeps its native path')
 
 
+@pytest.fixture(autouse=True)
+def reset_chat_interrupt_state(monkeypatch):
+    # Other service tests intentionally leave an interrupted chat id behind;
+    # these tests create fresh chats and exercise command dispatch.
+    monkeypatch.setattr(service, '_interrupt_flags', {})
+
+
 @pytest.mark.parametrize('command', [
     'python script.py', 'python -c "print(1)" | cat',
     'cat input.txt > output.txt', 'cp $(whoami) out', 'echo `pwd`',
