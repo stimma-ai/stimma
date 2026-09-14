@@ -728,3 +728,95 @@ async def test_workspace_file_checksums_need_no_shell(session, test_chat, tmp_pa
         session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
     )
     assert result == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+
+@pytest.mark.asyncio
+async def test_python_reads_registered_skill_resources_without_write_access(session, test_chat, tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    pack = tmp_path / "pack"
+    (pack / "references").mkdir(parents=True)
+    cover = pack / "references/cover.html"
+    cover.write_text("<p>Cover</p>")
+    monkeypatch.setattr("agent.v2.tools._workspace_files.skill_resource_roots", lambda: {"test": pack})
+    # No symlink is needed: the virtual mount also works on Windows.
+    result = await run_code(
+        code="""import glob, os
+path = '.stimma/skills/test/references/cover.html'
+print(open(path).read())
+print(glob.glob('.stimma/skills/test/references/*.html'))
+print(os.listdir('.stimma/skills/test/references'))
+for operation in (lambda: open(path, 'w'), lambda: os.remove(path)):
+    try:
+        operation()
+    except PermissionError:
+        print('read-only')
+""",
+        session=session, chat_id=test_chat.id, workspace_dir=workspace,
+    )
+    assert result.splitlines() == [
+        '<p>Cover</p>', "['.stimma/skills/test/references/cover.html']",
+        "['cover.html']", 'read-only', 'read-only',
+    ], result
+    assert cover.read_text() == '<p>Cover</p>'
+
+
+@pytest.mark.asyncio
+async def test_preloaded_sdk_can_be_used_before_redundant_import(session, test_chat, tmp_path):
+    result = await run_code(
+        code="before = stimma\nimport stimma\nprint(before is stimma)",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    )
+    assert result == "True"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_code_keeps_relative_image_paths_in_its_workspace(session, test_chat, tmp_path):
+    import asyncio
+    import os
+    from PIL import Image
+
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    Image.new("RGB", (2, 2), (255, 0, 0)).save(first / "image.png")
+    Image.new("RGB", (2, 2), (0, 255, 0)).save(second / "image.png")
+    original = Path.cwd()
+    try:
+        results = await asyncio.gather(*[
+            run_code(
+                code="import asyncio\nfrom PIL import Image\nawait asyncio.sleep(0.02)\nprint(Image.open('image.png').getpixel((0, 0)))",
+                session=session, chat_id=test_chat.id, workspace_dir=workspace,
+            )
+            for workspace in (first, second)
+        ])
+        assert results == ["(255, 0, 0)", "(0, 255, 0)"]
+        assert Path.cwd() == original
+    finally:
+        os.chdir(original)
+
+
+@pytest.mark.asyncio
+async def test_code_workspace_restores_after_cancellation_and_allows_nested_calls(tmp_path):
+    import asyncio
+    from agent.v2.code_runtime import _code_workspace
+
+    original = Path.cwd()
+    entered = asyncio.Event()
+
+    async def cancelled_code():
+        async with _code_workspace(tmp_path):
+            async with _code_workspace(tmp_path):
+                assert Path.cwd() == tmp_path
+            entered.set()
+            await asyncio.Event().wait()
+
+    task = asyncio.create_task(cancelled_code())
+    await asyncio.wait_for(entered.wait(), timeout=2)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert Path.cwd() == original
+    async with _code_workspace(tmp_path):
+        assert Path.cwd() == tmp_path
+    assert Path.cwd() == original

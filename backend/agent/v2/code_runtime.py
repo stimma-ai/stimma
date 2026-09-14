@@ -39,7 +39,9 @@ import zipfile as _zipfile_mod
 
 import aiohttp
 from collections import Counter, defaultdict, deque
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
+from weakref import WeakKeyDictionary
 from dataclasses import dataclass, field
 from itertools import chain, combinations, count, cycle, islice, permutations, product
 from pathlib import Path
@@ -58,6 +60,36 @@ import PIL.ImageOps
 from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+# Relative paths in third-party libraries use the process working directory.
+# Keep it stable across awaits, including calls from concurrent chats.
+_code_cwd_locks = WeakKeyDictionary()
+_code_cwd_owner: ContextVar[dict | None] = ContextVar("code_cwd_owner", default=None)
+
+
+@asynccontextmanager
+async def _code_workspace(workspace: Path):
+    workspace = workspace.resolve()
+    owner = _code_cwd_owner.get()
+    if owner is not None and owner["active"]:
+        if owner["workspace"] != workspace:
+            raise RuntimeError("Nested code execution must use the same workspace")
+        yield
+        return
+    loop = asyncio.get_running_loop()
+    lock = _code_cwd_locks.setdefault(loop, asyncio.Lock())
+    async with lock:
+        previous = Path.cwd()
+        lease = {"workspace": workspace, "active": True}
+        token = _code_cwd_owner.set(lease)
+        try:
+            os.chdir(workspace)
+            yield
+        finally:
+            os.chdir(previous)
+            lease["active"] = False
+            _code_cwd_owner.reset(token)
 
 
 def _disabled_image_show(self, *args, **kwargs):
@@ -158,7 +190,7 @@ def _import_denied_message(name: str) -> str:
     )
 
 
-def _make_workspace_resolver(workspace_dir: Path, project_workspace_dir: Path | None = None):
+def _make_workspace_resolver(workspace_dir: Path, project_workspace_dir: Path | None = None, *, read_only: bool = False):
     """Resolve a path against the workspace and enforce the workspace jail.
 
     Shared by the sandbox's ``open()`` and ``os`` surfaces so filesystem
@@ -166,13 +198,25 @@ def _make_workspace_resolver(workspace_dir: Path, project_workspace_dir: Path | 
     """
     workspace_root = workspace_dir.resolve()
     project_workspace_root = project_workspace_dir.resolve() if project_workspace_dir else None
+    from .tools._workspace_files import skill_resource_roots
+    resource_roots = skill_resource_roots() if read_only else {}
 
     def _resolve(file: str | os.PathLike[str]) -> Path:
         candidate = Path(file)
         if not candidate.is_absolute():
             candidate = workspace_root / candidate
+        relative = candidate.relative_to(workspace_root) if candidate.is_relative_to(workspace_root) else None
+        if relative is not None and relative.parts[:2] == (".stimma", "skills"):
+            if not read_only:
+                raise PermissionError("Skill resources are read-only")
+            if len(relative.parts) >= 3 and relative.parts[2] in resource_roots:
+                from .tools._workspace_files import resolve_workspace_path
+                resolved, error = resolve_workspace_path(str(workspace_root), relative.as_posix())
+                if error:
+                    raise PermissionError(error)
+                return resolved
         resolved = candidate.resolve()
-        allowed_roots = [workspace_root]
+        allowed_roots = [workspace_root, *resource_roots.values()]
         if project_workspace_root is not None:
             allowed_roots.append(project_workspace_root)
         if not any(root == resolved or root in resolved.parents for root in allowed_roots):
@@ -198,6 +242,7 @@ class _SafeOS:
 
     def __init__(self, workspace_dir: Path, project_workspace_dir: Path | None = None):
         self._resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+        self._read_resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir, read_only=True)
         self._workspace_root = workspace_dir.resolve()
         self.path = os.path
         self.sep = os.sep
@@ -207,16 +252,16 @@ class _SafeOS:
         return str(self._workspace_root)
 
     def listdir(self, path: str | os.PathLike[str] = ".") -> list[str]:
-        return os.listdir(self._resolve(path))
+        return os.listdir(self._read_resolve(path))
 
     def walk(self, top: str | os.PathLike[str] = ".", **kwargs):
         # followlinks stays False (the default) so a symlink can't walk out
         # of the jail.
         kwargs.pop("followlinks", None)
-        return os.walk(self._resolve(top), **kwargs)
+        return os.walk(self._read_resolve(top), **kwargs)
 
     def stat(self, path: str | os.PathLike[str]):
-        return os.stat(self._resolve(path))
+        return os.stat(self._read_resolve(path))
 
     def makedirs(self, path: str | os.PathLike[str], exist_ok: bool = False) -> None:
         os.makedirs(self._resolve(path), exist_ok=exist_ok)
@@ -259,16 +304,18 @@ class _SafeGlob:
     """
 
     def __init__(self, workspace_dir: Path, project_workspace_dir: Path | None = None):
-        self._resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+        self._resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir, read_only=True)
         self._workspace_root = workspace_dir.resolve()
         self.escape = _glob_mod.escape
 
     def glob(self, pathname: str | os.PathLike[str], *, recursive: bool = False) -> list[str]:
         pathname = os.fspath(pathname)
-        self._resolve(pathname)
+        resolved = self._resolve(pathname)
+        matches = _glob_mod.glob(str(resolved), recursive=recursive)
         if os.path.isabs(pathname):
-            return _glob_mod.glob(pathname, recursive=recursive)
-        return _glob_mod.glob(pathname, root_dir=self._workspace_root, recursive=recursive)
+            return matches
+        from .tools._workspace_files import workspace_relative
+        return [relative for match in matches if (relative := workspace_relative(self._workspace_root, Path(match))) is not None]
 
     def iglob(self, pathname: str | os.PathLike[str], *, recursive: bool = False):
         return iter(self.glob(pathname, recursive=recursive))
@@ -368,9 +415,11 @@ def _make_safe_import(
 
 def _make_safe_open(workspace_dir: Path, project_workspace_dir: Path | None = None):
     resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+    resolve_read = _make_workspace_resolver(workspace_dir, project_workspace_dir, read_only=True)
 
     def _safe_open(file: str | os.PathLike[str], mode: str = "r", *args, **kwargs):
-        return py_builtins.open(resolve(file), mode, *args, **kwargs)
+        resolver = resolve if any(flag in mode for flag in "wax+") else resolve_read
+        return py_builtins.open(resolver(file), mode, *args, **kwargs)
 
     return _safe_open
 
@@ -2711,15 +2760,21 @@ async def run_code_in_sandbox(
     wrapper = _wrap_run_code(code)
 
     def _exec_wrapper():
-        exec(compile(wrapper, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
+        import ast
+        tree = ast.parse(wrapper, filename="<stimma_run_code>")
+        # The SDK is preloaded. A redundant `import stimma` later in the
+        # block must not make earlier SDK calls unbound locals in our wrapper.
+        declaration = ast.Global(names=["stimma"])
+        ast.copy_location(declaration, tree.body[0])
+        tree.body[0].body.insert(0, declaration)
+        ast.fix_missing_locations(tree)
+        exec(compile(tree, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
         return globals_dict["__stimma_run__"]
 
     try:
         fn = await asyncio.to_thread(_exec_wrapper)
         sdk: StimmaSDK = globals_dict["stimma"]
-        previous_cwd = Path.cwd()
-        os.chdir(workspace_dir)
-        try:
+        async with _code_workspace(workspace_dir):
             task = asyncio.create_task(fn())
 
             while not task.done():
@@ -2755,8 +2810,6 @@ async def run_code_in_sandbox(
                     return msg, sdk_instance.get_llm_usage()
 
             result = task.result()
-        finally:
-            os.chdir(previous_cwd)
         await sdk.flush()
         await sdk._finalize_progress("completed")
     except asyncio.CancelledError:
