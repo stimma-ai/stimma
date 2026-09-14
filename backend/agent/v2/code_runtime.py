@@ -1213,6 +1213,40 @@ class PackageDraft:
         await asyncio.to_thread(self._builder._assemble, self._builder.manifest(), destination)
         return relative.as_posix()
 
+    async def preview_pdf(self) -> dict[str, Any]:
+        """Render the draft's exported PDF and page images without saving it.
+
+        Returns workspace-relative ``pdf`` and ``pages`` paths plus
+        ``page_count``. Inspect page images with view_image, then revise the
+        authored cover if content spills or a page needs a different layout.
+        """
+        from packages.print_cover import export_pdf
+        import pypdfium2 as pdfium
+
+        relative = Path(await self.preview())
+        destination = self._sdk.workspace_dir / relative
+        data = await asyncio.to_thread(export_pdf, destination)
+        (destination / "preview.pdf").write_bytes(data)
+        pages_dir = destination / "_pdf-pages"
+        pages_dir.mkdir()
+        pages = []
+        # PDFium runs synchronously here, never concurrently in worker threads.
+        with pdfium.PdfDocument(data) as document:
+            for index in range(len(document)):
+                page = document[index]
+                try:
+                    scale = 1200 / max(page.get_size())
+                    bitmap = page.render(scale=scale)
+                    try:
+                        path = pages_dir / f"{index + 1:03}.png"
+                        bitmap.to_pil().save(path)
+                    finally:
+                        bitmap.close()
+                    pages.append(path.relative_to(self._sdk.workspace_dir).as_posix())
+                finally:
+                    page.close()
+        return {"pdf": (relative / "preview.pdf").as_posix(), "page_count": len(pages), "pages": pages}
+
     async def save(self) -> int:
         """Write the authored package into the library. Returns its media id."""
         if not self._builder.cover_source:

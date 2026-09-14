@@ -144,3 +144,35 @@ async def test_workspace_copy_reuses_original_svg_member_without_reserializing(d
         edited = await pkg.add_member('master.svg')
         assert edited != member
         assert (await pkg.manifest())['members'][1]['media_id'] != media.id
+
+
+@pytest.mark.asyncio
+async def test_pdf_preview_shows_authored_pages_without_saving(db_session, tmp_path):
+    from agent.v2.code_runtime import StimmaSDK
+
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    _icon(workspace / 'mark.png')
+    async with db_session() as session:
+        chat = Chat(name='PDF draft')
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=workspace,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        pkg = sdk.packages.new('PDF draft')
+        await pkg.add_member('mark.png')
+        pkg.set_cover('''<style>:root { --sp-bg: #123f86; --sp-fg: white; }</style>
+            <div class="sp-page"><h1>Draft</h1>
+            <stimma-section page layout="single" label="The work">
+            <stimma-media ref="m1"></stimma-media></stimma-section></div>''')
+        preview = await pkg.preview_pdf()
+        assert preview['page_count'] == 2
+        assert (workspace / preview['pdf']).read_bytes().startswith(b'%PDF-')
+        for name in preview['pages']:
+            assert not Path(name).is_absolute()
+            with Image.open(workspace / name) as image:
+                assert image.size == (1200, 675)
+                assert image.convert('RGB').getpixel((2, 2)) == (18, 63, 134)
+        assert pkg.media_id is None
+        assert (await pkg.manifest())['extras'] == []
+        pkg._builder.cleanup()

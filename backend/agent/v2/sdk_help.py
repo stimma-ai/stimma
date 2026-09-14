@@ -42,7 +42,7 @@ Parallel execution:
     ),
     "packages.new": SDKMethodHelp(
         name="packages.new",
-        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
+        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); await draft.preview_pdf(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
         summary="Assemble a deliverable package: members, deterministic recipe runs, extras, and a cover.",
         details="""\
 A package is what you hand over: masters, the derivative tree a recipe
@@ -61,6 +61,10 @@ Members can be media ids, ToolResults, or workspace paths (saved with lineage).
 Add any number of members, runs and loose files (pkg.add_file(path)).
 await pkg.manifest() returns a snapshot without saving. await pkg.preview() returns a workspace
 folder containing index.html and the files; use read_file/glob/view_image there.
+After set_cover(), await pkg.preview_pdf() returns {pdf, page_count, pages}:
+workspace-relative paths to the exported PDF and its page PNGs. Use view_image
+on those PNGs to check pagination, captions and custom print styles before save.
+It uses the download exporter and does not create a library item.
 Each run_code/run_file call has fresh Python locals. Keep the build in a
 workspace Python file and execute it with run_file again after writing the
 cover, using the same saved members and parameters; recipe runs are cached.
@@ -480,6 +484,7 @@ stimma quick reference (inside run_code / run_file):
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
+    await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.
     media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). await stimma.packages.recipes() lists recipes.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
