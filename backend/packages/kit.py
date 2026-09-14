@@ -141,8 +141,8 @@ stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-
 /* Scrollbars: one quiet style for the whole page — thin, no track, no arrows. */
 *{scrollbar-width:thin;scrollbar-color:var(--sp-line) transparent}
 
-/* Files: one button, "View contents", that opens in place into a file
-   manager. Native <details>, so the listing is still reachable with scripts
+/* Files: one button, "View contents", that gives way to a file manager in
+   its place. Native <details>, so the listing is still reachable with scripts
    off: the static tree is the data, and the script builds the manager on top
    of it. The archive itself is the app's to offer, not the page's. */
 stimma-files{display:block;margin-top:28px}
@@ -156,6 +156,9 @@ stimma-files{display:block;margin-top:28px}
   color:var(--sp-fg);background:var(--sp-plate);padding:9px 16px;border-radius:7px;flex:none;
   transition:background-color .15s}
 .sp-files>summary:hover .sp-browse{background:var(--sp-line)}
+/* Once open, the button has done its job; the browser stands where it stood.
+   Escape brings it back. With scripts off the tree simply appears beneath. */
+.sp-live .sp-files[open]>summary{display:none}
 .sp-files[open]>summary .sp-browse .sp-caret{transform:rotate(180deg)}
 .sp-caret{width:11px;height:11px;flex:none;display:inline-flex;align-items:center;
   justify-content:center;transition:transform .15s}
@@ -163,7 +166,7 @@ stimma-files{display:block;margin-top:28px}
   stroke-linecap:round;stroke-linejoin:round}
 
 /* The surface: one raised container, one hairline between bar and content. */
-.sp-browser{display:flex;flex-direction:column;min-width:0;margin-top:14px;
+.sp-browser{display:flex;flex-direction:column;min-width:0;
   border:1px solid var(--sp-line);border-radius:10px;overflow:hidden}
 .sp-browser [hidden]{display:none!important}
 stimma-files button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
@@ -234,8 +237,9 @@ stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:
 .sp-item:hover{background:var(--sp-plate)}
 .sp-item:focus{outline:none}
 .sp-item:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
+/* Rows size to their tiles: inside a fixed-height scroller, auto rows get squeezed. */
 .sp-icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:2px;
-  align-content:start}
+  grid-auto-rows:max-content;align-content:start}
 .sp-icons .sp-item{flex-direction:column;justify-content:flex-start;gap:0;padding:10px 6px 8px;
   text-align:center;min-height:0}
 .sp-icons .sp-item .sp-thumb,.sp-icons .sp-item .sp-glyph{width:80px;height:80px;border-radius:8px;
@@ -961,7 +965,7 @@ def _browser_markup(tree: str, root_label: str = "") -> str:
     root = f' data-root="{htmllib.escape(root_label, quote=True)}"' if root_label else ""
     return (
         '<details class="sp-files"><summary class="sp-files-top">'
-        f'<span class="sp-browse"><span>View contents</span>{_CARET}</span>'
+        '<span class="sp-browse">View contents</span>'
         '</summary>'
         f'<div class="sp-browser"><div class="sp-tree"{root}>{tree}</div></div></details>'
     )
