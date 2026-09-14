@@ -176,6 +176,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { hasBackOverride, consumeBackOverride } from '../composables/useBackOverride'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -204,10 +205,11 @@ const navHistory = ref([])
 const navIndex = ref(-1)
 let isNavAction = false
 
-const canGoBack = computed(() => navIndex.value > 0)
+const canGoBack = computed(() => hasBackOverride.value || navIndex.value > 0)
 const canGoForward = computed(() => navIndex.value < navHistory.value.length - 1)
 
 function goBack() {
+  if (consumeBackOverride()) return
   if (!canGoBack.value) return
   isNavAction = true
   navIndex.value--

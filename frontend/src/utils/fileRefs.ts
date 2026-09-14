@@ -9,9 +9,13 @@ export interface WorkspaceFile {
   size: number
   mime: string
   kind?: string
+  width?: number
+  height?: number
+  duration?: number
+  lines?: number
+  rows?: number
   subtitle?: string
   modified_ns?: number
-  caption?: string
   media_id?: number
   entry?: string
 }
@@ -61,4 +65,31 @@ export function parseDelimited(text: string, delimiter = ','): string[][] {
   }
   if (cell || row.length) { row.push(cell); rows.push(row) }
   return rows
+}
+
+export const workspaceFileDragType = 'application/x-stimma-workspace-file'
+export function dragWorkspaceFile(event: DragEvent, chatId: number | string, file: WorkspaceFile) {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData(workspaceFileDragType, JSON.stringify({ chatId, profile: getCurrentProfileId(), file }))
+}
+
+// Library-supported media only; workspace documents remain downloadable/attachable.
+export function canSaveFileToLibrary(file: Pick<WorkspaceFile, 'name'>) {
+  const name = file.name.toLowerCase()
+  return /\.(?:jpg|jpeg|png|gif|webp|bmp|svg|mp4|webm|mov|avi|mkv|mp3|wav|flac|aac|m4a|ogg|md)$/.test(name)
+    || /\.stimma(?:set|grid|sprite)\.json$/.test(name)
+}
+
+export function fileStats(file: WorkspaceFile) {
+  const kind = fileKind(file.name, file.mime)
+  const dimensions = file.width && file.height ? `${file.width} × ${file.height}` : ''
+  const seconds = file.duration && Number.isFinite(file.duration) ? Math.round(file.duration) : 0
+  const duration = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : ''
+  if (kind === 'image') return dimensions
+  if (kind === 'video') return [dimensions, duration].filter(Boolean).join(' · ')
+  if (kind === 'audio') return duration
+  if (kind === 'table') return file.rows != null ? `${file.rows} ${file.rows === 1 ? 'row' : 'rows'}` : (/^\d+ rows?$/.test(file.subtitle || '') ? file.subtitle : '')
+  if (kind === 'text') return file.lines != null ? `${file.lines} ${file.lines === 1 ? 'line' : 'lines'}` : ''
+  return fileSize(file.size)
 }

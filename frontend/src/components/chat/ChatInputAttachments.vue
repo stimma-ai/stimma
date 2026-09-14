@@ -8,7 +8,6 @@
     >
       <!-- Library media (has media_id) - draggable with context menu -->
       <template v-if="attachment.workspace_ref">
-        <FileTypeBadge :name="attachment.filename || attachment.workspace_ref.path" />
         <span class="text-xs truncate text-content">{{ attachment.filename }}</span>
       </template>
       <MediaImage
@@ -34,7 +33,6 @@
 </template>
 
 <script setup>
-import FileTypeBadge from './FileTypeBadge.vue'
 import IconButton from '../ui/IconButton.vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { MediaImage, AppImage } from '../media'

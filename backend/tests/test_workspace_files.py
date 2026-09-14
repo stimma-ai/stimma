@@ -45,8 +45,10 @@ async def test_share_live_files_and_missing(client, shared_workspace):
         )
     )
     assert result["files"][0]["name"] == "script.py"
+    assert "caption" not in result["files"][0]
     item = await session.scalar(select(ChatItem).where(ChatItem.chat_id == chat.id))
     assert item.item_type == "file_display"
+    assert "caption" not in json.loads(item.item_metadata)["files"][0]
     assert item.media_id is None and item.asset_id is None
     url = result["files"][0]["url"]
     response = await client.get(url)
@@ -337,3 +339,21 @@ def test_portable_mime_types():
     assert guess_file_mime("script.ts") == "text/typescript"
     assert guess_file_mime("report.md") == "text/markdown"
     assert guess_file_mime("data.tsv") == "text/tab-separated-values"
+
+
+def test_file_chip_stats_are_live_and_type_specific(tmp_path):
+    from workspace_files import describe_file
+    from PIL import Image
+
+    script = tmp_path / "report.py"
+    script.write_text("print(1)\nprint(2)")
+    assert describe_file(1, "chat", script.name, script)["lines"] == 2
+    script.write_text("print(1)\n")
+    assert describe_file(1, "chat", script.name, script)["lines"] == 1
+    table = tmp_path / "data.csv"
+    table.write_text('name,value\n"two\nlines",1\n')
+    assert describe_file(1, "chat", table.name, table)["rows"] == 1
+    photo = tmp_path / "photo.jpg"
+    Image.new("RGB", (640, 480)).save(photo)
+    info = describe_file(1, "chat", photo.name, photo)
+    assert (info["width"], info["height"]) == (640, 480)

@@ -16,6 +16,7 @@
  * Routes that belong to no hub (search, settings deep links) ride on whichever
  * hub is current.
  */
+import { hasBackOverride, consumeBackOverride } from './useBackOverride'
 import { reactive, readonly } from 'vue'
 import type { Router } from 'vue-router'
 import { hubForRoute, HUB_ROOTS, type HubId } from './useCompactChrome'
@@ -80,6 +81,7 @@ function record(fullPath: string, name: unknown, replaced: boolean) {
 
 /** Header back control. */
 export function compactBack() {
+  if (consumeBackOverride()) return
   if (!router) return
   const stack = state.stacks[state.current]
   if (stack.length > 1) {
@@ -122,7 +124,7 @@ export function compactGoToHub(hub: HubId) {
 
 /** True when back has somewhere to go other than Home's root. */
 export function compactCanGoBack(): boolean {
-  return state.stacks[state.current].length > 1 || state.hubHistory.length > 0 || state.current !== 'home'
+  return hasBackOverride.value || state.stacks[state.current].length > 1 || state.hubHistory.length > 0 || state.current !== 'home'
 }
 
 export function installCompactNav(r: Router) {
