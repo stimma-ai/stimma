@@ -177,8 +177,8 @@ async function pollForAuthResult(sessionId, timeoutMs = 1800000) {
  * Signs THIS install out: its backend clears stored auth, disconnects cloud,
  * stops serving and revokes the sessions it issued. In Electron, main then
  * drops its cached remote sessions and, if the window was driving another
- * server, takes the proxy away — the connection screen's "Use local server"
- * is the explicit way back.
+ * server, takes the proxy away — picking this computer from the connection
+ * screen's server menu is the explicit way back.
  */
 export async function signOut() {
   try {

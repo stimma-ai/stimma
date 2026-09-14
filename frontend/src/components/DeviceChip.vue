@@ -246,7 +246,13 @@ const statusDotClass = computed(() => {
 })
 
 function toggleMenu() {
-  menuOpen.value = !menuOpen.value
+  setMenuOpen(!menuOpen.value)
+}
+
+// The connection screen's "Choose another server" link opens this same menu
+// rather than growing a second picker.
+function setMenuOpen(open) {
+  menuOpen.value = open
   // Presence can have moved while the menu was shut; re-read on open rather
   // than polling for a menu nobody is looking at. Self too: serving may have
   // been toggled in Settings since the last read.
@@ -260,6 +266,8 @@ async function pick(deviceId) {
   menuOpen.value = false
   await switchToDevice(deviceId)
 }
+
+defineExpose({ openMenu: () => setMenuOpen(true) })
 
 function openServerSettings() {
   menuOpen.value = false

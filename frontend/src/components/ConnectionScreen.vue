@@ -6,70 +6,57 @@
     <!-- Minimal top bar: window controls region plus the chip, nothing else. -->
     <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
     <div class="absolute top-4 right-4">
-      <DeviceChip />
+      <DeviceChip ref="chip" />
     </div>
 
-    <div class="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 pointer-events-none">
-      <div class="flex flex-col items-center gap-2 pointer-events-auto">
-        <!-- Centered device identity: on a satellite this is the only thing
-             telling you which machine you are waiting for. -->
-        <div class="text-lg font-semibold text-content">{{ deviceName }}</div>
-        <!-- The connecting state can last a while on purpose (main keeps
-             sweeping before it admits a device is unreachable), so it has to
-             read as progress rather than a stall. -->
-        <div class="text-sm text-content-secondary min-h-[1.25rem] flex items-center gap-2">
-          <Spinner v-if="restartExpected || connectionState === 'connecting'" size="sm" />
-          <span>{{ statusLine }}</span>
-        </div>
-        <p v-if="restartExpected" class="text-xs text-content-tertiary">
-          {{ restartTakingLonger ? 'Still waiting for the server. Reconnecting automatically.' : 'Your library will reconnect automatically. This can take a couple of minutes.' }}
-        </p>
-      </div>
-
-      <div v-if="!restartExpected || restartTakingLonger" class="flex items-center gap-3 pointer-events-auto">
-        <button
-          class="h-8 px-3 rounded-md text-[13px] bg-overlay-subtle text-content transition-colors cursor-pointer hover:bg-overlay-light"
-          :disabled="connectionState === 'connecting'"
-          :class="connectionState === 'connecting' ? 'opacity-60 cursor-not-allowed' : ''"
-          @click="retry"
-        >
-          Retry
-        </button>
-
-        <!-- Explicit, never automatic: a satellite must not silently drop the
-             user into its own empty local install. -->
-        <button
-          v-if="connectionState === 'unreachable'"
-          class="h-8 px-3 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
-          @click="useLocalServer"
-        >
-          Use local server
-        </button>
+    <div class="absolute inset-0 flex items-center justify-center px-6">
+      <!-- The server is the subject: its name and one line of status, with the
+           launch screen's swinging logo so a restart reads as Stimma coming
+           back rather than an error. There is no retry button because the app
+           retries continuously for as long as this screen is up; the only
+           real choice is a different server, and that lives at the bottom. -->
+      <div class="flex flex-col items-center rounded-[14px] border border-edge bg-surface px-11 pt-[30px] pb-[26px] min-w-[280px]">
+        <img class="connection-logo" src="/logo.svg" alt="" />
+        <div class="mt-4 text-[15px] font-semibold text-content">{{ deviceName }}</div>
+        <div class="mt-1 text-[13px] text-content-secondary">{{ statusLine }}</div>
       </div>
     </div>
+
+    <button
+      class="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11.5px] text-content-tertiary transition-colors cursor-pointer hover:text-content-secondary bg-transparent border-none"
+      @click="chip?.openMenu()"
+    >
+      Choose another server
+    </button>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
-import Spinner from './ui/Spinner.vue'
 import { useServerUpdater } from '../composables/useServerUpdater'
 
-const { connectionState, activeDeviceName, retry, refresh, useLocalServer } = useMultiDevice()
+const { connectionState, activeDeviceName, retry, refresh } = useMultiDevice()
 const { restartExpected, restartTakingLonger } = useServerUpdater()
 
+const chip = ref(null)
 const deviceName = computed(() => activeDeviceName.value)
 
-const statusLine = computed(() =>
-  restartExpected.value ? `Restarting ${deviceName.value}…` : connectionState.value === 'unreachable'
-    ? `${deviceName.value} is unreachable`
-    : `Connecting to ${deviceName.value}…`,
-)
+// Two beats per situation: what is happening, then (once it has been a while)
+// that we are still at it. The unreachable state is not a distinct message —
+// the auto-retry below keeps trying, so to the user it is just a long connect.
+const statusLine = computed(() => {
+  if (restartExpected.value) {
+    return restartTakingLonger.value ? `Still waiting for ${deviceName.value}…` : 'Restarting after the update…'
+  }
+  return connectionState.value === 'unreachable'
+    ? `Still waiting for ${deviceName.value}…`
+    : `Connecting to ${deviceName.value}…`
+})
 
-// Auto-retry, with the manual button always visible. Slow enough not to
-// hammer a sleeping machine, fast enough that waking one feels immediate.
+// Auto-retry for as long as the screen is showing. Slow enough not to hammer
+// a sleeping machine, fast enough that waking one feels immediate.
 const RETRY_INTERVAL_MS = 5000
 let timer = null
 let autoRetryInFlight = false
@@ -94,3 +81,14 @@ onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
 })
 </script>
+
+<style scoped>
+/* Same swing as the launch screen (startup-pendulum lives in style.css),
+   sized for the card. */
+.connection-logo {
+  width: 48px;
+  height: 48px;
+  animation: startup-pendulum 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+</style>
