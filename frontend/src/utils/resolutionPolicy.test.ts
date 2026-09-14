@@ -187,6 +187,10 @@ test('the slider hint never caps followed reference dimensions', () => {
   assert.equal(megapixelSliderBounds(props, 2).max, 4)
   const ungridded = resolveResolution(follow(), { width: 1023, height: 1001 }, { width: { maximum: 4096 }, height: { maximum: 4096 } })
   assert.deepEqual([ungridded.width, ungridded.height], [1023, 1001])
+  for (const [width, height] of [[64, 64], [8192, 4096]]) {
+    const unbounded = resolveResolution(follow(), { width, height }, { width: {}, height: {} })
+    assert.deepEqual([unbounded.width, unbounded.height], [width, height])
+  }
 })
 
 test('older Draw Things descriptors retain their multipleOf grid', () => {

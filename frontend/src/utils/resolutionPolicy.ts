@@ -177,11 +177,20 @@ export function megapixelBounds(props: SchemaProps, ratio: number): { min: numbe
 }
 
 export function dimsForMegapixels(mp: number, ratio: number, props: SchemaProps): { width: number; height: number } {
-  const bounds = megapixelBounds(props, ratio)
-  const area = Math.max(bounds.min, Math.min(bounds.max, mp))
-  const h = Math.sqrt((area * MP_UNIT) / ratio)
+  const h = Math.sqrt((mp * MP_UNIT) / ratio)
   const w = h * ratio
-  return snapDimsToGrid(withDefaultStep(props), w, h)
+  const fitted = fitDeclaredBounds(props, w, h)
+  return snapDimsToGrid(withDefaultStep(props), fitted.width, fitted.height)
+}
+
+/** UI fallback ranges are not execution limits for providers that omit bounds. */
+function fitDeclaredBounds(props: SchemaProps, width: number, height: number): ImageDims {
+  const w = props?.width
+  const h = props?.height ?? w
+  const low = Math.max((Number(w?.minimum) || 0) / width, (Number(h?.minimum) || 0) / height)
+  const high = Math.min((Number(w?.maximum) || Infinity) / width, (Number(h?.maximum) || Infinity) / height)
+  const scale = Math.min(high, Math.max(low, 1))
+  return { width: width * scale, height: height * scale }
 }
 
 /** Normal slider range, separate from accepted dimensions. Missing hints preserve provider limits. */
@@ -248,10 +257,8 @@ export function resolveResolution(policy: ResolutionPolicy, image: ImageDims | n
     rv = ratioValue(policy.ratio)
   }
   if (shapeFromImage && sizeFromImage) {
-    const area = image!.width * image!.height / MP_UNIT
-    const bounds = megapixelBounds(props, rv)
-    const scale = Math.sqrt(Math.max(bounds.min, Math.min(bounds.max, area)) / area)
-    ;({ width, height } = snapDimsToGrid(props, image!.width * scale, image!.height * scale))
+    const fitted = fitDeclaredBounds(props, image!.width, image!.height)
+    ;({ width, height } = snapDimsToGrid(props, fitted.width, fitted.height))
   } else {
     const mp = sizeFromImage ? (image!.width * image!.height) / MP_UNIT : policy.mp
     ;({ width, height } = dimsForMegapixels(mp, rv, props))
