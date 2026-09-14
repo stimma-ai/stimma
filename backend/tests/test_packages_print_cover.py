@@ -176,3 +176,23 @@ def test_authored_colors_and_print_typography_override_kit_defaults(tmp_path, pa
         sizes = [pdfium.raw.FPDFText_GetFontSize(textpage.raw, i) for i in range(textpage.count_chars())]
         assert max(sizes) >= 47
         assert 'Made with' in textpage.get_text_range()
+
+
+@pytest.mark.parametrize('layout', ['pair', 'stack'])
+def test_scene_page_can_include_a_short_authored_note(tmp_path, layout):
+    manifest = new_manifest(title='Example')
+    Image.new('RGB', (1600, 480), 'orange').save(tmp_path / 'image.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Image', 'path': 'image.png'}]
+    html, problems = render_cover_document(manifest, authored_html=f'''
+      <div class="sp-page"><h1>Example</h1>
+      <stimma-section page label="Platform Study" layout="{layout}">
+        <stimma-media ref="m1" caption="First context"></stimma-media>
+        <stimma-media ref="m1" caption="Second context"></stimma-media>
+        <p class="sp-note">The artwork is 20% smaller than the default fit. Other targets retain their standard fit.</p>
+      </stimma-section></div>''', bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        assert len(pdf) == 2
+        text = pdf[1].get_textpage().get_text_range()
+        assert all(value in text for value in ['First context', 'Second context', '20% smaller', 'Made with'])

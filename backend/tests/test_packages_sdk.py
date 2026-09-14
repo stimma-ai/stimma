@@ -110,3 +110,37 @@ async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
         display = _json.loads(item.item_metadata)["display_data"] if isinstance(item.item_metadata, str) else item.item_metadata["display_data"]
         assert display.get("artifact"), "a package must carry the artifact blob the stage routes on"
         assert display["artifact"]["asset_id"]
+
+
+@pytest.mark.asyncio
+async def test_workspace_copy_reuses_original_svg_member_without_reserializing(db_session, tmp_path):
+    from agent.v2.code_runtime import StimmaSDK
+
+    source = tmp_path / 'original.svg'
+    data = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>'
+    source.write_bytes(data)
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    (workspace / 'master.svg').write_bytes(data)
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=source, file_format='svg',
+                                        file_hash=sha256_file(source), width=100, height=100)
+        chat = Chat(name='Shared vector')
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=workspace,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        pkg = sdk.packages.new('Shared vector')
+        member = await pkg.add_member('master.svg')
+        assert await pkg.add_member(media.id) == member
+        manifest = await pkg.manifest()
+        assert len(manifest['members']) == 1
+        assert manifest['members'][0]['media_id'] == media.id
+        assert manifest['members'][0]['hash'] == sha256_file(source)
+        folder = workspace / await pkg.preview()
+        assert (folder / manifest['members'][0]['path']).read_bytes() == data
+        # An edited copy must not resolve back to the original asset.
+        (workspace / 'master.svg').write_bytes(data.replace(b'r="40"', b'r="30"'))
+        edited = await pkg.add_member('master.svg')
+        assert edited != member
+        assert (await pkg.manifest())['members'][1]['media_id'] != media.id

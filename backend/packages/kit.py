@@ -31,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 9
+KIT_VERSION = 10
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -332,6 +332,7 @@ stimma-section[layout]>.sp-section-body{display:grid;gap:24px;align-items:center
 stimma-section[layout=pair]>.sp-section-body{grid-template-columns:repeat(2,minmax(0,1fr))}
 stimma-section[layout=single]>.sp-section-body,stimma-section[layout=stack]>.sp-section-body{grid-template-columns:minmax(0,1fr)}
 stimma-section[layout]>.sp-section-body>stimma-media{min-width:0}
+stimma-section[layout]>.sp-section-body>.sp-note{grid-column:1/-1}
 .sp-section-details{margin-top:24px}
 .sp-section-disclosure>details>summary{cursor:pointer;color:var(--sp-muted);font-size:13px;
   padding:12px 0;border-top:1px solid var(--sp-line)}

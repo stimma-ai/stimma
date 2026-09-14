@@ -1080,8 +1080,8 @@ class StimmaLibraryAPI:
 class PackageDraft:
     """A package being assembled from code: members, recipe runs, extras, a cover.
 
-    Members are library media. Workspace files and ToolResults are saved to the
-    library first (with lineage) so the package can reference them by hash.
+    Members are library media. Unchanged workspace copies reuse their library
+    asset; new files and unsaved ToolResults are saved with lineage first.
     ``save()`` writes the bundle and returns its media id; commit it with
     ``stimma.show(media_id=..., role="final")`` like any produced result.
     """
@@ -1120,6 +1120,25 @@ class PackageDraft:
             text = str(item)
             if text.isdigit():
                 return int(text)
+            # A selected library asset is often handed back as its workspace
+            # copy. Preserve that asset identity before the import pipeline
+            # normalizes formats such as SVG. Edited/new files still import.
+            if not sources:
+                from sqlalchemy import select
+                from packages.manifest import sha256_file
+                resolve = _make_workspace_resolver(
+                    self._sdk.workspace_dir, self._sdk.project_workspace_dir, read_only=True)
+                path = resolve(text)
+                if path.is_file():
+                    digest = sha256_file(path)
+                    existing = await self._sdk.session.scalar(select(MediaItem).where(
+                        MediaItem.file_hash == digest,
+                        MediaItem.deleted_at.is_(None),
+                        MediaItem.deletion_pending_at.is_(None),
+                        MediaItem.ephemeral_run_id.is_(None),
+                    ).order_by(MediaItem.id.desc()).limit(1))
+                    if existing is not None and Path(existing.file_path).is_file() and sha256_file(Path(existing.file_path)) == digest:
+                        return int(existing.id)
             saved = await self._sdk.library.save(text, sources=list(sources) if sources else None)
             return int(saved["media_id"])
         raise TypeError(f"member must be a media id, ToolResult, or workspace path; got {type(item).__name__}")

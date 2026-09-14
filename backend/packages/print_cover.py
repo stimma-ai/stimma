@@ -47,6 +47,11 @@ stimma-section[page] .sp-section-details { margin-top: 20px; }
 stimma-section[page] .sp-section-details>stimma-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
 stimma-section[page] .sp-section-details stimma-media img { width: 100%; height: 110px; object-fit: contain; }
 stimma-section[page] .sp-section-details .sp-caption { text-align: center; }
+/* A short authored note is a full-width row, with space reserved below scenes. */
+stimma-section[layout]>.sp-section-body>.sp-note { grid-column: 1; margin: 0; }
+stimma-section[layout=pair]>.sp-section-body>.sp-note { grid-column: 1 / span 2; }
+stimma-section[page][layout]:has(.sp-note)>.sp-section-body>stimma-media img { height: 420px; }
+stimma-section[page][layout=stack]:has(.sp-note)>.sp-section-body>stimma-media img { height: 190px; }
 stimma-section[page] .sp-appearance-panel { margin-top: 0; }
 stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
 stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr); }
