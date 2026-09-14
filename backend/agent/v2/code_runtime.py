@@ -29,6 +29,7 @@ import io as _io_mod
 import itertools
 import pathlib
 import statistics
+import shutil as _shutil_mod
 import string
 import struct
 import textwrap
@@ -168,7 +169,7 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "os (workspace-scoped: getcwd, listdir, walk, makedirs, mkdir, remove, "
     "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
     "ImageDraw, ImageFilter, ImageFont, ImageOps, ImageEnhance), random, re, "
-    "statistics, string, struct, textwrap, urllib / urllib.parse / "
+    "shutil (workspace-scoped: copy, copyfile, copy2), statistics, string, struct, textwrap, urllib / urllib.parse / "
     "urllib.request, zipfile, aiohttp. "
     "tqdm is also importable (sandbox-patched for progress display). "
     "For video/audio processing (concat, trim, remux, probe) use "
@@ -327,11 +328,43 @@ class _SafeGlob:
         )
 
 
+
+class _SafeShutil:
+    """Copy existing workspace files or read-only skill resources without a shell."""
+
+    def __init__(self, workspace_dir: Path, project_workspace_dir: Path | None = None):
+        self._read = _make_workspace_resolver(workspace_dir, project_workspace_dir, read_only=True)
+        self._write = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+
+    def _copy(self, operation, src, dst, *, directory_allowed):
+        source = self._read(src)
+        destination = self._write(dst)
+        result = dst
+        if directory_allowed and destination.is_dir():
+            result = os.path.join(dst, source.name)
+            destination = self._write(result)
+        operation(source, destination)
+        return result
+
+    def copyfile(self, src, dst):
+        return self._copy(_shutil_mod.copyfile, src, dst, directory_allowed=False)
+
+    def copy(self, src, dst):
+        return self._copy(_shutil_mod.copy, src, dst, directory_allowed=True)
+
+    def copy2(self, src, dst):
+        return self._copy(_shutil_mod.copy2, src, dst, directory_allowed=True)
+
+    def __getattr__(self, name):
+        raise AttributeError(f"shutil.{name} is not available in run_code. Available: copy, copyfile, copy2.")
+
+
 def _make_safe_import(
     stimpack_modules: dict[str, Path] | None = None,
     extra_modules: dict[str, Any] | None = None,
     safe_os: "_SafeOS | None" = None,
     safe_glob: "_SafeGlob | None" = None,
+    safe_shutil: "_SafeShutil | None" = None,
 ):
     """Build a safe __import__ that allows whitelisted modules + stimpack lib modules.
 
@@ -394,6 +427,8 @@ def _make_safe_import(
             return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
         if name == "glob" and safe_glob is not None:
             return safe_glob
+        if name == "shutil" and safe_shutil is not None:
+            return safe_shutil
         if name == "subprocess":
             # The one thing agents reach for subprocess for is ffmpeg — point
             # them at the sanctioned surface instead of a bare denial.
@@ -433,8 +468,9 @@ def build_safe_builtins(
 ) -> dict[str, Any]:
     safe_os = _SafeOS(workspace_dir, project_workspace_dir)
     safe_glob = _SafeGlob(workspace_dir, project_workspace_dir)
+    safe_shutil = _SafeShutil(workspace_dir, project_workspace_dir)
     return {
-        "__import__": _make_safe_import(stimpack_modules, extra_modules, safe_os, safe_glob),
+        "__import__": _make_safe_import(stimpack_modules, extra_modules, safe_os, safe_glob, safe_shutil),
         # `class` statements compile to a __build_class__ call — without it the
         # sandbox can't define classes at all.
         "__build_class__": py_builtins.__build_class__,

@@ -820,3 +820,32 @@ async def test_code_workspace_restores_after_cancellation_and_allows_nested_call
     async with _code_workspace(tmp_path):
         assert Path.cwd() == tmp_path
     assert Path.cwd() == original
+
+
+@pytest.mark.asyncio
+async def test_copy_files_and_skill_resources_stays_in_workspace(session, test_chat, tmp_path, monkeypatch):
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    pack = tmp_path / 'pack'
+    pack.mkdir()
+    (pack / 'cover.html').write_text('<p>Cover</p>')
+    outside = tmp_path / 'private.txt'
+    outside.write_text('private')
+    monkeypatch.setattr('agent.v2.tools._workspace_files.skill_resource_roots', lambda: {'test': pack})
+    result = await run_code(
+        code="""import shutil, os
+shutil.copyfile('.stimma/skills/test/cover.html', 'cover.html')
+os.mkdir('copies')
+shutil.copy2('cover.html', 'copies')
+print(open('copies/cover.html').read())
+for source, destination in [('cover.html', '../outside.html'), ('../private.txt', 'private.txt'), ('cover.html', '.stimma/skills/test/cover.html')]:
+    try:
+        shutil.copy(source, destination)
+    except PermissionError:
+        print('blocked')
+""",
+        session=session, chat_id=test_chat.id, workspace_dir=workspace,
+    )
+    assert result.splitlines() == ['<p>Cover</p>', 'blocked', 'blocked', 'blocked']
+    assert not (tmp_path / 'outside.html').exists()
+    assert not (workspace / 'private.txt').exists()
