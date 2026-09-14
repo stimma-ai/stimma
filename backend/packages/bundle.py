@@ -358,7 +358,7 @@ class PackageBuilder:
         if problems:
             raise RecipeError("; ".join(problems))
         canonical = validate_params(spec, params)
-        key = cache_key(spec, resolved, canonical)
+        key = cache_key(spec, resolved, canonical, slug=self.slug)
         root_name = self._unique_path((root or spec.id).rstrip("/"))
         run = _Run(id=rid, spec=spec, inputs=dict(inputs), params=canonical, root=root_name + "/", key=key)
         cached = run_cache.lookup(self.profile_id, key)

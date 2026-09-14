@@ -145,11 +145,19 @@ async def test_runs_are_memoized(db_session, tmp_path):
             await b1.run("key-art-crops", {"master": await b1.add_member(master.id)}, {"aspects": ["1x1"]})
             assert b1.runs[0].cached is False
             await b1.save()
-        async with PackageBuilder(session, profile_id="default", title="two") as b2:
+        async with PackageBuilder(session, profile_id="default", title="one") as b2:
             await b2.run("key-art-crops", {"master": await b2.add_member(master.id)}, {"aspects": ["1x1"]})
             assert b2.runs[0].cached is True
             media, _ = await b2.save()
-        assert (Path(media.file_path) / "key-art-crops/1x1").is_dir()
+        assert (Path(media.file_path) / "key-art-crops/1x1/one-1x1-1200x1200.jpg").is_file()
+        async with PackageBuilder(session, profile_id="default", title="two") as renamed:
+            await renamed.run("key-art-crops", {"master": await renamed.add_member(master.id)}, {"aspects": ["1x1"]})
+            assert renamed.runs[0].cached is False
+            assert renamed.runs[0].key != b2.runs[0].key
+            renamed_media, _ = await renamed.save()
+        renamed_files = Path(renamed_media.file_path) / "key-art-crops/1x1"
+        assert (renamed_files / "two-1x1-1200x1200.jpg").is_file()
+        assert not (renamed_files / "one-1x1-1200x1200.jpg").exists()
     assert run_cache.stats("default").entries >= 1
     assert run_cache.enforce_budget("default", max_entries=0) >= 1
     assert run_cache.stats("default").entries == 0

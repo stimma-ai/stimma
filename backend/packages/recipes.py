@@ -670,13 +670,14 @@ def runtime_fingerprint() -> str:
     return f"py{sys.version_info.major}.{sys.version_info.minor}-pil{Image.__version__}-rt{RECIPE_RUNTIME_VERSION}-{platform.system().lower()}"
 
 
-def cache_key(spec: RecipeSpec, inputs: dict[str, ResolvedInput], params: dict[str, Any]) -> str:
+def cache_key(spec: RecipeSpec, inputs: dict[str, ResolvedInput], params: dict[str, Any], *, slug: str = "package") -> str:
     material = {
         "recipe": spec.id,
         "version": spec.version,
         "source": spec.source,
         "inputs": {role: inp.hash for role, inp in sorted(inputs.items())},
         "params": params,
+        "slug": slug,
         "runtime": runtime_fingerprint(),
     }
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -727,7 +728,7 @@ async def run_recipe(
         raise RecipeError(f"recipe {spec.id!r} produced no files")
     return RunResult(
         files=b.files, params=canonical,
-        cache_key=cache_key(spec, inputs, canonical), tile_png=b.tile_png,
+        cache_key=cache_key(spec, inputs, canonical, slug=slug), tile_png=b.tile_png,
     )
 
 
