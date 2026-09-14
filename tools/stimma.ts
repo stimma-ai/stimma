@@ -29,6 +29,10 @@ type ProcessEntry = {
   pgid: number;
 };
 
+type CommandProcessEntry = ProcessEntry & {
+  command: string;
+};
+
 type TerminationSignal = "SIGTERM" | "SIGKILL";
 
 const DEV_HOST = "127.0.0.1";
@@ -163,6 +167,20 @@ async function unixProcessTable(): Promise<ProcessEntry[]> {
     .map(([pid, ppid, pgid]) => ({ pid, ppid, pgid }));
 }
 
+async function unixCommandProcessTable(): Promise<CommandProcessEntry[]> {
+  const out = await runCapture("ps", ["-axo", "pid=,ppid=,pgid=,command="]);
+  if (out.code !== 0) return [];
+  return out.stdout.split(/\r?\n/)
+    .map((line) => /\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)/.exec(line))
+    .filter((match): match is RegExpExecArray => match !== null)
+    .map((match) => ({
+      pid: Number(match[1]),
+      ppid: Number(match[2]),
+      pgid: Number(match[3]),
+      command: match[4],
+    }));
+}
+
 function unixDescendantPids(rootPid: number, table: ProcessEntry[]): number[] {
   const childrenByParent = new Map<number, number[]>();
   for (const { pid, ppid } of table) {
@@ -234,6 +252,39 @@ async function terminateDevProcesses(processes: DevProcess[]): Promise<void> {
   console.warn("[dev all] Some processes did not exit after SIGTERM; sending SIGKILL.");
   await Promise.all(processes.map((proc) => signalProcessTree(proc, "SIGKILL")));
   await waitForDevProcessesToExit(processes, 3000);
+}
+
+async function killAllDevSessions(): Promise<void> {
+  if (Deno.build.os === "windows") {
+    console.error("stimma dev killall is not implemented on Windows.");
+    Deno.exit(1);
+  }
+
+  const table = await unixCommandProcessTable();
+  const workspaceRoot = dirname(repoRoot);
+  const roots = table.filter((entry) =>
+    entry.pid !== Deno.pid &&
+    entry.command.includes(workspaceRoot) &&
+    entry.command.includes("/tools/stimma.ts") &&
+    /\sdev(?:\s|$)/.test(entry.command) &&
+    !/\sdev\s+killall(?:\s|$)/.test(entry.command)
+  );
+
+  const pids = new Set<number>();
+  for (const root of roots) {
+    pids.add(root.pid);
+    for (const pid of unixDescendantPids(root.pid, table)) pids.add(pid);
+  }
+
+  for (const pid of [...pids].reverse()) {
+    try {
+      Deno.kill(pid, "SIGKILL");
+    } catch {
+      // Process already exited or is otherwise unavailable.
+    }
+  }
+
+  console.log(`Killed ${roots.length} Stimma dev session${roots.length === 1 ? "" : "s"} (${pids.size} processes).`);
 }
 
 async function isTcpPortOpen(hostname: string, port: number, timeoutMs = 500): Promise<boolean> {
@@ -548,6 +599,7 @@ Commands:
   dev all         Run backend + frontend + app together with merged logs
                       Open Vite's Network URL on a phone on the same network
   dev ios         Build, sign, install, and launch on the connected iPhone
+  dev killall     Kill all running dev sessions in this workspace with SIGKILL
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
   run app         Run Tauri app (release, no watching)
@@ -2457,7 +2509,9 @@ async function main(): Promise<void> {
       break;
     }
     case "dev": {
-      if (sub === "ios") {
+      if (sub === "killall") {
+        await killAllDevSessions();
+      } else if (sub === "ios") {
         await run(
           pythonCommand,
           [join(repoRoot, "tools", "mobile.py"), "ios", "device", ...rest],
