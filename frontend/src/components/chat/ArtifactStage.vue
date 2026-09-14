@@ -11,49 +11,6 @@
       </div>
 
       <div class="ml-auto flex flex-wrap items-center justify-end gap-0.5 min-w-0" :class="workspaceArchive ? 'w-full' : ''">
-        <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
-             off-latest state earns the accent because it is a real state, not
-             decoration. -->
-        <div v-if="!workspaceFile && !isEmpty" class="relative" ref="versionMenuRef">
-          <button
-            type="button"
-            class="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium transition-colors hover:bg-overlay-subtle disabled:opacity-50"
-            :class="onNewest ? 'text-content-secondary hover:text-content' : 'text-accent'"
-            :disabled="!revisions.length"
-            @click="showVersionMenu = !showVersionMenu"
-          >
-            v{{ viewedRevision?.revision_number ?? '—' }}
-            <ChevronDownIcon class="w-3 h-3" />
-          </button>
-          <div
-            v-if="showVersionMenu"
-            class="absolute right-0 mt-1 w-60 max-h-72 overflow-y-auto bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 custom-scrollbar"
-          >
-            <button
-              v-for="rev in reversedRevisions"
-              :key="rev.id"
-              type="button"
-              class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
-              :class="rev.id === viewedRevisionId ? 'text-content bg-overlay-subtle' : 'text-content hover:bg-overlay-subtle'"
-              @click="selectVersion(rev.id)"
-            >
-              <span class="font-semibold w-6 flex-shrink-0">v{{ rev.revision_number }}</span>
-              <span class="flex-1 min-w-0 truncate text-content-muted">{{ rev.note || '—' }}</span>
-              <span v-if="rev.id === latestRevisionId" class="text-[10px] text-content-tertiary flex-shrink-0">latest</span>
-            </button>
-          </div>
-        </div>
-
-        <button
-          v-if="!workspaceFile && !isEmpty && !onNewest"
-          type="button"
-          class="h-7 px-2 rounded-md text-[11px] font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors disabled:opacity-50"
-          :disabled="loading"
-          @click="$emit('set-latest')"
-        >
-          {{ loading ? 'Setting…' : 'Set as latest' }}
-        </button>
-
         <!-- The kebab is the same menu the artwork's right-click gives, anchored
              under the button. A second, smaller menu of its own would just be a
              place for actions to go missing. -->
@@ -75,9 +32,51 @@
             <span class="font-medium">Download {{ packageZipName }}</span>
             <span v-if="packageZipSize" class="font-mono text-content-tertiary">{{ packageZipSize }}</span>
           </button>
+          <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
+               off-latest state earns the accent because it is a real state, not
+               decoration. -->
+          <div v-if="!workspaceFile && !isEmpty" class="relative" ref="versionMenuRef">
+            <button
+              type="button"
+              class="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium transition-colors hover:bg-overlay-subtle disabled:opacity-50"
+              :class="onNewest ? 'text-content-secondary hover:text-content' : 'text-accent'"
+              :disabled="!revisions.length"
+              @click="showVersionMenu = !showVersionMenu"
+            >
+              v{{ viewedRevision?.revision_number ?? '—' }}
+              <ChevronDownIcon class="w-3 h-3" />
+            </button>
+            <div
+              v-if="showVersionMenu"
+              class="absolute right-0 mt-1 w-60 max-h-72 overflow-y-auto bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 custom-scrollbar"
+            >
+              <button
+                v-for="rev in reversedRevisions"
+                :key="rev.id"
+                type="button"
+                class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
+                :class="rev.id === viewedRevisionId ? 'text-content bg-overlay-subtle' : 'text-content hover:bg-overlay-subtle'"
+                @click="selectVersion(rev.id)"
+              >
+                <span class="font-semibold w-6 flex-shrink-0">v{{ rev.revision_number }}</span>
+                <span class="flex-1 min-w-0 truncate text-content-muted">{{ rev.note || '—' }}</span>
+                <span v-if="rev.id === latestRevisionId" class="text-[10px] text-content-tertiary flex-shrink-0">latest</span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            v-if="!workspaceFile && !isEmpty && !onNewest"
+            type="button"
+            class="h-7 px-2 rounded-md text-[11px] font-medium text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors disabled:opacity-50"
+            :disabled="loading"
+            @click="$emit('set-latest')"
+          >
+            {{ loading ? 'Setting…' : 'Set as latest' }}
+          </button>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
-              <EllipsisHorizontalIcon class="w-4 h-4" />
+              <EllipsisVerticalIcon class="w-4 h-4" />
             </IconButton>
           </div>
         </template>
@@ -162,7 +161,7 @@ import { fileUrl, fileSize, dragWorkspaceFile, fileKind, type WorkspaceFile } fr
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import {
   ChevronDownIcon,
-  EllipsisHorizontalIcon,
+  EllipsisVerticalIcon,
   ArrowUpIcon,
   ArchiveBoxIcon,
 } from '@heroicons/vue/24/outline'
