@@ -200,14 +200,12 @@ async def test_cover_lint_and_expansion(db_session, tmp_path):
         master = await _media(session, tmp_path / "master.png")
         async with PackageBuilder(session, profile_id="default", title="lint") as builder:
             await builder.add_member(master.id, role="master")
-            builder.set_cover('<img src="https://example.com/x.png">')
             with pytest.raises(CoverError, match="external URL"):
-                await builder.save()
+                builder.set_cover('<img src="https://example.com/x.png">')
         async with PackageBuilder(session, profile_id="default", title="lint2") as builder:
             await builder.add_member(master.id, role="master")
-            builder.set_cover('<stimma-media ref="missing"></stimma-media>')
             with pytest.raises(CoverError, match="does not resolve"):
-                await builder.save()
+                builder.set_cover('<stimma-media ref="missing"></stimma-media>')
         async with PackageBuilder(session, profile_id="default", title="ok") as builder:
             await builder.add_member(master.id, role="master")
             builder.set_cover('<style>h1{color:red}</style><h1>Hi</h1><stimma-grid><stimma-media ref="m1" caption="Master"/></stimma-grid>')
@@ -297,3 +295,44 @@ async def test_package_routes(client, db_session, tmp_path):
 
     bad = await client.post("/api/packages", json={"title": "x", "media_ids": [master_id], "recipe": "nope"})
     assert bad.status_code == 400
+
+@pytest.mark.asyncio
+async def test_draft_inspection_and_workspace_preview_before_save(db_session, tmp_path):
+    from types import SimpleNamespace
+    from agent.v2.code_runtime import PackageDraft
+
+    _write_icon(tmp_path / "master.png")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    async with db_session() as session:
+        master = await _media(session, tmp_path / "master.png")
+        sdk = SimpleNamespace(session=session, workspace_dir=workspace, chat_id=None, project_id=None, _session_media_ids=[])
+        pkg = PackageDraft(sdk, "Mixed")
+        try:
+            member = await pkg.add_member(master.id)
+            await pkg.run("app-icons", {"master": member}, {"platforms": ["ios"], "background": "#FFFFFF", "app_name": "Acme"})
+            await pkg.run("app-icons", {"master": member}, {"platforms": ["android", "macos", "windows", "linux"], "background": "#FFFFFF", "app_name": "Acme"})
+            manifest = await pkg.manifest()
+            assert [r["root"] for r in manifest["runs"]] == ["app-icons/", "app-icons-2/"]
+            assert manifest["cover"]["kind"] == "auto"
+            preview = workspace / await pkg.preview()
+            assert preview.is_relative_to(workspace)
+            for run in manifest["runs"]:
+                for file in run["files"]:
+                    assert sha256_file(preview / file["path"]) == file["hash"]
+            with pytest.raises(CoverError, match="does not resolve"):
+                pkg.set_cover('<stimma-media ref="r1/previews/home-light.png"></stimma-media>')
+            pkg.set_cover('<stimma-media ref="app-icons/previews/home-light.png"></stimma-media><stimma-files ref="r2"></stimma-files>')
+            authored = workspace / await pkg.preview()
+            assert pkg.media_id is None
+            assert sdk._session_media_ids == []
+            assert "app-icons/previews/home-light.png" in (authored / "index.html").read_text()
+            # Preview files are disposable copies, never the authoritative run.
+            output = manifest["runs"][0]["files"][0]
+            (authored / output["path"]).write_bytes(b"changed")
+            saved_id = await pkg.save()
+            saved = await session.get(MediaItem, saved_id)
+            assert sha256_file(Path(saved.file_path) / output["path"]) == output["hash"]
+            assert read_manifest(Path(saved.file_path))["cover"]["kind"] == "authored"
+        finally:
+            pkg._builder.cleanup()

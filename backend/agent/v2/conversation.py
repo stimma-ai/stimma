@@ -182,6 +182,11 @@ def _repair_tool_call_pairing(messages: List[Dict[str, Any]]) -> None:
     Both are permanent once persisted: the same malformed history is rebuilt on
     every subsequent turn, so the chat stays bricked until it is repaired here.
     """
+    # Skill context is user-shaped but is not a human interruption. Normalize
+    # complete provider batches before repair; otherwise the context splits the
+    # batch and repair destroys valid results before the transport sees them.
+    from llm import _normalize_parallel_tool_history
+    messages[:] = _normalize_parallel_tool_history(messages)
     _drop_orphaned_tool_results(messages)
     _synthesize_missing_tool_results(messages)
 
@@ -456,6 +461,9 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
         )
     else:
         text = f"Image loaded ({w}x{h}px). Analyze what you see."
+
+    if marker.get("description"):
+        text += " " + str(marker["description"])
 
     faces = marker.get("faces")
     if faces:

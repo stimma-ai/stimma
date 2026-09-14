@@ -92,17 +92,20 @@ def store(
     os.replace(tmp, entry)
 
 
-def materialize(profile_id: str, key: str, files: list[WrittenFile], dest_dir: Path) -> None:
+def materialize(profile_id: str, key: str, files: list[WrittenFile], dest_dir: Path, *, copy: bool = False) -> None:
     """Copy a cached run's files into ``dest_dir`` (the bundle's run root)."""
     tree = _entry_dir(profile_id, key) / "tree"
     for f in files:
         src = tree / f.path
         dst = Path(dest_dir) / f.path
         dst.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.link(src, dst)
-        except OSError:
+        if copy:
             shutil.copy2(src, dst)
+        else:
+            try:
+                os.link(src, dst)
+            except OSError:
+                shutil.copy2(src, dst)
 
 
 def _entry_size(entry: Path) -> int:

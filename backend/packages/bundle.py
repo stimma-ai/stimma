@@ -278,6 +278,9 @@ class PackageBuilder:
     def set_cover(self, html_text: str) -> None:
         if not (html_text or "").strip():
             raise PackageError("cover HTML is empty")
+        _document, problems = render_cover_document(self._manifest(), authored_html=html_text, strict=True)
+        if problems:
+            raise CoverError("cover has problems: " + "; ".join(problems))
         self.cover_source = html_text
 
     # runs
@@ -301,7 +304,7 @@ class PackageBuilder:
         size is the same pixels.
         """
         from utils.svg_doc import intrinsic_size, parse_svg, read_svg_file
-        from utils.ui_render import (
+        from utils.document_render import (
             LayoutRenderBusy,
             LayoutRenderUnavailable,
             render_svg_document,
@@ -435,15 +438,22 @@ class PackageBuilder:
         }
         return manifest
 
-    def _assemble(self, manifest: dict[str, Any]) -> Path:
-        staging = app_dirs.get_managed_staging_dir(self.profile_id, "generated")
-        staging.mkdir(parents=True, exist_ok=True)
-        base = f"{self.slug}{PACKAGE_EXTENSION}"
-        bundle = staging / base
-        n = 1
-        while bundle.exists():
-            n += 1
-            bundle = staging / f"{self.slug}-{n}{PACKAGE_EXTENSION}"
+    def manifest(self) -> dict[str, Any]:
+        """Snapshot the draft, including exact bundle paths for all run files."""
+        return self._manifest()
+
+    def _assemble(self, manifest: dict[str, Any], destination: Path | None = None) -> Path:
+        if destination is None:
+            staging = app_dirs.get_managed_staging_dir(self.profile_id, "generated")
+            staging.mkdir(parents=True, exist_ok=True)
+            base = f"{self.slug}{PACKAGE_EXTENSION}"
+            bundle = staging / base
+            n = 1
+            while bundle.exists():
+                n += 1
+                bundle = staging / f"{self.slug}-{n}{PACKAGE_EXTENSION}"
+        else:
+            bundle = destination
         bundle.mkdir(parents=True)
         try:
             for m in self.members:
@@ -454,7 +464,7 @@ class PackageBuilder:
                 run_root = bundle / r.root.rstrip("/")
                 run_root.mkdir(parents=True, exist_ok=True)
                 if r.cached:
-                    run_cache.materialize(self.profile_id, r.key, r.files, run_root)
+                    run_cache.materialize(self.profile_id, r.key, r.files, run_root, copy=destination is not None)
                 else:
                     src_root = self._scratch / "runs" / r.id
                     for f in r.files:

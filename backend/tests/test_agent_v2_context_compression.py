@@ -330,3 +330,30 @@ class TestOrphanedToolResults:
         once = [dict(m) for m in messages]
         _repair_tool_call_pairing(messages)
         assert messages == once
+
+
+def test_skill_injections_do_not_destroy_parallel_tool_results():
+    from agent.v2.conversation import _repair_tool_call_pairing, INTERRUPTED_TOOL_RESULT
+
+    calls = [{"id": name, "type": "function", "function": {"name": name, "arguments": "{}"}}
+             for name in ("view", "packaging", "isolation")]
+    batch = {"role": "assistant", "content": None, "tool_calls": calls,
+             "_stimma_provider_state": {"kind": "openai_chat_tool_batch", "tool_calls": calls}}
+    packaging = {"role": "user", "name": "_stimma_context", "content": "Packaging skill"}
+    isolation = {"role": "user", "name": "_stimma_context", "content": "Isolation skill"}
+    messages = [
+        {"role": "user", "content": "Package this"}, batch,
+        {"role": "tool", "tool_call_id": "view", "content": "Image pixels"},
+        {"role": "tool", "tool_call_id": "packaging", "content": "Loaded Packaging"},
+        packaging,
+        {"role": "tool", "tool_call_id": "isolation", "content": "Loaded Isolation"},
+        isolation,
+    ]
+    _repair_tool_call_pairing(messages)
+    assert [m["role"] for m in messages] == ["user", "assistant", "tool", "tool", "tool", "user", "user"]
+    assert messages[4]["content"] == "Loaded Isolation"
+    assert messages[-2:] == [packaging, isolation]
+    assert not any(m.get("content") == INTERRUPTED_TOOL_RESULT for m in messages)
+    original = json.dumps(messages)
+    _repair_tool_call_pairing(messages)
+    assert json.dumps(messages) == original

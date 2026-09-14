@@ -42,25 +42,32 @@ Parallel execution:
     ),
     "packages.new": SDKMethodHelp(
         name="packages.new",
-        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
+        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
         summary="Assemble a deliverable package: members, deterministic recipe runs, extras, and a cover.",
         details="""\
 A package is what you hand over: masters, the derivative tree a recipe
 produced (icon sets, logo variants, crops), loose extras, and a cover page.
 Members can be media ids, ToolResults, or workspace paths (saved with lineage).
 
-  pkg = stimma.packages.new("Acme logo")
-  master = await pkg.add_member(result, role="master")       # a ToolResult or "mark.png"
-  await pkg.run("app-icons", {"master": master},
-                {"platforms": ["ios", "android", "web"], "background": "#101820"})
-  pkg.add_file("brief.pdf")                                   # optional extras
-  pkg.set_cover("cover.html")                                 # optional; see packages.cover
-  pkg.set_tile("tile.png")                                    # optional; the library square
+  pkg = stimma.packages.new(title)
+  member = await pkg.add_member(source)  # ToolResult, media id, or workspace path
+  await pkg.run(recipe_id, {input_role: member}, chosen_params)
+  print(await pkg.manifest())                 # actual member ids, run roots, file paths
+  print(await pkg.preview())           # workspace snapshot; inspect before designing
+  pkg.set_cover("cover.html")           # required for agent deliveries; validates now
   media_id = await pkg.save()
-  stimma.show(media_id=media_id, role="final")                # commits the package Asset
+  stimma.show(media_id=media_id, role="final")
+
+Add any number of members, runs and loose files (pkg.add_file(path)).
+await pkg.manifest() returns a snapshot without saving. await pkg.preview() returns a workspace
+folder containing index.html and the files; use read_file/glob/view_image there.
+Each run_code/run_file call has fresh Python locals. Keep the build in a
+workspace Python file and execute it with run_file again after writing the
+cover, using the same saved members and parameters; recipe runs are cached.
+Only save the completed package. preview() does not create a library item.
 
 Recipes are deterministic and memoized; judgment (focal points, colors,
-naming) goes in params. stimma.packages.recipes() lists roles and params.
+naming) goes in params. await stimma.packages.recipes() lists roles and params.
 Naming: pass {"naming": {"template": "{slug}-{variant}-{color}", "case": "kebab"}}
 to honor the user's filename conventions; platform-fixed names never change.""",
         group="packages",
@@ -68,7 +75,7 @@ to honor the user's filename conventions; platform-fixed names never change.""",
     ),
     "packages.recipes": SDKMethodHelp(
         name="packages.recipes",
-        signature="stimma.packages.recipes() -> list[dict]",
+        signature="await stimma.packages.recipes() -> list[dict]",
         summary="List installed recipes with their input roles, constraints and parameters.",
         details="""\
 Each entry has id, version, display_name, description, inputs (name, kind,
@@ -76,12 +83,12 @@ required, square, min_size, alpha), params (name, type, default, options) and
 has_guidance. Read it before running a recipe so you gather the right masters
 first: a recipe never generates anything, it only arranges what you give it.
 
-  stimma.packages.guidance("app-icons")   # notes from that recipe, on demand
+  await stimma.packages.guidance(recipe_id)   # notes from that recipe, on demand
 
 Fetch guidance for the recipe you settled on, not for all of them — that is
 what keeps a profile with fifty recipes as cheap to work with as one.""",
         group="packages",
-        is_async=False,
+        is_async=True,
     ),
     "packages.cover": SDKMethodHelp(
         name="packages.cover",
@@ -94,13 +101,14 @@ use kit elements wherever the page touches package content:
   <stimma-media ref="m1" caption="Primary mark"></stimma-media>   member, run file path, or extra
   <stimma-grid><stimma-media ref="m1"/><stimma-media ref="m2"/></stimma-grid>   contact-sheet grid
   <stimma-files ref="r1"></stimma-files>                           browsable tree + downloads for a run
-  <stimma-compare a="m1" b="app-icons/ios/icon-1024.png" mode="slider"></stimma-compare>
+  <stimma-compare a="m1" b="m2" mode="slider"></stimma-compare>
 
 Refs are member ids (m1), run ids (r1), or bundle-relative paths from the
 manifest. Rules: no external URLs (bundle fonts and images as members),
 no <script type="module">, unique ids. A cover that breaks a rule is
-refused with the reason, so fix and save again. Without a cover, the package
-gets a plain auto-generated one.""",
+refused with the reason, so fix and save again. Author a cover before save(). The plain auto cover is a fallback for
+packaging without an agent. Use await draft.manifest() for exact file refs.
+Use stimma-appearance for light/dark variants and stimma-sizes for true-size rows.""",
         group="packages",
         is_async=False,
     ),
@@ -471,7 +479,8 @@ stimma quick reference (inside run_code / run_file):
     .inspect([ids]) reads metadata/history without copying files.
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
-    media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). stimma.packages.recipes() lists recipes.
+    await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
+    media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). await stimma.packages.recipes() lists recipes.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

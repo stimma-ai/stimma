@@ -37,14 +37,18 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
             session=session, chat_id=chat.id, workspace_dir=workspace,
             project_workspace_dir=None, interrupt_checker=lambda: False,
         )
-        recipes = sdk.packages.recipes()
+        recipes = await sdk.packages.recipes()
         assert any(r["id"] == "app-icons" for r in recipes)
+        assert "references/app-icons" in await sdk.packages.guidance("app-icons")
 
         pkg = sdk.packages.new("SDK icons")
         master = await pkg.add_member("mark.png", role="master")
         assert master == "m1"
         run_id = await pkg.run("app-icons", {"master": master}, {"background": "#FFFFFF", "platforms": ["web"], "app_name": "SDK"})
         assert run_id == "r1"
+        with pytest.raises(ValueError, match="set_cover"):
+            await pkg.save()
+        assert pkg.media_id is None
         pkg.add_file("brief.txt")
         pkg.set_cover("cover.html")
         media_id = await pkg.save()

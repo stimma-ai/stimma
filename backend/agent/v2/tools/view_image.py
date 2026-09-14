@@ -136,7 +136,7 @@ def _copy_layout_to_workspace(bundle_path: Path, workspace_dir: str) -> str | No
 
 @tool(
     name="view_image",
-    description="View an image or layout — sends its pixels into your context so you can see it. Accepts a media_id (preferred after call_tool or create_layout) or a file path. Works with images and .stimmalayout bundles. For layouts, also copies the bundle into the workspace so you can read/edit the HTML source.",
+    description="View an image or layout — sends its pixels into your context so you can see it. Accepts a media_id (preferred after call_tool or create_layout) or a file path. Works with images, .stimmalayout bundles, and package covers (first viewport). For layouts, also copies the bundle into the workspace so you can read/edit the HTML source.",
     parameters=[
         ToolParameter(
             name="media_id",
@@ -193,6 +193,29 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
         return f"Error: File not found: {resolved}"
 
     max_side = MAX_HIGH if detail == "high" else MAX_LOW
+
+    # Packages live in content-addressed directories after save, and workspace
+    # draft snapshots have no extension. Identify them by the manifest.
+    from packages.manifest import MANIFEST_NAME, read_manifest
+    if resolved.is_dir() and (resolved / MANIFEST_NAME).is_file():
+        import io
+        from utils.local_render import gather_bundle_assets, render_html
+        try:
+            manifest = read_manifest(resolved)
+            png = await render_html(
+                (resolved / "index.html").read_text(encoding="utf-8").replace('loading="lazy"', 'loading="eager"'),
+                width=960, height=960, dpr=1.0,
+                assets=gather_bundle_assets(resolved),
+            )
+            img = _downscale(Image.open(io.BytesIO(png)).convert("RGB"), max_side)
+            snapshot = write_agent_jpeg(img)
+            return json.dumps({
+                "__view_image__": True, "path": str(snapshot),
+                "size": list(img.size), "detail": detail, "media_type": "image/jpeg",
+                "description": f"{manifest['title']}: first 960px of the cover. Inspect individual preview files for details.",
+            })
+        except Exception as exc:
+            return f"Error: Could not render package cover: {exc}"
 
     # Handle .stimmalayout bundles — rasterize using the local browser + copy to workspace
     if resolved.is_dir() and resolved.name.lower().endswith('.stimmalayout'):

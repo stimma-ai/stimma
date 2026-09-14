@@ -687,3 +687,44 @@ async def test_library_sdk_ergonomics(session, test_chat, tmp_path, monkeypatch)
     )
 
     assert result.splitlines() == ["True", "True", "True"], result
+
+
+@pytest.mark.asyncio
+async def test_dotted_package_imports_follow_python_semantics(session, test_chat, tmp_path):
+    result = await run_code(
+        code="""import PIL.Image as Image
+import PIL.Image
+from PIL.Image import new
+import numpy.linalg as linalg
+image = Image.new('RGB', (8, 9))
+image.save('image.png')
+print(PIL.Image.open('image.png').size, new('RGB', (2, 3)).size)
+print(round(linalg.norm([3, 4])))
+import urllib.parse
+import urllib.parse as parse
+import os.path as path
+print(urllib.parse.quote('a b'), parse.quote('c d'), path.basename('a/b'))
+""",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    )
+    assert result == "(8, 9) (2, 3)\n5\na%20b c%20d b"
+
+
+@pytest.mark.asyncio
+async def test_await_sync_value_hint(session, test_chat, tmp_path):
+    result = await run_code(
+        code="def setter(): pass\nawait setter()",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    )
+    assert "returned a synchronous value" in result
+    assert "remove `await`" in result
+
+
+@pytest.mark.asyncio
+async def test_workspace_file_checksums_need_no_shell(session, test_chat, tmp_path):
+    (tmp_path / "asset.bin").write_bytes(b"abc")
+    result = await run_code(
+        code="import hashlib\nprint(hashlib.sha256(open('asset.bin', 'rb').read()).hexdigest())",
+        session=session, chat_id=test_chat.id, workspace_dir=tmp_path,
+    )
+    assert result == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

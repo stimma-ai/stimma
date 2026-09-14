@@ -69,7 +69,11 @@ WEB_ICO_SIZES: tuple[int, ...] = (16, 32, 48)
 WEB_PNG_SIZES: tuple[int, ...] = (16, 32, 192, 512)
 APPLE_TOUCH_PX = 180
 
-PLATFORMS: tuple[str, ...] = ("ios", "android", "macos", "windows", "web")
+# Raster sizes supplied for hicolor application icons. 48px is the baseline
+# recommended by the freedesktop Icon Theme specification; larger sizes cover
+# high-density launchers. This is an application contribution, not a new theme.
+LINUX_SIZES: tuple[int, ...] = (16, 24, 32, 48, 64, 128, 256, 512)
+PLATFORMS: tuple[str, ...] = ("ios", "android", "macos", "windows", "linux", "web")
 
 
 def ios_px(size: str, scale: str) -> int:
@@ -177,6 +181,8 @@ def images_for(platform: str, *, foreground_role: str = "master") -> list[IconIm
         return macos_images()
     if platform == "windows":
         return windows_images()
+    if platform == "linux":
+        return [IconImage(f"hicolor/{px}x{px}/apps/icon.png", px) for px in LINUX_SIZES]
     if platform == "web":
         return web_images()
     raise ValueError(f"unknown icon platform: {platform}")
@@ -293,7 +299,7 @@ def compose(art: Image.Image, spec: IconImage, background: str = "#FFFFFF") -> I
     scaled = art.copy()
     scaled.thumbnail((inner, inner), Image.LANCZOS)
     canvas = Image.new("RGBA", (spec.px, spec.px), (0, 0, 0, 0))
-    canvas.paste(scaled, ((spec.px - scaled.width) // 2, (spec.px - scaled.height) // 2), scaled)
+    canvas.alpha_composite(scaled, ((spec.px - scaled.width) // 2, (spec.px - scaled.height) // 2))
     if spec.opaque:
         flat = Image.new("RGBA", (spec.px, spec.px), background)
         flat.alpha_composite(canvas)

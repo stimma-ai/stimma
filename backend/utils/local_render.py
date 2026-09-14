@@ -48,7 +48,7 @@ def gather_bundle_assets(bundle_dir: Path) -> dict[str, str]:
     for entry in root.rglob('*'):
         if not entry.is_file() or not entry.resolve().is_relative_to(root):
             continue
-        if entry.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.css', '.woff', '.woff2', '.ttf', '.otf'}:
+        if entry.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svg', '.css', '.woff', '.woff2', '.ttf', '.otf'}:
             continue
         total += entry.stat().st_size
         if total > MAX_INPUT_BYTES:

@@ -160,3 +160,10 @@ async def test_css_background_with_parentheses_in_filename(browser):
     html = '<style>body{margin:0;background-image:url("picture (copy).svg")}</style><body></body>'
     image = await capture(browser, html, assets={'picture (copy).svg':base64.b64encode(svg.encode()).decode()})
     assert image.getpixel((50,40)) == (255,0,0,255)
+
+
+def test_bundle_assets_include_windows_icon_files(tmp_path):
+    icon = tmp_path / 'app.ico'
+    Image.new('RGBA', (32, 32), (40, 90, 160, 255)).save(icon, format='ICO')
+    assets = gather_bundle_assets(tmp_path)
+    assert base64.b64decode(assets['app.ico']) == icon.read_bytes()

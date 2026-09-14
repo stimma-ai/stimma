@@ -12,9 +12,9 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=2,
+    version=3,
     display_name="App icon set",
-    description="iOS, Android, macOS, Windows and web icon sets from one square master image",
+    description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
         Input("master", kind="image", square=True, min_size=1024,
               description="Square master icon: an SVG, or a raster 1024px or larger"),
@@ -54,7 +54,9 @@ artwork.
 
 Supply `android_foreground` when the mark needs to sit differently inside
 Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
-so a wide lockup that works on iOS loses its edges there.
+so a wide lockup that works on iOS loses its edges there. Inspect that layer
+over the chosen background: removing a backdrop must preserve the mark's
+interior colors and opacity. A faded cutout is not an acceptable foreground.
 
 `app_name` is required too, for the same reason. The previews put the name
 under the icon on a home screen, in a store row, in Settings and in a
@@ -62,8 +64,24 @@ notification, and the web manifest carries it — so a made-up name ships in the
 deliverable. If the person has not said what the app is called, ask before
 building; do not derive one from a filename or a slug.
 
-An SVG master is worth more than a raster: every size is drawn at that size
-rather than resampled.
+Use the supplied format when it meets the input constraints. SVG inputs are
+rendered at each size; raster inputs are resampled. A raster master does not
+need vectorization to be packaged.
+
+`background` fills transparency; it does not recolor opaque pixels. If the
+supplied master already has a different background, prepare that background
+before running the recipe. Check the resulting iOS icon against the requested
+color, not just the parameter value recorded in the manifest.
+
+The Packaging skill has recipe-specific starting points under its resource
+directory. Read `references/app-icons.py` for an editable draft/preview/save
+script to run with run_file after preparing the master. For an iOS-only cover,
+read `references/app-icons.html`. For a mixed
+platform pack, read `references/app-icons-mixed.html`. Use read_file.
+Use the draft manifest to replace its run-root and run-id placeholders. Adapt
+it for the whole package: a mixed pack should also show actual Android, macOS,
+Windows and Linux outputs, with a file browser for every run. Keep captions
+factual and short; do not add claims about polish, readability or readiness.
 
 What the run gives the cover. `previews/` holds rendered mockups of the icon
 in place — `home-light.png` / `home-dark.png` (a phone home screen),
@@ -77,7 +95,9 @@ catalog, every iPhone and iPad size with its Contents.json. Android is
 launcher icons for every density, the adaptive foreground and background
 layers, and the 512px Play Store icon, laid out like a res/ folder. macOS is
 an .icns for the app bundle plus every size as a PNG. Windows is one .ico
-holding 16 through 256. Web is favicon.ico, an Apple touch icon, a web
+holding 16 through 256. Linux is PNGs preserving the master's alpha in hicolor/<size>/apps/
+with one consistent application basename; install into the existing icon theme.
+Web is favicon.ico, an Apple touch icon, a web
 manifest and the <head> tags to paste in.""",
 )
 async def build(b: Build) -> None:
@@ -137,7 +157,12 @@ async def build(b: Build) -> None:
             rendered[spec.px] = img
             if platform == "macos":
                 continue  # written below, named by the user's template
-            b.derive(f"{platform}/{spec.path}", icon_spec.png_bytes(img),
+            path = spec.path
+            if platform == "linux":
+                # Same application name at every size: the theme lookup uses
+                # the directory for size, and the basename for identity.
+                path = f"hicolor/{spec.px}x{spec.px}/apps/{b.slug}.png"
+            b.derive(f"{platform}/{path}", icon_spec.png_bytes(img),
                      source=spec.role, fixed=True)
 
         if platform == "ios":
@@ -166,9 +191,17 @@ async def build(b: Build) -> None:
             b.file("web/site.webmanifest", icon_spec.web_manifest(name))
             b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
 
-    b.file("README.txt", icon_spec.readme(platforms))
+    readme = icon_spec.readme(platforms)
+    if "linux" in platforms:
+        readme += (
+            "\nLinux: copy the contents of linux/hicolor/ into the existing hicolor\n"
+            "icon theme under your installation prefix's share/icons/ directory.\n"
+            f"Use Icon={b.slug} (without extension) in your application's .desktop file.\n"
+            "The PNGs preserve transparency. No executable or .desktop launcher is included.\n"
+        )
+    b.file("README.txt", readme)
 
-    # Presentation images, shipped with the deliverable: the icon on a home
+    # Context previews, shipped with the deliverable: the icon on a home
     # screen and on the other surfaces it has to survive, in both appearances.
     # A designer would build these in a mockup kit; here they come from the
     # same artwork, so they are never out of date.

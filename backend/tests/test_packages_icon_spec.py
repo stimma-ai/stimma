@@ -425,3 +425,23 @@ def test_a_suggested_neutral_always_reads():
     for ink in ((18, 18, 20), (250, 250, 250), (243, 164, 30)):
         ground = icon_spec.parse_hex(icon_spec.neutral_ground(ink))
         assert icon_spec.contrast_ratio(ink, ground) >= icon_spec.MIN_ICON_CONTRAST
+
+@pytest.mark.asyncio
+async def test_mixed_pack_includes_linux_hicolor_icons(tmp_path):
+    tree = await _from_recipe(tmp_path)
+    assert {p.name for p in tree.iterdir() if p.is_dir()} >= {"ios", "android", "macos", "windows", "linux"}
+    for px in (16, 24, 32, 48, 64, 128, 256, 512):
+        with Image.open(tree / f"linux/hicolor/{px}x{px}/apps/acme.png") as img:
+            assert img.size == (px, px)
+            assert img.mode == "RGBA"
+            assert img.getpixel((0, 0))[3] == 0
+    assert not (tree / "linux/hicolor/index.theme").exists()
+    assert "Icon=acme" in (tree / "README.txt").read_text()
+
+
+def test_icon_composition_preserves_translucent_artwork():
+    art = Image.new("RGBA", (16, 16), (240, 120, 20, 128))
+    transparent = icon_spec.compose(art, icon_spec.IconImage("icon.png", 16, 1.0, False))
+    assert transparent.getpixel((8, 8)) == (240, 120, 20, 128)
+    opaque = icon_spec.compose(art, icon_spec.IconImage("icon.png", 16, 1.0, True), "#FFFFFF")
+    assert opaque.getpixel((8, 8)) == (247, 187, 137)

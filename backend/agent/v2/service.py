@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from llm import llm_completion, QuotaExceededError, ContentFilteredError, Usage, classify_provider_http_error, is_auto_tool_choice_unsupported_error, strip_thinking_tags
+from llm import FinishReason, llm_completion, QuotaExceededError, ContentFilteredError, Usage, classify_provider_http_error, is_auto_tool_choice_unsupported_error, strip_thinking_tags
 from llm_correlation import llm_correlation_context
 from llm_resolver import get_effective_llm_config, get_chat_llm_config, resolve_chat_effort, resolve_chat_model_slug, LLMNotConfiguredError, LLMInsufficientBalanceError
 from sqlalchemy import select
@@ -1307,12 +1307,13 @@ async def _run_agentic_loop_inner(
     # after `show` lets the images speak for themselves — but a substantive
     # closing message doesn't need it.
     #
-    # Only two text-only shapes are rejected, each with a single nudge before
+    # Incomplete text-only shapes are rejected, each with a single nudge before
     # we give up so a non-compliant model can't spin against max_turns:
     #   - a tool flagged unresolved work (`needs_continuation`, e.g. the flow
     #     build is still broken): the model must keep going, not narrate.
     #   - an empty turn: no visible message and no tool call (reasoning models
     #     sometimes spend the whole turn in the think block).
+    #   - a provider output-length stop, which is not an intentional finish.
     # `consecutive_textonly` counts back-to-back text-only responses; a tool
     # call resets it. The `needs_continuation` list persists across iterations
     # so turn N's tool result is still visible at turn N+1's check.
@@ -1581,6 +1582,7 @@ async def _run_agentic_loop_inner(
             "model": resp.model,
             "tokens_per_second": round(resp.tokens_per_second, 1),  # this call
             "cumulative_llm_seconds": round(cumulative_llm_seconds, 2),
+            "finish_reason": resp.finish_reason.value,
         }
         if resp.quota:
             usage_broadcast["quota"] = {
@@ -1749,8 +1751,16 @@ async def _run_agentic_loop_inner(
         _raise_if_interrupted(chat_id)
         consecutive_textonly += 1
         empty_turn = not (content and content.strip())
-        if (needs_continuation or empty_turn) and consecutive_textonly < 2:
-            if needs_continuation:
+        truncated = resp.finish_reason == FinishReason.LENGTH
+        if (needs_continuation or empty_turn or truncated) and consecutive_textonly < 2:
+            if truncated:
+                pending_stall_nudge = (
+                    "<system-reminder>\n"
+                    "Your response reached the output limit before it finished. Continue from the "
+                    "current work with the next necessary action; do not repeat your planning.\n"
+                    "</system-reminder>"
+                )
+            elif needs_continuation:
                 # Stronger signal: a tool reported unresolved work (e.g. the
                 # flow build is still broken). Point the model straight at it.
                 needs_continuation.clear()

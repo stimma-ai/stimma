@@ -147,3 +147,30 @@ async def test_library_media_reuses_persistent_jpeg_conversion(tmp_path, monkeyp
     assert second["path"] == first_path
     assert Path(first_path).read_bytes() == first_bytes
     assert first_path.startswith(str(cache_dir / "agent-vision"))
+
+@pytest.mark.asyncio
+async def test_view_package_cover_in_content_addressed_directory(tmp_path, monkeypatch):
+    from packages.manifest import new_manifest, write_manifest
+    import io
+
+    bundle = tmp_path / "opaque-content-hash"
+    bundle.mkdir()
+    write_manifest(bundle, new_manifest(title="A package"))
+    (bundle / "index.html").write_text("<h1>A package</h1>")
+    seen = {}
+
+    async def render(html, **kwargs):
+        seen.update(kwargs)
+        assert "A package" in html
+        image = Image.new("RGB", (960, 960), "white")
+        data = io.BytesIO()
+        image.save(data, format="PNG")
+        return data.getvalue()
+
+    monkeypatch.setattr("utils.local_render.render_html", render)
+    marker = json.loads(await view_image(path=str(bundle), detail="high", workspace_dir=str(tmp_path)))
+    assert marker["__view_image__"] is True
+    assert marker["size"] == [960, 960]
+    assert "first 960px" in marker["description"]
+    assert "first 960px" in _build_view_image_result("cover", marker)["content"][0]["text"]
+    assert seen["width"] == seen["height"] == 960

@@ -24,6 +24,7 @@ import datetime
 import fnmatch
 import functools
 import glob as _glob_mod
+import hashlib
 import io as _io_mod
 import itertools
 import pathlib
@@ -100,6 +101,7 @@ ALLOWED_MODULES: dict[str, Any] = {
     "datetime": datetime,
     "fnmatch": fnmatch,
     "functools": functools,
+    "hashlib": hashlib,
     "io": _io_mod,
     "itertools": itertools,
     "json": json,
@@ -130,7 +132,7 @@ ALLOWED_MODULES: dict[str, Any] = {
 ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "Allowed imports: asyncio, base64, collections, colorsys, copy, csv, "
     "dataclasses, datetime, fnmatch, functools, glob (workspace-scoped: glob, "
-    "iglob, escape), io, itertools, json, math, numpy, "
+    "iglob, escape), hashlib, io, itertools, json, math, numpy, "
     "os (workspace-scoped: getcwd, listdir, walk, makedirs, mkdir, remove, "
     "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
     "ImageDraw, ImageFilter, ImageFont, ImageOps, ImageEnhance), random, re, "
@@ -324,6 +326,11 @@ def _make_safe_import(
         if extra_modules and name in extra_modules:
             return extra_modules[name]
         if name in ALLOWED_MODULES:
+            if not fromlist and "." in name:
+                root = name.split(".")[0]
+                if root == "os":
+                    return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
+                return ALLOWED_MODULES[root]
             return ALLOWED_MODULES[name]
         # Allowed packages lazily import their own submodules (numpy pulls in
         # numpy.core._methods on np.array, PIL loads codec plugins). Blocking
@@ -331,7 +338,11 @@ def _make_safe_import(
         # submodule of an allowed top-level package.
         top_level = name.split(".")[0]
         if top_level in ALLOWED_MODULES and top_level in ("numpy", "PIL", "urllib", "aiohttp", "asyncio", "collections", "datetime", "json"):
-            return _importlib.import_module(name)
+            module = _importlib.import_module(name)
+            # __import__('PIL.Image') returns PIL for `import PIL.Image as X`;
+            # a from-import returns the requested module. Returning the child
+            # in both cases makes X become PIL.Image.Image (the image class).
+            return module if fromlist else ALLOWED_MODULES[top_level]
         if name == "os":
             return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
         if name == "glob" and safe_glob is not None:
@@ -1079,8 +1090,28 @@ class PackageDraft:
                 raise FileNotFoundError(f"cover file not found in workspace: {html}")
         self._builder.set_cover(text)
 
+    async def manifest(self) -> dict[str, Any]:
+        """Current members, runs and exact bundle-relative file paths. No save required."""
+        return await asyncio.to_thread(self._builder.manifest)
+
+    async def preview(self) -> str:
+        """Write a snapshot (index.html and all files) inside the chat workspace.
+
+        Returns the workspace-relative directory. Inspect it with read_file,
+        glob or view_image. This does not save a library item. Changes to the
+        snapshot do not change the draft; attach authored HTML with set_cover.
+        """
+        from uuid import uuid4
+
+        relative = Path("package-previews") / f"{self._builder.slug}-{uuid4().hex[:12]}"
+        destination = _make_workspace_resolver(self._sdk.workspace_dir)(relative)
+        await asyncio.to_thread(self._builder._assemble, self._builder.manifest(), destination)
+        return relative.as_posix()
+
     async def save(self) -> int:
-        """Write the bundle into the library. Returns the package media id."""
+        """Write the authored package into the library. Returns its media id."""
+        if not self._builder.cover_source:
+            raise ValueError("Author the package cover with set_cover() before save(). Use preview() to inspect the draft without saving.")
         media, _asset = await self._builder.save()
         self._builder.cleanup()
         self.media_id = media.id
@@ -1094,14 +1125,14 @@ class StimmaPackagesAPI:
     def __init__(self, sdk: "StimmaSDK"):
         self._sdk = sdk
 
-    def recipes(self) -> list[dict[str, Any]]:
+    async def recipes(self) -> list[dict[str, Any]]:
         """Installed recipes with their input roles and parameters."""
         from core.profile_context import get_current_profile as _profile
         from packages.recipes import list_recipes
 
         return [spec.to_dict() for spec in list_recipes(_profile())]
 
-    def guidance(self, recipe_id: str) -> str:
+    async def guidance(self, recipe_id: str) -> str:
         """Notes from one recipe about how to use it well.
 
         Fetch this when you are about to use a recipe, not before. Recipes
@@ -2761,10 +2792,9 @@ async def run_code_in_sandbox(
             has_specific_hint = True
         if "can't be used in 'await'" in str(e).lower():
             error_msg += (
-                "\n\nHint: You cannot await a list or comprehension directly. "
-                "Use asyncio.gather to run multiple coroutines concurrently:\n"
-                "  from stimma.tools.<category> import <tool>   # real name from .stimma/tools/\n"
-                "  results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts])"
+                "\n\nHint: The expression after `await` returned a synchronous value. "
+                "Check the called method’s signature and remove `await` for a synchronous method. "
+                "For a list of coroutines, await asyncio.gather(*coroutines)."
             )
             has_specific_hint = True
         # Hint for agent-only tool NameErrors (e.g. create_layout, bash)

@@ -154,6 +154,8 @@ When a generation is rejected and the user corrects the model, preserve your cre
 Specialized skills may be available for some tasks. Candidate skills are surfaced dynamically \
 in system reminder messages during the conversation. Before starting work, scan the user's \
 request end-to-end and load every surfaced skill that clearly applies — in one batch, up front. \
+Start with the skill for the requested deliverable, then load skills for its preparation steps. \
+Completing a preparation step does not complete the requested deliverable. \
 A mood board that ends in a composed layout means loading both the mood-board and layout-design \
 skills before you generate anything, not loading layout-design later when you reach the assembly step. \
 Skills inject fresh instructions when they load, which can pull your attention back to step one and \
