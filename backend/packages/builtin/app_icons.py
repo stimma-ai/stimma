@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=3,
+    version=4,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -125,10 +125,11 @@ async def build(b: Build) -> None:
             "one up from a filename."
         )
 
-    master = b.input("master")
-    ink = icon_spec.ink_color(await b.image("master", size=256))
+    sample = await b.image("master", size=256)
+    transparent = sample.getchannel("A").getextrema()[0] < 255
+    ink = icon_spec.ink_color(sample)
     background = b.params.background
-    if master.has_alpha and not background:
+    if transparent and not background:
         suggested = icon_spec.neutral_ground(ink)
         b.fail(
             "the master is transparent, so a canvas has to go behind it where iOS forbids "
@@ -139,7 +140,7 @@ async def build(b: Build) -> None:
     if not background:
         background = "#FFFFFF"  # an opaque master never shows it; something must be written
 
-    if master.has_alpha and not b.params.allow_low_contrast and ink is not None:
+    if transparent and not b.params.allow_low_contrast and ink is not None:
         ratio = icon_spec.contrast_ratio(ink, icon_spec.parse_hex(background))
         if ratio < icon_spec.MIN_ICON_CONTRAST:
             b.fail(

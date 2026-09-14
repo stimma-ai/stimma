@@ -445,3 +445,20 @@ def test_icon_composition_preserves_translucent_artwork():
     assert transparent.getpixel((8, 8)) == (240, 120, 20, 128)
     opaque = icon_spec.compose(art, icon_spec.IconImage("icon.png", 16, 1.0, True), "#FFFFFF")
     assert opaque.getpixel((8, 8)) == (247, 187, 137)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('background', [None, '#FFF8F0'])
+async def test_fully_opaque_rgba_master_does_not_need_a_transparency_background(tmp_path, background):
+    # Image editors often retain an alpha channel after compositing onto a
+    # background. Its presence does not make the artwork transparent.
+    source = tmp_path / 'opaque.png'
+    image = Image.new('RGBA', (1024, 1024), (255, 248, 240, 255))
+    ImageDraw.Draw(image).ellipse((420, 420, 604, 604), fill=(180, 75, 0, 255))
+    image.save(source)
+    params = {'app_name': 'Example', 'platforms': ['ios']}
+    if background is not None:
+        params['background'] = background
+    await run_recipe(get_recipe('app-icons'), {'master': _resolved('master', source)}, params, tmp_path / 'out')
+    output = Image.open(tmp_path / 'out/ios/AppIcon.appiconset/icon-1024.png')
+    assert output.convert('RGB').getpixel((0, 0)) == (255, 248, 240)
