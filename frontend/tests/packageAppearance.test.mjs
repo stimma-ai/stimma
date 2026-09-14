@@ -48,7 +48,8 @@ async def main():
   <div when="dark"><stimma-media ref="app-icons/previews/home-dark.png" style="width:360px"></stimma-media></div>
 </stimma-appearance></stimma-section>
 <stimma-section label="Everywhere else"><stimma-appearance>
-  <div when="light"><stimma-media ref="app-icons/previews/settings-light.png"></stimma-media></div>
+  <div when="light" style="display:grid"><stimma-media ref="app-icons/previews/settings-light.png"></stimma-media></div>
+  <p when="light" class="extra-light">Additional details</p>
   <div when="dark"><stimma-media ref="app-icons/previews/settings-dark.png"></stimma-media></div>
 </stimma-appearance></stimma-section>
 <stimma-files ref="r1"></stimma-files></div>'''
@@ -66,7 +67,7 @@ asyncio.run(main())
 }
 
 const visible = (page, sel) => page.evaluate(s =>
-  Array.from(document.querySelectorAll(s)).filter(el => el.offsetParent !== null).length, sel)
+  Array.from(document.querySelectorAll(s)).filter(el => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden').length, sel)
 
 for (const javaScriptEnabled of [true, false]) {
   test(`one appearance at a time, chosen by the reader (scripts ${javaScriptEnabled ? 'on' : 'off'})`, async () => {
@@ -78,6 +79,7 @@ for (const javaScriptEnabled of [true, false]) {
         const errors = []
         page.on('pageerror', e => errors.push(e.message))
         await page.goto(url)
+        await page.locator("img").evaluateAll(images => Promise.all(images.map(img => { img.loading = "eager"; return img.decode() })))
 
         // Two switches on the page, each its own radio group.
         assert.equal(await page.locator('stimma-appearance .sp-seg').count(), 2)
@@ -91,15 +93,42 @@ for (const javaScriptEnabled of [true, false]) {
 
         // The reader overrides the system, per switch.
         const first = page.locator('stimma-appearance').first()
+        const beforeHeight = await first.evaluate(el => el.getBoundingClientRect().height)
         await first.locator('label.sp-dark').click()
+        if (scheme === 'light') {
+          const during = await first.evaluate(el => {
+            const animations = el.getAnimations({ subtree: true })
+            for (const animation of animations) { animation.pause(); animation.currentTime = 90 }
+            const opacity = Array.from(el.querySelectorAll('.sp-appearance-panel')).map(p => Number(getComputedStyle(p).opacity))
+            for (const animation of animations) animation.finish()
+            return opacity
+          })
+          assert.ok(during.every(value => value > 0 && value < 1), `expected a crossfade, got ${during}`)
+        }
+        await page.waitForTimeout(250)
+        assert.equal(await first.evaluate(el => el.getBoundingClientRect().height), beforeHeight)
         assert.equal(await visible(page, '#stimma-appearance-1 [when="light"] stimma-media'), 0)
         assert.ok(await visible(page, '#stimma-appearance-1 [when="dark"] stimma-media') > 0)
         await first.locator('label.sp-light').click()
+        await page.waitForTimeout(250)
         assert.equal(await visible(page, '#stimma-appearance-1 [when="dark"] stimma-media'), 0)
         assert.ok(await visible(page, '#stimma-appearance-1 [when="light"] stimma-media') > 0)
 
         // Never both: no light and dark of the same thing visible together.
         assert.equal(await visible(page, '[when="light"] stimma-media, [when="dark"] stimma-media'), 2)
+        const second = page.locator('stimma-appearance').nth(1)
+        await second.locator('label.sp-light').click()
+        await page.waitForTimeout(250)
+        assert.equal(await second.locator('div[when="light"]').evaluate(el => getComputedStyle(el).display), 'grid')
+        const positions = await second.evaluate(el => ({
+          imageBottom: el.querySelector('div[when="light"]').getBoundingClientRect().bottom,
+          textTop: el.querySelector('.extra-light').getBoundingClientRect().top,
+        }))
+        assert.ok(positions.textTop >= positions.imageBottom)
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await first.locator('label.sp-dark').click()
+        assert.equal(await first.locator('.sp-appearance-panel').first().evaluate(el => getComputedStyle(el).transitionDuration), '0s')
+        assert.equal(await visible(page, '#stimma-appearance-1 [when="light"] stimma-media'), 0)
         assert.deepEqual(errors, [])
         await page.close()
       }

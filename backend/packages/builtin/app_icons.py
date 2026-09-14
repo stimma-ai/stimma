@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=5,
+    version=6,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -96,13 +96,14 @@ scene. These use genuine Apple app icons from an iOS 18.4 scene template.
 The delivered icon and app name are composited locally: no image generation,
 upscaling, external tools or manual placement is needed. Use the studio image
 as the lead and the lifestyle image as a large context image when useful.
-Do not place these wide scenes inside the narrow home-screen column. They
+Show the device scenes wide. They
 depict iOS only; mixed packages still need the other platforms' actual outputs.
 The existing context previews remain available: the icon
 in place — `home-light.png` / `home-dark.png` (a phone home screen),
 `app-store-*`, `settings-*`, `notification-*`, `spotlight-*` — real files the
-person can drop into a deck. Show the home screen large, one appearance at a
-time behind `<stimma-appearance>`; put the iOS renders in a `<stimma-sizes>`
+person can drop into a deck. The device scenes replace the older flat phone
+previews in the cover. Use `<stimma-appearance>` for the other light/dark
+context rows when useful; put the iOS renders in a `<stimma-sizes>`
 row at 180, 120, 87, 60, 40, 29 and 20 so the small end is judged at true
 scale; end with `<stimma-files>` for the run. Say what each folder is, in
 the recipient's words: iOS is `AppIcon.appiconset`, ready for an Xcode asset

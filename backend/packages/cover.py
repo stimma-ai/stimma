@@ -21,6 +21,7 @@ import io
 import json
 import mimetypes
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Optional
 
@@ -142,8 +143,38 @@ def auto_cover_body(manifest: dict[str, Any]) -> str:
         for run in runs:
             parts.append(section(files(run["id"])))
 
-    parts.append(footer())
     return f'<div class="sp-page">{"".join(parts)}</div>'
+
+
+def _sign_cover(body: str) -> str:
+    """Sign every cover once, using the original kit mark and page alignment."""
+    # Older authored covers may already contain the kit's footer paragraph.
+    body = re.sub(r'<p\b[^>]*class=["\'][^"\']*\bsp-footer\b[^"\']*["\'][^>]*>.*?</p>',
+                  "", body, flags=re.IGNORECASE | re.DOTALL)
+
+    class PageEnd(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.divs = []
+            self.end = None
+            self.offsets = [0]
+            for line in body.splitlines(keepends=True):
+                self.offsets.append(self.offsets[-1] + len(line))
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "div":
+                self.divs.append("sp-page" in (dict(attrs).get("class") or "").split())
+
+        def handle_endtag(self, tag):
+            if tag == "div" and self.divs and self.divs.pop():
+                line, column = self.getpos()
+                self.end = self.offsets[line - 1] + column
+
+    parser = PageEnd()
+    parser.feed(body)
+    if parser.end is not None:
+        return body[:parser.end] + footer() + body[parser.end:]
+    return body + f'<div class="sp-page">{footer()}</div>'
 
 
 def render_cover_document(
@@ -169,6 +200,7 @@ def render_cover_document(
     problems.extend(expand_problems)
     if strict and problems:
         return "", problems
+    body = _sign_cover(body)
     title = title or manifest.get("title") or "Package"
     manifest_json = json.dumps(_public_manifest(manifest), separators=(",", ":")).replace("</", "<\\/")
     html_text = (

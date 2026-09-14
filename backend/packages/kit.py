@@ -24,13 +24,14 @@ The script only enhances what needs behaviour.
 from __future__ import annotations
 
 import html as htmllib
+from html.parser import HTMLParser
 import re
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 4
+KIT_VERSION = 5
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -293,19 +294,26 @@ stimma-appearance input[type=radio]{position:absolute;opacity:0;width:0;height:0
 stimma-appearance .sp-seg label:has(input:focus-visible){outline:2px solid var(--sp-accent);outline-offset:1px}
 stimma-appearance .sp-appearance-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px}
 stimma-appearance .sp-appearance-head .sp-label{margin:0 0 18px}
-/* Only ever hide: the shown child keeps whatever display the author gave it. */
+/* Both panels share one cell during the crossfade. Grouping preserves each
+   authored child's display and reserves enough height to avoid a layout jump. */
+.sp-appearance-body{display:grid}
+.sp-appearance-panel{grid-area:1/1;min-width:0;align-self:start;opacity:1;visibility:visible;
+  transition:opacity .18s ease,visibility 0s}
 @media (prefers-color-scheme: dark){
-  stimma-appearance:not(:has(input:checked)) [when=light]{display:none}
+  stimma-appearance:not(:has(input:checked))>.sp-appearance-body>.sp-appearance-panel[data-when=light]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s .18s}
   stimma-appearance:not(:has(input:checked)) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
 }
 @media not (prefers-color-scheme: dark){
-  stimma-appearance:not(:has(input:checked)) [when=dark]{display:none}
+  stimma-appearance:not(:has(input:checked))>.sp-appearance-body>.sp-appearance-panel[data-when=dark]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s .18s}
   stimma-appearance:not(:has(input:checked)) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
 }
-stimma-appearance:has(.sp-pick-light:checked) [when=dark]{display:none}
+stimma-appearance:has(.sp-pick-light:checked)>.sp-appearance-body>.sp-appearance-panel[data-when=dark]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s .18s}
 stimma-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
-stimma-appearance:has(.sp-pick-dark:checked) [when=light]{display:none}
+stimma-appearance:has(.sp-pick-dark:checked)>.sp-appearance-body>.sp-appearance-panel[data-when=light]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s .18s}
 stimma-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+@media (prefers-reduced-motion:reduce){
+  stimma-appearance .sp-appearance-panel,stimma-appearance .sp-seg label{transition:none!important}
+}
 
 /* Reserved widgets render their children and nothing else for now. */
 stimma-pick,stimma-approve,stimma-comments{display:block}
@@ -1025,9 +1033,69 @@ def _resolve_path(manifest: dict[str, Any], ref: str) -> Optional[str]:
     return resolved["path"]
 
 
-# Tinted neighbours, so a home screen reads as somebody's phone rather than a
-# wireframe of grey boxes. Separate ramps per mode: the same tints that look
-# like apps on a dark wallpaper look like smudges on a light one.
+def _appearance_body(source: str) -> str:
+    """Group direct light/dark children without changing their own layout.
+
+    Keep original HTML slices, including SVG, entities and authored styles.
+    Multiple children in the same appearance retain their document order.
+    """
+    class Children(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=False)
+            self.depth = 0
+            self.start = self.cursor = 0
+            self.mode = None
+            self.groups = {"light": [], "dark": [], None: []}
+            self.offsets = [0]
+            for line in source.splitlines(keepends=True):
+                self.offsets.append(self.offsets[-1] + len(line))
+
+        def position(self):
+            line, column = self.getpos()
+            return self.offsets[line - 1] + column
+
+        def finish(self, end):
+            self.groups[None].append(source[self.cursor:self.start])
+            self.groups[self.mode].append(source[self.start:end])
+            self.cursor = end
+
+        def handle_starttag(self, tag, attrs):
+            if self.depth == 0:
+                self.start = self.position()
+                when = dict(attrs).get("when")
+                self.mode = when if when in ("light", "dark") else None
+            if tag in {"area", "base", "br", "col", "embed", "hr", "img", "input",
+                       "link", "meta", "param", "source", "track", "wbr"}:
+                if self.depth == 0:
+                    self.finish(self.position() + len(self.get_starttag_text()))
+            else:
+                self.depth += 1
+
+        def handle_startendtag(self, tag, attrs):
+            if self.depth == 0:
+                self.start = self.position()
+                when = dict(attrs).get("when")
+                self.mode = when if when in ("light", "dark") else None
+                self.finish(self.position() + len(self.get_starttag_text()))
+
+        def handle_endtag(self, tag):
+            if self.depth:
+                self.depth -= 1
+                if not self.depth:
+                    self.finish(source.index(">", self.position()) + 1)
+
+    parser = Children()
+    parser.feed(source)
+    parser.close()
+    parser.groups[None].append(source[parser.cursor:])
+    common = "".join(parser.groups[None])
+    panels = "".join(
+        f'<div class="sp-appearance-panel" data-when="{mode}">{"".join(parser.groups[mode])}</div>'
+        for mode in ("light", "dark")
+    )
+    return common + f'<div class="sp-appearance-body">{panels}</div>'
+
+
 def expand_kit_elements(
     manifest: dict[str, Any],
     body: str,
@@ -1138,7 +1206,7 @@ def expand_kit_elements(
             f'<div class="sp-appearance-head"><p class="sp-label">{htmllib.escape(label)}</p>{switch}</div>'
             if label else switch
         )
-        return f"<stimma-appearance{_attr_str(attrs)}>{head}{inner}</stimma-appearance>"
+        return f"<stimma-appearance{_attr_str(attrs)}>{head}{_appearance_body(inner)}</stimma-appearance>"
 
     def grid_sub(m: re.Match) -> str:
         attrs = _parse_attrs(m.group("attrs"))
