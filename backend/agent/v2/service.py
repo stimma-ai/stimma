@@ -382,6 +382,31 @@ def _annotate_ask_sequence(
     return annotate(current_args, 1), updated_remaining
 
 
+async def _resolve_ask_option_media(
+    options: Optional[list],
+    workspace_dir: str | None,
+    session: AsyncSession,
+    chat_id: int,
+    session_media_ids: Optional[list[int]],
+) -> Optional[list]:
+    """Turn `path` on ask_user options into a library `media_id` so the UI can render a picture."""
+    if not options:
+        return options
+    from .tools.show import _auto_save_path
+
+    resolved = []
+    for opt in options:
+        if isinstance(opt, dict) and opt.get("path") and opt.get("media_id") is None:
+            media_id = await _auto_save_path(
+                str(opt["path"]), workspace_dir, session, chat_id, session_media_ids,
+            )
+            opt = {k: v for k, v in opt.items() if k != "path"}
+            if media_id is not None:
+                opt["media_id"] = media_id
+        resolved.append(opt)
+    return resolved
+
+
 async def _pause_for_ask_user(
     chat: Chat,
     session: AsyncSession,
@@ -390,13 +415,24 @@ async def _pause_for_ask_user(
     turn: int,
     question_args: dict,
     remaining_tool_calls: Optional[list] = None,
+    workspace_dir: str | None = None,
+    session_media_ids: Optional[list[int]] = None,
 ) -> None:
     """Pause execution and create a HITL request for ask_user."""
     from ..hitl import HumanActionRequest
 
     question = question_args.get("question", "")
-    ask_options = question_args.get("options")
+    ask_options = await _resolve_ask_option_media(
+        question_args.get("options"), workspace_dir, session, chat.id, session_media_ids,
+    )
     ask_questions = question_args.get("questions")
+    if ask_questions:
+        ask_questions = [
+            {**q, "options": await _resolve_ask_option_media(
+                q.get("options"), workspace_dir, session, chat.id, session_media_ids,
+            )} if isinstance(q, dict) else q
+            for q in ask_questions
+        ]
 
     gen_settings = {}
     if chat.generation_settings:
@@ -1354,6 +1390,8 @@ async def _run_agentic_loop_inner(
                     turn=start_turn,
                     question_args=ask_args,
                     remaining_tool_calls=updated_remaining,
+                    workspace_dir=workspace_dir,
+                    session_media_ids=session_media_ids,
                 )
                 return
 
@@ -1631,6 +1669,8 @@ async def _run_agentic_loop_inner(
                         turn=turn,
                         question_args=ask_args,
                         remaining_tool_calls=updated_remaining,
+                        workspace_dir=workspace_dir,
+                        session_media_ids=session_media_ids,
                     )
                     return
 

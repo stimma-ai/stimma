@@ -48,7 +48,7 @@
         <!-- Output image - smaller when compact -->
         <OutputImage
           :row="row"
-          :size="compact ? 134 : 160"
+          :size="size || (compact ? 134 : 160)"
           :fill="fill"
           :use-thumbnail="false"
           @view-image="(id) => $emit('view-image', id)"
@@ -180,6 +180,11 @@ const props = defineProps({
   libraryMode: {
     type: Boolean,
     default: false
+  },
+  // Explicit tile size (px) for output-only rows; overrides the compact default
+  size: {
+    type: Number,
+    default: null
   }
 })
 

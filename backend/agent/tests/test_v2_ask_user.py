@@ -212,3 +212,30 @@ async def test_interrupt_execution_broadcasts_denial_for_pending_v2_tool_permiss
 
     stopped_events = mock_ws.get_broadcasts("agent_stopped")
     assert stopped_events[-1]["reason"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_resolve_ask_option_media_saves_paths_to_media_ids(monkeypatch):
+    from agent.v2 import service
+
+    async def fake_auto_save(path, workspace_dir, session, chat_id, session_media_ids):
+        return {"a.png": 41, "b.png": 42}.get(path)
+
+    monkeypatch.setattr("agent.v2.tools.show._auto_save_path", fake_auto_save)
+
+    options = [
+        {"label": "A", "description": "first", "path": "a.png"},
+        {"label": "B", "description": "second", "path": "b.png", "media_id": None},
+        {"label": "C", "description": "already a media id", "media_id": 7, "path": "ignored.png"},
+        {"label": "D", "description": "no picture"},
+        {"label": "E", "description": "save failed", "path": "missing.png"},
+    ]
+
+    resolved = await service._resolve_ask_option_media(options, "/tmp/ws", None, 1, None)
+
+    assert resolved[0] == {"label": "A", "description": "first", "media_id": 41}
+    assert resolved[1] == {"label": "B", "description": "second", "media_id": 42}
+    assert resolved[2] == {"label": "C", "description": "already a media id", "media_id": 7, "path": "ignored.png"}
+    assert resolved[3] == {"label": "D", "description": "no picture"}
+    assert resolved[4] == {"label": "E", "description": "save failed"}
+    assert await service._resolve_ask_option_media(None, None, None, 1, None) is None

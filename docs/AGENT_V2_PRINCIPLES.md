@@ -105,7 +105,7 @@ Claude Code-style filesystem access. The agent operates on the real filesystem w
 | 5 | **bash** | Shell commands. Permission-gated. |
 | 6 | **web_search** | Search the web. Returns titles, URLs, and snippets. |
 | 7 | **web_fetch** | Fetch a URL and extract readable content. |
-| 8 | **ask_user** | Ask user for clarification, preferences, approval. |
+| 8 | **ask_user** | Ask user for clarification, preferences, approval. Options can carry a picture (`media_id` or workspace `path`) so "which of these?" is answered from tiles. |
 | 9 | **stimpack** | Invoke a stimpack. Meta-tool that loads instructions into context. |
 | 10 | **delegate** | Spawn subagent for bulk/isolated work. |
 

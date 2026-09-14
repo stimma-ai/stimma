@@ -64,8 +64,8 @@ class HumanActionRequest:
     # For v2_tool_permission: the tool arguments (e.g. bash command, search query)
     v2_tool_args: dict | None = None
 
-    # For ask_user: structured options [{label, description}, ...]
-    ask_options: List[Dict[str, str]] | None = None
+    # For ask_user: structured options [{label, description, media_id?}, ...]
+    ask_options: List[Dict[str, Any]] | None = None
     ask_questions: List[Dict[str, Any]] | None = None
     ask_question_index: int | None = None
     ask_question_total: int | None = None

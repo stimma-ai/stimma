@@ -1045,9 +1045,10 @@
               <!-- Active: show full interactive UI -->
               <HITLContainer
                 v-if="isActiveHITLRequest(item)"
-                :chat-id="chat.id"
+                :chat-id="chat?.id ?? chatId"
                 :action="parseHITLAction(item)"
                 @responded="handleHITLResponded"
+                @view-image="openSlideshow"
               />
               <!-- Completed plan approval: show plan with approved status -->
               <div v-else-if="parseHITLAction(item)?.type === 'plan_approval'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
@@ -1072,6 +1073,7 @@
                   :action="parseHITLAction(item)"
                   :completed="true"
                   :response="findHITLResponse(item)"
+                  @view-image="openSlideshow"
                 />
               </div>
             </ChatItemWrapper>
@@ -1346,8 +1348,30 @@
       @close="showTraceModal = false; selectedTraceId = null; tracePlanId = null; traceToolCallId = null"
     />
 
+        </div>
 
-    <!-- Slideshow Mode -->
+        <!-- Settings Panel (toggle visibility from header) — suppressed when embedded -->
+        <ChatSettingsPanel
+          v-if="chat && !embedded"
+          class="compact:absolute compact:inset-0 compact:z-chrome compact:border-l-0"
+          :chat-id="chat.id"
+          :visible="settingsPanelVisible"
+        />
+      </div>
+
+      <!-- Image strip (horizontal at bottom, spans chat + settings panel) -->
+      <!-- TODO: Hidden for evaluation - remove 'false &&' to re-enable -->
+      <ChatImageStrip
+        v-if="false && liveChatMediaIds.length > 0"
+        :media-ids="liveChatMediaIds"
+        @open-slideshow="openStripSlideshow"
+        @drag-media="handleStripDragStart"
+      />
+    </div>
+    </div>
+
+    <!-- Slideshow Mode: mounted at the view root (not inside the chat column) so it
+         covers the artifact stage as well, like every other view's inline slideshow -->
     <SlideshowMode
       v-if="slideshowState.active"
       :total-count="liveChatMediaIds.length"
@@ -1370,27 +1394,6 @@
       @close="exitCompare"
       @swap="swapCompareImages"
     />
-        </div>
-
-        <!-- Settings Panel (toggle visibility from header) — suppressed when embedded -->
-        <ChatSettingsPanel
-          v-if="chat && !embedded"
-          class="compact:absolute compact:inset-0 compact:z-chrome compact:border-l-0"
-          :chat-id="chat.id"
-          :visible="settingsPanelVisible"
-        />
-      </div>
-
-      <!-- Image strip (horizontal at bottom, spans chat + settings panel) -->
-      <!-- TODO: Hidden for evaluation - remove 'false &&' to re-enable -->
-      <ChatImageStrip
-        v-if="false && liveChatMediaIds.length > 0"
-        :media-ids="liveChatMediaIds"
-        @open-slideshow="openStripSlideshow"
-        @drag-media="handleStripDragStart"
-      />
-    </div>
-    </div>
 
     <!-- Context Menu (teleports to body) -->
     <!-- No @refresh handler - chat doesn't need to reload when media is trashed/restored -->

@@ -14,7 +14,17 @@
           class="text-sm"
         >
           <div v-if="entry.label" class="text-content-muted text-xs mb-0.5">{{ entry.label }}</div>
-          <div class="text-content">{{ entry.value }}</div>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="entry.mediaId"
+              type="button"
+              class="w-12 h-12 flex-shrink-0 bg-matte rounded-media overflow-hidden"
+              @click="emit('view-image', entry.mediaId)"
+            >
+              <MediaImage :media-id="entry.mediaId" :thumbnail="true" :thumbnail-size="128" :contain="true" class="w-full h-full" />
+            </button>
+            <div class="text-content">{{ entry.value }}</div>
+          </div>
         </div>
       </div>
     </template>
@@ -45,7 +55,14 @@
             {{ activeQuestion.question }}
           </div>
 
-          <div class="space-y-1">
+          <AskOptionTiles
+            v-if="hasMediaOptions(activeQuestion.options)"
+            :options="activeQuestion.options"
+            :selected-label="currentAnswer"
+            @select="(label) => selectGroupedOption(activeQuestion.question, label)"
+            @view-image="(id) => emit('view-image', id)"
+          />
+          <div v-else class="space-y-1">
             <button
               v-for="(opt, optionIndex) in activeQuestion.options"
               :key="`${activeQuestion.question}-${optionIndex}`"
@@ -96,7 +113,15 @@
     </div>
 
     <div v-else class="space-y-0.5">
+      <AskOptionTiles
+        v-if="hasMediaOptions(options)"
+        :options="options"
+        :selected-label="selectedIndex != null ? options[selectedIndex]?.label : null"
+        @select="selectOptionByLabel"
+        @view-image="(id) => emit('view-image', id)"
+      />
       <button
+        v-else
         v-for="(opt, index) in options"
         :key="index"
         @click="selectOption(index)"
@@ -151,10 +176,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { MediaImage } from '../media'
+import AskOptionTiles from './AskOptionTiles.vue'
 
 interface AskOption {
   label: string
   description?: string
+  media_id?: number
 }
 
 interface AskQuestion {
@@ -178,7 +206,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'respond', response: { answer: string }): void
+  (e: 'view-image', mediaId: number): void
 }>()
+
+function hasMediaOptions(opts: AskOption[] | undefined) {
+  return !!opts?.some((o) => typeof o.media_id === 'number')
+}
+
+function mediaIdForAnswer(opts: AskOption[] | undefined, value: string): number | undefined {
+  return opts?.find((o) => o.label === value)?.media_id
+}
 
 const selectedIndex = ref<number | null>(null)
 const typing = ref(false)
@@ -206,14 +243,14 @@ const resolvedAnswerEntries = computed(() => {
           ? (questions[i].title?.trim() || deriveTitle(questions[i].question))
           : line.slice(0, colonIndex).trim()
         const value = line.slice(colonIndex + 1).trim()
-        return { label, value }
+        return { label, value, mediaId: mediaIdForAnswer(questions[i]?.options, value) }
       }
-      return { label: '', value: line.trim() }
+      return { label: '', value: line.trim(), mediaId: undefined as number | undefined }
     })
   }
 
   // Single answer: use action.prompt as the question
-  return [{ label: props.action.prompt, value: answer }]
+  return [{ label: props.action.prompt, value: answer, mediaId: mediaIdForAnswer(props.action.ask_options, answer) }]
 })
 const activeQuestion = computed(() => groupedQuestions.value[activeTabIndex.value] || { question: '', options: [] })
 const currentAnswer = computed(() => groupedAnswer(activeQuestion.value.question))
@@ -263,6 +300,11 @@ function selectOption(index: number) {
   selectedIndex.value = index
   const opt = options.value[index]
   emit('respond', { answer: opt.label })
+}
+
+function selectOptionByLabel(label: string) {
+  const index = options.value.findIndex((o) => o.label === label)
+  if (index >= 0) selectOption(index)
 }
 
 function selectGroupedOption(question: string, label: string) {

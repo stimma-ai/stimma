@@ -9,6 +9,10 @@ from ..tools_registry import tool, ToolParameter
         "Ask the user a structured multiple-choice question. "
         "Always provide 2-4 clear options with short labels and descriptions. "
         "The user can also type a free-form answer instead of picking an option. "
+        "Options can carry a picture: `media_id` for a library item, or `path` for a workspace file you wrote. "
+        "The UI then renders each option as a picture tile, so when the choice is between images you made "
+        "(variants, backgrounds, crops, candidate logos), attach one image per option here instead of calling "
+        "`show` on the candidates and describing them in words. "
         "If you need more than one clarification, strongly prefer a single grouped questionnaire via `questions` instead of multiple sequential ask_user calls. "
         "Only ask questions one-by-one when later questions truly depend on the earlier answer."
     ),
@@ -28,6 +32,8 @@ from ..tools_registry import tool, ToolParameter
                 "properties": {
                     "label": {"type": "string", "description": "Short option name (1-5 words)"},
                     "description": {"type": "string", "description": "Brief explanation of this option"},
+                    "media_id": {"type": "integer", "description": "Optional library media id to show as this option's picture"},
+                    "path": {"type": "string", "description": "Optional workspace file path to show as this option's picture (saved to the library for you)"},
                 },
                 "required": ["label", "description"],
             },
@@ -72,6 +78,8 @@ from ..tools_registry import tool, ToolParameter
                             "properties": {
                                 "label": {"type": "string", "description": "Short option name (1-5 words)"},
                                 "description": {"type": "string", "description": "Brief explanation of this option"},
+                                "media_id": {"type": "integer", "description": "Optional library media id to show as this option's picture"},
+                    "path": {"type": "string", "description": "Optional workspace file path to show as this option's picture (saved to the library for you)"},
                             },
                             "required": ["label", "description"],
                         },

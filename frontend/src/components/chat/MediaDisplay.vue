@@ -18,6 +18,7 @@
         :row="row"
         :compact="shouldUseCompactLayout"
         :fill="isFillDisplay"
+        :size="galleryTileSize"
         :library-mode="isLibraryMode"
         @view-image="(mediaId) => $emit('view-image', mediaId)"
         @retry="retryRow"
@@ -125,10 +126,16 @@ const shouldUseCompactLayout = computed(() =>
 const isOutputGallery = computed(() =>
   allOutputOnly.value && rows.value.length > 1
 )
-// Shown results (agent `show`) fill the chat width so they're evaluable in place;
-// library-mode displays keep their small fixed thumbnails.
+// A single shown result (agent `show`) fills the chat width so it's evaluable in
+// place. Multi-image shows use fixed tiles: full-width grids balloon the chat
+// column and fight the artifact stage. Library-mode displays keep small thumbs.
 const isFillDisplay = computed(() =>
-  allOutputOnly.value && !isLibraryMode.value
+  allOutputOnly.value && !isLibraryMode.value && rows.value.length === 1
+)
+// Fixed tile size for multi-image shows (px)
+const GALLERY_TILE_SIZE = 200
+const galleryTileSize = computed(() =>
+  isOutputGallery.value && !isLibraryMode.value ? GALLERY_TILE_SIZE : null
 )
 const itemsPerLoad = computed(() =>
   isOutputGallery.value ? GALLERY_ITEMS_PER_LOAD : DEFAULT_ITEMS_PER_LOAD
@@ -139,14 +146,7 @@ const rootWidthClass = computed(() => {
 })
 const rowsContainerClass = computed(() => {
   if (isOutputGallery.value) {
-    if (!isFillDisplay.value) {
-      return 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
-    }
-    // 2 or 4 items read best as a 2-wide grid (large tiles); otherwise allow 3 columns
-    const cols = rows.value.length <= 4
-      ? 'grid-cols-1 sm:grid-cols-2'
-      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
-    return `grid gap-3 w-full ${cols}`
+    return 'flex flex-wrap gap-2'
   }
   return shouldUseCompactLayout.value ? 'flex flex-wrap gap-2' : 'space-y-3'
 })

@@ -143,7 +143,11 @@ subjects — each detect-objects call is a slow full inference, so it's for prec
 Do not wrap in `async def main()` or call `asyncio.run()`. \
 For batches, `await asyncio.gather(*[some_tool(prompt=p) for p in prompts])` runs calls in parallel.
 
-Batch all clarifications into one `ask_user` call — each separate call pauses the agent.
+Batch all clarifications into one `ask_user` call — each separate call pauses the agent. \
+When the question is "which of these images?", give each option a picture — `media_id` for a library item, or `path` \
+for a file you wrote in the workspace — so the user picks from tiles. The question card is the presentation: \
+skip the `show` of the candidates (including the closing `stimma.show` in `run_code`); showing them first just \
+duplicates them above the question.
 
 When a generation is rejected and the user corrects the model, preserve your creative intent while adapting to the new tool's signature.
 

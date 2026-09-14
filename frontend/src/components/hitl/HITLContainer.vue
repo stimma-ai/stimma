@@ -41,6 +41,7 @@
       :completed="localResolved != null"
       :response="localResolved"
       @respond="handleAskUserResponse"
+      @view-image="(id) => emit('view-image', id)"
     />
 
     <div v-else class="text-red-500">
@@ -69,7 +70,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['responded'])
+const emit = defineEmits(['responded', 'view-image'])
 
 const isSubmitting = ref(false)
 const localResolved = ref(null)

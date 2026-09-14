@@ -1006,6 +1006,7 @@ class StimmaSDK:
         self._tool_failures: list[dict[str, Any]] = []
         self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
         self._shown_media_ids: list[int] = []
+        self._shown_labels: list[str] = []  # "path→media_id" / "media_id" per shown item, for the result receipt
         self._progress_trackers: list[ProgressTracker] = []
         # Per-run STP tool permission decisions (tool_id -> allowed). Populated by
         # the in-run permission gate so repeat calls in this run don't re-prompt.
@@ -2077,6 +2078,12 @@ class StimmaSDK:
             # Merge saved media_ids with any existing ones, drop the paths
             all_media_ids = list(payload.get("media_ids") or []) + saved_media_ids
             self._shown_media_ids.extend(all_media_ids)
+            self._shown_labels.extend(str(mid) for mid in (payload.get("media_ids") or []))
+            shown_paths = payload.get("paths") or []
+            if len(shown_paths) == len(saved_media_ids):
+                self._shown_labels.extend(f"{p}→{mid}" for p, mid in zip(shown_paths, saved_media_ids))
+            else:
+                self._shown_labels.extend(str(mid) for mid in saved_media_ids)
             await show_tool(
                 role=payload["role"],
                 media_ids=all_media_ids or None,
@@ -2638,7 +2645,10 @@ async def run_code_in_sandbox(
     if not output:
         output = "Code executed successfully."
     if sdk._shown_media_ids:
-        output += f" Already displayed {len(sdk._shown_media_ids)} items to user via stimma.show()."
+        output += f" Already displayed {len(sdk._shown_media_ids)} items to user via stimma.show()"
+        if sdk._shown_labels:
+            output += " (media_id: " + ", ".join(sdk._shown_labels) + ")"
+        output += "."
         if shown_media_ids is not None:
             shown_media_ids.update(sdk._shown_media_ids)
     receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures)
