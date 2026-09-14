@@ -154,7 +154,7 @@ server over LAN/Tailscale. Offline rows remain selectable for a direct attempt.
 Older servers without presence identification show offline but remain usable;
 no server upgrade is required by this client change.
 
-Debug builds expose **Dev server** at the top of the connection screen. The
+Debug builds expose **Dev server** in the upper-right three-dot menu on the connection screen. The
 native WebView stays inside the system safe area, and the connection screen's
 scroll region resizes when the keyboard opens.
 
@@ -214,7 +214,7 @@ tools/stimma dev ios
 
 ### Live frontend on an iPhone
 
-Debug iOS builds include **Dev server** at the bottom of the connection screen,
+Debug iOS builds include **Dev server** in the upper-right three-dot menu on the connection screen,
 available without signing in. Enter the computer's IP and Vite frontend port
 (for example `192.168.1.20:9407`), then tap **Connect to dev server**. IPv6 uses
 brackets, such as `[fd00::20]:9407`. The last address is remembered for the next

@@ -34,7 +34,7 @@ async function fixture(t, viewport = { width: 390, height: 844 }) {
   await page.evaluate(() => {
     window.info = {
       authenticated: true, restoring: false, busy: false, liveDiscovery: true,
-      discoveryState: 'live', devServerAvailable: true,
+      discoveryState: 'live', devServerAvailable: true, user: { email: 'tester@example.com' },
       devices: Array.from({ length: 8 }, (_, i) => ({ deviceId: `server-${i}`, name: `Server ${i}`, serving: true, online: true })),
     }
     window.calls = []
@@ -45,7 +45,7 @@ async function fixture(t, viewport = { width: 390, height: 844 }) {
   })
   await page.addStyleTag({ content: css.replace(/@import[^;]+;/g, '') + '\n:root{--safe-top:59px;--safe-bottom:34px;--safe-left:0px;--safe-right:0px}' })
   await page.addScriptTag({ content: script })
-  await page.getByRole('button', { name: 'Dev server', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Connection options', exact: true }).waitFor()
   return page
 }
 
@@ -70,7 +70,8 @@ test('native events update server presence and roster without a refresh button o
 
 test('safe area bounds the scrollport and Dev server stays reachable at phone and keyboard heights', async t => {
   const page = await fixture(t)
-  const dev = page.getByRole('button', { name: 'Dev server', exact: true })
+  await page.getByRole('button', { name: 'Connection options' }).click()
+  const dev = page.getByRole('menuitem', { name: 'Dev server', exact: true })
   const box = await dev.boundingBox()
   assert.ok(box.y >= 59 && box.y + box.height <= 844 - 34)
   await dev.click()
@@ -91,4 +92,26 @@ test('safe area bounds the scrollport and Dev server stays reachable at phone an
   }
   await page.getByRole('button', { name: 'Connect to dev server', exact: true }).click()
   assert.deepEqual(await page.evaluate(() => window.calls.find(c => c.method === 'connectDevServer').args), { address: '192.168.1.20:9407' })
+})
+
+
+test('options menu holds account info, Dev server, and Sign out', async t => {
+  const page = await fixture(t)
+  const options = page.getByRole('button', { name: 'Connection options' })
+  for (const text of ['tester@example.com', 'Sign out', 'Dev server']) assert.equal(await page.getByText(text, { exact: true }).count(), 0)
+  await options.click()
+  const menu = page.getByRole('menu')
+  await menu.getByText('tester@example.com').waitFor()
+  await menu.getByRole('menuitem', { name: 'Dev server', exact: true }).waitFor()
+  await page.keyboard.press('Escape')
+  assert.equal(await menu.count(), 0)
+  assert.equal(await options.evaluate(el => el === document.activeElement), true)
+  await options.click()
+  await page.locator('header').click({ position: { x: 2, y: 20 } })
+  assert.equal(await menu.count(), 0)
+  await options.click()
+  await menu.getByRole('menuitem', { name: 'Sign out' }).click()
+  assert.equal(await menu.count(), 0)
+  assert.equal(await page.evaluate(() => window.calls.filter(c => c.method === 'logout').length), 1)
+  assert.equal(await page.locator('footer').getByText('tester@example.com').count(), 0)
 })

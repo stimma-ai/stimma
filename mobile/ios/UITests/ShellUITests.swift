@@ -36,6 +36,9 @@ final class ShellUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-mobile.devServerAddress", ""]
         app.launch()
+        let options = app.webViews.buttons["Connection options"]
+        XCTAssertTrue(options.waitForExistence(timeout: 10), app.debugDescription)
+        options.tap()
         let dev = app.webViews.buttons["Dev server"]
         XCTAssertTrue(dev.waitForExistence(timeout: 15), app.debugDescription)
         dev.tap()
@@ -53,7 +56,7 @@ final class ShellUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.webViews.staticTexts[identity].waitForExistence(timeout: 10), "Resume must retain the document, not merely restore its route")
         app.webViews.buttons["Disconnect"].tap()
-        XCTAssertTrue(app.webViews.buttons["Dev server"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.webViews.buttons["Connection options"].waitForExistence(timeout: 10), app.debugDescription)
     }
 
     func testAuthEndpointConnectivity() {

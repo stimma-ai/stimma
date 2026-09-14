@@ -20,6 +20,29 @@ interface ConnectionInfo {
 }
 
 const info = ref<ConnectionInfo | null>(null)
+const menuOpen = ref(false)
+const menuRoot = ref<HTMLElement | null>(null)
+function closeMenu(restoreFocus = false) {
+  menuOpen.value = false
+  if (restoreFocus) menuRoot.value?.querySelector<HTMLButtonElement>('[aria-haspopup]')?.focus()
+}
+async function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+  await nextTick()
+  if (menuOpen.value) menuRoot.value?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
+}
+function dismissMenu(event: PointerEvent) {
+  if (event.target instanceof Node && !menuRoot.value?.contains(event.target)) closeMenu()
+}
+function menuKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); return }
+  if (!menuOpen.value || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const items = Array.from(menuRoot.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])
+  const index = items.indexOf(document.activeElement as HTMLButtonElement)
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+  items[next]?.focus()
+}
 const devPanelOpen = ref(false)
 const devAddress = ref('')
 const viewportHeight = ref(window.visualViewport?.height ?? window.innerHeight)
@@ -27,6 +50,7 @@ function resizeViewport() {
   viewportHeight.value = window.visualViewport?.height ?? window.innerHeight
 }
 async function toggleDevPanel() {
+  closeMenu(true)
   devPanelOpen.value = !devPanelOpen.value
   await nextTick()
   if (devPanelOpen.value) document.getElementById('dev-server-panel')?.scrollIntoView({ block: 'nearest' })
@@ -135,6 +159,7 @@ function openLegal(page: 'terms' | 'privacy') {
 
 onMounted(async () => {
   mounted = true
+  document.addEventListener('pointerdown', dismissMenu)
   window.addEventListener('stimma:connection-info', readInfo)
   window.visualViewport?.addEventListener('resize', resizeViewport)
   window.addEventListener('resize', resizeViewport)
@@ -144,6 +169,7 @@ onMounted(async () => {
 })
 onUnmounted(() => {
   mounted = false
+  document.removeEventListener('pointerdown', dismissMenu)
   window.removeEventListener('stimma:connection-info', readInfo)
   window.visualViewport?.removeEventListener('resize', resizeViewport)
   window.removeEventListener('resize', resizeViewport)
@@ -164,10 +190,23 @@ onUnmounted(() => {
       </div>
       <div v-else class="mx-auto flex min-h-full w-full max-w-md flex-col px-7">
         <header class="flex min-h-14 shrink-0 items-center justify-end gap-2 py-2">
-          <Button v-if="info?.devServerAvailable" variant="ghost" class="min-h-11" :aria-expanded="devPanelOpen" aria-controls="dev-server-panel" @click="toggleDevPanel">Dev server</Button>
           <Button v-if="info?.selectedDeviceId" variant="ghost" class="min-h-11" :disabled="pending" @click="act('closeConnections')">
             Back to Stimma
           </Button>
+          <div ref="menuRoot" class="relative" @keydown="menuKeydown" @focusout="(event) => { if (!menuRoot?.contains(event.relatedTarget as Node)) closeMenu() }">
+            <Button variant="ghost" class="min-h-11 min-w-11" aria-label="Connection options" aria-haspopup="menu" :aria-expanded="menuOpen" aria-controls="connection-options" @click="toggleMenu">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </Button>
+            <div v-if="menuOpen" id="connection-options" role="menu" aria-label="Connection options" class="absolute right-0 top-full z-menu w-64 max-w-[calc(100vw-3.5rem)] rounded-lg border border-edge-subtle bg-surface py-1 shadow-lg">
+              <div class="border-b border-edge-subtle px-4 py-3">
+                <p class="text-xs text-content-tertiary">{{ info?.authenticated ? 'Signed in as' : 'Not signed in' }}</p>
+                <p v-if="info?.user?.display_name" class="mt-1 break-words text-sm text-content">{{ info.user.display_name }}</p>
+                <p v-if="info?.user?.email" class="mt-1 break-words text-xs text-content-secondary">{{ info.user.email }}</p>
+              </div>
+              <Button v-if="info?.devServerAvailable" role="menuitem" variant="ghost" class="min-h-11 w-full !justify-start !px-4" :aria-expanded="devPanelOpen" aria-controls="dev-server-panel" @click="toggleDevPanel">Dev server</Button>
+              <Button v-if="info?.authenticated" role="menuitem" variant="ghost" class="min-h-11 w-full !justify-start !px-4" :disabled="pending" @click="closeMenu(true); act('logout')">Sign out</Button>
+            </div>
+          </div>
         </header>
         <form v-if="info?.devServerAvailable && devPanelOpen" id="dev-server-panel" class="mb-6 space-y-3" @submit.prevent="act('connectDevServer', { address: devAddress })">
           <label for="dev-server-address" class="block text-sm text-content-secondary">Server IP and frontend port</label>
@@ -235,10 +274,6 @@ onUnmounted(() => {
         </section>
 
         <footer class="pb-5 text-center">
-          <template v-if="info?.authenticated">
-            <p v-if="info.user?.email" class="truncate text-xs text-content-tertiary">{{ info.user.email }}</p>
-            <Button variant="ghost" class="min-h-11" :disabled="pending" @click="act('logout')">Sign out</Button>
-          </template>
           <nav class="flex items-center justify-center gap-3" aria-label="Legal">
             <Button variant="ghost" size="sm" class="min-h-11" :disabled="pending" @click="openLegal('privacy')">Privacy</Button>
             <Button variant="ghost" size="sm" class="min-h-11" :disabled="pending" @click="openLegal('terms')">Terms</Button>
