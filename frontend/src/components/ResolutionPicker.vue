@@ -43,23 +43,23 @@
       <div
         v-if="isOpen"
         ref="panelRef"
-        class="fixed z-menu w-[22rem] max-w-[calc(100vw-1rem)] rounded-lg border border-edge-subtle bg-surface p-3 shadow-lg"
+        class="fixed z-menu w-[23rem] max-w-[calc(100vw-1rem)] rounded-lg border border-edge-subtle bg-surface p-4 shadow-lg"
         :style="panelStyle"
         role="dialog"
         @click.stop
       >
         <!-- Shape -->
-        <div class="flex items-center justify-between h-6 mb-1.5">
+        <div class="flex items-center justify-between h-6 mb-2">
           <span class="text-[11px] font-semibold text-content-muted">Shape</span>
           <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
-            <span :class="['text-[11px] font-medium', policy.followShape ? 'text-accent' : 'text-content-muted']">{{ followLabel }}</span>
+            <span class="text-[11px] font-medium text-content-muted">{{ followLabel }}</span>
             <span class="relative inline-flex shrink-0 items-center">
               <input type="checkbox" role="switch" aria-label="Shape follows the reference image" class="peer sr-only" :checked="policy.followShape" @change="toggleFollowShape" />
               <span class="peer h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full" />
             </span>
           </label>
         </div>
-        <div :class="['grid grid-cols-5 gap-1 transition-opacity', resolved.shapeFromImage ? 'opacity-40' : '']">
+        <div :class="['grid grid-cols-5 gap-1.5 transition-opacity', resolved.shapeFromImage ? 'opacity-40' : '']">
           <button
             v-for="r in ratioChoices"
             :key="r"
@@ -73,10 +73,10 @@
         </div>
 
         <!-- Size -->
-        <div class="flex items-center justify-between h-6 mt-3 mb-1.5">
+        <div class="flex items-center justify-between h-6 mt-5 mb-2">
           <span class="text-[11px] font-semibold text-content-muted">Size</span>
           <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
-            <span :class="['text-[11px] font-medium', policy.followSize ? 'text-accent' : 'text-content-muted']">{{ followLabel }}</span>
+            <span class="text-[11px] font-medium text-content-muted">{{ followLabel }}</span>
             <span class="relative inline-flex shrink-0 items-center">
               <input type="checkbox" role="switch" aria-label="Size follows the reference image" class="peer sr-only" :checked="policy.followSize" @change="toggleFollowSize" />
               <span class="peer h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full" />
@@ -102,9 +102,9 @@
             <div class="flex items-center gap-3">
               <input v-no-autocorrect
                 type="range"
-                :min="MP_MIN_LOG"
-                :max="MP_MAX_LOG"
-                step="0.02"
+                :min="sliderLog.lo"
+                :max="sliderLog.hi"
+                step="0.01"
                 :value="Math.log2(resolved.mp)"
                 :disabled="resolved.sizeFromImage"
                 class="flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:cursor-default [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
@@ -112,14 +112,19 @@
               >
               <span class="font-mono tabular-nums text-xs text-content-secondary min-w-[3.25rem] text-right">{{ formatMegapixels(resolved.mp) }}</span>
             </div>
-            <div class="flex justify-between text-[10px] text-content-muted px-0.5 mt-0.5 pr-[3.75rem]">
-              <span v-for="m in MP_TICKS" :key="m">{{ m }}</span>
+            <div class="relative h-4 mt-0.5 mr-[3.75rem] text-[10px] text-content-muted">
+              <span
+                v-for="t in sliderTicks"
+                :key="t.label"
+                :class="['absolute top-0 whitespace-nowrap', t.pct <= 0 ? '' : t.pct >= 100 ? '-translate-x-full' : '-translate-x-1/2']"
+                :style="{ left: `${t.pct}%` }"
+              >{{ t.label }}</span>
             </div>
           </template>
         </div>
 
         <!-- Exact dims -->
-        <div class="flex items-center gap-2 mt-2">
+        <div class="flex items-center gap-2 mt-4">
           <input v-no-autocorrect
             type="number"
             :value="resolved.width"
@@ -138,7 +143,7 @@
         </div>
 
         <!-- What following means right now -->
-        <div v-if="explanation" class="mt-3 pt-2.5 border-t border-edge-subtle text-[11px] leading-relaxed" :class="resolved.cropWarning ? 'text-amber-400' : 'text-content-muted'">
+        <div v-if="explanation" class="mt-4 pt-3 border-t border-edge-subtle text-[11px] leading-relaxed" :class="resolved.cropWarning ? 'text-amber-400' : 'text-content-muted'">
           {{ explanation }}
         </div>
       </div>
@@ -155,6 +160,7 @@ import {
   formatMegapixels,
   formatTier,
   tierGroups,
+  megapixelBounds,
   policyWithDims,
   roundMp,
   type ResolutionPolicy,
@@ -192,9 +198,29 @@ const emit = defineEmits<{
 
 const followLabel = 'Match reference'
 
-const MP_MIN_LOG = -2  // 0.25MP
-const MP_MAX_LOG = 3   // 8MP
-const MP_TICKS = ['0.25', '0.5', '1', '2', '4', '8']
+// The slider is logarithmic over the range the model can reach at the
+// current shape, so its ends are the model's real limits.
+const sliderBounds = computed(() => {
+  const b = megapixelBounds(props.schemaProps, resolved.value.width / resolved.value.height)
+  // Nothing sensible lives below 0.1MP even when the model technically allows it.
+  return { min: Math.min(Math.max(b.min, 0.1), b.max), max: b.max }
+})
+const sliderLog = computed(() => ({ lo: Math.log2(sliderBounds.value.min), hi: Math.log2(sliderBounds.value.max) }))
+const sliderTicks = computed(() => {
+  const { lo, hi } = sliderLog.value
+  const span = hi - lo || 1
+  const pct = (mp: number) => ((Math.log2(mp) - lo) / span) * 100
+  const ticks: { label: string; pct: number }[] = []
+  const ends = [sliderBounds.value.min, sliderBounds.value.max]
+  for (const mp of [0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32]) {
+    const x = pct(mp)
+    if (x < 8 || x > 92) continue
+    ticks.push({ label: String(mp), pct: x })
+  }
+  ticks.push({ label: formatMegapixels(ends[0]).replace('MP', ''), pct: 0 })
+  ticks.push({ label: formatMegapixels(ends[1]).replace('MP', ''), pct: 100 })
+  return ticks
+})
 
 const resolved = computed(() => resolveResolution(props.policy, props.image ?? null, props.schemaProps))
 const allowed = computed(() => detectResolutionControls(props.schemaProps).allowedDimensions)
@@ -246,13 +272,13 @@ const explanation = computed(() => {
     if (p.followShape && p.followSize) return 'When you add a reference image, the output will be the same size as it.'
     if (p.followShape) return `When you add a reference image, the output will take its shape at ${size}.`
     if (p.followSize) return `When you add a reference image, the output will keep its pixel count at ${p.ratio}.`
-    return 'Adding a reference image won’t change the output size.'
+    return ''
   }
   const name = props.image?.name ?? 'the reference image'
   if (p.followShape && p.followSize) return `Output is the same size as ${name}.`
   if (p.followShape) return `Output takes ${name}’s shape at ${size}.`
   if (p.followSize) return `Output keeps ${name}’s pixel count at ${r.ratioLabel}.`
-  return `${name} doesn’t affect the output size.`
+  return ''
 })
 
 function update(patch: Partial<ResolutionPolicy>) {
@@ -270,7 +296,10 @@ function pickTier(t: number) {
   update({ tier: t, followSize: hasImage.value ? false : props.policy.followSize })
 }
 function onSlider(v: string) {
-  const mp = roundMp(Math.pow(2, Number(v)))
+  const { lo, hi } = sliderLog.value
+  const x = Number(v)
+  // Land exactly on the ends so the top of the slider is the model's real maximum.
+  const mp = roundMp(x >= hi - 0.011 ? sliderBounds.value.max : x <= lo + 0.011 ? sliderBounds.value.min : Math.pow(2, x))
   update({ mp, followSize: hasImage.value ? false : props.policy.followSize })
 }
 function onTypedDims(w: number, hgt: number) {
