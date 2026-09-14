@@ -81,6 +81,7 @@
     <!-- Ambient brand glow: the pinwheel, blurred and slowly turning. -->
     <div class="lock-glow" aria-hidden="true" />
     <div class="lock-vignette" aria-hidden="true" />
+    <div class="lock-grain" aria-hidden="true" />
 
     <!-- Centered lock content -->
     <div class="relative z-[1] h-full overflow-y-auto">
