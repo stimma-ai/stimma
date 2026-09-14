@@ -9,22 +9,14 @@
     <div v-else>
       <!-- Resolution-family pickers — same controls ToolView uses, so the flow
            and the tool it freezes into look identical. -->
-      <div v-if="res.allowedDimensions" class="py-2.5">
-        <label class="block text-xs font-semibold text-content-secondary mb-2">Resolution</label>
-        <ConstrainedResolutionPicker
-          :allowed-dimensions="res.allowedDimensions"
-          :width="numVal('width', res.allowedDimensions[0][0])"
-          :height="numVal('height', res.allowedDimensions[0][1])"
-          @update="setDims"
-        />
-      </div>
-      <div v-else-if="res.hasWidthHeight && !res.hasMegapixels" class="py-2.5">
+      <div v-if="res.allowedDimensions || (res.hasWidthHeight && !res.hasMegapixels)" class="py-2.5">
         <label class="block text-xs font-semibold text-content-secondary mb-2">Resolution</label>
         <ResolutionPicker
-          :width="numVal('width', 1024)"
-          :height="numVal('height', 1024)"
-          :has-reference-images="hasReferenceImages"
-          @update="setDims"
+          :policy="resolutionPolicy"
+          :image="firstInputImage"
+          :has-image-input="hasReferenceImages"
+          :schema-props="normalizedProps"
+          @update:policy="setResolutionPolicy"
         />
       </div>
 
@@ -448,9 +440,9 @@ import ScrubValue from '../ui/ScrubValue.vue'
 import ResolutionPicker from '../ResolutionPicker.vue'
 import MegapixelsPicker from '../generation/MegapixelsPicker.vue'
 import GeminiResolutionPicker from '../generation/GeminiResolutionPicker.vue'
-import ConstrainedResolutionPicker from '../generation/ConstrainedResolutionPicker.vue'
 import UpscaleResolutionPicker from '../generation/UpscaleResolutionPicker.vue'
 import { detectResolutionControls, paramsConsumedByResolutionPickers } from '../../utils/resolutionControls'
+import { defaultResolutionPolicy, policyWithDims, resolveResolution, type ResolutionPolicy, type ImageDims } from '../../utils/resolutionPolicy'
 import { getDroppedMediaIds } from '../../composables/useDragPreview'
 import { draggedMediaType } from '../../stores/dragStore'
 import { fieldAcceptsDraggedType } from '../../utils/flowMediaInputs'
@@ -638,8 +630,7 @@ const pickerConsumed = computed(() => paramsConsumedByResolutionPickers(normaliz
 // list so values are still seeded + submitted for the picker-driven params.
 const visibleFields = computed(() => fields.value.filter((f) => !pickerConsumed.value.has(f.name)))
 
-// The resolution picker's "when reference images change" options only make
-// sense if the flow actually takes reference images.
+// The picker's follow-image tiles only make sense if the flow takes images.
 const hasReferenceImages = computed(() => 'input_images' in normalizedProps.value)
 const imageSizeChoices = computed<string[]>(() => normalizedProps.value.image_size?.enum || [])
 const megapixelsMin = computed<number | undefined>(() => normalizedProps.value.megapixels?.minimum)
@@ -651,6 +642,35 @@ function numVal(name: string, fallback: number): number {
   const d = normalizedProps.value[name]?.default
   return typeof d === 'number' ? d : fallback
 }
+
+// Output-size policy. The flow form has no persisted per-tool state, so the
+// policy lives here: seeded from the schema, adopting any width/height the
+// flow already carries, and written back to values.width/height whenever it
+// or the first input image changes.
+const firstInputImage = computed<ImageDims | null>(() => {
+  const list = values.input_images
+  const first = Array.isArray(list) ? list[0] : null
+  if (first && typeof first === 'object' && first.width > 0 && first.height > 0) {
+    return { width: first.width, height: first.height, name: first.filename || first.name || undefined }
+  }
+  return null
+})
+const resolutionPolicy = ref<ResolutionPolicy>(seedResolutionPolicy())
+function seedResolutionPolicy(): ResolutionPolicy {
+  const base = defaultResolutionPolicy(normalizedProps.value, hasReferenceImages.value)
+  const w = values.width
+  const h = values.height
+  if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) return policyWithDims(base, w, h)
+  return base
+}
+function setResolutionPolicy(p: ResolutionPolicy) {
+  resolutionPolicy.value = p
+}
+watch([resolutionPolicy, firstInputImage], () => {
+  if (!res.value.hasWidthHeight && !res.value.allowedDimensions) return
+  const r = resolveResolution(resolutionPolicy.value, firstInputImage.value, normalizedProps.value)
+  if (values.width !== r.width || values.height !== r.height) setDims(r.width, r.height)
+}, { immediate: true, deep: true })
 function setDims(width: number, height: number) {
   values.width = width
   values.height = height

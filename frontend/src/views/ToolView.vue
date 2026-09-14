@@ -103,22 +103,21 @@
             card's width and background, easing open above it (flow-expand)
             so the params card gets nudged down for a moment. -->
        <Transition name="flow-expand">
-       <div v-if="resAutoChange" class="flex-none">
+       <div v-if="resChange" class="flex-none">
        <div>
        <div class="mx-3 mt-3 rounded-lg border border-edge-subtle bg-surface px-3 py-2 flex items-center gap-3 text-[11px]">
          <span class="text-content-secondary flex-1">
-           Size changed to <span class="font-medium text-content">{{ resAutoChange.newWidth }}×{{ resAutoChange.newHeight }}</span>
+           <span class="font-medium font-mono tabular-nums text-content">{{ resChange.width }}×{{ resChange.height }}</span>
+           · {{ resChange.reason }}
          </span>
          <button
-           @click="resAutoChangeKeepArea"
+           v-for="alt in resChange.alts"
+           :key="alt.label"
+           @click="alt.apply(); resChange = null"
            class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
-         >Keep {{ resAutoChangeOldAreaLabel }} area</button>
+         >{{ alt.label }}</button>
          <button
-           @click="resAutoChangeRevert"
-           class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
-         >Restore previous size</button>
-         <button
-           @click="resAutoChange = null"
+           @click="resChange = null"
            class="text-content-muted hover:text-content-secondary"
          >
            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -320,23 +319,15 @@
         <Teleport to="#tool-drawer-panels" :disabled="!isCompact" defer>
         <!-- Params-card top row: resolution + markers | auto-trash -->
         <div class="flex items-center gap-2 mb-3">
-            <ConstrainedResolutionPicker
-              v-if="allowedDimensions"
-              :allowed-dimensions="allowedDimensions"
-              :width="modelParams.width"
-              :height="modelParams.height"
-              @update="onResolutionUpdate"
-            />
-            <!-- Resolution picker (for tools with width/height params) -->
+            <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
-              v-else-if="hasWidthHeight && !hasMegapixels"
-              :width="modelParams.width"
-              :height="modelParams.height"
-              :has-reference-images="!isFromScratch"
-              v-model:mode="resolutionMode"
-              v-model:lock-size="resolutionLockSize"
-              v-model:lock-area="resolutionLockArea"
-              @update="onResolutionUpdate"
+              v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
+              :policy="resolutionPolicy"
+              :image="drivingImage"
+              :has-image-input="!isFromScratch"
+              :schema-props="parameterSchema?.properties"
+              :size-style="outputsVideo ? 'tier' : 'mp'"
+              @update:policy="setResolutionPolicy"
             />
             <!-- Aspect ratio picker (for tools with aspect_ratio param) -->
             <GeminiResolutionPicker
@@ -1198,6 +1189,20 @@ import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
 import { useCompare } from '../composables/useCompare'
 import ResolutionPicker from '../components/ResolutionPicker.vue'
+import {
+  resolveResolution,
+  defaultResolutionPolicy,
+  policyWithDims,
+  policyFromLegacyLocks,
+  carriedPolicy,
+  applyCarriedPolicy,
+  formatMegapixels,
+  formatTier,
+  nearestRatio,
+  tierGroups,
+  type ResolutionPolicy,
+  type ImageDims,
+} from '../utils/resolutionPolicy'
 import AutoDeletePicker from '../components/AutoDeletePicker.vue'
 import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
@@ -1211,7 +1216,6 @@ import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
 import { mobileAutoplayAllowed } from '../composables/useMobilePlaybackLifecycle'
 import {
   AIPromptEditor,
-  ConstrainedResolutionPicker,
   GeminiResolutionPicker,
   JobErrorModal,
   JobInfoModal,
@@ -3017,14 +3021,10 @@ watch(() => globalPrefs.value.inputImages, (newImages, oldImages) => {
   if (firstChanged && firstImage?.width && firstImage?.height) {
     // Don't auto-snap during initial load (state is being restored)
     if (isInitialLoading.value) return
-    // Snap aspect ratio to match first image unless exact size is locked.
-    if (hasAspectRatio.value && !resolutionLockSize.value) {
+    // Snap aspect ratio to match first image unless the shape is pinned.
+    if (hasAspectRatio.value && resolutionPolicy.value.followShape) {
       const nearestAR = findNearestAspectRatio(firstImage.width, firstImage.height)
       modelParams.value.aspect_ratio = nearestAR
-    }
-    // Snap width/height to match first image (with notification)
-    if (hasWidthHeight.value) {
-      suggestResolutionFromImage(firstImage.width, firstImage.height)
     }
   }
 }, { deep: true })
@@ -3049,11 +3049,8 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
     // treat as a change so the canvas can match a frame that previously read 1×1.
     || dimensionsResolved
   if (!changed) return
-  if (hasAspectRatio.value && !resolutionLockSize.value) {
+  if (hasAspectRatio.value && resolutionPolicy.value.followShape) {
     modelParams.value.aspect_ratio = findNearestAspectRatio(newStart.width, newStart.height)
-  }
-  if (hasWidthHeight.value) {
-    suggestResolutionFromImage(newStart.width, newStart.height)
   }
 })
 
@@ -3826,31 +3823,131 @@ const isMac = computed(() => navigator.platform.toUpperCase().indexOf('MAC') >= 
 
 // Methods
 // --- Resolution auto-change notification ---
-// When resolution is changed automatically (image drop, extend, scale processing),
-// show a temporary notification bar with old-size/same-area options.
-const resAutoChange = ref<{
-  oldWidth: number; oldHeight: number;
-  newWidth: number; newHeight: number;
-} | null>(null)
-let resAutoChangeTimer: ReturnType<typeof setTimeout> | null = null
-const resolutionMode = ref<'aspect' | 'manual'>('aspect')
-const resAutoChangeOldAreaLabel = computed(() => {
-  if (!resAutoChange.value) return ''
-  return formatMegapixelArea(resAutoChange.value.oldWidth, resAutoChange.value.oldHeight)
+// --- Output size: policy → width/height ------------------------------------
+// The tool remembers a shape and size (uiState.resolutionPolicy); either may
+// follow the first input image. applyResolutionPolicy() is the only writer of
+// modelParams.width/height from the picker side. See utils/resolutionPolicy.ts.
+
+interface ResChangeAlt { label: string; apply: () => void }
+const resChange = ref<{ width: number; height: number; reason: string; alts: ResChangeAlt[] } | null>(null)
+let resChangeTimer: ReturnType<typeof setTimeout> | null = null
+// Set by loadPendingGeneration so the announcement after a hop names the source tool.
+let pendingHopFrom: string | null = null
+
+const schemaPropsForResolution = computed(() => parameterSchema.value?.properties)
+
+const resolutionPolicy = computed<ResolutionPolicy>({
+  get: () => {
+    const saved = uiState.value.resolutionPolicy
+    if (saved) return saved
+    const base = defaultResolutionPolicy(schemaPropsForResolution.value, !isFromScratch.value)
+    return policyFromLegacyLocks(base, !!uiState.value.resolutionLockSize, !!uiState.value.resolutionLockArea)
+  },
+  set: (value: ResolutionPolicy) => {
+    uiState.value.resolutionPolicy = value
+    delete uiState.value.resolutionLockSize
+    delete uiState.value.resolutionLockArea
+  },
 })
-const resolutionLockSize = computed({
-  get: () => Boolean(uiState.value.resolutionLockSize),
-  set: (value: boolean) => {
-    uiState.value.resolutionLockSize = value
-    if (value) uiState.value.resolutionLockArea = false
-  }
+
+// Extend padding changes the effective size of the first image; MediaPicker
+// reports it through suggest-resolution (non-manual) and we prefer it here.
+const drivingOverride = ref<ImageDims | null>(null)
+const drivingImage = computed<ImageDims | null>(() => {
+  if (drivingOverride.value) return drivingOverride.value
+  const src: any = hasVideoFrames.value ? videoImages.startImage : globalPrefs.value.inputImages?.[0]
+  if (!src || !(src.width > 0) || !(src.height > 0)) return null
+  const name = src.filename || (typeof src.path === 'string' ? src.path.split('/').pop() : undefined)
+  return { width: src.width, height: src.height, name }
 })
-const resolutionLockArea = computed({
-  get: () => Boolean(uiState.value.resolutionLockArea),
-  set: (value: boolean) => {
-    uiState.value.resolutionLockArea = value
-    if (value) uiState.value.resolutionLockSize = false
+
+function setResolutionPolicy(p: ResolutionPolicy) {
+  resolutionPolicy.value = p
+  resChange.value = null
+  applyResolutionPolicy('policy')
+}
+
+function sizeLabelFor(r: ReturnType<typeof resolveResolution>): string {
+  return allowedDimensions.value && outputsVideo.value ? formatTier(r.tier ?? 0) : formatMegapixels(r.mp)
+}
+
+/** Recompute width/height from the policy. 'image' and 'hop' announce the change. */
+function applyResolutionPolicy(trigger: 'policy' | 'image' | 'hop' | 'init') {
+  if (!hasWidthHeight.value && !allowedDimensions.value) return
+  const policy = resolutionPolicy.value
+  const image = drivingImage.value
+  const r = resolveResolution(policy, image, schemaPropsForResolution.value)
+  const oldW = Number(modelParams.value.width)
+  const oldH = Number(modelParams.value.height)
+  const changed = oldW !== r.width || oldH !== r.height
+  modelParams.value.width = r.width
+  modelParams.value.height = r.height
+  if (trigger === 'policy' || trigger === 'init') return
+  const hopFrom = pendingHopFrom
+  pendingHopFrom = null
+  if (!changed && !hopFrom) return
+
+  const name = image?.name ?? 'the image'
+  const size = sizeLabelFor(r)
+  let reason: string
+  if (hopFrom) {
+    reason = r.shapeFromImage
+      ? `matches ${name}`
+      : `${r.ratioLabel} kept from ${hopFrom}, ${size} is this tool's usual`
+  } else if (r.shapeFromImage && r.sizeFromImage) reason = `same as ${name}`
+  else if (r.shapeFromImage) reason = `${name}'s shape at ${size}`
+  else if (r.sizeFromImage) reason = `${r.ratioLabel} at ${name}'s size`
+  else reason = `${r.ratioLabel} at ${size}`
+
+  const alts: ResChangeAlt[] = []
+  const before = resolveResolution({ ...policy, followShape: false, followSize: false }, null, schemaPropsForResolution.value)
+  if (changed && (policy.followShape || policy.followSize)) {
+    alts.push({
+      label: `Keep ${before.ratioLabel} · ${sizeLabelFor(before)}`,
+      apply: () => setResolutionPolicy({ ...policy, followShape: false, followSize: false }),
+    })
   }
+  if (image && r.shapeFromImage && !r.sizeFromImage && !allowedDimensions.value) {
+    alts.push({ label: `Match ${name}`, apply: () => setResolutionPolicy({ ...policy, followSize: true }) })
+  }
+  if (image && !r.shapeFromImage) {
+    const choices = allowedDimensions.value ? tierGroups(allowedDimensions.value).map(g => g.ratio) : undefined
+    alts.push({
+      label: `Use ${name}'s ${nearestRatio(image.width, image.height, choices)}`,
+      apply: () => setResolutionPolicy({ ...policy, followShape: true }),
+    })
+  }
+  resChange.value = { width: r.width, height: r.height, reason, alts }
+  if (resChangeTimer) clearTimeout(resChangeTimer)
+  resChangeTimer = setTimeout(() => { resChange.value = null }, 12000)
+}
+
+// Width/height re-resolve whenever the driving image changes: a new first
+// image, a start frame, or dimensions arriving late for a restored input.
+watch(drivingImage, (img, prev) => {
+  if (isInitialLoading.value) return
+  if (!!img === !!prev && img?.width === prev?.width && img?.height === prev?.height && img?.name === prev?.name) return
+  applyResolutionPolicy('image')
+})
+// Once the tool has loaded its state, make width/height agree with the policy.
+// A handoff that landed an image during loading (send-to-tool) is announced
+// like a drop; a plain restore whose size already agrees stays quiet.
+watch(isInitialLoading, (loading) => {
+  if (loading) return
+  applyResolutionPolicy(pendingHopFrom ? 'hop' : drivingImage.value ? 'image' : 'init')
+})
+
+// Width/height written by something other than the picker (preset, remix,
+// typed schema field) become the policy's fixed values. Follow flags are left
+// alone, so an image still wins where the policy says it should.
+watch(() => [modelParams.value.width, modelParams.value.height], ([w, h]) => {
+  if (isInitialLoading.value) return
+  if (!hasWidthHeight.value && !allowedDimensions.value) return
+  const wn = Number(w), hn = Number(h)
+  if (!(wn > 0) || !(hn > 0)) return
+  const r = resolveResolution(resolutionPolicy.value, drivingImage.value, schemaPropsForResolution.value)
+  if (r.width === wn && r.height === hn) return
+  uiState.value.resolutionPolicy = policyWithDims(resolutionPolicy.value, wn, hn)
 })
 
 function dimensionsForAreaAndAspect(area: number, aspect: number): { width: number; height: number } | null {
@@ -3860,101 +3957,32 @@ function dimensionsForAreaAndAspect(area: number, aspect: number): { width: numb
   return { width, height }
 }
 
-function formatMegapixelArea(width: number, height: number): string {
-  const mp = (width * height) / 1_000_000
-  if (!Number.isFinite(mp) || mp <= 0) return 'current'
-  return `${Number(mp.toFixed(1))}MP`
-}
-
-// Snap onto the active tool's legal grid (shared util — also used by chain
-// step settings and mirrored by the backend snaps).
-function snapDimsToGrid(width: number, height: number): { width: number; height: number } {
-  return snapDimsToSchemaGrid(parameterSchema.value?.properties, width, height)
-}
-
-function suggestedDimensionsForLocks(sourceW: number, sourceH: number): { width: number; height: number } | null {
-  const oldW = Number(modelParams.value.width)
-  const oldH = Number(modelParams.value.height)
-  if (!oldW || !oldH || oldW <= 0 || oldH <= 0) {
-    return resolutionLockSize.value || resolutionLockArea.value ? null : { width: sourceW, height: sourceH }
-  }
-
-  if (resolutionLockSize.value) return null
-  if (!resolutionLockArea.value) return { width: sourceW, height: sourceH }
-
-  return dimensionsForAreaAndAspect(oldW * oldH, sourceW / sourceH)
-}
-
-function showResAutoChange(rawW: number, rawH: number) {
-  const { width: newW, height: newH } = snapDimsToGrid(rawW, rawH)
-  const oldW = modelParams.value.width
-  const oldH = modelParams.value.height
-  if (oldW === newW && oldH === newH) return
-  resolutionMode.value = 'manual'
-  // On first notification (or if previous expired), stash the original resolution.
-  // If overlapping, keep the original "old" from the first change.
-  if (!resAutoChange.value) {
-    resAutoChange.value = { oldWidth: oldW, oldHeight: oldH, newWidth: newW, newHeight: newH }
-  } else {
-    resAutoChange.value = { ...resAutoChange.value, newWidth: newW, newHeight: newH }
-  }
-  modelParams.value.width = newW
-  modelParams.value.height = newH
-  // Reset the 10s timer
-  if (resAutoChangeTimer) clearTimeout(resAutoChangeTimer)
-  resAutoChangeTimer = setTimeout(() => { resAutoChange.value = null }, 10000)
-}
-
-function resAutoChangeRevert() {
-  if (!resAutoChange.value) return
-  modelParams.value.width = resAutoChange.value.oldWidth
-  modelParams.value.height = resAutoChange.value.oldHeight
-  resAutoChange.value = null
-  if (resAutoChangeTimer) { clearTimeout(resAutoChangeTimer); resAutoChangeTimer = null }
-}
-
-function resAutoChangeKeepArea() {
-  if (!resAutoChange.value) return
-  const { oldWidth, oldHeight, newWidth, newHeight } = resAutoChange.value
-  const dims = dimensionsForAreaAndAspect(oldWidth * oldHeight, newWidth / newHeight)
-  if (dims) {
-    const snapped = snapDimsToGrid(dims.width, dims.height)
-    modelParams.value.width = snapped.width
-    modelParams.value.height = snapped.height
-  }
-  resAutoChange.value = null
-  if (resAutoChangeTimer) { clearTimeout(resAutoChangeTimer); resAutoChangeTimer = null }
-}
-
+/** An explicit size request (agent tool call): pin it. */
 function onResolutionUpdate(width: number, height: number) {
-  const snapped = snapDimsToGrid(width, height)
-  modelParams.value.width = snapped.width
-  modelParams.value.height = snapped.height
+  setResolutionPolicy({ ...policyWithDims(resolutionPolicy.value, width, height), followShape: false, followSize: false })
 }
 
-function suggestResolutionFromImage(width: number, height: number, options?: { manual?: boolean }) {
+// MediaPicker actions on an input item.
+function onSuggestResolution(dims: { width: number; height: number } | null, options?: { manual?: boolean }) {
+  if (!hasWidthHeight.value && !allowedDimensions.value) return
   if (options?.manual) {
-    showResAutoChange(width, height)
+    // "Set canvas to this image's size": pin it.
+    if (!dims) return
+    setResolutionPolicy({ ...policyWithDims(resolutionPolicy.value, dims.width, dims.height), followShape: false, followSize: false })
     return
   }
-  const dims = suggestedDimensionsForLocks(width, height)
-  if (dims) showResAutoChange(dims.width, dims.height)
-}
-
-function onSuggestResolution(dims: { width: number; height: number } | null, options?: { manual?: boolean }) {
-  if (!dims) return
-  if (hasWidthHeight.value) {
-    suggestResolutionFromImage(dims.width, dims.height, options)
-  }
+  // Extend padding changed the first image's effective size.
+  drivingOverride.value = dims && dims.width > 0 && dims.height > 0
+    ? { ...dims, name: drivingImage.value?.name }
+    : null
+  applyResolutionPolicy('image')
 }
 
 function onSuggestAspect(dims: { width: number; height: number } | null) {
   if (!dims) return
-  if (hasWidthHeight.value) {
-    const oldW = Number(modelParams.value.width)
-    const oldH = Number(modelParams.value.height)
-    const adjusted = dimensionsForAreaAndAspect(oldW * oldH, dims.width / dims.height)
-    if (adjusted) showResAutoChange(adjusted.width, adjusted.height)
+  if (hasWidthHeight.value || allowedDimensions.value) {
+    const choices = allowedDimensions.value ? tierGroups(allowedDimensions.value).map(g => g.ratio) : undefined
+    setResolutionPolicy({ ...resolutionPolicy.value, ratio: nearestRatio(dims.width, dims.height, choices), followShape: false })
   }
   if (hasAspectRatio.value) {
     modelParams.value.aspect_ratio = findNearestAspectRatio(dims.width, dims.height)
@@ -4091,20 +4119,13 @@ async function loadTool(forceReload = false, silent = false) {
   // Apply defaults to modelParams
   Object.assign(modelParams.value, toolDefaults)
 
-  // If tool has constrained dimensions, default to the most square-ish pair
+  // Constrained tools: start on a pair the model accepts (the policy default
+  // picks the most square one).
   if (allowedDimensions.value) {
-    const dims = allowedDimensions.value
-    let bestPair = dims[0]
-    let bestDiff = Math.abs(dims[0][0] / dims[0][1] - 1)
-    for (const pair of dims) {
-      const diff = Math.abs(pair[0] / pair[1] - 1)
-      if (diff < bestDiff) {
-        bestDiff = diff
-        bestPair = pair
-      }
-    }
-    modelParams.value.width = bestPair[0]
-    modelParams.value.height = bestPair[1]
+    const seed = defaultResolutionPolicy(parameterSchema.value?.properties, !isFromScratch.value)
+    const r = resolveResolution(seed, null, parameterSchema.value?.properties)
+    modelParams.value.width = r.width
+    modelParams.value.height = r.height
   }
 
   // Initialize state from preset or tool defaults (via composable)
@@ -4387,6 +4408,14 @@ function applyAdaptedConfig(update: GenerationConfigUpdate): string {
   for (const [key, value] of Object.entries(update.modelParams)) {
     (modelParams.value as any)[key] = value
   }
+  // Output size: a hop carries its shape; explicit width/height (remix,
+  // "more like this") become the fixed values. Either way the policy is
+  // re-resolved against whatever input lands next.
+  if (update.sizePolicy) {
+    resolutionPolicy.value = applyCarriedPolicy(resolutionPolicy.value, update.sizePolicy, !isFromScratch.value)
+  } else if (typeof update.modelParams.width === 'number' && typeof update.modelParams.height === 'number') {
+    resolutionPolicy.value = policyWithDims(resolutionPolicy.value, update.modelParams.width, update.modelParams.height)
+  }
   if (paramKeys.length > 0) {
     // Check if only dimension params were applied vs sampling params too
     const samplingParams = paramKeys.filter(k => !['width', 'height'].includes(k))
@@ -4463,8 +4492,13 @@ async function loadPendingGeneration() {
 
     applyAdaptedConfig(update)
 
-    // Restore source inputs (reference images) from the hop
+    // Restore source inputs (reference images) from the hop. The input watcher
+    // re-resolves the size and announces it, naming the source tool.
     const sourceInputs: any[] = data.source_inputs || []
+    if (update.sizePolicy) {
+      pendingHopFrom = data.size_policy?.from || 'the previous tool'
+      if (sourceInputs.length === 0) applyResolutionPolicy('hop')
+    }
     if (sourceInputs.length > 0) {
       if (hasVideoFrames.value) {
         // I2V tools: restore start/end frames
@@ -4764,6 +4798,10 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
         crop: img._crop || img.crop || null,
         role: img.role || null,
       })),
+      // Shape travels with the work; size stays with the target tool.
+      ...((hasWidthHeight.value || allowedDimensions.value)
+        ? { size_policy: { ...carriedPolicy(resolutionPolicy.value, resolveResolution(resolutionPolicy.value, drivingImage.value, parameterSchema.value?.properties)), from: tool.value.name } }
+        : {}),
       // Don't transfer sampling params - let target tool use its defaults
     }
 

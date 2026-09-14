@@ -22,6 +22,7 @@ export interface LoraConfig {
 }
 
 import type { RecordedChainStep } from './postProcessingChain'
+import type { CarriedSizePolicy } from './resolutionPolicy'
 
 export interface GenerationConfigUpdate {
   // Prompt-related
@@ -53,6 +54,10 @@ export interface GenerationConfigUpdate {
   // Post-processing chain recorded in the image's lineage (the steps that ran).
   // Merged LoRA-style into the on-screen chain by applyAdaptedConfig.
   postProcessingChain?: RecordedChainStep[]
+
+  // Shape carried by a tool hop (ratio + whether it followed the image).
+  // Size deliberately stays with the target tool.
+  sizePolicy?: CarriedSizePolicy
 }
 
 export interface ParseOptions {
@@ -158,6 +163,11 @@ export function parseGenerationConfig(
   // --- Post-processing chain ---
   if (Array.isArray(data.post_processing_chain) && data.post_processing_chain.length > 0) {
     result.postProcessingChain = data.post_processing_chain
+  }
+
+  // --- Size policy (tool hop) ---
+  if (data.size_policy && typeof data.size_policy.ratio === 'string') {
+    result.sizePolicy = { ratio: data.size_policy.ratio, followShape: !!data.size_policy.followShape }
   }
 
   // --- Source inputs ---

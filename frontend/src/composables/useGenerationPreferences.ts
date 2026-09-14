@@ -1,5 +1,6 @@
 import { ref, watch, onUnmounted, getCurrentInstance } from 'vue'
 import { makeStorageKey, makeProfileKey, makeToolProfileKey } from '../utils/storageKeys'
+import { isResolutionPolicy, type ResolutionPolicy } from '../utils/resolutionPolicy'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { getCurrentProfileId } from './useProfile'
 import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
@@ -112,10 +113,13 @@ export interface UIState {
   batchSize: number  // Images queued per Run click (1-8). 1 = single generation.
   imageMode: string
   layoutMode: 'studio' | 'stage'  // 'stage' = image primary (default), 'studio' = controls primary
-  // Resolution-picker locks: keep output size, or keep output area (MP) when an
-  // input image suggests a new resolution. Mutually exclusive; both off = follow source.
-  resolutionLockSize: boolean
-  resolutionLockArea: boolean
+  // Output-size policy for the resolution picker (shape/size, follow-image
+  // flags). Null until ToolView seeds it from the tool schema. See
+  // utils/resolutionPolicy.ts.
+  resolutionPolicy: ResolutionPolicy | null
+  /** Pre-policy lock flags, kept only so an old saved state can be migrated. */
+  resolutionLockSize?: boolean
+  resolutionLockArea?: boolean
 }
 
 export interface UseGenerationPreferencesOptions {
@@ -169,8 +173,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     batchSize: 1,
     imageMode: 'fit',
     layoutMode: 'stage',
-    resolutionLockSize: false,
-    resolutionLockArea: false
+    resolutionPolicy: null,
   })
 
   // Tool params - generic bag, schema is source of truth
@@ -252,8 +255,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           batchSize: Math.min(8, Math.max(1, data.batchSize ?? 1)),
           imageMode: data.imageMode ?? 'fit',
           layoutMode: data.layoutMode === 'studio' ? 'studio' : 'stage',
+          resolutionPolicy: isResolutionPolicy(data.resolutionPolicy) ? data.resolutionPolicy : null,
           resolutionLockSize: data.resolutionLockSize ?? false,
-          resolutionLockArea: data.resolutionLockArea ?? false
+          resolutionLockArea: data.resolutionLockArea ?? false,
         }
       }
     } catch (err) {
@@ -428,8 +432,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       batchSize: 1,
       imageMode: 'fit',
       layoutMode: 'stage',
-      resolutionLockSize: false,
-      resolutionLockArea: false
+      resolutionPolicy: null,
     }
     modelParams.value = { ...UI_DEFAULTS }
 

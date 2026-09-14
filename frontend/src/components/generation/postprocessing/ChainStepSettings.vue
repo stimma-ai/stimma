@@ -49,12 +49,11 @@
         </div>
         <div class="flex-shrink-0">
           <ResolutionPicker
-            :width="stepWidth"
-            :height="stepHeight"
-            :lock-size="resolutionLock === 'size'"
-            :lock-area="resolutionLock === 'area'"
-            @update="onStepResolutionUpdate"
-            @update:auto-change-lock="onAutoChangeLock"
+            :policy="stepPolicy"
+            :has-image-input="true"
+            :schema-props="stepTool?.parameter_schema?.properties"
+            armed-text="Follows the step's input image."
+            @update:policy="onStepPolicyUpdate"
           />
         </div>
       </div>
@@ -194,7 +193,7 @@ import UpscaleResolutionPicker from '../UpscaleResolutionPicker.vue'
 import { useToolSchemaFeatures } from '../../../composables/useToolSchemaFeatures'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
 import { getChainFilterDef } from '../../../utils/filterDefs'
-import { snapDimsToGrid } from '../../../utils/resolutionControls'
+import { defaultResolutionPolicy, policyWithDims, resolveResolution, type ResolutionPolicy } from '../../../utils/resolutionPolicy'
 import {
   defaultChainStepPromptOptions,
   resolveResolutionLock,
@@ -294,16 +293,21 @@ const resolutionHint = computed(() => {
   return 'Matches the input image'
 })
 
-function onStepResolutionUpdate(width: number, height: number) {
-  const snapped = snapDimsToGrid(stepTool.value?.parameter_schema?.properties, width, height)
-  emit('update:settings', { width: snapped.width, height: snapped.height })
-  // Typing an explicit size while on "use image size" pins it — otherwise the
-  // executor would silently discard the edit at run time.
-  if (resolutionLock.value === 'auto') emit('update:resolutionLock', 'size')
-}
+// The step stores a lock ('auto' | 'area' | 'size') plus width/height; the
+// picker speaks policy. Map between them: auto = follow both, area = follow
+// shape only, size = follow neither.
+const stepPolicy = computed<ResolutionPolicy>(() => {
+  const props_ = stepTool.value?.parameter_schema?.properties
+  const base = policyWithDims(defaultResolutionPolicy(props_, true), stepWidth.value, stepHeight.value)
+  const lock = resolutionLock.value
+  return { ...base, followShape: lock !== 'size', followSize: lock === 'auto' }
+})
 
-function onAutoChangeLock(mode: 'none' | 'area' | 'size') {
-  emit('update:resolutionLock', mode === 'none' ? 'auto' : mode)
+function onStepPolicyUpdate(p: ResolutionPolicy) {
+  const r = resolveResolution(p, null, stepTool.value?.parameter_schema?.properties)
+  emit('update:settings', { width: r.width, height: r.height })
+  const lock: ChainStepResolutionLock = p.followShape && p.followSize ? 'auto' : p.followShape ? 'area' : 'size'
+  if (lock !== resolutionLock.value) emit('update:resolutionLock', lock)
 }
 
 // The upscale picker is a dedicated multi-mode control. In a chain step the

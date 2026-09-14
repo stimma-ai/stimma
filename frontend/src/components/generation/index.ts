@@ -2,7 +2,6 @@
 export { default as AIPromptEditor } from './AIPromptEditor.vue'
 export { default as AdvancedParams } from './AdvancedParams.vue'
 export { default as AutoMarkPicker } from './AutoMarkPicker.vue'
-export { default as ConstrainedResolutionPicker } from './ConstrainedResolutionPicker.vue'
 export { default as GenerationHeader } from './GenerationHeader.vue'
 export { default as GeminiResolutionPicker } from './GeminiResolutionPicker.vue'
 export { default as GeneratorModelPicker } from './GeneratorModelPicker.vue'

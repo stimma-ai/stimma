@@ -11,7 +11,7 @@
  *  - width + height            -> ResolutionPicker            (name-based)
  *  - megapixels                -> MegapixelsPicker            (name-based)
  *  - aspect_ratio              -> GeminiResolutionPicker      (name-based)
- *  - width.x-allowed-dimensions-> ConstrainedResolutionPicker (hint-based)
+ *  - width.x-allowed-dimensions-> ResolutionPicker, list mode (hint-based)
  *  - scale_factor|resolution
  *      w/ x-control:
  *      "upscale_resolution"    -> UpscaleResolutionPicker     (hint-based)
