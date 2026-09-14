@@ -70,7 +70,7 @@ def _package_flow():
                 members,
                 recipe="app-icons",
                 inputs={"master": master},
-                params={"background": "#FFFFFF", "platforms": ["ios"]},
+                params={"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]},
                 title="Acme icons",
                 description="handoff",
             )
@@ -88,7 +88,7 @@ def test_create_package_registers_one_equation():
     assert eq.definition["title"] == "Acme icons"
     assert eq.definition["description"] == "handoff"
     assert eq.definition["recipe"] == "app-icons"
-    assert eq.definition["params"] == {"background": "#FFFFFF", "platforms": ["ios"]}
+    assert eq.definition["params"] == {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}
     assert eq.definition["input_roles"] == {"master": "dynamic"}
     # Members and each role input are dynamic bindings, so both producers
     # are dependencies of the package step.
@@ -104,12 +104,12 @@ def test_create_package_definition_hash_covers_static_identity():
     ]
 
     assert eq.definition["definition_hash"] == definition_hash_for_create_package(
-        "app-icons", {"background": "#FFFFFF", "platforms": ["ios"]}, "Acme icons", "handoff",
+        "app-icons", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}, "Acme icons", "handoff",
     )
     # Params are part of the step's identity: a different platform list is a
     # different build.
     assert definition_hash_for_create_package(
-        "app-icons", {"background": "#FFFFFF", "platforms": ["web"]}, "Acme icons", "handoff",
+        "app-icons", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]}, "Acme icons", "handoff",
     ) != eq.definition["definition_hash"]
     assert "create_package" in STOREABLE_EQUATION_TYPES
 
@@ -138,7 +138,7 @@ def test_create_package_rejects_node_params():
             members = code(lambda: [1], output_type="list[media]")
             sizes = code(lambda: ["ios"], output_type="json")
             return create_package(
-                members, recipe="app-icons", params={"background": "#FFFFFF", "platforms": sizes},
+                members, recipe="app-icons", params={"background": "#FFFFFF", "app_name": "Acme", "platforms": sizes},
             )
 
     with pytest.raises(ProgramLoadError, match="params must be static"):
@@ -202,7 +202,7 @@ async def test_evaluator_builds_bundle_with_members_and_run(db_session, tmp_path
             "title": "Acme icons",
             "description": "",
             "recipe": "app-icons",
-            "params": {"background": "#FFFFFF", "platforms": ["ios"]},
+            "params": {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]},
             "input_roles": {"master": "dynamic"},
         },
     ))
@@ -239,7 +239,7 @@ async def test_evaluator_role_input_is_not_duplicated_as_member(db_session, tmp_
             "title": "Solo",
             "description": "",
             "recipe": "app-icons",
-            "params": {"background": "#FFFFFF", "platforms": ["web"]},
+            "params": {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]},
             "input_roles": {"master": "dynamic"},
         },
     ))

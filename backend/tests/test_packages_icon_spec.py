@@ -227,7 +227,7 @@ async def test_vector_master_is_rendered_natively_at_every_size(tmp_path):
     await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", svg)},
-        {"background": "#FFFFFF", "platforms": ["ios"]},
+        {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]},
         out,
         slug="acme",
         renderer=renderer,
@@ -249,6 +249,26 @@ async def test_non_square_vector_is_rejected_like_a_non_square_raster(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_a_missing_app_name_is_refused_not_invented(tmp_path):
+    """The name under the icon is the person's. A slug is not a name.
+
+    The previews print it on a home screen and in a store row, and the web
+    manifest carries it, so a guess would ship in the deliverable. The build
+    stops with a reason that tells the agent to ask.
+    """
+    from packages.recipes import RecipeError
+
+    out = tmp_path / "o"
+    with pytest.raises(RecipeError, match="app_name") as info:
+        await run_recipe(
+            get_recipe("app-icons"), {"master": _resolved("master", _master(tmp_path / "master.png"))},
+            {"background": "#FFFFFF", "platforms": ["ios"]}, out, slug="sunburst-app-icon",
+        )
+    assert "Ask" in str(info.value)
+    assert not (out / "previews").exists()
+
+
+@pytest.mark.asyncio
 async def test_vector_without_a_renderer_says_so(tmp_path):
     from packages.recipes import RecipeError
 
@@ -257,7 +277,7 @@ async def test_vector_without_a_renderer_says_so(tmp_path):
     with pytest.raises(RecipeError, match="renderer"):
         await run_recipe(
             get_recipe("app-icons"), {"master": _resolved("master", svg)},
-            {"background": "#FFFFFF", "platforms": ["web"]}, tmp_path / "o",
+            {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]}, tmp_path / "o",
         )
 
 
@@ -314,7 +334,7 @@ async def test_file_downloads_never_navigate_and_the_zip_says_it_is_a_zip(tmp_pa
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
-        {"background": "#FFFFFF", "platforms": ["ios"]}, out, slug="sunburst",
+        {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}, out, slug="sunburst",
     )
     manifest = new_manifest(title="Icons")
     manifest["runs"] = [{
@@ -400,19 +420,19 @@ async def test_a_canvas_the_mark_disappears_into_is_refused(tmp_path):
 
     with pytest.raises(RecipeError, match="same tone"):
         await run_recipe(get_recipe("app-icons"), inputs,
-                         {"platforms": ["web"], "background": "#1E7BC8"}, tmp_path / "clash")
+                         {"platforms": ["web"], "background": "#1E7BC8", "app_name": "Acme"}, tmp_path / "clash")
 
     # Left unset on a transparent master, it is a gap, and gaps are refused
     # rather than filled: the person gets asked.
     with pytest.raises(RecipeError, match="decision"):
-        await run_recipe(get_recipe("app-icons"), inputs, {"platforms": ["web"]}, tmp_path / "gap")
+        await run_recipe(get_recipe("app-icons"), inputs, {"platforms": ["web"], "app_name": "Acme"}, tmp_path / "gap")
 
     # A deep ground and a near-white both separate it, and the flat look is
     # still reachable on purpose.
     await run_recipe(get_recipe("app-icons"), inputs,
-                     {"platforms": ["web"], "background": "#0B1B2B"}, tmp_path / "deep")
+                     {"platforms": ["web"], "background": "#0B1B2B", "app_name": "Acme"}, tmp_path / "deep")
     await run_recipe(get_recipe("app-icons"), inputs,
-                     {"platforms": ["web"], "background": "#1E7BC8", "allow_low_contrast": True},
+                     {"platforms": ["web"], "background": "#1E7BC8", "allow_low_contrast": True, "app_name": "Acme"},
                      tmp_path / "deliberate")
 
 

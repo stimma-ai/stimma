@@ -163,10 +163,10 @@ def auto_cover_body(manifest: dict[str, Any]) -> str:
             parts.append(section(grid(media(m["id"], plate=True) for m in members)))
 
     if manifest.get("extras"):
-        parts.append(section(files(), label="Files"))
+        parts.append(section(files()))
     else:
         for run in runs:
-            parts.append(section(files(run["id"]), label="Files"))
+            parts.append(section(files(run["id"])))
 
     parts.append(footer())
     return f'<div class="sp-page">{"".join(parts)}</div>'

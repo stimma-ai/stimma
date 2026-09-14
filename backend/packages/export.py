@@ -22,11 +22,19 @@ def _add_dir(zf: zipfile.ZipFile, root: Path, prefix: str, *, skip_internal: boo
 
 
 def run_zip_bytes(bundle_dir: Path, manifest: dict[str, Any], run_id: str) -> Optional[bytes]:
-    """Zip one run's subtree with paths relative to the run root."""
+    """Zip one run's subtree with paths relative to the run root.
+
+    The cover rides along as a self-contained ``index.html``: a run zip is
+    what gets handed on, and whoever opens it should see the page the work
+    came with, not just folders. Previews are inlined, so it opens by
+    double-click with nothing else present; the files it describes are right
+    beside it.
+    """
     run = run_by_id(manifest, run_id)
     if run is None:
         return None
     root = (run.get("root") or "").rstrip("/")
+    names: set[str] = set()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for entry in run.get("files") or []:
@@ -34,6 +42,9 @@ def run_zip_bytes(bundle_dir: Path, manifest: dict[str, Any], run_id: str) -> Op
             if src.is_file():
                 arcname = entry["path"][len(root) + 1:] if root and entry["path"].startswith(root + "/") else entry["path"]
                 zf.write(src, arcname)
+                names.add(arcname)
+        if (Path(bundle_dir) / COVER_NAME).is_file() and COVER_NAME not in names:
+            zf.writestr(COVER_NAME, export_single_html(bundle_dir))
     return buf.getvalue()
 
 

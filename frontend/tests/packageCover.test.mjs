@@ -102,50 +102,55 @@ test('the package cover’s file browser actually works', async () => {
 
     // Compact by default: the row states the facts, the browser stays shut.
     assert.equal(await page.locator('.sp-browser').isVisible(), false)
-    assert.match(await page.locator('.sp-files-what').textContent(), /6 files/)
+    assert.match(await page.locator('.sp-browse').textContent(), /Browse 6 files/)
     assert.match(await page.locator('.sp-zip').textContent(), /Download files\.zip/)
     assert.equal(await page.locator('.sp-zip').getAttribute('href'), 'files.zip?download=1')
 
     // Open: a list of the root folder, folders first, with the crumb naming the root.
     await page.locator('.sp-browse').click()
     assert.equal(await page.locator('.sp-tree').isVisible(), false, 'the static tree is the data, not the UI')
-    assert.deepEqual(await crumbs(page), ['files'])
+    assert.deepEqual(await crumbs(page), ['files.zip'])
     assert.deepEqual(await names(page), ['nested', LONG, 'Contents.json', 'mark.svg', 'notes.txt'])
     assert.equal(await page.locator('.sp-seg button[aria-pressed=true]').textContent(), 'List')
     assert.deepEqual(await fits(page), [])
 
     // One click drills into a folder; the crumb bar follows; a crumb goes back.
+    // And the box never changes height as you move around.
+    const height = async () => (await page.locator('.sp-browser').boundingBox()).height
+    const steady = await height()
     await item(page, 'nested').click()
-    assert.deepEqual(await crumbs(page), ['files', 'nested'])
+    assert.equal(await height(), steady)
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested'])
     assert.deepEqual(await names(page), ['big.png', 'small.png'])
-    await page.locator('.sp-crumb', { hasText: /^files$/ }).click()
-    assert.deepEqual(await crumbs(page), ['files'])
+    await page.locator('.sp-crumb', { hasText: /^files\.zip$/ }).click()
+    assert.deepEqual(await crumbs(page), ['files.zip'])
 
     // A file opens in place, at its real dimensions, and Left/Right step between files.
     await item(page, 'nested').click()
     await item(page, 'small.png').click()
     assert.equal(await page.locator('.sp-area').isVisible(), false)
-    assert.deepEqual(await crumbs(page), ['files', 'nested', 'small.png'])
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested', 'small.png'])
     await page.waitForFunction(() => /32 × 32/.test(document.querySelector('.sp-facts').textContent))
     assert.match(await facts(page), /^PNG · 32 × 32 · /)
     assert.equal(await page.locator('.sp-view img').getAttribute('src'), 'files/nested/small.png')
     assert.equal(await page.locator('.sp-vpos').textContent(), '2 of 2')
+    assert.equal(await height(), steady)
     await page.keyboard.press('ArrowLeft')
     await page.waitForFunction(() => /256 × 256/.test(document.querySelector('.sp-facts').textContent))
     assert.equal(await page.locator('.sp-vpos').textContent(), '1 of 2')
     assert.equal(await page.getByRole('button', { name: 'Previous file' }).isDisabled(), true)
     await page.getByRole('button', { name: 'Next file' }).click()
-    assert.deepEqual(await crumbs(page), ['files', 'nested', 'small.png'])
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested', 'small.png'])
     assert.deepEqual(await fits(page), [])
 
     // Escape backs out to the folder, with focus on the file you were viewing.
     await page.keyboard.press('Escape')
-    assert.deepEqual(await crumbs(page), ['files', 'nested'])
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested'])
     assert.equal(await page.evaluate(() => document.activeElement.querySelector('.sp-name').textContent), 'small.png')
     // The crumb backs out of a file too, all the way up.
     await item(page, 'big.png').click()
-    await page.locator('.sp-crumb', { hasText: /^files$/ }).click()
-    assert.deepEqual(await crumbs(page), ['files'])
+    await page.locator('.sp-crumb', { hasText: /^files\.zip$/ }).click()
+    assert.deepEqual(await crumbs(page), ['files.zip'])
 
     // JSON is readable: inlined at write time, pretty-printed at read time.
     await item(page, 'Contents.json').click()
@@ -160,16 +165,11 @@ test('the package cover’s file browser actually works', async () => {
     assert.equal(await page.locator('.sp-code').textContent(), 'hello')
     await page.keyboard.press('Escape')
 
-    // An SVG renders, and its markup is one toggle away — with the bytes intact.
+    // SVG stays rendered without a source/preview toggle.
     await item(page, 'mark.svg').click()
     assert.equal(await page.locator('.sp-view img').getAttribute('src'), 'files/mark.svg')
     assert.equal(await page.locator('.sp-code').count(), 0)
-    await page.locator('.sp-src-toggle').click()
-    const svg = await page.locator('.sp-code').textContent()
-    assert.match(svg, /<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)
-    assert.match(svg, /<\/svg>$/)
-    await page.locator('.sp-src-toggle').click()
-    assert.equal(await page.locator('.sp-code').count(), 0)
+    assert.equal(await page.locator('.sp-src-toggle').count(), 0)
     await page.keyboard.press('Escape')
 
     // Something with no viewer says so, and a long name wraps instead of vanishing.
@@ -184,9 +184,9 @@ test('the package cover’s file browser actually works', async () => {
     assert.equal(await page.evaluate(() => document.activeElement.querySelector('.sp-name').textContent), LONG)
     await page.keyboard.press('ArrowUp')
     await page.keyboard.press('Enter')
-    assert.deepEqual(await crumbs(page), ['files', 'nested'])
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested'])
     await page.keyboard.press('Backspace')
-    assert.deepEqual(await crumbs(page), ['files'])
+    assert.deepEqual(await crumbs(page), ['files.zip'])
 
     // Icons view is the same folder as tiles; a viewer is the same viewer.
     await page.locator('.sp-seg button', { hasText: 'Icons' }).click()
@@ -201,17 +201,8 @@ test('the package cover’s file browser actually works', async () => {
     await page.keyboard.press('Escape')
     assert.equal(await page.locator('.sp-area').getAttribute('class'), 'sp-area sp-icons', 'the view mode survives a viewer')
 
-    // A download is a download: it never opens the file. (From a file:// page
-    // Chromium ignores the download attribute and would navigate, so the
-    // navigation is blocked here — the kit's own handlers still run.)
-    await page.evaluate(() => {
-      window.__stop = ev => ev.preventDefault()
-      document.addEventListener('click', window.__stop, true)
-    })
-    await item(page, 'big.png').locator('.sp-dl').click({ force: true })
-    assert.equal(await page.locator('.sp-area').isVisible(), true)
-    assert.deepEqual(await crumbs(page), ['files', 'nested'])
-    await page.evaluate(() => document.removeEventListener('click', window.__stop, true))
+    // No per-row download: a file you can open has its download in the viewer.
+    assert.equal(await page.locator('.sp-area .sp-dl').count(), 0)
 
     // Escape from the listing closes the browser and lands on the summary.
     await item(page, 'big.png').focus()
@@ -222,8 +213,8 @@ test('the package cover’s file browser actually works', async () => {
     // Reopening keeps your place. Focus rings are keyboard-only: a mouse
     // click that lands focus on the first item of a folder draws no ring.
     await page.locator('.sp-browse').click()
-    assert.deepEqual(await crumbs(page), ['files', 'nested'])
-    await page.locator('.sp-crumb', { hasText: /^files$/ }).click()
+    assert.deepEqual(await crumbs(page), ['files.zip', 'nested'])
+    await page.locator('.sp-crumb', { hasText: /^files\.zip$/ }).click()
     await item(page, 'nested').click()
     assert.equal(await page.evaluate(() => document.activeElement.querySelector('.sp-name').textContent), 'big.png')
     assert.equal(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), 'none')

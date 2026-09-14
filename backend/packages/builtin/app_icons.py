@@ -161,7 +161,8 @@ def present(run: dict, manifest: dict) -> str:
               default=["ios", "android", "web"], description="Which platform sets to produce"),
         Param("background", type="color", default=None,
               description="Canvas behind the mark where a platform forbids transparency (iOS, the Play Store icon, the Apple touch icon), and the Android adaptive background layer. Required when the master is transparent: it is the person's decision, made before packaging"),
-        Param("app_name", type="string", default="App", description="Name used in the web manifest"),
+        Param("app_name", type="string", default=None,
+              description="What the app is called: the name under the icon on the home screen, in the store row, in Settings and notifications, and in the web manifest. Required: it is the person's to say, not yours to invent — ask if you do not know"),
         Param("allow_low_contrast", type="boolean", default=False,
               description="Build even when the artwork barely separates from the background. Only for a deliberately tonal icon"),
         Param("naming", type="naming", fields=["slug", "size", "platform"],
@@ -191,6 +192,12 @@ Supply `android_foreground` when the mark needs to sit differently inside
 Android's mask — the adaptive foreground is cropped to a circle-ish safe zone,
 so a wide lockup that works on iOS loses its edges there.
 
+`app_name` is required too, for the same reason. The previews put the name
+under the icon on a home screen, in a store row, in Settings and in a
+notification, and the web manifest carries it — so a made-up name ships in the
+deliverable. If the person has not said what the app is called, ask before
+building; do not derive one from a filename or a slug.
+
 An SVG master is worth more than a raster: every size is drawn at that size
 rather than resampled.""",
 )
@@ -202,6 +209,17 @@ async def build(b: Build) -> None:
     # that canvas is, is a decision — and packaging does not make decisions, it
     # applies them. A missing one is a gap, and a gap is refused so the person
     # gets asked rather than surprised.
+    # The name is the person's too. It is printed under the icon in every
+    # preview and written into the web manifest, so a guess would ship.
+    name = (b.params.app_name or "").strip()
+    if not name:
+        b.fail(
+            "the app's name is not set, and the previews put it under the icon on a home "
+            "screen, in a store row, in Settings and in a notification, and the web manifest "
+            "carries it. Ask what the app is called, then pass it as app_name. Do not make "
+            "one up from a filename."
+        )
+
     master = b.input("master")
     ink = icon_spec.ink_color(await b.image("master", size=256))
     background = b.params.background
@@ -266,7 +284,7 @@ async def build(b: Build) -> None:
             b.derive("web/favicon.ico",
                      icon_spec.build_ico({px: rendered[px] for px in icon_spec.WEB_ICO_SIZES}),
                      source="master", fixed=True)
-            b.file("web/site.webmanifest", icon_spec.web_manifest(b.params.app_name))
+            b.file("web/site.webmanifest", icon_spec.web_manifest(name))
             b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
 
     b.file("README.txt", icon_spec.readme(platforms))
@@ -278,7 +296,6 @@ async def build(b: Build) -> None:
     from packages import mockups
 
     device = icon_spec.device_icon(await b.image("master", size=1024), 1024, background)
-    name = b.params.app_name if b.params.app_name and b.params.app_name != "App" else b.slug.replace("-", " ").title()
     for mode in ("light", "dark"):
         b.derive(f"previews/home-{mode}.png",
                  icon_spec.png_bytes(mockups.render_iphone(device, name, mode=mode, scale=2.0)),

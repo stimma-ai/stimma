@@ -126,7 +126,7 @@ img{display:block}
 .sp-sub{color:var(--sp-muted);margin:8px 0 0;font-size:14px}
 .sp-sub b{color:var(--sp-fg);font-weight:500}
 .sp-section{margin-top:56px}
-.sp-label{font-size:12px;letter-spacing:.02em;color:var(--sp-muted);margin:0 0 18px;font-weight:500}
+.sp-label{font-size:13px;letter-spacing:.01em;color:var(--sp-fg);margin:0 0 18px;font-weight:600}
 .sp-note{color:var(--sp-muted);font-size:13px;margin:12px 0 0}
 .sp-num{font-variant-numeric:tabular-nums}
 .sp-hr{border:0;border-top:1px solid var(--sp-line);margin:0}
@@ -141,20 +141,20 @@ stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-
 /* Scrollbars: one quiet style for the whole page — thin, no track, no arrows. */
 *{scrollbar-width:thin;scrollbar-color:var(--sp-line) transparent}
 
-/* Files: one quiet row that opens, in place, into a file manager. Native
-   <details>, so the listing is still reachable with scripts off: the static
-   tree is the data, and the script builds the manager on top of it. */
+/* Files: one row, two things to do — take the archive, or look inside. The
+   row opens, in place, into a file manager. Native <details>, so the listing
+   is still reachable with scripts off: the static tree is the data, and the
+   script builds the manager on top of it. */
 stimma-files{display:block}
 .sp-files{display:block}
-.sp-files>summary{list-style:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+.sp-files>summary{list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:2px 0;cursor:pointer}
 .sp-files>summary::-webkit-details-marker{display:none}
 .sp-files>summary:focus{outline:none}
 .sp-files>summary:focus-visible{outline:2px solid var(--sp-accent);outline-offset:4px;border-radius:8px}
-.sp-files-what{font-size:13px;color:var(--sp-muted);flex:1;min-width:110px;
-  font-variant-numeric:tabular-nums}
 .sp-browse{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--sp-muted);
   padding:7px 12px;border-radius:7px;flex:none;transition:color .15s,background-color .15s}
+.sp-browse .sp-num{color:inherit}
 .sp-files>summary:hover .sp-browse{color:var(--sp-fg);background:var(--sp-plate)}
 .sp-files[open]>summary .sp-browse{color:var(--sp-fg)}
 .sp-files[open]>summary .sp-browse .sp-caret{transform:rotate(180deg)}
@@ -188,7 +188,8 @@ stimma-files .sp-glyph svg{width:16px;height:16px;stroke:currentColor;fill:none;
   stroke-linecap:round;stroke-linejoin:round}
 stimma-files .sp-name{flex:1;min-width:0;font-size:13px;line-height:1.35;color:var(--sp-fg);
   overflow-wrap:anywhere}
-stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none}
+stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:tabular-nums;flex:none;
+  min-width:56px;text-align:right}
 .sp-dl{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
   border-radius:6px;color:var(--sp-faint);flex:none;transition:color .15s,background-color .15s}
 .sp-dl:hover{color:var(--sp-fg);background:var(--sp-line)}
@@ -235,34 +236,32 @@ stimma-files .sp-meta{color:var(--sp-faint);font-size:12px;font-variant-numeric:
 .sp-vpos{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;padding:0 4px}
 
 /* The listing: rows or tiles, never a tree. A click opens. */
-.sp-area{max-height:520px;overflow:auto;padding:6px}
+.sp-area{height:400px;overflow:auto;padding:6px}
 .sp-area:focus{outline:none}
 .sp-list{display:flex;flex-direction:column;gap:1px}
-.sp-item{display:flex;align-items:center;gap:10px;padding:5px 8px 5px 10px;min-height:38px;
+.sp-item{display:flex;align-items:center;gap:10px;padding:4px 10px;min-height:34px;
   border-radius:7px;cursor:pointer;user-select:none;position:relative;
   transition:background-color .12s}
 .sp-item:hover{background:var(--sp-plate)}
 .sp-item:focus{outline:none}
 .sp-item:focus-visible{outline:2px solid var(--sp-accent);outline-offset:-2px}
-.sp-item .sp-dl{opacity:0}
-.sp-item:hover .sp-dl,.sp-item:focus-visible .sp-dl,.sp-item .sp-dl:focus-visible{opacity:1}
-.sp-icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:4px;
+.sp-icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:2px;
   align-content:start}
-.sp-icons .sp-item{flex-direction:column;justify-content:flex-start;gap:8px;padding:14px 8px 10px;
+.sp-icons .sp-item{flex-direction:column;justify-content:flex-start;gap:0;padding:10px 6px 8px;
   text-align:center;min-height:0}
-.sp-icons .sp-item .sp-thumb,.sp-icons .sp-item .sp-glyph{width:64px;height:64px;border-radius:6px}
-.sp-icons .sp-item .sp-glyph svg{width:30px;height:30px}
-.sp-icons .sp-item .sp-name{flex:none;width:100%;font-size:12.5px}
-.sp-icons .sp-item .sp-meta{font-size:11px}
-.sp-icons .sp-item .sp-dl{position:absolute;top:6px;right:6px}
+.sp-icons .sp-item .sp-thumb,.sp-icons .sp-item .sp-glyph{width:80px;height:80px;border-radius:8px;
+  margin-bottom:6px}
+.sp-icons .sp-item .sp-glyph svg{width:52px;height:52px;stroke-width:1.2}
+.sp-icons .sp-item .sp-name{flex:none;width:100%;font-size:12.5px;line-height:1.3;overflow-wrap:break-word}
+.sp-icons .sp-item .sp-meta{font-size:11px;min-width:0;text-align:center;margin-top:1px}
 .sp-empty{color:var(--sp-faint);font-size:13px;margin:0;padding:24px 10px;text-align:center}
 
 /* The viewer: the file, and its facts. */
-.sp-view{display:flex;flex-direction:column;min-width:0}
+.sp-view{display:flex;flex-direction:column;min-width:0;height:400px}
 .sp-view:focus{outline:none}
 .sp-facts{font-size:12px;color:var(--sp-faint);font-variant-numeric:tabular-nums;
   padding:10px 14px 0;overflow-wrap:anywhere}
-.sp-view-body{max-height:560px;min-height:200px;overflow:auto;padding:12px 14px 14px;
+.sp-view-body{flex:1;min-height:0;overflow:auto;padding:12px 14px 14px;
   display:flex;flex-direction:column;gap:10px}
 .sp-view-body.sp-center{align-items:center;justify-content:center;text-align:center}
 .sp-shot{max-width:100%;width:auto;height:auto;border-radius:2px;
@@ -361,7 +360,6 @@ KIT_JS = r"""
       list: '<path d="M4 6h16M4 12h16M4 18h16"/>',
       grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/>' +
             '<rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
-      code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4"/>',
       file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>'
     };
 
@@ -421,7 +419,7 @@ KIT_JS = r"""
 
       // Where we are: a folder (a <ul> in the tree), an open file (its <li>),
       // and how the folder is shown.
-      var state = { folder: root, file: null, mode: 'list', source: false };
+      var state = { folder: root, file: null, mode: 'list' };
 
       var bar = el('div', 'sp-bar');
       var crumbs = el('nav', 'sp-crumbs');
@@ -492,10 +490,6 @@ KIT_JS = r"""
         meta.textContent = dir ? attr(li, 'count') + (attr(li, 'count') === '1' ? ' file' : ' files')
                                : attr(li, 'size');
         node.appendChild(meta);
-        // No href means the file is not alongside the page (a single-file
-        // export), and an inert button is worse than no button.
-        var dl = li.querySelector(':scope > .sp-row > .sp-dl');
-        if (dl && dl.getAttribute('href')) node.appendChild(dl.cloneNode(true));
         return node;
       }
       function items(){ return Array.prototype.slice.call(area.querySelectorAll('.sp-item')); }
@@ -540,7 +534,6 @@ KIT_JS = r"""
         var name = attr(li, 'name');
         var path = attr(li, 'path');
         var source = sourceOf(li);
-        var showSource = kind === 'svg' && state.source;
 
         area.hidden = true; seg.hidden = true;
         view.hidden = false; acts.hidden = false;
@@ -556,17 +549,8 @@ KIT_JS = r"""
         next.disabled = at >= siblings.length - 1;
         next.addEventListener('click', function(){ step(1); });
         acts.appendChild(prev); acts.appendChild(pos); acts.appendChild(next);
-        if (kind === 'svg' && source !== null) {
-          var toggle = button('sp-vact sp-src-toggle', 'Source', ICON.code, 'Source');
-          toggle.setAttribute('aria-pressed', showSource ? 'true' : 'false');
-          toggle.addEventListener('click', function(){
-            state.source = !state.source; draw();
-            // The bar was rebuilt under the pointer: keep focus on the toggle,
-            // so Escape and the arrows still reach the browser.
-            focusQuiet(acts.querySelector('.sp-src-toggle'));
-          });
-          acts.appendChild(toggle);
-        }
+        // No href means the file is not alongside the page (a single-file
+        // export), and an inert button is worse than no button.
         var dl = li.querySelector(':scope > .sp-row > .sp-dl');
         if (dl && dl.getAttribute('href')) {
           var copy = dl.cloneNode(true);
@@ -583,7 +567,7 @@ KIT_JS = r"""
         var body = el('div', 'sp-view-body');
         view.appendChild(meta); view.appendChild(body);
 
-        if (kind === 'image' || (kind === 'svg' && !showSource)) {
+        if (kind === 'image' || kind === 'svg') {
           body.className = 'sp-view-body sp-center';
           var img = el('img', 'sp-shot');
           img.alt = name;
@@ -601,7 +585,7 @@ KIT_JS = r"""
           body.appendChild(img);
           return;
         }
-        if (kind === 'text' || (kind === 'svg' && showSource)) {
+        if (kind === 'text') {
           if (source === null) {
             body.className = 'sp-view-body sp-center';
             var away = el('p', 'sp-empty');
@@ -641,7 +625,7 @@ KIT_JS = r"""
       }
       function goTo(ul){
         var was = state.file, came = state.folder;
-        state.file = null; state.source = false; state.folder = ul;
+        state.file = null; state.folder = ul;
         // Backing out lands on what we came from, so the reader keeps their place.
         var child = came === ul ? null : came;
         while (child && parentFolder(child) !== ul) child = parentFolder(child);
@@ -649,18 +633,18 @@ KIT_JS = r"""
       }
       function open(li){
         if (isDir(li)) { state.folder = li.querySelector(':scope > ul'); state.file = null; draw(); focusQuiet(area.querySelector('.sp-item')); }
-        else { state.file = li; state.source = false; draw(); focusQuiet(view); }
+        else { state.file = li; draw(); focusQuiet(view); }
       }
       function step(delta){
         var list = entries(state.folder).filter(function(x){ return !isDir(x); });
         var next = list[list.indexOf(state.file) + delta];
         if (!next) return;
-        state.file = next; state.source = false; draw();
+        state.file = next; draw();
         focusQuiet(view);
       }
       function back(){
         var was = state.file;
-        state.file = null; state.source = false;
+        state.file = null;
         draw(was);
       }
       function up(){
@@ -686,7 +670,6 @@ KIT_JS = r"""
       }
 
       area.addEventListener('click', function(ev){
-        if (ev.target.closest('a')) return;  // a download is a download
         var node = ev.target.closest('.sp-item');
         if (node && node.__li) open(node.__li);
       });
@@ -990,9 +973,8 @@ def _browser_markup(count: int, total: int, action: str, tree: str, root_label: 
     root = f' data-root="{htmllib.escape(root_label, quote=True)}"' if root_label else ""
     return (
         '<details class="sp-files"><summary class="sp-files-top">'
-        f'<span class="sp-files-what"><span class="sp-num">{count}</span> {plural}'
-        f' · <span class="sp-num">{_human_size(total)}</span></span>{action}'
-        f'<span class="sp-browse">Browse files{_CARET}</span></summary>'
+        f'{action}<span class="sp-browse"><span class="sp-num">Browse {count} {plural}</span>{_CARET}</span>'
+        '</summary>'
         f'<div class="sp-browser"><div class="sp-tree"{root}>{tree}</div></div></details>'
     )
 
@@ -1009,7 +991,7 @@ def _files_markup(manifest: dict[str, Any], ref: str, bundle_dir: Optional[Path]
             f'<b>Download {htmllib.escape(root)}.zip</b> <em>{_human_size(total)}</em></a>'
         )
         tree = _render_tree(_tree(entries, root + "/"), root + "/", bundle_dir=bundle_dir)
-        return _browser_markup(len(entries), total, action, tree, root_label=root)
+        return _browser_markup(len(entries), total, action, tree, root_label=f"{root}.zip")
 
     sections = [{"path": m["path"], "size": m.get("size", 0)} for m in manifest.get("members") or []]
     for run in manifest.get("runs") or []:

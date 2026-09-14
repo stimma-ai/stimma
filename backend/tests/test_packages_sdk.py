@@ -94,7 +94,7 @@ async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
             file_format="png", width=1200, height=1200,
         )
         async with PackageBuilder(session, profile_id="default", title="Staged icons") as builder:
-            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"background": "#FFFFFF", "platforms": ["web"]})
+            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]})
             package, _asset = await builder.save()
 
         result = await show(role="final", media_id=package.id, session=session, chat_id=chat.id)
