@@ -353,49 +353,25 @@ async def test_file_downloads_never_navigate(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_presentations_are_built_from_kit_components(tmp_path):
-    """A recipe presents with the shared vocabulary, not markup of its own.
+async def test_previews_ship_with_the_run(tmp_path):
+    """The run carries rendered mockups as real files, for the agent's cover.
 
-    Components are what keep two packages made a year apart looking related,
-    and what lets a change to the look reach every cover without touching a
-    recipe.
+    A recipe is a formula: it makes files, and says in its guidance what they
+    are for. The cover is the agent's to design from them.
     """
-    from packages import kit
-    from packages.manifest import new_manifest
-
     out = tmp_path / "out"
     result = await run_recipe(
         get_recipe("app-icons"),
         {"master": _resolved("master", _master(tmp_path / "master.png"))},
         {"background": "#FFFFFF", "platforms": ["ios"], "app_name": "Sunburst"}, out, slug="sunburst",
     )
-    manifest = new_manifest(title="Sunburst iOS icon")
-    manifest["runs"] = [{
-        "id": "r1", "recipe": {"id": "app-icons", "version": 2, "display_name": "App icon set"},
-        "inputs": {}, "params": result.params, "root": "app-icons/",
-        "files": [{"path": "app-icons/" + f.path, "hash": f.hash, "size": f.size} for f in result.files],
-    }]
-    fragment = get_recipe("app-icons").present(manifest["runs"][0], manifest)
-    for component in ("stimma-section", "stimma-sizes", "stimma-media", "stimma-columns"):
-        assert f"<{component}" in fragment, f"presentation does not use <{component}>"
-
-    # The presentation is built from rendered previews the package ships —
-    # real files a designer can drop into a deck — not from CSS approximations.
     shipped = {f.path for f in result.files}
     for name in ("previews/home-light.png", "previews/home-dark.png", "previews/app-store-light.png",
                  "previews/settings-dark.png", "previews/notification-light.png", "previews/spotlight-dark.png"):
         assert name in shipped, f"{name} not shipped"
-    assert 'ref="app-icons/previews/home-light.png"' in fragment
-    assert 'ref="app-icons/previews/home-dark.png"' in fragment
-
-    from packages.cover import render_cover_document
-
-    html, problems = render_cover_document(manifest)
-    assert not problems
-    assert 'src="app-icons/previews/home-dark.png"' in html
-    assert 'width="20" height="20"' in html
-    # And the page signs itself.
-    assert kit.LOGO_SVG.split(">", 1)[0] in html and "sp-wordmark" in html
+    spec = get_recipe("app-icons")
+    assert not hasattr(spec, "present"), "recipes are formulas; the cover is the agent's"
+    assert "previews/" in spec.guidance and "stimma-appearance" in spec.guidance
 
 
 def test_the_file_tree_is_one_shared_component():

@@ -8,148 +8,7 @@ size the spec names and write the files where each platform expects them.
 from __future__ import annotations
 
 import icon_spec
-from packages import kit
 from packages.recipes import Build, Input, Param, recipe
-
-# Sizes worth showing at their true scale: the ones that decide whether a mark
-# survives. A designer checks the small end first.
-PREVIEW_SIZES = (180, 120, 87, 60, 40, 29, 20)
-
-# What each folder holds, in the recipient's words. No instructions: the page
-# has no affordance behind a "drag this into Xcode", so it does not say one.
-# What each platform folder is, said to the person receiving it: what the
-# thing is called, and where it goes.
-PLATFORM_BLURB = {
-    "ios": ("iOS", "AppIcon.appiconset, ready to drop into an Xcode asset catalog. "
-                   "Every iPhone and iPad size, with its Contents.json."),
-    "android": ("Android", "Launcher icons for every screen density, the adaptive foreground and "
-                           "background layers, and the 512px Play Store icon, laid out like a res/ folder."),
-    "macos": ("macOS", "An .icns for the app bundle, and every size as a PNG."),
-    "windows": ("Windows", "One .ico holding every size from 16 to 256, for the executable and the installer."),
-    "web": ("Web", "favicon.ico, an Apple touch icon, a web manifest, and the <head> tags to paste in."),
-}
-
-
-def _by_px(run: dict) -> dict[int, str]:
-    """Bundle paths of the iOS renders, keyed by pixel size."""
-    root = run.get("root") or ""
-    found: dict[int, str] = {}
-    for entry in run.get("files") or []:
-        path = entry["path"]
-        name = path.rsplit("/", 1)[-1]
-        if not path.startswith(f"{root}ios/AppIcon.appiconset/") or not name.startswith("icon-"):
-            continue
-        try:
-            found[int(name[5:-4])] = path
-        except ValueError:
-            continue
-    return found
-
-
-def _preview_paths(run: dict) -> dict[str, str]:
-    root = run.get("root") or ""
-    out: dict[str, str] = {}
-    for entry in run.get("files") or []:
-        path = entry["path"]
-        if path.startswith(f"{root}previews/"):
-            out[path.rsplit("/", 1)[-1][:-4]] = path
-    return out
-
-
-# One appearance at a time, chosen by the reader. Pure CSS: two radios and
-# :has(), so it works from a double-clicked file with scripts off. Until the
-# reader chooses, the system appearance decides.
-_APPEARANCE_CSS = """
-<style>
-.sp-appearance .sp-seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--sp-plate);
-  font-size:12.5px;user-select:none}
-.sp-appearance .sp-seg label{padding:5px 12px;border-radius:6px;color:var(--sp-muted);cursor:pointer;
-  transition:background-color .15s,color .15s}
-.sp-appearance .sp-seg label:hover{color:var(--sp-fg)}
-.sp-appearance input[type=radio]{position:absolute;opacity:0;width:0;height:0}
-.sp-appearance .sp-seg label:has(input:focus-visible){outline:2px solid var(--sp-accent);outline-offset:1px}
-.sp-appearance .sp-when-dark{display:none}
-@media (prefers-color-scheme: dark){
-  .sp-appearance .sp-when-light{display:none}
-  .sp-appearance .sp-when-dark{display:block}
-  .sp-appearance .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
-}
-@media (prefers-color-scheme: light){
-  .sp-appearance .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
-}
-.sp-appearance:has(.sp-pick-light:checked) .sp-when-light{display:block}
-.sp-appearance:has(.sp-pick-light:checked) .sp-when-dark{display:none}
-.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
-.sp-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-dark{background:transparent;color:var(--sp-muted)}
-.sp-appearance:has(.sp-pick-dark:checked) .sp-when-dark{display:block}
-.sp-appearance:has(.sp-pick-dark:checked) .sp-when-light{display:none}
-.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
-.sp-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-light{background:transparent;color:var(--sp-muted)}
-.sp-appearance .sp-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px}
-.sp-appearance .sp-head .sp-label{margin:0}
-.sp-appearance .sp-center{display:flex;justify-content:center}
-.sp-appearance .sp-stack{display:grid;gap:22px;justify-items:start}
-</style>
-"""
-
-
-def _both(previews: dict[str, str], key: str, *, width: str) -> str:
-    """The same rendering in both appearances; the switch shows one."""
-    return "".join(
-        f'<div class="sp-when-{mode}"><stimma-media ref="{kit.escape(previews[f"{key}-{mode}"])}"'
-        f' style="width:{width}"></stimma-media></div>'
-        for mode in ("light", "dark")
-    )
-
-
-def _switch() -> str:
-    return (
-        '<div class="sp-seg" role="radiogroup" aria-label="Appearance">'
-        '<label class="sp-light"><input type="radio" name="sp-appearance" class="sp-pick-light">Light</label>'
-        '<label class="sp-dark"><input type="radio" name="sp-appearance" class="sp-pick-dark">Dark</label>'
-        '</div>'
-    )
-
-
-def present(run: dict, manifest: dict) -> str:
-    """Show the icon where it will be seen, from the rendered previews the package ships."""
-    by_px = _by_px(run)
-    previews = _preview_paths(run)
-    if not by_px:
-        return ""
-
-    def have(key: str) -> bool:
-        return f"{key}-light" in previews and f"{key}-dark" in previews
-
-    parts: list[str] = [_APPEARANCE_CSS, '<div class="sp-appearance">']
-    if have("home"):
-        parts.append(
-            '<stimma-section>'
-            f'<div class="sp-head"><p class="sp-label">On a home screen</p>{_switch()}</div>'
-            f'<div class="sp-center">{_both(previews, "home", width="min(360px,70vw)")}</div>'
-            '</stimma-section>'
-        )
-
-    swatches = [kit.media(by_px[px], size=px) for px in PREVIEW_SIZES if px in by_px]
-    if swatches:
-        parts.append(kit.section(kit.sizes(swatches), label="At actual size"))
-
-    surfaces = [k for k in ("app-store", "settings", "notification", "spotlight") if have(k)]
-    if surfaces:
-        stack = "".join(_both(previews, k, width="min(420px,100%)") for k in surfaces)
-        parts.append(kit.section(f'<div class="sp-stack">{stack}</div>', label="Everywhere else it appears"))
-    parts.append("</div>")
-
-    included = [
-        PLATFORM_BLURB.get(key, (key.title(), ""))
-        for key in (run.get("params") or {}).get("platforms") or []
-    ]
-    # What is in the box, then the box itself: the file browser sits under the
-    # description, one button away, so the cover does not repeat itself.
-    body = (kit.columns(included) if included else "") + kit.files(run["id"])
-    parts.append(kit.section(body, label="Included in this package"))
-    return "".join(parts)
-
 
 @recipe(
     id="app-icons",
@@ -175,7 +34,6 @@ def present(run: dict, manifest: dict) -> str:
               default="{slug}-{platform}-{size}",
               description="Template for free filenames; platform-fixed names are exempt"),
     ],
-    present=present,
     guidance="""\
 The master does the work: a square mark that still reads at 20px. Thin strokes
 and fine detail disappear at the small end — check the actual-size row before
@@ -205,7 +63,22 @@ deliverable. If the person has not said what the app is called, ask before
 building; do not derive one from a filename or a slug.
 
 An SVG master is worth more than a raster: every size is drawn at that size
-rather than resampled.""",
+rather than resampled.
+
+What the run gives the cover. `previews/` holds rendered mockups of the icon
+in place — `home-light.png` / `home-dark.png` (a phone home screen),
+`app-store-*`, `settings-*`, `notification-*`, `spotlight-*` — real files the
+person can drop into a deck. Show the home screen large, one appearance at a
+time behind `<stimma-appearance>`; put the iOS renders in a `<stimma-sizes>`
+row at 180, 120, 87, 60, 40, 29 and 20 so the small end is judged at true
+scale; end with `<stimma-files>` for the run. Say what each folder is, in
+the recipient's words: iOS is `AppIcon.appiconset`, ready for an Xcode asset
+catalog, every iPhone and iPad size with its Contents.json. Android is
+launcher icons for every density, the adaptive foreground and background
+layers, and the 512px Play Store icon, laid out like a res/ folder. macOS is
+an .icns for the app bundle plus every size as a PNG. Windows is one .ico
+holding 16 through 256. Web is favicon.ico, an Apple touch icon, a web
+manifest and the <head> tags to paste in.""",
 )
 async def build(b: Build) -> None:
     platforms = b.params.platforms

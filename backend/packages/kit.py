@@ -1,9 +1,9 @@
 """The cover component kit.
 
-One vocabulary every cover uses — the auto cover, a recipe presenting its own
-output, and anything an agent writes by hand. Components carry the look, so a
-cover is a choice of components and words rather than a fresh design each time,
-and two packages made a year apart still read as coming from the same studio.
+One vocabulary every cover uses — the plain auto cover and, above all, the
+cover an agent designs. Components carry the look, so a cover is a choice of
+components and words rather than a fresh design each time, and two packages
+made a year apart still read as coming from the same studio.
 
 Components, all usable in authored HTML:
 
@@ -14,6 +14,7 @@ Components, all usable in authored HTML:
     <stimma-columns>…<stimma-column title="…">…</stimma-columns>
     <stimma-files ref="r1">    the file browser
     <stimma-compare a="…" b="…" mode="slider">
+    <stimma-appearance>  a Light/Dark switch; children marked when="light" / when="dark"
 
 Every one expands to plain HTML when the bundle is written, so a cover reads
 correctly with scripts disabled, from a double-clicked file, and in a frame.
@@ -35,7 +36,7 @@ KIT_VERSION = 4
 COMPONENTS = (
     "stimma-section", "stimma-media", "stimma-grid", "stimma-sizes",
     "stimma-columns", "stimma-column", "stimma-files",
-    "stimma-compare",
+    "stimma-compare", "stimma-appearance",
 )
 # Registered but inert: feedback is a later design pass. An authored cover
 # using one renders its children instead of breaking.
@@ -61,7 +62,7 @@ def human_size(n: int) -> str:
     return f"{size:.1f} GB"
 
 
-# Builders — for Python callers (recipe presenters, the auto cover) so they
+# Builders — for Python callers such as the auto cover, so they
 # emit components instead of hand-written markup that drifts.
 
 def section(body: str, *, label: str = "") -> str:
@@ -270,12 +271,41 @@ video.sp-shot,audio.sp-shot{width:100%;background:none}
 /* Compare */
 stimma-compare{display:block}
 stimma-compare .sp-cmp{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-stimma-compare figure{margin:0}
+stimma-compare figure{margin:0;min-width:0}
+stimma-compare img{display:block;max-width:100%;height:auto}
 stimma-compare figcaption{font-size:12px;color:var(--sp-muted);padding-top:8px}
+stimma-compare.sp-slider{position:relative}
 stimma-compare.sp-slider .sp-cmp{display:block;position:relative}
 stimma-compare.sp-slider figure:first-child{position:absolute;inset:0;overflow:hidden;width:var(--sp-split,50%)}
 stimma-compare.sp-slider figure:first-child img{width:var(--sp-w,100%);max-width:none}
-stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bottom:10px;width:100%;margin:0}
+stimma-compare.sp-slider figure:last-child figcaption{text-align:right}
+stimma-compare.sp-slider input[type=range]{position:absolute;left:0;right:0;bottom:32px;width:100%;margin:0}
+
+/* Appearance: one Light/Dark switch, one appearance visible at a time. Pure
+   CSS — two radios and :has() — so it works from a double-clicked file with
+   scripts off. Until the reader chooses, the system appearance decides. */
+stimma-appearance{display:block}
+stimma-appearance .sp-seg{margin-bottom:18px}
+stimma-appearance .sp-seg label{display:inline-flex;align-items:center;font-size:12.5px;color:var(--sp-muted);
+  padding:5px 12px;border-radius:6px;cursor:pointer;user-select:none;transition:background-color .15s,color .15s}
+stimma-appearance .sp-seg label:hover{color:var(--sp-fg)}
+stimma-appearance input[type=radio]{position:absolute;opacity:0;width:0;height:0}
+stimma-appearance .sp-seg label:has(input:focus-visible){outline:2px solid var(--sp-accent);outline-offset:1px}
+stimma-appearance .sp-appearance-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px}
+stimma-appearance .sp-appearance-head .sp-label{margin:0 0 18px}
+/* Only ever hide: the shown child keeps whatever display the author gave it. */
+@media (prefers-color-scheme: dark){
+  stimma-appearance:not(:has(input:checked)) [when=light]{display:none}
+  stimma-appearance:not(:has(input:checked)) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
+}
+@media not (prefers-color-scheme: dark){
+  stimma-appearance:not(:has(input:checked)) [when=dark]{display:none}
+  stimma-appearance:not(:has(input:checked)) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+}
+stimma-appearance:has(.sp-pick-light:checked) [when=dark]{display:none}
+stimma-appearance:has(.sp-pick-light:checked) .sp-seg label.sp-light{background:var(--sp-line);color:var(--sp-fg)}
+stimma-appearance:has(.sp-pick-dark:checked) [when=light]{display:none}
+stimma-appearance:has(.sp-pick-dark:checked) .sp-seg label.sp-dark{background:var(--sp-line);color:var(--sp-fg)}
 
 /* Reserved widgets render their children and nothing else for now. */
 stimma-pick,stimma-approve,stimma-comments{display:block}
@@ -327,7 +357,7 @@ KIT_JS = r"""
     }
   }
   ['stimma-section','stimma-media','stimma-grid','stimma-sizes',
-   'stimma-columns','stimma-column','stimma-files','stimma-compare',
+   'stimma-columns','stimma-column','stimma-files','stimma-compare','stimma-appearance',
    'stimma-pick','stimma-approve','stimma-comments'].forEach(define);
 
   function ready(fn){
@@ -1092,6 +1122,24 @@ def expand_kit_elements(
         )
         return f"<stimma-compare{_attr_str(attrs)}>{body}</stimma-compare>"
 
+    def appearance_sub(m: re.Match) -> str:
+        attrs = _parse_attrs(m.group("attrs"))
+        inner = m.group("inner") or ""
+        register_id(attrs, "stimma-appearance")
+        label = attrs.pop("label", "")
+        name = attrs["id"]
+        switch = (
+            f'<div class="sp-seg" role="radiogroup" aria-label="Appearance">'
+            f'<label class="sp-light"><input type="radio" name="{htmllib.escape(name, quote=True)}" class="sp-pick-light">Light</label>'
+            f'<label class="sp-dark"><input type="radio" name="{htmllib.escape(name, quote=True)}" class="sp-pick-dark">Dark</label>'
+            f'</div>'
+        )
+        head = (
+            f'<div class="sp-appearance-head"><p class="sp-label">{htmllib.escape(label)}</p>{switch}</div>'
+            if label else switch
+        )
+        return f"<stimma-appearance{_attr_str(attrs)}>{head}{inner}</stimma-appearance>"
+
     def grid_sub(m: re.Match) -> str:
         attrs = _parse_attrs(m.group("attrs"))
         register_id(attrs, "stimma-grid")
@@ -1117,6 +1165,7 @@ def expand_kit_elements(
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-media"), media_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-files"), files_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-compare"), compare_sub, body, flags=flags)
+    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-appearance"), appearance_sub, body, flags=flags)
     body = re.sub(r"<stimma-grid\b(?P<attrs>[^>]*)>", grid_sub, body, flags=flags)
     for tag in RESERVED_COMPONENTS:
         for m in re.finditer(rf"<{tag}\b(?P<attrs>[^>]*)>", body, flags=flags):

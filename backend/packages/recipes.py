@@ -147,11 +147,6 @@ class RecipeSpec:
     inputs: list[Input]
     params: list[Param]
     build: Callable[["Build"], None]
-    # Optional: given this run and the package manifest, return an HTML
-    # fragment presenting what the run produced. The recipe knows what it made,
-    # so it can show it properly — an icon set at real sizes on a home screen
-    # beats a file listing. Pure and deterministic, like build.
-    present: Optional[Callable[[dict, dict], str]] = None
     # Notes the agent fetches only when it is about to use this recipe, so a
     # profile with fifty recipes costs no more context than one with three.
     guidance: str = ""
@@ -185,7 +180,6 @@ def recipe(
     description: str,
     inputs: Iterable[Input] = (),
     params: Iterable[Param] = (),
-    present: Optional[Callable[[dict, dict], str]] = None,
     guidance: str = "",
 ):
     """Declare a recipe. The decorated function is the ``build`` step."""
@@ -201,7 +195,6 @@ def recipe(
             inputs=list(inputs),
             params=list(params),
             build=fn,
-            present=present,
             guidance=(guidance or "").strip(),
         )
         names = [i.name for i in spec.inputs]
@@ -551,9 +544,9 @@ class Build:
     def tile(self, data: bytes) -> None:
         """Nominate a designed square image as the package's face in the library.
 
-        A recipe knows what it made, so it can present it better than anything
-        computed from the files afterwards — an icon set can show the icon the
-        way a device would. Stored outside the deliverable, so it never appears
+        A recipe may supply a library thumbnail, such as an icon on a device.
+        This is separate from the authored cover. Stored outside the
+        deliverable, so it never appears
         in the file list or the zip. An agent-supplied tile wins over this one.
         """
         if not data:

@@ -241,12 +241,8 @@ async def test_exports(db_session, tmp_path):
             assert not any("/_stimma/" in n for n in names)
             with zipfile.ZipFile(io.BytesIO(zf.read("export-me/app-icons.zip"))) as inner:
                 assert "web/favicon.ico" in inner.namelist()
-                # The run zip carries the page it came with, and that page
-                # opens on its own: previews inlined, nothing fetched.
-                assert "index.html" in inner.namelist()
-                page = inner.read("index.html").decode("utf-8")
-                assert 'data-stimma-single-file="1"' in page
-                assert "data:image/png;base64," in page
+                # A run zip is a folder; the package zip is the one with the cover.
+                assert "index.html" not in inner.namelist()
         single = export_single_html(bundle)
         assert "data:image/png;base64," in single
         assert 'data-stimma-single-file="1"' in single

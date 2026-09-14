@@ -109,31 +109,13 @@ def _total_files(manifest: dict[str, Any]) -> int:
     return produced or len(manifest.get("members") or [])
 
 
-def _run_presentation(run: dict[str, Any], manifest: dict[str, Any]) -> Optional[str]:
-    """Ask the recipe that produced this run to present it, if it can."""
-    from packages.recipes import get_recipe
-
-    recipe_id = (run.get("recipe") or {}).get("id")
-    if not recipe_id:
-        return None
-    try:
-        spec = get_recipe(recipe_id)
-    except Exception:  # noqa: BLE001
-        return None
-    if spec is None or spec.present is None:
-        return None
-    try:
-        fragment = spec.present(run, manifest)
-    except Exception:  # noqa: BLE001
-        return None
-    return fragment or None
-
-
 def auto_cover_body(manifest: dict[str, Any]) -> str:
-    """The cover a package gets when nobody designed one.
+    """The plain cover a package gets when nobody designed one.
 
-    Components only: the same vocabulary an authored cover uses, so a package
-    made without a designer still reads as part of the same family.
+    Title, the members, and a file index per run. Components only, so it is
+    openable and reads as part of the family — and nothing more, because the
+    cover is the agent's to design. This is what "Package as…" produces with
+    no agent involved.
     """
     parts = [f'<h1 class="sp-title">{escape(manifest.get("title") or "Package")}</h1>']
 
@@ -150,29 +132,14 @@ def auto_cover_body(manifest: dict[str, Any]) -> str:
     if summary:
         parts.append(f'<p class="sp-sub">{escape(summary)}</p>')
 
-    presented = False
-    presented_files: set[str] = set()
-    for run in runs:
-        fragment = _run_presentation(run, manifest)
-        if fragment:
-            parts.append(fragment)
-            presented = True
-            if "<stimma-files" in fragment:
-                presented_files.add(run["id"])
+    members = manifest.get("members") or []
+    if members:
+        parts.append(section(grid(media(m["id"], plate=True) for m in members)))
 
-    if not presented:
-        members = manifest.get("members") or []
-        if members:
-            parts.append(section(grid(media(m["id"], plate=True) for m in members)))
-
-    # A presentation that already placed its own file browser is not given a
-    # second one.
     if manifest.get("extras"):
         parts.append(section(files()))
     else:
         for run in runs:
-            if run["id"] in presented_files:
-                continue
             parts.append(section(files(run["id"])))
 
     parts.append(footer())
