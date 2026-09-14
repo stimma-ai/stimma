@@ -396,3 +396,18 @@ async def test_vector_builder_uses_current_document_renderer_interface(db_sessio
             assert (await builder._render_vector(given, 72)).startswith(b'\x89PNG')
     assert calls and calls[0][:2] == (72, 72)
     assert 'document.svg' in calls[0][2]
+
+
+def test_media_size_does_not_add_an_unrequested_caption():
+    from bs4 import BeautifulSoup
+    from packages.cover import render_cover_document
+
+    manifest = {'title': 'Brand', 'members': [{'id': 'm1', 'path': 'members/mark.svg', 'name': 'Mark'}]}
+    source = '''<stimma-media ref="m1" size="96" class="logo"></stimma-media>
+        <stimma-sizes><stimma-media ref="m1" size="32" caption="32 px"></stimma-media></stimma-sizes>'''
+    document, problems = render_cover_document(manifest, authored_html=source)
+    assert problems == []
+    soup = BeautifulSoup(document, 'html.parser')
+    assert soup.select_one('.logo img')['width'] == '96'
+    assert soup.select_one('.logo .sp-caption') is None
+    assert soup.select_one('stimma-sizes .sp-caption').text == '32 px'

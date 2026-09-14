@@ -31,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 10
+KIT_VERSION = 11
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -1169,9 +1169,8 @@ def expand_kit_elements(
                 f'<img src="{htmllib.escape(path, quote=True)}" width="{px}" height="{px}"'
                 f' alt="{htmllib.escape(alt or "", quote=True)}">'
             )
-            if not caption:
-                caption = px
-            inner_html += f'<div class="sp-caption">{htmllib.escape(str(caption))}</div>'
+            if caption:
+                inner_html += f'<div class="sp-caption">{htmllib.escape(str(caption))}</div>'
             return f"<stimma-media{_attr_str(attrs)}>{inner_html}</stimma-media>"
         return f"<stimma-media{_attr_str(attrs)}>{_media_markup(path, alt=alt, caption=caption)}</stimma-media>"
 
