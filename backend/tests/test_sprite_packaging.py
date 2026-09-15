@@ -35,8 +35,10 @@ def test_source_roundtrip_and_determinism(tmp_path):
 def test_rejects_registration_mismatch_and_invalid_timing(tmp_path):
     s = source()
     s.animations[0].frames[1] = Image.new("RGBA", (17, 24))
-    with pytest.raises(SpriteExportError, match="share a canvas"):
+    with pytest.raises(SpriteExportError, match="share a canvas") as error:
         write_source(s, tmp_path / "bad.zip")
+    assert "courier" in str(error.value) and "run_east: 16x24, 17x24" in str(error.value)
+    assert "separate source archives/recipe runs" in str(error.value)
     s = source()
     s.animations[0].durations_ms[0] = 0
     with pytest.raises(SpriteExportError, match="positive integer"):

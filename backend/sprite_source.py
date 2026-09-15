@@ -44,7 +44,8 @@ def validate_source(source: SpriteSource) -> None:
             sizes.add(f.size)
             pixels += f.width * f.height
     if len(sizes) != 1:
-        raise SpriteExportError("All moves of one sprite must share a canvas size and registration. Prepare them together; export does not resize poses independently.")
+        dimensions = "; ".join(f"{a.key}: {', '.join(f'{w}x{h}' for w, h in sorted({f.size for f in a.frames}))}" for a in source.animations)
+        raise SpriteExportError(f"Source '{source.base_name}': all moves of one sprite must share a canvas size and registration. Got {dimensions}. Prepare actor moves together; put unrelated static assets with different dimensions in separate source archives/recipe runs.")
     if pixels > MAX_PIXELS:
         raise SpriteExportError("Sprite source exceeds the 64 megapixel decoded-frame budget; split unrelated actors into separate runs")
 
@@ -86,7 +87,7 @@ def read_source(path: str | Path) -> tuple[SpriteSource, dict]:
             if len(set(names)) != len(names) or any(n.startswith('/') or '\\' in n or '..' in n.split('/') for n in names):
                 raise SpriteExportError("Sprite source contains duplicate or unsafe paths")
             data = json.loads(archive.read("source.json"))
-            if data.get("sprite_source") != 1:
+            if not isinstance(data, dict) or data.get("sprite_source") != 1:
                 raise SpriteExportError("Expected sprite_source version 1")
             animations, pixels = [], 0
             for a in data["animations"]:

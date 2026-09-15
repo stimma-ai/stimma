@@ -248,3 +248,56 @@ async def test_pdf_preview_shows_authored_pages_without_saving(db_session, tmp_p
         assert pkg.media_id is None
         assert (await pkg.manifest())['extras'] == []
         pkg._builder.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_sdk_show_revises_package_and_preserves_prior_version(db_session, tmp_path):
+    from agent.v2.code_runtime import StimmaSDK
+    from database import Asset, AssetRevision
+
+    async with db_session() as session:
+        chat = Chat(name='Package revision')
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        versions = []
+        for n, color in enumerate(['red', 'blue']):
+            Image.new('RGBA', (16, 16), color).save(tmp_path / f'mark-{n}.png')
+            pkg = sdk.packages.new('Sprite kit')
+            await pkg.add_member(f'mark-{n}.png')
+            pkg.set_cover('<h1>Sprite kit</h1><stimma-media ref="m1"></stimma-media>')
+            versions.append(await pkg.save())
+            if n == 0:
+                sdk.show(versions[-1], role='final')
+                await sdk.flush()
+                asset = await session.scalar(select(Asset).join(AssetRevision, AssetRevision.asset_id == Asset.id).where(AssetRevision.primary_media_id == versions[-1]))
+                original_revision = asset.current_revision_id
+                assert f'asset_id={asset.id}' in sdk._display_receipts[-1]
+            else:
+                sdk.show(versions[-1], role='final', revises=asset.id,
+                         revision_note='Refined palette', parent_revision=original_revision)
+                await sdk.flush()
+        assets = (await session.scalars(select(Asset).where(Asset.title == "Sprite kit"))).all()
+        revisions = (await session.scalars(select(AssetRevision).where(AssetRevision.asset_id == asset.id).order_by(AssetRevision.revision_number))).all()
+        assert len(assets) == 1
+        assert [r.primary_media_id for r in revisions] == versions
+        assert [r.revision_number for r in revisions] == [1, 2]
+        assert revisions[1].parent_revision_id == original_revision
+        assert revisions[1].note == 'Refined palette'
+        assert assets[0].current_revision_id == revisions[1].id
+        assert f'asset_id={asset.id}' in sdk._display_receipts[-1]
+
+
+@pytest.mark.asyncio
+async def test_sdk_show_reports_rejected_revision_without_success_receipt(db_session, tmp_path):
+    from agent.v2.code_runtime import StimmaSDK
+
+    async with db_session() as session:
+        sdk = StimmaSDK(session=session, chat_id=None, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        sdk.show(42, role='final', revision_note='Updated package')
+        with pytest.raises(ValueError, match='revision_note requires revises='):
+            await sdk.flush()
+        assert sdk._shown_media_ids == []
+        assert sdk._display_receipts == []

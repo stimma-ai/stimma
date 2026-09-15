@@ -1378,6 +1378,7 @@ class StimmaSDK:
         self.library = StimmaLibraryAPI(self)
         self.packages = StimmaPackagesAPI(self)
         self._pending_display_calls: list[dict[str, Any]] = []
+        self._display_receipts: list[str] = []
         self._tool_results: list[ToolResult] = []
         self._tool_failures: list[dict[str, Any]] = []
         self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
@@ -2013,7 +2014,21 @@ class StimmaSDK:
         self._llm_usage["calls"] += 1
         return resp.content
 
-    def show(self, item: ToolResult | str | Path | int | Iterable[ToolResult | str | Path | int] | None = None, *, role: str, title: str | None = None, media_id: int | None = None, media_ids: list[int] | None = None, path: str | None = None, paths: list[str] | None = None):
+    def show(
+        self,
+        item: ToolResult | str | Path | int | Iterable[ToolResult | str | Path | int] | None = None,
+        *,
+        role: str,
+        title: str | None = None,
+        media_id: int | None = None,
+        media_ids: list[int] | None = None,
+        path: str | None = None,
+        paths: list[str] | None = None,
+        revises: int | None = None,
+        artifact: bool = False,
+        revision_note: str | None = None,
+        parent_revision: int | None = None,
+    ):
         if role not in {"intermediate", "final"}:
             raise ValueError("show role must be 'intermediate' or 'final'")
         # Accept keyword-arg style (from tool-call API confusion)
@@ -2036,6 +2051,9 @@ class StimmaSDK:
             "paths": norm_paths or None,
             "title": title,
             "role": role,
+            "revision": {k: v for k, v in {"revises": revises, "artifact": artifact,
+                "revision_note": revision_note, "parent_revision": parent_revision}.items()
+                if v is not None and v is not False},
         })
 
     def show_grid(
@@ -2507,14 +2525,7 @@ class StimmaSDK:
             saved_media_ids = await self._auto_save_paths(payload.get("paths") or [])
             # Merge saved media_ids with any existing ones, drop the paths
             all_media_ids = list(payload.get("media_ids") or []) + saved_media_ids
-            self._shown_media_ids.extend(all_media_ids)
-            self._shown_labels.extend(str(mid) for mid in (payload.get("media_ids") or []))
-            shown_paths = payload.get("paths") or []
-            if len(shown_paths) == len(saved_media_ids):
-                self._shown_labels.extend(f"{p}→{mid}" for p, mid in zip(shown_paths, saved_media_ids))
-            else:
-                self._shown_labels.extend(str(mid) for mid in saved_media_ids)
-            await show_tool(
+            receipt = await show_tool(
                 role=payload["role"],
                 media_ids=all_media_ids or None,
                 paths=None,
@@ -2522,7 +2533,19 @@ class StimmaSDK:
                 session=self.session,
                 chat_id=self.chat_id,
                 workspace_dir=self.workspace_dir,
+                **payload.get("revision", {}),
             )
+            if isinstance(receipt, str) and receipt.startswith("Error:"):
+                raise ValueError(receipt)
+            self._shown_media_ids.extend(all_media_ids)
+            self._shown_labels.extend(str(mid) for mid in (payload.get("media_ids") or []))
+            shown_paths = payload.get("paths") or []
+            if len(shown_paths) == len(saved_media_ids):
+                self._shown_labels.extend(f"{p}→{mid}" for p, mid in zip(shown_paths, saved_media_ids))
+            else:
+                self._shown_labels.extend(str(mid) for mid in saved_media_ids)
+            if payload["role"] == "final" and receipt:
+                self._display_receipts.append(str(receipt))
 
     async def _auto_save_paths(self, paths: list[str]) -> list[int]:
         """Save workspace paths to library with lineage from tracked tool results."""
@@ -3093,6 +3116,8 @@ async def run_code_in_sandbox(
         output += "."
         if shown_media_ids is not None:
             shown_media_ids.update(sdk._shown_media_ids)
+    if sdk._display_receipts:
+        output += "\n" + "\n".join(sdk._display_receipts)
     receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
     if receipt:
         output = f"{output}\n\n{receipt}"

@@ -137,7 +137,7 @@ Example:
     ),
     "show": SDKMethodHelp(
         name="show",
-        signature="stimma.show(items, *, role='intermediate'|'final', title=None)",
+        signature="stimma.show(items, *, role='intermediate'|'final', title=None, revises=None, revision_note=None, artifact=False, parent_revision=None)",
         summary="Display media to the user. Sync; do not await.",
         details="""\
 Display one or more images/videos to the user. Items can be ToolResult objects,
@@ -147,8 +147,16 @@ role="final" commits the items to the user's library as Assets — use it for re
 you produced for them. role="intermediate" is plain display: work-in-progress, and
 reference material found or downloaded from elsewhere.
 
+For a revision, pass one result with role="final", revises=<existing asset_id>,
+and revision_note="What changed". This forwards the native show revision API;
+the execution receipt returns the asset_id for later updates. Keep that asset
+handle distinct from media_id. artifact=True creates an explicitly versioned
+first result; it is mutually exclusive with revises. parent_revision optionally
+branches from an older revision of the same asset.
+
 Example:
   stimma.show(result, role="final", title="Final")
+  stimma.show(updated, role="final", revises=asset_id, revision_note="Refined layout")
   stimma.show([a, b, c], role="intermediate", title="Work in progress")
   stimma.show(downloaded_paths, role="intermediate", title="Reference photos")""",
         group="display",
