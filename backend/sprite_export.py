@@ -542,7 +542,7 @@ def _write_atlas(source, animations, anchor, options, *, array: bool):
 def _write_godot(source, animations, anchor, options):
     packed = _pack_rows(animations, options)
     sheet_name = f"{source.base_name}.png"
-    total = sum(len(packed.rects[a.key]) for a in animations)
+    total = sum(len(a.frames) + (max(0, len(a.frames) - 2) if a.loop == "pingpong" else 0) for a in animations)
     lines = [
         f'[gd_resource type="SpriteFrames" load_steps={total + 2} format=3]',
         "",
@@ -553,8 +553,14 @@ def _write_godot(source, animations, anchor, options):
     blocks = []
     for anim in animations:
         entries = []
-        base_ms = max(1, round(1000 / anim.fps))
-        for rect, duration in zip(packed.rects[anim.key], anim.durations_ms):
+        base_ms = 1000 / anim.fps
+        if anim.loop_start != 0 or anim.loop_end != len(anim.frames) - 1:
+            raise SpriteExportError(f"{anim.key}: Godot SpriteFrames cannot encode partial loop bounds; use full-cycle animations or the neutral manifest")
+        indices = list(range(len(anim.frames)))
+        if anim.loop == "pingpong":
+            indices += list(range(len(anim.frames) - 2, 0, -1))
+        for i in indices:
+            rect, duration = packed.rects[anim.key][i], anim.durations_ms[i]
             sub_id += 1
             lines += [
                 f'[sub_resource type="AtlasTexture" id="AtlasTexture_{sub_id}"]',
@@ -566,7 +572,7 @@ def _write_godot(source, animations, anchor, options):
                 '{\n"duration": %s,\n"texture": SubResource("AtlasTexture_%d")\n}'
                 % (round(duration / base_ms, 4), sub_id)
             )
-        loop = "true" if anim.loop == "loop" else "false"
+        loop = "true" if anim.loop in ("loop", "pingpong") else "false"
         blocks.append(
             '{\n"frames": [%s],\n"loop": %s,\n"name": &"%s",\n"speed": %s\n}'
             % (", ".join(entries), loop, anim.key, anim.fps)
@@ -1070,8 +1076,12 @@ def run_sprite_export(source: SpriteSource, options: SpriteExportOptions) -> Exp
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, payload in files:
-            zf.writestr(name, payload)
-        zf.writestr("manifest.json", _json_bytes(manifest))
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, payload)
+        info = zipfile.ZipInfo("manifest.json", date_time=(1980, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        zf.writestr(info, _json_bytes(manifest))
     return ExportResult(f"{source.base_name}-{target}.zip", "application/zip", buf.getvalue())
 
 
