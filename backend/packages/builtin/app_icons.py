@@ -140,8 +140,11 @@ Lead with ONE generous finished icon, not a grid of near-identical platform
 variants. Use a high-resolution delivered icon, not an unprepared source mark.
 Keep transparency rules and file-format explanations with the relevant platform
 or contents. Background studies belong to brand-mark work, not this icon cover.
-Default to a dark cover unless the person requests a different cover theme;
-a requested icon background does not set the cover's background.
+Default the HTML cover and every PDF page to neutral near-black #0d0d0e with
+light text #ededee unless the person explicitly requests another cover color.
+Do not choose brown, a warm charcoal or a tint sampled from the icon. A requested
+icon background applies to the icon, not the cover or PDF. Keep @page background
+on var(--sp-bg); do not give the PDF a different ground without a request.
 For Web, use previews/platform-web-light.png or previews/platform-web-dark.png
 (browser tab with the delivered 16px favicon) and show web/icon-16.png and
 web/icon-32.png at native size alongside it on a Platform Study · Web page.
