@@ -151,11 +151,65 @@ def test_preview_diagnoses_overflowing_page_groups_without_changing_saved_export
     assert export_pdf(tmp_path, validate_pages=True).startswith(b'%PDF')
 
 
+def test_nested_grid_does_not_move_sibling_notes_or_running_footer(tmp_path):
+    from pathlib import Path
+    font = Path('packages/mockups/assets/fonts/NotoSans-Regular.ttf')
+    (tmp_path / 'font.ttf').write_bytes(font.read_bytes())
+    manifest = new_manifest(title='Example')
+    manifest['members'] = [{'id': 'f1', 'name': 'Font', 'path': 'font.ttf'}]
+    tiles = ''.join(f'<div class="tile"><span class="chip"></span><span class="tile-text"><b>Group {i}</b><i>#2B2422</i><em>Supporting description</em></span></div>' for i in range(7))
+    source = '''<style>
+      .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+      .tile{display:flex;align-items:center;gap:12px}
+      .chip{display:inline-block;width:44px;height:44px;flex:0 0 44px;background:#aaa}
+      .tile-text{display:block;min-width:0}.tile-text b{display:block;font-size:14px}
+      .tile-text i{display:block;font-style:normal;font-size:12px}
+      .tile-text em{display:block;font-style:normal;font-size:11.5px}
+      </style><div class="sp-page"><stimma-section page label="Opening">
+      <stimma-grid columns="2"><div>Opening notes</div><div style="height:480px">Artwork</div></stimma-grid>
+      </stimma-section><stimma-section page label="Mixed content"><stimma-grid columns="2">
+      <div class="tiles">TILES</div><div>
+      <stimma-type ref="f1" label="Heading specimen" style="--sp-type-size:30px">Useful application typography</stimma-type>
+      <stimma-type ref="f1" label="Body specimen" style="--sp-type-size:17px">Readable text for the business and its applications, with useful context for the owner.</stimma-type>
+      <p class="sp-note">Supporting guidance about the selected files and their use. Font files and their licences are bundled for use in other applications.</p>
+      <p class="sp-note">FINAL NOTE belongs in the right column, below the other guidance. These details must remain readable when the owner exports a PDF.</p>
+      </div></stimma-grid></stimma-section></div>'''.replace('TILES', tiles)
+    html, problems = render_cover_document(manifest, authored_html=source, bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    data = export_pdf(tmp_path, validate_pages=True)
+    with pdfium.PdfDocument(data) as pdf:
+        assert len(pdf) == 2
+        textpage = pdf[1].get_textpage()
+        text = textpage.get_text_range()
+        # Check drawn positions, not just extraction: the old grid layout
+        # kept text in the PDF while placing it over the opposite column.
+        note = text.index('FINAL NOTE')
+        assert textpage.get_charbox(note)[0] >= 480
+        footer = text.index('Made with')
+        left, bottom, right, top = textpage.get_charbox(footer)
+        assert 0 <= left < right <= pdf[0].get_width()
+        assert 0 <= bottom < top <= 50
+    # PDFium and Poppler have differed on nested-grid text transforms. Cover
+    # both when Poppler is installed (as in the visual QA environment).
+    import shutil
+    import subprocess
+    from xml.etree import ElementTree
+    if shutil.which('pdftotext'):
+        path = tmp_path / 'guide.pdf'
+        path.write_bytes(data)
+        xml = subprocess.check_output(['pdftotext', '-bbox', str(path), '-'])
+        words = ElementTree.fromstring(xml).findall('.//{*}word')
+        note = next(word for word in words if word.text == 'FINAL')
+        assert float(note.attrib['xMin']) >= 480
+
+
 def test_two_column_content_grid_retains_print_columns(tmp_path):
     manifest = new_manifest(title='Mixed content')
     source = '''<div class="sp-page"><stimma-section page label="System">
       <stimma-grid columns="2"><div><h2>First</h2><p>One content group.</p></div>
-      <div><h2>Second</h2><p>Another content group.</p></div></stimma-grid>
+      <div><h2>Second</h2><p>Another content group.</p></div>
+      <div><h2>Third</h2></div><div><h2>Fourth</h2></div></stimma-grid>
     </stimma-section></div>'''
     html, problems = render_cover_document(manifest, authored_html=source, bundle_dir=tmp_path)
     assert not problems
@@ -166,6 +220,10 @@ def test_two_column_content_grid_retains_print_columns(tmp_path):
         start = text.get_text_range().index('Second')
         left, _, _, _ = text.get_charbox(start)
         assert left > pdf[0].get_width() / 2
+        third = text.get_charbox(text.get_text_range().index('Third'))
+        fourth = text.get_charbox(text.get_text_range().index('Fourth'))
+        assert third[0] < pdf[0].get_width() / 2 < fourth[0]
+        assert third[3] < text.get_charbox(start)[1]
 
 
 def test_nested_sections_report_the_composition_fix(tmp_path):

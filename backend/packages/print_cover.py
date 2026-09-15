@@ -17,7 +17,10 @@ h1, h2, h3, .sp-label { break-after: avoid; }
 stimma-media, stimma-compare figure { break-inside: avoid; }
 stimma-media img, stimma-compare img { max-width: 100%; max-height: 480px; object-fit: contain; }
 stimma-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
-stimma-grid[columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+/* Keep nested authored grids out of the PDF engine's parent grid layout:
+   it can otherwise move sibling notes across columns and displace footers. */
+stimma-grid[columns="2"] { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 32px; }
+stimma-grid[columns="2"] > * { flex: 0 0 calc(50% - 16px); min-width: 0; }
 stimma-columns { grid-template-columns: repeat(3, 1fr); gap: 18px; break-inside: avoid; }
 stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
 .sp-appearance-head .sp-seg, input, button { display: none !important; }
