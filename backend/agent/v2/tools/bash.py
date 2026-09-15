@@ -25,6 +25,7 @@ def get_shell_runtime_name() -> str:
         "Uses PowerShell on Windows and bash on other platforms. "
         "Use for external CLI tools such as ImageMagick. "
         "Use glob, grep, read_file, write_file, and edit_file for workspace files; "
+        "use pathlib/shutil/zipfile in run_code for workspace folders, copies and archives. "
         "run Python and the stimma SDK through run_code or run_file."
     ),
     parameters=[

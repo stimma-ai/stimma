@@ -65,6 +65,8 @@ animation supplies `name`, optional `direction`, `fps`, `loop`, inclusive
 `loop_start`/`loop_end`, `durations_ms`, optional `mirrored_from`, and relative
 PNG `frames` paths. Names are lowercase identifiers. Frames must share one
 canvas, timing must be positive, and decoded input is limited to 64 megapixels.
+Loose native set/grid/sprite manifests resolve through the media library and are
+rejected as package members/extras. Use portable source archives instead.
 ZIP traversal/duplicate paths and oversized archives are rejected. ZIP entries
 use fixed timestamps so unchanged sources and recipe runs reproduce the same
 bytes.

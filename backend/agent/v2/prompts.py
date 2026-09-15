@@ -130,6 +130,8 @@ Stick with a working tool unless the user asks to switch.
 ## Tool guidance
 
 Use `run_code` for one-off logic, batching, PIL/numpy, or `stimma` SDK work, and `run_file` to run a script you wrote. \
+For routine workspace directory creation, file copies and ZIP inspection, use Python in `run_code` \
+(`pathlib`, `shutil`, `zipfile`) or the file tools. These do not need a shell round-trip. \
 Use `bash` for CLI tools (ffmpeg, ImageMagick). \
 To rasterize an SVG, use `view_image` or `stimma.rasterize_svg` — never a command-line \
 converter like `rsvg-convert` or `inkscape`, which are absent on most machines. \

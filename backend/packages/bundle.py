@@ -73,6 +73,27 @@ class PackageError(ValueError):
     pass
 
 
+def _require_standalone_file(path: Path, file_format: str | None = None) -> None:
+    """Native container JSON resolves through the library, not relative files.
+
+    A raw manifest is not a portable container export. This applies to all
+    library-reference container families; ordinary JSON and source ZIPs remain
+    valid package files.
+    """
+    from sprite_document import CONTAINER_FORMATS
+
+    reference_formats = CONTAINER_FORMATS - {PACKAGE_FORMAT}
+    name = path.name.lower()
+    if (file_format or "").lower() in reference_formats or any(
+        name.endswith("." + fmt) for fmt in reference_formats
+    ):
+        raise PackageError(
+            f"{path.name} is a library-reference manifest, not a standalone source file. "
+            "Use self-contained source archives or production exports instead; "
+            "omit this loose native manifest from the handoff."
+        )
+
+
 def _as_png(data: bytes) -> bytes:
     """Normalize tile bytes to PNG so the thumbnail path has one format to open."""
     import io
@@ -232,6 +253,7 @@ class PackageBuilder:
     async def add_member(self, media_id: int, *, role: Optional[str] = None, member_id: Optional[str] = None) -> str:
         """Add a library media item as a member. Returns the member id."""
         media = await live_media(self.session, media_id)
+        _require_standalone_file(Path(media.file_path), media.file_format)
         for existing in self.members:
             if existing.media.id == media.id and (role is None or existing.role == role):
                 return existing.id
@@ -256,6 +278,7 @@ class PackageBuilder:
         path = Path(path)
         if not path.is_file():
             raise PackageError(f"extra file not found: {path}")
+        _require_standalone_file(path)
         name = name or path.name
         rel = self._unique_path(f"{EXTRAS_DIR}/{name}")
         self.extras.append(_Extra(source=path, name=name, rel_path=rel))

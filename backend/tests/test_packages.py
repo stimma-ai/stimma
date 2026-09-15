@@ -411,3 +411,27 @@ def test_media_size_does_not_add_an_unrequested_caption():
     assert soup.select_one('.logo img')['width'] == '96'
     assert soup.select_one('.logo .sp-caption') is None
     assert soup.select_one('stimma-sizes .sp-caption').text == '32 px'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fmt", ["stimmasprite.json", "stimmagrid.json", "stimmaset.json"])
+async def test_package_rejects_loose_library_manifests(db_session, tmp_path, fmt):
+    from packages.bundle import PackageError
+
+    path = tmp_path / ("source." + fmt)
+    path.write_text(json.dumps({"items": [{"media_id": 123, "hash": "a" * 64}]}))
+    ordinary = tmp_path / "source.json"
+    ordinary.write_text('{"sprite_source":1,"frames":["frames/run/0000.png"]}')
+    archive = tmp_path / "source.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("source.json", ordinary.read_bytes())
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=path, file_format=fmt)
+        async with PackageBuilder(session, profile_id="default", title="Portable kit") as builder:
+            with pytest.raises(PackageError, match="library-reference manifest"):
+                builder.add_extra(path)
+            with pytest.raises(PackageError, match="library-reference manifest"):
+                await builder.add_member(media.id)
+            assert not builder.members and not builder.extras
+            assert builder.add_extra(ordinary) == "extras/source.json"
+            assert builder.add_extra(archive) == "extras/source.zip"
