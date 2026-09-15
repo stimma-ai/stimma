@@ -57,6 +57,38 @@ def _json_safe_pathlikes(value: Any) -> Any:
     return value
 
 
+def _validate_scalar_params(tool_id: str, schema: dict, params: dict) -> None:
+    """Reject malformed scalar values before queueing or counting provider failures.
+
+    The agent interface also accepts media IDs and paths and normalizes LoRAs,
+    optional nulls and dimensions. Preserve those existing adaptations rather
+    than applying the provider's full wire schema to unresolved agent inputs.
+    """
+    from jsonschema import Draft202012Validator
+
+    scalar_types = {"string", "integer", "number", "boolean", "null"}
+    required = schema.get("required", [])
+    for name, prop in schema.get("properties", {}).items():
+        if name not in params:
+            continue
+        kinds = prop.get("type")
+        kinds = [kinds] if isinstance(kinds, str) else kinds
+        if not kinds or not set(kinds).issubset(scalar_types):
+            continue
+        # Media transport strings can be library IDs at this interface.
+        if prop.get("x-accept-media") is not None or prop.get("x-control") == "image_picker":
+            continue
+        value = params[name]
+        if value is None and name not in required:
+            continue
+        if not any(Draft202012Validator.TYPE_CHECKER.is_type(value, kind) for kind in kinds):
+            raise ValueError(
+                f"{tool_id}: parameter '{name}' expects {' or '.join(kinds)}; "
+                f"received {type(value).__name__}. Pass the parameter value itself, "
+                "not a batch entry such as a (name, value) pair. No job was submitted."
+            )
+
+
 def _coerce_dict_arg(value: Any) -> Any:
     """If ``value`` is a JSON-encoded dict, decode it; otherwise return unchanged.
 
@@ -345,6 +377,7 @@ async def execute_call_tool(
     # 2. Overlay the caller's parameters on top of the tool's schema defaults so
     #    omitted knobs fall back to defaults while any provided value always wins.
     param_schema = tool_descriptor.parameter_schema or {}
+    _validate_scalar_params(tool_id, param_schema, params)
     final_params: Dict[str, Any] = {}
     for prop_name, prop_info in param_schema.get("properties", {}).items():
         if "default" in prop_info:

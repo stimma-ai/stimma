@@ -164,3 +164,35 @@ async def test_call_tool_non_dict_parameters_returns_friendly_error():
     )
     assert result.startswith("Error:")
     assert "parameters" in result and "int" in result
+
+
+@pytest.mark.asyncio
+async def test_bad_batch_prompt_is_rejected_before_jobs_or_failure_streak(monkeypatch):
+    from types import SimpleNamespace
+    from agent.v2.tools.call_tool import execute_call_tool, _failure_streaks
+    import importlib
+    module = importlib.import_module('agent.v2.tools.call_tool')
+    descriptor = SimpleNamespace(name='Local image model', task_type='text-to-image', task_types=['text-to-image'],
+        parameter_schema={'type': 'object', 'properties': {'prompt': {'type': 'string'}}, 'required': ['prompt']})
+    monkeypatch.setattr(module.ProviderRegistry, 'get_instance', lambda: SimpleNamespace(get_tool=lambda _: (object(), descriptor)))
+    queued = []
+    monkeypatch.setattr(module, 'get_generation_queue', lambda: queued.append(True))
+    before = dict(_failure_streaks)
+    for _ in range(6):
+        with pytest.raises(ValueError, match="parameter 'prompt' expects string; received tuple"):
+            await execute_call_tool('test:image', parameters={'prompt': ('seed.png', 'A glowing seed')},
+                                    session=object(), workspace_dir='bad-batch-test')
+    assert queued == []
+    assert _failure_streaks == before
+
+
+def test_scalar_validation_preserves_media_and_optional_defaults():
+    from agent.v2.tools.call_tool import _validate_scalar_params
+    schema = {'properties': {'prompt': {'type': 'string'}, 'width': {'type': 'integer'},
+        'generate_audio': {'type': 'boolean'}, 'seed': {'type': 'integer'},
+        'mask': {'type': 'string', 'x-accept-media': ['image']}}}
+    _validate_scalar_params('test:image', schema, {'prompt': 'A seed', 'width': 512,
+        'generate_audio': False, 'seed': None, 'mask': 123})
+    for key, bad in [('prompt', ['seed.png', 'A seed']), ('width', True), ('generate_audio', 'false')]:
+        with pytest.raises(ValueError, match=f"parameter '{key}' expects"):
+            _validate_scalar_params('test:image', schema, {key: bad})
