@@ -123,6 +123,8 @@ async def show(
 
     if revises is not None and artifact:
         return "Error: revises and artifact are mutually exclusive"
+    if revision_note and revises is None and not artifact:
+        return "Error: revision_note requires revises=<existing asset_id> or artifact=True for a first version. To update a package, use the asset_id from its earlier show result."
     if revises is not None:
         if kwargs.get("_tool_scope") == "flow":
             return "Error: revises is not available in flow chats"

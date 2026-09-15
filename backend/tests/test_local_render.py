@@ -122,6 +122,27 @@ async def test_svg_filter(browser):
 
 
 @pytest.mark.asyncio
+async def test_layout_sdk_print_density_renders_without_changing_source(browser, tmp_path, monkeypatch):
+    from agent.v2.code_runtime import StimmaSDK
+    import utils.local_render as renderer
+
+    monkeypatch.setattr(renderer, "renderer", browser)
+    bundle = tmp_path / 'card.stimmalayout'
+    bundle.mkdir()
+    source = '<html data-stimma-width="400" data-stimma-height="560"><style>@page{size:105.833mm 148.167mm;margin:0}body{margin:0}</style><body><div style="width:20px;height:20px;background:red"></div></body></html>'
+    (bundle / 'index.html').write_text(source)
+    sdk = StimmaSDK(session=None, chat_id=None, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    path = await sdk.rasterize_layout('card.stimmalayout', out='card.png', dpi=300)
+    with Image.open(path) as result:
+        assert result.size == (1250, 1750)
+        assert result.info['dpi'][0] == pytest.approx(300, abs=0.02)
+        assert result.getpixel((50, 50)) == (255, 0, 0, 255)
+        assert result.getpixel((80, 80))[3] == 0
+    assert (bundle / 'index.html').read_text() == source
+
+
+@pytest.mark.asyncio
 async def test_invalid_svg_names_the_failed_document_resource(browser):
     malformed = '<svg style="color:red"xmlns="http://www.w3.org/2000/svg"></svg>'
     assets = {'logo.svg': base64.b64encode(malformed.encode()).decode()}

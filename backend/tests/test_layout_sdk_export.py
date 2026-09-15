@@ -46,6 +46,15 @@ async def test_layout_export_rejects_nonbundle(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("dpi", [True, 0, 600, float("nan"), "300"])
+async def test_layout_export_rejects_invalid_density(tmp_path, dpi):
+    sdk = StimmaSDK(session=None, chat_id=None, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    with pytest.raises(ValueError, match="dpi must"):
+        await sdk.rasterize_layout("card.stimmalayout", dpi=dpi)
+
+
+@pytest.mark.asyncio
 async def test_editable_html_export_embeds_assets_and_preserves_print_css(tmp_path):
     from pathlib import Path
     bundle = tmp_path / "card.stimmalayout"

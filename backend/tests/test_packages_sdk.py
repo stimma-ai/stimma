@@ -97,6 +97,16 @@ async def test_recipe_accepts_an_added_file_reference(db_session, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_revision_note_requires_an_explicit_revision_target(db_session):
+    from agent.v2.tools.show import show
+
+    async with db_session() as session:
+        result = await show(media_id=42, role="final", revision_note="Updated package",
+                            session=session, chat_id=None)
+        assert result.startswith("Error: revision_note requires revises=")
+
+
+@pytest.mark.asyncio
 async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
     """A package belongs on the artifact stage, not in the image viewer.
 

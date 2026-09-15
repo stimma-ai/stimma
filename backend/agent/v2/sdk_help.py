@@ -379,18 +379,24 @@ Example — check a mark at icon size:
     ),
     "rasterize_layout": SDKMethodHelp(
         name="rasterize_layout",
-        signature="await stimma.rasterize_layout(layout, *, out=None) -> Image | Path",
+        signature="await stimma.rasterize_layout(layout, *, out=None, dpi=None) -> Image | Path",
         summary="Export an existing editable layout as a PNG at its authored canvas size.",
         details="""\
 `layout` is a workspace .stimmalayout bundle path or library media id returned
 by create_layout. Uses the app's existing browser renderer and bundled assets.
 Returns a PIL Image, or the written PNG path when `out` is given. Preserves
 the declared canvas width and height (measured height for auto-height layouts).
+For print, author at 96 CSS pixels per inch and pass dpi=300 to render directly
+at 300/96 times that canvas, with PNG density metadata. This preserves source
+typography and print CSS; do not enlarge the HTML's fonts or spacing for DPI.
+dpi accepts 10–384; total render pixel limits still apply. Without dpi, the
+export has exactly the authored pixel dimensions.
 Keep the editable bundle/source alongside the PNG in a delivery. Do not search
 internal caches for rendered files or install another renderer.
 
 Example:
-  png = await stimma.rasterize_layout(42, out="applications/launch.png")""",
+  png = await stimma.rasterize_layout(42, out="applications/launch.png")
+  print_png = await stimma.rasterize_layout(43, out="applications/card.png", dpi=300)""",
         group="image",
         is_async=True,
     ),

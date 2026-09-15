@@ -69,6 +69,7 @@ async def render_layout_bundle(
     render_timeout_s: float = RENDER_TIMEOUT_S,
     queue_timeout_s: float | None = None,
     target_long_side: int | None = None,
+    dpr: float | None = None,
 ) -> tuple[bytes, int, int]:
     """Render a ``.stimmalayout`` bundle to PNG bytes using the local browser.
 
@@ -80,6 +81,8 @@ async def render_layout_bundle(
     canvas's long side is roughly that many pixels. Pass it for thumbnails and
     agent-vision so we don't pay to rasterize a full 2x canvas we'll only
     downscale anyway.
+    Explicit ``dpr`` overrides that preview policy for production raster
+    exports; the renderer still enforces density and total-pixel limits.
     """
     bundle_dir = Path(bundle_dir)
     index = bundle_dir / "index.html"
@@ -96,12 +99,13 @@ async def render_layout_bundle(
         v = m.group(1)
         height = None if v == "auto" else int(v)
 
+    render_dpr = dpr if dpr is not None else _dpr_for_target(width, height, target_long_side)
     assets = gather_bundle_assets(bundle_dir)
     png_bytes = await render_html(
         html,
         width=width,
         height=height,
-        dpr=_dpr_for_target(width, height, target_long_side),
+        dpr=render_dpr,
         assets=assets,
         render_timeout_s=render_timeout_s,
         queue_timeout_s=queue_timeout_s,
@@ -110,5 +114,5 @@ async def render_layout_bundle(
     import io
     from PIL import Image
     with Image.open(io.BytesIO(png_bytes)) as image:
-        measured_height = round(image.height / _dpr_for_target(width, height, target_long_side))
+        measured_height = round(image.height / render_dpr)
     return png_bytes, width, height or measured_height

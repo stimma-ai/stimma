@@ -1515,30 +1515,40 @@ class StimmaSDK:
         path.write_text(html, encoding="utf-8")
         return path
 
-    async def rasterize_layout(self, layout: str | Path | int, *, out=None):
+    async def rasterize_layout(self, layout: str | Path | int, *, out=None, dpi: float | None = None):
         """Render an existing layout bundle at its authored canvas size.
 
         Accepts a workspace bundle path or library media id. Returns a PIL
         image, or a PNG path when ``out`` is supplied. Uses the same browser
         renderer as layout previews; it does not reflow or compose the layout.
+        With dpi, render at dpi/96 times the CSS canvas and write PNG density
+        metadata. Author physical layouts at 96 CSS pixels per inch.
         """
         from utils.document_render import render_layout_bundle
 
+        if dpi is not None and (isinstance(dpi, bool) or not isinstance(dpi, (int, float))
+                                or not math.isfinite(dpi) or not 10 <= dpi <= 384):
+            raise ValueError("dpi must be a finite number from 10 to 384; CSS uses 96 pixels per inch")
+        scale = dpi / 96 if dpi is not None else 1
+        render_options = {"dpr": scale} if dpi is not None else {}
         bundle = await self._resolve_media_or_path(layout)
         if not bundle.is_dir() or not (bundle / "index.html").is_file():
             raise ValueError("rasterize_layout needs a layout bundle path or layout media id")
         data, width, height = await render_layout_bundle(
-            bundle, queue_timeout_s=30.0, render_timeout_s=60.0,
+            bundle, queue_timeout_s=30.0, render_timeout_s=60.0, **render_options,
         )
         img = Image.open(io.BytesIO(data)).convert("RGBA")
         # Browser rendering supersamples; a 1200×630 artboard must export at
         # 1200×630, including when the bundle's height was measured as auto.
-        if img.size != (width, height):
-            img = img.resize((width, height), Image.Resampling.LANCZOS)
+        output_size = (round(width * scale), round(height * scale))
+        if img.size != output_size:
+            img = img.resize(output_size, Image.Resampling.LANCZOS)
+        if dpi is not None:
+            img.info["dpi"] = (dpi, dpi)
         if out is not None:
             out_path = self._resolve_path(out)
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            img.save(out_path, "PNG", optimize=True)
+            img.save(out_path, "PNG", optimize=True, **({"dpi": (dpi, dpi)} if dpi is not None else {}))
             return out_path
         return img
 
