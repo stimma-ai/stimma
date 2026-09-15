@@ -56,7 +56,14 @@ Members can be media ids, ToolResults, or workspace paths (saved with lineage).
   print(await pkg.preview())           # workspace snapshot; inspect before designing
   pkg.set_cover("cover.html")           # required for agent deliveries; validates now
   media_id = await pkg.save()
-  stimma.show(media_id=media_id, role="final")
+  stimma.show(media_id=media_id, role="final")  # first delivery only
+
+For an update to an existing package, replace that last line with:
+  stimma.show(media_id=media_id, role="final", revises=existing_asset_id,
+              revision_note="What changed")
+Use the asset_id from its display receipt (or packages.status(original_media_id)).
+The same title does not preserve identity. A v1 receipt is a new asset, not a
+revision; never describe it as replacing the earlier package.
 
 Add any number of members, runs and loose files (pkg.add_file(path)).
 await pkg.manifest() returns a snapshot without saving. await pkg.preview() returns a workspace
@@ -533,7 +540,10 @@ stimma quick reference (inside run_code / run_file):
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
     await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.
-    media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). await stimma.packages.recipes() lists recipes.
+    media_id = await pkg.save(); stimma.show(media_id=media_id, role='final') is for a FIRST delivery.
+    For package revisions, show(..., role='final', revises=existing_asset_id, revision_note='What changed').
+    Same title alone creates a separate asset. Verify asset_id and revision number in the display receipt.
+    await stimma.packages.recipes() lists recipes.
   Editable layout delivery: await stimma.export_layout_html(layout_id, out="application.html") embeds fonts/images; add that file to the package.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
