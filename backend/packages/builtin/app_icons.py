@@ -12,7 +12,7 @@ from packages.recipes import Build, Input, Param, recipe
 
 @recipe(
     id="app-icons",
-    version=12,
+    version=13,
     display_name="App icon set",
     description="iOS, Android, macOS, Windows, Linux and web icon sets from one square master image",
     inputs=[
@@ -135,7 +135,17 @@ The cover is still your design; the recipe emits images, never HTML.
 Start with `references/app-icons-mixed.html` for multiple platforms or
 `references/app-icons.html` for iOS alone. Remove unused platform sections;
 never omit requested ones. Show scenes wide, keep copy factual, and retain
-actual-size samples of the delivered PNGs on the opening icon overview page.
+a few actual-size samples of the delivered PNGs on the opening page.
+Lead with ONE generous finished icon, not a grid of near-identical platform
+variants. Use a high-resolution delivered icon, not an unprepared source mark.
+Keep transparency rules and file-format explanations with the relevant platform
+or contents. Background studies belong to brand-mark work, not this icon cover.
+Default to a dark cover unless the person requests a different cover theme;
+a requested icon background does not set the cover's background.
+For Web, use previews/platform-web-light.png or previews/platform-web-dark.png
+(browser tab with the delivered 16px favicon) and show web/icon-16.png and
+web/icon-32.png at native size alongside it on a Platform Study · Web page.
+The browser image is a 2x view; the separate native-size samples judge fidelity.
 Do not use the older flat phone home-light/home-dark previews in the cover. For iOS and Android, put store and notification examples inside a native
 <details slot="details"> with <summary>Details</summary>, initially closed.
 Inside it use one stimma-appearance, with light and dark stimma-grid children
@@ -268,6 +278,11 @@ async def build(b: Build) -> None:
                      source="master", fixed=True)
             b.file("web/site.webmanifest", icon_spec.web_manifest(name))
             b.file("web/head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
+            from packages.mockups.web import browser_preview
+            for mode in ('light', 'dark'):
+                b.derive(f"previews/platform-web-{mode}.png",
+                         icon_spec.png_bytes(browser_preview(rendered[16], name, mode=mode)),
+                         source="master", fixed=True)
 
     readme = icon_spec.readme(platforms)
     if "linux" in platforms:

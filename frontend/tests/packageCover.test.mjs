@@ -280,3 +280,27 @@ test('nothing in the page shows a scrollbar track, and the code pane scrolls qui
     await browser.close()
   }
 })
+
+test('covers default to dark and light authored controls remain readable', async () => {
+  const dir = renderRealCover()
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ colorScheme: 'light' })
+    await page.goto(pathToFileURL(join(dir, 'index.html')).href)
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(13, 13, 14)')
+    await page.addStyleTag({ content: ':root { --sp-bg: #faf6ed; --sp-fg: #17171a; }' })
+    for (const hover of [false, true]) {
+      if (hover) await page.locator('.sp-browse').hover()
+      await page.waitForTimeout(180)
+      const colors = await page.locator('.sp-browse').evaluate(el => {
+        const s = getComputedStyle(el)
+        return { fg: s.color, bg: s.backgroundColor.match(/[\d.]+/g).map(Number) }
+      })
+      assert.equal(colors.fg, 'rgb(23, 23, 26)')
+      const [r, , , a = 1] = colors.bg
+      assert.ok(r * a + 250 * (1 - a) > 210, 'control surface must stay light with dark text')
+    }
+    await page.locator('.sp-browse').click()
+    assert.equal(await page.locator('.sp-area').isVisible(), true)
+  } finally { await browser.close() }
+})

@@ -493,3 +493,21 @@ async def test_platform_scale_changes_only_requested_exports_and_previews(tmp_pa
     a = Image.open(tmp_path / 'normal/windows/icon-256.png').convert('RGBA')
     b = Image.open(tmp_path / 'smaller/windows/icon-256.png').convert('RGBA')
     assert ImageChops.difference(a, b).getbbox()
+
+
+async def test_web_study_uses_delivered_favicon_pixels(tmp_path):
+    result = await run_recipe(get_recipe('app-icons'),
+        {'master': _resolved('master', _master(tmp_path / 'master.png'))},
+        {'platforms': ['web'], 'app_name': 'Example', 'background': '#FFFFFF'},
+        tmp_path / 'web-study')
+    paths = {f.path for f in result.files}
+    assert {p for p in paths if p.startswith('previews/')} == {
+        'previews/platform-web-light.png', 'previews/platform-web-dark.png'}
+    icon = Image.open(tmp_path / 'web-study/web/icon-16.png').convert('RGBA')
+    for mode, ground in [('light', '#ffffff'), ('dark', '#35363a')]:
+        image = Image.open(tmp_path / f'web-study/previews/platform-web-{mode}.png')
+        assert image.size == (1440, 320)
+        expected = Image.new('RGB', (16, 16), ground)
+        expected.paste(icon, (0, 0), icon.getchannel('A'))
+        expected = expected.resize((32, 32), Image.Resampling.NEAREST)
+        assert image.crop((56, 38, 88, 70)).tobytes() == expected.tobytes()

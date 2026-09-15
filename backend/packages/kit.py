@@ -31,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 11
+KIT_VERSION = 12
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -111,11 +111,7 @@ def hero(*parts: str) -> str:
 KIT_CSS = """
 :root{
   --sp-bg:#0d0d0e; --sp-fg:#ededee; --sp-muted:#8b8b8f; --sp-faint:#5c5c60;
-  --sp-line:#232325; --sp-accent:#2dd4bf; --sp-plate:#151517;
-}
-@media (prefers-color-scheme: light){
-  :root{--sp-bg:#faf9f7; --sp-fg:#17171a; --sp-muted:#6b6b70; --sp-faint:#97979c;
-        --sp-line:#e5e2dd; --sp-accent:#0d9488; --sp-plate:#f1efec;}
+  --sp-line:rgba(127,127,127,.24); --sp-accent:#2dd4bf; --sp-plate:rgba(127,127,127,.10);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);
