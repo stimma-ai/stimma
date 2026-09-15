@@ -1,7 +1,14 @@
 (async () => {
   await document.fonts.ready;
   if ([...document.fonts].some(font => font.status === "error")) throw new Error("A document font failed to load");
-  await Promise.all([...document.images].map(image => image.decode()));
+  await Promise.all([...document.images].map(async image => {
+    try { await image.decode(); }
+    catch {
+      const source = image.getAttribute("src") || "(no source)";
+      const label = source.startsWith("data:") ? "embedded image" : source.slice(0, 240);
+      throw new Error(`Document image failed to decode: ${label}. Check that the image file is valid (SVG files must be valid XML).`);
+    }
+  }));
   // Navigation waits for load, including stylesheets and CSS images. Let the
   // browser parse CSS URLs; reparsing computed styles breaks escaped filenames.
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));

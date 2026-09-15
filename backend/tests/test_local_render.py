@@ -122,6 +122,16 @@ async def test_svg_filter(browser):
 
 
 @pytest.mark.asyncio
+async def test_invalid_svg_names_the_failed_document_resource(browser):
+    malformed = '<svg style="color:red"xmlns="http://www.w3.org/2000/svg"></svg>'
+    assets = {'logo.svg': base64.b64encode(malformed.encode()).decode()}
+    with pytest.raises(LayoutRenderFailed, match=r"image failed to decode: logo.svg.*valid XML"):
+        await capture(browser, '<img src="logo.svg">', assets=assets)
+    # A bad authored image must not poison the renderer for subsequent jobs.
+    await capture(browser, '<body>Recovered</body>')
+
+
+@pytest.mark.asyncio
 async def test_missing_resource_and_script_isolation(browser):
     for source in ['missing.png', 'file:///etc/passwd', 'http://127.0.0.1:9/private']:
         with pytest.raises(LayoutRenderFailed):
