@@ -42,11 +42,11 @@ Parallel execution:
     ),
     "packages.new": SDKMethodHelp(
         name="packages.new",
-        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); await draft.preview_pdf(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
+        signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); await draft.preview_html(width=1200); await draft.preview_pdf(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
         summary="Assemble a deliverable package: members, deterministic recipe runs, extras, and a cover.",
         details="""\
 A package is what you hand over: masters, the derivative tree a recipe
-produced (icon sets, logo variants, crops), loose extras, and a cover page.
+produced (icon sets, logo variants, crops), loose extras, and a visual guide.
 Members can be media ids, ToolResults, or workspace paths (saved with lineage).
 
   pkg = stimma.packages.new(title)
@@ -61,6 +61,10 @@ Members can be media ids, ToolResults, or workspace paths (saved with lineage).
 Add any number of members, runs and loose files (pkg.add_file(path)).
 await pkg.manifest() returns a snapshot without saving. await pkg.preview() returns a workspace
 folder containing index.html and the files; use read_file/glob/view_image there.
+await pkg.preview_html(width=390) returns {image, slices, width, height}: the
+complete responsive HTML rendered at that width, plus readable image slices.
+Inspect slices with view_image(detail="high") at phone and desktop widths
+(for example 390 and 1200). These are screen previews, not PDF pages.
 After set_cover(), await pkg.preview_pdf() returns {pdf, page_count, pages}:
 workspace-relative paths to the exported PDF and its page PNGs. Use view_image
 on those PNGs to check pagination, captions and custom print styles before save.
@@ -357,6 +361,23 @@ against something other than the deliverable.
 Example — check a mark at icon size:
   small = await stimma.rasterize_svg("mark.svg", width=16)
   print(small.size, small.getbbox())""",
+        group="image",
+        is_async=True,
+    ),
+    "rasterize_layout": SDKMethodHelp(
+        name="rasterize_layout",
+        signature="await stimma.rasterize_layout(layout, *, out=None) -> Image | Path",
+        summary="Export an existing editable layout as a PNG at its authored canvas size.",
+        details="""\
+`layout` is a workspace .stimmalayout bundle path or library media id returned
+by create_layout. Uses the app's existing browser renderer and bundled assets.
+Returns a PIL Image, or the written PNG path when `out` is given. Preserves
+the declared canvas width and height (measured height for auto-height layouts).
+Keep the editable bundle/source alongside the PNG in a delivery. Do not search
+internal caches for rendered files or install another renderer.
+
+Example:
+  png = await stimma.rasterize_layout(42, out="applications/launch.png")""",
         group="image",
         is_async=True,
     ),

@@ -31,13 +31,13 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 13
+KIT_VERSION = 14
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
     "stimma-section", "stimma-media", "stimma-grid", "stimma-sizes",
     "stimma-columns", "stimma-column", "stimma-files",
-    "stimma-compare", "stimma-appearance",
+    "stimma-compare", "stimma-appearance", "stimma-swatch", "stimma-type",
 )
 # Registered but inert: feedback is a later design pass. An authored cover
 # using one renders its children instead of breaking.
@@ -131,6 +131,14 @@ img{display:block}
 
 /* Media: artwork sits on a matte, never in a bordered card. */
 stimma-media{display:block}
+stimma-swatch{display:block;min-width:0;break-inside:avoid}
+.sp-swatch-color{height:88px;background:var(--sp-swatch);border:1px solid var(--sp-line)}
+.sp-swatch-label{margin:10px 0 2px;font-size:14px;font-weight:600}
+.sp-swatch-value{font:12px/1.5 ui-monospace,monospace;color:var(--sp-muted)}
+.sp-swatch-role{margin:6px 0 0;font-size:13px;color:var(--sp-muted)}
+stimma-type{display:block;min-width:0;break-inside:avoid}
+.sp-type-sample{font-family:var(--sp-type-family,inherit);font-size:var(--sp-type-size,36px);font-weight:var(--sp-type-weight,400);line-height:1.2;margin:12px 0;overflow-wrap:anywhere}
+.sp-type-label{font-size:13px;color:var(--sp-muted);margin:0}
 stimma-media img,stimma-media video{max-width:100%;height:auto;border-radius:2px}
 stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10px}
 stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
@@ -377,7 +385,7 @@ KIT_JS = r"""
     }
   }
   ['stimma-section','stimma-media','stimma-grid','stimma-sizes',
-   'stimma-columns','stimma-column','stimma-files','stimma-compare','stimma-appearance',
+   'stimma-columns','stimma-column','stimma-files','stimma-compare','stimma-appearance','stimma-swatch','stimma-type',
    'stimma-pick','stimma-approve','stimma-comments'].forEach(define);
 
   function ready(fn){
@@ -793,7 +801,9 @@ def _parse_attrs(text: str) -> dict[str, str]:
     for m in _ATTR_RE.finditer(text or ""):
         name = m.group(1)
         value = m.group(2) if m.group(2) is not None else (m.group(3) if m.group(3) is not None else m.group(4))
-        attrs[name.lower()] = "" if value is None else value
+        # Attribute values arrive as HTML source. Decode once before escaping
+        # them into generated labels/attributes (otherwise &amp; is shown literally).
+        attrs[name.lower()] = "" if value is None else htmllib.unescape(value)
     return attrs
 
 
@@ -1271,7 +1281,46 @@ def expand_kit_elements(
         head = f"<h3>{htmllib.escape(title)}</h3>" if title else ""
         return f"<stimma-column{_attr_str(attrs)}>{head}<p>{inner}</p></stimma-column>"
 
+    def swatch_sub(m: re.Match) -> str:
+        attrs = _parse_attrs(m.group("attrs"))
+        register_id(attrs, "stimma-swatch")
+        value = attrs.get("value", "")
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            problems.append("<stimma-swatch> needs a six-digit value such as #172334")
+            return m.group(0)
+        label, role = attrs.get("label", ""), attrs.get("usage", "")
+        inner = (f'<div class="sp-swatch-color" style="--sp-swatch:{value}" aria-hidden="true"></div>'
+                 f'<p class="sp-swatch-label">{escape(label)}</p><span class="sp-swatch-value">{value.upper()}</span>')
+        if role:
+            inner += f'<p class="sp-swatch-role">{escape(role)}</p>'
+        return f'<stimma-swatch{_attr_str(attrs)}>{inner}</stimma-swatch>'
+
+    def type_sub(m: re.Match) -> str:
+        attrs = _parse_attrs(m.group("attrs"))
+        register_id(attrs, "stimma-type")
+        ref = attrs.get("ref", "")
+        resolved = resolve_ref(manifest, ref) if ref else None
+        font_style = ""
+        family_style = ""
+        if ref:
+            path = (resolved or {}).get("path", "")
+            if Path(path).suffix.lower() not in (".ttf", ".otf", ".woff", ".woff2"):
+                problems.append(f'<stimma-type ref="{ref}"> must resolve to a bundled font file')
+                return m.group(0)
+            # A generated CSS identifier avoids interpreting authored labels as CSS.
+            family = "spfont" + str(counters.setdefault("font", 0) + 1)
+            counters["font"] += 1
+            css_path = path.replace("\\", "\\\\").replace('"', '\\"').replace("<", "\\3c ")
+            font_style = f'<style>@font-face{{font-family:{family};src:url("{css_path}");font-weight:100 900}}</style>'
+            family_style = f' style="--sp-type-family:{family}"'
+        inner = m.group("inner") or ""
+        label = escape(attrs.get("label", ""))
+        return (f'<stimma-type{_attr_str(attrs)}>{font_style}<p class="sp-type-label">{label}</p>'
+                f'<div class="sp-type-sample"{family_style}>{inner}</div></stimma-type>')
+
     flags = re.IGNORECASE | re.DOTALL
+    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-swatch"), swatch_sub, body, flags=flags)
+    body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-type"), type_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-column"), column_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-section"), section_sub, body, flags=flags)
     body = re.sub(_TAG_RE_TEMPLATE.format(tag="stimma-media"), media_sub, body, flags=flags)

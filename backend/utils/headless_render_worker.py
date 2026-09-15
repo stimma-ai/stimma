@@ -37,7 +37,10 @@ def render(browser, job):
         page = context.new_page()
         page.goto(ORIGIN + '/index.html')
         measured = page.evaluate(READY)
-        height = job['height'] or min(measured, job['width'] * 5)
+        limit = job.get('max_auto_height', job['width'] * 5)
+        if job.get('max_auto_height') is not None and measured > limit:
+            raise ValueError('Complete HTML preview exceeds its height limit; shorten or split the guide')
+        height = job['height'] or min(measured, limit)
         page.set_viewport_size({'width':job['width'], 'height':height})
         page.evaluate(READY)
         if missing:

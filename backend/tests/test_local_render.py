@@ -19,6 +19,11 @@ def test_limits_and_bundle_escape(tmp_path):
         prepare_job('', 16384, 32768, 4, {})
     with pytest.raises(LayoutRenderFailed):
         prepare_job('', 0, 10, 1, {})
+    for limit in (0, True, 32769):
+        with pytest.raises(LayoutRenderFailed):
+            prepare_job('', 390, None, 1, {}, max_auto_height=limit)
+    with pytest.raises(LayoutRenderFailed):
+        prepare_job('', 2560, None, 1, {}, max_auto_height=32768)
     outside = tmp_path / 'secret.png'
     outside.write_bytes(b'secret')
     bundle = tmp_path / 'bundle'
@@ -72,6 +77,20 @@ async def test_auto_height_css_fonts_and_nested_assets(browser):
     assert image.size == (100,120)
     assert image.getpixel((5,5)) == (0,255,0,255)
     assert image.crop((20,0,100,30)).getbbox() is not None
+
+
+@pytest.mark.asyncio
+async def test_complete_guide_capture_keeps_content_beyond_five_widths(browser):
+    html = '<style>body{margin:0}.space{height:2600px}.end{height:50px;background:lime}</style><div class="space"></div><div class="end"></div>'
+    job = prepare_job(html, 390, None, 1, {}, max_auto_height=4000)
+    png = await browser.render(job, 30, 5)
+    image = Image.open(io.BytesIO(png)).convert('RGBA')
+    assert image.size == (390, 2650)
+    assert image.getpixel((100, 2630)) == (0, 255, 0, 255)
+    with pytest.raises(LayoutRenderFailed, match='height limit'):
+        await browser.render(prepare_job(html, 390, None, 1, {}, max_auto_height=2000), 30, 5)
+    # The ordinary artwork preview contract keeps its original cap.
+    assert (await capture(browser, html, width=390, height=None)).height == 1950
 
 
 @pytest.mark.asyncio

@@ -268,6 +268,38 @@ Rules:
 - Trusted code, same as `lib/`: runs unsandboxed with the backend environment.
 - `stimma stimpacks validate` reports recipe modules that fail to import.
 
+### Brand identity recipes and cover components
+
+Editable application layouts can be exported with
+`await stimma.rasterize_layout(layout_media_id_or_bundle_path, out="application.png")`.
+This uses the existing browser renderer at the authored canvas dimensions; keep
+the editable layout and its assets alongside the PNG when delivering a template.
+
+The built-in `logo-exports` recipe exports one **prepared** artwork treatment
+per run: original SVG or raster bytes, proportionate PNGs, and a vector-source
+PDF for SVG input. Its sizes are longest edges, not square canvases. Separate
+directions and color treatments can use separate runs in the same package.
+Artwork preparation and selection belong to the agent, guided by the Brand
+Kits skill; the recipe does not recolor or compose a new logo.
+
+`palette-exports` consumes a JSON member containing named sRGB colors, usage
+roles and optional foreground/background pairs. It writes JSON, CSS variables
+and a readable text reference, including pair contrast results when requested.
+Fetch each recipe's current guidance and schema through `stimma.packages`
+before building inputs; recipes never author cover HTML.
+
+Agent-authored covers can use `stimma-swatch` (six-digit `value`, `label`,
+optional `usage`) and `stimma-type` (bundled font `ref`, `label`, authored sample
+text). Both expand to static HTML and survive offline/PDF export. They provide
+presentation defaults, not a fixed brand-kit layout. The agent controls
+composition, typography and requested cover colors. Decision status belongs
+in visible cover prose and a useful design-record extra, not in recipe output
+or a pretend approval widget.
+
+Inspect `await draft.preview_html(width=390)` and a desktop width before saving.
+It returns the complete screen capture and readable `slices`; inspect through
+the footer. `await draft.preview_pdf()` separately checks the printed guide.
+
 ## Developing and testing
 
 ### Without a source checkout (packaged app)

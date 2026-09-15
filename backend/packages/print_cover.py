@@ -112,6 +112,16 @@ def export_pdf(bundle_dir: Path) -> bytes:
             parent.remove(section)
     # Keep type/vector artwork sharp and raster scenes at print resolution;
     # the ZIP still contains the original full-resolution preview images.
-    return document.write_pdf(
-        presentational_hints=True, dpi=300,
-    )
+    try:
+        return document.write_pdf(
+            presentational_hints=True, dpi=300,
+        )
+    except TypeError as exc:
+        if "'FunctionBlock' object is not subscriptable" not in str(exc):
+            raise
+        raise ValueError(
+            "The PDF renderer could not compute a CSS grid track. For custom "
+            "grids, add explicit @media print grid-template-columns (for example "
+            "1fr 1fr), without nested min()/max()/clamp() in minmax(). Keep the "
+            "responsive screen columns separately, then preview the PDF again."
+        ) from exc

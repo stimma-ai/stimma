@@ -69,12 +69,14 @@ def bundled_fonts():
     return assets, css
 
 
-def prepare_job(html: str, width: int, height: int | None, dpr: float, assets: dict | None) -> dict:
+def prepare_job(html: str, width: int, height: int | None, dpr: float, assets: dict | None, *, max_auto_height: int | None = None) -> dict:
     if not isinstance(width, int) or isinstance(width, bool) or not 1 <= width <= 16384:
         raise LayoutRenderFailed('Render width must be between 1 and 16384')
     if height is not None and (not isinstance(height, int) or isinstance(height, bool) or not 1 <= height <= 32768):
         raise LayoutRenderFailed('Invalid render height')
-    if not math.isfinite(dpr) or not 0.1 <= dpr <= 4 or width * (height or width * 5) * dpr ** 2 > MAX_PIXELS:
+    if max_auto_height is not None and (height is not None or isinstance(max_auto_height, bool) or not isinstance(max_auto_height, int) or not 1 <= max_auto_height <= 32768):
+        raise LayoutRenderFailed('max_auto_height needs an automatic height and an integer limit from 1 to 32768')
+    if not math.isfinite(dpr) or not 0.1 <= dpr <= 4 or width * (height or max_auto_height or width * 5) * dpr ** 2 > MAX_PIXELS:
         raise LayoutRenderFailed('Render exceeds pixel limit')
     assets = dict(assets or {})
     font_assets, css = bundled_fonts()
@@ -89,6 +91,8 @@ def prepare_job(html: str, width: int, height: int | None, dpr: float, assets: d
     else:
         html = style + html
     job = dict(html=html, width=width, height=height, dpr=dpr, assets=assets)
+    if max_auto_height is not None:
+        job['max_auto_height'] = max_auto_height
     if len(json.dumps(job).encode()) > MAX_INPUT_BYTES * 2:
         raise LayoutRenderFailed('Render request is too large')
     return job
@@ -272,8 +276,8 @@ class LocalRenderer:
 renderer = LocalRenderer()
 
 
-async def render_html(html, width, height, dpr=2.0, assets=None, render_timeout_s=RENDER_TIMEOUT_S, queue_timeout_s=None):
-    return await renderer.render(prepare_job(html, width, height, dpr, assets), render_timeout_s, queue_timeout_s)
+async def render_html(html, width, height, dpr=2.0, assets=None, render_timeout_s=RENDER_TIMEOUT_S, queue_timeout_s=None, *, max_auto_height=None):
+    return await renderer.render(prepare_job(html, width, height, dpr, assets, max_auto_height=max_auto_height), render_timeout_s, queue_timeout_s)
 
 
 def renderer_version():

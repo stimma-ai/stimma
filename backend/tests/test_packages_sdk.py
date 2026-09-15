@@ -147,6 +147,41 @@ async def test_workspace_copy_reuses_original_svg_member_without_reserializing(d
 
 
 @pytest.mark.asyncio
+async def test_html_preview_renders_chosen_width_and_readable_slices(db_session, tmp_path, monkeypatch):
+    import io
+    from unittest.mock import AsyncMock
+    from agent.v2.code_runtime import StimmaSDK
+
+    raw = io.BytesIO()
+    image = Image.new('RGB', (390, 2100), '#246856')
+    ImageDraw.Draw(image).rectangle((0, 928, 389, 955), fill='white')
+    image.save(raw, 'PNG')
+    renderer = AsyncMock(return_value=raw.getvalue())
+    monkeypatch.setattr('utils.local_render.render_html', renderer)
+    async with db_session() as session:
+        chat = Chat(name='Responsive guide')
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        pkg = sdk.packages.new('Responsive guide')
+        pkg.set_cover('<div class="sp-page"><h1>Example</h1></div>')
+        preview = await pkg.preview_html(width=390)
+        assert preview['width'] == 390 and preview['height'] == 2100
+        assert len(preview['slices']) == 3
+        assert renderer.await_args.kwargs['width'] == 390
+        assert renderer.await_args.kwargs['height'] is None
+        with Image.open(tmp_path / preview['slices'][1]) as strip:
+            assert strip.size == (390, 960)
+            assert strip.getpixel((0, 0)) == (255, 255, 255, 255)
+        assert (tmp_path / preview['image']).is_file()
+        assert pkg.media_id is None and (await pkg.manifest())['extras'] == []
+        with pytest.raises(ValueError, match='width'):
+            await pkg.preview_html(width=0)
+        pkg._builder.cleanup()
+
+
+@pytest.mark.asyncio
 async def test_pdf_preview_shows_authored_pages_without_saving(db_session, tmp_path):
     from agent.v2.code_runtime import StimmaSDK
 

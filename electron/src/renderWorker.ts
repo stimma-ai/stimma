@@ -8,7 +8,7 @@ const ORIGIN = 'https://render.stimma.invalid'
 const CSP = "default-src 'none'; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'none'; base-uri 'none'; frame-src 'none'"
 const MIME: Record<string, string> = {html:'text/html', css:'text/css', svg:'image/svg+xml', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif', woff:'font/woff', woff2:'font/woff2', ttf:'font/ttf', otf:'font/otf'}
 
-type Job = {html: string; assets: Record<string,string>; width:number; height:number|null; dpr:number}
+type Job = {html: string; assets: Record<string,string>; width:number; height:number|null; dpr:number; max_auto_height?:number}
 app.setPath('userData', process.env.STIMMA_RENDER_PROFILE!)
 app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('lang', 'en-US')
@@ -45,7 +45,9 @@ async function render(job: Job) {
     await debug.sendCommand('Emulation.setEmulatedMedia', {features:[{name:'prefers-color-scheme',value:'light'},{name:'prefers-reduced-motion',value:'reduce'}]})
     await debug.sendCommand('Emulation.setDefaultBackgroundColorOverride', {color:{r:0,g:0,b:0,a:0}})
     const measured = await win.webContents.executeJavaScript(ready)
-    const height = job.height || Math.min(measured, job.width * 5)
+    const limit = job.max_auto_height ?? job.width * 5
+    if (job.max_auto_height !== undefined && measured > limit) throw new Error('Complete HTML preview exceeds its height limit; shorten or split the guide')
+    const height = job.height || Math.min(measured, limit)
     await metrics(height)
     await win.webContents.executeJavaScript(ready)
     if (missing.size) throw new Error(`Missing or blocked render resources: ${[...missing].join(', ')}`)
@@ -77,7 +79,7 @@ void app.whenReady().then(async () => {
   input.on('close', stop)
   for await (const line of input) {
     try { output.write(JSON.stringify(await render(JSON.parse(line))) + '\n') }
-    catch (error) { output.write(JSON.stringify({error:String(error)}) + '\n') }
+    catch (error) { output.write(JSON.stringify({error:error instanceof Error ? error.message : JSON.stringify(error)}) + '\n') }
   }
   stop()
 })

@@ -13,6 +13,24 @@ from packages.manifest import new_manifest
 from packages.print_cover import export_pdf
 
 
+def test_custom_responsive_grid_reports_print_fix(tmp_path):
+    source = '''<html><head><style>
+      .grid { display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)); }
+      PRINT_OVERRIDE
+      </style></head><body><div class="grid"><p>First</p><p>Second</p></div></body></html>'''
+    (tmp_path / 'index.html').write_text(source.replace('PRINT_OVERRIDE', ''))
+    with pytest.raises(ValueError, match='explicit @media print grid-template-columns'):
+        export_pdf(tmp_path)
+    # The author keeps the responsive HTML and supplies its print composition.
+    fixed = source.replace('PRINT_OVERRIDE',
+                           '@media print { .grid { grid-template-columns:1fr 1fr; } }')
+    (tmp_path / 'index.html').write_text(fixed)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        text = ''.join(page.get_textpage().get_text_range() for page in pdf)
+        assert 'First' in text and 'Second' in text
+
+
 def test_zip_includes_readable_pdf_with_both_appearances_and_repeating_footer(tmp_path, monkeypatch):
     import socket
 

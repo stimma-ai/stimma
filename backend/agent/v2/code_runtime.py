@@ -1213,6 +1213,39 @@ class PackageDraft:
         await asyncio.to_thread(self._builder._assemble, self._builder.manifest(), destination)
         return relative.as_posix()
 
+    async def preview_html(self, *, width: int = 1200) -> dict[str, Any]:
+        """Render the complete responsive cover at a chosen width.
+
+        Returns a full image and readable 960px-high slices, all workspace
+        paths. This is the screen layout, not the PDF page layout. No save or
+        change to the draft; inspect slices with view_image(detail="high").
+        """
+        from utils.local_render import MAX_PIXELS, gather_bundle_assets, render_html
+
+        if isinstance(width, bool) or not isinstance(width, int) or not 240 <= width <= 2560:
+            raise ValueError("preview_html width must be an integer from 240 to 2560")
+        relative = Path(await self.preview())
+        destination = self._sdk.workspace_dir / relative
+        html = (destination / "index.html").read_text(encoding="utf-8")
+        data = await render_html(
+            html.replace('loading="lazy"', 'loading="eager"'),
+            width=width, height=None, dpr=1.0,
+            max_auto_height=min(32768, MAX_PIXELS // width),
+            assets=gather_bundle_assets(destination),
+            queue_timeout_s=30.0, render_timeout_s=60.0,
+        )
+        image = Image.open(io.BytesIO(data)).convert("RGBA")
+        target = destination / "_html-preview"
+        target.mkdir()
+        image.save(target / "full.png")
+        slices = []
+        for index, top in enumerate(range(0, image.height, 928)):
+            path = target / f"{index + 1:03}.png"
+            image.crop((0, top, image.width, min(top + 960, image.height))).save(path)
+            slices.append(path.relative_to(self._sdk.workspace_dir).as_posix())
+        return {"image": (relative / "_html-preview/full.png").as_posix(),
+                "slices": slices, "width": image.width, "height": image.height}
+
     async def preview_pdf(self) -> dict[str, Any]:
         """Render the draft's exported PDF and page images without saving it.
 
@@ -1447,6 +1480,33 @@ class StimmaSDK:
             img.save(out_path, "PNG", optimize=True)
             return out_path
 
+        return img
+
+    async def rasterize_layout(self, layout: str | Path | int, *, out=None):
+        """Render an existing layout bundle at its authored canvas size.
+
+        Accepts a workspace bundle path or library media id. Returns a PIL
+        image, or a PNG path when ``out`` is supplied. Uses the same browser
+        renderer as layout previews; it does not reflow or compose the layout.
+        """
+        from utils.document_render import render_layout_bundle
+
+        bundle = await self._resolve_media_or_path(layout)
+        if not bundle.is_dir() or not (bundle / "index.html").is_file():
+            raise ValueError("rasterize_layout needs a layout bundle path or layout media id")
+        data, width, height = await render_layout_bundle(
+            bundle, queue_timeout_s=30.0, render_timeout_s=60.0,
+        )
+        img = Image.open(io.BytesIO(data)).convert("RGBA")
+        # Browser rendering supersamples; a 1200×630 artboard must export at
+        # 1200×630, including when the bundle's height was measured as auto.
+        if img.size != (width, height):
+            img = img.resize((width, height), Image.Resampling.LANCZOS)
+        if out is not None:
+            out_path = self._resolve_path(out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            img.save(out_path, "PNG", optimize=True)
+            return out_path
         return img
 
     async def ffmpeg(self, *args, timeout: float = 600.0, check: bool = True) -> AVToolResult:
