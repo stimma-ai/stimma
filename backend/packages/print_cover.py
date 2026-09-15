@@ -31,7 +31,7 @@ stimma-compare.sp-slider figure:first-child img { width: 100%; max-width: 100%; 
 stimma-files .sp-files { display: none; }
 .sp-footer { position: running(stimma-footer); width: 100%; margin: 0; padding-top: 10px; }
 .sp-footer .sp-brand { display: block; white-space: nowrap; }
-.sp-footer .sp-wordmark { margin-left: 7px; }
+.sp-footer .sp-wordmark { margin-left: 3px; }
 stimma-section[page] { break-before: page; margin-top: 0; }
 stimma-section[page]:first-child { break-before: auto; }
 stimma-section[page]>.sp-label { font-size: 24px; margin-bottom: 28px; }

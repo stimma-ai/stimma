@@ -31,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 12
+KIT_VERSION = 13
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -317,7 +317,7 @@ stimma-pick,stimma-approve,stimma-comments{display:block}
 .sp-footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--sp-line);
   display:flex;align-items:center;gap:9px;color:var(--sp-faint);font-size:12px}
 .sp-footer svg{width:17px;height:17px;flex:none}
-.sp-footer .sp-brand{display:inline-flex;align-items:baseline;gap:7px;color:var(--sp-muted)}
+.sp-footer .sp-brand{display:inline-flex;align-items:baseline;gap:3px;color:var(--sp-muted)}
 .sp-footer .sp-wordmark{font-family:"General Sans",system-ui,sans-serif;
   text-transform:lowercase;letter-spacing:.12em;font-size:13px;color:var(--sp-fg)}
 
