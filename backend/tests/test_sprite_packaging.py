@@ -91,5 +91,6 @@ def test_installed_sprite_recipe_pixels_and_handoff(tmp_path):
         frame = Image.open(io.BytesIO(trees[0][path]))
         r = atlas['frames'][f'run_east/{i}']['frame']
         assert sheet.crop((r['x'], r['y'], r['x'] + r['w'], r['y'] + r['h'])).tobytes() == frame.tobytes()
+    assert manifest['animations'][0]['content_bounds'] == [[0, 0, 16, 24]] * 3
     assert 'source' not in manifest
     assert 'index.html' not in trees[0]
