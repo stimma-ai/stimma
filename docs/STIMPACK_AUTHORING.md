@@ -272,7 +272,9 @@ Rules:
 
 Editable application layouts can be exported with
 `await stimma.rasterize_layout(layout_media_id_or_bundle_path, out="application.png")`.
-This uses the existing browser renderer at the authored canvas dimensions; keep
+Local CSS font URLs are bundled alongside image sources by `create_layout`,
+including URLs in its optional CSS parameter. This uses the existing browser
+renderer at the authored canvas dimensions; keep
 the editable layout and its assets alongside the PNG when delivering a template.
 
 The built-in `logo-exports` recipe exports one **prepared** artwork treatment
@@ -286,19 +288,30 @@ Kits skill; the recipe does not recolor or compose a new logo.
 roles and optional foreground/background pairs. It writes JSON, CSS variables
 and a readable text reference, including pair contrast results when requested.
 Fetch each recipe's current guidance and schema through `stimma.packages`
-before building inputs; recipes never author cover HTML.
+before building inputs; `guidance(recipe_id)` includes the declared input roles
+and parameters alongside the usage notes. Recipes never author cover HTML.
 
 Agent-authored covers can use `stimma-swatch` (six-digit `value`, `label`,
 optional `usage`) and `stimma-type` (bundled font `ref`, `label`, authored sample
 text). Both expand to static HTML and survive offline/PDF export. They provide
 presentation defaults, not a fixed brand-kit layout. The agent controls
-composition, typography and requested cover colors. Decision status belongs
+composition with ordinary HTML/CSS; `stimma-grid columns="2"` optionally pairs
+arbitrary content groups in desktop/PDF and stacks them on phones. Typography
+and requested cover colors remain authored choices. Decision status belongs
 in visible cover prose and a useful design-record extra, not in recipe output
 or a pretend approval widget.
 
 Inspect `await draft.preview_html(width=390)` and a desktop width before saving.
 It returns the complete screen capture and readable `slices`; inspect through
-the footer. `await draft.preview_pdf()` separately checks the printed guide.
+the footer. `await draft.preview_pdf()` separately checks the printed guide and
+reports any explicit `stimma-section page` group that spills across PDF pages.
+Intentionally flowing content can omit `page`; saved-package exports retain
+their existing behavior.
+
+For editable applications, `await stimma.export_layout_html(layout_id, out="application.html")`
+uses the app's HTML exporter to embed the layout bundle's fonts and images.
+Include that file instead of a raw workspace HTML file with unresolved resources.
+The authored print CSS stays with the application; it does not inherit the guide.
 
 ## Developing and testing
 

@@ -80,6 +80,25 @@ async def test_auto_height_css_fonts_and_nested_assets(browser):
 
 
 @pytest.mark.asyncio
+async def test_authored_layout_with_local_font_renders_offline(browser, tmp_path):
+    from agent.v2.tools.create_layout import create_layout
+
+    (tmp_path / 'fonts').mkdir()
+    (tmp_path / 'fonts/Chosen.ttf').write_bytes((FONT_DIR / 'LiberationMono-Regular.ttf').read_bytes())
+    bundle = Path(await create_layout(
+        html='<div style="font-size:48px;font-family:Chosen,serif">iiiiiiii</div>',
+        css='@font-face{font-family:Chosen;src:url(fonts/Chosen.ttf)}',
+        width=400, height=100, workspace_dir=str(tmp_path),
+    ))
+    html = (bundle / 'index.html').read_text()
+    assets = gather_bundle_assets(bundle)
+    actual = await capture(browser, html, width=400, height=100, assets=assets)
+    fallback = await capture(browser, '<div style="font:48px serif">iiiiiiii</div>', width=400, height=100)
+    assert actual.getbbox() is not None
+    assert actual.getbbox()[2] > fallback.getbbox()[2] * 1.5
+
+
+@pytest.mark.asyncio
 async def test_complete_guide_capture_keeps_content_beyond_five_widths(browser):
     html = '<style>body{margin:0}.space{height:2600px}.end{height:50px;background:lime}</style><div class="space"></div><div class="end"></div>'
     job = prepare_job(html, 390, None, 1, {}, max_auto_height=4000)

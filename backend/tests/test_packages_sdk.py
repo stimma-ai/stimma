@@ -40,6 +40,10 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         recipes = await sdk.packages.recipes()
         assert any(r["id"] == "app-icons" for r in recipes)
         assert "references/app-icons" in await sdk.packages.guidance("app-icons")
+        guidance = await sdk.packages.guidance("logo-exports")
+        assert '"name": "artwork"' in guidance
+        assert '"name": "png_sizes"' in guidance
+        assert "LONGEST EDGE" in guidance
 
         pkg = sdk.packages.new("SDK icons")
         master = await pkg.add_member("mark.png", role="master")
@@ -68,6 +72,28 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         assert media_id in sdk._session_media_ids
         status = await sdk.packages.status(media_id)
         assert status["stale"] is False
+
+
+@pytest.mark.asyncio
+async def test_recipe_accepts_an_added_file_reference(db_session, tmp_path):
+    from agent.v2.code_runtime import StimmaSDK
+
+    palette = tmp_path / "palette.json"
+    palette.write_text('{"colors":[{"name":"ink","hex":"#172334"}]}')
+    async with db_session() as session:
+        chat = Chat(name="file reference")
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=tmp_path,
+                       project_workspace_dir=None, interrupt_checker=lambda: False)
+        pkg = sdk.packages.new("Palette")
+        ref = pkg.add_file("palette.json")
+        assert ref == "extras/palette.json"
+        run = await pkg.run("palette-exports", {"palette": ref})
+        manifest = await pkg.manifest()
+        assert palette.is_file()
+        assert manifest["runs"][0]["id"] == run
+        assert manifest["members"][0]["hash"] == sha256_file(palette)
 
 
 @pytest.mark.asyncio
@@ -206,6 +232,7 @@ async def test_pdf_preview_shows_authored_pages_without_saving(db_session, tmp_p
         for name in preview['pages']:
             assert not Path(name).is_absolute()
             with Image.open(workspace / name) as image:
+                assert image.info.get('document-preview') == '1'
                 assert image.size == (1200, 675)
                 assert image.convert('RGB').getpixel((2, 2)) == (18, 63, 134)
         assert pkg.media_id is None

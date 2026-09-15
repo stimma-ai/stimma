@@ -25,7 +25,7 @@ log = get_logger(__name__)
 
 @tool(
     name="create_layout",
-    description="Create a fixed-size layout from HTML/CSS and save it to the library. Think of width/height as your canvas/artboard — the HTML must fill this canvas exactly, like choosing dimensions for image generation. Returns the media_id of the saved layout. Preferred workflow: write HTML to a workspace file with write_file, then pass the file path here. Image src paths are resolved relative to the workspace directory only — use exact filenames for files already in the workspace. For library media, copy it into the workspace first via library(action='get', media_id=...). Do not use guessed filenames or absolute filesystem paths in img src. To display the render as the next version of an existing artifact, call show with revises=<asset_id> afterward — this tool only renders and saves.",
+    description="Create a fixed-size layout from HTML/CSS and save it to the library. Think of width/height as your canvas/artboard — the HTML must fill this canvas exactly, like choosing dimensions for image generation. Returns the media_id of the saved layout. Preferred workflow: write HTML to a workspace file with write_file, then pass the file path here. Image src and CSS font url() paths are bundled from the workspace. Paths are resolved relative to the workspace directory only — use exact filenames for files already in the workspace. For library media, copy it into the workspace first via library(action='get', media_id=...). Do not use guessed filenames or absolute filesystem paths in img src. To display the render as the next version of an existing artifact, call show with revises=<asset_id> afterward — this tool only renders and saves.",
     parameters=[
         ToolParameter(
             name="file",
@@ -97,33 +97,28 @@ async def create_layout(
     bundle_path = Path(workspace_dir) / bundle_name
     bundle_path.mkdir(parents=True, exist_ok=True)
 
-    # Lint image references — fail early with actionable errors
-    missing = lint_image_refs(html, workspace_path)
+    # Assemble first so resources in the optional CSS parameter are validated
+    # and bundled along with resources in the authored HTML.
+    if height is None:
+        height = width
+    index_html = assemble_index_html(html, width=width, height=height, extra_css=css or "")
+    missing = lint_image_refs(index_html, workspace_path)
     if missing:
         bundle_path.rmdir()  # clean up empty bundle
         available = sorted(
             f.name for f in workspace_path.iterdir()
             if f.is_file() and f.suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'}
         )
-        lines = [f"Error: {len(missing)} image(s) referenced in HTML not found in workspace:"]
+        lines = [f"Error: {len(missing)} missing or unsupported layout resource(s):"]
         for src in missing:
             lines.append(f"  - {src}")
         if available:
             lines.append(f"Available image files in workspace: {', '.join(available)}")
         else:
-            lines.append("No image files found in workspace. Generate or copy images to workspace first.")
+            lines.append("Use workspace-relative image/font paths, or embed resources as data URLs.")
         return "\n".join(lines)
 
-    # Find and copy referenced images from workspace into the bundle
-    html = copy_referenced_images(html, workspace_path, bundle_path)
-
-    # Agent-tool behavior: default to square canvas when height not specified.
-    # (The flow-level create_layout passes height=None through to support
-    # content-measured rendering — see layout_bundle.assemble_index_html.)
-    if height is None:
-        height = width
-
-    index_html = assemble_index_html(html, width=width, height=height, extra_css=css or "")
+    index_html = copy_referenced_images(index_html, workspace_path, bundle_path)
     index_path = bundle_path / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
 

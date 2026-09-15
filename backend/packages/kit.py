@@ -31,7 +31,7 @@ from typing import Any, Iterable, Optional
 
 from packages.manifest import member_by_id, resolve_ref, run_by_id
 
-KIT_VERSION = 14
+KIT_VERSION = 15
 
 # The elements a cover may use. Anything else is the author's own markup.
 COMPONENTS = (
@@ -120,6 +120,10 @@ html,body{margin:0;padding:0;background:var(--sp-bg);color:var(--sp-fg);
 a{color:inherit;text-decoration:none}
 img{display:block}
 .sp-page{max-width:880px;margin:0 auto;padding:56px 28px 88px}
+/* Standalone sections get the same readable gutters without a wrapper.
+   Authored containers and later authored CSS retain composition control. */
+body>stimma-section{max-width:880px;margin-left:auto;margin-right:auto;padding-left:28px;padding-right:28px}
+body>stimma-section:first-of-type{margin-top:56px}
 .sp-title{font-size:clamp(28px,4vw,42px);line-height:1.05;letter-spacing:-0.022em;margin:0;font-weight:600}
 .sp-sub{color:var(--sp-muted);margin:8px 0 0;font-size:14px}
 .sp-sub b{color:var(--sp-fg);font-weight:500}
@@ -143,6 +147,9 @@ stimma-media img,stimma-media video{max-width:100%;height:auto;border-radius:2px
 stimma-media[plate] img{background:var(--sp-plate);padding:24px;border-radius:10px}
 stimma-media .sp-caption{font-size:12px;color:var(--sp-muted);padding-top:8px}
 stimma-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sp-cell,200px),1fr));gap:28px}
+stimma-grid[columns="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+stimma-grid[columns="2"]>*{min-width:0}
+@media(max-width:600px){stimma-grid[columns="2"]{grid-template-columns:minmax(0,1fr)}}
 
 /* Scrollbars: one quiet style for the whole page — thin, no track, no arrows. */
 *{scrollbar-width:thin;scrollbar-color:var(--sp-line) transparent}
@@ -1131,6 +1138,27 @@ def expand_kit_elements(
     the rows simply carry no source.
     """
     problems: list[str] = []
+    class SectionNesting(HTMLParser):
+        depth = 0
+        nested = False
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "stimma-section":
+                self.nested |= self.depth > 0
+                self.depth += 1
+
+        def handle_endtag(self, tag):
+            if tag == "stimma-section":
+                self.depth = max(0, self.depth - 1)
+
+        def handle_startendtag(self, tag, attrs):
+            if tag == "stimma-section" and self.depth:
+                self.nested = True
+
+    structure = SectionNesting()
+    structure.feed(body)
+    if structure.nested:
+        problems.append("Nested stimma-section elements are unsupported. Put page, layout and label on one section; use ordinary divs or stimma-grid for inner groups. Keep sections as siblings.")
     counters: dict[str, int] = {}
     seen_ids: set[str] = set()
 
@@ -1259,6 +1287,8 @@ def expand_kit_elements(
         if layout is not None and layout not in ("single", "pair", "stack"):
             problems.append(f"Section {label!r}: layout must be single, pair or stack")
         if layout in ("single", "pair", "stack"):
+            if re.search(r"<stimma-(?:swatch|type|columns|grid|files)\b", inner, re.IGNORECASE):
+                problems.append(f"Section {label!r}: layout={layout} reserves space for media and a short note. Put palettes, typography and other content in a separate section without a layout preset, or omit layout and author your own composition.")
             count = len(re.findall(r"<stimma-media\b", inner, re.IGNORECASE))
             expected = 1 if layout == "single" else 2
             if count != expected:

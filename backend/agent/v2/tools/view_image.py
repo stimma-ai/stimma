@@ -153,14 +153,14 @@ def _copy_layout_to_workspace(bundle_path: Path, workspace_dir: str) -> str | No
         ToolParameter(
             name="detail",
             type="string",
-            description="Resolution: 'low' (max 512px) or 'high' (max 1024px)",
+            description="Resolution: 'low' (max 512px) or 'high' (max 1024px). Omit for automatic high detail on document previews, low on other images.",
             required=False,
             enum=["low", "high"],
         ),
     ],
     scope="both",
 )
-async def view_image(path: str = None, media_id: int = None, detail: str = "low", **kwargs) -> str:
+async def view_image(path: str = None, media_id: int = None, detail: str = None, **kwargs) -> str:
     workspace_dir = kwargs.get("workspace_dir")
     session = kwargs.get("session")
 
@@ -192,6 +192,15 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
     if not resolved.exists():
         return f"Error: File not found: {resolved}"
 
+    if detail is None:
+        detail = "low"
+        if resolved.is_file() and resolved.suffix.lower() == ".png":
+            try:
+                with Image.open(resolved) as source:
+                    if source.info.get("document-preview") == "1":
+                        detail = "high"
+            except OSError:
+                pass
     max_side = MAX_HIGH if detail == "high" else MAX_LOW
 
     # Packages live in content-addressed directories after save, and workspace

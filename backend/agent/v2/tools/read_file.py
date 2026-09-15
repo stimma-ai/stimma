@@ -49,7 +49,8 @@ async def read_file(file_path: str | None = None, offset: int = 1, limit: int = 
         return f"Error: Not a file: {file_path}"
 
     # Image files — return description (base64 handling would need multimodal message support)
-    if resolved.suffix.lower() in IMAGE_EXTENSIONS:
+    # SVG is editable XML. Designers need its source without a shell detour.
+    if resolved.suffix.lower() in IMAGE_EXTENSIONS - {".svg"}:
         size = resolved.stat().st_size
         mime = mimetypes.guess_type(str(resolved))[0] or "image/png"
         return f"[Image file: {file_path} ({size:,} bytes, {mime})]"

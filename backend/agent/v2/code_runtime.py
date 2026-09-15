@@ -1156,15 +1156,17 @@ class PackageDraft:
         """
         resolved: dict[str, str] = {}
         known = {m.id for m in self._builder.members}
+        extras = {extra.rel_path: extra.source for extra in self._builder.extras}
         for role, value in (inputs or {}).items():
             if isinstance(value, str) and value in known:
                 resolved[role] = value
             else:
-                resolved[role] = await self.add_member(value, role=role)
+                source = extras.get(value, value) if isinstance(value, str) else value
+                resolved[role] = await self.add_member(source, role=role)
         return await self._builder.run(recipe, resolved, params or {})
 
     def add_file(self, path: "str | Path", *, name: str | None = None) -> str:
-        """Include a loose workspace file (a brief, a PDF) as-is. Returns its bundle path."""
+        """Include a loose file without moving it. Returns a bundle ref, also accepted by run()."""
         resolved = self._sdk.workspace_dir / str(path) if not Path(str(path)).is_absolute() else Path(str(path))
         return self._builder.add_extra(resolved, name=name)
 
@@ -1221,6 +1223,7 @@ class PackageDraft:
         change to the draft; inspect slices with view_image(detail="high").
         """
         from utils.local_render import MAX_PIXELS, gather_bundle_assets, render_html
+        from PIL.PngImagePlugin import PngInfo
 
         if isinstance(width, bool) or not isinstance(width, int) or not 240 <= width <= 2560:
             raise ValueError("preview_html width must be an integer from 240 to 2560")
@@ -1237,14 +1240,17 @@ class PackageDraft:
         image = Image.open(io.BytesIO(data)).convert("RGBA")
         target = destination / "_html-preview"
         target.mkdir()
-        image.save(target / "full.png")
+        preview_info = PngInfo()
+        preview_info.add_text("document-preview", "1")
+        image.save(target / "full.png", pnginfo=preview_info)
         slices = []
         for index, top in enumerate(range(0, image.height, 928)):
             path = target / f"{index + 1:03}.png"
-            image.crop((0, top, image.width, min(top + 960, image.height))).save(path)
+            image.crop((0, top, image.width, min(top + 960, image.height))).save(path, pnginfo=preview_info)
             slices.append(path.relative_to(self._sdk.workspace_dir).as_posix())
         return {"image": (relative / "_html-preview/full.png").as_posix(),
-                "slices": slices, "width": image.width, "height": image.height}
+                "slices": slices, "width": image.width, "height": image.height,
+                "review_hint": "View slices with view_image(detail='high') through the footer. Check readable text, margins and clipped content."}
 
     async def preview_pdf(self) -> dict[str, Any]:
         """Render the draft's exported PDF and page images without saving it.
@@ -1254,15 +1260,18 @@ class PackageDraft:
         authored cover if content spills or a page needs a different layout.
         """
         from packages.print_cover import export_pdf
+        from PIL.PngImagePlugin import PngInfo
         import pypdfium2 as pdfium
 
         relative = Path(await self.preview())
         destination = self._sdk.workspace_dir / relative
-        data = await asyncio.to_thread(export_pdf, destination)
+        data = await asyncio.to_thread(export_pdf, destination, validate_pages=True)
         (destination / "preview.pdf").write_bytes(data)
         pages_dir = destination / "_pdf-pages"
         pages_dir.mkdir()
         pages = []
+        preview_info = PngInfo()
+        preview_info.add_text("document-preview", "1")
         # PDFium runs synchronously here, never concurrently in worker threads.
         with pdfium.PdfDocument(data) as document:
             for index in range(len(document)):
@@ -1272,13 +1281,14 @@ class PackageDraft:
                     bitmap = page.render(scale=scale)
                     try:
                         path = pages_dir / f"{index + 1:03}.png"
-                        bitmap.to_pil().save(path)
+                        bitmap.to_pil().save(path, pnginfo=preview_info)
                     finally:
                         bitmap.close()
                     pages.append(path.relative_to(self._sdk.workspace_dir).as_posix())
                 finally:
                     page.close()
-        return {"pdf": (relative / "preview.pdf").as_posix(), "page_count": len(pages), "pages": pages}
+        return {"pdf": (relative / "preview.pdf").as_posix(), "page_count": len(pages), "pages": pages,
+                "review_hint": "View each page with view_image(detail='high'); low detail shrinks pages to 512px and hides text defects. Check actual typography, artwork contrast and spill pages."}
 
     async def save(self) -> int:
         """Write the authored package into the library. Returns its media id."""
@@ -1317,7 +1327,13 @@ class StimmaPackagesAPI:
         spec = get_recipe(recipe_id, _profile())
         if spec is None:
             raise ValueError(f"no recipe named {recipe_id!r}")
-        return spec.guidance or f"{spec.display_name}: {spec.description}"
+        return (
+            f"{spec.display_name} ({spec.id})\n{spec.description}\n\n"
+            "Use these exact input role names and declared parameters in pkg.run():\n"
+            + json.dumps({"inputs": [i.to_dict() for i in spec.inputs],
+                          "params": [p.to_dict() for p in spec.params]}, indent=2)
+            + "\n\n" + (spec.guidance or "")
+        )
 
     def new(self, title: str, *, slug: str | None = None) -> PackageDraft:
         """Start a package. Add members, run recipes, set a cover, then save()."""
@@ -1481,6 +1497,23 @@ class StimmaSDK:
             return out_path
 
         return img
+
+    async def export_layout_html(self, layout: str | Path | int, *, out: str | Path) -> Path:
+        """Export editable HTML with bundled images and fonts embedded.
+
+        Uses the app's HTML exporter. Keeps the authored canvas and print CSS;
+        the resulting file works independently of workspace or bundle paths.
+        """
+        from utils.local_render import inline_bundle_html
+
+        bundle = await self._resolve_media_or_path(layout)
+        if not bundle.is_dir() or not (bundle / "index.html").is_file():
+            raise ValueError("export_layout_html needs a layout bundle path or layout media id")
+        html = await asyncio.to_thread(inline_bundle_html, bundle)
+        path = self._resolve_path(str(out))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(html, encoding="utf-8")
+        return path
 
     async def rasterize_layout(self, layout: str | Path | int, *, out=None):
         """Render an existing layout bundle at its authored canvas size.

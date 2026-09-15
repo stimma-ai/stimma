@@ -111,7 +111,7 @@ def test_page_groups_print_as_landscape_slides(tmp_path, second_layout):
       </div>'''.replace('SECOND_LAYOUT', second_layout).replace('EXTRA_MEDIA', '<stimma-media ref="m1"></stimma-media>' if second_layout == 'stack' else ''), bundle_dir=tmp_path)
     assert not problems
     (tmp_path / 'index.html').write_text(html)
-    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+    with pdfium.PdfDocument(export_pdf(tmp_path, validate_pages=True)) as pdf:
         assert len(pdf) == 6  # opening, two platforms, two appearances, contents
         texts = [' '.join(page.get_textpage().get_text_range().split()) for page in pdf]
         assert 'First platform' in texts[1] and 'Second platform' not in texts[1]
@@ -133,6 +133,94 @@ def test_crowded_pair_reports_an_authoring_problem(tmp_path):
         <stimma-media ref="missing"></stimma-media>
       </stimma-section>''', bundle_dir=tmp_path)
     assert any('layout=pair needs 2 media items' in problem for problem in problems)
+
+
+def test_preview_diagnoses_overflowing_page_groups_without_changing_saved_exports(tmp_path):
+    manifest = new_manifest(title='Example')
+    source = '''<stimma-section PAGE label="Artwork and notes">
+      <div style="height:550px">Artwork</div><p>Supporting note</p>
+    </stimma-section>'''
+    html, problems = render_cover_document(manifest, authored_html=source.replace('PAGE', 'page'), bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pytest.raises(ValueError, match="Artwork and notes.*pages 1, 2"):
+        export_pdf(tmp_path, validate_pages=True)
+    assert export_pdf(tmp_path).startswith(b'%PDF')
+    html, problems = render_cover_document(manifest, authored_html=source.replace('PAGE', ''), bundle_dir=tmp_path)
+    (tmp_path / 'index.html').write_text(html)
+    assert export_pdf(tmp_path, validate_pages=True).startswith(b'%PDF')
+
+
+def test_two_column_content_grid_retains_print_columns(tmp_path):
+    manifest = new_manifest(title='Mixed content')
+    source = '''<div class="sp-page"><stimma-section page label="System">
+      <stimma-grid columns="2"><div><h2>First</h2><p>One content group.</p></div>
+      <div><h2>Second</h2><p>Another content group.</p></div></stimma-grid>
+    </stimma-section></div>'''
+    html, problems = render_cover_document(manifest, authored_html=source, bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path, validate_pages=True)) as pdf:
+        assert len(pdf) == 1
+        text = pdf[0].get_textpage()
+        start = text.get_text_range().index('Second')
+        left, _, _, _ = text.get_charbox(start)
+        assert left > pdf[0].get_width() / 2
+
+
+def test_nested_sections_report_the_composition_fix(tmp_path):
+    _, problems = render_cover_document(new_manifest(title='Nested'), authored_html='''
+      <stimma-section page label="Logo"><stimma-section layout="pair">
+      </stimma-section></stimma-section>''', bundle_dir=tmp_path)
+    assert any('Nested stimma-section' in problem and 'one section' in problem for problem in problems)
+
+
+def test_html_file_browser_does_not_create_an_empty_pdf_page(tmp_path):
+    manifest = new_manifest(title='Files')
+    html, problems = render_cover_document(manifest, authored_html='''<div class="sp-page">
+      <stimma-section page label="Work"><p>The actual work.</p></stimma-section>
+      <stimma-section page label="Files"><stimma-files></stimma-files></stimma-section>
+    </div>''', bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path, validate_pages=True)) as pdf:
+        assert len(pdf) == 1
+        assert 'The actual work' in pdf[0].get_textpage().get_text_range()
+    assert 'stimma-files' in (tmp_path / 'index.html').read_text()
+
+
+def test_media_layout_sizing_does_not_require_a_page_break_attribute(tmp_path):
+    manifest = new_manifest(title='Logo')
+    Image.new('RGB', (720, 702), 'orange').save(tmp_path / 'logo.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Logo', 'path': 'logo.png'}]
+    html, problems = render_cover_document(manifest, authored_html='''<div class="sp-page">
+      <stimma-section layout="pair" label="Logo">
+        <stimma-media ref="m1" caption="Primary" plate></stimma-media>
+        <stimma-media ref="m1" caption="Reversed"></stimma-media>
+        <p class="sp-note">Use the supplied logo on a contrasting surface.</p>
+      </stimma-section>
+      <stimma-section page label="System"><p>Color and type.</p></stimma-section>
+    </div>''', bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path, validate_pages=True)) as pdf:
+        assert len(pdf) == 2
+        assert 'Use the supplied logo' in pdf[0].get_textpage().get_text_range()
+        assert 'Color and type' in pdf[1].get_textpage().get_text_range()
+
+
+def test_media_preset_rejects_extra_content_but_custom_section_accepts_it(tmp_path):
+    manifest = new_manifest(title='Example')
+    Image.new('RGB', (100, 100), 'orange').save(tmp_path / 'image.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Image', 'path': 'image.png'}]
+    source = '''<stimma-section page LAYOUT label="Direction">
+        <stimma-media ref="m1"></stimma-media><stimma-media ref="m1"></stimma-media>
+        <stimma-swatch value="#172334" label="Ink"></stimma-swatch>
+    </stimma-section>'''
+    _, problems = render_cover_document(manifest, authored_html=source.replace('LAYOUT', 'layout="pair"'), bundle_dir=tmp_path)
+    assert any('reserves space for media' in problem for problem in problems)
+    _, problems = render_cover_document(manifest, authored_html=source.replace('LAYOUT', ''), bundle_dir=tmp_path)
+    assert not problems
 
 
 def test_optional_details_stay_in_html_without_duplicating_pdf_slides(tmp_path):
@@ -214,6 +302,11 @@ def test_scene_page_can_include_a_short_authored_note(tmp_path, layout):
         assert len(pdf) == 2
         text = pdf[1].get_textpage().get_text_range()
         assert all(value in text for value in ['First context', 'Second context', '20% smaller', 'Made with'])
+        images = [obj for obj in pdf[1].get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
+        assert len(images) == 2
+        for obj in images:
+            left, _, right, _ = obj.get_bounds()
+            assert left >= 35 and right <= pdf[1].get_width() - 35
 
 
 def test_appearance_preserves_large_non_icon_artwork(tmp_path):

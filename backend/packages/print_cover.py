@@ -9,12 +9,15 @@ PRINT_CSS = """
   @bottom-left { content: element(stimma-footer); width: 100%; vertical-align: top; text-align: left; padding-top: 12px; }
 }
 .sp-page { width: 100%; max-width: none; margin: 0; padding: 0; }
+body>stimma-section { max-width: none; padding-left: 0; padding-right: 0; }
+body>stimma-section:first-of-type { margin-top: 0; }
 .sp-title { font-size: 42px; }
 stimma-section, .sp-section { margin-top: 28px; }
 h1, h2, h3, .sp-label { break-after: avoid; }
 stimma-media, stimma-compare figure { break-inside: avoid; }
 stimma-media img, stimma-compare img { max-width: 100%; max-height: 480px; object-fit: contain; }
 stimma-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+stimma-grid[columns="2"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
 stimma-columns { grid-template-columns: repeat(3, 1fr); gap: 18px; break-inside: avoid; }
 stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
 .sp-appearance-head .sp-seg, input, button { display: none !important; }
@@ -32,14 +35,15 @@ stimma-files .sp-files { display: none; }
 .sp-footer .sp-wordmark { margin-left: 3px; }
 stimma-section[page] { break-before: page; margin-top: 0; }
 stimma-section[page]:first-child { break-before: auto; }
-stimma-section[page]>.sp-label { font-size: 24px; margin-bottom: 28px; }
-stimma-section[page][layout]>.sp-section-body { display: grid; gap: 32px; align-items: center; }
-stimma-section[page][layout=pair]>.sp-section-body { grid-template-columns: 1fr 1fr; }
-stimma-section[page][layout=single]>.sp-section-body, stimma-section[page][layout=stack]>.sp-section-body { grid-template-columns: 1fr; }
-stimma-section[page][layout]>.sp-section-body>stimma-media img { width: 100%; height: 480px; object-fit: contain; }
-stimma-section[page][layout=stack]>.sp-section-body { gap: 20px; }
-stimma-section[page][layout=stack] .sp-caption, stimma-section[page][layout=single] .sp-caption { text-align: center; }
-stimma-section[page][layout=stack]>.sp-section-body>stimma-media img { height: 230px; }
+stimma-section[page]>.sp-label, stimma-section[layout]>.sp-label { font-size: 24px; margin-bottom: 28px; }
+stimma-section[layout]>.sp-section-body { display: grid; gap: 32px; align-items: center; }
+stimma-section[layout=pair]>.sp-section-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+stimma-section[layout]>.sp-section-body>* { min-width: 0; }
+stimma-section[layout=single]>.sp-section-body, stimma-section[layout=stack]>.sp-section-body { grid-template-columns: 1fr; }
+stimma-section[layout]>.sp-section-body>stimma-media img { width: 100%; height: 480px; object-fit: contain; }
+stimma-section[layout=stack]>.sp-section-body { gap: 20px; }
+stimma-section[layout=stack] .sp-caption, stimma-section[layout=single] .sp-caption { text-align: center; }
+stimma-section[layout=stack]>.sp-section-body>stimma-media img { height: 230px; }
 stimma-section[page]:has(.sp-section-details)>.sp-section-body>stimma-media img { height: 325px; }
 stimma-section[page] .sp-section-details { margin-top: 20px; }
 stimma-section[page] .sp-section-details>stimma-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
@@ -48,15 +52,15 @@ stimma-section[page] .sp-section-details .sp-caption { text-align: center; }
 /* A short authored note is a full-width row, with space reserved below scenes. */
 stimma-section[layout]>.sp-section-body>.sp-note { grid-column: 1; margin: 0; }
 stimma-section[layout=pair]>.sp-section-body>.sp-note { grid-column: 1 / span 2; }
-stimma-section[page][layout]:has(.sp-note)>.sp-section-body>stimma-media img { height: 420px; }
-stimma-section[page][layout=stack]:has(.sp-note)>.sp-section-body>stimma-media img { height: 190px; }
+stimma-section[layout]:has(.sp-note)>.sp-section-body>stimma-media img { height: 420px; }
+stimma-section[layout=stack]:has(.sp-note)>.sp-section-body>stimma-media img { height: 190px; }
 stimma-section[page] .sp-appearance-panel { margin-top: 0; }
 stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
 
 """
 
 
-def export_pdf(bundle_dir: Path) -> bytes:
+def export_pdf(bundle_dir: Path, *, validate_pages: bool = False) -> bytes:
     """Render embedded assets only: no network or ambient filesystem access."""
     from weasyprint import HTML, default_url_fetcher
 
@@ -77,6 +81,20 @@ def export_pdf(bundle_dir: Path) -> bytes:
         for node in list(parent):
             if 'sp-section-disclosure' in node.get('class', '').split():
                 parent.remove(node)
+    # File browsers are HTML-only controls. Their otherwise empty section
+    # should not create a PDF page containing only a heading and footer.
+    for parent in list(document.etree_element.iter()):
+        for section in list(parent):
+            if section.tag != 'stimma-section':
+                continue
+            content = section.find("./div[@class='sp-section-body']")
+            if content is None or (content.text or '').strip() or not len(content):
+                continue
+            children = list(content)
+            if all(child.tag == 'stimma-files' and not (child.tail or '').strip()
+                   and len(child) == 1 and 'sp-files' in child[0].get('class', '').split()
+                   for child in children):
+                parent.remove(section)
     # Running elements must be encountered before page one is laid out.
     body = document.etree_element.find('body')
     if body is not None:
@@ -113,9 +131,10 @@ def export_pdf(bundle_dir: Path) -> bytes:
     # Keep type/vector artwork sharp and raster scenes at print resolution;
     # the ZIP still contains the original full-resolution preview images.
     try:
-        return document.write_pdf(
-            presentational_hints=True, dpi=300,
-        )
+        rendered = document.render(presentational_hints=True)
+        if validate_pages:
+            _validate_page_groups(rendered)
+        return rendered.write_pdf(dpi=300)
     except TypeError as exc:
         if "'FunctionBlock' object is not subscriptable" not in str(exc):
             raise
@@ -125,3 +144,30 @@ def export_pdf(bundle_dir: Path) -> bytes:
             "1fr 1fr), without nested min()/max()/clamp() in minmax(). Keep the "
             "responsive screen columns separately, then preview the PDF again."
         ) from exc
+
+
+def _validate_page_groups(document) -> None:
+    """Diagnose overflow of explicitly authored page groups in draft previews.
+
+    Appearance variants have already become separate elements. Ordinary flowing
+    sections remain free to span pages, and existing saved exports are unchanged.
+    """
+    groups = {}
+    for number, page in enumerate(document.pages, 1):
+        for box in page._page_box.descendants():
+            element = box.element
+            if element is None or element.tag != "stimma-section" or "page" not in element.attrib:
+                continue
+            label = element.find("./p[@class='sp-label']")
+            title = "".join(label.itertext()) if label is not None else element.get("id", "Untitled section")
+            group = groups.setdefault(id(element), {"title": title, "pages": set()})
+            group["pages"].add(number)
+    overflow = [f"{group['title']!r} (pages {', '.join(map(str, sorted(group['pages'])))})"
+                for group in groups.values() if len(group["pages"]) > 1]
+    if overflow:
+        raise ValueError(
+            "PDF page groups overflow: " + "; ".join(overflow) + ". "
+            "Rebalance the named section's content or split it into labeled sections; "
+            "keep type readable. Omit the page attribute only for intentionally flowing content. "
+            "Then preview again."
+        )

@@ -23,6 +23,7 @@ from pathlib import Path
 
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'}
+FONT_EXTENSIONS = {'.ttf', '.otf', '.woff', '.woff2'}
 
 # Reference patterns — local file refs we want to validate and copy:
 #   src="file.png"  src='file.png'       (HTML attributes)
@@ -87,31 +88,44 @@ def extract_all_refs(html: str) -> list[str]:
 
 
 def lint_image_refs(html: str, workspace_path: Path) -> list[str]:
-    """Return list of referenced files that are missing or not images."""
+    """Validate image sources and CSS resources (including local fonts).
+
+    The historic function name is retained for existing callers.
+    """
     missing: list[str] = []
-    for ref in extract_all_refs(html):
-        source = workspace_path / ref
-        if not source.exists():
-            missing.append(ref)
-        elif source.suffix.lower() not in IMAGE_EXTENSIONS:
-            missing.append(f"{ref} (not an image file)")
+    for pattern, extensions in ((SRC_ATTR_RE, IMAGE_EXTENSIONS), (CSS_URL_RE, IMAGE_EXTENSIONS | FONT_EXTENSIONS)):
+        for match in pattern.finditer(html):
+            ref = _ref_from_match(match)
+            if not ref or ref.startswith(('data:', 'http://', 'https://', '/', '#')):
+                continue
+            source = workspace_path / ref
+            if not source.is_file():
+                missing.append(ref)
+            elif source.suffix.lower() not in extensions:
+                missing.append(f"{ref} (unsupported resource type)")
     return missing
 
 
 def copy_referenced_images(html: str, workspace_path: Path, bundle_path: Path) -> str:
-    """Copy referenced images into the bundle and rewrite refs to bundle-relative names.
+    """Copy images and CSS font resources and rewrite bundle-relative refs.
 
     Refs that are data URIs, http(s), or absolute paths are left unchanged.
     """
 
-    def _copy_and_rewrite(src_value: str) -> str | None:
+    def _copy_and_rewrite(src_value: str, *, css=False) -> str | None:
         if src_value.startswith(('data:', 'http://', 'https://', '/', '#')):
             return None
         source = workspace_path / src_value
-        if not source.exists() or source.suffix.lower() not in IMAGE_EXTENSIONS:
+        extensions = IMAGE_EXTENSIONS | FONT_EXTENSIONS if css else IMAGE_EXTENSIONS
+        if not source.is_file() or source.suffix.lower() not in extensions:
             return None
         dest_name = source.name
         dest = bundle_path / dest_name
+        if dest.exists() and dest.read_bytes() != source.read_bytes():
+            import hashlib
+            suffix = hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+            dest_name = f"{source.stem}-{suffix}{source.suffix}"
+            dest = bundle_path / dest_name
         if not dest.exists():
             shutil.copy2(source, dest)
         return dest_name
@@ -129,7 +143,7 @@ def copy_referenced_images(html: str, workspace_path: Path, bundle_path: Path) -
         keyword = match.group(1)
         quote = match.group("quote") or ''
         src_value = _ref_from_match(match)
-        dest_name = _copy_and_rewrite(src_value)
+        dest_name = _copy_and_rewrite(src_value, css=True)
         if dest_name is None:
             return match.group(0)
         return f'{keyword}({quote}{dest_name}{quote})'

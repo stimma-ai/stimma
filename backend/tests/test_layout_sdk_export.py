@@ -43,3 +43,27 @@ async def test_layout_export_rejects_nonbundle(tmp_path):
                     project_workspace_dir=None, interrupt_checker=lambda: False)
     with pytest.raises(ValueError, match="layout bundle"):
         await sdk.rasterize_layout("missing.stimmalayout")
+
+
+@pytest.mark.asyncio
+async def test_editable_html_export_embeds_assets_and_preserves_print_css(tmp_path):
+    from pathlib import Path
+    bundle = tmp_path / "card.stimmalayout"
+    bundle.mkdir()
+    Image.new("RGB", (20, 10), "red").save(bundle / "logo.png")
+    font = Path("packages/mockups/assets/fonts/NotoSans-Regular.ttf")
+    (bundle / "font.ttf").write_bytes(font.read_bytes())
+    source = '''<html data-stimma-width="560" data-stimma-height="794"><style>
+    @font-face{font-family:Card;src:url("font.ttf")}
+    @page{size:148mm 210mm;margin:0}
+    </style><body><img src="logo.png"><p style="font-family:Card">Editable copy</p></body></html>'''
+    (bundle / "index.html").write_text(source)
+    sdk = StimmaSDK(session=None, chat_id=None, workspace_dir=tmp_path,
+                    project_workspace_dir=None, interrupt_checker=lambda: False)
+    exported = await sdk.export_layout_html("card.stimmalayout", out="delivery/card.html")
+    html = exported.read_text()
+    assert 'data:image/png;base64,' in html
+    assert 'data:font/ttf;base64,' in html
+    assert 'size:148mm 210mm' in html and 'Editable copy' in html
+    assert 'src="logo.png"' not in html and 'url("font.ttf")' not in html
+    assert (bundle / "index.html").read_text() == source

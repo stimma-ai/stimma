@@ -27,7 +27,9 @@ body = '''<div class="sp-page"><h1 class="sp-title">Identity exploration</h1>
 <stimma-swatch value="#F5F7FA" label="Paper" usage="Application background"></stimma-swatch>
 </stimma-grid><stimma-section label="Typography">
 <stimma-type ref="font" label="Body · Noto Sans Regular">Make something together.</stimma-type>
-</stimma-section></div>'''
+</stimma-section><stimma-grid columns="2" id="mixed">
+<div>First content group</div><div>Second content group</div>
+</stimma-grid></div>'''
 html, errors = render_cover_document(m, authored_html=body, bundle_dir=out)
 assert not errors, errors
 (out / 'index.html').write_text(html)
@@ -51,6 +53,7 @@ test('brand components remain readable offline, without scripts, at phone and de
         const sample = document.querySelector('.sp-type-sample')
         const swatch = document.querySelector('.sp-swatch-color')
         const label = document.querySelector('.sp-swatch-label')
+        const groups = [...document.querySelectorAll('#mixed>div')].map(e => e.getBoundingClientRect())
         return {
           overflow: document.documentElement.scrollWidth > innerWidth,
           background: getComputedStyle(document.body).backgroundColor,
@@ -59,6 +62,7 @@ test('brand components remain readable offline, without scripts, at phone and de
           loadedFont: [...document.fonts].some(f => f.family.startsWith('spfont') && f.status === 'loaded'),
           fontFamily: getComputedStyle(sample).fontFamily,
           footerCount: document.querySelectorAll('.sp-footer').length,
+          groupsSideBySide: Math.abs(groups[0].top - groups[1].top) < 1,
         }
       })
       assert.equal(facts.overflow, false)
@@ -68,7 +72,26 @@ test('brand components remain readable offline, without scripts, at phone and de
       assert.equal(facts.loadedFont, true)
       assert.match(facts.fontFamily, /spfont/)
       assert.equal(facts.footerCount, 1)
+      assert.equal(facts.groupsSideBySide, width > 600)
       assert.equal(requests.some(r => /^https?:/.test(r)), false)
+      // A root section is also a supported authored composition; it shouldn't
+      // need a wrapper just to get readable phone gutters.
+      const gutter = await page.evaluate(() => {
+        const wrapper = document.querySelector('.sp-page')
+        const section = document.createElement('stimma-section')
+        section.innerHTML = wrapper.innerHTML
+        wrapper.replaceWith(section)
+        return section.getBoundingClientRect().left + parseFloat(getComputedStyle(section).paddingLeft)
+      })
+      assert.ok(gutter >= 28)
+      const overridden = await page.evaluate(() => {
+        const style = document.createElement('style')
+        style.textContent = 'body>stimma-section{max-width:none;margin-left:0;padding-left:0}'
+        document.head.append(style)
+        const section = document.querySelector('body>stimma-section')
+        return section.getBoundingClientRect().left + parseFloat(getComputedStyle(section).paddingLeft)
+      })
+      assert.equal(overridden, 0)
       await page.close()
     }
   } finally {

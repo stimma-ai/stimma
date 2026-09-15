@@ -342,6 +342,19 @@ generation provider.""",
         group="image",
         is_async=False,
     ),
+    "export_layout_html": SDKMethodHelp(
+        name="export_layout_html",
+        signature="await stimma.export_layout_html(layout, *, out) -> Path",
+        summary="Export editable application HTML with bundled fonts and images embedded.",
+        details="""Accepts a layout media id or workspace .stimmalayout bundle path. Uses the
+app's HTML exporter and preserves the authored canvas and print CSS. Export to a
+workspace filename, then include that returned path in the package. Raw source
+HTML can still reference workspace assets that won't exist in the recipient's ZIP.
+Example: source = await stimma.export_layout_html(layout_id, out="care-card.html")
+pkg.add_file(source)""",
+        group="image",
+        is_async=True,
+    ),
     "rasterize_svg": SDKMethodHelp(
         name="rasterize_svg",
         signature="await stimma.rasterize_svg(svg, *, width=None, height=None, out=None) -> Image | Path",
@@ -495,7 +508,7 @@ def get_sdk_quick_ref() -> str:
     return """\
 stimma quick reference (inside run_code / run_file):
   Generation tools are imported by their REAL function name from the catalog.
-  First read .stimma/tools/<category>/ (ls/cat) to get the exact name, then:
+  First inspect .stimma/tools/<category>/ with glob/read_file to get the exact name, then:
     from stimma.tools.<category> import <name_from_catalog>
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
   stimma.show(r, role="final") commits+displays produced results ("intermediate" = display only); asyncio.gather() for parallel batches.
@@ -507,6 +520,7 @@ stimma quick reference (inside run_code / run_file):
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
     await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.
     media_id = await pkg.save(); stimma.show(media_id=media_id, role='final'). await stimma.packages.recipes() lists recipes.
+  Editable layout delivery: await stimma.export_layout_html(layout_id, out="application.html") embeds fonts/images; add that file to the package.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""
