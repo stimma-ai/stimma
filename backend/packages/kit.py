@@ -342,7 +342,7 @@ stimma-section[layout]>.sp-section-body>.sp-note{grid-column:1/-1}
 @media(max-width:600px){stimma-section[layout=pair]>.sp-section-body{grid-template-columns:minmax(0,1fr)}}
 stimma-sizes{display:flex;align-items:flex-end;gap:30px;flex-wrap:wrap}
 stimma-sizes stimma-media{display:grid;justify-items:center;gap:9px}
-stimma-sizes stimma-media img{border-radius:22.37%}
+stimma-sizes stimma-media img{border-radius:0}
 stimma-sizes .sp-caption{padding:0;font-size:11px;color:var(--sp-faint);
   font-variant-numeric:tabular-nums}
 stimma-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px}

@@ -15,7 +15,6 @@ h1, h2, h3, .sp-label { break-after: avoid; }
 stimma-media, stimma-compare figure { break-inside: avoid; }
 stimma-media img, stimma-compare img { max-width: 100%; max-height: 480px; object-fit: contain; }
 stimma-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
-stimma-grid:has(stimma-media[size]) { grid-template-columns: repeat(5, 1fr); }
 stimma-columns { grid-template-columns: repeat(3, 1fr); gap: 18px; break-inside: avoid; }
 stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
 .sp-appearance-head .sp-seg, input, button { display: none !important; }
@@ -24,7 +23,6 @@ stimma-sizes { flex-wrap: wrap; break-inside: avoid; }
   visibility: visible !important; margin-top: 18px; break-inside: avoid; }
 .sp-appearance-panel::before { break-after: avoid; content: attr(data-when); display: block;
   text-transform: capitalize; font-size: 12px; margin-bottom: 12px; }
-.sp-appearance-panel > div:has(stimma-media) { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 stimma-compare.sp-slider .sp-cmp { display: grid; grid-template-columns: 1fr 1fr; }
 stimma-compare.sp-slider figure:first-child { position: static; width: auto; overflow: visible; }
 stimma-compare.sp-slider figure:first-child img { width: 100%; max-width: 100%; }
@@ -54,8 +52,6 @@ stimma-section[page][layout]:has(.sp-note)>.sp-section-body>stimma-media img { h
 stimma-section[page][layout=stack]:has(.sp-note)>.sp-section-body>stimma-media img { height: 190px; }
 stimma-section[page] .sp-appearance-panel { margin-top: 0; }
 stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-panel::before { display: none; }
-stimma-section[page] .sp-appearance-panel>div:has(stimma-media) { grid-template-columns: repeat(2, 1fr); }
-stimma-section[page] .sp-appearance-panel stimma-media img { max-height: 170px; width: auto; }
 
 """
 

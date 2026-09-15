@@ -196,3 +196,30 @@ def test_scene_page_can_include_a_short_authored_note(tmp_path, layout):
         assert len(pdf) == 2
         text = pdf[1].get_textpage().get_text_range()
         assert all(value in text for value in ['First context', 'Second context', '20% smaller', 'Made with'])
+
+
+def test_appearance_preserves_large_non_icon_artwork(tmp_path):
+    """A generic appearance group must not turn a lockup into a small detail."""
+    manifest = new_manifest(title='Identity')
+    Image.new('RGB', (1000, 300), '#224466').save(tmp_path / 'lockup.png')
+    manifest['members'] = [{'id': 'm1', 'name': 'Lockup', 'path': 'lockup.png'}]
+    html, problems = render_cover_document(manifest, authored_html='''
+      <div class="sp-page">
+        <stimma-section page label="Lockup">
+          <stimma-appearance label="Background">
+            <div when="light"><stimma-media ref="m1" caption="Light ground"></stimma-media></div>
+            <div when="dark"><stimma-media ref="m1" caption="Dark ground"></stimma-media></div>
+          </stimma-appearance>
+        </stimma-section>
+      </div>''', bundle_dir=tmp_path)
+    assert not problems
+    (tmp_path / 'index.html').write_text(html)
+    with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
+        assert len(pdf) == 2
+        for page in pdf:
+            images = [obj for obj in page.get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
+            # PDF points: the 1000x300 artwork should remain 750x225, not be
+            # constrained to half a page or the former 170 CSS px detail cap.
+            assert any(obj.get_bounds()[2] - obj.get_bounds()[0] >= 740
+                       and obj.get_bounds()[3] - obj.get_bounds()[1] >= 220 for obj in images)
+            assert page.get_textpage().get_text_range().count('Made with') == 1
