@@ -14,12 +14,14 @@
       :aria-expanded="isOpen"
     >
       <span class="border-[1.5px] border-current flex-shrink-0 rounded-media opacity-80" :style="previewStyle(resolved.width, resolved.height, 14)"></span>
-      <span class="flex items-baseline gap-2 min-w-0">
-        <span>{{ sizeStyle === 'tier' ? 'Frame size' : 'Image size' }}</span>
+      <span class="flex items-center gap-2 min-w-0">
         <span class="font-mono tabular-nums">{{ triggerValue }}</span>
-        <span v-if="resolved.shapeFromImage && resolved.sizeFromImage" :class="tagClass">from image</span>
-        <span v-else-if="resolved.shapeFromImage" :class="tagClass">image shape</span>
-        <span v-else-if="resolved.sizeFromImage" :class="tagClass">image size</span>
+        <span v-if="lockTag" :class="[tagClass, lockArmed ? 'border border-dashed border-accent/45 bg-transparent' : 'bg-accent/15']" :title="explanation">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" :class="compact ? 'w-[11px] h-[11px]' : 'w-3 h-3'" aria-hidden="true">
+            <path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V5A3.5 3.5 0 0 0 8 1.5ZM6 5a2 2 0 1 1 4 0v2H6V5Z" />
+          </svg>
+          <span>{{ lockTag }}</span>
+        </span>
       </span>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="compact ? 'w-3 h-3 text-content-muted' : 'w-4 h-4 text-content-muted'">
         <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
@@ -36,13 +38,13 @@
         role="dialog"
         @click.stop
       >
-        <!-- Shape -->
+        <!-- Aspect -->
         <div class="flex items-center justify-between h-6 mb-2">
-          <span class="text-[11px] font-semibold text-content-muted">Shape</span>
+          <span class="text-[11px] font-semibold text-content-muted">Aspect</span>
           <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
             <span class="text-[11px] font-medium text-content-muted">{{ followLabel }}</span>
             <span class="relative inline-flex shrink-0 items-center">
-              <input type="checkbox" role="switch" aria-label="Shape follows the reference image" class="peer sr-only" :checked="policy.followShape" @change="toggleFollowShape" />
+              <input type="checkbox" role="switch" aria-label="Aspect follows the reference image" class="peer sr-only" :checked="policy.followShape" @change="toggleFollowShape" />
               <span class="peer h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full" />
             </span>
           </label>
@@ -227,7 +229,7 @@ function tierLabel(shortEdge: number, pair?: [number, number]): string {
   if (props.sizeStyle === 'tier') return formatTier(shortEdge)
   return formatMegapixels(pair ? (pair[0] * pair[1]) / MP_UNIT : resolved.value.mp)
 }
-/** Sizes offered at the current shape, deduped by label. */
+/** Sizes offered at the current aspect, deduped by label. */
 const sizeOptions = computed(() => {
   if (!tiers.value) return []
   const g = tiers.value.find(x => x.ratio === resolved.value.ratioLabel)
@@ -251,7 +253,20 @@ const sizeLabel = computed(() => tiers.value ? tierLabel(resolved.value.tier ?? 
 const triggerValue = computed(() => tiers.value
   ? `${resolved.value.ratioLabel} · ${sizeLabel.value.replace('MP', ' MP')}`
   : `${resolved.value.width} × ${resolved.value.height}`)
-const tagClass = 'text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-accent/15 text-accent'
+const tagClass = 'inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md text-accent'
+// The pill names the axis the reference image locks. With following armed but
+// no image yet, it is outlined instead of filled.
+const lockTag = computed(() => {
+  const r = resolved.value
+  const p = props.policy
+  const aspect = hasImage.value ? r.shapeFromImage : props.hasImageInput && p.followShape
+  const size = hasImage.value ? r.sizeFromImage : props.hasImageInput && p.followSize
+  if (aspect && size) return 'Aspect + Size'
+  if (aspect) return 'Aspect'
+  if (size) return 'Size'
+  return ''
+})
+const lockArmed = computed(() => !!lockTag.value && !hasImage.value)
 const dimInputClass = 'w-full px-2.5 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'
 
 
@@ -272,13 +287,13 @@ const explanation = computed(() => {
   const size = sizeLabel.value
   if (!hasImage.value) {
     if (p.followShape && p.followSize) return 'When you add a reference image, the output will be the same size as it.'
-    if (p.followShape) return `When you add a reference image, the output will take its shape at ${size}.`
+    if (p.followShape) return `When you add a reference image, the output will take its aspect at ${size}.`
     if (p.followSize) return `When you add a reference image, the output will keep its pixel count at ${p.ratio}.`
     return ''
   }
   const name = props.image?.name ?? 'the reference image'
   if (p.followShape && p.followSize) return `Output is the same size as ${name}.`
-  if (p.followShape) return `Output takes ${name}’s shape at ${size}.`
+  if (p.followShape) return `Output takes ${name}’s aspect at ${size}.`
   if (p.followSize) return `Output keeps ${name}’s pixel count at ${r.ratioLabel}.`
   return ''
 })
