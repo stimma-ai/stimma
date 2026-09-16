@@ -169,3 +169,63 @@ async def test_failed_show_revision_rolls_back_head_members_and_owners(db_sessio
         assert all(m.container_revision_id in revisions for m in await session.scalars(select(ContainerMember)))
         owners = list(await session.scalars(select(MediaOwner).where(MediaOwner.root_kind == "container_revision")))
         assert all(int(o.root_id) in revisions for o in owners)
+
+
+@pytest.mark.asyncio
+async def test_preview_resumes_edits_across_sdk_calls_without_saving(db_session, tmp_path):
+    """Inspection between calls must not lose source/run/cover/extra edits."""
+    from sqlalchemy import func, select
+    async with db_session() as session:
+        sdk, mid = await initial(session, tmp_path)
+        old = await sdk.packages.open(mid)
+        original = await old.manifest()
+        old._builder.cleanup()
+        draft = await sdk.packages.open(mid)
+        (tmp_path / 'replacement.json').write_text('{"colors":[{"name":"warm","hex":"#ee7722"}]}')
+        await draft.replace_member('m1', 'replacement.json')
+        await draft.rerun('r1')
+        (tmp_path / 'notes.txt').write_text('Revised notes')
+        draft.replace_file('extras/license.txt', 'notes.txt')
+        draft.set_cover('<h1>Updated collection</h1><stimma-files></stimma-files>')
+        before = await session.scalar(select(func.count()).select_from(MediaItem))
+        snapshot = await draft.preview()
+        expected = production(tmp_path / snapshot)
+        draft._builder.cleanup()
+        assert await session.scalar(select(func.count()).select_from(MediaItem)) == before
+        # A fresh runtime has no surviving Python draft object.
+        sdk2 = StimmaSDK(session=session, chat_id=sdk.chat_id, workspace_dir=tmp_path,
+                         project_workspace_dir=None, interrupt_checker=lambda: False)
+        resumed = await sdk2.packages.open(snapshot)
+        assert resumed._builder.cover_source.startswith('<h1>Updated collection')
+        assert (await resumed.manifest())['runs'][1] == original['runs'][1]
+        assert production(tmp_path / await resumed.preview()) == expected
+        # Loading snapshots copies extras too; later external edits cannot alter the draft.
+        (tmp_path / snapshot / 'extras/license.txt').write_text('Changed after open')
+        updated = await resumed.save()
+        assert production(Path((await session.get(MediaItem, updated)).file_path)) == expected
+        saved = await sdk2.packages.open(mid)
+        reopened = await saved.manifest()
+        assert {k: v for k, v in reopened.items() if k != 'created_at'} == {
+            k: v for k, v in original.items() if k != 'created_at'}
+        saved._builder.cleanup()
+        with pytest.raises(PackageError, match='Package file changed'):
+            await sdk2.packages.open(snapshot)
+        with pytest.raises(PermissionError):
+            await sdk2.packages.open(tmp_path.parent / 'outside-snapshot')
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('entry', ['stimma-package.json', '_stimma/cover.src.html'])
+async def test_resume_rejects_snapshot_symlinks_outside_bundle(db_session, tmp_path, entry):
+    async with db_session() as session:
+        sdk, mid = await initial(session, tmp_path)
+        pkg = await sdk.packages.open(mid)
+        snapshot = tmp_path / await pkg.preview()
+        target = snapshot / entry
+        outside = tmp_path / 'outside-content'
+        outside.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(outside)
+        with pytest.raises(PackageError, match='Package file unavailable'):
+            await sdk.packages.open(snapshot)
+        pkg._builder.cleanup()

@@ -416,6 +416,13 @@ use `stimma.show(..., revises=existing_asset_id, revision_note="What changed")`
 to commit the new revision to the original package. Editing a preview folder
 alone does not mutate the draft.
 
+Python locals reset between code calls. `await pkg.preview()` returns a resumable
+workspace snapshot: pass that folder to `await stimma.packages.open(folder)` in
+the next call to continue the inspected draft without saving a library item.
+`preview_html()` and `preview_pdf()` also return this folder in `draft`. Opening
+the original integer media id starts over from that saved revision. Snapshots
+are hash-checked; edit the restored draft through its API, not the snapshot files.
+
 Replace an existing loose extra with `pkg.replace_file(manifest_path, path)`.
 It keeps the original name and path. `add_file` adds a separate extra even when
 its requested name already exists; it never silently replaces existing work.

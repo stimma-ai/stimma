@@ -42,8 +42,8 @@ Parallel execution:
     ),
     "packages.open": SDKMethodHelp(
         name="packages.open",
-        signature="await stimma.packages.open(media_id) -> PackageDraft",
-        summary="Inspect and edit a saved package without rebuilding existing files.",
+        signature="await stimma.packages.open(media_id_or_preview_folder) -> PackageDraft",
+        summary="Edit a saved package or resume an unsaved preview snapshot, preserving files.",
         details="""Open the attached package's media id in a fresh or existing conversation.
 manifest() lists member ids, recipe runs, exact paths and parameters. preview()
 writes a workspace copy of all files, including _stimma/cover.src.html for editing.
@@ -55,9 +55,11 @@ Update the authored cover with set_cover(); save and show with revises=existing_
 For an existing loose extra, pkg.replace_file(manifest_path, workspace_path) keeps
 its path/name. add_file always adds another file; replace_member targets members only.
 This does not regenerate artwork or infer changes from edits to the preview folder.
-Each code call has a fresh Python scope. Keep edits, preview and save in one script;
-opening again loads the saved package and discards no files, but does not recover
-an earlier unsaved draft. Load the Packaging skill for the full edit workflow.""",
+Each code call has a fresh Python scope. preview() returns a resumable folder;
+preview_html()/preview_pdf() return it as 'draft'. In the next code call use
+await stimma.packages.open(preview_folder) to continue the exact inspected draft.
+Opening the original integer media id starts from the original saved revision.
+Load the Packaging skill for the full edit workflow.""",
         group="core", is_async=True,
     ),
     "packages.new": SDKMethodHelp(
@@ -88,6 +90,8 @@ revision; never describe it as replacing the earlier package.
 Add any number of members, runs and loose files (pkg.add_file(path)).
 await pkg.manifest() returns a snapshot without saving. await pkg.preview() returns a workspace
 folder containing index.html and the files; use read_file/glob/view_image there.
+Pass that folder to await stimma.packages.open(folder) in a later code call to
+resume the unsaved draft. Both visual preview methods also return this as 'draft'.
 await pkg.preview_html(width=390) returns {image, slices, width, height}: the
 complete responsive HTML rendered at that width, plus readable image slices.
 Inspect slices with view_image(detail="high") at phone and desktop widths
@@ -96,9 +100,8 @@ After set_cover(), await pkg.preview_pdf() returns {pdf, page_count, pages}:
 workspace-relative paths to the exported PDF and its page PNGs. Use view_image
 on those PNGs to check pagination, captions and custom print styles before save.
 It uses the download exporter and does not create a library item.
-Each run_code/run_file call has fresh Python locals. Keep the build in a
-workspace Python file and execute it with run_file again after writing the
-cover, using the same saved members and parameters; recipe runs are cached.
+Each run_code/run_file call has fresh Python locals. Resume the latest preview
+folder to keep edits across calls, or keep the whole build in a workspace script.
 Only save the completed package. preview() does not create a library item.
 
 Recipes are deterministic and memoized; judgment (focal points, colors,
@@ -560,7 +563,8 @@ stimma quick reference (inside run_code / run_file):
   Existing package: pkg = await stimma.packages.open(media_id); inspect manifest() and preview(); replace_member()/rerun() for sources, replace_file(extra_ref, path) for extras.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
-    await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.
+    await pkg.preview_pdf() returns {draft, pdf, page_count, pages}; inspect the page PNGs with view_image before save.
+    In the next call, packages.open(preview_folder) resumes those unsaved edits; opening the original media id starts over.
     media_id = await pkg.save(); stimma.show(media_id=media_id, role='final') is for a FIRST delivery.
     For package revisions, show(..., role='final', revises=existing_asset_id, revision_note='What changed').
     Same title alone creates a separate asset. Verify asset_id and revision number in the display receipt.

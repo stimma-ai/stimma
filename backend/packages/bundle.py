@@ -35,6 +35,7 @@ from packages.manifest import (
     TILE_NAME,
     EXTRAS_DIR,
     KIT_VERSION,
+    MANIFEST_NAME,
     MEMBERS_DIR,
     PACKAGE_EXTENSION,
     PACKAGE_FORMAT,
@@ -240,12 +241,24 @@ class PackageBuilder:
 
         This is an edit, not a rebuild from current masters or current recipes.
         """
-        if self.members or self.runs or self.extras:
-            raise PackageError("Open requires an empty draft")
         media = await live_media(self.session, media_id)
         if media.file_format != PACKAGE_FORMAT:
             raise PackageError("Open requires package media")
-        bundle = Path(media.file_path)
+        await self.load_snapshot(Path(media.file_path))
+
+    async def load_snapshot(self, bundle: Path) -> None:
+        """Restore a verified bundle snapshot, including unsaved preview outputs."""
+        if self.members or self.runs or self.extras:
+            raise PackageError("Open requires an empty draft")
+        bundle = Path(bundle)
+
+        def contained(rel):
+            path = bundle / rel
+            if not path.resolve().is_relative_to(bundle.resolve()) or not path.is_file():
+                raise PackageError(f"Package file unavailable: {rel}")
+            return path
+
+        contained(MANIFEST_NAME)
         manifest = read_manifest(bundle)
         problems = validate_manifest(manifest)
         if problems:
@@ -253,9 +266,7 @@ class PackageBuilder:
 
         def checked(entry):
             rel = check_bundle_path(entry["path"])
-            path = bundle / rel
-            if not path.resolve().is_relative_to(bundle.resolve()) or not path.is_file():
-                raise PackageError(f"Package file unavailable: {rel}")
+            path = contained(rel)
             if sha256_file(path) != entry["hash"]:
                 raise PackageError(f"Package file changed: {rel}")
             return path
@@ -292,15 +303,19 @@ class PackageBuilder:
             self.runs.append(run)
             self._used_paths.add(run.root.rstrip("/"))
         for entry in manifest.get("extras", []):
-            self.extras.append(_Extra(checked(entry), entry["name"], entry["path"]))
+            src = checked(entry)
+            dst = self._scratch / "preserved-extras" / check_bundle_path(entry["path"])
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            self.extras.append(_Extra(dst, entry["name"], entry["path"]))
             self._used_paths.add(entry["path"])
         cover = bundle / COVER_SOURCE_NAME
         if (manifest.get("cover") or {}).get("kind") == "authored":
             if not cover.is_file():
                 raise PackageError("Package is missing its editable cover source")
-            self.cover_source = cover.read_text(encoding="utf-8")
+            self.cover_source = contained(COVER_SOURCE_NAME).read_text(encoding="utf-8")
         if manifest.get("cover_image"):
-            self.set_tile(bundle / check_bundle_path(manifest["cover_image"]))
+            self.set_tile(contained(check_bundle_path(manifest["cover_image"])))
 
     async def replace_member(self, member_id: str, media_id: int) -> None:
         """Replace one source in place; dependent runs must be explicitly rerun."""

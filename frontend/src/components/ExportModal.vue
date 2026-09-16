@@ -584,7 +584,7 @@ const CODE_VARIANTS = [
 // visible rather than appearing later out of nowhere.
 const PACKAGE_EXPORT_FORMATS = [
   { value: 'zip', label: 'Zip', hint: 'full package' },
-  { value: 'pdf', label: 'PDF', hint: 'cover, ready to share' },
+  { value: 'pdf', label: 'Guide PDF', hint: 'presentation, not production files' },
   { value: 'html', label: 'Single HTML file', hint: 'cover with previews, read-only' },
   { value: 'link', label: 'Hosted link', hint: 'coming soon', disabled: true },
 ]

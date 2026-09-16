@@ -1228,6 +1228,7 @@ class PackageDraft:
         Returns the workspace-relative directory. Inspect it with read_file,
         glob or view_image. This does not save a library item. Changes to the
         snapshot do not change the draft; attach authored HTML with set_cover.
+        Continue in a later code call with await stimma.packages.open(directory).
         """
         from uuid import uuid4
 
@@ -1269,7 +1270,7 @@ class PackageDraft:
             path = target / f"{index + 1:03}.png"
             image.crop((0, top, image.width, min(top + 960, image.height))).save(path, pnginfo=preview_info)
             slices.append(path.relative_to(self._sdk.workspace_dir).as_posix())
-        return {"image": (relative / "_html-preview/full.png").as_posix(),
+        return {"draft": relative.as_posix(), "image": (relative / "_html-preview/full.png").as_posix(),
                 "slices": slices, "width": image.width, "height": image.height,
                 "review_hint": "View slices with view_image(detail='high') through the footer. Check readable text, margins and clipped content."}
 
@@ -1308,7 +1309,7 @@ class PackageDraft:
                     pages.append(path.relative_to(self._sdk.workspace_dir).as_posix())
                 finally:
                     page.close()
-        return {"pdf": (relative / "preview.pdf").as_posix(), "page_count": len(pages), "pages": pages,
+        return {"draft": relative.as_posix(), "pdf": (relative / "preview.pdf").as_posix(), "page_count": len(pages), "pages": pages,
                 "review_hint": "View each page with view_image(detail='high'); low detail shrinks pages to 512px and hides text defects. Check actual typography, artwork contrast and spill pages."}
 
     async def save(self) -> int:
@@ -1360,16 +1361,26 @@ class StimmaPackagesAPI:
         """Start a package. Add members, run recipes, set a cover, then save()."""
         return PackageDraft(self._sdk, title, slug=slug)
 
-    async def open(self, media_id: int) -> PackageDraft:
-        """Open a saved package for a targeted edit, preserving existing files and paths.
+    async def open(self, media_id: int | str | Path) -> PackageDraft:
+        """Open saved media, or resume a workspace snapshot returned by preview().
 
         Inspect manifest() and preview() for bearings; the editable cover is at
         _stimma/cover.src.html in the preview. Add members/runs or replace_member
         and rerun only affected runs. Save and show with revises=the existing asset.
+        Python locals reset each code call. Pass the preview folder (or the
+        `draft` returned by preview_html/preview_pdf) to continue unsaved edits.
+        An integer media id always opens that saved revision, not a draft.
         """
         draft = PackageDraft(self._sdk, "Package")
         try:
-            await draft._builder.load(int(media_id))
+            if isinstance(media_id, bool):
+                raise TypeError("open requires a media id or workspace preview directory")
+            if isinstance(media_id, int) or (isinstance(media_id, str) and media_id.isdigit()):
+                await draft._builder.load(int(media_id))
+            else:
+                resolve = _make_workspace_resolver(self._sdk.workspace_dir,
+                                                   self._sdk.project_workspace_dir, read_only=True)
+                await draft._builder.load_snapshot(resolve(str(media_id)))
         except Exception:
             draft._builder.cleanup()
             raise
