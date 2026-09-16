@@ -148,6 +148,8 @@ async def save_file(
 ):
     from agent.v2.tools.library import save_workspace_file
     from agent.v2.tools.show import _apply_show_disposition
+    from asset_service import AssetServiceError, require_asset_format
+    from utils.query_builder import STRUCTURED_FORMATS
     from utils.websocket import ws_manager
 
     chat, directory, file = await file_context(
@@ -158,11 +160,19 @@ async def save_file(
             data = await asyncio.to_thread(read_zip_entry, file, request.entry)
             file = Path(staging) / Path(request.entry).name
             file.write_bytes(data)
+        fmt = next(
+            (fmt for fmt in STRUCTURED_FORMATS if file.name.lower().endswith("." + fmt)),
+            file.suffix.lstrip(".").lower(),
+        )
+        try:
+            require_asset_format(fmt)
+        except AssetServiceError as exc:
+            raise HTTPException(400, str(exc)) from exc
         raw = await save_workspace_file(
-            session, str(file), directory, None, project_id=chat.project_id
+            session, str(file), directory, None, project_id=chat.project_id,
         )
     if raw.startswith("Error:"):
-        raise HTTPException(400, "Could not save workspace file")
+        raise HTTPException(400, raw.removeprefix("Error:").strip())
     result = json.loads(raw)
     assets = await _apply_show_disposition(
         session=session, chat_id=chat_id, media_ids=[result["media_id"]], role="final"

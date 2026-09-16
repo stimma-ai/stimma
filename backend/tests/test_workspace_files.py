@@ -151,10 +151,10 @@ async def test_save_file_and_entry_with_chat_lineage(client, shared_workspace):
     session, chat, root, _ = shared_workspace
     (root / "report.md").write_text("# A report")
     with ZipFile(root / "bundle.zip", "w") as archive:
-        archive.writestr("nested/code.py", "print(42)")
+        archive.writestr("nested/report.md", "# Archived report")
     for request in [
         {"path": "report.md"},
-        {"path": "bundle.zip", "entry": "nested/code.py"},
+        {"path": "bundle.zip", "entry": "nested/report.md"},
     ]:
         response = await client.post(
             f"/api/chats/{chat.id}/files/chat/save", json=request
@@ -211,9 +211,10 @@ async def test_project_workspace_and_deleted_chat(client, shared_workspace):
     assert response.json()["root"] == "project"
     from database import ProjectAsset
 
+    (project_root / "report.md").write_text("# Project report")
     saved = (
         await client.post(
-            f"/api/chats/{chat.id}/files/project/save", json={"path": "same.txt"}
+            f"/api/chats/{chat.id}/files/project/save", json={"path": "report.md"}
         )
     ).json()
     membership = await session.scalar(
@@ -229,12 +230,18 @@ async def test_project_workspace_and_deleted_chat(client, shared_workspace):
 
 
 @pytest.mark.asyncio
-async def test_library_archive_uses_same_entry_routes(client, shared_workspace):
+async def test_retained_archive_uses_same_entry_routes_without_becoming_asset(client, shared_workspace):
     session, chat, root, _ = shared_workspace
+    before = set(await session.scalars(select(Asset.id)))
     with ZipFile(root / "archive.zip", "w") as archive:
         archive.writestr("code.py", "print(1)")
     base = f"/api/chats/{chat.id}/files/chat"
-    saved = (await client.post(base + "/save", json={"path": "archive.zip"})).json()
+    rejected = await client.post(base + "/save", json={"path": "archive.zip"})
+    assert rejected.status_code == 400
+    assert "Unsupported library asset format: zip" in rejected.json()["detail"]
+    from agent.v2.tools.library import save_workspace_file
+    saved = json.loads(await save_workspace_file(session, str(root / "archive.zip"), root, None))
+    await session.commit()
     params = {"path": "artifact.zip", "media_id": saved["media_id"]}
     response = await client.get(base + "/index", params=params)
     assert response.status_code == 200
@@ -246,9 +253,9 @@ async def test_library_archive_uses_same_entry_routes(client, shared_workspace):
     assert response.status_code == 200
     assert (root / response.json()["path"]).read_text() == "print(1)"
     response = await client.post(base + "/save", json={**params, "entry": "code.py"})
-    assert response.status_code == 200
-    asset = await session.get(Asset, response.json()["asset_id"])
-    assert asset.asset_type == "document"
+    assert response.status_code == 400
+    assert "Unsupported library asset format: py" in response.json()["detail"]
+    assert set(await session.scalars(select(Asset.id))) == before
 
 
 @pytest.mark.asyncio
