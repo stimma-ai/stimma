@@ -15,23 +15,11 @@
     >
       <span class="border-[1.5px] border-current flex-shrink-0 rounded-media opacity-80" :style="previewStyle(resolved.width, resolved.height, 14)"></span>
       <span class="flex items-baseline gap-2 min-w-0">
-        <template v-if="resolved.shapeFromImage && resolved.sizeFromImage">
-          <span :class="tagClass">from image</span>
-          <span>{{ resolved.width }}×{{ resolved.height }}</span>
-        </template>
-        <template v-else-if="resolved.shapeFromImage">
-          <span :class="tagClass">image shape</span>
-          <span>{{ sizeLabel }} · {{ resolved.width }}×{{ resolved.height }}</span>
-        </template>
-        <template v-else-if="resolved.sizeFromImage">
-          <span>{{ resolved.ratioLabel }}</span>
-          <span :class="tagClass">image size</span>
-          <span>{{ resolved.width }}×{{ resolved.height }}</span>
-        </template>
-        <template v-else>
-          <span>{{ resolved.ratioLabel }} · {{ sizeLabel }}</span>
-          <span class="font-mono tabular-nums text-[11px] text-content-muted">{{ resolved.width }}×{{ resolved.height }}</span>
-        </template>
+        <span>{{ sizeStyle === 'tier' ? 'Frame size' : 'Image size' }}</span>
+        <span class="font-mono tabular-nums">{{ triggerValue }}</span>
+        <span v-if="resolved.shapeFromImage && resolved.sizeFromImage" :class="tagClass">from image</span>
+        <span v-else-if="resolved.shapeFromImage" :class="tagClass">image shape</span>
+        <span v-else-if="resolved.sizeFromImage" :class="tagClass">image size</span>
       </span>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="compact ? 'w-3 h-3 text-content-muted' : 'w-4 h-4 text-content-muted'">
         <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
@@ -258,6 +246,11 @@ const sizeOptions = computed(() => {
 const hasImage = computed(() => !!(props.image && props.image.width > 0 && props.image.height > 0))
 
 const sizeLabel = computed(() => tiers.value ? tierLabel(resolved.value.tier ?? 0, [resolved.value.width, resolved.value.height]) : formatMegapixels(resolved.value.mp))
+// Preset pairs have a useful shape/size name; flexible dimensions are clearer
+// as the actual output pixels, without an approximate ratio or redundant area.
+const triggerValue = computed(() => tiers.value
+  ? `${resolved.value.ratioLabel} · ${sizeLabel.value.replace('MP', ' MP')}`
+  : `${resolved.value.width} × ${resolved.value.height}`)
 const tagClass = 'text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-accent/15 text-accent'
 const dimInputClass = 'w-full px-2.5 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'
 
