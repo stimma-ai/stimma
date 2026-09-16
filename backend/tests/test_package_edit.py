@@ -84,6 +84,30 @@ async def test_replace_requires_rerun_and_keeps_other_run(db_session, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_replace_extra_preserves_path_and_unrelated_files(db_session, tmp_path):
+    async with db_session() as session:
+        sdk, mid = await initial(session, tmp_path)
+        old_root = Path((await session.get(MediaItem, mid)).file_path)
+        before = production(old_root)
+        draft = await sdk.packages.open(mid)
+        (tmp_path / "revised-notes.txt").write_text("Revised terms.")
+        with pytest.raises(PackageError, match="unknown extra"):
+            draft.replace_file("license.txt", "revised-notes.txt")
+        with pytest.raises(PackageError, match="not found"):
+            draft.replace_file("extras/license.txt", "missing.txt")
+        assert production(tmp_path / await draft.preview()) == before
+        assert draft.replace_file("extras/license.txt", "revised-notes.txt") == "extras/license.txt"
+        after_id = await draft.save()
+        root = Path((await session.get(MediaItem, after_id)).file_path)
+        after = production(root)
+        assert after.keys() == before.keys()
+        assert after["extras/license.txt"] == b"Revised terms."
+        assert all(after[p] == data for p, data in before.items() if p != "extras/license.txt")
+        assert read_manifest(root)["extras"][0]["name"] == "license.txt"
+        assert production(old_root) == before
+
+
+@pytest.mark.asyncio
 async def test_trashed_source_is_embedded_when_package_is_revised(db_session, tmp_path):
     from PIL import Image
     from sqlalchemy import select

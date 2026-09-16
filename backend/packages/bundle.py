@@ -390,6 +390,18 @@ class PackageBuilder:
         self.extras.append(_Extra(source=path, name=name, rel_path=rel))
         return rel
 
+    def replace_extra(self, ref: str, path: Path) -> str:
+        """Replace an exact existing extra ref without changing its name or path."""
+        extra = next((item for item in self.extras if item.rel_path == ref), None)
+        if extra is None:
+            raise PackageError(f"unknown extra {ref!r}; use its manifest path")
+        path = Path(path)
+        if not path.is_file():
+            raise PackageError(f"extra file not found: {path}")
+        _require_standalone_file(path)
+        extra.source = path
+        return extra.rel_path
+
     # the package's face
     def set_tile(self, source: "Path | bytes") -> None:
         """Set the designed square shown for this package in the library.

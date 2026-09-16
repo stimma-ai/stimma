@@ -1184,6 +1184,13 @@ class PackageDraft:
         resolved = self._sdk.workspace_dir / str(path) if not Path(str(path)).is_absolute() else Path(str(path))
         return self._builder.add_extra(resolved, name=name)
 
+    def replace_file(self, ref: str, path: "str | Path") -> str:
+        """Replace a loose extra at its manifest path, preserving its name and path."""
+        source = Path(str(path))
+        if not source.is_absolute():
+            source = self._sdk.workspace_dir / source
+        return self._builder.replace_extra(ref, source)
+
     def set_tile(self, image: "str | Path | bytes") -> None:
         """Set the square shown for this package in the library.
 

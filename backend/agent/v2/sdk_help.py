@@ -52,6 +52,8 @@ Add new members/runs normally. For a replacement, use await pkg.replace_member(m
 workspace_path), then await pkg.rerun(run_id) for each affected run. Saving rejects
 stale dependent runs. Other runs are carried unchanged even if recipes were upgraded.
 Update the authored cover with set_cover(); save and show with revises=existing_asset_id.
+For an existing loose extra, pkg.replace_file(manifest_path, workspace_path) keeps
+its path/name. add_file always adds another file; replace_member targets members only.
 This does not regenerate artwork or infer changes from edits to the preview folder.
 Each code call has a fresh Python scope. Keep edits, preview and save in one script;
 opening again loads the saved package and discards no files, but does not recover
@@ -555,7 +557,7 @@ stimma quick reference (inside run_code / run_file):
     returns items/total/has_more; .options('loras') discovers recorded names.
     .inspect([ids]) reads metadata/history without copying files.
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
-  Existing package: pkg = await stimma.packages.open(media_id); inspect manifest() and preview(); replace_member()/rerun() for targeted edits.
+  Existing package: pkg = await stimma.packages.open(media_id); inspect manifest() and preview(); replace_member()/rerun() for sources, replace_file(extra_ref, path) for extras.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
     await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.

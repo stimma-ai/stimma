@@ -415,3 +415,7 @@ other runs remain unchanged. Refresh the guide with `set_cover`, save, and
 use `stimma.show(..., revises=existing_asset_id, revision_note="What changed")`
 to commit the new revision to the original package. Editing a preview folder
 alone does not mutate the draft.
+
+Replace an existing loose extra with `pkg.replace_file(manifest_path, path)`.
+It keeps the original name and path. `add_file` adds a separate extra even when
+its requested name already exists; it never silently replaces existing work.
