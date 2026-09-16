@@ -29,7 +29,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from packages.manifest import member_by_id, resolve_ref, run_by_id
+from packages.manifest import iter_manifest_paths, member_by_id, resolve_ref, run_by_id
 
 KIT_VERSION = 15
 
@@ -1188,7 +1188,13 @@ def expand_kit_elements(
         ref = attrs.get("ref", "")
         path = _resolve_path(manifest, ref)
         if path is None:
-            problems.append(f"<stimma-media ref=\"{ref}\"> does not resolve to a member or file in this package")
+            paths = list(iter_manifest_paths(manifest))
+            matches = [p for p in paths if Path(p).name == Path(ref).name]
+            candidates = matches or [p for p in paths if Path(p).suffix.lower() in IMAGE_EXTS | VIDEO_EXTS]
+            hint = "; use an exact bundle path from the manifest"
+            if candidates:
+                hint += ": " + ", ".join(repr(p) for p in candidates[:5])
+            problems.append(f"<stimma-media ref=\"{ref}\"> does not resolve to a member or file in this package{hint}. Run ids belong on stimma-files, not image paths.")
             return f"<stimma-media{_attr_str(attrs)}>{inner}</stimma-media>"
         attrs["data-path"] = path
         if inner:

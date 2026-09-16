@@ -392,3 +392,23 @@ def test_appearance_preserves_large_non_icon_artwork(tmp_path):
             assert any(obj.get_bounds()[2] - obj.get_bounds()[0] >= 740
                        and obj.get_bounds()[3] - obj.get_bounds()[1] >= 220 for obj in images)
             assert page.get_textpage().get_text_range().count('Made with') == 1
+
+
+@pytest.mark.parametrize('ref', ['r1:preview/sheet-001.png', 'r1preview/sheet-001.png', 'r1'])
+def test_unresolved_media_ref_suggests_real_manifest_paths_without_rewriting(ref):
+    from packages.kit import expand_kit_elements
+
+    manifest = new_manifest(title='Print sheets')
+    manifest['runs'] = [{'id': 'r1', 'root': 'label-sheets/', 'files': [
+        {'path': 'label-sheets/preview/sheet-001.png'},
+        {'path': 'label-sheets/labels.pdf'},
+    ]}]
+    source = f'<stimma-media ref="{ref}"></stimma-media>'
+    html, problems = expand_kit_elements(manifest, source)
+    assert len(problems) == 1
+    assert 'label-sheets/preview/sheet-001.png' in problems[0]
+    assert 'exact bundle path' in problems[0]
+    assert f'ref="{ref}"' in html
+    assert '<img' not in html
+    _, corrected = expand_kit_elements(manifest, '<stimma-media ref="label-sheets/preview/sheet-001.png"></stimma-media>')
+    assert not corrected
