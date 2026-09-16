@@ -398,3 +398,20 @@ have, module collisions, unknown `environments` keys, empty bodies, a root
 - [ ] Skills with `lib/`: `provides` lists every importable module, and the body documents the API
 - [ ] `stimma stimpacks validate <pack>` passes with no errors
 - [ ] Tested live via `stimma stimpacks dev`: the agent invokes it when relevant and the output improves
+
+
+### Editing an existing package
+
+`pkg = await stimma.packages.open(media_id)` opens an exact saved revision.
+Inspect `await pkg.manifest()` and `await pkg.preview()`; the preview includes
+`_stimma/cover.src.html`, the editable agent-authored guide. Existing members,
+run files, recipe versions, paths, extras and tile are preserved. Opening does
+not update linked masters or rerun recipes. Add new members and runs normally.
+
+For a targeted replacement, use `await pkg.replace_member(member_id, path)`
+and `await pkg.rerun(run_id)` for every dependent run. Saving or previewing
+rejects changed sources with stale outputs. Rerun preserves the run id/root;
+other runs remain unchanged. Refresh the guide with `set_cover`, save, and
+use `stimma.show(..., revises=existing_asset_id, revision_note="What changed")`
+to commit the new revision to the original package. Editing a preview folder
+alone does not mutate the draft.

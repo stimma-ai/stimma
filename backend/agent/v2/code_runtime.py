@@ -1154,6 +1154,14 @@ class PackageDraft:
         media_id = await self._media_id_for(item, sources=sources)
         return await self._builder.add_member(media_id, role=role)
 
+    async def replace_member(self, member_id: str, item: Any, *, sources: Sequence[int] | None = None) -> None:
+        """Replace a source, preserving its id/path. Rerun affected recipes before saving."""
+        await self._builder.replace_member(member_id, await self._media_id_for(item, sources=sources))
+
+    async def rerun(self, run_id: str, params: dict[str, Any] | None = None) -> str:
+        """Rebuild one existing run in place; all other runs remain byte-identical."""
+        return await self._builder.rerun(run_id, params)
+
     async def run(self, recipe: str, inputs: dict[str, Any], params: dict[str, Any] | None = None) -> str:
         """Run a recipe. ``inputs`` maps each role to a member id or anything add_member accepts.
 
@@ -1344,6 +1352,21 @@ class StimmaPackagesAPI:
     def new(self, title: str, *, slug: str | None = None) -> PackageDraft:
         """Start a package. Add members, run recipes, set a cover, then save()."""
         return PackageDraft(self._sdk, title, slug=slug)
+
+    async def open(self, media_id: int) -> PackageDraft:
+        """Open a saved package for a targeted edit, preserving existing files and paths.
+
+        Inspect manifest() and preview() for bearings; the editable cover is at
+        _stimma/cover.src.html in the preview. Add members/runs or replace_member
+        and rerun only affected runs. Save and show with revises=the existing asset.
+        """
+        draft = PackageDraft(self._sdk, "Package")
+        try:
+            await draft._builder.load(int(media_id))
+        except Exception:
+            draft._builder.cleanup()
+            raise
+        return draft
 
     async def status(self, media_id: int) -> dict[str, Any]:
         """Stale members and runs for a saved package revision."""

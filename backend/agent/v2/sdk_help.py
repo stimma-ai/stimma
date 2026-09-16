@@ -40,6 +40,21 @@ Parallel execution:
         group="core",
         is_async=True,
     ),
+    "packages.open": SDKMethodHelp(
+        name="packages.open",
+        signature="await stimma.packages.open(media_id) -> PackageDraft",
+        summary="Inspect and edit a saved package without rebuilding existing files.",
+        details="""Open the attached package's media id in a fresh or existing conversation.
+manifest() lists member ids, recipe runs, exact paths and parameters. preview()
+writes a workspace copy of all files, including _stimma/cover.src.html for editing.
+Existing members, run outputs, paths, recipe versions, extras and cover are preserved.
+Add new members/runs normally. For a replacement, use await pkg.replace_member(member_id,
+workspace_path), then await pkg.rerun(run_id) for each affected run. Saving rejects
+stale dependent runs. Other runs are carried unchanged even if recipes were upgraded.
+Update the authored cover with set_cover(); save and show with revises=existing_asset_id.
+This does not regenerate artwork or infer changes from edits to the preview folder.""",
+        group="core", is_async=True,
+    ),
     "packages.new": SDKMethodHelp(
         name="packages.new",
         signature="stimma.packages.new(title) -> PackageDraft; await draft.add_member(item, role=None); await draft.run(recipe, inputs, params=None); draft.add_file(path); await draft.manifest(); await draft.preview(); await draft.preview_html(width=1200); await draft.preview_pdf(); draft.set_cover(html_or_path); draft.set_tile(image); await draft.save() -> media_id",
@@ -537,6 +552,7 @@ stimma quick reference (inside run_code / run_file):
     returns items/total/has_more; .options('loras') discovers recorded names.
     .inspect([ids]) reads metadata/history without copying files.
     .lineage(media_ids=[ids], direction='ancestors') returns paginated source/output edges.
+  Existing package: pkg = await stimma.packages.open(media_id); inspect manifest() and preview(); replace_member()/rerun() for targeted edits.
   Packages: pkg = stimma.packages.new(title); await pkg.add_member(x, role=..); await pkg.run(recipe, inputs, params);
     await pkg.manifest() lists output paths; await pkg.preview() writes a workspace snapshot; pkg.set_cover('cover.html');
     await pkg.preview_pdf() returns {pdf, page_count, pages}; inspect the page PNGs with view_image before save.

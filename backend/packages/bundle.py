@@ -181,6 +181,7 @@ class _Run:
     key: str = ""
     cached: bool = False
     tile_png: Optional[bytes] = None
+    source_dir: Optional[Path] = None
 
 
 @dataclass
@@ -223,6 +224,7 @@ class PackageBuilder:
         self._scratch = Path(tempfile.mkdtemp(prefix="stimma-package-"))
         self._bundle_dir: Optional[Path] = None
         self._used_paths: set[str] = set()
+        self._dirty_runs: set[str] = set()
 
     async def __aenter__(self) -> "PackageBuilder":
         return self
@@ -232,6 +234,107 @@ class PackageBuilder:
 
     def cleanup(self) -> None:
         shutil.rmtree(self._scratch, ignore_errors=True)
+
+    async def load(self, media_id: int) -> None:
+        """Open an exact saved revision, preserving its files and recipe versions.
+
+        This is an edit, not a rebuild from current masters or current recipes.
+        """
+        if self.members or self.runs or self.extras:
+            raise PackageError("Open requires an empty draft")
+        media = await live_media(self.session, media_id)
+        if media.file_format != PACKAGE_FORMAT:
+            raise PackageError("Open requires package media")
+        bundle = Path(media.file_path)
+        manifest = read_manifest(bundle)
+        problems = validate_manifest(manifest)
+        if problems:
+            raise PackageError("Invalid package: " + "; ".join(problems))
+
+        def checked(entry):
+            rel = check_bundle_path(entry["path"])
+            path = bundle / rel
+            if not path.resolve().is_relative_to(bundle.resolve()) or not path.is_file():
+                raise PackageError(f"Package file unavailable: {rel}")
+            if sha256_file(path) != entry["hash"]:
+                raise PackageError(f"Package file changed: {rel}")
+            return path
+
+        self.title, self.slug = manifest["title"], manifest["slug"]
+        for entry in manifest.get("members", []):
+            checked(entry)
+            source = await media_for_member(self.session, entry)
+            if source is None or not Path(source.file_path).is_file() or sha256_file(Path(source.file_path)) != entry["hash"]:
+                raise PackageError(f"Package member payload unavailable: {entry['name']}")
+            self.members.append(_Member(entry["id"], entry.get("role"), source,
+                                        entry["name"], entry["path"]))
+            self._used_paths.add(entry["path"])
+        for entry in manifest.get("runs", []):
+            recipe = entry["recipe"]
+            # These bytes are already built. Installed recipes are needed only
+            # for an explicit rerun, never to carry existing outputs forward.
+            spec = RecipeSpec(recipe["id"], recipe["version"], recipe["display_name"],
+                              "Preserved output", [], [], lambda b: None,
+                              source=recipe["source"])
+            run = _Run(entry["id"], spec, dict(entry["inputs"]), dict(entry["params"]),
+                       entry["root"], key=entry.get("cache_key", ""))
+            run.source_dir = self._scratch / "preserved" / run.id
+            for file in entry.get("files", []):
+                src = checked(file)
+                if not file["path"].startswith(run.root):
+                    raise PackageError("Run file is outside its root")
+                rel = file["path"][len(run.root):]
+                dst = run.source_dir / check_bundle_path(rel)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                role = next((k for k, v in run.inputs.items() if v == file.get("source")), None)
+                run.files.append(WrittenFile(rel, file["hash"], file["size"], source=role))
+            self.runs.append(run)
+            self._used_paths.add(run.root.rstrip("/"))
+        for entry in manifest.get("extras", []):
+            self.extras.append(_Extra(checked(entry), entry["name"], entry["path"]))
+            self._used_paths.add(entry["path"])
+        cover = bundle / COVER_SOURCE_NAME
+        if (manifest.get("cover") or {}).get("kind") == "authored":
+            if not cover.is_file():
+                raise PackageError("Package is missing its editable cover source")
+            self.cover_source = cover.read_text(encoding="utf-8")
+        if manifest.get("cover_image"):
+            self.set_tile(bundle / check_bundle_path(manifest["cover_image"]))
+
+    async def replace_member(self, member_id: str, media_id: int) -> None:
+        """Replace one source in place; dependent runs must be explicitly rerun."""
+        member = self.member(member_id)
+        media = await live_media(self.session, media_id)
+        _require_standalone_file(Path(media.file_path), media.file_format)
+        if not Path(media.file_path).is_file():
+            raise PackageError("Replacement member must be a file")
+        if member.media.file_hash != media.file_hash:
+            self._dirty_runs.update(r.id for r in self.runs if member_id in r.inputs.values())
+        member.media = media
+
+    async def rerun(self, run_id: str, params: Optional[dict[str, Any]] = None) -> str:
+        """Rebuild only one run, retaining its id and output root."""
+        old = next((r for r in self.runs if r.id == run_id), None)
+        if old is None:
+            raise PackageError(f"Unknown run {run_id!r}")
+        index = self.runs.index(old)
+        root = old.root.rstrip("/")
+        self._used_paths.discard(root)
+        from uuid import uuid4
+        try:
+            await self.run(old.spec.id, old.inputs, old.params if params is None else params,
+                           run_id="edit-" + uuid4().hex, root=root)
+        except Exception:
+            self._used_paths.add(root)
+            raise
+        new = self.runs.pop()
+        if not new.cached:
+            new.source_dir = self._scratch / "runs" / new.id
+        new.id = old.id
+        self.runs[index] = new
+        self._dirty_runs.discard(run_id)
+        return run_id
 
     # members
     def _unique_path(self, rel_path: str) -> str:
@@ -257,7 +360,10 @@ class PackageBuilder:
         for existing in self.members:
             if existing.media.id == media.id and (role is None or existing.role == role):
                 return existing.id
-        mid = member_id or f"m{len(self.members) + 1}"
+        n = len(self.members) + 1
+        while any(m.id == f"m{n}" for m in self.members):
+            n += 1
+        mid = member_id or f"m{n}"
         if any(m.id == mid for m in self.members):
             raise PackageError(f"member id {mid!r} already used")
         name = os.path.basename(media.file_path)
@@ -373,7 +479,10 @@ class PackageBuilder:
         spec = get_recipe(recipe_id, self.profile_id)
         if spec is None:
             raise PackageError(f"recipe {recipe_id!r} is not installed")
-        rid = run_id or f"r{len(self.runs) + 1}"
+        n = len(self.runs) + 1
+        while any(r.id == f"r{n}" for r in self.runs):
+            n += 1
+        rid = run_id or f"r{n}"
         if any(r.id == rid for r in self.runs):
             raise PackageError(f"run id {rid!r} already used")
         resolved = await self._resolve_inputs(spec, inputs)
@@ -466,6 +575,8 @@ class PackageBuilder:
         return self._manifest()
 
     def _assemble(self, manifest: dict[str, Any], destination: Path | None = None) -> Path:
+        if self._dirty_runs:
+            raise PackageError("Changed members require rerun() for: " + ", ".join(sorted(self._dirty_runs)))
         if destination is None:
             staging = app_dirs.get_managed_staging_dir(self.profile_id, "generated")
             staging.mkdir(parents=True, exist_ok=True)
@@ -489,7 +600,7 @@ class PackageBuilder:
                 if r.cached:
                     run_cache.materialize(self.profile_id, r.key, r.files, run_root, copy=destination is not None)
                 else:
-                    src_root = self._scratch / "runs" / r.id
+                    src_root = r.source_dir or self._scratch / "runs" / r.id
                     for f in r.files:
                         dst = run_root / f.path
                         dst.parent.mkdir(parents=True, exist_ok=True)
