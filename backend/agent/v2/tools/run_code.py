@@ -8,6 +8,7 @@ from ..tools_registry import tool, ToolParameter
     name="run_code",
     description=(
         "Execute Python code in a restricted workspace sandbox with a pre-injected `stimma` SDK. "
+        "Each call has a fresh Python scope: persist work in files/scripts, not variables from a previous call. "
         "Code already runs inside `async def` — use `await` directly at the top level. Do NOT wrap in `async def main()` or use `asyncio.run()`. "
         "`stimma` is already available — no import needed (it has .show, .library, .llm, etc.). "
         "Generation/transformation tools are imported by their REAL name from the catalog: read .stimma/tools/<category>/ first "

@@ -278,11 +278,16 @@ class SkillContent:
         resource_dir = f"{SKILL_RESOURCES}/{self.pack.name}"
         if relative_dir != ".":
             resource_dir += f"/{relative_dir}"
+        modules = sorted(_skill_lib_modules(self.skill.dir_path))
+        module_help = ("\n\nPython modules available directly in run_code/run_file: "
+                       + ", ".join(f"`{name}`" for name in modules)
+                       + ". Import them there; shell Python does not load skill modules. "
+                       + "Read their API source under the resource directory’s lib/ folder.") if modules else ""
         return (
             f"{header}\n\nSkill resource directory: `{resource_dir}/` (read-only). "
             "Resolve relative paths in this skill from that directory. "
             "Use read_file to read files and glob with this directory as path to find them."
-            f"\n\n{self.content}"
+            f"{module_help}\n\n{self.content}"
         )
 
 
