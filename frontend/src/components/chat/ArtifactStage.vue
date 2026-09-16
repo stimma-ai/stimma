@@ -19,18 +19,17 @@
           <FileActions :file="workspaceFile" :url="fileUrl(chatId!, workspaceFile, 'content', true)" @attach="$emit('attach-file', workspaceFile)" @save="$emit('save-file', workspaceFile)" />
         </template>
         <template v-else-if="!workspaceFile && !isEmpty">
-          <!-- A package is a deliverable: the zip is one click, named and sized, not a menu away. -->
+          <!-- Package exports stay one click away. -->
           <button
             v-if="heroKind === 'package'"
             type="button"
             class="inline-flex items-center gap-2 h-7 pl-2 pr-2.5 mr-1 rounded-md bg-overlay-subtle hover:bg-overlay-medium text-xs text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50"
-            :title="`Download ${packageZipName}`"
+            title="Download ZIP"
             :disabled="downloadingPackage"
             @click="downloadPackage('zip')"
           >
             <ArchiveBoxIcon class="w-4 h-4 text-accent" />
-            <span class="font-medium">Download {{ packageZipName }}</span>
-            <span v-if="packageZipSize" class="font-mono text-content-tertiary">{{ packageZipSize }}</span>
+            <span class="font-medium">Download ZIP</span>
           </button>
           <button
             v-if="heroKind === 'package'"
@@ -288,30 +287,6 @@ function onOverflowClick(event?: MouseEvent) {
 
 const { downloadFromResponse } = useTauriDownload()
 const downloadingPackage = ref(false)
-
-// The button says what it hands over: the export's real filename, and how
-// much is in it. Both come from the manifest.
-const packageZipName = ref('package.zip')
-const packageZipSize = ref('')
-watch(() => [heroKind.value, props.viewedRevision?.media_id] as const, async ([kind, mediaId]) => {
-  packageZipName.value = 'package.zip'
-  packageZipSize.value = ''
-  if (kind !== 'package' || !mediaId) return
-  try {
-    const { data } = await axios.get(`${getApiBase()}/media/${mediaId}/package`)
-    const manifest = data?.manifest || {}
-    if (props.viewedRevision?.media_id !== mediaId) return
-    const slug = manifest.slug || String(manifest.title || 'package').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    packageZipName.value = `${slug}.zip`
-    let bytes = 0
-    for (const m of manifest.members || []) bytes += Number(m.size || 0)
-    for (const run of manifest.runs || []) for (const f of run.files || []) bytes += Number(f.size || 0)
-    for (const e of manifest.extras || []) bytes += Number(e.size || 0)
-    packageZipSize.value = bytes ? fileSize(bytes) : ''
-  } catch {
-    /* the button still downloads; it just says less */
-  }
-}, { immediate: true })
 
 async function downloadPackage(format: 'zip' | 'pdf') {
   const mediaId = props.viewedRevision?.media_id
