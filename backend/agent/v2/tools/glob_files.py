@@ -1,6 +1,7 @@
 """Glob workspace files — Claude Code compatible."""
 
 import time
+from fnmatch import fnmatchcase
 from glob import has_magic
 from pathlib import Path
 
@@ -66,7 +67,24 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
         search_pattern = "/".join(parts[3:])
 
     start = time.monotonic()
-    matches = sorted(search_root.glob(search_pattern)) if search_pattern else [search_root]
+    searches = [(search_root, search_pattern)]
+    resource_parts = None
+    if search_root == workspace and len(parts) >= 3 and "/".join(parts[:2]) == SKILL_RESOURCES:
+        resource_parts = parts[2:]
+    elif search_root == (workspace / SKILL_RESOURCES).resolve():
+        resource_parts = parts
+    if resource_parts:
+        # pathlib's recursive glob does not descend through mounted symlink
+        # directories. Search the known read-only pack roots explicitly instead
+        # of following arbitrary workspace symlinks (or requiring link support).
+        from ._workspace_files import skill_resource_roots
+        searches = [
+            (root, "/".join(resource_parts if resource_parts[0] == "**" else resource_parts[1:]))
+            for name, root in skill_resource_roots().items()
+            if fnmatchcase(name, resource_parts[0])
+        ]
+    matches = sorted({match for root, pat in searches
+                      for match in (root.glob(pat) if pat else [root])})
     duration_ms = round((time.monotonic() - start) * 1000, 1)
 
     # Directories are included (with a trailing '/') so discovery patterns like
