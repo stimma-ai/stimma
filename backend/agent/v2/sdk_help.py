@@ -52,7 +52,10 @@ Add new members/runs normally. For a replacement, use await pkg.replace_member(m
 workspace_path), then await pkg.rerun(run_id) for each affected run. Saving rejects
 stale dependent runs. Other runs are carried unchanged even if recipes were upgraded.
 Update the authored cover with set_cover(); save and show with revises=existing_asset_id.
-This does not regenerate artwork or infer changes from edits to the preview folder.""",
+This does not regenerate artwork or infer changes from edits to the preview folder.
+Each code call has a fresh Python scope. Keep edits, preview and save in one script;
+opening again loads the saved package and discards no files, but does not recover
+an earlier unsaved draft. Load the Packaging skill for the full edit workflow.""",
         group="core", is_async=True,
     ),
     "packages.new": SDKMethodHelp(
