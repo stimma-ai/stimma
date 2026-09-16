@@ -81,3 +81,67 @@ async def test_replace_requires_rerun_and_keeps_other_run(db_session, tmp_path):
         assert all(after[p] == before[p] for p in protected)
         assert after["members/first.json"] != before["members/first.json"]
         assert production(old_root) == before
+
+
+@pytest.mark.asyncio
+async def test_trashed_source_is_embedded_when_package_is_revised(db_session, tmp_path):
+    from PIL import Image
+    from sqlalchemy import select
+    from database import Asset, AssetRevision, ContainerMember
+    from asset_service import trash_asset
+    async with db_session() as session:
+        sdk, _unused = await initial(session, tmp_path)
+        Image.new("RGBA", (16, 16), "red").save(tmp_path / "master.png")
+        saved = await sdk.library.save("master.png")
+        source_id = saved["media_id"]
+        source_asset_id = saved["asset_id"]
+        draft = sdk.packages.new("Retained sources")
+        await draft.add_member(source_id)
+        draft.set_cover('<h1>Retained sources</h1>')
+        first = await draft.save()
+        sdk.show(first, role="final")
+        await sdk.flush()
+        asset_id = await session.scalar(select(AssetRevision.asset_id).where(
+            AssetRevision.primary_media_id == first))
+        await trash_asset(session, asset_id=source_asset_id)
+        await session.commit()
+        draft = await sdk.packages.open(first)
+        second = await draft.save()
+        sdk.show(second, role="final", revises=asset_id, revision_note="Retain exact source")
+        await sdk.flush()
+        asset = await session.get(Asset, asset_id)
+        member = await session.scalar(select(ContainerMember).where(
+            ContainerMember.container_revision_id == asset.current_revision_id))
+        assert member.embedded_media_id == source_id
+        assert member.linked_asset_id is None
+        assert (await session.get(Asset, source_asset_id)).state == "trashed"
+
+
+@pytest.mark.asyncio
+async def test_failed_show_revision_rolls_back_head_members_and_owners(db_session, tmp_path, monkeypatch):
+    from sqlalchemy import select
+    from database import Asset, AssetRevision, ContainerMember, MediaOwner
+    from agent.v2.tools.show import _commit_show_artifact
+    from packages.bundle import create_package_asset
+    async with db_session() as session:
+        sdk, first = await initial(session, tmp_path)
+        asset = await create_package_asset(session, media=await session.get(MediaItem, first))
+        asset_id, head = asset.id, asset.current_revision_id
+        draft = await sdk.packages.open(first)
+        source_id = (await draft.manifest())["members"][0]["media_id"]
+        second = await draft.save()
+        async def invalid_members(*args, **kwargs):
+            return [{"embedded_media_id": source_id}, {"linked_asset_id": 99999999}]
+        monkeypatch.setattr("container_service.infer_structured_member_specs", invalid_members)
+        result = await _commit_show_artifact(session=session, chat_id=sdk.chat_id,
+            media_id=second, revises=asset_id, revision_note="Rejected change", parent_revision=None)
+        assert isinstance(result, str) and result.startswith("Error:")
+        await session.commit()  # The caller may commit other work after an error.
+        await session.refresh(asset)
+        assert asset.current_revision_id == head
+        assert await session.scalar(select(AssetRevision).where(
+            AssetRevision.primary_media_id == second)) is None
+        revisions = set(await session.scalars(select(AssetRevision.id)))
+        assert all(m.container_revision_id in revisions for m in await session.scalars(select(ContainerMember)))
+        owners = list(await session.scalars(select(MediaOwner).where(MediaOwner.root_kind == "container_revision")))
+        assert all(int(o.root_id) in revisions for o in owners)

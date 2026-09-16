@@ -242,28 +242,29 @@ async def create_container_asset_from_media(
     idempotency_key: str | None = None,
 ) -> Asset:
     """Create one container Asset; embedded cells remain Media, not Assets."""
-    if container_type not in CONTAINER_TYPES:
-        raise AssetServiceError("Container type must be set, grid, sprite, or package")
-    if title is None:
-        title = await container_payload_title(session, media_id=media_id)
-    asset = await create_asset_from_media(
-        session,
-        media_id=media_id,
-        asset_type=container_type,
-        title=title,
-        origin_type=origin_type,
-        origin_id=origin_id,
-        idempotency_key=idempotency_key,
-    )
-    if asset.asset_type != container_type:
-        raise AssetServiceError("Existing Asset has a different container type")
-    await _populate_revision_members(
-        session,
-        container_asset_id=asset.id,
-        revision_id=asset.current_revision_id,
-        members=members,
-    )
-    return asset
+    async with session.begin_nested():
+        if container_type not in CONTAINER_TYPES:
+            raise AssetServiceError("Container type must be set, grid, sprite, or package")
+        if title is None:
+            title = await container_payload_title(session, media_id=media_id)
+        asset = await create_asset_from_media(
+            session,
+            media_id=media_id,
+            asset_type=container_type,
+            title=title,
+            origin_type=origin_type,
+            origin_id=origin_id,
+            idempotency_key=idempotency_key,
+        )
+        if asset.asset_type != container_type:
+            raise AssetServiceError("Existing Asset has a different container type")
+        await _populate_revision_members(
+            session,
+            container_asset_id=asset.id,
+            revision_id=asset.current_revision_id,
+            members=members,
+        )
+        return asset
 
 
 async def commit_container_revision(
@@ -277,24 +278,25 @@ async def commit_container_revision(
     idempotency_key: str | None = None,
 ) -> AssetRevision:
     """Commit an immutable structural snapshot and advance the container head."""
-    asset = await session.get(Asset, asset_id)
-    if asset is None or asset.asset_type not in CONTAINER_TYPES:
-        raise AssetServiceError("Asset is not a container")
-    revision = await commit_revision(
-        session,
-        asset_id=asset_id,
-        media_id=media_id,
-        parent_revision_id=parent_revision_id,
-        note=note,
-        idempotency_key=idempotency_key,
-    )
-    await _populate_revision_members(
-        session,
-        container_asset_id=asset_id,
-        revision_id=revision.id,
-        members=members,
-    )
-    return revision
+    async with session.begin_nested():
+        asset = await session.get(Asset, asset_id)
+        if asset is None or asset.asset_type not in CONTAINER_TYPES:
+            raise AssetServiceError("Asset is not a container")
+        revision = await commit_revision(
+            session,
+            asset_id=asset_id,
+            media_id=media_id,
+            parent_revision_id=parent_revision_id,
+            note=note,
+            idempotency_key=idempotency_key,
+        )
+        await _populate_revision_members(
+            session,
+            container_asset_id=asset_id,
+            revision_id=revision.id,
+            members=members,
+        )
+        return revision
 
 
 async def resolve_container_members(

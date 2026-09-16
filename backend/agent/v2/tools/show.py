@@ -304,59 +304,59 @@ async def _commit_show_artifact(
     from database import MediaOwner
 
     try:
-        revision = await commit_artifact_revision(
-            session,
-            media_id=media_id,
-            revises=revises,
-            note=revision_note,
-            parent_revision_id=parent_revision,
-        )
-        # A sprite revision is a container revision: pin the document's
-        # referenced artifacts as exact members so they are retained and the
-        # content endpoint reports this revision's members, not a hash guess.
-        from database import Asset, MediaItem
-        from sprite_document import is_sprite_format
-
-        media = await session.get(MediaItem, media_id)
-        container_kind = None
-        if media is not None and is_sprite_format(media.file_format):
-            container_kind = "sprite"
-        elif media is not None and is_package_format(media.file_format):
-            container_kind = "package"
-        if container_kind is not None:
-            from container_service import (
-                infer_structured_member_specs,
-                populate_container_revision_members,
-            )
-
-            asset = await session.get(Asset, revision.asset_id)
-            if asset is None or asset.asset_type != container_kind:
-                return f"Error: revises must name a {container_kind} asset when showing a {container_kind}"
-            await populate_container_revision_members(
+        async with session.begin_nested():
+            revision = await commit_artifact_revision(
                 session,
-                container_asset_id=revision.asset_id,
-                revision_id=revision.id,
-                members=await infer_structured_member_specs(session, container_media=media),
+                media_id=media_id,
+                revises=revises,
+                note=revision_note,
+                parent_revision_id=parent_revision,
             )
+            # A sprite revision is a container revision: pin the document's
+            # referenced artifacts as exact members so they are retained and the
+            # content endpoint reports this revision's members, not a hash guess.
+            from database import Asset, MediaItem
+            from sprite_document import is_sprite_format
+
+            media = await session.get(MediaItem, media_id)
+            container_kind = None
+            if media is not None and is_sprite_format(media.file_format):
+                container_kind = "sprite"
+            elif media is not None and is_package_format(media.file_format):
+                container_kind = "package"
+            if container_kind is not None:
+                from container_service import (
+                    infer_structured_member_specs,
+                    populate_container_revision_members,
+                )
+
+                asset = await session.get(Asset, revision.asset_id)
+                if asset is None or asset.asset_type != container_kind:
+                    raise AssetServiceError(f"revises must name a {container_kind} asset when showing a {container_kind}")
+                await populate_container_revision_members(
+                    session,
+                    container_asset_id=revision.asset_id,
+                    revision_id=revision.id,
+                    members=await infer_structured_member_specs(session, container_media=media),
+                )
+            await mirror_media_associations_to_asset(session, media_id=media_id, asset_id=revision.asset_id)
+            owners = list(
+                await session.scalars(
+                    select(MediaOwner).where(
+                        MediaOwner.media_id == media_id,
+                        MediaOwner.root_kind == "chat",
+                        MediaOwner.root_id == str(chat_id),
+                        MediaOwner.deleted_at.is_(None),
+                    )
+                )
+            )
+            now = datetime.utcnow()
+            for owner in owners:
+                owner.deleted_at = now
+            await session.flush()
+            return revision
     except AssetServiceError as e:
         return f"Error: Could not commit revision: {e}"
-
-    await mirror_media_associations_to_asset(session, media_id=media_id, asset_id=revision.asset_id)
-    owners = list(
-        await session.scalars(
-            select(MediaOwner).where(
-                MediaOwner.media_id == media_id,
-                MediaOwner.root_kind == "chat",
-                MediaOwner.root_id == str(chat_id),
-                MediaOwner.deleted_at.is_(None),
-            )
-        )
-    )
-    now = datetime.utcnow()
-    for owner in owners:
-        owner.deleted_at = now
-    await session.flush()
-    return revision
 
 
 async def _apply_show_disposition(

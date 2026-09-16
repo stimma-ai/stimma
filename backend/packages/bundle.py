@@ -783,9 +783,11 @@ async def package_member_specs(session: AsyncSession, manifest: dict[str, Any]) 
         if media is None:
             continue
         revision = await session.scalar(
-            select(AssetRevision).where(
+            select(AssetRevision).join(Asset, Asset.id == AssetRevision.asset_id).where(
                 AssetRevision.primary_media_id == media.id,
                 AssetRevision.deleted_at.is_(None),
+                Asset.deleted_at.is_(None),
+                Asset.state == "active",
             )
         )
         spec: dict[str, Any] = (
