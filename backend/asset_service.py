@@ -25,8 +25,25 @@ class AssetServiceError(ValueError):
     """The requested Asset operation would violate a model invariant."""
 
 
+def require_asset_format(file_format: str | None) -> None:
+    """Only formats with a library datatype may become an Asset revision.
+
+    Arbitrary files can be retained as package members or workspace files;
+    retaining bytes does not make them a standalone library item.
+    """
+    from utils.query_builder import ATOMIC_FORMATS, STRUCTURED_FORMATS
+
+    if (file_format or "").lower() not in set(ATOMIC_FORMATS + STRUCTURED_FORMATS):
+        raise AssetServiceError(
+            f"Unsupported library asset format: {file_format or '(none)'}. "
+            "Keep this file in the workspace or add it directly to a package; "
+            "ZIPs, code and other loose files are not standalone library assets."
+        )
+
+
 def infer_asset_type(media: MediaItem) -> str:
-    """Infer the user-facing Asset type from a legacy Media format."""
+    """Infer the user-facing Asset type from a supported Media format."""
+    require_asset_format(media.file_format)
     fmt = (media.file_format or "").lower()
     if fmt == "stimmagrid.json":
         return "grid"
@@ -40,7 +57,7 @@ def infer_asset_type(media: MediaItem) -> str:
         return "video"
     if fmt in {"mp3", "wav", "flac", "aac", "m4a", "ogg", "opus"}:
         return "audio"
-    if fmt in {"pdf", "doc", "docx", "txt", "md", "rtf", "py", "js", "ts", "json", "csv", "tsv", "zip", "html", "css", "yaml", "yml", "toml", "xml", "sql", "sh", "log"}:
+    if fmt == "md":
         return "document"
     return "image"
 
@@ -144,6 +161,7 @@ async def create_asset_from_media(
     object cannot be the primary payload of two Asset identities.
     """
     media = await _live_media(session, media_id)
+    require_asset_format(media.file_format)
     existing_revision = None
     if not assume_new:
         existing_revision = await session.scalar(
@@ -232,7 +250,8 @@ async def commit_revision(
     is_trashed = asset.state == "trashed"
     if not is_active and not (allow_inactive and is_trashed):
         raise AssetServiceError("Asset is unavailable")
-    await _live_media(session, media_id)
+    media = await _live_media(session, media_id)
+    require_asset_format(media.file_format)
 
     existing = await session.scalar(
         select(AssetRevision).where(AssetRevision.primary_media_id == media_id)
@@ -341,7 +360,8 @@ async def update_autosave_revision(
     asset = await session.get(Asset, revision.asset_id)
     if asset is None or asset.current_revision_id != revision.id:
         raise AssetServiceError("Autosave is not the Asset head")
-    await _live_media(session, media_id)
+    media = await _live_media(session, media_id)
+    require_asset_format(media.file_format)
 
     existing = await session.scalar(
         select(AssetRevision).where(AssetRevision.primary_media_id == media_id)

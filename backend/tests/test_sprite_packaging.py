@@ -75,7 +75,7 @@ def test_installed_sprite_recipe_pixels_and_handoff(tmp_path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     from packages.recipes import Build, ResolvedInput, validate_params
-    p = write_source(source(), tmp_path / "source.zip")
+    p = write_source(source(), tmp_path / "source.zip", usage={"tile_size": 8})
     recipe = module.build._stimma_recipe
     trees = []
     for n in range(2):
@@ -87,6 +87,9 @@ def test_installed_sprite_recipe_pixels_and_handoff(tmp_path):
         trees.append({str(f.relative_to(out)): f.read_bytes() for f in out.rglob('*') if f.is_file()})
     assert trees[0] == trees[1]
     manifest = json.loads(trees[0]['asset.json'])
+    assert manifest['usage']['tile_grid'] == {'columns': 2, 'rows': 3}
+    assert manifest['animations'][0]['durations_ms'] == [83, 127, 211]
+    assert manifest['anchor'] == {'x': 0.5, 'y': 0.9}
     atlas = json.loads(trees[0][manifest['atlas']])
     sheet = Image.open(io.BytesIO(trees[0]['atlas/courier.png']))
     for i, path in enumerate(manifest['animations'][0]['frames']):
@@ -96,3 +99,26 @@ def test_installed_sprite_recipe_pixels_and_handoff(tmp_path):
     assert manifest['animations'][0]['content_bounds'] == [[0, 0, 16, 24]] * 3
     assert 'source' not in manifest
     assert 'index.html' not in trees[0]
+
+
+@pytest.mark.parametrize("usage", [
+    {"tile_size": 0}, {"tile_size": True}, {"tile_size": 5},
+    {"tile_size": 8, "tile_grid": {"columns": 8, "rows": 4}},
+    {"tile_grid": {"columns": 2, "rows": 3}},
+    {"attachments": {"muzzle": {"x": float("nan"), "y": 5}}},
+    {"attachments": {"muzzle": {"x": "12", "y": 5}}},
+])
+def test_source_rejects_contradictory_or_invalid_structured_geometry(tmp_path, usage):
+    with pytest.raises(SpriteExportError):
+        write_source(source(), tmp_path / "bad.zip", usage=usage)
+    valid = write_source(source(), tmp_path / "source.zip")
+    with zipfile.ZipFile(valid) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    metadata = json.loads(files["source.json"])
+    metadata["usage"] = usage
+    files["source.json"] = json.dumps(metadata).encode()
+    with zipfile.ZipFile(tmp_path / "external.zip", "w") as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+    with pytest.raises(SpriteExportError):
+        read_source(tmp_path / "external.zip")

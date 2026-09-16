@@ -275,6 +275,9 @@ async def classify_legacy_media(
             for media_id in path_to_media.get(member_path, []):
                 structured_memberships[media_id].add(container_id)
 
+    from utils.query_builder import ATOMIC_FORMATS, STRUCTURED_FORMATS
+    supported_formats = set(ATOMIC_FORMATS + STRUCTURED_FORMATS)
+
     records: list[dict[str, Any]] = []
     conflict_count = 0
     missing_count = 0
@@ -312,6 +315,9 @@ async def classify_legacy_media(
             evidence.append(
                 f"existing_asset:{existing_revisions[item.id].asset_id}"
             )
+        elif (item.file_format or "").lower() not in supported_formats:
+            classification = "context_media"
+            evidence.append("unsupported_library_format")
         elif item.deleted_at is not None:
             classification = "trashed"
             evidence.append("legacy_soft_delete")

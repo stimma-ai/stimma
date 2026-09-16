@@ -998,6 +998,11 @@ class StimmaLibraryAPI:
         composed/edited in code (an Image or path, not a ToolResult), pass
         sources=[media ids] so the derivation is recorded — otherwise
         code-path edits are invisible to lineage."""
+        return await self._save_payload(item, tags, inspired_by, sources, path,
+                                        materialize_asset=True)
+
+    async def _save_payload(self, item=None, tags=None, inspired_by=None,
+                            sources=None, path=None, *, materialize_asset=False):
         if item is None:
             item = path
         if item is None:
@@ -1070,7 +1075,7 @@ class StimmaLibraryAPI:
             provenance=provenance,
             inspired_by=inspired_by,
             project_id=self._sdk.project_id,
-            materialize_asset=True,
+            materialize_asset=materialize_asset,
         )
         if isinstance(raw, str) and raw.startswith("Error:"):
             raise RuntimeError(raw[6:].strip())
@@ -1081,7 +1086,8 @@ class PackageDraft:
     """A package being assembled from code: members, recipe runs, extras, a cover.
 
     Members are library media. Unchanged workspace copies reuse their library
-    asset; new files and unsaved ToolResults are saved with lineage first.
+    asset; new files and unsaved ToolResults are retained as Media with lineage,
+    without creating standalone library Assets.
     ``save()`` writes the bundle and returns its media id; commit it with
     ``stimma.show(media_id=..., role="final")`` like any produced result.
     """
@@ -1113,7 +1119,7 @@ class PackageDraft:
             return item
         if isinstance(item, ToolResult):
             if item.media_id is None:
-                saved = await self._sdk.library.save(item)
+                saved = await self._sdk.library._save_payload(item)
                 return int(saved["media_id"])
             return int(item.media_id)
         if isinstance(item, (str, Path)):
@@ -1139,7 +1145,7 @@ class PackageDraft:
                     ).order_by(MediaItem.id.desc()).limit(1))
                     if existing is not None and Path(existing.file_path).is_file() and sha256_file(Path(existing.file_path)) == digest:
                         return int(existing.id)
-            saved = await self._sdk.library.save(text, sources=list(sources) if sources else None)
+            saved = await self._sdk.library._save_payload(text, sources=list(sources) if sources else None)
             return int(saved["media_id"])
         raise TypeError(f"member must be a media id, ToolResult, or workspace path; got {type(item).__name__}")
 

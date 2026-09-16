@@ -62,3 +62,14 @@ async def test_classifier_reports_missing_files_without_legacy_visibility_state(
         assert record["classification"] == "asset"
         assert record["file_missing"] is True
         assert record["conflicts"] == []
+
+
+@pytest.mark.asyncio
+async def test_legacy_loose_file_is_not_promoted_by_backfill(db_session):
+    from asset_migration import classify_legacy_media
+    async with db_session() as session:
+        loose = await create_media_item(session, file_format="zip")
+        report = await classify_legacy_media(session)
+        record = next(r for r in report["records"] if r["media_id"] == loose.id)
+        assert record["classification"] == "context_media"
+        assert "unsupported_library_format" in record["evidence"]

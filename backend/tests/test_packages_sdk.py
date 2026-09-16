@@ -1,4 +1,4 @@
-"""stimma.packages from the run_code SDK: workspace files become members with lineage."""
+"""Package SDK: retained workspace members with lineage, without library clutter."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         assert manifest["runs"][0]["params"]["app_name"] == "SDK"
         assert manifest["extras"][0]["name"] == "brief.txt"
         assert manifest["cover"]["kind"] == "authored"
-        # The workspace file was saved to the library and the package descends from it.
+        # The workspace payload is retained and the package descends from it.
         member_media = await session.get(MediaItem, manifest["members"][0]["media_id"])
         assert member_media is not None and member_media.file_hash == manifest["members"][0]["hash"]
         edges = list(await session.scalars(select(MediaLineage).where(MediaLineage.media_id == media_id)))
@@ -301,3 +301,37 @@ async def test_sdk_show_reports_rejected_revision_without_success_receipt(db_ses
             await sdk.flush()
         assert sdk._shown_media_ids == []
         assert sdk._display_receipts == []
+
+
+@pytest.mark.asyncio
+async def test_package_source_files_are_retained_without_library_assets(db_session, tmp_path):
+    import json
+    import zipfile
+    from agent.v2.code_runtime import StimmaSDK
+    from database import AssetRevision, MediaOwner
+
+    with zipfile.ZipFile(tmp_path / "source.zip", "w") as archive:
+        archive.writestr("source.json", json.dumps({"editable": True}))
+    async with db_session() as session:
+        chat = Chat(name="Portable inputs")
+        session.add(chat)
+        await session.commit()
+        sdk = StimmaSDK(session=session, chat_id=chat.id, workspace_dir=tmp_path,
+                        project_workspace_dir=None, interrupt_checker=lambda: False)
+        with pytest.raises(RuntimeError, match="Unsupported library asset format"):
+            await sdk.library.save("source.zip")
+        assert await session.scalar(select(MediaItem).where(MediaItem.file_format == "zip")) is None
+        pkg = sdk.packages.new("Portable inputs")
+        member = await pkg.add_member("source.zip")
+        media = pkg._builder.member(member).media
+        assert await session.scalar(select(AssetRevision).where(
+            AssetRevision.primary_media_id == media.id)) is None
+        (tmp_path / "cover.html").write_text('<h1>Sources</h1><stimma-files></stimma-files>')
+        pkg.set_cover("cover.html")
+        package_id = await pkg.save()
+        from packages.bundle import create_package_asset
+        await create_package_asset(session, media=await session.get(MediaItem, package_id))
+        assert await session.scalar(select(MediaOwner).where(
+            MediaOwner.media_id == media.id, MediaOwner.deleted_at.is_(None))) is not None
+        assert await session.scalar(select(AssetRevision).where(
+            AssetRevision.primary_media_id == media.id)) is None

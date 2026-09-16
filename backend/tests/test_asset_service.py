@@ -268,3 +268,20 @@ async def test_retrying_historical_failed_operation_reinstates_barrier(db_sessio
         media.deletion_pending_at = None
         await session.delete(operation)
         await session.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fmt", ["zip", "json", "py", "pdf", "txt", "html", "unknown", ""])
+async def test_unsupported_payload_cannot_be_asset_or_revision(db_session, fmt):
+    async with db_session() as session:
+        image = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=image.id)
+        before = asset.current_revision_id
+        loose = await create_media_item(session, file_format=fmt)
+        with pytest.raises(AssetServiceError, match="Unsupported library asset format"):
+            await create_asset_from_media(session, media_id=loose.id, asset_type="image")
+        with pytest.raises(AssetServiceError, match="Unsupported library asset format"):
+            await commit_revision(session, asset_id=asset.id, media_id=loose.id)
+        assert asset.current_revision_id == before
+        assert await session.scalar(select(AssetRevision).where(
+            AssetRevision.primary_media_id == loose.id)) is None

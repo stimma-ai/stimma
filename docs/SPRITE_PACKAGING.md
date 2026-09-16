@@ -110,3 +110,18 @@ Visual acceptance remains separate: inspect alpha on light/dark backgrounds,
 move transitions at one pivot, collision and muzzle placement, tile repetition,
 responsive guide HTML and every PDF page. Successful serialization does not
 establish successful artwork or a complete game handoff.
+
+
+### Structured geometry checks
+
+Source write/read rejects nonpositive or nonintegral `usage.tile_size`, frame
+sizes not divisible by that tile size, and contradictory optional
+`usage.tile_grid: {"columns": ..., "rows": ...}`. The recipe always computes
+that grid from the PNG canvas and tile size when tile size is declared.
+Attachment points require finite numeric x/y coordinates within the canvas.
+These checks do not interpret prose captions or judge anatomy and registration.
+
+Package inputs are retained Media, not automatically standalone library Assets.
+Add source ZIPs directly with `pkg.add_member(path)`; loose ZIP/JSON/HTML/code
+files are rejected by `library.save` and by Asset creation/revision services.
+They remain valid package members/extras and workspace files.

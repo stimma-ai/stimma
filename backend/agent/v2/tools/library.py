@@ -1394,6 +1394,19 @@ async def save_workspace_file(
     is_package_bundle = source.is_dir() and source.name.lower().endswith('.stimmapackage')
     is_bundle = is_layout_bundle or is_package_bundle
 
+    if materialize_asset:
+        from asset_service import AssetServiceError, require_asset_format
+        fmt = ("stimmalayout" if is_layout_bundle else "stimmapackage"
+               if is_package_bundle else source.suffix.lstrip(".").lower())
+        for compound in ("stimmasprite.json", "stimmaset.json", "stimmagrid.json"):
+            if source.name.lower().endswith("." + compound):
+                fmt = compound
+                break
+        try:
+            require_asset_format(fmt)
+        except AssetServiceError as exc:
+            return f"Error: {exc}"
+
     # Copy to output folder
     output_folder = _get_default_folder(workspace_dir)
     os.makedirs(output_folder, exist_ok=True)

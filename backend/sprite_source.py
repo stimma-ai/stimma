@@ -50,8 +50,42 @@ def validate_source(source: SpriteSource) -> None:
         raise SpriteExportError("Sprite source exceeds the 64 megapixel decoded-frame budget; split unrelated actors into separate runs")
 
 
+def validate_usage(source: SpriteSource, usage: dict | None) -> dict:
+    """Validate declared geometry; prose remains editorial, not executable data."""
+    if usage is None:
+        return {}
+    if not isinstance(usage, dict):
+        raise SpriteExportError("usage must be an object containing game-facing notes")
+    width, height = source.animations[0].frames[0].size
+    tile = usage.get("tile_size")
+    if tile is not None:
+        if isinstance(tile, bool) or not isinstance(tile, int) or tile <= 0:
+            raise SpriteExportError("usage.tile_size must be a positive integer")
+        if width % tile or height % tile:
+            raise SpriteExportError("Frame dimensions must be divisible by usage.tile_size")
+        grid = usage.get("tile_grid")
+        if grid is not None and (not isinstance(grid, dict) or
+                any(type(grid.get(k)) is not int for k in ("columns", "rows")) or
+                grid != {"columns": width // tile, "rows": height // tile}):
+            raise SpriteExportError("usage.tile_grid contradicts frame dimensions and tile_size")
+    elif "tile_grid" in usage:
+        raise SpriteExportError("usage.tile_grid requires tile_size")
+    attachments = usage.get("attachments", {})
+    if not isinstance(attachments, dict):
+        raise SpriteExportError("usage.attachments must map names to pixel coordinates")
+    for name, point in attachments.items():
+        if (not isinstance(point, dict) or any(
+            isinstance(point.get(k), bool) or not isinstance(point.get(k), (int, float))
+            or not math.isfinite(point[k]) for k in ("x", "y"))):
+            raise SpriteExportError(f"Attachment {name!r} needs finite x/y pixel coordinates")
+        if not (0 <= point["x"] <= width and 0 <= point["y"] <= height):
+            raise SpriteExportError(f"Attachment {name!r} lies outside the frame canvas")
+    return usage
+
+
 def write_source(source: SpriteSource, path: str | Path, *, usage: dict | None = None) -> Path:
     validate_source(source)
+    usage = validate_usage(source, usage)
     data = {"sprite_source": 1, "name": source.base_name, "title": source.title,
             "anchor": list(source.anchor), "pixelated": source.pixelated,
             "usage": usage or {}, "animations": []}
@@ -107,9 +141,7 @@ def read_source(path: str | Path) -> tuple[SpriteSource, dict]:
                                   animations=animations, pixelated=bool(data.get("pixelated", True)))
             validate_source(source)
             usage = data.get("usage", {})
-            if not isinstance(usage, dict):
-                raise SpriteExportError("usage must be an object containing game-facing notes")
-            return source, usage
+            return source, validate_usage(source, usage)
     except SpriteExportError:
         raise
     except (KeyError, TypeError, ValueError, OSError, zipfile.BadZipFile) as exc:

@@ -1843,3 +1843,17 @@ async def test_asset_finalize_batch_isolates_one_unlink_failure(
             )
         )
     assert statuses == ["completed", "completed"]
+
+
+@pytest.mark.asyncio
+async def test_contextual_loose_file_promotion_is_rejected(client, db_session):
+    async with db_session() as session:
+        media = await create_media_item(session, file_format="zip")
+        await session.commit()
+        media_id = media.id
+    response = await client.post(f"/api/assets/contextual-media/{media_id}/promote")
+    assert response.status_code == 400
+    assert "Unsupported library asset format: zip" in response.json()["detail"]
+    async with db_session() as session:
+        assert await session.scalar(select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id)) is None
