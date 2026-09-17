@@ -160,7 +160,7 @@
               </div>
 
               <!-- Bottom-left stack: contextual state, bottom-up -->
-              <div class="absolute bottom-2 left-2 z-chrome flex flex-col-reverse items-start gap-1.5">
+              <div class="absolute left-2 z-chrome flex flex-col-reverse items-start gap-1.5" :class="hasPackageLabel(rowItem) ? 'bottom-[46px]' : 'bottom-2'">
                 <!-- Similarity score badge -->
                 <div v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined" class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 text-xs font-semibold text-white">
                   {{ formatSimilarity(rowItem.similarity_score) }}
@@ -199,16 +199,15 @@
                 </span>
               </div>
 
-              <!-- Package title: always on. A shelf of covers only reads as
-                   named deliverables when each one says what it is; the
-                   scrim also carries the badge row beneath the title. -->
+              <!-- Package label: a caption strip in the tile's own matte, so it
+                   reads as part of the frame (contact-sheet label) rather than a
+                   scrim over the cover. Title plus recency; badges lift above it. -->
               <div
-                v-if="getMediaType(rowItem) === 'package' && itemTitle(rowItem)"
-                class="absolute inset-x-0 bottom-0 z-chrome pointer-events-none bg-gradient-to-t from-black/85 via-black/50 to-transparent px-2.5 pb-9 pt-8"
+                v-if="hasPackageLabel(rowItem)"
+                class="absolute inset-x-0 bottom-0 z-chrome pointer-events-none bg-matte/90 border-t border-white/[0.06] px-2 pt-1.5 pb-1.5"
               >
-                <span class="block text-[11px] font-medium leading-snug text-white line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
-                  {{ itemTitle(rowItem) }}
-                </span>
+                <div class="text-[11px] font-medium text-content leading-tight truncate">{{ itemTitle(rowItem) }}</div>
+                <div class="font-mono text-[10px] text-content-muted leading-tight mt-0.5 truncate">{{ packageAge(rowItem) }}</div>
               </div>
             </div>
           </div>
@@ -240,6 +239,7 @@ import { useViewport } from '../composables/useViewport'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
+import { formatRelativeTime } from '../utils/timeFormat'
 import { useWebSocket } from '../composables/useWebSocket'
 import { AppImage, MediaContextMenu } from './media'
 import MarkerBadges from './MarkerBadges.vue'
@@ -773,6 +773,9 @@ function formatSimilarity(score) {
 
 // Browse rows carry the Asset title as asset_title; older payloads (sets,
 // grids) still spell it title.
+function hasPackageLabel(item) { return getMediaType(item) === 'package' && !!itemTitle(item) }
+function packageAge(item) { return formatRelativeTime(item.asset_created_at || item.created_date) }
+
 function itemTitle(item) {
   return item?.asset_title || item?.title || ''
 }
