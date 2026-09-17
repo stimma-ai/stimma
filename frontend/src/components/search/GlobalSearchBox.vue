@@ -554,6 +554,11 @@ async function runSearch() {
     // Entity + tool matches land together; the two asset flavors fill in
     // after so they never delay the navigational hits.
     const projectId = scopeProject.value?.id ?? null
+    // Asset groups are the slowest hit; start them with the navigational
+    // searches rather than after, so nothing waits on anything else.
+    searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId).then(groups => {
+      if (seq === searchSeq) assetGroupResults.value = groups
+    }).catch(() => {})
     const [entities, tools] = await Promise.all([
       searchEntities(q, DROPDOWN_ENTITY_LIMIT, projectId).catch(() => null),
       searchTools(q, DROPDOWN_TOOL_LIMIT).catch(() => []),
@@ -565,9 +570,6 @@ async function runSearch() {
     selectedIndex.value = 0
     if (entities && entities.presets.length > 0) void ensureToolCatalog()
     if (openInstanceResults.value.length > 0) void ensureToolCatalog()
-    searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId).then(groups => {
-      if (seq === searchSeq) assetGroupResults.value = groups
-    }).catch(() => {})
     searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
       if (seq === searchSeq) visualMediaResults.value = items
     }).catch(() => {})

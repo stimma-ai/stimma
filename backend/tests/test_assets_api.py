@@ -922,6 +922,38 @@ async def test_asset_tag_counts_only_include_live_assets(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_search_groups_orders_deliverables_first_with_true_totals(client, db_session):
+    """One old package must show beside many newer images, with real counts."""
+    async with db_session() as session:
+        old = datetime.now() - timedelta(days=30)
+        package = await create_media_item(
+            session, file_format="stimmapackage", file_path="/tmp/nova-kit.stimmapackage",
+            created_date=old, generation_metadata='{"prompt": ""}',
+        )
+        package.original_filename = "nova-kit.stimmapackage"
+        await create_asset_from_media(session, media_id=package.id)
+        for index in range(8):
+            image = await create_media_item(session, file_path=f"/tmp/nova-frame-{index}.png")
+            image.original_filename = f"nova-frame-{index}.png"
+            await create_asset_from_media(session, media_id=image.id)
+        await session.commit()
+
+    response = await client.get("/api/assets/search-groups", params={"q": "nova", "per_group": 3, "max_groups": 1})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert [group["type"] for group in payload["groups"]] == ["packages"]
+    assert payload["groups"][0]["total"] == 1
+    assert payload["groups"][0]["items"][0]["media_id"] == package.id
+    assert payload["omitted_groups"] == ["images"]
+
+    response = await client.get("/api/assets/search-groups", params={"q": "nova", "per_group": 3, "max_groups": 5})
+    payload = response.json()
+    images = next(group for group in payload["groups"] if group["type"] == "images")
+    assert images["total"] == 8
+    assert len(images["items"]) == 3
+
+
+@pytest.mark.asyncio
 async def test_asset_facets_count_every_media_type(client, db_session):
     """Every browser filter type must be present in facet counts, including
     sprites and packages; a missing key hides the row from the filter panel."""

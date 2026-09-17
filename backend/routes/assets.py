@@ -557,6 +557,76 @@ async def browse_assets(
     }
 
 
+# Search result groups, in display order: deliverables first, loose media after.
+SEARCH_GROUP_ORDER = [
+    ("packages", PACKAGE_FORMATS),
+    ("layouts", LAYOUT_FORMATS),
+    ("sets", SET_FORMATS),
+    ("grids", GRID_FORMATS),
+    ("sprites", SPRITE_FORMATS),
+    ("vectors", VECTOR_FORMATS),
+    ("images", IMAGE_FORMATS),
+    ("videos", VIDEO_FORMATS),
+    ("audio", AUDIO_FORMATS),
+    ("text", TEXT_FORMATS),
+]
+
+
+@router.get("/search-groups")
+async def search_asset_groups(
+    q: str = Query(..., min_length=1, max_length=200),
+    per_group: int = Query(6, ge=1, le=50, description="Newest items returned per group"),
+    max_groups: int = Query(3, ge=1, le=len(SEARCH_GROUP_ORDER), description="Groups returned, in display order"),
+    project_id: int | None = None,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Text matches for the search box, grouped by media type.
+
+    One grouped count over the matching set decides which types are present
+    and their true totals; only the first ``max_groups`` present types are
+    then fetched, newest first. This replaces a facet-count call plus one
+    browse call per group, and never hides a type just because its matches
+    are older than another type's.
+    """
+    base = _apply_asset_filters(
+        _asset_browser_base("active"),
+        prompt_query=q,
+        project_ids=str(project_id) if project_id is not None else None,
+        state="active",
+    )
+    format_counts = dict(
+        (
+            await session.execute(
+                base.with_only_columns(MediaItem.file_format, func.count())
+                .order_by(None)
+                .group_by(MediaItem.file_format)
+            )
+        ).all()
+    )
+    present = []
+    for key, formats in SEARCH_GROUP_ORDER:
+        total = sum(format_counts.get(fmt, 0) for fmt in formats)
+        if total:
+            present.append((key, formats, total))
+
+    groups = []
+    for key, formats, total in present[:max_groups]:
+        query = _apply_asset_browser_sort(
+            base.where(MediaItem.file_format.in_(formats)), "created_desc", None
+        ).limit(per_group)
+        rows = (await session.execute(query)).all()
+        groups.append({
+            "type": key,
+            "total": total,
+            "items": await _browser_projections(session, rows),
+        })
+    return {
+        "query": q,
+        "groups": groups,
+        "omitted_groups": [key for key, _formats, _total in present[max_groups:]],
+    }
+
+
 @router.get("/browse/ids")
 async def browse_asset_ids(
     state: str = Query("active", pattern="^(active|trashed)$"),
