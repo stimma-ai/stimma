@@ -189,13 +189,25 @@
                 </div>
               </div>
 
-              <!-- Set/Grid/Sprite/Package name pill (hover only) -->
+              <!-- Set/Grid/Sprite name pill (hover only) -->
               <div
-                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite' || getMediaType(rowItem) === 'package') && rowItem.title"
+                v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid' || getMediaType(rowItem) === 'sprite') && itemTitle(rowItem)"
                 class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 <span class="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">
-                  {{ rowItem.title }}
+                  {{ itemTitle(rowItem) }}
+                </span>
+              </div>
+
+              <!-- Package title: always on. A shelf of covers only reads as
+                   named deliverables when each one says what it is; the
+                   scrim also carries the badge row beneath the title. -->
+              <div
+                v-if="getMediaType(rowItem) === 'package' && itemTitle(rowItem)"
+                class="absolute inset-x-0 bottom-0 z-chrome pointer-events-none bg-gradient-to-t from-black/85 via-black/50 to-transparent px-2.5 pb-9 pt-8"
+              >
+                <span class="block text-[11px] font-medium leading-snug text-white line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+                  {{ itemTitle(rowItem) }}
                 </span>
               </div>
             </div>
@@ -757,6 +769,12 @@ function isVideo(item) {
 
 function formatSimilarity(score) {
   return `${(score * 100).toFixed(1)}%`
+}
+
+// Browse rows carry the Asset title as asset_title; older payloads (sets,
+// grids) still spell it title.
+function itemTitle(item) {
+  return item?.asset_title || item?.title || ''
 }
 
 function formatDuration(seconds) {

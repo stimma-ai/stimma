@@ -192,6 +192,37 @@
             </div>
           </section>
 
+          <!-- Assets: the app's duality — prompt text matches vs CLIP visual
+               matches. Empty flavors are hidden entirely (like the home
+               screen's sections), never shown as dead bands. -->
+          <section v-for="assetSection in assetSections" :key="assetSection.key">
+            <div class="flex items-baseline gap-2.5 mb-3">
+              <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
+              <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
+              <router-link
+                :to="{ name: 'browse', query: assetSection.browseQuery }"
+                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
+              >View all</router-link>
+            </div>
+            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
+              <div
+                v-for="(media, index) in assetSection.items"
+                :key="media.id"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer bg-matte hover:opacity-80 transition-opacity"
+                @click="openAssetFromGrid(assetSection.key, index)"
+              >
+                <MediaImage
+                  :media-id="mediaIdOf(media)"
+                  :file-hash="media.file_hash"
+                  :thumbnail="true"
+                  :thumbnail-size="256"
+                  container-class="w-full h-full"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </section>
+
           <!-- Working chat/run results stay discoverable without filling All Assets. -->
           <section v-if="contextualGroups.length > 0">
             <div class="mb-3 flex items-baseline gap-2.5">
@@ -240,36 +271,6 @@
             </div>
           </section>
 
-          <!-- Assets: the app's duality — prompt text matches vs CLIP visual
-               matches. Empty flavors are hidden entirely (like the home
-               screen's sections), never shown as dead bands. -->
-          <section v-for="assetSection in assetSections" :key="assetSection.key">
-            <div class="flex items-baseline gap-2.5 mb-3">
-              <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
-              <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
-              <router-link
-                :to="{ name: 'browse', query: assetSection.browseQuery }"
-                class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
-              >View all</router-link>
-            </div>
-            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
-              <div
-                v-for="(media, index) in assetSection.items"
-                :key="media.id"
-                class="aspect-square rounded-media overflow-hidden cursor-pointer bg-matte hover:opacity-80 transition-opacity"
-                @click="openAssetFromGrid(assetSection.key, index)"
-              >
-                <MediaImage
-                  :media-id="mediaIdOf(media)"
-                  :file-hash="media.file_hash"
-                  :thumbnail="true"
-                  :thumbnail-size="256"
-                  container-class="w-full h-full"
-                  class="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          </section>
         </div>
       </div>
     </div>

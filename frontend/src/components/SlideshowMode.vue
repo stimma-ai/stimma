@@ -354,6 +354,38 @@
       </div>
     </div>
 
+    <!-- Package header: the deliverable's name and its exports, the same
+         header the artifact viewer gives a package in chat. Centered over
+         the stage like the grid title, shifted when the sidebar is open. -->
+    <div
+      v-if="isPackage && !slideshowCompact && !isViewingSource"
+      class="absolute top-4 -translate-x-1/2 z-chrome flex items-center h-12 pl-5 pr-2 rounded-full bg-black/40 backdrop-blur-md"
+      :style="{ left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%', WebkitAppRegion: 'no-drag' }"
+    >
+      <span class="text-white text-sm font-medium max-w-72 truncate">{{ packageTitle }}</span>
+      <span class="w-px h-5 bg-white/15 mx-3" aria-hidden="true" />
+      <button
+        type="button"
+        class="border-none bg-transparent h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium text-white/85 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+        :disabled="downloadingPackage"
+        title="Download ZIP"
+        @click="downloadPackage('zip')"
+      >
+        <ArchiveBoxIcon class="w-4 h-4 text-accent" />
+        Download ZIP
+      </button>
+      <button
+        type="button"
+        class="border-none bg-transparent h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium text-white/85 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+        :disabled="downloadingPackage"
+        title="Download the package guide, not its production files"
+        @click="downloadPackage('pdf')"
+      >
+        <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
+        Guide PDF
+      </button>
+    </div>
+
     <!-- Close button -->
     <button
       v-if="!slideshowCompact"
@@ -1174,6 +1206,8 @@
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
         <button type="button" class="sheet-row" @click="showImageStrip = !showImageStrip; compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="showImageStrip ? '!text-live' : ''">{{ showImageStrip ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
+        <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
+        <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download guide PDF</span></button>
       </div>
     </Sheet>
 
@@ -1380,7 +1414,7 @@ import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
 import Sheet from './ui/Sheet.vue'
-import { XMarkIcon, ArrowLeftIcon, InformationCircleIcon, EllipsisHorizontalIcon, Squares2X2Icon, ShareIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, ArrowLeftIcon, InformationCircleIcon, EllipsisHorizontalIcon, Squares2X2Icon, ShareIcon, ArchiveBoxIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
@@ -1396,6 +1430,7 @@ import { dirtyEditorAssets } from '../imageEditor/stack/editorDirtyState'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
+import { useTauriDownload } from '../composables/useTauriDownload'
 import { assetIdOf, mediaIdOf, hasAssetIdentity } from '../utils/assetIdentity'
 import {
   assetHeadSignature,
@@ -2301,6 +2336,36 @@ const isPackage = computed(() => {
   if (!displayItem.value) return false
   return isPackageType(displayItem.value)
 })
+
+const packageTitle = computed(() => {
+  const item = currentItem.value
+  if (!item) return ''
+  return item.asset_title || item.title || (item.original_filename || '').replace(/\.stimmapackage$/i, '') || 'Package'
+})
+
+// Package exports (ZIP of the bundle, or just the guide PDF) — the same
+// endpoint the artifact viewer uses, so both surfaces stay in step.
+const { downloadFromResponse } = useTauriDownload()
+const downloadingPackage = ref(false)
+async function downloadPackage(format) {
+  const mediaId = currentPayloadId.value
+  if (!mediaId || downloadingPackage.value) return
+  downloadingPackage.value = true
+  try {
+    const response = await axios.post(
+      `${getApiBase()}/media/${mediaId}/package-export`,
+      { format },
+      { responseType: 'blob' },
+    )
+    const disposition = response.headers['content-disposition'] || ''
+    const match = disposition.match(/filename="([^"]+)"/)
+    await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
+  } catch (error) {
+    console.error('Failed to export package:', error)
+  } finally {
+    downloadingPackage.value = false
+  }
+}
 
 // A rebuild commits a new revision of the same Asset; pull the head so the
 // slideshow's own projection (title, revision count, thumbnail) catches up.
