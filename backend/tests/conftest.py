@@ -643,3 +643,28 @@ def output_folder(generation_app) -> str:
 def generation_queue(generation_app):
     """Access to the GenerationQueue."""
     return generation_app.state.generation_queue
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fixture_stimpack_recipes():
+    """Expose the recipes of ``tests/fixtures/stimpacks`` to every test.
+
+    Core ships no app-shaped recipe any more (those live in stimpacks), so the
+    package, SDK and flow tests use the ``tiles`` fixture recipe, which also
+    proves a stimpack recipe can import its pack's ``lib/``.
+    """
+    from agent.v2 import stimpacks as stimpacks_mod
+
+    fixtures = Path(__file__).parent / "fixtures" / "stimpacks"
+    original = stimpacks_mod.list_stimpack_recipe_files
+
+    def with_fixtures(profile_id=None):
+        found = list(original(profile_id=profile_id))
+        for pack in sorted(p for p in fixtures.iterdir() if p.is_dir()):
+            for path in sorted((pack / "recipes").glob("*.py")):
+                if not path.name.startswith("_"):
+                    found.append((pack.name, path))
+        return found
+
+    with patch.object(stimpacks_mod, "list_stimpack_recipe_files", with_fixtures):
+        yield

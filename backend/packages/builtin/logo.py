@@ -123,12 +123,12 @@ async def build(b: Build) -> None:
     # An avatar is a square of solid colour with the mark on it, so the ground
     # decides whether the mark is visible at all. Derive a neutral from the
     # mark rather than assuming white: a reversed logo on white is nothing.
-    import icon_spec
+    from packages import ink
 
     avatar_ground = b.params.avatar_background
     if not avatar_ground:
         if b.input(avatar_source).has_alpha:
-            suggested = icon_spec.neutral_ground(icon_spec.ink_color(avatar_img))
+            suggested = ink.neutral_ground(ink.ink_color(avatar_img))
             b.fail(
                 "social avatars are a solid square with the mark on it, and the ground is a "
                 "decision nobody has made. Ask which colour the avatars should sit on — show "

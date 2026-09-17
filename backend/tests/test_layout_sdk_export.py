@@ -60,7 +60,7 @@ async def test_editable_html_export_embeds_assets_and_preserves_print_css(tmp_pa
     bundle = tmp_path / "card.stimmalayout"
     bundle.mkdir()
     Image.new("RGB", (20, 10), "red").save(bundle / "logo.png")
-    font = Path("packages/mockups/assets/fonts/NotoSans-Regular.ttf")
+    font = Path("render_fonts/LiberationSans-Regular.ttf")
     (bundle / "font.ttf").write_bytes(font.read_bytes())
     source = '''<html data-stimma-width="560" data-stimma-height="794"><style>
     @font-face{font-family:Card;src:url("font.ttf")}

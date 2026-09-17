@@ -25,7 +25,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from database import MediaItem
-import icon_spec
 from core.dependencies import get_db_session
 from routes.media_files import get_db_session_by_guid
 from utils.http_headers import content_disposition
@@ -53,18 +52,6 @@ SVG_RENDER_HEADERS = {
 }
 
 
-# Platform icon rules live in ``icon_spec``, which the app-icons recipe reads
-# too, so this export and that recipe cannot disagree about a size, a safe area
-# or an alpha rule. Each target still renders the SVG once per size rather than
-# downsampling one large raster: crisp small sizes are the whole reason to
-# author an icon as vector.
-ICON_TARGETS = {
-    "icon-macos": {"label": "macOS .icns", "platform": "macos"},
-    "icon-windows": {"label": "Windows .ico", "platform": "windows"},
-    "icon-ios": {"label": "iOS app icon set", "platform": "ios"},
-    "icon-android": {"label": "Android launcher icons", "platform": "android"},
-    "icon-web": {"label": "Web favicon set", "platform": "web"},
-}
 
 
 MAX_RASTER_DIMENSION = 4096
@@ -282,61 +269,6 @@ def _embed_code(svg_text: str, variant: str, base_name: str, width: int, height:
     return svg_text if svg_text.endswith("\n") else svg_text + "\n"
 
 
-# Icon bundles ───────────────────────────────────────────────────────────────
-
-async def _render_icon_images(svg_text: str, platform: str, background: str) -> dict:
-    """One render per file the platform needs, at that file's own size."""
-    images: dict = {}
-    for spec in icon_spec.images_for(platform):
-        image = await _rasterize(
-            svg_text, spec.px, spec.px,
-            safe_area=spec.safe_area, opaque=spec.opaque, background=background,
-        )
-        if platform == "macos":
-            image = icon_spec.clip_macos_tile(image)
-        images[spec.path] = image
-    return images
-
-
-async def _build_icon_bundle(
-    svg_text: str, fmt: str, base_name: str, background: str
-) -> tuple[bytes, str, str]:
-    """Return (payload, filename, media_type) for one icon target."""
-    platform = ICON_TARGETS[fmt]["platform"]
-    images = await _render_icon_images(svg_text, platform, background)
-    by_px = {spec.px: images[spec.path] for spec in icon_spec.images_for(platform)}
-
-    if platform == "macos":
-        return icon_spec.build_icns(by_px), f"{base_name}.icns", "image/icns"
-
-    if platform == "windows":
-        return icon_spec.build_ico(by_px), f"{base_name}.ico", "image/x-icon"
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path, img in images.items():
-            zf.writestr(path, _png_bytes(img))
-
-        if platform == "ios":
-            zf.writestr("AppIcon.appiconset/Contents.json", icon_spec.ios_contents_json())
-
-        elif platform == "android":
-            zf.writestr("mipmap-anydpi-v26/ic_launcher.xml", icon_spec.ANDROID_ADAPTIVE_XML)
-            zf.writestr("values/ic_launcher_background.xml",
-                        icon_spec.android_background_xml(background))
-
-        elif platform == "web":
-            zf.writestr("favicon.ico", icon_spec.build_ico(
-                {px: by_px[px] for px in icon_spec.WEB_ICO_SIZES}
-            ))
-            zf.writestr("site.webmanifest", icon_spec.web_manifest(base_name))
-            zf.writestr("head-snippet.html", icon_spec.WEB_HEAD_SNIPPET)
-
-        zf.writestr("README.txt", icon_spec.readme([platform]))
-
-    return buf.getvalue(), f"{base_name}-{fmt.removeprefix('icon-')}.zip", "application/zip"
-
-
 # Export ─────────────────────────────────────────────────────────────────────
 
 @router.post("/media/{media_id}/svg-export")
@@ -407,12 +339,6 @@ async def export_svg(
         return _attachment(
             _svg_to_pdf(svg_text, width, height), f"{base_name}.pdf", "application/pdf"
         )
-
-    if fmt in ICON_TARGETS:
-        payload, filename, media_type = await _build_icon_bundle(
-            svg_text, fmt, base_name, request.background
-        )
-        return _attachment(payload, filename, media_type)
 
     raise HTTPException(status_code=400, detail=f"Unsupported export format: {request.format}")
 

@@ -1,0 +1,9 @@
+{
+  "name": "test-tiles",
+  "display_name": "Test Tiles",
+  "description": "Fixture stimpack: one skill with a lib module and one recipe that imports it",
+  "version": "1",
+  "format": 1,
+  "author": "system",
+  "tags": ["test"]
+}

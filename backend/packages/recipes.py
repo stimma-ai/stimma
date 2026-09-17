@@ -610,6 +610,40 @@ def _ensure_builtins_loaded() -> None:
     from packages import builtin  # noqa: F401  (registers on import)
 
 
+def _pack_lib_dirs(recipe_path: Path) -> list[Path]:
+    """The ``lib/`` directories a stimpack recipe may import from.
+
+    A recipe lives at ``<pack>/recipes/<name>.py``. Its pack's skills each may
+    carry a ``lib/`` (the same modules ``run_code`` exposes), and the pack root
+    may too. Those directories are importable while the recipe module loads.
+    """
+    pack_root = recipe_path.resolve().parent.parent
+    dirs: list[Path] = []
+    root_lib = pack_root / "lib"
+    if root_lib.is_dir():
+        dirs.append(root_lib)
+    skills_dir = pack_root / "skills"
+    if skills_dir.is_dir():
+        for skill_dir in sorted(p for p in skills_dir.iterdir() if p.is_dir()):
+            lib = skill_dir / "lib"
+            if lib.is_dir():
+                dirs.append(lib)
+    return dirs
+
+
+def _purge_pack_modules(lib_dirs: list[Path]) -> None:
+    """Drop cached modules that were imported from these lib dirs.
+
+    A pack update replaces the files on disk; the next recipe load must see the
+    new code rather than whatever version the process imported earlier.
+    """
+    roots = [str(d) for d in lib_dirs]
+    for name, module in list(sys.modules.items()):
+        file = getattr(module, "__file__", None)
+        if file and any(file.startswith(root) for root in roots):
+            sys.modules.pop(name, None)
+
+
 def load_recipe_module(path: Path, *, source: str) -> list[RecipeSpec]:
     """Import one recipe module from disk and return the specs it declares."""
     path = Path(path)
@@ -618,13 +652,22 @@ def load_recipe_module(path: Path, *, source: str) -> list[RecipeSpec]:
     if spec_obj is None or spec_obj.loader is None:
         return []
     module = importlib.util.module_from_spec(spec_obj)
+    lib_dirs = _pack_lib_dirs(path)
+    _purge_pack_modules(lib_dirs)
+    inserted = [str(d) for d in lib_dirs if str(d) not in sys.path]
+    for entry in reversed(inserted):
+        sys.path.insert(0, entry)
     sys.modules[module_name] = module
     try:
         spec_obj.loader.exec_module(module)
     except Exception as exc:  # noqa: BLE001
-        log.warning(f"recipe module {path} failed to import: {exc}")
+        log.error(f"recipe module {path} ({source}) failed to import: {exc!r}")
         sys.modules.pop(module_name, None)
         return []
+    finally:
+        for entry in inserted:
+            if entry in sys.path:
+                sys.path.remove(entry)
     specs = _specs_in_module(module)
     for s in specs:
         s.source = source

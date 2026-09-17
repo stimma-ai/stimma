@@ -153,7 +153,7 @@ def test_preview_diagnoses_overflowing_page_groups_without_changing_saved_export
 
 def test_nested_grid_does_not_move_sibling_notes_or_running_footer(tmp_path):
     from pathlib import Path
-    font = Path('packages/mockups/assets/fonts/NotoSans-Regular.ttf')
+    font = Path('render_fonts/LiberationSans-Regular.ttf')
     (tmp_path / 'font.ttf').write_bytes(font.read_bytes())
     manifest = new_manifest(title='Example')
     manifest['members'] = [{'id': 'f1', 'name': 'Font', 'path': 'font.ttf'}]

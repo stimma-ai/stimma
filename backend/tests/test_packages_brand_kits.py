@@ -97,7 +97,7 @@ async def test_palette_rejects_invalid_spec(tmp_path, payload):
 
 
 def test_swatch_and_bundled_typography_survive_offline_and_pdf(tmp_path):
-    font = Path(__file__).parents[1] / "packages/mockups/assets/fonts/NotoSans-Regular.ttf"
+    font = Path(__file__).parents[1] / "render_fonts/LiberationSans-Regular.ttf"
     (tmp_path / "font.ttf").write_bytes(font.read_bytes())
     manifest = new_manifest(title="Candidate identity")
     manifest["members"] = [{"id": "m1", "name": "font.ttf", "path": "font.ttf"}]

@@ -68,7 +68,7 @@ def _package_flow():
             master = code(lambda: 1, output_type="media")
             return create_package(
                 members,
-                recipe="app-icons",
+                recipe="tiles",
                 inputs={"master": master},
                 params={"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]},
                 title="Acme icons",
@@ -87,7 +87,7 @@ def test_create_package_registers_one_equation():
 
     assert eq.definition["title"] == "Acme icons"
     assert eq.definition["description"] == "handoff"
-    assert eq.definition["recipe"] == "app-icons"
+    assert eq.definition["recipe"] == "tiles"
     assert eq.definition["params"] == {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}
     assert eq.definition["input_roles"] == {"master": "dynamic"}
     # Members and each role input are dynamic bindings, so both producers
@@ -104,12 +104,12 @@ def test_create_package_definition_hash_covers_static_identity():
     ]
 
     assert eq.definition["definition_hash"] == definition_hash_for_create_package(
-        "app-icons", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}, "Acme icons", "handoff",
+        "tiles", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]}, "Acme icons", "handoff",
     )
     # Params are part of the step's identity: a different platform list is a
     # different build.
     assert definition_hash_for_create_package(
-        "app-icons", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]}, "Acme icons", "handoff",
+        "tiles", {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]}, "Acme icons", "handoff",
     ) != eq.definition["definition_hash"]
     assert "create_package" in STOREABLE_EQUATION_TYPES
 
@@ -138,7 +138,7 @@ def test_create_package_rejects_node_params():
             members = code(lambda: [1], output_type="list[media]")
             sizes = code(lambda: ["ios"], output_type="json")
             return create_package(
-                members, recipe="app-icons", params={"background": "#FFFFFF", "app_name": "Acme", "platforms": sizes},
+                members, recipe="tiles", params={"background": "#FFFFFF", "app_name": "Acme", "platforms": sizes},
             )
 
     with pytest.raises(ProgramLoadError, match="params must be static"):
@@ -201,7 +201,7 @@ async def test_evaluator_builds_bundle_with_members_and_run(db_session, tmp_path
         definition={
             "title": "Acme icons",
             "description": "",
-            "recipe": "app-icons",
+            "recipe": "tiles",
             "params": {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["ios"]},
             "input_roles": {"master": "dynamic"},
         },
@@ -218,9 +218,9 @@ async def test_evaluator_builds_bundle_with_members_and_run(db_session, tmp_path
     assert [m["role"] for m in manifest["members"] if m["role"]] == ["master"]
     assert manifest["title"] == "Acme icons"
     (run,) = manifest["runs"]
-    assert run["recipe"]["id"] == "app-icons"
+    assert run["recipe"]["id"] == "tiles"
     assert run["params"]["platforms"] == ["ios"]
-    assert (bundle / "app-icons/ios/AppIcon.appiconset/Contents.json").is_file()
+    assert (bundle / "tiles/ios/tile-256.png").is_file()
     assert (bundle / "index.html").is_file()
 
 
@@ -238,7 +238,7 @@ async def test_evaluator_role_input_is_not_duplicated_as_member(db_session, tmp_
         definition={
             "title": "Solo",
             "description": "",
-            "recipe": "app-icons",
+            "recipe": "tiles",
             "params": {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]},
             "input_roles": {"master": "dynamic"},
         },
@@ -301,7 +301,7 @@ async def test_dry_run_registry_fakes_the_package(tmp_path):
         definition={
             "title": "d",
             "description": "",
-            "recipe": "app-icons",
+            "recipe": "tiles",
             "params": {},
             "input_roles": {"master": "dynamic"},
         },

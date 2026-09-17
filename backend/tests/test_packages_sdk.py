@@ -38,8 +38,8 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
             project_workspace_dir=None, interrupt_checker=lambda: False,
         )
         recipes = await sdk.packages.recipes()
-        assert any(r["id"] == "app-icons" for r in recipes)
-        assert "references/app-icons" in await sdk.packages.guidance("app-icons")
+        assert any(r["id"] == "tiles" for r in recipes)
+        assert "references/tiles" in await sdk.packages.guidance("tiles")
         guidance = await sdk.packages.guidance("logo-exports")
         assert '"name": "artwork"' in guidance
         assert '"name": "png_sizes"' in guidance
@@ -48,7 +48,7 @@ async def test_package_draft_from_sandbox_sdk(db_session, tmp_path):
         pkg = sdk.packages.new("SDK icons")
         master = await pkg.add_member("mark.png", role="master")
         assert master == "m1"
-        run_id = await pkg.run("app-icons", {"master": master}, {"background": "#FFFFFF", "platforms": ["web"], "app_name": "SDK"})
+        run_id = await pkg.run("tiles", {"master": master}, {"background": "#FFFFFF", "platforms": ["web"], "app_name": "SDK"})
         assert run_id == "r1"
         with pytest.raises(ValueError, match="set_cover"):
             await pkg.save()
@@ -134,7 +134,7 @@ async def test_showing_a_package_stages_it_as_an_artifact(db_session, tmp_path):
             file_format="png", width=1200, height=1200,
         )
         async with PackageBuilder(session, profile_id="default", title="Staged icons") as builder:
-            await builder.run("app-icons", {"master": await builder.add_member(media.id)}, {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]})
+            await builder.run("tiles", {"master": await builder.add_member(media.id)}, {"background": "#FFFFFF", "app_name": "Acme", "platforms": ["web"]})
             package, _asset = await builder.save()
 
         result = await show(role="final", media_id=package.id, session=session, chat_id=chat.id)
