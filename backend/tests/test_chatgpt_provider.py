@@ -12,6 +12,7 @@ import llm_http
 import llm_resolver
 from config import LLMProviderConfig
 from llm_provider_catalog import (
+    CHATGPT_ASTRA_REASONING_LEVELS,
     CHATGPT_REASONING_LEVELS,
     chatgpt_model,
     is_supported_chatgpt_model,
@@ -87,9 +88,9 @@ class TestModelConfig:
         assert model.reasoning.levels == CHATGPT_REASONING_LEVELS
         assert model.reasoning.default == "medium"
 
-    def test_only_the_5_6_family_is_exposed(self):
+    def test_only_astra_and_the_5_6_family_are_exposed(self):
         """Older families are on the plan but deliberately not offered."""
-        for slug in ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
+        for slug in ("gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
             assert is_supported_chatgpt_model(slug), slug
         for slug in ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"):
             assert not is_supported_chatgpt_model(slug), slug
@@ -100,6 +101,13 @@ class TestModelConfig:
         assert model.reasoning.levels == [
             "off", "low", "medium", "high", "xhigh", "max",
         ]
+
+    def test_astra_has_required_reasoning_and_full_context_fallback(self):
+        model = chatgpt_model("p", {"id": "gpt-6-astra"})
+        assert model.reasoning.levels == CHATGPT_ASTRA_REASONING_LEVELS
+        assert model.reasoning.mode == "required"
+        assert model.reasoning.quick_task == "low"
+        assert model.max_context_tokens == 1_050_000
 
     def test_minimal_is_never_offered(self):
         """In the API's global list, but rejected by every model."""
@@ -706,6 +714,7 @@ class TestCatalogFiltering:
         import routes.models as models_route
 
         live_catalog = [
+            {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
             {"id": "gpt-5.6-terra", "name": "GPT-5.6-Terra"},
             {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol"},
             {"id": "gpt-5.5", "name": "GPT-5.5"},
@@ -725,7 +734,7 @@ class TestCatalogFiltering:
 
         provider = await models_route._sync_chatgpt_provider(_access_token())
 
-        assert [m.model_id for m in provider.models] == ["gpt-5.6-terra", "gpt-5.6-sol"]
+        assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-sol"]
         assert saved["providers"] == [provider]
 
     @pytest.mark.asyncio

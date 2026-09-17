@@ -62,6 +62,15 @@ OPENAI_REASONING = _reasoning(
     {"off": "none", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh"},
 )
 
+ASTRA_REASONING = _reasoning(
+    "required",
+    ["low", "medium", "high", "xhigh", "max"],
+    "medium",
+    "low",
+    "openai_effort",
+    {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
+)
+
 
 GEMINI_REASONING = _reasoning(
     "required",
@@ -75,6 +84,7 @@ GEMINI_REASONING = _reasoning(
 
 BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
     "openai": [
+        {"model_id": "gpt-6-astra", "name": "GPT-6 Astra", "context": 1_050_000, "reasoning": ASTRA_REASONING},
         {"model_id": "gpt-5.6-sol", "name": "GPT-5.6 Sol", "context": 1_050_000, "reasoning": OPENAI_REASONING},
         {"model_id": "gpt-5.6-terra", "name": "GPT-5.6 Terra", "context": 1_050_000, "reasoning": OPENAI_REASONING},
         {"model_id": "gpt-5.6-luna", "name": "GPT-5.6 Luna", "context": 1_050_000, "reasoning": OPENAI_REASONING},
@@ -145,22 +155,23 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
 }
 
 
-# Only the gpt-5.6 family is offered on the ChatGPT-plan route. A plan may also
+# Only Astra and the gpt-5.6 family are offered on the ChatGPT-plan route. A plan may also
 # list older families (5.5, 5.4, 5.4-mini) and the Codex-only 5.3 Spark, but
 # each additional family is another effort ladder to keep verified against an
 # undocumented surface, and they are superseded for every role Stimma uses.
 # Restricting the route keeps one ladder true instead of four drifting ones.
-CHATGPT_SUPPORTED_PREFIXES = ("gpt-5.6",)
+CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-5.6")
 
-# Efforts for the supported family, hardcoded because the catalog does not
-# report them. Verified against api.openai.com on 2026-08-30 by sending a
-# valid-but-unsupported effort and reading the per-model rejection:
+# Efforts for supported models, used when the live catalog does not report
+# them. The 5.6 family was verified against api.openai.com on 2026-08-30 by
+# sending a valid-but-unsupported effort and reading the rejection. Astra's
+# ladder and context are documented by OpenAI:
 #
 #   gpt-5.6-sol/terra/luna   none, low, medium, high, xhigh, max
+#   gpt-6-astra              low, medium, high, xhigh, max
 #
-# 'minimal' appears in the API's global validator list but is rejected by every
-# model in this generation, so it is not offered. 'max' is a 5.6 rung — older
-# families reject it, which is part of why they are not exposed here.
+# 'minimal' is not offered. Astra also rejects 'none', so its contract is
+# required-reasoning and quick tasks use its cheapest supported rung, 'low'.
 #
 # Anything added to CHATGPT_SUPPORTED_PREFIXES must have its ladder re-verified;
 # offering a rung a model rejects is an HTTP 400 on send.
@@ -173,6 +184,11 @@ CHATGPT_REASONING_WIRE = {
     "xhigh": "xhigh",
     "max": "max",
 }
+CHATGPT_ASTRA_REASONING_LEVELS = ["low", "medium", "high", "xhigh", "max"]
+CHATGPT_MODEL_DEFAULTS: tuple[tuple[str, list[str], int], ...] = (
+    ("gpt-6-astra", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
+    ("gpt-5.6", CHATGPT_REASONING_LEVELS, 1_050_000),
+)
 # Wire value -> Stimma level, for reading a reported default back.
 _CHATGPT_WIRE_TO_LEVEL = {wire: level for level, wire in CHATGPT_REASONING_WIRE.items()}
 
@@ -188,13 +204,22 @@ def chatgpt_model(
 ) -> LLMProviderModelConfig:
     """Build a model config from one ``codex/models`` catalog entry."""
     model_id = str(entry["id"])
+    normalized_id = model_id.lower()
+    default_levels, default_context = next(
+        (
+            (levels, context)
+            for prefix, levels, context in CHATGPT_MODEL_DEFAULTS
+            if normalized_id.startswith(prefix)
+        ),
+        (CHATGPT_REASONING_LEVELS, 272_000),
+    )
     reported = [
         _CHATGPT_WIRE_TO_LEVEL.get(str(effort).strip().lower())
         for effort in (entry.get("reasoning_efforts") or [])
     ]
     levels = [
-        level for level in CHATGPT_REASONING_LEVELS if level in reported
-    ] or list(CHATGPT_REASONING_LEVELS)
+        level for level in default_levels if level in reported
+    ] or list(default_levels)
     default_effort = _CHATGPT_WIRE_TO_LEVEL.get(
         str(entry.get("default_reasoning_effort") or "").strip().lower()
     )
@@ -210,7 +235,7 @@ def chatgpt_model(
         model_id=model_id,
         name=str(entry.get("name") or model_id),
         model_vendor="openai",
-        max_context_tokens=int(context) if context else 272_000,
+        max_context_tokens=int(context) if context else default_context,
         input_modalities=["text", "image"],
         supports_tools=True,
         reasoning=_reasoning(

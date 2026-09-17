@@ -170,12 +170,14 @@ async def test_new_provider_is_visible_to_immediate_followup_read(monkeypatch):
 def test_branded_provider_contracts_match_current_model_series():
     openai = branded_models("openai", "openai-test")
     assert [model.model_id for model in openai] == [
+        "gpt-6-astra",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",
     ]
-    assert openai[0].reasoning.levels == ["off", "low", "medium", "high", "xhigh"]
-    assert openai[0].reasoning.quick_task == "off"
+    assert openai[0].reasoning.levels == ["low", "medium", "high", "xhigh", "max"]
+    assert openai[0].reasoning.quick_task == "low"
+    assert openai[0].reasoning.mode == "required"
     assert openai[0].model_vendor == "openai"
 
     anthropic = branded_models("anthropic", "anthropic-test")
@@ -506,7 +508,7 @@ def test_provider_model_resolver_uses_saved_chat_level_and_minimum_for_quick_tas
 
     quick = llm_resolver._get_provider_model_config(model.id, role='quick_task')
     assert quick is not None
-    assert quick.reasoning_level == "off"
+    assert quick.reasoning_level == "low"
 
 
 def test_provider_model_resolver_repairs_removed_reasoning_level(monkeypatch):
@@ -842,7 +844,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     monkeypatch.setattr(models_route, "_save_providers", lambda providers: saved.extend(providers))
 
     async def discover(_provider):
-        return [{"id": model_id} for model_id in ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")]
+        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
     response = await models_route.create_llm_provider(
@@ -851,6 +853,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     assert response["api_key"] == "***"
     assert response["api_key_set"] is True
     assert [model["model_id"] for model in response["models"]] == [
+        "gpt-6-astra",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",
