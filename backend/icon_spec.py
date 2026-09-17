@@ -20,6 +20,9 @@ The rules that matter, with the reasoning that is easy to lose:
   they are full bleed over the brand background.
 - **macOS** artwork sits inside a rounded-rect grid rather than filling the
   canvas: 824pt of art in a 1024pt tile in the Big Sur and later template.
+  Unlike iOS, the system does not mask an ``.icns``: the tile's rounded
+  corners must be baked into every size, or a full-bleed master ships as a
+  hard square in the Dock.
 - **Windows** ``.ico`` and web favicons are full bleed; the Apple touch icon
   is opaque because iOS Safari composites it without alpha.
 
@@ -356,6 +359,27 @@ def rounded_mask(size: int, radius_fraction: float = IOS_CORNER_RADIUS) -> Image
         radius=int(size * scale * radius_fraction), fill=255,
     )
     return mask.resize((size, size), Image.LANCZOS)
+
+
+def macos_tile_mask(px: int) -> Image.Image:
+    """An L-mode mask of the rounded 824/1024 macOS tile centered on a ``px`` canvas."""
+    tile = max(1, int(round(px * MACOS_SAFE_AREA)))
+    mask = Image.new("L", (px, px), 0)
+    mask.paste(rounded_mask(tile), ((px - tile) // 2, (px - tile) // 2))
+    return mask
+
+
+def clip_macos_tile(canvas: Image.Image) -> Image.Image:
+    """Bake the macOS tile shape into a composed RGBA icon.
+
+    Everything outside the rounded tile becomes transparent, so full-bleed
+    artwork gets the platform's corners instead of covering them.
+    """
+    from PIL import ImageChops
+
+    canvas = canvas.convert("RGBA")
+    canvas.putalpha(ImageChops.multiply(canvas.getchannel("A"), macos_tile_mask(canvas.width)))
+    return canvas
 
 
 def device_icon(art: Image.Image, size: int, background: str = "#FFFFFF") -> Image.Image:

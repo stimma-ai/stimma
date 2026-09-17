@@ -22,11 +22,33 @@ def test_source_padding_does_not_shrink_delivered_windows_icon():
         assert 248 <= right-left <= 252
         assert 248 <= bottom-top <= 252
         assert abs((left+right)/2-128) <= 1
-    # Deliberate canvas spacing is retained when explicitly requested.
-    image = mark(400)
+    # Deliberate canvas spacing is retained when explicitly requested...
+    image = mark(200)
     preserved = Artwork.measure(image, 'canvas').compose(image, spec, 'windows', '#ffffff')
     bounds = preserved.getchannel('A').getbbox()
-    assert bounds[2]-bounds[0] < 70
+    assert 150 <= bounds[2]-bounds[0] <= 162
+    # ...but not when it would ship a tiny icon on every platform.
+    import pytest
+    from packages.recipes import RecipeError
+    with pytest.raises(RecipeError, match='undersized'):
+        Artwork.measure(mark(400), 'canvas')
+    ground = Image.new('RGBA', (1024, 1024), '#ffffff')
+    ImageDraw.Draw(ground).rectangle((300, 380, 724, 644), fill='black')
+    with pytest.raises(RecipeError, match=r'spans 4[12]%'):
+        Artwork.measure(ground, 'canvas')
+
+
+def test_tile_platforms_fit_the_mark_to_about_two_thirds():
+    image = mark(90)
+    plan = Artwork.measure(image)
+    ios = plan.compose(image, icon_spec.ios_images()[-1], 'ios', '#ffffff')
+    orange = np.asarray(ios)[:, :, 2] < 128
+    ys, xs = np.where(orange)
+    assert 0.62 <= (xs.max()-xs.min()+1)/1024 <= 0.66
+    mac = np.asarray(plan.compose(image, icon_spec.macos_images()[-1], 'macos', '#ffffff'))
+    orange = (mac[:, :, 3] > 128) & (mac[:, :, 2] < 128)
+    ys, xs = np.where(orange)
+    assert 0.62 <= (xs.max()-xs.min()+1)/824 <= 0.66
 
 
 def test_adaptive_square_corners_fit_guaranteed_circle():
@@ -49,6 +71,17 @@ def test_ios_opaque_canvas_and_macos_margin_are_applied_once():
     mac = plan.compose(image, icon_spec.macos_images()[-1], 'macos', '#FFF8F0')
     bounds = mac.getchannel('A').point(lambda a: 255 if a > 128 else 0).getbbox()
     assert bounds == (100, 100, 924, 924)
+
+
+def test_macos_bakes_rounded_tile_corners_for_full_bleed_art():
+    image = Image.new('RGBA', (1024, 1024), '#FFFFFF')
+    spec = icon_spec.macos_images()[-1]
+    mac = Artwork.measure(image, 'canvas').compose(image, spec, 'macos', '#FFFFFF')
+    alpha = mac.getchannel('A')
+    assert alpha.getpixel((100, 100)) == 0, 'tile corner must be clipped'
+    assert alpha.getpixel((100, 512)) == 255, 'tile edge midpoint stays opaque'
+    assert alpha.getpixel((512, 512)) == 255
+    assert alpha.point(lambda a: 255 if a > 128 else 0).getbbox() == (100, 100, 924, 924)
 
 
 def test_platform_previews_only_emit_selected_targets_without_network(monkeypatch):

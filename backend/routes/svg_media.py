@@ -288,10 +288,13 @@ async def _render_icon_images(svg_text: str, platform: str, background: str) -> 
     """One render per file the platform needs, at that file's own size."""
     images: dict = {}
     for spec in icon_spec.images_for(platform):
-        images[spec.path] = await _rasterize(
+        image = await _rasterize(
             svg_text, spec.px, spec.px,
             safe_area=spec.safe_area, opaque=spec.opaque, background=background,
         )
+        if platform == "macos":
+            image = icon_spec.clip_macos_tile(image)
+        images[spec.path] = image
     return images
 
 

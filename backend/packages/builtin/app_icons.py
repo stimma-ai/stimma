@@ -83,11 +83,17 @@ the master constraints: use that output directly, with the requested background
 parameter. Do not add another padded canvas. The recipe's default `artwork_fit="auto"`
 measures transparent or uniform-background margins and fits the visible mark
 for each platform. iOS uses a full-bleed opaque canvas, macOS adds its outer
-margin once, Windows/Linux use the available transparent icon canvas, and the
+margin and rounded tile corners once, Windows/Linux use the available transparent icon canvas, and the
 Android foreground fits the guaranteed 66dp circle in its 108dp layer. The
 optical fill of a mark is a default recipe policy; no one percentage fits all designs.
 Use `artwork_fit="canvas"` only for intentionally composed full-bleed artwork
-whose existing internal spacing must be retained. Inspect the cutout and the
+whose existing internal spacing must be retained: illustrated or gradient
+grounds, edge-to-edge patterns. A mark on a flat ground is not that case, even
+when you composed it yourself: the platform tiles (iOS, macOS) draw the ground,
+and Windows and Linux ship the bare mark, so the mark must be fitted per
+platform. The recipe refuses canvas fit when the visible mark spans less than
+half the master, because every platform would inherit that padding and the
+icon would read undersized beside its neighbours. Inspect the cutout and the
 resulting Platform Study before saving. Never enlarge only a preview to hide
 an undersized exported icon.
 

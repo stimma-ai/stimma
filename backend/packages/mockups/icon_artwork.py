@@ -11,6 +11,18 @@ from PIL import Image
 
 import icon_spec
 
+# How much of a platform-drawn tile (iOS, macOS badge, legacy Android, Apple
+# touch icon) a detected mark fills by default. Apple's own tiles keep the
+# subject inside roughly two thirds of the shape; .86 slammed wordmarks into
+# the corners.
+TILE_FILL = .64
+# Bare-mark platforms draw no tile, so the mark is the icon and fills the canvas.
+WINDOWS_FILL = .98
+BARE_FILL = .92
+# Below this share of the master, a mark on a uniform ground is too light to
+# ship as-is: canvas fit refuses rather than delivering a tiny icon.
+CANVAS_FIT_FLOOR = .5
+
 
 @dataclass(frozen=True)
 class Artwork:
@@ -21,6 +33,18 @@ class Artwork:
     @classmethod
     def measure(cls, image: Image.Image, fit: str = 'auto') -> 'Artwork':
         if fit == 'canvas':
+            measured = cls.measure(image, 'auto')
+            if measured.mark:
+                x0, y0, x1, y1 = measured.bounds
+                extent = max(x1-x0, y1-y0)
+                if extent < CANVAS_FIT_FLOOR:
+                    from packages.recipes import RecipeError
+                    raise RecipeError(
+                        f"artwork_fit='canvas' would ship an undersized icon: the visible mark "
+                        f"spans {extent:.0%} of the master, and every platform would inherit that "
+                        f"padding. Use the default artwork_fit='auto', which fits the mark for each "
+                        f"platform; for a deliberately lighter look, keep 'auto' and lower a "
+                        f"platform's *_scale instead.")
             return cls((0, 0, 1, 1), False)
         sample = image.convert('RGBA')
         sample.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
@@ -73,9 +97,9 @@ class Artwork:
             fit = (spec.px * 66/108 / 2) / max(radius, 1)
             inner = max(1, round(max(art.size)*fit))
         elif platform == 'macos':
-            inner = max(1, round(spec.px * icon_spec.MACOS_SAFE_AREA * (.86 if self.mark else 1)))
+            inner = max(1, round(spec.px * icon_spec.MACOS_SAFE_AREA * (TILE_FILL if self.mark else 1)))
         else:
-            occupancy = .86 if spec.opaque else (.98 if platform == 'windows' else .92)
+            occupancy = TILE_FILL if spec.opaque else (WINDOWS_FILL if platform == 'windows' else BARE_FILL)
             inner = max(1, round(spec.px * (occupancy if self.mark else 1)))
         from packages.recipes import RecipeError
 
@@ -95,6 +119,10 @@ class Artwork:
             badge.putalpha(icon_spec.rounded_mask(badge_size))
             canvas.alpha_composite(badge, ((spec.px-badge_size)//2, (spec.px-badge_size)//2))
         canvas.alpha_composite(art, ((spec.px-art.width)//2, (spec.px-art.height)//2))
+        if platform == 'macos':
+            # The Dock draws an .icns as-is: clip canvas-fit art to the tile's
+            # rounded corners rather than letting it cover the badge.
+            canvas = icon_spec.clip_macos_tile(canvas)
         if spec.opaque:
             flat = Image.new('RGBA', canvas.size, bg)
             flat.alpha_composite(canvas)
