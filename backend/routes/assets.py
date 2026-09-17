@@ -59,8 +59,10 @@ from utils.query_builder import (
     GRID_FORMATS,
     IMAGE_FORMATS,
     LAYOUT_FORMATS,
+    PACKAGE_FORMATS,
     RESOLUTION_MAP,
     SET_FORMATS,
+    SPRITE_FORMATS,
     TEXT_FORMATS,
     VECTOR_FORMATS,
     VIDEO_FORMATS,
@@ -939,6 +941,8 @@ async def get_asset_filter_counts(
         "vectors": VECTOR_FORMATS,
         "sets": SET_FORMATS,
         "grids": GRID_FORMATS,
+        "sprites": SPRITE_FORMATS,
+        "packages": PACKAGE_FORMATS,
         "layouts": LAYOUT_FORMATS,
     }
     media_type_counts = {

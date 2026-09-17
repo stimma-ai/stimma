@@ -922,6 +922,31 @@ async def test_asset_tag_counts_only_include_live_assets(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_asset_facets_count_every_media_type(client, db_session):
+    """Every browser filter type must be present in facet counts, including
+    sprites and packages; a missing key hides the row from the filter panel."""
+    before = (await client.get("/api/assets/filter-counts")).json()["media_type"]
+    async with db_session() as session:
+        for file_format, path in [
+            ("stimmapackage", "/tmp/facet.stimmapackage"),
+            ("stimmasprite.json", "/tmp/facet.stimmasprite.json"),
+            ("stimmalayout", "/tmp/facet.stimmalayout"),
+        ]:
+            media = await create_media_item(session, file_path=path, file_format=file_format)
+            await create_asset_from_media(session, media_id=media.id)
+        await session.commit()
+
+    response = await client.get("/api/assets/filter-counts")
+    assert response.status_code == 200, response.text
+    counts = response.json()["media_type"]
+    expected_keys = {"images", "videos", "audio", "text", "vectors", "sets", "grids", "sprites", "packages", "layouts"}
+    assert expected_keys <= set(counts)
+    assert counts["packages"] == before.get("packages", 0) + 1
+    assert counts["sprites"] == before.get("sprites", 0) + 1
+    assert counts["layouts"] == before.get("layouts", 0) + 1
+
+
+@pytest.mark.asyncio
 async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_session):
     before = (await client.get("/api/assets/filter-counts")).json()
     async with db_session() as session:

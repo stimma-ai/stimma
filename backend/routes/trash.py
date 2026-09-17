@@ -29,7 +29,7 @@ from models.api_models import BulkDeleteRequest, MediaListResponse, MediaItemRes
 from utils.query_builder import (
     build_filtered_query,
     IMAGE_FORMATS, VIDEO_FORMATS, AUDIO_FORMATS, TEXT_FORMATS, VECTOR_FORMATS,
-    SET_FORMATS, GRID_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS,
+    SET_FORMATS, GRID_FORMATS, SPRITE_FORMATS, PACKAGE_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS,
     RESOLUTION_MAP,
 )
 from utils.websocket import ws_manager
@@ -407,7 +407,7 @@ async def get_trash_filter_counts(
         )
 
     # Compute "if I click this media type" preview count for every supported type.
-    # Without all 8, badges silently disappear from the UI for newer types.
+    # Without every type, badges silently disappear from the UI for newer types.
     media_type_format_map = {
         'images': IMAGE_FORMATS,
         'videos': VIDEO_FORMATS,
@@ -416,6 +416,8 @@ async def get_trash_filter_counts(
         'vectors': VECTOR_FORMATS,
         'sets': SET_FORMATS,
         'grids': GRID_FORMATS,
+        'sprites': SPRITE_FORMATS,
+        'packages': PACKAGE_FORMATS,
         'layouts': LAYOUT_FORMATS,
         'structured': STRUCTURED_FORMATS,
     }
