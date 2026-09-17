@@ -1,7 +1,7 @@
 """Query building utilities for filtering media items."""
 from datetime import datetime
 from typing import Optional, Union
-from sqlalchemy import select, or_, and_, case, func, false, true, union_all
+from sqlalchemy import select, or_, and_, case, func, false, true, union_all, literal
 from sqlalchemy.orm import aliased
 from database import (
     Asset,
@@ -324,6 +324,96 @@ def asset_unused_predicate(asset_id_column):
     )
 
 
+# --- Text search over asset names and prompts -------------------------------
+
+# Characters treated as word separators when matching search tokens, so
+# "starfire-app-icon.stimmapackage" and "Starfire — App Icons" both tokenize
+# into plain words.
+_TEXT_SEPARATORS = [',', '.', ';', ':', '-', '\u2014', '\u2013', '_', '/', '(', ')', '[', ']', '"', "'"]
+
+
+def asset_search_tokens(text: str) -> list:
+    """Whitespace-split, lowercased search tokens (empty tokens dropped)."""
+    return [t for t in text.lower().split() if t]
+
+
+def _media_type_word():
+    """A plain-English type word per format so "starfire package" finds the
+    Starfire package even though nothing in its name says "package"."""
+    return case(
+        (MediaItem.file_format.in_(PACKAGE_FORMATS), 'package'),
+        (MediaItem.file_format.in_(SET_FORMATS), 'set'),
+        (MediaItem.file_format.in_(GRID_FORMATS), 'grid'),
+        (MediaItem.file_format.in_(SPRITE_FORMATS), 'sprite'),
+        (MediaItem.file_format.in_(LAYOUT_FORMATS), 'layout'),
+        (MediaItem.file_format.in_(VECTOR_FORMATS), 'svg vector'),
+        (MediaItem.file_format.in_(VIDEO_FORMATS), 'video'),
+        (MediaItem.file_format.in_(AUDIO_FORMATS), 'audio'),
+        (MediaItem.file_format.in_(IMAGE_FORMATS), 'image'),
+        else_='',
+    )
+
+
+def _current_asset_title():
+    """Title of the Asset whose current revision is this media item."""
+    return (
+        select(Asset.title)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            Asset.deleted_at.is_(None),
+        )
+        .correlate(MediaItem)
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+def _escape_like(term: str) -> str:
+    return term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def asset_text_predicate(text: str):
+    """Match media whose name or prompt contains every token of ``text``.
+
+    Searched fields: the generation/extracted prompt, the current Asset title,
+    the original filename, and a type word derived from the format ("package",
+    "set", "svg", ...). Every token must appear at the start of a word (so
+    "star" finds "Starfire"); a trailing "s" is optional so "icons" matches
+    "icon" and "packages" matches "package". Tokens may appear in any order and
+    in different fields, which is what lets "starfire package" work.
+    """
+    tokens = asset_search_tokens(text)
+    if not tokens:
+        return true()
+    gen_prompt = func.json_extract(MediaItem.generation_metadata, '$.prompt')
+    haystack = (
+        literal(' ')
+        .op('||')(func.coalesce(MediaItem.extracted_prompt, ''))
+        .op('||')(literal(' '))
+        .op('||')(func.coalesce(gen_prompt, ''))
+        .op('||')(literal(' '))
+        .op('||')(func.coalesce(_current_asset_title(), ''))
+        .op('||')(literal(' '))
+        .op('||')(func.coalesce(MediaItem.original_filename, ''))
+        .op('||')(literal(' '))
+        .op('||')(_media_type_word())
+        .op('||')(literal(' '))
+    )
+    for separator in _TEXT_SEPARATORS:
+        haystack = func.replace(haystack, separator, ' ')
+
+    conditions = []
+    for token in tokens:
+        variants = {token}
+        if len(token) > 3 and token.endswith('s'):
+            variants.add(token[:-1])
+        conditions.append(or_(*[
+            haystack.ilike(f"% {_escape_like(v)}%", escape='\\') for v in sorted(variants)
+        ]))
+    return and_(*conditions)
+
+
 def build_filtered_query(
     query,
     caption_query: Optional[str] = None,
@@ -423,19 +513,7 @@ def build_filtered_query(
         query = query.where(MediaItem.vlm_caption.ilike(f"%{caption_query}%"))
 
     if prompt_query:
-        # Search both extracted_prompt (imported) and generation_metadata.prompt (generated)
-        # Word-boundary-aware: pad with spaces, normalize punctuation, search for ' term '
-        from sqlalchemy import literal
-        gen_prompt = func.json_extract(MediaItem.generation_metadata, '$.prompt')
-        def _word_match_prompt(col, term):
-            padded = literal(' ').op('||')(func.coalesce(col, '')).op('||')(literal(' '))
-            normalized = func.replace(func.replace(func.replace(func.replace(
-                func.replace(padded, ',', ' '), '.', ' '), ';', ' '), ':', ' '), '-', ' ')
-            return normalized.ilike(f"% {term} %")
-        query = query.where(or_(
-            _word_match_prompt(MediaItem.extracted_prompt, prompt_query),
-            _word_match_prompt(gen_prompt, prompt_query),
-        ))
+        query = query.where(asset_text_predicate(prompt_query))
 
     # Media type filter (OR within category)
     if exclude_category != 'media_types':

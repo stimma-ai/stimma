@@ -450,7 +450,7 @@ const assetSections = computed<AssetSection[]>(() => {
   return [
     {
       key: 'prompt' as const,
-      title: 'Prompt matches',
+      title: 'Name & prompt matches',
       items: promptResults.value,
       browseQuery: browseQueryFor('pq'),
     },

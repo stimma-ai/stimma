@@ -12,6 +12,10 @@ Tests cover:
 """
 
 import pytest
+import pytest_asyncio
+from sqlalchemy import select
+
+from database import Asset, AssetRevision
 from datetime import datetime, timedelta
 from pathlib import Path
 from httpx import AsyncClient
@@ -242,6 +246,70 @@ class TestPromptSearch:
 
         data = response.json()
         assert data["items"] == []
+
+
+class TestAssetTextSearch:
+    """prompt_query also matches asset titles, filenames, and type words."""
+
+    @pytest_asyncio.fixture
+    async def named_assets(self, db_session):
+        async with db_session() as session:
+            package = await create_media_item(
+                session,
+                file_format="stimmapackage",
+                file_path="/tmp/starfire-app-icon-for-all-platforms.stimmapackage",
+                materialize_asset=True,
+                generation_metadata='{"prompt": ""}',
+            )
+            logo = await create_media_item(
+                session,
+                file_path="/tmp/starfire-tile.png",
+                materialize_asset=True,
+            )
+            unrelated = await create_media_item(
+                session,
+                file_path="/tmp/moss-kiln-brand-kit.stimmapackage",
+                file_format="stimmapackage",
+                materialize_asset=True,
+            )
+            for media in (package, logo, unrelated):
+                media.original_filename = Path(media.file_path).name
+            titles = {package.id: "Starfire \u2014 app icon for all platforms", unrelated.id: "Moss & Kiln \u2014 Brand Kit"}
+            for media_id, title in titles.items():
+                asset = (await session.execute(
+                    select(Asset).join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                    .where(AssetRevision.primary_media_id == media_id)
+                )).scalar_one()
+                asset.title = title
+            await session.commit()
+            yield {"package": package.id, "logo": logo.id, "unrelated": unrelated.id}
+
+    async def _ids(self, client, q):
+        response = await client.get("/api/assets/browse", params={"prompt_query": q, "page_size": 50})
+        assert response.status_code == 200, response.text
+        return {item["media_id"] for item in response.json()["items"]}
+
+    async def test_title_and_filename_match(self, client, named_assets):
+        ids = await self._ids(client, "starfire")
+        assert named_assets["package"] in ids
+        assert named_assets["logo"] in ids
+        assert named_assets["unrelated"] not in ids
+
+    async def test_type_word_narrows_to_format(self, client, named_assets):
+        ids = await self._ids(client, "starfire package")
+        assert named_assets["package"] in ids
+        assert named_assets["logo"] not in ids
+        assert named_assets["unrelated"] not in ids
+        ids = await self._ids(client, "packages")
+        assert {named_assets["package"], named_assets["unrelated"]} <= ids
+        assert named_assets["logo"] not in ids
+
+    async def test_tokens_match_any_order_and_prefix(self, client, named_assets):
+        assert named_assets["package"] in await self._ids(client, "icons starf")
+        assert named_assets["package"] in await self._ids(client, "platform icon")
+
+    async def test_literal_like_characters_are_escaped(self, client, named_assets):
+        assert await self._ids(client, "100%") == set()
 
 
 class TestSortOptions:

@@ -438,7 +438,7 @@ const sections = computed<Section[]>(() => {
       data: null,
     })
     result.push({
-      title: 'Prompt matches',
+      title: 'Name & prompt matches',
       strip: true,
       action,
       items: promptMediaResults.value.map(m => next({
