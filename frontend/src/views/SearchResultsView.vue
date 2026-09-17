@@ -192,9 +192,10 @@
             </div>
           </section>
 
-          <!-- Assets: the app's duality — prompt text matches vs CLIP visual
-               matches. Empty flavors are hidden entirely (like the home
-               screen's sections), never shown as dead bands. -->
+          <!-- Assets, one section per media type. Deliverables (packages,
+               layouts, sets, grids, sprites) are named rows like chats and
+               boards; raw media are thumbnail grids. Visual (CLIP) matches
+               keep their own section. Empty sections are hidden. -->
           <section v-for="assetSection in assetSections" :key="assetSection.key">
             <div class="flex items-baseline gap-2.5 mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
@@ -204,12 +205,39 @@
                 class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
               >View all</router-link>
             </div>
-            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
+            <div v-if="assetSection.titled" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              <button
+                v-for="(media, index) in assetSection.items"
+                :key="media.id"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:bg-overlay-faint transition-colors text-left bg-transparent cursor-pointer"
+                @click="openAssetFromGrid(assetSection, index)"
+              >
+                <div class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-matte border border-edge-subtle">
+                  <MediaImage
+                    :media-id="mediaIdOf(media)"
+                    :file-hash="media.file_hash"
+                    :thumbnail="true"
+                    :thumbnail-size="128"
+                    :draggable="false"
+                    :enable-context-menu="false"
+                    container-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <HighlightedName :text="assetDisplayTitle(media)" :query="q" />
+                  <div class="text-xs text-content-muted truncate mt-0.5">
+                    {{ assetSection.singular }}<template v-if="media.asset_created_at || media.created_date"> · {{ formatRelativeTime(media.asset_created_at || media.created_date) }}</template>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div v-else class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
               <div
                 v-for="(media, index) in assetSection.items"
                 :key="media.id"
                 class="aspect-square rounded-media overflow-hidden cursor-pointer bg-matte hover:opacity-80 transition-opacity"
-                @click="openAssetFromGrid(assetSection.key, index)"
+                @click="openAssetFromGrid(assetSection, index)"
               >
                 <MediaImage
                   :media-id="mediaIdOf(media)"
@@ -308,12 +336,12 @@ import {
   type EntitySearchResults,
   type EntitySearchHit,
   type MediaSearchHit,
-  type SearchResultKind,
-} from '../composables/useGlobalSearch'
+  type SearchResultKind, groupAssetHits, assetDisplayTitle } from '../composables/useGlobalSearch'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { formatRelativeTime } from '../utils/timeFormat'
+import { encodeMediaType } from '../composables/useUrlState'
 import { mediaIdOf } from '../utils/assetIdentity'
 
 const PAGE_ENTITY_LIMIT = 24
@@ -321,6 +349,7 @@ const PAGE_TOOL_LIMIT = 12
 // 16 = exactly two rows of the lg 8-column grid (the app window's minimum
 // width guarantees lg); View all covers the rest.
 const PAGE_MEDIA_LIMIT = 16
+const PAGE_ASSET_FETCH = 48
 
 const PRESET_ICON = 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75'
 
@@ -435,33 +464,46 @@ const entitySections = computed<EntitySection[]>(() => {
 })
 
 interface AssetSection {
-  key: 'prompt' | 'visual'
+  key: string
+  /** Which result list the items came from; the slideshow runs over that list. */
+  set: 'prompt' | 'visual'
   title: string
+  /** Type name for the row subline, e.g. "Package". */
+  singular: string
+  titled: boolean
   items: MediaSearchHit[]
   browseQuery: Record<string, string>
 }
 
-function browseQueryFor(param: 'pq' | 'stt'): Record<string, string> {
+function browseQueryFor(param: 'pq' | 'stt', filterKey?: string): Record<string, string> {
   const scope = scopeProjectId.value != null ? { prj: String(scopeProjectId.value) } : {}
-  return { [param]: q.value, ...scope }
+  const type = filterKey ? { mt: encodeMediaType(filterKey) } : {}
+  return { [param]: q.value, ...type, ...scope }
 }
 
 const assetSections = computed<AssetSection[]>(() => {
   if (!q.value) return []
-  return [
-    {
-      key: 'prompt' as const,
-      title: 'Name & prompt matches',
-      items: promptResults.value,
-      browseQuery: browseQueryFor('pq'),
-    },
-    {
-      key: 'visual' as const,
+  const grouped: AssetSection[] = groupAssetHits(promptResults.value).map(group => ({
+    key: `prompt:${group.type}`,
+    set: 'prompt' as const,
+    title: group.label,
+    singular: group.label === 'SVG' ? 'SVG' : group.label.replace(/s$/, ''),
+    titled: group.titled,
+    items: group.items,
+    browseQuery: browseQueryFor('pq', group.filterKey),
+  }))
+  if (visualResults.value.length > 0) {
+    grouped.push({
+      key: 'visual',
+      set: 'visual',
       title: 'Visual matches',
+      singular: 'Image',
+      titled: false,
       items: visualResults.value,
       browseQuery: browseQueryFor('stt'),
-    },
-  ].filter(section => section.items.length > 0)
+    })
+  }
+  return grouped
 })
 
 const totalCount = computed(() => {
@@ -510,7 +552,7 @@ async function runSearch() {
     const [entities, tools, prompt, visual, contextual] = await Promise.all([
       searchEntities(current, PAGE_ENTITY_LIMIT, projectId).catch(() => null),
       searchTools(current, PAGE_TOOL_LIMIT).catch(() => []),
-      searchMediaByPrompt(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
+      searchMediaByPrompt(current, PAGE_ASSET_FETCH, projectId).catch(() => []),
       searchMediaVisual(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
       projectId == null
         ? getContextualMedia({ q: current, limit: PAGE_MEDIA_LIMIT * 3 }).catch(() => ({ groups: [] }))
@@ -636,9 +678,14 @@ function open(kind: SearchResultKind, result: any) {
   openSearchResult(router, kind, result, scopeProjectId.value)
 }
 
-function openAssetFromGrid(set: 'prompt' | 'visual', index: number) {
+function openAssetFromGrid(section: AssetSection, index: number) {
   trackResultOpened('asset')
-  void openMediaSlideshow(set, index)
+  // Sections are a presentation split; the slideshow runs over the whole
+  // result list so arrow keys walk every match.
+  const list = section.set === 'visual' ? visualResults.value : promptResults.value
+  const media = section.items[index]
+  const listIndex = list.findIndex(m => m.id === media.id)
+  void openMediaSlideshow(section.set, listIndex === -1 ? 0 : listIndex)
 }
 
 // ==================== Entity context menu (chats/flows/boards only) ====================

@@ -37,10 +37,10 @@
             class="inline-flex items-center gap-2 h-7 px-2.5 mr-1 rounded-md bg-overlay-subtle hover:bg-overlay-medium text-xs text-content transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50"
             :disabled="downloadingPackage"
             @click="downloadPackage('pdf')"
-            title="Download the package guide, not its production files"
+            title="Download PDF"
           >
             <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
-            <span class="font-medium">Download guide PDF</span>
+            <span class="font-medium">Download PDF</span>
           </button>
           <!-- Version dropdown. Trigger-ghost per §7: no border, no fill; the
                off-latest state earns the accent because it is a real state, not

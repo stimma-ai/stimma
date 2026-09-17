@@ -378,11 +378,11 @@
         type="button"
         class="border-none bg-transparent h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium text-white/85 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
         :disabled="downloadingPackage"
-        title="Download the package guide, not its production files"
+        title="Download PDF"
         @click="downloadPackage('pdf')"
       >
         <DocumentArrowDownIcon class="w-4 h-4 text-accent" />
-        Guide PDF
+        Download PDF
       </button>
     </div>
 
@@ -1207,7 +1207,7 @@
         <button type="button" class="sheet-row" @click="showImageStrip = !showImageStrip; compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="showImageStrip ? '!text-live' : ''">{{ showImageStrip ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
-        <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download guide PDF</span></button>
+        <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('pdf')"><DocumentArrowDownIcon class="sheet-row-icon" /><span class="flex-1">Download PDF</span></button>
       </div>
     </Sheet>
 
@@ -2343,7 +2343,7 @@ const packageTitle = computed(() => {
   return item.asset_title || item.title || (item.original_filename || '').replace(/\.stimmapackage$/i, '') || 'Package'
 })
 
-// Package exports (ZIP of the bundle, or just the guide PDF) — the same
+// Package exports (ZIP of the bundle, or the PDF) — the same
 // endpoint the artifact viewer uses, so both surfaces stay in step.
 const { downloadFromResponse } = useTauriDownload()
 const downloadingPackage = ref(false)

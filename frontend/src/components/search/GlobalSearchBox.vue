@@ -129,6 +129,18 @@
                     class="w-full h-full object-cover"
                   />
                 </div>
+                <div v-else-if="item.kind === 'asset'" class="w-6 h-6 rounded-md overflow-hidden bg-matte border border-edge-subtle">
+                  <MediaImage
+                    :media-id="item.data.media_id || item.data.id"
+                    :file-hash="item.data.file_hash"
+                    :thumbnail="true"
+                    :thumbnail-size="64"
+                    :draggable="false"
+                    :enable-context-menu="false"
+                    container-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
                 <div v-else-if="item.kind === 'board' && item.data?.preview_items?.length" class="w-6 h-6 rounded overflow-hidden bg-overlay-subtle">
                   <div class="grid grid-cols-2 gap-px w-full h-full">
                     <MediaImage
@@ -232,8 +244,7 @@ import {
   matchSegments,
   type EntitySearchResults,
   type MediaSearchHit,
-  type SearchResultKind,
-} from '../../composables/useGlobalSearch'
+  type SearchResultKind, groupAssetHits, assetDisplayTitle } from '../../composables/useGlobalSearch'
 import { recentEntities, type RecentEntity } from '../../composables/useRecentEntities'
 import { toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
@@ -241,6 +252,7 @@ import { supported as voiceSupported } from '../../composables/useVoiceInput'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { formatRelativeTime } from '../../utils/timeFormat'
+import { encodeMediaType } from '../../composables/useUrlState'
 
 interface SelectableItem {
   key: string
@@ -272,6 +284,9 @@ function isEscapeKind(kind: SelectableItem['kind']): boolean {
 const DROPDOWN_ENTITY_LIMIT = 5
 const DROPDOWN_TOOL_LIMIT = 6
 const DROPDOWN_MEDIA_LIMIT = 6
+const DROPDOWN_ASSET_GROUPS = 3
+const DROPDOWN_ASSET_ROWS = 4
+const DROPDOWN_ASSET_FETCH = 30
 const DEBOUNCE_MS = 150
 
 const router = useRouter()
@@ -430,25 +445,45 @@ const sections = computed<Section[]>(() => {
   // Each strip carries its own "View all" escape hatch in the header — the
   // action gets its index BEFORE the thumbnails so arrow-key order matches
   // the visual top-to-bottom layout.
-  if (promptMediaResults.value.length > 0) {
+  // Asset matches, one group per media type: deliverables as named rows,
+  // raw media as thumbnail strips. The dropdown shows the first few groups;
+  // the full breakdown lives on the results page.
+  const groups = groupAssetHits(promptMediaResults.value).slice(0, DROPDOWN_ASSET_GROUPS)
+  for (const group of groups) {
     const action = next({
-      key: 'browse-prompt',
+      key: `browse-prompt:${group.filterKey}`,
       kind: 'browse-prompt',
       label: 'View all',
-      data: null,
+      data: { filterKey: group.filterKey },
     })
-    result.push({
-      title: 'Name & prompt matches',
-      strip: true,
-      action,
-      items: promptMediaResults.value.map(m => next({
-        key: `asset:prompt:${m.id}`,
-        kind: 'asset',
-        label: '',
-        set: 'prompt',
-        data: m,
-      })),
-    })
+    if (group.titled) {
+      result.push({
+        title: group.label,
+        action,
+        items: group.items.slice(0, DROPDOWN_ASSET_ROWS).map(m => next({
+          key: `asset:prompt:${m.id}`,
+          kind: 'asset',
+          label: assetDisplayTitle(m),
+          highlight: true,
+          meta: m.asset_created_at || m.created_date ? formatRelativeTime(m.asset_created_at || m.created_date) : undefined,
+          set: 'prompt',
+          data: m,
+        })),
+      })
+    } else {
+      result.push({
+        title: group.label,
+        strip: true,
+        action,
+        items: group.items.slice(0, DROPDOWN_MEDIA_LIMIT).map(m => next({
+          key: `asset:prompt:${m.id}`,
+          kind: 'asset',
+          label: '',
+          set: 'prompt',
+          data: m,
+        })),
+      })
+    }
   }
   if (visualMediaResults.value.length > 0) {
     const action = next({
@@ -528,7 +563,7 @@ async function runSearch() {
     selectedIndex.value = 0
     if (entities && entities.presets.length > 0) void ensureToolCatalog()
     if (openInstanceResults.value.length > 0) void ensureToolCatalog()
-    searchMediaByPrompt(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
+    searchMediaByPrompt(q, DROPDOWN_ASSET_FETCH, projectId).then(items => {
       if (seq === searchSeq) promptMediaResults.value = items
     }).catch(() => {})
     searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
@@ -763,6 +798,7 @@ function activateItem(item: SelectableItem) {
       item.kind === 'browse-prompt'
         ? { pq: query.value.trim() }
         : { stt: query.value.trim() }
+    if (item.kind === 'browse-prompt' && item.data?.filterKey) browseQuery.mt = encodeMediaType(item.data.filterKey)
     if (scopeProject.value) browseQuery.prj = String(scopeProject.value.id)
     router.push({ name: 'browse', query: browseQuery })
     return

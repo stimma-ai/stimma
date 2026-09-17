@@ -2,6 +2,16 @@ import { watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { makeProfileKey } from '../utils/storageKeys'
 
+// Compact media type codes for the mt/xmt URL params. i/v predate the rest and
+// must keep their letters so old links still work.
+const MEDIA_TYPE_CODES = {
+  images: 'i', videos: 'v', audio: 'a', text: 't', vectors: 's',
+  sets: 'e', grids: 'g', sprites: 'r', packages: 'p', layouts: 'l',
+}
+const MEDIA_TYPE_BY_CODE = Object.fromEntries(Object.entries(MEDIA_TYPE_CODES).map(([k, v]) => [v, k]))
+export function encodeMediaType(type) { return MEDIA_TYPE_CODES[type] || type }
+export function decodeMediaType(code) { return MEDIA_TYPE_BY_CODE[code] || (code === 'v' ? 'videos' : code) }
+
 /**
  * Composable for managing state in URL query parameters and localStorage
  * Supports compact encoding for bookmarkable URLs
@@ -21,7 +31,7 @@ export function useUrlState() {
    * - cq: caption query
    * - pq: prompt query
    * - stt: similar to text (text-based CLIP search)
-   * - mt: media types (i=images, v=videos)
+   * - mt: media types (i=images, v=videos, a=audio, t=text, s=vectors, e=sets, g=grids, r=sprites, p=packages, l=layouts)
    * - xmt: excluded media types
    * - r: resolutions (s=small, m=medium, l=large)
    * - xr: excluded resolutions
@@ -46,12 +56,10 @@ export function useUrlState() {
 
     // Media types - compact encoding
     if (filters.mediaTypes?.length > 0) {
-      const compact = filters.mediaTypes.map(t => t === 'images' ? 'i' : 'v').join(',')
-      params.set('mt', compact)
+      params.set('mt', filters.mediaTypes.map(encodeMediaType).join(','))
     }
     if (filters.excludedMediaTypes?.length > 0) {
-      const compact = filters.excludedMediaTypes.map(t => t === 'images' ? 'i' : 'v').join(',')
-      params.set('xmt', compact)
+      params.set('xmt', filters.excludedMediaTypes.map(encodeMediaType).join(','))
     }
 
     // Resolutions - compact encoding
@@ -187,7 +195,7 @@ export function useUrlState() {
 
     // Media types
     if (queryParams.mt) {
-      filters.mediaTypes = queryParams.mt.split(',').map(t => t === 'i' ? 'images' : 'videos')
+      filters.mediaTypes = queryParams.mt.split(',').map(decodeMediaType)
     }
     // Projects
     if (queryParams.prj) {
@@ -198,7 +206,7 @@ export function useUrlState() {
     }
 
     if (queryParams.xmt) {
-      filters.excludedMediaTypes = queryParams.xmt.split(',').map(t => t === 'i' ? 'images' : 'videos')
+      filters.excludedMediaTypes = queryParams.xmt.split(',').map(decodeMediaType)
     }
 
     // Resolutions

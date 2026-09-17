@@ -3,6 +3,7 @@ import type { Router } from 'vue-router'
 import { useProvidersApi, type ProviderTool } from './useProvidersApi'
 import { frecencyFor } from './useRecentEntities'
 import { useWorkspaceTabs, toolInstanceRoute, type WorkspaceTab } from './useWorkspaceTabs'
+import { getMediaType, type MediaType } from '../utils/mediaTypes'
 
 /**
  * Shared search logic for the global search omnibox and the /search page.
@@ -45,6 +46,58 @@ export interface MediaSearchHit {
   file_hash: string
   file_format: string
   [key: string]: any
+}
+
+// --- Asset grouping -------------------------------------------------------
+//
+// A brand kit and a PNG are not the same kind of result, so asset matches
+// are presented one group per media type. Titled deliverables (packages,
+// layouts, sets, grids, sprites) render as named rows; raw media (images,
+// videos, SVG, audio, text) render as thumbnail strips. Order is
+// deliverables first: they are rarer and more deliberate than loose images.
+
+export interface AssetGroup {
+  type: MediaType
+  /** Section heading, e.g. "Packages". */
+  label: string
+  /** Browse filter key for "View all", e.g. "packages". */
+  filterKey: string
+  /** Named rows (title + age) rather than a thumbnail strip. */
+  titled: boolean
+  items: MediaSearchHit[]
+}
+
+const ASSET_GROUP_ORDER: Array<Omit<AssetGroup, 'items'>> = [
+  { type: 'package', label: 'Packages', filterKey: 'packages', titled: true },
+  { type: 'layout', label: 'Layouts', filterKey: 'layouts', titled: true },
+  { type: 'set', label: 'Sets', filterKey: 'sets', titled: true },
+  { type: 'grid', label: 'Grids', filterKey: 'grids', titled: true },
+  { type: 'sprite', label: 'Sprites', filterKey: 'sprites', titled: true },
+  { type: 'vector', label: 'SVG', filterKey: 'vectors', titled: false },
+  { type: 'image', label: 'Images', filterKey: 'images', titled: false },
+  { type: 'video', label: 'Videos', filterKey: 'videos', titled: false },
+  { type: 'audio', label: 'Audio', filterKey: 'audio', titled: false },
+  { type: 'text', label: 'Text', filterKey: 'text', titled: false },
+]
+
+export function groupAssetHits(items: MediaSearchHit[]): AssetGroup[] {
+  const byType = new Map<MediaType, MediaSearchHit[]>()
+  for (const item of items) {
+    const type = getMediaType(item as any)
+    if (!byType.has(type)) byType.set(type, [])
+    byType.get(type)!.push(item)
+  }
+  return ASSET_GROUP_ORDER
+    .filter(group => byType.has(group.type))
+    .map(group => ({ ...group, items: byType.get(group.type)! }))
+}
+
+/** Display name for a titled asset; falls back to the filename sans extension. */
+export function assetDisplayTitle(item: MediaSearchHit): string {
+  const title = item.asset_title || item.title
+  if (title) return String(title)
+  const name = String(item.original_filename || '')
+  return name.replace(/\.(stimmapackage|stimmalayout|stimmaset\.json|stimmagrid\.json|stimmasprite\.json)$/i, '') || 'Untitled'
 }
 
 const EMPTY_ENTITY_RESULTS: EntitySearchResults = {
