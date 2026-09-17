@@ -17,6 +17,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Stimpack fixture libraries are source, not Python build output.
+!backend/tests/fixtures/stimpacks/**/lib/
+!backend/tests/fixtures/stimpacks/**/lib/**
 lib64/
 parts/
 sdist/
