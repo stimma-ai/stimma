@@ -65,6 +65,8 @@ export interface AssetGroup {
   /** Named rows (title + age) rather than a thumbnail strip. */
   titled: boolean
   items: MediaSearchHit[]
+  /** True match count for the type, independent of how many items were fetched. */
+  total: number
 }
 
 const ASSET_GROUP_ORDER: Array<Omit<AssetGroup, 'items'>> = [
@@ -89,7 +91,7 @@ export function groupAssetHits(items: MediaSearchHit[]): AssetGroup[] {
   }
   return ASSET_GROUP_ORDER
     .filter(group => byType.has(group.type))
-    .map(group => ({ ...group, items: byType.get(group.type)! }))
+    .map(group => ({ ...group, items: byType.get(group.type)!, total: byType.get(group.type)!.length }))
 }
 
 /** Display name for a titled asset; falls back to the filename sans extension. */
@@ -227,6 +229,39 @@ export function useGlobalSearch() {
     return data.items || []
   }
 
+  /**
+   * Asset text matches grouped by media type, each group fetched on its own.
+   *
+   * Grouping a single recency-sorted page would hide any type whose matches
+   * are all older than the page window, so instead: one facet-count call
+   * tells us which types match at all (and how many), then the first
+   * `maxGroups` types each get their own top-`perGroup` fetch. Recency then
+   * only orders items within a group.
+   */
+  async function searchAssetGroups(q: string, perGroup: number, maxGroups: number, projectId?: number | null): Promise<AssetGroup[]> {
+    if (!q.trim()) return []
+    const countParams = new URLSearchParams({ prompt_query: q })
+    if (projectId != null) countParams.set('project_ids', String(projectId))
+    const countResponse = await fetch(`/api/assets/filter-counts?${countParams}`)
+    if (!countResponse.ok) return []
+    const counts: Record<string, number> = (await countResponse.json()).media_type || {}
+    const present = ASSET_GROUP_ORDER.filter(group => (counts[group.filterKey] || 0) > 0).slice(0, maxGroups)
+    const groups = await Promise.all(present.map(async group => {
+      const params = new URLSearchParams({
+        prompt_query: q,
+        media_types: group.filterKey,
+        page: '1',
+        page_size: String(perGroup),
+        sort_by: 'created_desc',
+      })
+      if (projectId != null) params.set('project_id', String(projectId))
+      const response = await fetch(`/api/assets/browse?${params}`)
+      const items: MediaSearchHit[] = response.ok ? ((await response.json()).items || []) : []
+      return { ...group, items, total: counts[group.filterKey] || items.length }
+    }))
+    return groups.filter(group => group.items.length > 0)
+  }
+
   /** Assets that VISUALLY match the query via CLIP text-to-image similarity. */
   async function searchMediaVisual(q: string, pageSize = 6, projectId?: number | null): Promise<MediaSearchHit[]> {
     if (!q.trim()) return []
@@ -243,7 +278,7 @@ export function useGlobalSearch() {
     return data.items || []
   }
 
-  return { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchMediaVisual }
+  return { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchAssetGroups, searchMediaVisual }
 }
 
 // --- Navigation ---

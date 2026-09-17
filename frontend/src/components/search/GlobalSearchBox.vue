@@ -61,7 +61,7 @@
         <div class="py-1.5">
           <div class="flex items-center justify-between px-3.5 pt-1 pb-0.5">
             <div class="text-xs font-semibold text-content-secondary">
-              {{ section.title }}
+              {{ section.title }}<span v-if="section.count && section.count > section.items.length" class="ml-1.5 font-normal text-content-muted/70 tabular-nums">{{ section.count }}</span>
             </div>
             <button
               v-if="section.action"
@@ -244,7 +244,7 @@ import {
   matchSegments,
   type EntitySearchResults,
   type MediaSearchHit,
-  type SearchResultKind, groupAssetHits, assetDisplayTitle } from '../../composables/useGlobalSearch'
+  type SearchResultKind, assetDisplayTitle, type AssetGroup } from '../../composables/useGlobalSearch'
 import { recentEntities, type RecentEntity } from '../../composables/useRecentEntities'
 import { toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
@@ -273,6 +273,8 @@ interface Section {
   title: string
   items: SelectableItem[]
   strip?: boolean
+  /** True match count for the group when known (asset groups). */
+  count?: number
   /** Right-aligned header action (the strip's "View all" escape hatch). */
   action?: SelectableItem
 }
@@ -286,12 +288,11 @@ const DROPDOWN_TOOL_LIMIT = 6
 const DROPDOWN_MEDIA_LIMIT = 6
 const DROPDOWN_ASSET_GROUPS = 3
 const DROPDOWN_ASSET_ROWS = 4
-const DROPDOWN_ASSET_FETCH = 30
 const DEBOUNCE_MS = 150
 
 const router = useRouter()
 const route = useRoute()
-const { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
+const { searchEntities, searchTools, searchOpenToolInstances, searchAssetGroups, searchMediaVisual } = useGlobalSearch()
 const { getContextualMedia } = useAssetApi()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject } = useMediaApi()
@@ -329,7 +330,7 @@ const scopeProject = ref<{ id: number; name: string } | null>(null)
 const entityResults = ref<EntitySearchResults | null>(null)
 const toolResults = ref<ProviderTool[]>([])
 const openInstanceResults = ref<WorkspaceTab[]>([])
-const promptMediaResults = ref<MediaSearchHit[]>([])
+const assetGroupResults = ref<AssetGroup[]>([])
 const visualMediaResults = ref<MediaSearchHit[]>([])
 const contextualMediaResults = ref<Array<MediaSearchHit & { root_kind: string; root_id: string }>>([])
 const toolById = ref<Map<string, ProviderTool>>(new Map())
@@ -448,8 +449,7 @@ const sections = computed<Section[]>(() => {
   // Asset matches, one group per media type: deliverables as named rows,
   // raw media as thumbnail strips. The dropdown shows the first few groups;
   // the full breakdown lives on the results page.
-  const groups = groupAssetHits(promptMediaResults.value).slice(0, DROPDOWN_ASSET_GROUPS)
-  for (const group of groups) {
+  for (const group of assetGroupResults.value) {
     const action = next({
       key: `browse-prompt:${group.filterKey}`,
       kind: 'browse-prompt',
@@ -459,6 +459,7 @@ const sections = computed<Section[]>(() => {
     if (group.titled) {
       result.push({
         title: group.label,
+        count: group.total,
         action,
         items: group.items.slice(0, DROPDOWN_ASSET_ROWS).map(m => next({
           key: `asset:prompt:${m.id}`,
@@ -473,6 +474,7 @@ const sections = computed<Section[]>(() => {
     } else {
       result.push({
         title: group.label,
+        count: group.total,
         strip: true,
         action,
         items: group.items.slice(0, DROPDOWN_MEDIA_LIMIT).map(m => next({
@@ -541,7 +543,7 @@ async function runSearch() {
     entityResults.value = null
     toolResults.value = []
     openInstanceResults.value = []
-    promptMediaResults.value = []
+    assetGroupResults.value = []
     visualMediaResults.value = []
     contextualMediaResults.value = []
     selectedIndex.value = 0
@@ -563,8 +565,8 @@ async function runSearch() {
     selectedIndex.value = 0
     if (entities && entities.presets.length > 0) void ensureToolCatalog()
     if (openInstanceResults.value.length > 0) void ensureToolCatalog()
-    searchMediaByPrompt(q, DROPDOWN_ASSET_FETCH, projectId).then(items => {
-      if (seq === searchSeq) promptMediaResults.value = items
+    searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId).then(groups => {
+      if (seq === searchSeq) assetGroupResults.value = groups
     }).catch(() => {})
     searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
       if (seq === searchSeq) visualMediaResults.value = items

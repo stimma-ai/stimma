@@ -199,7 +199,7 @@
           <section v-for="assetSection in assetSections" :key="assetSection.key">
             <div class="flex items-baseline gap-2.5 mb-3">
               <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
-              <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
+              <span class="text-[11px] text-content-muted/70">{{ assetSection.total }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
                 class="ml-auto text-xs text-content-muted hover:text-content-secondary transition-colors compact:min-h-11 compact:inline-flex compact:items-center compact:px-2"
@@ -336,7 +336,7 @@ import {
   type EntitySearchResults,
   type EntitySearchHit,
   type MediaSearchHit,
-  type SearchResultKind, groupAssetHits, assetDisplayTitle } from '../composables/useGlobalSearch'
+  type SearchResultKind, assetDisplayTitle, type AssetGroup } from '../composables/useGlobalSearch'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
@@ -349,13 +349,13 @@ const PAGE_TOOL_LIMIT = 12
 // 16 = exactly two rows of the lg 8-column grid (the app window's minimum
 // width guarantees lg); View all covers the rest.
 const PAGE_MEDIA_LIMIT = 16
-const PAGE_ASSET_FETCH = 48
+const PAGE_ASSET_GROUPS = 10
 
 const PRESET_ICON = 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75'
 
 const route = useRoute()
 const router = useRouter()
-const { searchEntities, searchTools, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
+const { searchEntities, searchTools, searchAssetGroups, searchMediaVisual } = useGlobalSearch()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 const { getAssetBrowserItem, getContextualMedia, promoteContextualMedia } = useAssetApi()
@@ -393,7 +393,10 @@ const loading = ref(false)
 const showSkeleton = computed(() => loading.value && totalCount.value === 0)
 const entityResults = ref<EntitySearchResults | null>(null)
 const toolResults = ref<ProviderTool[]>([])
-const promptResults = ref<MediaSearchHit[]>([])
+const assetGroups = ref<AssetGroup[]>([])
+// Flat view of every grouped text match: the slideshow walks this list.
+const promptResults = computed<MediaSearchHit[]>(() => assetGroups.value.flatMap(group => group.items))
+const promptTotal = computed(() => assetGroups.value.reduce((sum, group) => sum + group.total, 0))
 const visualResults = ref<MediaSearchHit[]>([])
 interface ContextualGroup { root_kind: string; root_id: string; items: MediaSearchHit[] }
 const contextualGroups = ref<ContextualGroup[]>([])
@@ -472,6 +475,7 @@ interface AssetSection {
   singular: string
   titled: boolean
   items: MediaSearchHit[]
+  total: number
   browseQuery: Record<string, string>
 }
 
@@ -483,13 +487,14 @@ function browseQueryFor(param: 'pq' | 'stt', filterKey?: string): Record<string,
 
 const assetSections = computed<AssetSection[]>(() => {
   if (!q.value) return []
-  const grouped: AssetSection[] = groupAssetHits(promptResults.value).map(group => ({
+  const grouped: AssetSection[] = assetGroups.value.map(group => ({
     key: `prompt:${group.type}`,
     set: 'prompt' as const,
     title: group.label,
     singular: group.label === 'SVG' ? 'SVG' : group.label.replace(/s$/, ''),
     titled: group.titled,
     items: group.items,
+    total: group.total,
     browseQuery: browseQueryFor('pq', group.filterKey),
   }))
   if (visualResults.value.length > 0) {
@@ -500,6 +505,7 @@ const assetSections = computed<AssetSection[]>(() => {
       singular: 'Image',
       titled: false,
       items: visualResults.value,
+      total: visualResults.value.length,
       browseQuery: browseQueryFor('stt'),
     })
   }
@@ -511,7 +517,7 @@ const totalCount = computed(() => {
   const entityTotal = e
     ? e.chats.length + e.flows.length + e.boards.length + e.projects.length + e.presets.length
     : 0
-  return entityTotal + toolResults.value.length + promptResults.value.length + visualResults.value.length + contextualCount.value
+  return entityTotal + toolResults.value.length + promptTotal.value + visualResults.value.length + contextualCount.value
 })
 
 const matchedKindsLabel = computed(() => {
@@ -532,7 +538,7 @@ async function runSearch() {
   if (!current) {
     entityResults.value = null
     toolResults.value = []
-    promptResults.value = []
+    assetGroups.value = []
     visualResults.value = []
     contextualGroups.value = []
     return
@@ -543,7 +549,7 @@ async function runSearch() {
   if (lastLoadedQuery.value !== current) {
     entityResults.value = null
     toolResults.value = []
-    promptResults.value = []
+    assetGroups.value = []
     visualResults.value = []
     contextualGroups.value = []
   }
@@ -552,7 +558,7 @@ async function runSearch() {
     const [entities, tools, prompt, visual, contextual] = await Promise.all([
       searchEntities(current, PAGE_ENTITY_LIMIT, projectId).catch(() => null),
       searchTools(current, PAGE_TOOL_LIMIT).catch(() => []),
-      searchMediaByPrompt(current, PAGE_ASSET_FETCH, projectId).catch(() => []),
+      searchAssetGroups(current, PAGE_MEDIA_LIMIT, PAGE_ASSET_GROUPS, projectId).catch(() => []),
       searchMediaVisual(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
       projectId == null
         ? getContextualMedia({ q: current, limit: PAGE_MEDIA_LIMIT * 3 }).catch(() => ({ groups: [] }))
@@ -561,7 +567,7 @@ async function runSearch() {
     if (seq !== searchSeq) return
     entityResults.value = entities
     toolResults.value = tools
-    promptResults.value = prompt
+    assetGroups.value = prompt
     visualResults.value = visual
     contextualGroups.value = contextual.groups || []
     if (entities && entities.presets.length > 0) void ensureToolNames()
