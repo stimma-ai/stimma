@@ -91,7 +91,10 @@ whose existing internal spacing must be retained: illustrated or gradient
 grounds, edge-to-edge patterns. A mark on a flat ground is not that case, even
 when you composed it yourself: the platform tiles (iOS, macOS) draw the ground,
 and Windows and Linux ship the bare mark, so the mark must be fitted per
-platform. The recipe refuses canvas fit when the visible mark spans less than
+platform. On Windows, Linux and the web the mark ships bare when its ink reads
+on both light and dark chrome; a mark that would vanish on one of them (black
+on a dark dock, white on a light taskbar) keeps its ground as a rounded tile.
+The recipe refuses canvas fit when the visible mark spans less than
 half the master, because every platform would inherit that padding and the
 icon would read undersized beside its neighbours. Inspect the cutout and the
 resulting Platform Study before saving. Never enlarge only a preview to hide

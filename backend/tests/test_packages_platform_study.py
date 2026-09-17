@@ -38,6 +38,22 @@ def test_source_padding_does_not_shrink_delivered_windows_icon():
         Artwork.measure(ground, 'canvas')
 
 
+def test_bare_platforms_keep_the_ground_only_for_ink_that_needs_it():
+    black_on_white = Image.new('RGBA', (1024, 1024), '#ffffff')
+    ImageDraw.Draw(black_on_white).rectangle((300, 380, 724, 644), fill='black')
+    plan = Artwork.measure(black_on_white)
+    for platform in ('windows', 'linux', 'web'):
+        spec = icon_spec.IconImage('icon-256.png', 256)
+        out = plan.compose(black_on_white, spec, platform, '#ffffff')
+        assert out.getpixel((128, 20))[:3] == (255, 255, 255), platform  # tile above the mark
+        assert out.getpixel((0, 0))[3] == 0, platform  # rounded corner
+        assert out.getpixel((128, 128))[:3] == (0, 0, 0), platform
+    # Orange reads on light and dark chrome alike: no tile.
+    image = mark(90)
+    out = Artwork.measure(image).compose(image, icon_spec.IconImage('icon-256.png', 256), 'linux', '#ffffff')
+    assert out.getpixel((128, 4))[3] == 0
+
+
 def test_tile_platforms_fit_the_mark_to_about_two_thirds():
     image = mark(90)
     plan = Artwork.measure(image)

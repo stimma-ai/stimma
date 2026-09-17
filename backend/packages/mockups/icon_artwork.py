@@ -22,6 +22,13 @@ BARE_FILL = .92
 # Below this share of the master, a mark on a uniform ground is too light to
 # ship as-is: canvas fit refuses rather than delivering a tiny icon.
 CANVAS_FIT_FLOOR = .5
+# Bare-mark platforms (Windows, Linux, web) draw the icon straight onto UI
+# chrome that may be light or dark. A mark ships bare only when its ink
+# separates from both; otherwise it keeps its ground as a rounded tile, so a
+# black wordmark does not vanish in a dark dock or browser tab.
+LIGHT_CHROME = (243, 243, 243)
+DARK_CHROME = (43, 43, 43)
+BARE_PLATFORMS = ('windows', 'linux', 'web')
 
 
 @dataclass(frozen=True)
@@ -79,6 +86,16 @@ class Artwork:
                            max(round(x0*image.width)+1, round(x1*image.width)),
                            max(round(y0*image.height)+1, round(y1*image.height))))
 
+    def keeps_ground(self, art: Image.Image) -> bool:
+        """Whether a bare-mark platform should keep the ground under ``art``."""
+        if not self.mark:
+            return False
+        ink = icon_spec.ink_color(art)
+        if ink is None:
+            return False
+        return min(icon_spec.contrast_ratio(ink, LIGHT_CHROME),
+                   icon_spec.contrast_ratio(ink, DARK_CHROME)) < icon_spec.MIN_ICON_CONTRAST
+
     def render_size(self, px: int) -> int:
         fraction = max(self.bounds[2]-self.bounds[0], self.bounds[3]-self.bounds[1])
         return min(8192, max(px, math.ceil(px/max(fraction, .01)))) if self.mark else px
@@ -87,6 +104,7 @@ class Artwork:
                 platform: str, background: str, *, scale: float = 1.0) -> Image.Image:
         art = self.crop(image)
         bg = self.backdrop or background
+        ground = False
         adaptive = platform == 'android' and 'foreground' in spec.path
         if adaptive:
             # Fit actual visible pixels inside the guaranteed circle, not a
@@ -100,6 +118,10 @@ class Artwork:
             inner = max(1, round(spec.px * icon_spec.MACOS_SAFE_AREA * (TILE_FILL if self.mark else 1)))
         else:
             occupancy = TILE_FILL if spec.opaque else (WINDOWS_FILL if platform == 'windows' else BARE_FILL)
+            ground = platform in BARE_PLATFORMS and not spec.opaque and self.keeps_ground(art)
+            if ground:
+                tile_px = max(1, round(spec.px * occupancy))
+                occupancy *= TILE_FILL
             inner = max(1, round(spec.px * (occupancy if self.mark else 1)))
         from packages.recipes import RecipeError
 
@@ -113,6 +135,10 @@ class Artwork:
         factor = inner/max(art.size)
         art = art.resize((max(1, round(art.width*factor)), max(1, round(art.height*factor))), Image.Resampling.LANCZOS)
         canvas = Image.new('RGBA', (spec.px, spec.px))
+        if platform in BARE_PLATFORMS and ground:
+            tile = Image.new('RGBA', (tile_px, tile_px), bg)
+            tile.putalpha(icon_spec.rounded_mask(tile_px))
+            canvas.alpha_composite(tile, ((spec.px-tile_px)//2, (spec.px-tile_px)//2))
         if platform == 'macos':
             badge_size = max(1, round(spec.px * icon_spec.MACOS_SAFE_AREA))
             badge = Image.new('RGBA', (badge_size, badge_size), bg)
