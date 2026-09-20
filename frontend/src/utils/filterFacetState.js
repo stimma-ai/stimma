@@ -16,6 +16,7 @@ export function createLatestRequestGate() {
 }
 
 export function getFilterCountWatchValues(filters = {}, {
+  projectId = null,
   similarSearchActive = false,
   similarSearchSourceItems = [],
 } = {}) {
@@ -46,6 +47,7 @@ export function getFilterCountWatchValues(filters = {}, {
     filters.excludeExpiring,
     filters.createdAfter,
     filters.createdBefore,
+    projectId,
     similarSearchActive,
     filters.similarTo,
     filters.similarFaceTo,
@@ -55,6 +57,7 @@ export function getFilterCountWatchValues(filters = {}, {
 
 export function buildFilterCountParams(filters = {}, {
   isTrashMode = false,
+  projectId = null,
   similarSearchActive = false,
   similarSearchSourceItems = [],
 } = {}) {
@@ -85,15 +88,21 @@ export function buildFilterCountParams(filters = {}, {
   setList('excluded_folders', filters.excludedFolders)
   setList('tag_ids', filters.selectedTags)
   setList('excluded_tag_ids', filters.excludedTags)
-  setList('project_ids', filters.selectedProjects)
-  setList('excluded_project_ids', filters.excludedProjects)
+  if (projectId != null) {
+    params.project_id = projectId
+  } else {
+    setList('project_ids', filters.selectedProjects)
+    setList('excluded_project_ids', filters.excludedProjects)
+  }
   setList('tool_ids', filters.selectedTools)
   setList('excluded_tool_ids', filters.excludedTools)
   setList('marker_ids', filters.selectedMarkers)
   setList('excluded_marker_ids', filters.excludedMarkers)
 
-  if (filters.projectMembership === 'any') params.has_project = true
-  else if (filters.projectMembership === 'none') params.has_project = false
+  if (projectId == null) {
+    if (filters.projectMembership === 'any') params.has_project = true
+    else if (filters.projectMembership === 'none') params.has_project = false
+  }
 
   if (filters.isImported !== null && filters.isImported !== undefined) {
     params.is_imported = filters.isImported

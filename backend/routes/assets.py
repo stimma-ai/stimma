@@ -769,6 +769,7 @@ async def _similarity_media_ids_for_facets(
     session: AsyncSession,
     *,
     state: str,
+    project_id: int | None,
     similar_to: str | None,
     similar_face_to: str | None,
     similar_to_text: str | None,
@@ -780,6 +781,7 @@ async def _similarity_media_ids_for_facets(
         page=1,
         page_size=10_000_000,
         state=state,
+        project_id=project_id,
         similar_to=similar_to,
         similar_face_to=similar_face_to,
         similar_to_text=similar_to_text,
@@ -795,6 +797,7 @@ def _asset_facet_query(
     *,
     state: str,
     filters: dict,
+    project_id: int | None = None,
     exclude_category: str | None = None,
     similarity_media_ids: list[int] | None = None,
 ):
@@ -804,6 +807,17 @@ def _asset_facet_query(
         state=state,
         exclude_category=exclude_category,
     )
+    if project_id is not None:
+        project_asset_ids = (
+            select(ProjectAsset.asset_id)
+            .join(Project, Project.id == ProjectAsset.project_id)
+            .where(
+                ProjectAsset.project_id == project_id,
+                ProjectAsset.deleted_at.is_(None),
+                Project.deleted_at.is_(None),
+            )
+        )
+        query = query.where(Asset.id.in_(project_asset_ids))
     if filters.get("folders") and exclude_category != "folders":
         query = query.where(StorageObject.kind == "external")
     if similarity_media_ids is not None:
@@ -828,6 +842,7 @@ async def get_asset_top_keywords(
     offset: int = Query(0, ge=0),
     search: str | None = None,
     state: str = Query("active", pattern="^(active|trashed)$"),
+    project_id: int | None = None,
     caption_query: str | None = None,
     prompt_query: str | None = None,
     media_types: str | None = None,
@@ -878,6 +893,7 @@ async def get_asset_top_keywords(
     similarity_ids = await _similarity_media_ids_for_facets(
         session,
         state=state,
+        project_id=project_id,
         similar_to=similar_to,
         similar_face_to=similar_face_to,
         similar_to_text=similar_to_text,
@@ -886,6 +902,7 @@ async def get_asset_top_keywords(
     query = _asset_facet_query(
         state=state,
         filters=filters,
+        project_id=project_id,
         exclude_category="keywords",
         similarity_media_ids=similarity_ids,
     ).join(MediaKeyword, MediaKeyword.media_id == MediaItem.id).join(
@@ -922,6 +939,7 @@ async def get_asset_top_keywords(
 @router.get("/filter-counts")
 async def get_asset_filter_counts(
     state: str = Query("active", pattern="^(active|trashed)$"),
+    project_id: int | None = None,
     caption_query: str | None = None,
     prompt_query: str | None = None,
     media_types: str | None = None,
@@ -989,6 +1007,7 @@ async def get_asset_filter_counts(
     similarity_ids = await _similarity_media_ids_for_facets(
         session,
         state=state,
+        project_id=project_id,
         similar_to=similar_to,
         similar_face_to=similar_face_to,
         similar_to_text=similar_to_text,
@@ -999,6 +1018,7 @@ async def get_asset_filter_counts(
         return _asset_facet_query(
             state=state,
             filters=filters,
+            project_id=project_id,
             exclude_category=category,
             similarity_media_ids=similarity_ids,
         )

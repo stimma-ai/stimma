@@ -81,6 +81,22 @@ test('latest-request gate rejects stale facet responses', () => {
   assert.equal(gate.isCurrent(broadRequest), false)
 })
 
+test('project scope constrains facets and ignores stale library project filters', () => {
+  const params = buildFilterCountParams({
+    selectedProjects: [3],
+    excludedProjects: [4],
+    projectMembership: 'none',
+  }, { projectId: 12 })
+
+  assert.equal(params.project_id, 12)
+  assert.equal('project_ids' in params, false)
+  assert.equal('excluded_project_ids' in params, false)
+  assert.equal('has_project' in params, false)
+
+  const watched = getFilterCountWatchValues({}, { projectId: 12 })
+  assert.equal(watched.includes(12), true)
+})
+
 test('count refresh dependencies include the formerly sticky filters', () => {
   const values = getFilterCountWatchValues({
     similarToText: 'text-search',

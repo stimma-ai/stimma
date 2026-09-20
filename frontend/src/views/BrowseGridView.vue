@@ -97,6 +97,7 @@
       :savedViewName="savedViewName"
       :isTrashMode="isTrashMode"
       :inProjectScope="projectId != null"
+      :project-id="projectId"
       @update="loadMedia"
       @clear-similar="clearSimilarSearch"
       @shuffle="handleShuffle"

@@ -787,7 +787,8 @@ const props = defineProps({
   savedViewId: { type: Number, default: null },  // If viewing a saved view
   savedViewName: { type: String, default: null },  // Name of the saved view
   isTrashMode: { type: Boolean, default: false },  // Trash view mode
-  inProjectScope: { type: Boolean, default: false }  // Viewing a single project's assets — project filter is redundant here
+  inProjectScope: { type: Boolean, default: false },  // Viewing a single project's assets — project filter is redundant here
+  projectId: { type: Number, default: null }  // Route-level project scope; must constrain every facet request
 })
 
 const emit = defineEmits([
@@ -1310,14 +1311,18 @@ const modalFilterParams = computed(() => {
   if (props.excludedTags && props.excludedTags.length > 0) {
     params.excluded_tag_ids = props.excludedTags.join(',')
   }
-  if (props.selectedProjects && props.selectedProjects.length > 0) {
-    params.project_ids = props.selectedProjects.join(',')
+  if (props.projectId != null) {
+    params.project_id = props.projectId
+  } else {
+    if (props.selectedProjects && props.selectedProjects.length > 0) {
+      params.project_ids = props.selectedProjects.join(',')
+    }
+    if (props.excludedProjects && props.excludedProjects.length > 0) {
+      params.excluded_project_ids = props.excludedProjects.join(',')
+    }
+    if (props.projectMembership === 'any') params.has_project = true
+    else if (props.projectMembership === 'none') params.has_project = false
   }
-  if (props.excludedProjects && props.excludedProjects.length > 0) {
-    params.excluded_project_ids = props.excludedProjects.join(',')
-  }
-  if (props.projectMembership === 'any') params.has_project = true
-  else if (props.projectMembership === 'none') params.has_project = false
   if (props.selectedTools && props.selectedTools.length > 0) {
     params.tool_ids = props.selectedTools.join(',')
   }
@@ -2326,7 +2331,8 @@ async function loadUnfilteredCount() {
     const params = {
       page: 1,
       page_size: 1,
-      state: props.isTrashMode ? 'trashed' : 'active'
+      state: props.isTrashMode ? 'trashed' : 'active',
+      project_id: props.projectId ?? undefined,
     }
     const response = await fetchAssets(params)
     unfilteredTotalCount.value = response.total
@@ -2341,6 +2347,7 @@ async function loadFilterCounts() {
   try {
     const params = buildFilterCountParams(props, {
       isTrashMode: props.isTrashMode,
+      projectId: props.projectId,
       similarSearchActive: !props.isTrashMode && props.similarSearchActive,
       similarSearchSourceItems: props.similarSearchSourceItems,
     })
@@ -2425,6 +2432,7 @@ watch(localSimilarToText, (newVal, oldVal) => {
 let filterCountsDebounceTimer = null
 watch(
   () => getFilterCountWatchValues(props, {
+    projectId: props.projectId,
     similarSearchActive: props.similarSearchActive,
     similarSearchSourceItems: props.similarSearchSourceItems,
   }),
@@ -2442,6 +2450,10 @@ watch(
   },
   { deep: true }
 )
+
+watch(() => props.projectId, () => {
+  loadUnfilteredCount()
+})
 
 // Handle profile changes - reload all filter data for new profile
 async function handleProfileChanged() {

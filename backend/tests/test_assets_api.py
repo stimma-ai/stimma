@@ -37,6 +37,8 @@ from database import (
     MediaTag,
     MediaThumbnailCache,
     MediaToolLineage,
+    Project,
+    ProjectAsset,
     Tag,
 )
 from container_service import create_container_asset_from_media
@@ -976,6 +978,71 @@ async def test_asset_facets_count_every_media_type(client, db_session):
     assert counts["packages"] == before.get("packages", 0) + 1
     assert counts["sprites"] == before.get("sprites", 0) + 1
     assert counts["layouts"] == before.get("layouts", 0) + 1
+
+
+@pytest.mark.asyncio
+async def test_asset_facets_and_keywords_respect_project_scope(client, db_session):
+    suffix = str(time.time_ns())
+    inside_keyword_text = f"inside-project-{suffix}"
+    outside_keyword_text = f"outside-project-{suffix}"
+    inside_tag_text = f"inside-project-tag-{suffix}"
+    outside_tag_text = f"outside-project-tag-{suffix}"
+
+    async with db_session() as session:
+        project = Project(name=f"Facet scope {suffix}")
+        session.add(project)
+        await session.flush()
+
+        inside_media = await create_media_item(
+            session,
+            file_path=f"/tmp/project-facet-{suffix}.png",
+            file_format="png",
+        )
+        outside_media = await create_media_item(
+            session,
+            file_path=f"/tmp/project-facet-{suffix}.mp4",
+            file_format="mp4",
+        )
+        inside_asset = await create_asset_from_media(session, media_id=inside_media.id)
+        outside_asset = await create_asset_from_media(session, media_id=outside_media.id)
+
+        inside_keyword = Keyword(keyword_text=inside_keyword_text)
+        outside_keyword = Keyword(keyword_text=outside_keyword_text)
+        inside_tag = Tag(tag_text=inside_tag_text)
+        outside_tag = Tag(tag_text=outside_tag_text)
+        session.add_all([inside_keyword, outside_keyword, inside_tag, outside_tag])
+        await session.flush()
+        session.add_all([
+            ProjectAsset(project_id=project.id, asset_id=inside_asset.id),
+            MediaKeyword(media_id=inside_media.id, keyword_id=inside_keyword.id),
+            MediaKeyword(media_id=outside_media.id, keyword_id=outside_keyword.id),
+            AssetTag(asset_id=inside_asset.id, tag_id=inside_tag.id),
+            AssetTag(asset_id=outside_asset.id, tag_id=outside_tag.id),
+        ])
+        await session.commit()
+        project_id = project.id
+
+    response = await client.get(
+        "/api/assets/filter-counts",
+        params={"project_id": project_id},
+    )
+    assert response.status_code == 200, response.text
+    counts = response.json()
+    assert counts["media_type"]["images"] == 1
+    assert counts["media_type"]["videos"] == 0
+    assert counts["keywords"] == {inside_keyword_text: 1}
+    assert {entry["tag"]: entry["usage_count"] for entry in counts["tags"]} == {
+        inside_tag_text: 1,
+    }
+
+    keywords = await client.get(
+        "/api/assets/keywords/top",
+        params={"project_id": project_id},
+    )
+    assert keywords.status_code == 200, keywords.text
+    assert keywords.json()["keywords"] == [
+        {"keyword": inside_keyword_text, "count": 1},
+    ]
 
 
 @pytest.mark.asyncio
