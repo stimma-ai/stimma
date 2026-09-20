@@ -423,6 +423,16 @@ const lockScreenSubmitting = ref(false)
 const lockScreenPinInput = ref(null)
 const lockScreenProfileDropdownOpen = ref(false)
 const lockScreenShake = ref(false)
+
+// A WebView can ignore element.focus() while its native window is inactive.
+// Auto-lock commonly happens in exactly that state, so retry after the window
+// becomes active instead of leaving keyboard entry dormant until a click.
+async function focusLockScreenPinInput() {
+  if (!isLocked.value) return
+  await nextTick()
+  if (isLocked.value) lockScreenPinInput.value?.focus({ preventScroll: true })
+}
+
 // The eight pinwheel colours arranged in a ring behind the brand block, in
 // canvas unit coords. Alpha drops on light surfaces where the same tint reads
 // far stronger.
@@ -709,6 +719,7 @@ const FOCUS_SYNC_THROTTLE_MS = 4000
 
 function handleWindowFocusSync() {
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+  void focusLockScreenPinInput()
   const now = Date.now()
   if (now - lastFocusSyncAt < FOCUS_SYNC_THROTTLE_MS) return
   lastFocusSyncAt = now
@@ -1114,8 +1125,7 @@ async function checkStartupPin() {
 // Focus PIN input when lock screen shows, restore route when unlocking
 watch(isLocked, async (locked, wasLocked) => {
   if (locked) {
-    await nextTick()
-    lockScreenPinInput.value?.focus()
+    await focusLockScreenPinInput()
   } else if (wasLocked) {
     // If we unlocked into a profile switch, land on that profile's route.
     // Otherwise restore this profile's saved route (only acts at the app root).
