@@ -1393,8 +1393,10 @@ async def lifespan(app: FastAPI):
     # Yield - server starts accepting requests
     # Background tasks are already running concurrently
     from mcp_server.server import lifespan as mcp_lifespan
+    from mcp_server.listener import listener as mcp_direct_listener
     async with mcp_lifespan():
-        yield
+        async with mcp_direct_listener.lifespan():
+            yield
 
     # === SHUTDOWN ===
     log.info("shutdown begin")

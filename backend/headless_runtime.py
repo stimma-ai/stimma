@@ -7,7 +7,9 @@ import secrets
 import socket
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+from config import McpDirectConfig
 
 ENABLED = os.environ.get('STIMMA_HEADLESS') == '1'
 ROOT = Path(os.environ.get('STIMMA_HEADLESS_ROOT', '/data'))
@@ -101,6 +103,43 @@ async def command(request: Request):
 async def ready(request: Request):
     require_internal(request)
     return {'ready': True}
+
+
+class McpCommand(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    command: Literal['status', 'configure', 'enable', 'disable', 'connect'] = 'status'
+    profile: str | None = None
+    direct: McpDirectConfig | None = None
+    name: str = Field(default='Assistant', min_length=1, max_length=80)
+
+
+@router.post('/mcp')
+async def mcp_command(request: Request, body: McpCommand):
+    """Owner-only setup via the supervisor's private control socket."""
+    require_internal(request)
+    from config import get_settings
+    from core.profile_context import ProfileScope
+    from database_registry import get_database_registry
+    from mcp_server import settings as setup
+
+    profiles = get_settings().profiles
+    profile_id = body.profile or (profiles[0].id if profiles else None)
+    if profile_id not in {p.id for p in profiles}:
+        raise HTTPException(404, 'Profile not found')
+    with ProfileScope(profile_id):
+        if body.command == 'configure':
+            if body.direct is None:
+                raise HTTPException(422, 'Direct listener settings are required')
+            return await setup.configure_direct(body.direct)
+        if body.command in ('enable', 'disable'):
+            return await setup.enable(setup.Enable(enabled=body.command == 'enable'))
+        db = get_database_registry().get_database(profile_id)
+        async with db.async_session_maker() as session:
+            if body.command == 'connect':
+                return await setup.connect(setup.Connect(name=body.name), session)
+            result = await setup.settings(session)
+            result['profiles'] = [{'id': p.id, 'name': p.name} for p in get_settings().profiles]
+            return result
 
 
 class MaintenanceRequest(BaseModel):

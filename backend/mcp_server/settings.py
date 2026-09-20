@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
-from config import get_settings
+from config import get_settings, McpDirectConfig
+from .listener import listener, addresses
 from core.listener import port as loopback_port
 from .access import access, installation_id
 from .models import McpClient
@@ -49,6 +50,8 @@ async def settings(session=Depends(get_db_session)):
         "profile_id": profile.id,
         "profile_name": profile.name,
         "idle_timeout_minutes": profile.pin_idle_timeout_minutes,
+        "direct": listener.status(profile.id),
+        "addresses": addresses(),
         "clients": [
             {
                 "id": client.id,
@@ -67,6 +70,12 @@ async def settings(session=Depends(get_db_session)):
             for client in sorted(clients, key=lambda c: c.created_at)
         ],
     }
+
+
+@router.put("/direct")
+async def configure_direct(body: McpDirectConfig):
+    await listener.apply(body)
+    return listener.status(get_current_profile())
 
 
 @router.put("/settings")
@@ -102,9 +111,8 @@ async def connect(body: Connect, session=Depends(get_db_session)):
     # ``endpoint`` is this backend's own loopback listener, which only helps a
     # caller on the same machine (dev). The desktop app
     # joins ``path`` to its own origin instead: the shell's loopback proxy,
-    # which forwards to whichever install the window is on. That is the only
-    # address that works when the app is driving a remote Stimma Server,
-    # whose backend listens on loopback behind a TLS device gate.
+    # which forwards to whichever install the window is on. Direct access
+    # has its own MCP-only listener and an independently advertised endpoint.
     path = f"/mcp/profiles/{profile_id}"
     return {
         "id": client.id,
@@ -115,6 +123,7 @@ async def connect(body: Connect, session=Depends(get_db_session)):
             "credential": credential,
             "path": path,
             "endpoint": f"http://127.0.0.1:{loopback_port()}{path}",
+            "direct_endpoint": listener.status(profile_id)["endpoint"],
         },
     }
 
@@ -145,4 +154,3 @@ async def disconnect(client_id: str, session=Depends(get_db_session)):
         await session.commit()
         await revoke(get_current_profile(), client_id)
     return {"disconnected": True}
-

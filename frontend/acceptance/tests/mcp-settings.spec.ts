@@ -1,5 +1,69 @@
 import { expect, test } from '../helpers/testbed';
 import { waitForShell } from '../helpers/app';
+import { createServer } from 'node:net';
+
+test('Direct MCP setup works without the desktop relay and can be disabled', async ({ page, context }, testInfo) => {
+  const reservation = createServer();
+  await new Promise<void>(resolve => reservation.listen(0, '127.0.0.1', resolve));
+  const port = (reservation.address() as { port: number }).port;
+  await new Promise<void>((resolve, reject) => reservation.close(error => error ? reject(error) : resolve()));
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addLocatorHandler(page.getByTestId('readiness-dismiss'), async dismiss => { await dismiss.click(); });
+  await page.goto('/browse');
+  await waitForShell(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'MCP EXPERIMENTAL', exact: true }).click();
+  const profileEnabled = page.getByRole('switch', { name: /^Enable MCP Server(?: for this profile)?$/ });
+  await expect(profileEnabled).toBeEnabled();
+  if (!await profileEnabled.isChecked()) await profileEnabled.click({ force: true });
+  const direct = page.getByTestId('mcp-direct-settings');
+  await expect(direct.getByRole('switch')).toBeEnabled();
+  await direct.getByRole('switch').check({ force: true });
+  await direct.getByRole('spinbutton', { name: 'Port' }).fill(String(port));
+  await direct.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('mcp-direct-status')).toHaveText('Listening');
+  await expect(page.getByTestId('mcp-direct-url')).toContainText(`http://127.0.0.1:${port}/mcp/profiles/`);
+  await page.getByRole('button', { name: '+ New', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Connection name' }).fill('Headless agent');
+  const created = page.waitForResponse(response => response.url().endsWith('/api/mcp/clients') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Create & show key', exact: true }).click();
+  const { connection } = await (await created).json();
+  await expect(page.getByRole('radio', { name: 'Direct to server', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: 'Copy URL', exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(connection.direct_endpoint);
+  await page.getByRole('button', { name: 'Copy setup request', exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(connection.direct_endpoint);
+  await page.screenshot({ path: testInfo.outputPath('mcp-direct-setup.png') });
+  const initialize = await page.request.post(connection.direct_endpoint, {
+    headers: { Authorization: `Bearer ${connection.credential}`, Accept: 'application/json, text/event-stream' },
+    data: { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'direct-acceptance', version: '1' } } },
+  });
+  expect(initialize.ok()).toBeTruthy();
+  expect(await initialize.text()).toContain('serverInfo');
+  const origin = new URL(connection.direct_endpoint).origin;
+  expect((await page.request.get(`${origin}/api/settings`)).status()).toBe(404);
+  await page.getByRole('radio', { name: 'Through this app', exact: true }).check();
+  await page.getByRole('button', { name: 'Copy URL', exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).not.toBe(connection.direct_endpoint);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  // Draft edits survive the periodic refresh until Apply is pressed.
+  await direct.getByRole('spinbutton', { name: 'Port' }).fill('19295');
+  await page.waitForTimeout(10500);
+  await expect(direct.getByRole('spinbutton', { name: 'Port' })).toHaveValue('19295');
+  await direct.getByRole('switch').uncheck({ force: true });
+  await direct.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByTestId('mcp-direct-status')).toHaveText('Off');
+  await expect(page.getByTestId('mcp-direct-url')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Options for Headless agent' }).click();
+  await page.getByRole('menuitem', { name: 'Remove connection' }).click();
+  await expect(page.getByText('No assistants connected yet')).toBeVisible();
+  await expect(profileEnabled).toBeEnabled();
+  const disabled = page.waitForResponse(response => response.url().endsWith('/api/mcp/settings') && response.request().method() === 'PUT');
+  await profileEnabled.click({ force: true });
+  expect((await disabled).ok()).toBeTruthy();
+  await expect(profileEnabled).not.toBeChecked();
+  await expect(profileEnabled).toBeEnabled();
+});
 
 test('MCP setup exposes usable connection details without developer tooling', async ({ page, context }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 1100 });
@@ -10,6 +74,7 @@ test('MCP setup exposes usable connection details without developer tooling', as
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'MCP EXPERIMENTAL', exact: true }).click();
   const enabled = page.getByRole('switch', { name: /^Enable MCP Server(?: for this profile)?$/ });
+  await expect(enabled).toBeEnabled();
   await expect(enabled).not.toBeChecked();
   await enabled.click({ force: true });
   await expect(enabled).toBeChecked();

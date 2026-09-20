@@ -9,6 +9,162 @@ import httpx
 from sqlalchemy import select, func
 
 
+@pytest.fixture
+async def direct_http(mcp_app, monkeypatch):
+    import socket
+    from types import SimpleNamespace
+    from config import McpDirectConfig
+    from mcp_server import listener as transport
+
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+    config = McpDirectConfig(enabled=True, port=port)
+    monkeypatch.setattr(transport, 'get_settings', lambda: SimpleNamespace(mcp_direct=config))
+    instance = transport.DirectListener()
+    async with instance.lifespan():
+        assert instance.status('default')['status'] == 'listening'
+        async with httpx.AsyncClient(
+            base_url=f'http://127.0.0.1:{port}', trust_env=False,
+            headers={'Authorization': 'Bearer test-credential-one',
+                     'Accept': 'application/json, text/event-stream',
+                     'MCP-Protocol-Version': '2025-11-25'},
+        ) as client:
+            yield client, instance, config
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_direct_mcp_wire_transfers_and_revocation(direct_http, monkeypatch):
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+    from config import get_settings
+
+    client, instance, config = direct_http
+    async with streamable_http_client(str(client.base_url) + '/mcp/profiles/default', http_client=client) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            assert (await session.list_tools()).tools
+    # Forwarded headers must not poison returned transfer URLs.
+    client.headers.update({'X-Forwarded-Host': 'attacker.invalid', 'X-Forwarded-Proto': 'https'})
+    workspace = body(await rpc(client, 'workspace_get'))
+    assert workspace['upload_url'].startswith(str(client.base_url))
+    payload = product_image_bytes('blue')
+    async with httpx.AsyncClient(trust_env=False) as anonymous:
+        uploaded = await anonymous.post(workspace['upload_url'], content=payload, headers={'X-Filename': 'direct.png'})
+        assert uploaded.status_code == 200, uploaded.text
+        result = body(await rpc(client, 'media_export', {'ref': uploaded.json()['media_ref']}))
+        assert result['download_url'].startswith(str(client.base_url))
+        download = await anonymous.get(result['download_url'])
+        assert download.content == payload
+        partial = await anonymous.get(result['download_url'], headers={'Range': 'bytes=0-7'})
+        assert partial.status_code == 206
+        assert partial.content == payload[:8]
+        await rpc(client, 'access_lock')
+        assert (await anonymous.get(result['download_url'])).status_code == 403
+        assert (await anonymous.post(workspace['upload_url'], content=payload)).status_code == 403
+    profile = get_settings().get_profile('default')
+    monkeypatch.setattr(profile, 'mcp_enabled', False)
+    response = await client.post('/mcp/profiles/default', json={'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'})
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_direct_surface_host_auth_and_maintenance(direct_http, monkeypatch):
+    import headless_runtime
+    client, _, _ = direct_http
+    for path in ('/api/settings', '/api/mcp/settings', '/api/headless/mcp', '/multi-device/session', '/', '/mcp/profiles/default/other'):
+        assert (await client.get(path)).status_code == 404
+    request = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'}
+    path = '/mcp/profiles/default'
+    for headers, status in (
+        ({'Authorization': ''}, 401),
+        ({'Authorization': 'Bearer wrong'}, 401),
+        ({'Host': 'attacker.invalid'}, 403),
+        ({'Origin': 'https://attacker.invalid'}, 403),
+        ({'X-Profile-Id': 'another'}, 403),
+    ):
+        assert (await client.post(path, json=request, headers=headers)).status_code == status
+    assert (await client.post('/mcp/profiles/another', json=request)).status_code == 404
+    monkeypatch.setattr(headless_runtime, '_maintenance', True)
+    assert (await client.post(path, json=request)).status_code == 503
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_direct_restart_disable_and_port_collision(direct_http):
+    import socket
+    client, instance, config = direct_http
+    old_port = config.port
+    config.enabled = False
+    await instance.apply()
+    assert instance.status('default')['endpoint'] is None
+    with pytest.raises(httpx.ConnectError):
+        await client.get('/mcp/profiles/default')
+    with socket.socket() as occupied:
+        occupied.bind(('127.0.0.1', 0))
+        occupied.listen()
+        config.enabled = True
+        config.port = occupied.getsockname()[1]
+        await instance.apply()
+        assert instance.status('default')['status'] == 'error'
+        assert 'Port already in use' in instance.error
+        assert instance.status('default')['endpoint'] is None
+    config.port = old_port
+    await instance.apply()
+    assert instance.status('default')['status'] == 'listening'
+    assert not (await rpc(client, 'workspace_get')).get('isError')
+
+
+async def test_direct_settings_validation_and_persistence(mcp_app):
+    from mcp_server.listener import listener
+    from config import get_settings, reload_settings
+    from config_writer import patch_global_section
+    saved = get_settings().mcp_direct.model_dump()
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=mcp_app), base_url='http://test', headers={'X-Profile-ID': 'default'}) as client:
+            for bad in ({'host': '0.0.0.0'}, {'host': '::'}, {'host': '::ffff:0.0.0.0'}, {'host': 'example.com'}, {'port': 0}, {'port': 65536}):
+                assert (await client.put('/api/mcp/direct', json=bad)).status_code == 422
+            result = await client.put('/api/mcp/direct', json={'enabled': False, 'host': '127.0.0.1', 'port': 19294})
+            assert result.status_code == 200
+            assert reload_settings().mcp_direct.port == 19294
+            settings = (await client.get('/api/mcp/settings')).json()
+            assert settings['direct']['status'] == 'off'
+            assert any(item['host'] == '127.0.0.1' for item in settings['addresses'])
+    finally:
+        patch_global_section('mcp_direct', saved)
+        reload_settings()
+        get_settings().get_profile('default').mcp_enabled = True
+        await listener.apply()
+
+
+async def test_headless_mcp_setup_without_desktop(mcp_app, monkeypatch):
+    from fastapi import FastAPI
+    import headless_runtime
+    from config import get_settings
+
+    app = FastAPI()
+    app.include_router(headless_runtime.router)
+    monkeypatch.setattr(headless_runtime, 'ENABLED', True)
+    monkeypatch.setenv('STIMMA_SUPERVISOR_TOKEN', 'owner-secret')
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        assert (await client.post('/api/headless/mcp', json={})).status_code == 403
+        client.headers['X-Stimma-Supervisor'] = 'owner-secret'
+        assert (await client.post('/api/headless/mcp', json={'profile': 'missing'})).status_code == 404
+        status = (await client.post('/api/headless/mcp', json={})).json()
+        assert status['profile_id'] == 'default'
+        assert {'id': 'default', 'name': get_settings().get_profile('default').name} in status['profiles']
+        assert (await client.post('/api/headless/mcp', json={'command': 'enable'})).status_code == 200
+        created = await client.post('/api/headless/mcp', json={'command': 'connect', 'name': 'Headless agent'})
+        assert created.status_code == 200
+        connection = created.json()['connection']
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=mcp_app), base_url='http://test', headers={
+            'Authorization': f"Bearer {connection['credential']}", 'Accept': 'application/json, text/event-stream',
+        }) as agent:
+            assert body(await rpc(agent, 'workspace_get'))['profile_id'] == 'default'
+        assert (await client.post('/api/headless/mcp', json={'command': 'disable'})).status_code == 200
+        assert (await client.post('/api/headless/mcp', json={'command': 'connect'})).status_code == 409
+        await client.post('/api/headless/mcp', json={'command': 'enable'})
+
+
 @pytest.fixture(scope="module")
 async def mcp_app(test_app):
     from mcp_server.server import Gateway, lifespan

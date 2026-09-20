@@ -25,6 +25,7 @@ import tempfile
 import threading
 import time
 import urllib.request
+import urllib.error
 from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get('STIMMA_HEADLESS_ROOT', '/data'))
@@ -145,11 +146,11 @@ def unpack(archive: Path, destination: Path):
         raise ValueError('Package has no server launcher')
 
 
-def control(action: str):
+def control(action: str, **payload):
     with socket.socket(socket.AF_UNIX) as client:
-        client.settimeout(5)
+        client.settimeout(20)
         client.connect(str(SOCKET))
-        client.sendall((json.dumps({'action': action}) + '\n').encode())
+        client.sendall((json.dumps({'action': action, **payload}) + '\n').encode())
         with client.makefile('r') as stream:
             result = json.loads(stream.readline(1024 * 1024))
         if result.get('error') and not result.get('headless'):
@@ -190,8 +191,17 @@ class Supervisor:
         req = urllib.request.Request(f'http://127.0.0.1:{self.local_port}/api/headless/{action}', data=data,
                                      headers={'Content-Type': 'application/json',
                                               'X-Stimma-Supervisor': self.token})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.load(response)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            if action != 'mcp':
+                raise
+            try:
+                detail = json.load(exc).get('detail')
+            except (ValueError, AttributeError):
+                detail = None
+            raise RuntimeError(detail if isinstance(detail, str) else 'Invalid MCP settings or command') from None
 
     def check(self):
         if os.environ.get('STIMMA_PRIVACY_LOCKDOWN', '').lower() in ('1', 'true', 'yes', 'on'):
@@ -379,7 +389,14 @@ class Supervisor:
             def handle(self):
                 self.connection.settimeout(5)
                 try:
-                    action = json.loads(self.rfile.readline(4096))['action']
+                    message = json.loads(self.rfile.readline(4096))
+                    action = message['action']
+                    if action == 'mcp':
+                        if supervisor.state['status'] != 'ready':
+                            raise ValueError('Wait until the server is ready')
+                        result = supervisor.local('mcp', message.get('body', {}))
+                        self.wfile.write((json.dumps(result) + '\n').encode())
+                        return
                     if action not in ('status', 'check', 'update', 'restart', 'login', 'logout'):
                         raise ValueError('Unknown command')
                     if action != 'status':
@@ -447,8 +464,24 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description='Stimma headless server')
     parser.add_argument('action', nargs='?', default='serve',
-                        choices=['serve', 'status', 'health', 'check', 'update', 'restart', 'login', 'logout'])
-    action = parser.parse_args().action
+                        choices=['serve', 'status', 'health', 'check', 'update', 'restart', 'login', 'logout', 'mcp'])
+    parser.add_argument('mcp_command', nargs='?', choices=['status', 'configure', 'enable', 'disable', 'connect'])
+    parser.add_argument('--profile', help='MCP profile ID (default: first profile; list with mcp status)')
+    parser.add_argument('--host', default='127.0.0.1', help='Direct MCP listen IP, e.g. the server VPN address')
+    parser.add_argument('--port', type=int, default=9194, help='Stable direct MCP port (default: 9194)')
+    parser.add_argument('--off', action='store_true', help='Disable the direct listener with mcp configure')
+    parser.add_argument('--name', default='Assistant', help='Name for a new MCP connection')
+    args = parser.parse_args()
+    action = args.action
+    if action == 'mcp':
+        body = {'command': args.mcp_command or 'status', 'profile': args.profile, 'name': args.name}
+        if body['command'] == 'configure':
+            body['direct'] = {'enabled': not args.off, 'host': args.host, 'port': args.port}
+        result = control('mcp', body=body)
+        print(json.dumps(result, indent=2))
+        if result.get('status') == 'error':
+            sys.exit(1)
+        return
     if action == 'serve':
         Supervisor().run()
     else:

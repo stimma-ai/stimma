@@ -380,6 +380,28 @@ class FaceDetectionConfig(BaseModel):
     similarity_threshold: float = 0.55
 
 
+class McpDirectConfig(BaseModel):
+    """Installation-wide, opt-in MCP transport on one explicit interface."""
+    model_config = {"extra": "forbid"}
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = Field(default=9194, ge=1024, le=65535)
+
+    @field_validator("host")
+    @classmethod
+    def validate_host(cls, value: str) -> str:
+        import ipaddress
+
+        try:
+            ip = ipaddress.ip_address(value.strip())
+        except ValueError:
+            raise ValueError("Choose a specific IP address on this server.")
+        effective = getattr(ip, "ipv4_mapped", None) or ip
+        if effective.is_unspecified or effective.is_multicast or effective.is_link_local or "%" in str(ip):
+            raise ValueError("Choose a specific loopback, LAN, or VPN address.")
+        return str(ip)
+
+
 class ServerConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
@@ -904,6 +926,7 @@ class Settings(BaseSettings):
     agent: AgentConfig = AgentConfig()
     cloud: CloudConfig = CloudConfig()
     multi_device: MultiDeviceConfig = MultiDeviceConfig()
+    mcp_direct: McpDirectConfig = Field(default_factory=McpDirectConfig)
     telemetry: TelemetryConfig = TelemetryConfig()
     compliance: ComplianceConfig = ComplianceConfig()
     feedback: FeedbackConfig = FeedbackConfig()

@@ -26,6 +26,40 @@
       </span>
     </label>
 
+    <section aria-labelledby="mcp-direct-heading" class="space-y-3" data-testid="mcp-direct-settings">
+      <h4 id="mcp-direct-heading" class="text-xs font-semibold text-content-secondary">Direct connections</h4>
+      <label class="flex cursor-pointer items-start justify-between gap-4 py-2.5">
+        <span>
+          <span class="text-sm text-content">Allow connections from other computers</span>
+          <span class="mt-1 block text-xs leading-relaxed text-content-tertiary">Connect agents directly to {{ isRemote ? activeDeviceName : 'this server' }}. A headless server stays available with the desktop app closed.</span>
+        </span>
+        <span class="relative mt-1 inline-flex shrink-0 items-center">
+          <input v-model="directDraft.enabled" type="checkbox" role="switch" aria-label="Allow connections from other computers" :disabled="busy || loading" class="peer sr-only" />
+          <span class="h-5 w-9 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-content after:transition-transform after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-disabled:opacity-50 peer-focus-visible:ring-2 ring-accent/60" />
+        </span>
+      </label>
+      <div v-if="directDraft.enabled || state.direct?.enabled" class="space-y-3">
+        <p class="text-xs leading-relaxed text-content-tertiary">This setting applies to this installation. Only profiles with MCP enabled are accessible. Use a trusted network or VPN such as Tailscale; this connection uses HTTP.</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <span id="mcp-listen-address" class="text-sm text-content">Listen address</span>
+          <SettingsDropdown v-model="directDraft.host" :options="addressOptions" :disabled="busy" aria-labelledby="mcp-listen-address" quiet />
+        </div>
+        <label class="flex items-center justify-between gap-3">
+          <span class="text-sm text-content">Port</span>
+          <input v-model.number="directDraft.port" type="number" min="1024" max="65535" :disabled="busy" class="w-24 rounded-md border border-transparent bg-overlay-subtle px-3 py-2 font-mono text-sm tabular-nums text-content outline-none focus:border-accent focus-visible:ring-2 ring-accent/40" />
+        </label>
+        <p v-if="directDraft.host === '127.0.0.1' || directDraft.host === '::1'" class="text-xs text-content-tertiary">Loopback is accessible only on the server itself. Select its network address for an agent on another computer.</p>
+      </div>
+      <div class="flex items-center justify-between gap-3">
+        <p role="status" class="text-xs text-content-secondary" data-testid="mcp-direct-status">{{ directStatus }}</p>
+        <Button v-if="directDirty || state.direct?.status === 'error'" size="sm" :disabled="busy || !validDirectPort" :loading="busy" @click="applyDirect">Apply</Button>
+      </div>
+      <div v-if="state.direct?.endpoint" class="flex items-center gap-2">
+        <code class="min-w-0 flex-1 break-all font-mono text-xs text-content select-text" data-testid="mcp-direct-url">{{ state.direct.endpoint }}</code>
+        <Button variant="ghost" size="sm" @click="copy('direct-url', state.direct.endpoint)">{{ copied === 'direct-url' ? 'Copied' : 'Copy server URL' }}</Button>
+      </div>
+    </section>
+
     <section aria-labelledby="mcp-connections-heading" :class="!state.enabled && 'pointer-events-none opacity-40'" :aria-disabled="!state.enabled">
       <div class="flex items-center justify-between gap-4">
         <h4 id="mcp-connections-heading" class="text-sm font-semibold text-content">Connections</h4>
@@ -34,6 +68,10 @@
 
       <div v-if="currentSetup" class="mt-4 space-y-3 rounded-lg border border-edge p-4" data-testid="mcp-new-connection">
         <h5 class="text-sm font-semibold text-content">{{ currentSetup.name }} is ready to connect</h5>
+        <div v-if="state.direct?.endpoint" class="flex flex-wrap gap-3" role="group" aria-label="Connection route">
+          <label class="flex items-center gap-2 text-xs text-content"><input v-model="setupRoute" type="radio" value="relay" class="accent-accent" />Through this app</label>
+          <label class="flex items-center gap-2 text-xs text-content"><input v-model="setupRoute" type="radio" value="direct" class="accent-accent" />Direct to server</label>
+        </div>
         <p class="text-xs text-content-secondary">Copy the setup request and paste it into your coding agent.</p>
         <Button size="sm" @click="copySetupRequest">{{ copied === 'request' ? 'Copied' : 'Copy setup request' }}</Button>
         <p class="mt-1 text-xs leading-relaxed text-content-secondary">
@@ -48,7 +86,8 @@
               <code class="min-w-0 flex-1 truncate font-mono text-xs text-content select-text">{{ serverUrl(currentSetup.connection) }}</code>
               <Button variant="ghost" size="sm" @click="copy('url', serverUrl(currentSetup.connection))">{{ copied === 'url' ? 'Copied' : 'Copy URL' }}</Button>
             </div>
-            <p v-if="isRemote" class="mt-1.5 text-xs leading-relaxed text-content-tertiary" data-testid="mcp-relay-note">
+            <p v-if="setupRoute === 'direct' && state.direct?.endpoint" class="mt-1.5 text-xs leading-relaxed text-content-tertiary">Keep the server running. On a headless server, the desktop app can be closed.</p>
+            <p v-else-if="isRemote" class="mt-1.5 text-xs leading-relaxed text-content-tertiary" data-testid="mcp-relay-note">
               This address is on this computer, not {{ activeDeviceName }}. Stimma forwards it to {{ activeDeviceName }} while it’s open, so the assistant never needs to reach the server directly.
             </p>
           </div>
@@ -135,6 +174,7 @@ import { desktop } from '../../../desktop'
 import { copyToClipboard } from '../../../utils/clipboard'
 import Button from '../../ui/Button.vue'
 import Modal from '../../ui/Modal.vue'
+import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 
 const props = defineProps({ hasMultipleProfiles: Boolean })
 const enableLabel = computed(() => `Enable MCP Server${props.hasMultipleProfiles ? ' for this profile' : ''}`)
@@ -145,20 +185,39 @@ const { isRemote, activeDeviceName } = useMultiDevice()
 
 // The URL an assistant on this machine can actually open. In the desktop app
 // that is the shell's loopback proxy, which forwards to whichever install the
-// window is on — the only route to a remote server, whose backend listens on
-// loopback behind the TLS device gate. Outside the shell (dev, acceptance)
+// window is on. Direct access uses the separately configured MCP listener.
+// Outside the shell (dev, acceptance)
 // the backend's own address is on this machine and works as-is.
 function serverUrl(connection) {
+  if (setupRoute.value === 'direct' && state.value.direct?.endpoint) return state.value.direct.endpoint
   const origin = getBackendOrigin()
   return origin && connection.path ? `${origin}${connection.path}` : connection.endpoint
 }
 
 const state = ref({ enabled: false, clients: [] })
+const setupRoute = ref('relay')
+const directDraft = ref({ enabled: false, host: '127.0.0.1', port: 9194 })
+const directDirty = computed(() => ['enabled', 'host', 'port'].some(key => directDraft.value[key] !== (state.value.direct?.[key] ?? { enabled: false, host: '127.0.0.1', port: 9194 }[key])))
+const validDirectPort = computed(() => Number.isInteger(directDraft.value.port) && directDraft.value.port >= 1024 && directDraft.value.port <= 65535)
+const addressOptions = computed(() => {
+  const options = (state.value.addresses || []).map(item => ({ value: item.host, label: item.label }))
+  if (!options.some(option => option.value === directDraft.value.host)) options.push({ value: directDraft.value.host, label: `${directDraft.value.host} (unavailable)` })
+  return options
+})
+const directStatus = computed(() => state.value.direct?.error || (state.value.direct?.status === 'listening' ? 'Listening' : 'Off'))
+function applyDirect() {
+  return perform(async () => {
+    const { data } = await axios.put(`${getApiBase()}/mcp/direct`, directDraft.value)
+    state.value.direct = data
+    directDraft.value = { enabled: data.enabled, host: data.host, port: data.port }
+  })
+}
 const error = ref('')
 const busy = ref(false)
 const loading = ref(true)
 const currentSetup = ref(null)
 const copied = ref('')
+watch(setupRoute, () => { copied.value = '' })
 const revealed = ref(false)
 const showNamePrompt = ref(false)
 const newName = ref('')
@@ -184,7 +243,9 @@ async function refresh() {
   const version = ++refreshVersion
   const { data } = await axios.get(`${getApiBase()}/mcp/settings`)
   if (disposed || version !== refreshVersion) return
+  if (!directDirty.value && data.direct) directDraft.value = { enabled: data.direct.enabled, host: data.direct.host, port: data.direct.port }
   state.value = data
+  if (!data.direct?.endpoint) setupRoute.value = 'relay'
   if (currentSetup.value && !data.clients.some(client => client.id === currentSetup.value.id)) {
     currentSetup.value = null
   }
@@ -219,6 +280,7 @@ function connect() {
     const { data } = await axios.post(`${getApiBase()}/mcp/clients`, { name })
     if (disposed) return
     currentSetup.value = data
+    setupRoute.value = state.value.direct?.endpoint ? 'direct' : 'relay'
     revealed.value = false
     copied.value = ''
     showNamePrompt.value = false

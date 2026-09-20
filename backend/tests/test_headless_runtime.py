@@ -32,6 +32,7 @@ async def test_management_targets_supervisor_but_internal_routes_require_secret(
         command.assert_called_once_with('restart')
         assert (await client.get('/api/headless/ready')).status_code == 403
         assert (await client.post('/api/headless/login')).status_code == 403
+        assert (await client.post('/api/headless/mcp', json={'command': 'status'})).status_code == 403
         assert (await client.post('/api/headless/maintenance', json={'enabled': True})).status_code == 403
         assert (await client.get('/api/headless/ready', headers={'X-Stimma-Supervisor': 'private'})).status_code == 200
 

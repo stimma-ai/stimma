@@ -58,6 +58,39 @@ bootstrap require an update, Settings explains the same-tag refresh:
 docker compose pull && docker compose up -d
 ```
 
+## Direct MCP connections
+
+Agents can connect directly without a desktop relay. In the desktop app connected
+to this server, open **Settings → MCP → Direct connections**, choose the server's
+VPN or LAN IP and port, and click **Apply**. Enable MCP for the desired profile
+and create a named connection. Copy its **Direct to server** URL and key.
+
+For setup entirely from the shell (bootstrap **1.0.7+** and a runtime with direct
+MCP support):
+
+```sh
+docker exec stimma stimma-server mcp status
+docker exec stimma stimma-server mcp configure --host 100.64.0.10 --port 9194
+docker exec stimma stimma-server mcp enable --profile PROFILE_ID
+docker exec stimma stimma-server mcp connect --profile PROFILE_ID --name "Remote agent"
+```
+
+Replace the example IP with the server's own Tailscale address. `status` lists
+profile IDs and detected addresses; omitting `--profile` selects the first
+profile. `connect` prints a one-time connection key and `direct_endpoint`.
+Configure the agent for Streamable HTTP with that URL and
+`Authorization: Bearer <credential>`. Keep the key private. Profiles with a PIN
+still require the usual MCP unlock. Existing keys work through either route.
+
+`mcp configure --off` stops the direct listener installation-wide;
+`mcp disable --profile PROFILE_ID` disables MCP for just that profile.
+Configuration persists and applies without restarting the backend. The direct
+listener defaults to loopback and port 9194; select a specific network address
+for remote agents. It uses HTTP over your trusted network or encrypted VPN and
+exposes only MCP and signed media transfers. The normal device listener remains
+separate. Refresh the container image to obtain the new CLI when using an older
+bootstrap; Settings can configure the listener on base 1.0.6 as well.
+
 ## Recovery
 
 Back up the data volume while Stimma is stopped. Do not run `docker compose down

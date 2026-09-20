@@ -13,6 +13,25 @@ supervisor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(supervisor)
 
 
+@pytest.mark.parametrize('args,body', [
+    (['mcp', 'configure', '--host', '100.64.0.10', '--port', '19294'],
+     {'command': 'configure', 'profile': None, 'name': 'Assistant',
+      'direct': {'enabled': True, 'host': '100.64.0.10', 'port': 19294}}),
+    (['mcp', 'configure', '--off'],
+     {'command': 'configure', 'profile': None, 'name': 'Assistant',
+      'direct': {'enabled': False, 'host': '127.0.0.1', 'port': 9194}}),
+    (['mcp', 'connect', '--profile', 'work', '--name', 'Remote agent'],
+     {'command': 'connect', 'profile': 'work', 'name': 'Remote agent'}),
+])
+def test_mcp_cli_forwards_owner_command(monkeypatch, capsys, args, body):
+    control = Mock(return_value={'status': 'listening'})
+    monkeypatch.setattr(supervisor, 'control', control)
+    monkeypatch.setattr(supervisor.sys, 'argv', ['stimma-server', *args])
+    supervisor.main()
+    control.assert_called_once_with('mcp', body=body)
+    assert json.loads(capsys.readouterr().out)['status'] == 'listening'
+
+
 def test_update_window_spans_midnight_and_rejects_bad_input():
     now = dt.datetime(2026, 9, 5, 1, 30)
     assert supervisor.window_key('23:00-02:00', 'UTC', now) == '2026-09-04'
