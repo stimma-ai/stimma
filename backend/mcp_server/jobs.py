@@ -56,7 +56,15 @@ def fingerprint(value):
 
 
 def envelope(caller, job):
+    result = json.loads(job.result_json) if job.result_json else None
+    progress = {}
+    if job.operation == "tools_run":
+        args = json.loads(job.input_json)
+        total = len(args.get("batch") or [args.get("parameters", {})]) + len(args.get("chain", []))
+        items = (result or {}).get("items", [])
+        progress = {"progress": {"total": total, "completed": sum(i.get("state") == "succeeded" for i in items), "failed": sum(i.get("state") == "failed" for i in items), "interrupted": sum(i.get("state") == "interrupted" for i in items), "remaining": max(0, total - len(items)), "active_index": (result or {}).get("active_index") if job.state in ("running", "input_required") else None}}
     return {
+        **progress,
         "job_ref": access.ref(caller, "job", job.id),
         "state": job.state,
         "controller_version": job.controller_version,
@@ -133,6 +141,10 @@ async def accept(caller, name, key, args):
                     for ref in args["source_refs"]
                 ]
             if name == "tools_run":
+                if "batch" not in args and "parameters" not in args:
+                    raise McpError("invalid_arguments", "Supply parameters for one run, or batch containing complete parameter objects.")
+                if args.get("batch") and args.get("parameters"):
+                    raise McpError("invalid_arguments", "Supply batch or parameters, not both. Batch entries are complete parameters, not patches.")
                 if args.get("batch") and args.get("chain"):
                     raise McpError("invalid_arguments", "Choose a batch or a chain.")
                 if "batch_labels" in args and (
@@ -216,7 +228,7 @@ async def accept(caller, name, key, args):
             if project_id and not await session.get(Project, project_id):
                 raise McpError("not_found", "Project is unavailable.")
             chat = Chat(
-                name=args.get("brief", name)[:80],
+                name=args.get("title", args.get("brief", name))[:80],
                 project_id=project_id,
                 throttle="off",
                 generation_settings=json.dumps({"mcp_origin": caller.client_id}),
@@ -422,7 +434,7 @@ async def run(caller, job_id, *, response=None, message=None):
                 "failed",
                 {
                     "code": code,
-                    "message": "Execution stopped. Inspect the chat for details.",
+                    "message": exc.message if isinstance(exc, McpError) else "Execution stopped. Inspect the chat for details.",
                 },
             )
         finally:
@@ -483,7 +495,7 @@ async def set_state(caller, job_id, state, result=None):
             if job.operation == "agent_start":
                 result = {**(result or {}), **await agent_result(caller, session, job)}
             if result:
-                job.result_json = json.dumps(result)
+                job.result_json = json.dumps({**(json.loads(job.result_json) if job.result_json else {}), **result})
             await session.commit()
 
 
@@ -503,6 +515,7 @@ async def get(caller, job_ref, after=0):
                 {
                     "code": "execution_outcome_unknown",
                     "message": "The backend restarted. Inspect retained outputs; work was not replayed.",
+                    **(json.loads(job.result_json) if job.result_json else {}),
                     **(await agent_result(caller, session, job) if job.operation == "agent_start" else {}),
                 }
             )
@@ -802,6 +815,7 @@ async def retry(caller, job_ref, key):
             )
         batches = args.get("batch") or [args["parameters"]]
         args["batch"] = [batches[i] for i in failed]
+        args.pop("parameters", None)
         if "batch_labels" in args:
             args["batch_labels"] = [args["batch_labels"][i] for i in failed]
         indices = args.get("_batch_indices", list(range(len(batches))))

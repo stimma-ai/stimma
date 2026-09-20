@@ -21,14 +21,18 @@ from . import jobs, workspace
 from .operations import descriptors, FAMILIES, ACCESS_HELP
 
 from .logging import protect_sdk_logs
+from user_agent import get_app_version
 
 protect_sdk_logs()
 
 server = Server(
     "Stimma",
+    version=get_app_version(),
     instructions="This server is one Stimma profile: its media library, generation tools, projects, boards and chats. "
     "Use tools_search, tools_inspect and tools_run when you know the operation; use agent_start when you want Stimma to choose tools and creatively iterate from a brief. "
-    "Both return a job. Poll jobs_get until a terminal state; never resubmit to check progress. "
+    "Use content_update to create or revise sets, grids, packages, layouts and documents; content_get inspects them and discovers package recipes. "
+    "For writes, generate request_key yourself (any unique string, e.g. a UUID), at the top level. Reuse it only for identical retries. "
+    "tools_run, agent_start and content_update return a job. Poll jobs_get until a terminal state; never resubmit to check progress. "
     "If jobs_get reports input_required, the job is waiting on you: answer with interaction_respond (relay permission questions to the user). "
     "Results carry asset and media refs. Use media_read for a quick look and media_export for a download link that works with a plain GET or in a browser. "
     "Download original files into your project before using them elsewhere: download URLs expire and are not hosting URLs. "
@@ -62,7 +66,7 @@ def array(items, maximum=200):
 
 
 KEY = string(
-    "Your own id for this request, any short unique string. If the response is lost, retry with the same value and you get the same result; use a new value for new work.",
+    "Generate your own unique string (for example a UUID) for this top-level field; it is not a server-issued ref. If the response is lost, retry with the same value and you get the same result; use a new value for new work.",
     minLength=1,
     maxLength=128,
 )
@@ -120,8 +124,8 @@ TOOLS = {
         False,
     ),
     "tools_inspect": (
-        "Get a tool's parameter schema and its schema_version. Call this before tools_run; the run needs that schema_version.",
-        obj({"tool_ref": REF}, ["tool_ref"]),
+        "Get a tool's parameter schema and schema_version. Optionally select fields or refresh the provider catalog. Large enums can be searched with tools_options.",
+        obj({"tool_ref": REF, "fields": array(string(), 100), "refresh": {"type": "boolean", "default": False}, "include_options": {"type": "boolean", "default": False}}, ["tool_ref"]),
         False,
     ),
     "tools_run": (
@@ -134,7 +138,7 @@ TOOLS = {
                 "project_ref": REF,
                 "request_key": KEY,
             },
-            ["tool_ref", "schema_version", "parameters", "request_key"],
+            ["tool_ref", "schema_version", "request_key"],
         ),
         True,
     ),
@@ -338,15 +342,69 @@ content_variants = [
         ["format", "files", "request_key"],
     ),
 ]
+
+file_entry = obj({"name": string(maxLength=200), "text": string(maxLength=128000), "source_ref": REF,
+                  "replace": string(maxLength=200)}, ["name"])
+file_entry["oneOf"] = [{"required": ["text"]}, {"required": ["source_ref"]}]
+content_variants[-1]["properties"]["files"] = array(file_entry, 100)
+content_variants[-1]["properties"]["remove_files"] = array(string(maxLength=200), 100)
+content_variants.append(obj({**content_common, "format": {"const": "restore"}, "revision_ref": REF}, ["format", "revision_ref", "target_asset_ref", "expected_current_revision", "request_key"]))
+for kind in ("set", "grid"):
+    props = {**content_common, "format": {"const": kind}, "title": string(maxLength=200),
+             "description": string(maxLength=4000),
+             "members": {**array(REF, 2000), "minItems": 1, "description": "Complete ordered member list. For grids, row-major. To add/remove/reorder or extend, inspect content_get and submit the new list with a revision guard."}}
+    required = ["format", "members", "request_key"]
+    if kind == "grid":
+        props.update(row_headers={**array(string(maxLength=500), 200), "minItems": 1},
+                     col_headers={**array(string(maxLength=500), 200), "minItems": 1})
+        required += ["row_headers", "col_headers", "title"]
+    content_variants.append(obj(props, required))
+content_variants.append(obj({**content_common, "format": {"const": "package"},
+    "title": string(maxLength=200), "cover": string("Authored cover HTML; required on new packages. Inspect recipes with content_get.", maxLength=512000),
+    "tile_ref": REF,
+    "members": array(obj({"ref": REF, "id": string(maxLength=100), "role": string(maxLength=100),
+                           "replace": string("Existing member id to replace.", maxLength=100)}, ["ref"]), 2000),
+    "files": array(file_entry, 100),
+    "runs": array({"oneOf": [obj({"recipe": string(), "inputs": {"type": "object", "additionalProperties": {"type": "string"}}, "params": {"type": "object"}}, ["recipe", "inputs"]),
+                                obj({"rerun": string(), "params": {"type": "object"}}, ["rerun"])]}, 100),
+}, ["format", "request_key"]))
+sprite_ref = obj({"ref": REF, "format": string(), "frame_indices": array({"type": "integer", "minimum": 0}, 10000)}, ["ref"])
+sprite_animation = {"type": "object", "properties": {"name": string(), "direction": {"enum": ["south", "southwest", "west", "northwest", "north", "northeast", "east", "southeast", None]},
+    "animation": sprite_ref, "anchor": sprite_ref, "source_video": sprite_ref,
+    "loop": {"enum": ["loop", "once", "pingpong"]}, "frame_count": {"type": "integer", "minimum": 1},
+    "frames": array({"type": "object"}, 10000), "fps": {"type": "number", "exclusiveMinimum": 0}},
+    "required": ["name", "animation", "loop", "frame_count", "frames"]}
+content_variants.append(obj({**content_common, "format": {"const": "sprite"}, "document": {
+    "type": "object", "properties": {"type": {"const": "sprite"}, "version": {"const": 1}, "title": string(),
+        "anchor": obj({"x": {"type": "number", "minimum": 0, "maximum": 1}, "y": {"type": "number", "minimum": 0, "maximum": 1}}, ["x", "y"]),
+        "base_image": sprite_ref, "base_image_nobg": sprite_ref, "portrait": sprite_ref, "animations": array(sprite_animation)},
+    "required": ["type", "version", "title", "anchor", "animations"]}}, ["format", "document", "request_key"]))
+content_variants.append(obj({**content_common, "format": {"const": "export"},
+    "output_format": {"enum": ["html", "pdf", "png", "atlas-hash", "atlas-array", "godot", "unity", "unreal", "gamemaker", "rpgmaker", "defold", "libgdx", "cocos2d", "frames", "grid-sheet", "strips", "stills", "gif", "webp", "apng", "mp4"]},
+    "options": obj({"animations": array(string()), "directions": array(string()),
+        "trim": {"type": "boolean"}, "padding": {"type": "integer", "minimum": 0, "maximum": 64},
+        "extrude": {"type": "integer", "minimum": 0, "maximum": 64}, "scale": {"type": "integer", "minimum": 1, "maximum": 8},
+        "power_of_two": {"type": "boolean"}, "max_sheet_size": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "background": string(), "image_format": {"enum": ["png", "jpg", "webp"]}, "walk": string(),
+        "sizes": array({"type": "integer", "minimum": 1, "maximum": 4096}, 20)}),
+    "dpi": {"type": "number", "minimum": 10, "maximum": 384},
+    "width": {"type": "integer", "minimum": 240, "maximum": 2560},
+}, ["format", "source_ref", "output_format", "request_key"]))
+TOOLS["content_get"] = (
+    "Inspect editable sets, labeled grids, package manifests/covers, layouts and documents. action recipes lists package recipe schemas and guidance; action revisions lists saved versions. Member refs can be passed back to content_update to edit or extend a container.",
+    {"type": "object", "oneOf": [obj({"action": {"const": "recipes"}}, ["action"]),
+                                      obj({"action": {"enum": ["inspect", "revisions"]}, "ref": REF}, ["ref"])]}, False)
+
 TOOLS["content_update"] = (
-    "Save content as an asset or revision. Use format file and source_ref to save uploaded image/video/audio/SVG media without re-encoding (SVG retains normal sanitization). Stage an upload with X-Stimma-Stage: true to avoid an intermediate library asset. source_refs names the original library inputs used in an external edit or composite; note explains the change. Format image applies resize/crop/rotate/flip transforms. SVG/Markdown/layout accept text. To revise, pass target_asset_ref and its expected_current_revision; otherwise create a new asset. Always give a note.",
+    "Save content as an asset or revision. Use format file and source_ref to save uploaded image/video/audio/SVG media without re-encoding (SVG retains normal sanitization). Stage an upload with X-Stimma-Stage: true to avoid an intermediate library asset. source_refs names the original library inputs used in an external edit or composite; note explains the change. Sets and grids take ordered member refs and grid headers. Sprites accept a document with opaque ref fields for source/animation media. Packages take members, recipe runs, files and an authored HTML cover; source_ref opens an existing package for edits. Layout files accept text or source_ref for binary assets. Format export renders layouts/packages or exports portable HTML/PDF. Format image applies resize/crop/rotate/flip transforms. SVG/Markdown/layout accept text. To revise, pass target_asset_ref and its expected_current_revision; otherwise create a new asset. Format restore restores revision_ref with target_asset_ref and expected_current_revision. Layout source_ref preserves existing files while files replaces/adds and remove_files removes named files. Always give a note.",
     {"type": "object", "oneOf": content_variants},
     True,
 )
 
 TOOLS["tools_run"][1]["properties"].update(
     {
-        "batch": array({"type": "object"}, 200),
+        "batch": {**array({"type": "object"}, 200), "minItems": 1, "description": "Each item is a complete parameter object, not a patch. Omit parameters when using batch. Items execute sequentially; jobs_get returns completed outputs and counts while running."},
+        "title": string("Name shown on the job chat.", maxLength=200),
         "batch_labels": {**array(string("Your label for this batch item, e.g. France.", maxLength=200), 200), "description": "Optional labels in the same order and number as batch. Returned on successes, failures and retries; labels are never sent to the generation tool."},
         "chain": array(
             obj(
@@ -383,7 +441,7 @@ def catalog():
             result.append(
                 Tool(
                     name=name,
-                    description=description,
+                    description=description + (" Generate a top-level request_key yourself; reuse it only for identical retries." if "request_key" in json.dumps(schema) else ""),
                     inputSchema=_strip_titles(schema),
                     annotations=ToolAnnotations(
                         readOnlyHint=not write,
@@ -409,7 +467,7 @@ def catalog():
             result.append(
                 Tool(
                     name=name,
-                    description=description,
+                    description=description + (" Generate a top-level request_key yourself; reuse it only for identical retries." if "request_key" in json.dumps(schema) else ""),
                     inputSchema=binding.schema(),
                     annotations=ToolAnnotations(readOnlyHint=True),
                 )
@@ -459,11 +517,25 @@ def coerce_scalars(value, schema):
     return value
 
 
+def selected_schema(schema, arguments):
+    """Validate the requested branch, never an unrelated action's best-match error."""
+    if isinstance(arguments, dict):
+        for discriminator in ("action", "format"):
+            if discriminator not in arguments:
+                continue
+            for variant in schema.get("oneOf", []):
+                field = variant.get("properties", {}).get(discriminator, {})
+                if arguments[discriminator] in field.get("enum", [field.get("const")]):
+                    return {**variant, **({"$defs": schema["$defs"]} if "$defs" in schema else {})}
+    return schema
+
+
 async def dispatch(caller, name, arguments):
     if name not in catalog():
         raise McpError("unknown_tool", "Unknown tool.")
-    arguments = coerce_scalars(arguments, catalog()[name].inputSchema)
-    jsonschema.validate(arguments, catalog()[name].inputSchema)
+    schema = selected_schema(catalog()[name].inputSchema, arguments)
+    arguments = coerce_scalars(arguments, schema)
+    jsonschema.validate(arguments, schema)
     if name == "access_open":
         return await access.open(caller, arguments.get("pin"))
     if name == "access_lock":
@@ -521,6 +593,9 @@ async def dispatch(caller, name, arguments):
             async with db.async_session_maker() as session:
                 return await binding.run(caller, args, session)
         async with db.async_session_maker() as session:
+            if name == "content_get":
+                from .documents import inspect
+                return await inspect(caller, args, session)
             if name == "assets_get":
                 return await workspace.assets_get(caller, args["refs"], session)
             if name == "catalog_get":
@@ -550,7 +625,7 @@ async def dispatch(caller, name, arguments):
                     )
                 )
             if name == "tools_inspect":
-                return await workspace.tools_inspect(caller, args["tool_ref"])
+                return await workspace.tools_inspect(caller, args["tool_ref"], fields=args.get("fields"), refresh=args.get("refresh", False), include_options=args.get("include_options", False))
             if name in ("assets_query", "lineage_get"):
                 binding = {
                     "assets_query": workspace.query_binding,
@@ -592,7 +667,7 @@ def schema_problem(exc):
     if exc.validator == "required":
         present = exc.instance if isinstance(exc.instance, dict) else {}
         missing = [key for key in exc.validator_value if key not in present]
-        return f"{where}: missing required {', '.join(missing)}."
+        return f"{where}: missing required {', '.join(missing)}." + (" Generate a unique request_key string yourself (e.g. a UUID), at the top level. Reuse it only to retry identical input; new work needs a new key." if "request_key" in missing else "")
     if exc.validator == "additionalProperties":
         known = set(exc.schema.get("properties", {}))
         extra = sorted(k for k in exc.instance if k not in known)
@@ -619,7 +694,9 @@ def schema_problem(exc):
                 first.absolute_path.extendleft(reversed(list(exc.absolute_path)))
                 return f"action {chosen}: " + schema_problem(first)
         return f"{where}: must match one of the {len(variants)} accepted shapes."
-    return f"{where}: must satisfy {exc.validator} {json.dumps(exc.validator_value)}."
+    if exc.validator == "enum":
+        return f"{where}: value is not an allowed option ({len(exc.validator_value)} options). Use tools_options to find a current value."
+    return f"{where}: must satisfy {exc.validator} {json.dumps(exc.validator_value)[:300]}."
 
 
 @server.call_tool(validate_input=False)

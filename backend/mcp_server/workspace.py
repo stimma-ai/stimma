@@ -91,14 +91,33 @@ async def tools_search(caller, query, task_type, offset, session):
     }
 
 
-async def tools_inspect(caller, ref):
+async def tools_inspect(caller, ref, *, fields=None, refresh=False, include_options=False):
     _, provider, tool = await tool_descriptor(caller, ref)
+    if refresh:
+        from providers.registry import ProviderRegistry
+        await ProviderRegistry().refresh_tools(provider.provider_id, force_refresh=True)
+        _, provider, tool = await tool_descriptor(caller, ref)
+    schema = tool.parameter_schema
+    if fields is not None:
+        schema = {**schema, "properties": {k: v for k, v in schema.get("properties", {}).items() if k in fields}, "required": [k for k in schema.get("required", []) if k in fields]}
+    if not include_options:
+        def compact(node):
+            if isinstance(node, list):
+                return [compact(v) for v in node]
+            if not isinstance(node, dict):
+                return node
+            result = {k: compact(v) for k, v in node.items()}
+            if isinstance(result.get('enum'), list) and len(result['enum']) > 50:
+                result['x-enum-count'] = len(result.pop('enum'))
+                result['x-options-help'] = 'Use tools_options to search allowed values, or tools_inspect include_options true for the full enum.'
+            return result
+        schema = compact(schema)
     return {
         "tool_ref": ref,
         "name": tool.name,
         "description": tool.description,
         "schema_version": tool_version(tool),
-        "parameter_schema": tool.parameter_schema,
+        "parameter_schema": schema,
         "output_schema": tool.output_schema,
         "status": provider.status.value,
         "media_inputs": "For media inputs use media:<opaque-reference> returned by Stimma, never a server path.",
@@ -316,7 +335,7 @@ def _public_reason(exc):
     import re
 
     text = str(exc).strip() or type(exc).__name__
-    text = re.sub(r"(/[\w.\-]+){2,}", "<path>", text)
+    text = re.sub(r"(?<![\w./-])(?:/[\w.\-]+){2,}", "<path>", text)
     return text[:300]
 
 
@@ -354,6 +373,9 @@ async def execute_tools(caller, args, session, chat, job):
             **({"label": args["batch_labels"][index]} if "batch_labels" in args else {}),
         }
         check_execution()
+        manifest["active_index"] = index
+        job.result_json = json.dumps(manifest)
+        await session.commit()
         tool_id, _, descriptor = await tool_descriptor(caller, step["tool_ref"])
         if tool_version(descriptor) != step["schema_version"]:
             raise McpError(
@@ -388,8 +410,9 @@ async def execute_tools(caller, args, session, chat, job):
         except Exception as exc:
             from agent.v2.tool_permission_gate import ToolPermissionDenied
 
-            known = isinstance(exc, ToolPermissionDenied)
-            code = "forbidden" if known else "execution_outcome_unknown"
+            from agent.v2.tools.call_tool import ToolExecutionFailed
+            known = isinstance(exc, (ToolPermissionDenied, ToolExecutionFailed))
+            code = "forbidden" if isinstance(exc, ToolPermissionDenied) else "provider_execution_failed" if known else "execution_outcome_unknown"
             log.warning(
                 "MCP tools_run item failed",
                 tool=tool_id,

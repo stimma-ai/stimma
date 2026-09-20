@@ -261,6 +261,10 @@ def _check_failure_block(
         )
 
 
+class ToolExecutionFailed(RuntimeError):
+    """The provider explicitly reported failure; no output was accepted."""
+
+
 async def _execute_metadata_only_tool(
     provider,
     tool_descriptor,
@@ -319,7 +323,7 @@ async def _execute_metadata_only_tool(
     if exec_result is None:
         raise RuntimeError(f"Tool '{tool_id}' did not return a result")
     if not exec_result.success:
-        raise RuntimeError(exec_result.error or f"Tool '{tool_id}' failed")
+        raise ToolExecutionFailed(exec_result.error or f"Tool '{tool_id}' failed")
 
     return {
         "metadata_only": True,
@@ -751,7 +755,7 @@ async def execute_call_tool(
     # 8. Handle failure
     if errors and not media_ids and cancelled_count == 0:
         error_msg = "; ".join(errors)
-        raise RuntimeError(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg, task_type))
+        raise ToolExecutionFailed(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg, task_type))
 
     if cancelled_count > 0 and not media_ids:
         raise RuntimeError("Generation cancelled by user")

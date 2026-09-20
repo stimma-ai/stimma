@@ -902,12 +902,11 @@ async def test_tool_permission_ask_is_allow_over_mcp_and_deny_holds(mcp_http, mo
 
 
 async def test_surface_is_the_product_surface(mcp_app):
-    """An assistant gets the library, generation, and organization. Not Flows,
-    custom tools, chat contents, presets, saved views or public sharing."""
+    """Creative documents are available through content families alongside generation."""
     from mcp_server.server import catalog
 
     offered = catalog()
-    assert {"tools_run", "agent_start", "assets_query", "assets_update", "boards_update", "content_update", "media_export"} <= set(offered)
+    assert {"tools_run", "agent_start", "assets_query", "assets_update", "boards_update", "content_update", "content_get", "media_export"} <= set(offered)
     for gone in ("flows_run", "flows_update", "custom_tools_update", "chat_history", "ui_context_get",
                  "share_publish", "presets_update", "saved_views_get", "assets_select", "entities_search",
                  "markers_update", "assets_trash", "containers_create"):
@@ -1277,3 +1276,212 @@ async def test_delegated_failure_retains_final_outputs(mcp_http, monkeypatch):
     assert result["result"]["code"] == "execution_failed"
     assert [item["media_ref"] for item in result["result"]["outputs"]] == [uploaded["media_ref"]]
     assert result["result"]["shortfalls"] == ["Requested 2 outputs; the agent marked 1 final."]
+
+
+async def test_request_key_errors_follow_selected_action_and_hide_large_enums(mcp_http):
+    from mcp_server.server import schema_problem
+    import jsonschema
+    missing = body(await rpc(mcp_http, 'projects_update', {'action': 'create', 'name': 'Sweep'}))
+    assert missing['code'] == 'invalid_arguments'
+    assert 'request_key' in missing['message'] and 'Generate' in missing['message']
+    assert 'const "update"' not in missing['message']
+    missing_content = body(await rpc(mcp_http, 'content_update', {'format': 'markdown', 'text': 'hello'}))
+    assert 'request_key' in missing_content['message']
+    try:
+        jsonschema.validate('bad', {'enum': [f'model-{i}' for i in range(10000)]})
+    except jsonschema.ValidationError as exc:
+        message = schema_problem(exc)
+    assert len(message) < 200 and 'tools_options' in message
+
+
+async def test_creative_containers_roundtrip_and_revision_guards(mcp_http):
+    image = await product_upload(mcp_http, product_image_bytes('blue'), 'cell.png')
+    async def save(**args):
+        return await wait_job(mcp_http, body(await rpc(mcp_http, 'content_update',
+            {'request_key': uuid.uuid4().hex, **args})))
+    for kind, extras in [('set', {}), ('grid', {'row_headers': ['A', 'B'], 'col_headers': ['1', '2']})]:
+        created = await save(format=kind, members=[image['asset_ref']] * 4, title='Comparison', **extras)
+        assert created['state'] == 'succeeded', created
+        refs = created['result']
+        content = body(await rpc(mcp_http, 'content_get', {'ref': refs['asset_ref']}))
+        assert len(content['members']) == 4, content
+        assert all(member['ref'] == image['asset_ref'] for member in content['members'])
+        revised = await save(format=kind, members=[image['asset_ref']] * 4, title='Revised',
+                             target_asset_ref=refs['asset_ref'], expected_current_revision=refs['revision_ref'], **extras)
+        assert revised['state'] == 'succeeded', revised
+        assert revised['result']['asset_ref'] == refs['asset_ref']
+        stale = await save(format=kind, members=[image['asset_ref']] * 4, title='Stale',
+                           target_asset_ref=refs['asset_ref'], expected_current_revision=refs['revision_ref'], **extras)
+        assert stale['result']['code'] == 'revision_conflict', stale
+        versions = body(await rpc(mcp_http, 'content_get', {'action': 'revisions', 'ref': refs['asset_ref']}))
+        assert len(versions['revisions']) == 2
+    invalid = await save(format='grid', members=[image['asset_ref']], title='Wrong size',
+                         row_headers=['a', 'b'], col_headers=['1'])
+    assert invalid['state'] == 'failed' and 'Expected 2' in invalid['result']['message'], invalid
+    package = await save(format='package', title='Deliverable', members=[{'id': 'art', 'ref': image['asset_ref']}],
+                         cover='<html><body><h1>Deliverable</h1><stimma-media ref="art"></stimma-media></body></html>',
+                         files=[{'name': 'README.md', 'text': 'A deliverable'}])
+    assert package['state'] == 'succeeded', package
+    package_content = body(await rpc(mcp_http, 'content_get', {'ref': package['result']['asset_ref']}))
+    assert package_content['manifest']['title'] == 'Deliverable', package_content
+    assert len(package_content['manifest']['members']) == 1
+    edited = await save(format='package', source_ref=package['result']['media_ref'],
+                        target_asset_ref=package['result']['asset_ref'], expected_current_revision=package['result']['revision_ref'],
+                        cover='<html><body><h1>Revised cover</h1></body></html>')
+    assert edited['state'] == 'succeeded', edited
+    exported = await save(format='export', source_ref=edited['result']['media_ref'], output_format='html')
+    assert exported['state'] == 'succeeded', exported
+    url = body(await rpc(mcp_http, 'media_export', {'ref': exported['result']['media_ref']}))['download_url']
+    assert b'Revised cover' in (await mcp_http.get(url)).content
+    recipes = body(await rpc(mcp_http, 'content_get', {'action': 'recipes'}))
+    assert recipes['recipes']
+    layout = await save(format='layout', files=[{'name': 'index.html', 'text': '<html><body><img src="art.png"></body></html>'},
+                                              {'name': 'art.png', 'source_ref': image['media_ref']}])
+    assert layout['state'] == 'succeeded', layout
+    content = body(await rpc(mcp_http, 'content_get', {'ref': layout['result']['asset_ref']}))
+    assert {f['name'] for f in content['files']} >= {'index.html', 'art.png'}
+    invalid = await save(format='layout', files=[{'name': '../escape.html', 'text': 'no'}])
+    assert invalid['state'] == 'failed' and invalid['result']['code'] == 'invalid_arguments'
+
+
+async def test_batch_progress_failure_retry_and_restart_preserve_outputs(mcp_http, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from mcp_server import jobs, workspace
+    from mcp_server.access import access
+    from mcp_server.models import McpOperation
+    from database_registry import get_database_registry
+    from agent.v2.code_runtime import StimmaSDK, ToolResult
+    from PIL import Image
+    from agent.v2.tools.call_tool import ToolExecutionFailed
+    descriptor = SimpleNamespace(parameter_schema={'type': 'object', 'properties': {'index': {'type': 'integer'}}}, output_schema={}, metadata={})
+    async def descriptor_for(*args):
+        return 'test:sweep', None, descriptor
+    monkeypatch.setattr(workspace, 'tool_descriptor', descriptor_for)
+    reached, release = asyncio.Event(), asyncio.Event()
+    calls = []
+    async def dispatch(self, tool_id, **kwargs):
+        index = kwargs['_params_dict']['index']
+        calls.append(index)
+        if index == 1 and len(calls) == 2:
+            reached.set()
+            await release.wait()
+        if index == 5 and calls.count(5) == 1:
+            raise ToolExecutionFailed('Missing model krea2/checkpoints/model.safetensors')
+        path = tmp_path / f'cell-{index}.png'
+        Image.new('RGB', (8, 8), (index * 2, 100, 200)).save(path)
+        return ToolResult(path=path, tool_name=tool_id, parameters=kwargs['_params_dict'])
+    monkeypatch.setattr(StimmaSDK, '_dispatch_tool', dispatch)
+    caller = await access.authenticate('default', 'test-credential-one')
+    accepted = body(await rpc(mcp_http, 'tools_run', {'tool_ref': access.ref(caller, 'tool', 'test:sweep'),
+        'schema_version': workspace.tool_version(descriptor), 'batch': [{'index': i} for i in range(100)],
+        'batch_labels': [f'cell-{i}' for i in range(100)], 'title': 'Ten by ten sweep', 'request_key': 'parity-sweep'}))
+    try:
+        await asyncio.wait_for(reached.wait(), 10)
+        running = body(await rpc(mcp_http, 'jobs_get', {'job_ref': accepted['job_ref']}))
+        assert running['progress'] == {'total': 100, 'completed': 1, 'failed': 0, 'interrupted': 0, 'remaining': 99, 'active_index': 1}, running
+        assert len(running['result']['items']) == 1
+    finally:
+        release.set()
+    done = await wait_job(mcp_http, accepted)
+    assert done['progress']['completed'] == 99 and done['progress']['failed'] == 1, done
+    assert 'krea2/checkpoints/model.safetensors' in done['result']['items'][5]['error']['message']
+    retried = await wait_job(mcp_http, body(await rpc(mcp_http, 'jobs_retry', {'job_ref': done['job_ref'], 'request_key': 'parity-retry'})))
+    assert retried['state'] == 'succeeded' and retried['result']['items'][0]['original_index'] == 5, retried
+    assert len(calls) == 101
+    completed = {item['original_index']: item['output']['asset_ref'] for item in done['result']['items'] if item['state'] == 'succeeded'}
+    completed[5] = retried['result']['items'][0]['output']['asset_ref']
+    grid = await wait_job(mcp_http, body(await rpc(mcp_http, 'content_update', {
+        'format': 'grid', 'title': 'Ten prompts by ten models', 'members': [completed[i] for i in range(100)],
+        'row_headers': [f'Prompt {i}' for i in range(10)], 'col_headers': [f'Model {i}' for i in range(10)],
+        'request_key': 'hundred-image-grid'})))
+    assert grid['state'] == 'succeeded', grid
+    grid_content = body(await rpc(mcp_http, 'content_get', {'ref': grid['result']['asset_ref']}))
+    assert len(grid_content['members']) == 100
+    assert grid_content['members'][55]['row'] == 5 and grid_content['members'][55]['col'] == 5
+    # Simulate a persisted running operation after a process restart: no caller/task survives.
+    db = get_database_registry().get_database(caller.profile_id)
+    async with db.async_session_maker() as session:
+        job = await session.get(McpOperation, access.resolve(caller, done['job_ref'], 'job'))
+        job.state = 'running'
+        await session.commit()
+    recovered = body(await rpc(mcp_http, 'jobs_get', {'job_ref': done['job_ref']}))
+    assert recovered['state'] == 'interrupted'
+    assert recovered['result']['items'] == done['result']['items']
+    assert recovered['progress']['completed'] == 99
+
+
+async def test_document_restore_layout_edit_and_sprite_exports(mcp_http):
+    async def save(**args):
+        accepted = body(await rpc(mcp_http, 'content_update', {'request_key': uuid.uuid4().hex, **args}))
+        assert 'job_ref' in accepted, accepted
+        done = await wait_job(mcp_http, accepted)
+        assert done['state'] == 'succeeded', done
+        return done['result']
+    image = await product_upload(mcp_http, product_image_bytes('red'), 'sprite.png')
+    layout = await save(format='layout', files=[{'name': 'index.html', 'text': '<html><body>First</body></html>'},
+                                              {'name': 'art.png', 'source_ref': image['media_ref']}])
+    revised = await save(format='layout', source_ref=layout['media_ref'], target_asset_ref=layout['asset_ref'],
+                         expected_current_revision=layout['revision_ref'], files=[{'name': 'index.html', 'text': '<html><body>Second</body></html>'}])
+    inspected = body(await rpc(mcp_http, 'content_get', {'ref': revised['asset_ref']}))
+    assert any(f['name'] == 'art.png' for f in inspected['files'])
+    restored = await save(format='restore', target_asset_ref=layout['asset_ref'], expected_current_revision=revised['revision_ref'],
+                          revision_ref=layout['revision_ref'])
+    assert restored['revision_ref'] not in (layout['revision_ref'], revised['revision_ref'])
+    inspected = body(await rpc(mcp_http, 'content_get', {'ref': restored['asset_ref']}))
+    assert 'First' in next(f['text'] for f in inspected['files'] if f['name'] == 'index.html')
+    sprite = await save(format='sprite', document={'type': 'sprite', 'version': 1, 'title': 'Character',
+        'anchor': {'x': 0.5, 'y': 1}, 'base_image': {'ref': image['media_ref']}, 'animations': [{
+            'name': 'idle', 'loop': 'loop', 'loop_start': 0, 'loop_end': 0, 'fps': 12,
+            'animation': {'ref': image['media_ref']}, 'frame_count': 1,
+            'frames': [{'duration_ms': 100, 'rects': {}, 'events': []}]}]})
+    inspected = body(await rpc(mcp_http, 'content_get', {'ref': sprite['asset_ref']}))
+    assert inspected['document']['base_image']['ref'] == image['media_ref']
+    output = await save(format='export', source_ref=sprite['media_ref'], output_format='godot')
+    download = await mcp_http.get(output['download_url'])
+    assert download.status_code == 200 and download.content.startswith(b'PK')
+
+
+async def test_tool_inspection_compacts_options_and_refreshes_catalog(mcp_http, monkeypatch):
+    from types import SimpleNamespace
+    from providers.registry import ProviderRegistry
+    from mcp_server import workspace
+    from mcp_server.access import access
+    tool = SimpleNamespace(name='Generator', description='Test', parameter_schema={'type': 'object',
+        'properties': {'model': {'type': 'string', 'enum': [f'model-{i}' for i in range(1000)]}, 'prompt': {'type': 'string'}},
+        'required': ['model', 'prompt']}, output_schema={}, metadata={})
+    provider = SimpleNamespace(provider_id='test', status=SimpleNamespace(value='connected'))
+    async def descriptor(*args):
+        return 'test:generator', provider, tool
+    async def refresh(self, provider_id, force_refresh):
+        assert provider_id == 'test' and force_refresh
+        tool.parameter_schema['properties']['model']['enum'].append('new-model')
+    monkeypatch.setattr(workspace, 'tool_descriptor', descriptor)
+    monkeypatch.setattr(ProviderRegistry, 'refresh_tools', refresh)
+    caller = await access.authenticate('default', 'test-credential-one')
+    ref = access.ref(caller, 'tool', 'test:generator')
+    before = body(await rpc(mcp_http, 'tools_inspect', {'tool_ref': ref, 'fields': ['model']}))
+    assert set(before['parameter_schema']['properties']) == {'model'}
+    assert before['parameter_schema']['properties']['model']['x-enum-count'] == 1000
+    after = body(await rpc(mcp_http, 'tools_inspect', {'tool_ref': ref, 'refresh': True, 'include_options': True}))
+    assert after['schema_version'] != before['schema_version']
+    assert len(after['parameter_schema']['properties']['model']['enum']) == 1001
+
+
+async def test_package_recipe_roundtrip(mcp_http):
+    palette = await product_upload(mcp_http, json.dumps({'colors': [{'name': 'ink', 'hex': '#223344'}]}).encode(), 'palette.json', staged=True)
+    accepted = body(await rpc(mcp_http, 'content_update', {'format': 'package', 'title': 'Palette',
+        'members': [{'id': 'colors', 'ref': palette['media_ref'], 'role': 'palette'}],
+        'runs': [{'recipe': 'palette-exports', 'inputs': {'palette': 'colors'}}],
+        'cover': '<html><body><h1>Palette</h1><stimma-files></stimma-files></body></html>', 'request_key': 'palette-recipe'}))
+    done = await wait_job(mcp_http, accepted)
+    assert done['state'] == 'succeeded', done
+    content = body(await rpc(mcp_http, 'content_get', {'ref': done['result']['asset_ref']}))
+    assert len(content['manifest']['runs']) == 1
+    run = content['manifest']['runs'][0]
+    assert run['recipe']['id'] == 'palette-exports'
+    assert len(run['files']) == 3
+    revised = await wait_job(mcp_http, body(await rpc(mcp_http, 'content_update', {'format': 'package',
+        'source_ref': done['result']['media_ref'], 'target_asset_ref': done['result']['asset_ref'],
+        'expected_current_revision': done['result']['revision_ref'], 'runs': [{'rerun': run['id']}],
+        'request_key': 'palette-rerun'})))
+    assert revised['state'] == 'succeeded', revised

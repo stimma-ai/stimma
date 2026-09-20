@@ -116,10 +116,13 @@ async def _store_upload(caller, db, request):
     stage = request.headers.get("x-stimma-stage", "false").lower()
     if stage not in ("true", "false"):
         raise McpError("invalid_arguments", "X-Stimma-Stage must be true or false.")
-    from upload_service import UploadService
+    from upload_service import UploadService, UploadError
 
     service = UploadService(caller.profile_id)
-    service.validate_file(filename)
+    try:
+        service.validate_file(filename, staged=stage == "true")
+    except UploadError as exc:
+        raise McpError("invalid_arguments", str(exc)) from exc
     content = bytearray()
     async for chunk in request.stream():
         if len(content) + len(chunk) > MAX_UPLOAD:

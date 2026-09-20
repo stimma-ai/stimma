@@ -307,7 +307,7 @@ def public_schema(schema):
 def _strip_titles(node):
     if isinstance(node, dict):
         return {
-            k: _strip_titles(v)
+            k: {name: _strip_titles(value) for name, value in v.items()} if k in ("properties", "$defs", "definitions") and isinstance(v, dict) else _strip_titles(v)
             for k, v in node.items()
             if k != "title" and not (k == "description" and v == "")
         }
@@ -580,7 +580,7 @@ def descriptors():
         result.append(
             Tool(
                 name=name,
-                description=f"{description} Actions: {', '.join(variants)}.",
+                description=f"{description} Actions: {', '.join(variants)}." + (" For writes, generate a unique top-level request_key yourself (e.g. UUID); reuse it only for identical retries." if write else ""),
                 inputSchema={"type": "object", "oneOf": schemas, **({"$defs": definitions} if definitions else {})},
                 annotations=ToolAnnotations(
                     readOnlyHint=not write,

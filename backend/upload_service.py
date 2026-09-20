@@ -56,13 +56,17 @@ class UploadService:
         ext = Path(original_filename).suffix.lower()
         return dest_dir / f"{uuid.uuid4().hex}{ext}"
 
-    def validate_file(self, filename: str) -> str:
+    def validate_file(self, filename: str, *, staged: bool = False) -> str:
         """Validate file extension and return the normalized extension.
 
         Raises:
             UploadError: If file type is not allowed.
         """
         ext = Path(filename).suffix.lower()
+        # Loose files (fonts, JSON, PDFs, etc.) may be retained for a package
+        # or layout without becoming standalone library Assets.
+        if staged and ext:
+            return ext
         if ext not in self.ALLOWED_EXTENSIONS:
             raise UploadError(
                 f"File type '{ext}' not allowed. "
@@ -160,7 +164,7 @@ class UploadService:
             UploadError: If file validation or save fails
         """
         # Validate file type
-        ext = self.validate_file(original_filename)
+        ext = self.validate_file(original_filename, staged=not materialize_asset)
 
         # Sanitize SVG before anything hashes or measures the bytes, so the
         # stored file, its hash, and its size all describe the same document.
@@ -230,8 +234,10 @@ class UploadService:
                 # metadata_status='completed', so nothing backfills this later.
                 width, height = svg_size
                 has_alpha = True
-            else:
+            elif ext in self.ALLOWED_IMAGE_EXTENSIONS:
                 width, height, has_alpha = self._get_image_dimensions(dest_path)
+            else:
+                width, height = 0, 0
 
             megapixels = (width * height) / 1_000_000
 
@@ -239,7 +245,7 @@ class UploadService:
             raw_metadata = None
             extracted_prompt = None
             generation_metadata = None
-            if not is_video and not is_audio and not is_vector:
+            if ext in self.ALLOWED_IMAGE_EXTENSIONS:
                 try:
                     from exif_extractor import extract_prompt_from_exif, parse_external_metadata
                     raw_metadata, extracted_prompt = extract_prompt_from_exif(dest_path)

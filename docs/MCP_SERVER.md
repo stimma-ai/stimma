@@ -30,7 +30,7 @@ Profile context also scopes active chat execution identifiers, pending tool perm
 
 Tool schemas are available through `tools/list`. Families use an `action` discriminant and one flat object per action: the route's body model is inlined, every field that carries an entity reference is named `*_ref` or `*_refs` on input and output alike, and Pydantic titles and internal names are stripped. `operations.py` explicitly selects existing domain functions and derives their typed inputs, then removes private configuration and filesystem fields and replaces entity IDs with signed references. This is a curated adapter, not arbitrary REST dispatch.
 
-The surface below is deliberately small: an external agent that makes assets with Stimma and keeps the library organized. It is a client of the library and the generation tools, not a remote control for the app.
+The surface groups creative capabilities into a few tool families. External agents create and revise the same library data types as chat through shared builders, revision services, renderers and recipe execution. No internal LLM turn is required for these operations.
 
 | Surface | Purpose |
 | --- | --- |
@@ -40,11 +40,11 @@ The surface below is deliberately small: an external agent that makes assets wit
 | `agent_start`, `agent_continue` | Delegate creative work to Stimma's agent in a chat the connection created; such chats are tagged and shown as MCP-driven in the app |
 | `assets_query`, `assets_get`, `lineage_get`, `media_read`, `media_export` | Search, details with download links, provenance, inline previews, downloads |
 | `assets_update` | trash, restore, markers, tags, clear_expiration, add_to_project, remove_from_project |
-| `content_update` | Save an external file, transformed image or document as an asset or revision with lineage |
+| `content_get`, `content_update` | Inspect, create and revise files, images, SVG, Markdown, layouts, sets, grids, sprites and packages; discover recipes, render/export documents, browse and restore revisions |
 | `catalog_get`, `projects_get`, `projects_update`, `boards_get`, `boards_update` | Markers, tags and sources; projects (create, update); boards with sections (create, update, trash, restore, section_create, section_update, section_delete, section_reorder, add, remove, move) |
 | `chats_get`, `chats_update` | List, read metadata, rename and trash chats. No chat contents, no messages into chats |
 
-Deliberately not offered: Flow control, custom-tool authoring, arbitrary chat contents and forking, saved-view editing, presets, container editing, contextual media, entity search, stable selections, facets, permanent deletion, revision browsing/restoration, public sharing and shared-selection snapshots. Those are inside-Stimma activities. Existing permitted tools remain discoverable, including installed user tools; `catalog_get` can list saved views.
+Deliberately not offered: Flow control, custom-tool authoring, arbitrary chat contents and forking, saved-view editing, presets, contextual media, entity search, stable selections, facets, permanent deletion, public sharing and shared-selection snapshots. Those are inside-Stimma activities. Existing permitted tools remain discoverable, including installed user tools; `catalog_get` can list saved views.
 
 `tools_run` calls the same SDK dispatch and permission gate used by the agent, without an LLM planning turn. For MCP-driven chats the gate treats a tool's "ask" default as allow: the connection key is the consent, and the assistant would only approve its own question. Explicit denies in tool permissions still block. Media inputs and schema versions are checked before acceptance. Batches retain per-item results. Chains can bind the previous saved media output to a declared media input. The server does not infer an output binding from an arbitrary parameter name.
 
@@ -70,9 +70,60 @@ Delegated results contain `outputs` (exact Asset, revision and Media refs explic
 
 Poll `jobs_get` with `after` set to the previous `next_cursor` for incremental events. Stop polling at `succeeded`, `failed`, `cancelled`, `interrupted` or `control_changed`; respond to `input_required` using `interaction_respond`.
 
+## Creative documents and retries
+
+Generate `request_key` yourself: any unique string of 1–128 characters, such as a UUID.
+It is a top-level argument, not a reference issued by Stimma. Reuse a key only to retry
+identical input after a lost response. Changed input needs a new key. Missing keys are
+reported against the requested action or format, before accepting any work.
+
+`content_update` returns a job; poll `jobs_get` for the resulting references:
+
+- `format: "set"`: `members` is the complete ordered list of asset/media refs.
+- `format: "grid"`: add `title`, `row_headers` and `col_headers`; members are row-major
+  and their count must equal the product of the header counts. To extend or reorder,
+  inspect with `content_get`, then submit the replacement list and headers.
+- `format: "package"`: provide an authored `cover` HTML string, `members` with `ref`
+  and optional `id`/`role`, `files`, and `runs`. Recipe inputs map declared roles to
+  member IDs. `content_get` with `action: "recipes"` supplies schemas and guidance.
+  To edit, `source_ref` opens a saved package; member `replace`, file `replace` and run
+  `rerun` preserve existing identities. Unchanged members and runs remain in place.
+- `format: "layout"`: `files` entries have `name` and either `text` or `source_ref`
+  for binary assets. A bundle needs `index.html`. `source_ref` starts from an existing
+  layout; `files` replaces/adds and `remove_files` removes named files.
+- `format: "sprite"`: `document` carries the sprite timeline and production metadata.
+  References in base_image, portrait and per-animation fields use `{ "ref": "media:…" }`;
+  the server resolves content hashes and retains exact media through container membership.
+- `format: "export"`: `source_ref` and `output_format` export layouts (HTML/PNG),
+  packages (HTML/PDF/PNG preview), SVG (PNG), or sprites (the export-dialog targets).
+  Results are retained media with a download link, not additional library assets.
+  `media_export` downloads original media or a complete bundle ZIP.
+
+To revise a library asset, include `target_asset_ref` and `expected_current_revision`.
+A stale guard returns `revision_conflict`. `content_get` with `action: "revisions"`
+lists saved states; `content_update` with `format: "restore"`, `revision_ref` and the
+same guard creates a new current revision without deleting history.
+
+`tools_run` accepts either `parameters` or `batch`. Every batch entry is a complete
+parameter object, not a patch over `parameters`. Batches run sequentially, up to 200
+items; `title` names the chat and `batch_labels` labels each receipt. `jobs_get` returns
+completed item outputs while running, plus total/completed/failed/interrupted/remaining
+counts and the active index. Confirmed provider failures can be retried with `jobs_retry`;
+unknown outcomes need inspection. Restarting preserves completed receipts and never
+replays generation automatically.
+
+`tools_inspect` returns a schema version computed from the full current descriptor.
+Large enums are compact by default; use `tools_options` to search their values, or
+`include_options: true` for the complete schema. `fields` narrows returned properties;
+`refresh: true` asks the existing provider to rediscover tools and model options before
+returning its descriptor. A schema version describes advertised options; it cannot
+promise that a model file will remain available while an external process changes it.
+
 ## Transfers
 
 `workspace_get` returns an `upload_url`, a signed link bound to the connection. POST the file body with an `X-Filename` header. A normal upload creates an asset immediately. For external edits or composites, add `X-Stimma-Stage: true`: the upload is retained provisionally, returns a `media_ref`, and creates no intermediate library asset.
+
+Staged uploads also accept loose supporting files such as fonts, JSON, PDFs and archives for package members or layout files. These bytes are retained without creating an unsupported standalone library Asset.
 
 Save that upload using `content_update` with `format: "file"` and `source_ref` for its bytes. `source_refs` independently identifies the library inputs used to make it, in source order; omitting this field uses `source_ref` as the provenance source. Supply a `note` describing the edit. Add `target_asset_ref` and `expected_current_revision` to publish a revision, or omit them to create an asset. Successful saves release provisional upload ownership. Conflicting revisions leave the upload available for recovery. Files retain their stored bytes, format and media metadata; SVG uploads retain the app's standard sanitization. `format: "image"` applies explicit transforms and records the exact transform list in provenance; an empty list also preserves bytes.
 
