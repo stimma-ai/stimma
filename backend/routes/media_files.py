@@ -56,6 +56,10 @@ ID_KEYED_CACHE_HEADERS = {
 
 THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
+GRID_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
+GRID_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
+GRID_VISUAL_FORMATS = GRID_IMAGE_FORMATS | GRID_VIDEO_FORMATS
+
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
     """Return a sharded path: cache_dir/ab/cd/cache_key.ext using the first 4 hex chars."""
@@ -886,13 +890,13 @@ def _generate_grid_preview(
         show_cols = full_cols + (1 if has_more_cols else 0)
         show_rows = full_rows + (1 if has_more_rows else 0)
 
-        # Track whether any image cell is referenced but not yet on disk — a
+        # Track whether any visual cell is referenced but not yet on disk — a
         # member payload still staging/ingesting — so a transient miss doesn't
         # get cached as a permanent placeholder.
         cell_pending = {"any": False}
 
         def resolve_cell_path(row, col):
-            """Resolve a cell's image path, return None if not found."""
+            """Resolve a cell's image or video path, return None if not found."""
             cell = cell_lookup.get((row, col))
             if not cell:
                 return None
@@ -906,15 +910,15 @@ def _generate_grid_preview(
                 full_path = ref
             else:
                 full_path = (base_path / ref).resolve()
-            is_image_ref = full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
-            if is_image_ref and full_path.exists():
+            is_visual_ref = full_path.suffix.lower().lstrip('.') in GRID_VISUAL_FORMATS
+            if is_visual_ref and full_path.exists():
                 return str(full_path)
-            if is_image_ref and resolved_path:
+            if is_visual_ref and resolved_path:
                 # Live, resolved member whose payload hasn't landed on disk yet.
                 cell_pending["any"] = True
             return None
 
-        # Collect image paths in grid order (including partial row/col)
+        # Collect visual-media paths in grid order (including partial row/col)
         image_paths = []
         for row in range(show_rows):
             for col in range(show_cols):
@@ -1029,7 +1033,7 @@ def _create_grid_mosaic(
     """Create a grid thumbnail that reflects actual grid dimensions.
 
     Args:
-        image_paths: List of image paths (or None for empty cells) in row-major order.
+        image_paths: List of image/video paths (or None for empty cells) in row-major order.
                      Should include cells for the clipped row/col if clip flags are True.
         size: Thumbnail size in pixels
         accent_color: Color for empty cell outlines
@@ -1132,8 +1136,13 @@ def _create_grid_mosaic(
 
         if path:
             try:
-                thumb = Image.open(path)
-                thumb.load()  # Force full image load before any operations
+                if Path(path).suffix.lower().lstrip('.') in GRID_VIDEO_FORMATS:
+                    from utils.video_frames import extract_frame_to_image
+
+                    thumb, _, _, _ = extract_frame_to_image(path, position="first")
+                else:
+                    thumb = Image.open(path)
+                    thumb.load()  # Force full image load before any operations
                 thumb = ImageOps.exif_transpose(thumb)
                 if thumb.mode not in ('RGB', 'RGBA'):
                     thumb = thumb.convert('RGB')
@@ -2329,7 +2338,7 @@ async def get_thumbnail(
 
     # Cache key based on file path, size, face count, and algorithm version
     # Increment THUMBNAIL_VERSION when the cropping/generation algorithm changes
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
@@ -2937,7 +2946,7 @@ async def get_thumbnail_by_db_guid(
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     # Cache key includes db_guid for profile isolation in cache
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
@@ -3288,7 +3297,7 @@ async def get_thumbnail_path_by_media_id(
     cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()

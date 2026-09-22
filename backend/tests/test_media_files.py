@@ -100,6 +100,54 @@ def test_set_preview_placeholder_for_unavailable_member_does_not_retry(tmp_path)
     assert placeholder.called
 
 
+def test_grid_preview_passes_video_cells_to_mosaic(tmp_path):
+    from routes.media_files import _generate_grid_preview
+
+    video = tmp_path / "member.mp4"
+    video.touch()
+    manifest = tmp_path / "grid.stimmagrid.json"
+    manifest.write_text(json.dumps({"rows": 1, "cols": 1, "cells": []}))
+    normalized = {
+        "rows": 1,
+        "cols": 1,
+        "cells": [{"row": 0, "col": 0, "resolved": {"file_path": str(video)}}],
+    }
+    expected = Image.new("RGB", (32, 32))
+
+    with patch("routes.media_files._create_grid_mosaic", return_value=expected) as mosaic:
+        result = _generate_grid_preview(
+            str(manifest),
+            32,
+            normalized_content=normalized,
+        )
+
+    assert result is expected
+    assert mosaic.call_args.args[0] == [str(video)]
+
+
+def test_grid_mosaic_uses_first_video_frame(tmp_path):
+    from routes.media_files import _create_grid_mosaic
+
+    video = tmp_path / "member.mp4"
+    video.touch()
+    first_frame = Image.new("RGB", (40, 20), (220, 30, 20))
+
+    with patch(
+        "utils.video_frames.extract_frame_to_image",
+        return_value=(first_frame, 0.0, 1.0, 24.0),
+    ) as extract:
+        result = _create_grid_mosaic(
+            [str(video)],
+            64,
+            "#00ffff",
+            grid_cols=1,
+            grid_rows=1,
+        )
+
+    extract.assert_called_once_with(str(video), position="first")
+    assert result.getpixel((32, 32)) == (220, 30, 20)
+
+
 class TestFileCacheHeaders:
     """Only content-addressed URLs may be cached immutably.
 
