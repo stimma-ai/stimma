@@ -69,6 +69,14 @@ def test_minimax_h3_gets_structured_video_mode():
     assert enhancement_mode(model_family("minimax-h3-i2v"), is_video=True) == "minimax-h3"
 
 
+def test_qwen_image_21_has_its_own_generate_and_edit_modes():
+    family = model_family("qwen-image-2.1")
+    assert enhancement_mode(family) == "qwen-image-2.1"
+    assert enhancement_mode(family, is_image_edit=True) == "qwen-image-2.1-edit"
+    # Older Qwen-Image lines keep the generic styles.
+    assert enhancement_mode(model_family("qwen-image-2512")) == "prose"
+
+
 def test_audio_mode_is_task_driven():
     # Any audio tool gets the sound-focused style regardless of the model string.
     assert enhancement_mode(model_family("some-tts-model"), is_audio=True) == "audio"
@@ -135,6 +143,16 @@ def test_improve_request_defaults_input_image_count_zero():
             ),
             "improve_minimax_h3_system_prompt",
             "Rewrite this request as MiniMax H3 T2VA Context-IR",
+        ),
+        (
+            ImprovePromptRequest(prompt="a tea shop poster", model="qwen-image-2.1"),
+            "improve_qwen_image_21_system_prompt",
+            "Rewrite this request as a Qwen-Image-2.1 text-to-image prompt.",
+        ),
+        (
+            ImprovePromptRequest(prompt="make the mug blue", model="qwen-image-2.1", input_image_count=1),
+            "improve_qwen_image_21_edit_system_prompt",
+            "Rewrite this Qwen-Image-2.1 edit request. The model receives one input image.",
         ),
     ],
 )
@@ -422,3 +440,40 @@ def test_dialogue_bullet_drops_the_voicing_claim_when_audio_is_supplied():
     # Either way the words themselves must be preserved.
     assert "keep the spoken words exactly as written" in supplied
     assert "supplied audio" in supplied
+
+
+async def test_qwen_image_21_edit_shows_references_labeled_by_position(prompt_variant_probe, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    async def fake_source_image(session, media_id):
+        return f"image-{media_id}"
+
+    monkeypatch.setattr(pe, "_load_source_image_b64", fake_source_image)
+    await pe.improve_prompt(
+        ImprovePromptRequest(
+            prompt="put the jacket from image 3 on the man",
+            model="qwen-image-2.1",
+            input_image_count=3,
+            # A non-library input keeps its slot so numbering holds.
+            input_media_ids=[11, None, 33],
+        ),
+        session=object(),
+    )
+
+    assert prompt_variant_probe["prompt_keys"] == ["improve_qwen_image_21_edit_system_prompt"]
+    content = prompt_variant_probe["messages"][1]["content"]
+    assert "3 input images, <image1>, <image2> and <image3> (attached below, labeled)" in content[0]["text"]
+    assert [part["text"] for part in content[1::2]] == ["<image1>:", "<image3>:"]
+    assert [part["image_url"]["url"] for part in content[2::2]] == [
+        "data:image/jpeg;base64,image-11",
+        "data:image/jpeg;base64,image-33",
+    ]
+
+
+def test_qwen_canvas_guidance_names_orientation_only_when_known():
+    from routes.prompt_enhancement import _qwen_canvas_guidance
+
+    assert _qwen_canvas_guidance(None, None) == ""
+    assert "wide (landscape)" in _qwen_canvas_guidance(2752, 1536)
+    assert "vertical (portrait)" in _qwen_canvas_guidance(1696, 2528)
+    assert "square" in _qwen_canvas_guidance(2048, 2048)

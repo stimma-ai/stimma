@@ -65,6 +65,8 @@ def enhancement_mode(
         return "minimax-h3"
     if is_video or family in _VIDEO_FAMILIES:
         return "cinematography"
+    if family == "qwen-image-2.1":
+        return "qwen-image-2.1-edit" if is_image_edit else "qwen-image-2.1"
     if family == "ideogram":
         return "ideogram"
     if family in _KEYWORD_FAMILIES:
@@ -81,10 +83,40 @@ _IMPROVE_PROMPT_BY_MODE = {
     "keyword": "improve_keyword_system_prompt",
     "cinematography": "improve_cinematography_system_prompt",
     "minimax-h3": "improve_minimax_h3_system_prompt",
+    "qwen-image-2.1": "improve_qwen_image_21_system_prompt",
+    "qwen-image-2.1-edit": "improve_qwen_image_21_edit_system_prompt",
     "edit": "improve_image_edit_system_prompt",
     "audio": "improve_audio_system_prompt",
     "prose": "improve_system_prompt",
 }
+
+
+def _qwen_image_refs_phrase(n: int) -> str:
+    """The inputs a Qwen-Image-2.1 edit can address, e.g. "2 input images, <image1> and <image2>".
+    A single input is referred to naturally, so it gets no tag."""
+    tags = [f"<image{i}>" for i in range(1, max(1, n) + 1)]
+    if len(tags) == 1:
+        return "one input image"
+    listed = ", ".join(tags[:-1]) + f" and {tags[-1]}"
+    return f"{len(tags)} input images, {listed}"
+
+
+def _qwen_canvas_guidance(width: Optional[int], height: Optional[int]) -> str:
+    """Tell the Qwen-Image-2.1 rewriter the frame it is composing for."""
+    if not width or not height:
+        return ""
+    ratio = width / height
+    if ratio > 1.15:
+        shape = "wide (landscape)"
+    elif ratio < 1 / 1.15:
+        shape = "vertical (portrait)"
+    else:
+        shape = "square"
+    return (
+        f"The canvas is already fixed at {width}x{height}, a {shape} frame. Compose for that "
+        "orientation and name it in the opening sentence, but never write the ratio or size "
+        "into the description."
+    )
 
 
 def _input_images_phrase(n: int) -> str:
@@ -452,6 +484,14 @@ class ImprovePromptRequest(BaseModel):
     h3_media_ids: List[Optional[int]] = Field(default_factory=list)
     h3_reference_manifest: List[Dict[str, Any]] = Field(default_factory=list)
     h3_generate_audio: bool = True
+    # Library ids of the tool's input images in presentation order (None for
+    # an input that isn't a library item). Qwen-Image-2.1 edits address inputs
+    # positionally as <image1>, <image2>, ..., so its enhancer is shown them.
+    input_media_ids: List[Optional[int]] = Field(default_factory=list)
+    # Target canvas, when known. Qwen-Image-2.1's rewriter composes the frame
+    # for its orientation rather than guessing one.
+    width: Optional[int] = None
+    height: Optional[int] = None
     # Project whose model override should apply, when the editor is scoped
     # to one. Absent -> the profile's Tool Assistant setting.
     project_id: Optional[int] = None
@@ -834,6 +874,13 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             loaded = await _load_source_image_b64(session, media_id)
             if loaded:
                 source_images_b64.append((picture_number, loaded))
+    elif mode == "qwen-image-2.1-edit":
+        for image_number, media_id in enumerate(request.input_media_ids, start=1):
+            if media_id is None:
+                continue
+            loaded = await _load_source_image_b64(session, media_id)
+            if loaded:
+                source_images_b64.append((image_number, loaded))
     elif mode == "cinematography" and request.media_id is not None:
         loaded = await _load_source_image_b64(session, request.media_id)
         if loaded:
@@ -852,6 +899,12 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     # contains; collapse the blank lines the slot leaves behind when it's empty.
     system_prompt = system_prompt.replace(
         "{input_images_desc}", _input_images_phrase(request.input_image_count)
+    )
+    system_prompt = system_prompt.replace(
+        "{qwen_image_refs}", _qwen_image_refs_phrase(request.input_image_count)
+    )
+    system_prompt = system_prompt.replace(
+        "{canvas_guidance}", _qwen_canvas_guidance(request.width, request.height)
     )
     system_prompt = system_prompt.replace(
         "{audio_guidance}",
@@ -897,6 +950,23 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "Return only the final model prompt:\n\n"
             f"{request.prompt}{instr}"
         )
+    elif mode == "qwen-image-2.1-edit":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            f"Rewrite this Qwen-Image-2.1 edit request. The model receives "
+            f"{_qwen_image_refs_phrase(request.input_image_count)}"
+            + (" (attached below, labeled)" if source_images_b64 else "")
+            + ". Return only the final model prompt:\n\n"
+            f"{request.prompt}{instr}"
+        )
+    elif mode == "qwen-image-2.1":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            "Rewrite this request as a Qwen-Image-2.1 text-to-image prompt. "
+            f"Return only the final model prompt:\n\n{request.prompt}{instr}"
+        )
     elif source_images_b64:
         # i2v: the attached frame is reference; the user's text is direction for
         # the clip, to be turned into motion/camera — not a prompt to "improve".
@@ -928,6 +998,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                     else ("first frame" if picture_number == 1 else "last frame")
                 )
                 image_parts.append({"type": "text", "text": f"Picture {picture_number} ({role}):"})
+            elif mode == "qwen-image-2.1-edit":
+                image_parts.append({"type": "text", "text": f"<image{picture_number}>:"})
             image_parts.append(
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
             )

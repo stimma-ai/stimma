@@ -234,6 +234,17 @@ def _prompt_media_id(parameters: Dict[str, Any], effective_task: str) -> Optiona
     return None
 
 
+def _prompt_input_media_ids(parameters: Dict[str, Any]) -> List[Optional[int]]:
+    """Library ids of the input images in presentation order, positional:
+    a non-library input keeps its slot as None so <imageN> numbering holds."""
+    raw_ids = parameters.get("input_media_ids")
+    if isinstance(raw_ids, int) and not isinstance(raw_ids, bool):
+        return [raw_ids]
+    if not isinstance(raw_ids, list):
+        return []
+    return [v if isinstance(v, int) and not isinstance(v, bool) else None for v in raw_ids]
+
+
 def _prompt_h3_context(
     parameters: Dict[str, Any], effective_task: Optional[str] = None
 ) -> tuple[str, Optional[float], List[Optional[int]], bool, List[Dict[str, Any]]]:
@@ -424,6 +435,9 @@ async def _apply_generation_prompt_pipeline(
         h3_task, h3_duration, h3_media_ids, h3_generate_audio, h3_reference_manifest = _prompt_h3_context(
             parameters, effective_task
         )
+    input_media_ids: List[Optional[int]] = []
+    if model_family(model) == "qwen-image-2.1":
+        input_media_ids = _prompt_input_media_ids(parameters)
     processed_prompt = await run_prompt_pipeline(
         db,
         prompt,
@@ -440,6 +454,7 @@ async def _apply_generation_prompt_pipeline(
         h3_media_ids=h3_media_ids,
         h3_reference_manifest=h3_reference_manifest,
         h3_generate_audio=h3_generate_audio,
+        input_media_ids=input_media_ids,
         width=_optional_int(parameters, "width"),
         height=_optional_int(parameters, "height"),
         profile_id=profile_id,

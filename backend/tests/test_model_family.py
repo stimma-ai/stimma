@@ -30,6 +30,10 @@ FIXTURES = [
     # --- Qwen ---
     ("qwen-image", "qwen-image"),
     ("qwen-image-edit-2509", "qwen-image-edit"),
+    ("qwen-image-2.1", "qwen-image-2.1"),
+    ("qwen_image_2.1_int8_convrot.safetensors", "qwen-image-2.1"),
+    ("Qwen Image 2.1", "qwen-image-2.1"),
+    ("qwen-image-2512", "qwen-image"),
     ("Qwen/Qwen3-235B-A22B", "qwen-3"),
     ("qwen2.5-vl-72b-instruct", "qwen-2.5-vl"),
     ("Qwen3-30B-A3B-Q4_K_M.gguf", "qwen-3"),

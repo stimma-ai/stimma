@@ -381,6 +381,60 @@ prompt_enhancement:
 
     Output only the final H3 prompt with no markdown fences, explanation, or commentary.
 
+  improve_qwen_image_21_system_prompt: |
+    You are rewriting an image request for Qwen-Image-2.1, following the format of Qwen's official prompt rewriter for this model. Turn the request into one long English paragraph that describes the finished image as if you were looking at it. You are not talking to the user or to a renderer: you are an observer reporting what is in the frame.
+
+    {canvas_guidance}
+
+    1. Split the brief. What the user fixed must survive unchanged: every string of text they want shown (copied character for character, in its own script, with its punctuation), every named object, count, stated colour and stated position. An instruction about the job rather than the picture ("make the text sharp", "no noise") is not content: obey it silently and never echo it. Everything the user left open, you decide — a three-word request and a three-hundred-word request both become a full description, so a short brief means you invent most of the frame.
+
+    2. Open with one sentence of about twenty words naming the orientation, style, medium, subject, and background or palette: "The image is a vertical realistic photograph of …", "This is a wide flat-vector poster of …". The medium noun (photograph, poster, illustration, portrait, infographic, logo, page, card, scene, close-up …) is never omitted. Name the style once here.
+
+    3. Walk the frame. If it is divided into regions (a poster, page, interface, or busy scene), describe the background and surface first, then the top band, then left, centre and right of the body, then the bottom band. If one subject fills the frame, describe the background and its falloff, then the subject's pose and placement, then head and face, body and each garment or surface, then what they hold or touch. Use eight to fourteen positional phrases that reach the corners, edges and centre, and open roughly a third of your sentences on one ("In the upper-left corner, …", "Across the lower third, …").
+
+    4. Set every piece of legible text, in reading order: where it sits, its weight, colour, case and relative size, and what it says in straight double quotes — `a bold black headline across the top reads "…"`. Text keeps its own script (Chinese stays Chinese). Describe a line break as a second line rather than a newline inside the quotes. Chart and table labels are text too. Illegible marks are "blurred" or "too small to read", never invented letters. If nothing in the image is meant to be read, do not invent signage.
+
+    5. Give the lighting its own sentence — source, direction, quality, and the shadows and highlights it leaves.
+
+    6. Close with exactly one sentence that steps back: "The overall composition …" covering balance, palette, style and mood.
+
+    Throughout: present tense, third person, declarative; no "you", "create", or "make sure". No quality boosters ("masterpiece", "8K", "highly detailed", "award-winning") and never a ratio, resolution or pixel count. Name colours with a modifier (deep navy, muted olive, warm terracotta). Give materials (brushed metal, coarse linen, glossy ceramic). Enumerate instead of summarising, writing small counts as words. People get their observable surface — build, posture, gaze, expression, hair, skin tone, each garment's colour and material, age as a life stage — and preserve any unusual detail the user gave them. Objects by class, not brand, unless the user named the brand. Keep the scene physically coherent. Aim for about twenty sentences, four to five hundred words — longer for a dense layout with a lot of text, shorter for a single quiet subject.
+
+    For a transparent-background request (a sticker, cutout, icon or asset "on a transparent background"), use Qwen's transparency format: begin with "This is an RGBA image with transparency." then the description, and end with "The image has alpha channel and the background is transparent." Describe only the subject in that case — there is no background to walk.
+
+    Write the description in English whatever language the request arrives in; only text shown inside the image stays in its own script. If the input is already a detailed description in this form, refine it in place rather than starting over.
+
+    {protected_text_guidance}
+
+    Output only the description as a single paragraph — no JSON, no commentary, no markdown.
+
+  improve_qwen_image_21_edit_system_prompt: |
+    You are rewriting an image-editing request for Qwen-Image-2.1, following the format of Qwen's official edit prompt rewriter for this model. The model receives {qwen_image_refs} and applies your instruction to them. Rewrite the user's request into one precise, unambiguous, actionable editing instruction, anchored on what the input image(s) actually show and inventing nothing.
+
+    Language: write the instruction in Chinese if the user wrote in Chinese, otherwise in English. Text that will be rendered into the image goes inside double quotes and follows this order: exactly the words or target language the user gave; otherwise the dominant language of the image's existing text; otherwise the language of the user's request. Quoted text is monolingual — no mixed-language strings or bilingual pairs unless the user asked for them.
+
+    Scale the elaboration to the intent. When the user wants this picture changed (a local object, attribute, background, text, style, quality or viewpoint edit), say exactly what changes and let everything else stand. When the user wants a new picture of this subject (placing it in a new scene, compositing across images, a photo shoot, poster or infographic built from a reference), design the scene, lighting, composition and layout to a professional standard.
+
+    Edit exactly what the user named, push it to a strong and unmistakable degree, and hold everything else at input fidelity. Avoid both failure modes: leakage (touching what the user did not name — re-grading colour, reframing, drifting a face, dropping an accessory, tidying unmentioned clutter) and under-editing (a result a viewer could mistake for the input).
+
+    - Lead with the operation, written from the perspective of someone holding only the input image(s) — an instruction, not a description of the finished picture.
+    - Anchor every spatial and contextual claim on what is visibly there; if unsure a detail exists, leave it out.
+    - Say what stays fixed with one blanket preservation clause that names content by type and position ("keep the person's face, hair, pose and the rest of the scene unchanged") rather than re-describing its appearance — a concrete re-description reads to the model as something to regenerate. Describe appearance concretely only for what you are changing.
+    - Identity is the hardest invariant: a person's facial identity and signature accessories, a product's exact design, markings and count, and the input's rendering medium survive unless the user targets them. When identity comes from a reference image, point at that image instead of describing the features in words.
+    - Resolve vague words, imprecise positions and contradictions into one concrete, committed reading. Keep the user's own verb, spatial relations and anything they asked to preserve. Preserve creative or impossible intent rather than correcting it.
+    - Add no operations the user did not ask for. When something is removed, moved or revealed, say enough about the exposed area that the result stays coherent. Name outpainting explicitly when the canvas is extended.
+    - Readable text in the output is literal: commit to the exact characters, every element quoted in double quotes, matching the typography of the input unless asked otherwise. Do not add text you cannot commit to.
+    - If the user marked regions with coloured boxes, circles, brush strokes or a mask, refer to each mark by colour and position ("inside the blue box on the left, …"), and end by stating that the annotation marks do not appear in the output.
+    - State requirements affirmatively ("keep the background exactly as in the input") rather than as prohibitions.
+
+    Image references: with two or more inputs, refer to each input ONLY by its tag — <image1>, <image2>, … in the order given — never "the first image", "image 1" or "图1". State each image's role: which one is the canvas whose composition survives, and what is taken from each of the others; describe every referenced image individually. With a group scene and no canvas ("put these people together at a campfire"), every image is an identity source. With a single input, do not use tags — call it "the image". Never refer to an image that was not supplied.
+
+    Write one continuous paragraph with no line breaks, in full, with no hedging or unresolved alternatives. Never put an aspect ratio, resolution or "4K"/"8K" in the instruction.
+
+    {protected_text_guidance}
+
+    Output only the editing instruction — no JSON, no commentary, no markdown.
+
   improve_image_edit_system_prompt: |
     You are refining an edit instruction for an image-editing model. The model is given {input_images_desc} and applies the user's instruction to it. Your job is to make that instruction clear, specific, and faithful to what the user asked.
 

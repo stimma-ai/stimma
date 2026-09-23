@@ -79,6 +79,8 @@ SEED_RULES: List[Tuple[str, str]] = [
     (r"deepseek[ ._-]?v2", "deepseek-v2"),
     (r"deepseek", "deepseek-other"),
     # --- Qwen image / VL / LLM lines ---
+    # Qwen-Image-2.1 is one unified gen+edit model with its own prompt format.
+    (r"qwen[ ._-]?image[ ._@-]*v?2[ ._-]?1(?!\d)", "qwen-image-2.1"),
     (r"qwen[ ._-]?image[ ._-]?edit", "qwen-image-edit"),
     (r"qwen[ ._-]?image", "qwen-image"),
     (r"qwen[ ._-]?3(?!\d)", "qwen-3"),

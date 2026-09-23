@@ -734,3 +734,12 @@ class TestUnconfiguredLlmSkipsSteps:
                 {"autoImprove": {"enabled": True}},
             )
         assert exc.value.detail["code"] == "llm_insufficient_balance"
+
+
+def test_image_tags_in_range_rejects_invented_references_only():
+    from prompt_pipeline import _image_tags_in_range
+
+    assert _image_tags_in_range("Replace the sky in <image1> with <image2>'s sunset", 2, "sunset sky")
+    assert not _image_tags_in_range("Dress <image1> in the coat from <image3>", 2, "coat swap")
+    # A tag the user wrote survives even when it points past the inputs.
+    assert _image_tags_in_range("Use <image4> as the style", 1, "style from <image4>")

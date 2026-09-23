@@ -193,6 +193,9 @@ async def _improve_with_verbatim_protection(
     h3_reference_manifest: Optional[List[Dict[str, Any]]],
     h3_generate_audio: bool,
     project_id: Optional[int],
+    input_media_ids: Optional[List[Optional[int]]] = None,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
 ) -> str:
     from routes.prompt_enhancement import ImprovePromptRequest, improve_prompt
 
@@ -219,6 +222,9 @@ async def _improve_with_verbatim_protection(
             h3_media_ids=h3_media_ids or [],
             h3_reference_manifest=h3_reference_manifest or [],
             h3_generate_audio=h3_generate_audio,
+            input_media_ids=input_media_ids or [],
+            width=width,
+            height=height,
             project_id=project_id,
         )
         async with db.async_session_maker() as session:
@@ -235,6 +241,11 @@ async def _improve_with_verbatim_protection(
                 f"[prompt-pipeline] Improve attempt {attempt + 1}: invalid H3 Context-IR, retrying..."
             )
             continue
+        if not _image_tags_in_range(candidate, input_image_count, prompt_with_placeholders):
+            log.warning(
+                f"[prompt-pipeline] Improve attempt {attempt + 1}: referenced a missing <imageN>, retrying..."
+            )
+            continue
         if not segments:
             return candidate
         if verify_verbatim_preserved(candidate, segments):
@@ -248,6 +259,19 @@ async def _improve_with_verbatim_protection(
         return prompt
     log.warning("[prompt-pipeline] All improve retries failed validation, using original prompt")
     return prompt
+
+
+_IMAGE_TAG_RE = re.compile(r"<image(\d+)>", re.IGNORECASE)
+
+
+def _image_tags_in_range(prompt: str, input_image_count: int, source_prompt: str) -> bool:
+    """Reject invented positional <imageN> tags (Qwen-Image-2.1) that point past
+    the inputs. Tags the user wrote themselves pass through untouched."""
+    user_tags = {int(n) for n in _IMAGE_TAG_RE.findall(source_prompt)}
+    return all(
+        1 <= int(n) <= input_image_count or int(n) in user_tags
+        for n in _IMAGE_TAG_RE.findall(prompt)
+    )
 
 
 def _valid_h3_context_ir(
@@ -521,6 +545,7 @@ async def run_prompt_pipeline(
     h3_media_ids: Optional[List[Optional[int]]] = None,
     h3_reference_manifest: Optional[List[Dict[str, Any]]] = None,
     h3_generate_audio: bool = True,
+    input_media_ids: Optional[List[Optional[int]]] = None,
     width: Optional[int] = None,
     height: Optional[int] = None,
     profile_id: Optional[str] = None,
@@ -558,7 +583,10 @@ async def run_prompt_pipeline(
     instructions = (auto_improve.get("instructions") or "").strip() or None
 
     preloaded_improved: Optional[str] = None
-    if enhance_on and not ideogram_json_mode and h3_task is None:
+    # A preload was enhanced without seeing the inputs, so it can't stand in for
+    # a pass that is shown them (H3 frames, Qwen-Image-2.1 references).
+    sees_inputs = h3_task is not None or any(m is not None for m in (input_media_ids or []))
+    if enhance_on and not ideogram_json_mode and not sees_inputs:
         preloaded_improved = _validated_prompt_preload(
             prompt_preload,
             prompt=prompt,
@@ -595,6 +623,9 @@ async def run_prompt_pipeline(
                 h3_media_ids=h3_media_ids,
                 h3_reference_manifest=h3_reference_manifest,
                 h3_generate_audio=h3_generate_audio,
+                input_media_ids=input_media_ids,
+                width=width,
+                height=height,
                 project_id=project_id,
             )
         except Exception as e:
