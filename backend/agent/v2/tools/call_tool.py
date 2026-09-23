@@ -335,6 +335,51 @@ async def _execute_metadata_only_tool(
     }
 
 
+async def _enhance_prompt_for_tool(
+    job_params: Dict[str, Any],
+    *,
+    tool_id: str,
+    task_type: Optional[str],
+    enhance_prompt: Any,
+    project_id: Optional[int],
+) -> tuple[Dict[str, Any], Optional[str]]:
+    """Apply prompt enhancement to an agent tool call.
+
+    ``enhance_prompt`` is True (always), False/None (never — the default for
+    internal callers that already ran the prompt pipeline), or "auto": enhance
+    only for models with their own prompt format, which a general-purpose
+    writer gets wrong. Returns the params to submit and a note for the agent
+    when enhancement ran or failed (None when it didn't apply).
+    """
+    prompt = job_params.get("prompt")
+    if not enhance_prompt or not isinstance(prompt, str) or not prompt.strip():
+        return job_params, None
+
+    from routes.generation import enhance_tool_prompt, native_prompt_format
+
+    prompt_format = native_prompt_format(tool_id, task_type)
+    if enhance_prompt == "auto" and prompt_format is None:
+        return job_params, None
+
+    try:
+        enhanced = await enhance_tool_prompt(
+            job_params, tool_id=tool_id, task_type=task_type, project_id=project_id
+        )
+    except Exception as e:
+        log.warning(f"[call_tool_v2] Prompt enhancement failed for {tool_id}: {e}")
+        return job_params, (
+            f"Prompt enhancement failed ({e}); the prompt was sent as written."
+        )
+
+    if enhanced.get("prompt") == prompt:
+        return enhanced, None
+    target = f"{prompt_format}'s prompt format" if prompt_format else "this model"
+    return enhanced, (
+        f"Your prompt was rewritten for {target} before generating. "
+        "Pass enhance_prompt=false to send a prompt exactly as written."
+    )
+
+
 async def execute_call_tool(
     tool_id: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -675,6 +720,14 @@ async def execute_call_tool(
 
     _check_failure_block(kwargs.get("workspace_dir"), tool_id, task_type)
 
+    job_params, prompt_note = await _enhance_prompt_for_tool(
+        job_params,
+        tool_id=tool_id,
+        task_type=task_type,
+        enhance_prompt=kwargs.get("enhance_prompt"),
+        project_id=kwargs.get("project_id"),
+    )
+
     queue = get_generation_queue()
     chat_id = kwargs.get("chat_id")
     auto_delete_duration = kwargs.get("auto_delete_duration")
@@ -814,6 +867,9 @@ async def execute_call_tool(
         "parameters": recorded_params,
         "input_media_ids": list(final_params.get("input_media_ids") or []),
         "duration_ms": int((time.perf_counter() - started_at) * 1000),
+        # What the tool actually received when enhancement rewrote the prompt.
+        "sent_prompt": job_params.get("prompt") if job_params.get("prompt") != prompt else None,
+        "prompt_note": prompt_note,
     }
 
 
@@ -846,12 +902,24 @@ async def execute_call_tool(
             required=False,
             enum=["canny", "depth", "lineart", "lineart_realistic", "lineart_anime", "pose", "pose_hands"],
         ),
+        ToolParameter(
+            name="enhance_prompt",
+            type="boolean",
+            description=(
+                "Rewrite the prompt into the model's preferred format before generating. "
+                "Omit for the default: on for models with their own prompt format (get_schema "
+                "reports it as prompt_format), off otherwise. Pass false to send your prompt "
+                "exactly as written, true to enhance for any model."
+            ),
+            required=False,
+        ),
     ],
 )
 async def call_tool(
     tool_id: Optional[str] = None,
     parameters: Optional[Dict[str, Any]] = None,
     controlnet: Optional[str] = None,
+    enhance_prompt: Optional[bool] = None,
     **kwargs,
 ) -> str:
     # Some models wrap every arg under "parameters" so that ``tool_id`` lands
@@ -886,10 +954,15 @@ async def call_tool(
     # Route top-level controlnet param into parameters so execute_call_tool sees it
     if controlnet:
         parameters["controlnet"] = controlnet
+    # Tolerate the flag nested inside parameters, where it isn't a tool knob.
+    nested_enhance = parameters.pop("enhance_prompt", None)
+    if enhance_prompt is None:
+        enhance_prompt = nested_enhance
     try:
         result = await execute_call_tool(
             tool_id=tool_id,
             parameters=parameters,
+            enhance_prompt=_coerce_enhance_flag(enhance_prompt),
             **kwargs,
         )
     except Exception as e:
@@ -911,4 +984,22 @@ async def call_tool(
     parts.append(f"Use media_id {media_id} if you need to reference this output in a follow-up call_tool.")
     if workspace_filename:
         parts.append(f' For create_layout, use src="{workspace_filename}".')
+    if result.get("prompt_note"):
+        parts.append(f"\n{result['prompt_note']}")
+    if result.get("sent_prompt"):
+        parts.append(f"\nPrompt sent to the model:\n{result['sent_prompt']}")
     return "".join(parts)
+
+
+def _coerce_enhance_flag(value: Any) -> Any:
+    """Agent flag -> True / False / "auto" (omitted). Tolerates string booleans."""
+    if value is None:
+        return "auto"
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"false", "0", "no", "off"}:
+            return False
+        if lowered in {"true", "1", "yes", "on"}:
+            return True
+        return "auto"
+    return bool(value)

@@ -397,6 +397,15 @@ def _get_schema(registry: ProviderRegistry, tool_id: str) -> str:
     if descriptor.parameter_schema:
         cleaned = _strip_large_enums(descriptor.parameter_schema, tool_id)
         result["parameter_schema"] = _collapse_auto_params(cleaned)
+        if "prompt" in (descriptor.parameter_schema.get("properties") or {}):
+            from routes.generation import native_prompt_format
+            prompt_format = native_prompt_format(tool_id)
+            if prompt_format:
+                result["prompt_format"] = (
+                    f"{prompt_format} has its own prompt format. call_tool rewrites your prompt "
+                    "into it automatically and shows you what was sent; write a plain description "
+                    "of what you want. Pass enhance_prompt=false to send a prompt exactly as written."
+                )
 
     # Enrich x-controlnet with human-readable descriptions
     _enrich_controlnet_info(result)

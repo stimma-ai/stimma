@@ -467,6 +467,50 @@ async def _apply_generation_prompt_pipeline(
     return updated
 
 
+# Models whose prompts follow a model-specific structure the enhancer knows and
+# a general-purpose writer doesn't. Agent tool calls enhance these by default.
+_NATIVE_PROMPT_FORMAT_LABELS = {
+    "qwen-image-2.1": "Qwen-Image-2.1",
+    "minimax-h3": "MiniMax H3",
+}
+
+
+def native_prompt_format(tool_id: str, task_type: Optional[str] = None) -> Optional[str]:
+    """Name of the tool's model-specific prompt format, or None for plain prose."""
+    from model_family import model_family
+    from prompt_pipeline import is_ideogram4
+    from routes.prompt_enhancement import enhancement_mode
+
+    model, model_vendor, effective_task, _ = _prompt_pipeline_context(tool_id, task_type, None)
+    if is_ideogram4(model_vendor, model):
+        return "Ideogram 4"
+    mode = enhancement_mode(
+        model_family(model),
+        is_video="video" in effective_task,
+        is_audio=effective_task in _AUDIO_TASK_TYPES,
+    )
+    return _NATIVE_PROMPT_FORMAT_LABELS.get(mode.removesuffix("-edit"))
+
+
+async def enhance_tool_prompt(
+    parameters: Dict[str, Any],
+    *,
+    tool_id: str,
+    task_type: Optional[str],
+    project_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Run a submit's prompt through ToolView's Enhance pipeline, exactly as an
+    editor submit with Enhance on would (same live-parameter context)."""
+    return await _apply_generation_prompt_pipeline(
+        parameters,
+        tool_id=tool_id,
+        task_type=task_type,
+        prompt_options={"autoImprove": {"enabled": True}},
+        prompt_preload=None,
+        project_id=project_id,
+    )
+
+
 async def _decline_unqueued_reserved_work(
     generation_queue,
     request,

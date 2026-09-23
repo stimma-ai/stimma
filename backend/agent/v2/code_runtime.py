@@ -587,6 +587,8 @@ class ToolResult:
     task_type: str | None = None
     input_media_ids: list[int] = field(default_factory=list)
     prompt: str | None = None
+    # The prompt the model actually received, when enhancement rewrote it.
+    sent_prompt: str | None = None
 
     def open(self) -> Image.Image:
         from utils.image_ops import open_oriented
@@ -1402,6 +1404,8 @@ class StimmaSDK:
     # see — the code linter reads this to know they exist. A namespace missing
     # from this map gets linted as "does not exist" and the agent believes it.
     NAMESPACES: dict[str, type] = {}
+    # The run's stdout printer, set by run_code_in_sandbox, for SDK-side notes.
+    _stdout_print = None
 
     def __init__(
         self,
@@ -1856,6 +1860,8 @@ class StimmaSDK:
 
         # Single STP parameter namespace — hand the flat kwargs straight through.
         parameters = dict(kwargs)
+        from .tools.call_tool import _coerce_enhance_flag
+        enhance_prompt = _coerce_enhance_flag(parameters.pop("enhance_prompt", None))
         prompt_val = parameters.get("prompt")
         prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         try:
@@ -1868,6 +1874,7 @@ class StimmaSDK:
                 workspace_dir=self.workspace_dir,
                 interrupt_checker=self.interrupt_checker,
                 project_id=self.project_id,
+                enhance_prompt=enhance_prompt,
             )
         except Exception as e:
             self._tool_failures.append({
@@ -1892,7 +1899,13 @@ class StimmaSDK:
             task_type=result.get("task_type"),
             input_media_ids=list(result.get("input_media_ids") or []),
             prompt=prompt_for_record,
+            sent_prompt=result.get("sent_prompt"),
         )
+        if result.get("prompt_note"):
+            # The SDK's own print goes to the server log; route it to the run's stdout.
+            (self._stdout_print or print)(
+                f"[{tool_id}] {result['prompt_note']} See .sent_prompt on the result."
+            )
         self._tool_results.append(tool_result)
         # Also propagate to session-level tracking so subsequent tool calls see it
         if tool_result.media_id is not None:
@@ -2951,6 +2964,7 @@ async def run_code_in_sandbox(
                 log.warning(f"Stimpack module '{mod_name}' shadows built-in module — skipping")
                 del stimpack_modules[mod_name]
 
+    sdk_instance._stdout_print = _printer
     builtins = build_safe_builtins(
         workspace_dir,
         _printer,

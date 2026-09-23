@@ -263,6 +263,14 @@ def _collect_controlnet(schema: dict[str, Any]) -> list[str]:
     return found
 
 
+def _native_prompt_format(tool_id: str, task_type: str) -> str | None:
+    try:
+        from routes.generation import native_prompt_format
+        return native_prompt_format(tool_id, task_type)
+    except Exception:
+        return None
+
+
 def _render_params(
     schema: dict[str, Any],
     tool_id: str,
@@ -418,6 +426,7 @@ def render_tool_stub(
         lines.append(f"    controlnet: Literal[{cn_lit}] | None = None,")
     if supports_params_from:
         lines.append("    params_from: int | None = None,")
+        lines.append("    enhance_prompt: bool | None = None,")
     lines.append(") -> dict:" if metadata_only else ") -> ToolResult:")
 
     # Docstring
@@ -477,6 +486,22 @@ def render_tool_stub(
             "new roll; KEEPING its seed and changing one prompt detail gives a near-miss "
             "('same but ...') where identity holds and only the detail shifts."
         )
+
+    if supports_params_from:
+        prompt_format = _native_prompt_format(binding.tool_id, binding.task_type)
+        doc.append("")
+        if prompt_format:
+            doc.append(
+                f"Prompt format: {prompt_format} has its own prompt format, so your prompt is "
+                "rewritten into it before generating (the result's .sent_prompt shows what was "
+                "sent). Write a plain description of what you want; pass enhance_prompt=False "
+                "to send a prompt exactly as written."
+            )
+        else:
+            doc.append(
+                "enhance_prompt: omit to send your prompt as written; True rewrites it into "
+                "this model's preferred style first."
+            )
 
     lines.append('    """')
     for d in doc:
