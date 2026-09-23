@@ -3057,12 +3057,13 @@ watch(() => videoImages.startImage, (newStart, oldStart) => {
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
 import type { LoraPoolItem } from '../composables/useLoraPool'
+import { disableUnavailableLoras } from '../utils/availableLoras'
 const _loraPool = useLoraPool()
 const toolLoras = ref<LoraPoolItem[]>([])
 
 // Get enabled loras for job submission
 function getToolEnabledLoras(): Array<{ lora: string; weight: number }> {
-  return toolLoras.value
+  return disableUnavailableLoras(toolLoras.value, availableLoraPaths.value)
     .filter(l => l.enabled && l.lora)
     .map(l => ({ lora: l.lora, weight: l.weight }))
 }
@@ -3304,6 +3305,22 @@ watch(toolLoras, (items) => {
 
 // Available LoRAs from the generator
 const isRefreshingLoras = ref(false)
+
+// A present path enum is authoritative even when empty: the last LoRA may
+// have been deleted. An absent schema is still loading and cannot be checked.
+const availableLoraPaths = computed<Set<string> | null>(() => {
+  if (isRefreshingLoras.value) return null
+  const paths = tool.value?.parameter_schema?.properties?.loras?.items?.properties?.path?.enum
+  return Array.isArray(paths) ? new Set(paths) : null
+})
+
+watch([availableLoraPaths, toolLoras], ([paths, items]) => {
+  const updated = disableUnavailableLoras(items, paths)
+  if (updated === items) return
+  toolLoras.value = updated
+  // Persist immediately, including when the pool-to-ref sync is in progress.
+  _loraPool.syncItemsToPool(scopedToolId(fullToolIdFromProps), updated)
+})
 
 const availableLoras = computed(() => {
   // Get LoRAs from the tool's parameter_schema
