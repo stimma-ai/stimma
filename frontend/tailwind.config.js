@@ -194,11 +194,18 @@ export default {
     require('@tailwindcss/container-queries'),
     // Viewport variants bound to useViewport.ts (DESIGN.md §1.11), not to raw
     // media queries, so the dev/test override (?viewport=compact) and the
-    // chrome agree. `compact:` = phones (< 768px); `coarse:` = touch pointer.
+    // chrome agree. `compact:` = phone chrome (< 768px or a native phone
+    // shell); `coarse:` = touch pointer. `narrow:` / `medium:` / `wide:` are
+    // the live width band (< 600 / 600–839 / ≥ 840), and `roomy:` is compact
+    // chrome with a medium-or-wider window: an unfolded foldable.
     function ({ addVariant }) {
       addVariant('compact', '[data-viewport="compact"] &')
       addVariant('not-compact', '[data-viewport]:not([data-viewport="compact"]) &')
       addVariant('coarse', '[data-pointer="coarse"] &')
+      addVariant('narrow', '[data-width="narrow"] &')
+      addVariant('medium', '[data-width="medium"] &')
+      addVariant('wide', '[data-width="wide"] &')
+      addVariant('roomy', '[data-viewport="compact"]:not([data-width="narrow"]) &')
     },
   ],
 }

@@ -278,7 +278,7 @@ const appVersion = ref('unknown')
 
 // Geometry, not a layout decision: the tier comes from useViewport, the
 // pixels are only reported so the two can be compared on a real device.
-const { tier, pointer, hasOverride } = useViewport()
+const { tier, width, pointer, hasOverride } = useViewport()
 const viewportSize = ref({ w: 0, h: 0 })
 function readViewportSize() {
   viewportSize.value = { w: window.innerWidth, h: window.innerHeight }
@@ -286,7 +286,7 @@ function readViewportSize() {
 const displayInfo = computed(() => {
   const parts = [
     `${viewportSize.value.w}×${viewportSize.value.h}`,
-    `${tier.value}${hasOverride.value ? ' (override)' : ''}`,
+    `${tier.value}/${width.value}${hasOverride.value ? ' (override)' : ''}`,
     pointer.value,
     `${desktop.kind} shell`,
   ]

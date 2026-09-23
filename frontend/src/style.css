@@ -1119,6 +1119,14 @@ select option {
   will-change: transform;
 }
 .compact-shell.is-dragging .compact-track { transition: none; }
+/* Docked (roomy compact chrome): the track fits the screen and stops moving;
+   the drawer is an ordinary first column. No transition, because docking
+   happens on fold/unfold, when the window itself just jumped. */
+.compact-track.is-docked {
+  width: 100%;
+  transform: none;
+  transition: none;
+}
 /* The drawer's rows were sized for the desktop rail; on a phone every row and
    control is a touch target. Scoped to the drawer so desktop does not move. */
 .compact-drawer nav > button, .compact-drawer nav > div > button, .compact-drawer nav .group > button { min-height: 44px; }

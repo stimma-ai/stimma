@@ -21,7 +21,14 @@ import BackgroundWorkIndicator from '../BackgroundWorkIndicator.vue'
 import BackgroundWorkPanel from '../BackgroundWorkPanel.vue'
 import ProviderManagerButton from '../ProviderManagerButton.vue'
 
+const props = withDefaults(defineProps<{
+  /** The drawer is docked beside the app (roomy compact chrome). */
+  sidebarDocked?: boolean
+  /** The drawer could dock here; the menu button pins/unpins instead of opening. */
+  sidebarDockable?: boolean
+}>(), { sidebarDocked: false, sidebarDockable: false })
 const emit = defineEmits<{ openSettings: [section: string]; openMenu: [] }>()
+const menuLabel = computed(() => props.sidebarDockable ? (props.sidebarDocked ? 'Hide sidebar' : 'Show sidebar') : 'Menu')
 
 const route = useRoute()
 const router = useRouter()
@@ -57,11 +64,18 @@ function openSearch() {
       <button
         type="button"
         class="w-11 h-11 flex items-center justify-center border-none bg-transparent"
-        aria-label="Menu"
+        :aria-label="menuLabel"
+        :aria-pressed="sidebarDockable ? sidebarDocked : undefined"
         @click="emit('openMenu')"
       >
-        <span class="w-9 h-9 rounded-full bg-overlay-subtle flex items-center justify-center text-content">
-          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <span class="w-9 h-9 rounded-full flex items-center justify-center" :class="sidebarDocked ? 'bg-overlay-hover text-content' : 'bg-overlay-subtle text-content'">
+          <!-- Where the drawer can dock, the glyph is a sidebar, not a
+               hamburger: the button now toggles a panel that stays. -->
+          <svg v-if="sidebarDockable" class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2.5" y="4" width="15" height="12" rx="2" />
+            <path d="M7.5 4v12" />
+          </svg>
+          <svg v-else class="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M3 7h14M3 13h9" />
           </svg>
         </span>

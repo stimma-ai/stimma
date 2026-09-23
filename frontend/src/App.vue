@@ -187,9 +187,13 @@
          links, the working set, footer); it pushes the app aside rather than
          floating over it. The header's menu button and a drag open it; a tap
          on the pushed app or any navigation closes it. -->
-    <div class="compact-track absolute inset-y-0 left-0 flex">
+    <!-- Roomy (an unfolded foldable, a tablet in the phone shell): the same
+         drawer docks beside the app instead of pushing it. Same element,
+         same track; only --drawer-x stops moving and the app narrows. Folding
+         the phone undocks it on the spot and the drawer is back. -->
+    <div class="compact-track absolute inset-y-0 left-0 flex" :class="{ 'is-docked': sidebarDocked }">
       <NavigationSidebar
-        :is-open="sidebarOpen"
+        :is-open="sidebarOpen || sidebarDocked"
         :is-mobile="true"
         @close="closeSidebar"
         @open-settings="openSettings($event)"
@@ -203,10 +207,10 @@
         @touchend.passive="onCompactTouchEnd"
         @touchcancel.passive="onCompactTouchEnd"
       >
-      <div v-if="sidebarOpen" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
+      <div v-if="sidebarOpen && !sidebarDocked" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
       <!-- v-show, not v-if, under the slideshow: views teleport controls into
            this header, and a remount would strand them in the old element. -->
-      <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" @open-settings="openSettings($event)" @open-menu="openSidebar" />
+      <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" :sidebar-docked="sidebarDocked" :sidebar-dockable="sidebarDockable" @open-settings="openSettings($event)" @open-menu="onCompactMenu" />
       <ProjectScopeBar
         v-if="projectChrome.project && !slideshowActive && !compactOverlay"
         :project="projectChrome.project"
@@ -292,6 +296,7 @@ const vScrollGuard = {
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import { useViewport } from './composables/useViewport'
+import { makeProfileKey } from './utils/storageKeys'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
 import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
@@ -629,8 +634,39 @@ async function resolveProjectChrome() {
 // wide = sidebar + top bar exactly as before; compact = the sidebar becomes
 // an overlay and the compact chrome takes over. On a desktop-sized window
 // isCompact is false and nothing here changes.
-const { isCompact } = useViewport()
+const { isCompact, isRoomy, width: viewportWidth } = useViewport()
 const isMobile = isCompact
+
+// Roomy compact chrome (unfolded foldable, tablet in the phone shell) can
+// keep the drawer docked beside the app. The preference is the user's and
+// survives folding; whether it takes effect right now is the window's:
+// hubs dock at medium width, details (tool, chat, editor) only at wide,
+// because a 276px rail next to a ~750px window leaves no room for their
+// columns — there the drawer stays a drawer, the way slideshow focus mode
+// hides the desktop sidebar. Overlays never dock.
+const SIDEBAR_PINNED_KEY = makeProfileKey('sidebar', 'pinned')
+const sidebarPinned = ref(localStorage.getItem(SIDEBAR_PINNED_KEY) !== '0')
+watch(sidebarPinned, (v) => localStorage.setItem(SIDEBAR_PINNED_KEY, v ? '1' : '0'))
+const sidebarDockable = computed(() => {
+  if (!isRoomy.value || slideshowActive.value) return false
+  const surface = route.meta?.surface
+  if (surface === 'overlay') return false
+  return surface === 'hub' || viewportWidth.value === 'wide'
+})
+const sidebarDocked = computed(() => sidebarDockable.value && sidebarPinned.value)
+watch(sidebarDocked, (docked) => { if (docked) sidebarOpen.value = false })
+
+// The header's menu button: on a phone it opens the drawer; where the drawer
+// can dock, it pins and unpins instead, so the same button is always "show
+// me the sidebar" and never has two meanings on one screen.
+function onCompactMenu() {
+  if (sidebarDockable.value) {
+    sidebarPinned.value = !sidebarPinned.value
+    if (!sidebarPinned.value) sidebarOpen.value = false
+    return
+  }
+  openSidebar()
+}
 // Overlay routes (onboarding, image editor) take the whole screen on compact.
 const compactOverlay = computed(() => route.meta?.surface === 'overlay')
 // A detail view's title must not outlive its route.
@@ -660,7 +696,7 @@ const drawerX = computed(() => drawerDragging.value ? drawerDragX.value : (sideb
 let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0
 function onCompactTouchStart(e) {
   const t = e.touches[0]
-  if (!t || e.touches.length > 1) { dragIntent = 'no'; return }
+  if (!t || e.touches.length > 1 || sidebarDocked.value) { dragIntent = 'no'; return }
   const el = e.target
   const blocked = el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
   dragIntent = blocked ? 'no' : null

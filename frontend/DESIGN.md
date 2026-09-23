@@ -261,11 +261,26 @@ runs in any native shell. One component tree, no `Mobile*.vue` twins, no
 that a desktop-sized window never trips.
 
 - **One source of truth.** `composables/useViewport.ts` exposes `isCompact`
-  (< 768px), `isMedium` (768–1023), `isWide` (≥ 1024) and `isCoarsePointer`.
-  Nothing else evaluates a width or pointer media query for a layout
-  decision (popover geometry arithmetic is fine). `?viewport=compact` pins
-  the compact tier in a desktop window for dev and tests. Tailwind `md:` =
-  medium, `lg:` = wide — the same lines.
+  (< 768px, or a native phone shell), `isMedium` (768–1023), `isWide`
+  (≥ 1024) and `isCoarsePointer`. Nothing else evaluates a width or pointer
+  media query for a layout decision (popover geometry arithmetic is fine).
+  `?viewport=compact` pins the compact tier in a desktop window for dev and
+  tests. Tailwind `md:` = medium, `lg:` = wide — the same lines.
+- **Room is separate from chrome (adopted 2026-09-22).** The chrome tier is
+  sticky on a phone shell (switching it remounts the app); the window's
+  width is not, because a foldable changes it constantly. `useViewport`
+  therefore also exposes a live `width` band — `narrow` < 600, `medium`
+  600–839, `wide` ≥ 840, Android's own window size classes (Z Fold: 360
+  folded, 752 unfolded) — and `isRoomy` = compact chrome with a
+  medium-or-wider window. Tailwind `narrow:` / `medium:` / `wide:` /
+  `roomy:` follow `data-width`. `?width=medium` pins the band for dev and
+  tests. Roomy surfaces open up INSIDE the compact shell (docked drawer,
+  side-by-side tool columns); nothing switches chrome, so folding and
+  unfolding mid-task loses no state. In the compact shell the drawer docks
+  when roomy on hub routes, and on detail routes only at `wide`; the
+  header's menu button becomes the dock toggle (a sidebar glyph, not a
+  hamburger) and the preference is per profile. A drawer that would leave a
+  detail surface under ~470px stays a drawer.
 - **Chrome.** Every route declares `meta.surface`: `hub`, `detail` or
   `overlay`. Wide = sidebar + top bar. Compact = the SAME sidebar as a
   drawer (NavigationSidebar with `is-mobile`: 276px, pushes the app aside

@@ -89,6 +89,7 @@ import { useTour } from '../composables/useTour'
 import { useReadiness } from '../composables/useReadiness'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { useMultiDevice } from '../composables/useMultiDevice'
+import { useViewport } from '../composables/useViewport'
 import { DEVICE_COACHMARK, deviceCoachmarkStep, isDeviceCoachmarkDue, markDeviceCoachmarkSeen } from '../composables/useTour'
 
 const SETTLE_DELAY_MS = 1000
@@ -96,6 +97,7 @@ const SETTLE_DELAY_MS = 1000
 const route = useRoute()
 const { isDue, isActive, currentStep, stepIndex, activeSteps, anchorFor, startTour, nextStep, endTour } = useTour()
 const { hasOtherDevices, onlineDevices } = useMultiDevice()
+const { isCompact } = useViewport()
 const { shouldShowPanel } = useReadiness()
 
 const anchorRect = ref(null)
@@ -132,7 +134,7 @@ watch(canStartDeviceCoachmark, (ok) => {
   if (!ok) return
   deviceCoachmarkTimer = setTimeout(() => {
     if (!canStartDeviceCoachmark.value) return
-    if (!window.matchMedia('(min-width: 768px)').matches) return
+    if (isCompact.value) return
     // Anchor missing means the chip has not rendered; try again next launch
     // rather than burning the one showing.
     if (!anchorFor(DEVICE_COACHMARK.id)) return
@@ -154,7 +156,7 @@ watch(canStart, (ok) => {
 
 function tryStart() {
   if (!canStart.value) return
-  if (!window.matchMedia('(min-width: 768px)').matches) return
+  if (isCompact.value) return
   // Anchors missing (layout not settled?) — one quiet retry, then leave the
   // seen-version alone so a later launch gets another chance.
   if (!startTour()) {
