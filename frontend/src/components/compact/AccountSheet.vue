@@ -11,9 +11,10 @@ import {
   CheckIcon, LockClosedIcon, LockOpenIcon, ArrowRightOnRectangleIcon, LinkSlashIcon,
 } from '@heroicons/vue/24/outline'
 import Sheet from '../ui/Sheet.vue'
+import DeviceMenuList from '../DeviceMenuList.vue'
 import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
-import { useMultiDevice, THIS_MACHINE_LABEL } from '../../composables/useMultiDevice'
+import { useMultiDevice } from '../../composables/useMultiDevice'
 import { useProfile, openProfileWindow } from '../../composables/useProfile'
 import { getSavedRouteForProfile } from '../../composables/useRouteRestore'
 import { clearCachedPin, hasCachedPin } from '../../composables/usePinLock'
@@ -67,13 +68,6 @@ const serverDot = computed(() => {
 function open(section: string) {
   emit('close')
   emit('openSettings', section)
-}
-
-async function pickServer(deviceId: string) {
-  serverOpen.value = false
-  emit('close')
-  if (deviceId === md.LOCAL_DEVICE) await md.useLocalServer()
-  else await md.switchToDevice(deviceId)
 }
 
 async function pickProfile(profileId: string) {
@@ -168,47 +162,26 @@ function sendFeedback() {
        point at settings for the rest. -->
   <Sheet :show="serverOpen" title="Server" @close="serverOpen = false">
     <div class="pb-2">
-      <template v-if="isDesktop()">
-        <button v-if="!['ios', 'android'].includes(desktop.kind)" type="button" class="sheet-row" @click="pickServer(md.LOCAL_DEVICE)">
-          <span class="w-2 h-2 rounded-full flex-shrink-0" :class="md.selfServing.value ? 'bg-accent-hi' : 'bg-content-muted'"></span>
+      <!-- The same list as the sidebar-footer picker, including the phone
+           shell's "choose another" and "disconnect" rows. -->
+      <DeviceMenuList v-if="isDesktop()" @done="serverOpen = false; emit('close')" />
+      <template v-else>
+        <div class="sheet-row">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" :class="serverDot"></span>
           <span class="flex-1 min-w-0">
-            <span class="block truncate text-content">{{ THIS_MACHINE_LABEL }}</span>
-            <span v-if="md.selfName.value" class="block truncate text-xs font-mono text-content-tertiary">{{ md.selfName.value }}</span>
+            <span class="block truncate text-content">{{ md.activeDeviceName.value }}</span>
+            <span class="block truncate text-xs text-content-tertiary">This browser is connected here</span>
           </span>
-          <CheckIcon v-if="!md.isRemote.value" class="w-5 h-5 text-accent-hi flex-shrink-0" />
-        </button>
-        <button v-for="d in md.onlineDevices.value" :key="d.deviceId" type="button" class="sheet-row" @click="pickServer(d.deviceId)">
-          <span class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
-          <span class="flex-1 min-w-0">
-            <span class="block truncate text-content">{{ d.name }}</span>
-            <span class="block truncate text-xs text-content-tertiary">Online</span>
-          </span>
-          <CheckIcon v-if="md.activeDeviceId.value === d.deviceId" class="w-5 h-5 text-accent-hi flex-shrink-0" />
-        </button>
-        <button v-for="d in md.offlineDevices.value" :key="d.deviceId" type="button" class="sheet-row opacity-60" @click="pickServer(d.deviceId)">
-          <span class="w-2 h-2 rounded-full bg-content-muted flex-shrink-0"></span>
-          <span class="flex-1 min-w-0">
-            <span class="block truncate text-content">{{ d.name }}</span>
-            <span class="block truncate text-xs text-content-tertiary">Last seen {{ md.lastSeenLabel(d) }}</span>
-          </span>
-          <CheckIcon v-if="md.activeDeviceId.value === d.deviceId" class="w-5 h-5 text-accent-hi flex-shrink-0" />
-        </button>
+          <CheckIcon class="w-5 h-5 text-accent-hi flex-shrink-0" />
+        </div>
+        <div class="mt-2 border-t border-edge-subtle">
+          <button type="button" class="sheet-row" @click="serverOpen = false; open('server')">
+            <Cog6ToothIcon class="sheet-row-icon" />
+            <span class="flex-1 min-w-0 truncate text-content">Server settings</span>
+            <ChevronRightIcon class="w-5 h-5 text-content-muted flex-shrink-0" />
+          </button>
+        </div>
       </template>
-      <div v-else class="sheet-row">
-        <span class="w-2 h-2 rounded-full flex-shrink-0" :class="serverDot"></span>
-        <span class="flex-1 min-w-0">
-          <span class="block truncate text-content">{{ md.activeDeviceName.value }}</span>
-          <span class="block truncate text-xs text-content-tertiary">This browser is connected here</span>
-        </span>
-        <CheckIcon class="w-5 h-5 text-accent-hi flex-shrink-0" />
-      </div>
-      <div class="mt-2 border-t border-edge-subtle">
-        <button type="button" class="sheet-row" @click="serverOpen = false; open('server')">
-          <Cog6ToothIcon class="sheet-row-icon" />
-          <span class="flex-1 min-w-0 truncate text-content">Server settings</span>
-          <ChevronRightIcon class="w-5 h-5 text-content-muted flex-shrink-0" />
-        </button>
-      </div>
     </div>
   </Sheet>
 

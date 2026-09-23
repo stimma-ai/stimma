@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount } from 'vue'
+import { useViewport } from '../../composables/useViewport'
 
 const props = defineProps<{
   text: string
@@ -12,6 +13,9 @@ const left = ref(0)
 const placement = ref<'top' | 'bottom'>('top')
 
 let showTimer: ReturnType<typeof setTimeout> | null = null
+// A tap fires focusin and a synthetic mouseenter; on touch there is no hover
+// to explain, and a label floating next to a menu reads as a stray sheet.
+const { isCoarsePointer } = useViewport()
 
 const GAP = 6
 
@@ -34,6 +38,7 @@ function computePosition() {
 
 function scheduleShow() {
   clearTimer()
+  if (isCoarsePointer.value) return
   showTimer = setTimeout(() => {
     computePosition()
     visible.value = true

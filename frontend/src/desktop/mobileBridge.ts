@@ -20,6 +20,11 @@ export function disconnectMobileServer(): Promise<void> {
   return native('disconnect')
 }
 
+/** The shell's own connection screen: server list, sign-in, dev server. */
+export function showMobileConnections(): Promise<void> {
+  return native('showConnections')
+}
+
 export async function setMobileSlideshowActive(active: boolean): Promise<void> {
   if (!isMobileShell()) return
   // Older native shells can still use this UI package.

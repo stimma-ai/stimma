@@ -33,6 +33,10 @@
             {{ copied ? 'Copied' : 'Copy' }}
           </button>
         </div>
+        <!-- What the layout engine thinks this screen is. Read-only fact,
+             so bare mono; it answers "why am I getting the phone chrome?"
+             on tablets and foldables without a debugger attached. -->
+        <div class="mt-1 text-xs font-mono text-content-muted tabular-nums">{{ displayInfo }}</div>
       </div>
     </div>
 
@@ -182,7 +186,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useViewport } from '../../../composables/useViewport'
 import { desktop } from '../../../desktop'
 import { useAppUpdater } from '../../../composables/useAppUpdater'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
@@ -270,6 +275,24 @@ const resourceLinks = [
 ]
 
 const appVersion = ref('unknown')
+
+// Geometry, not a layout decision: the tier comes from useViewport, the
+// pixels are only reported so the two can be compared on a real device.
+const { tier, pointer, hasOverride } = useViewport()
+const viewportSize = ref({ w: 0, h: 0 })
+function readViewportSize() {
+  viewportSize.value = { w: window.innerWidth, h: window.innerHeight }
+}
+const displayInfo = computed(() => {
+  const parts = [
+    `${viewportSize.value.w}×${viewportSize.value.h}`,
+    `${tier.value}${hasOverride.value ? ' (override)' : ''}`,
+    pointer.value,
+    `${desktop.kind} shell`,
+  ]
+  if (typeof window !== 'undefined' && window.devicePixelRatio) parts.push(`${window.devicePixelRatio}x`)
+  return parts.join(' · ')
+})
 const copied = ref(false)
 const attributionOpen = ref(false)
 const commitHash = COMMIT_HASH
@@ -287,6 +310,7 @@ async function copyBuildInfo() {
   const parts = [`Stimma ${appVersion.value}`]
   if (commitHash) parts.push(`(${commitHash})`)
   if (channelBadge.value) parts.push(channelBadge.value.toLowerCase())
+  parts.push(`· ${displayInfo.value}`)
   try {
     await navigator.clipboard.writeText(parts.join(' '))
     copied.value = true
@@ -324,7 +348,11 @@ function formatRelativeTime(value: string): string {
   return date.toLocaleDateString()
 }
 
+onBeforeUnmount(() => window.removeEventListener('resize', readViewportSize))
+
 onMounted(async () => {
+  readViewportSize()
+  window.addEventListener('resize', readViewportSize)
   await loadPreferences()
   try {
     appVersion.value = await desktop.getAppVersion()
