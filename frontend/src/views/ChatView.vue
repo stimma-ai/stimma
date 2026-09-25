@@ -1435,6 +1435,7 @@ import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'
 import { useFlowReferences, formatReferencesForMessage, parseMessageReferences, type FlowReference } from '../composables/useFlowReferences'
+import { useChatDraft } from '../composables/useChatDraft'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useMediaDetailsModal } from '../composables/useMediaDetailsModal'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
@@ -1539,7 +1540,7 @@ const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
 
-const chatId = ref(null)
+const chatId = ref(resolveChatIdSource())
 const chat = ref(null)
 const items = ref([])
 // Artifact stage: standalone chats only (see props.embedded guard in template
@@ -1564,9 +1565,10 @@ function attachDroppedWorkspaceFile(payload) {
 }
 
 async function attachWorkspaceFile(file: WorkspaceFile) {
+  const draft = composerDraft.value
   try {
     const { data } = await axios.post(fileUrl(chatId.value, file, 'attach'), { path: file.path, entry: file.entry, media_id: file.media_id })
-    inputAttachments.value.push({ filename: data.filename, workspace_ref: data })
+    draft.attachments.push({ filename: data.filename, workspace_ref: data })
   } catch { console.error('Unable to attach workspace file'); addToast('Unable to attach file', 'error') }
 }
 async function saveWorkspaceFile(file: WorkspaceFile) {
@@ -1580,11 +1582,7 @@ const loadError = ref(false)
 const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load (404/deleted)
 const hasMore = ref(false)
 // Keep draft reads inside ChatInputBox's render effect, away from history.
-const composerDraft = reactive({ text: '' })
-const messageInput = computed({
-  get: () => composerDraft.text,
-  set: text => { composerDraft.text = text },
-})
+const { draft: composerDraft, text: messageInput, attachments: inputAttachments } = useChatDraft(chatId)
 const { resolvedTheme } = useTheme()
 const textRenderCache = createBoundedTextCache()
 watch(chatId, () => textRenderCache.clear())
@@ -1653,7 +1651,6 @@ const CHAT_AUTO_DELETE_DURATION = 'never'
 const availableMarkers = ref([]) // Markers available for tagging
 const mediaMarkers = ref({}) // Map of media_id -> array of markers
 const selectedMediaIds = ref([]) // Media IDs selected for "that one" references
-const inputAttachments = ref([]) // Images attached to the message input
 // inputDragging is now managed by ChatInputBox
 const editingItemId = ref(null) // ID of item being edited, null if not editing
 const editingText = ref('') // Current text in inline editor
@@ -3372,7 +3369,9 @@ async function sendMessage(queuedMessage = null) {
     return
   }
 
-  const refsApi = useFlowReferences(chatId.value)
+  const sendingChatId = chatId.value
+  const sendingDraft = composerDraft.value
+  const refsApi = useFlowReferences(sendingChatId)
   let message, attachments
 
   if (queuedMessage) {
@@ -3428,6 +3427,7 @@ async function sendMessage(queuedMessage = null) {
 
   if (hasActiveHITLRequest.value) {
     const interrupted = await interruptPendingHITLRequest()
+    if (chatId.value !== sendingChatId) return
     if (!interrupted) {
       if (queuedMessage) messageQueue.value.unshift(queuedMessage)
       return
@@ -3483,7 +3483,7 @@ async function sendMessage(queuedMessage = null) {
       ...attachmentMediaIds
     ]
 
-    const response = await fetch(`/api/chats/${chatId.value}/items`, {
+    const response = await fetch(`/api/chats/${sendingChatId}/items`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -3538,8 +3538,11 @@ async function sendMessage(queuedMessage = null) {
     // user can retry without re-attaching). If the message already committed,
     // leave the composer cleared — restoring would bring sent attachments back.
     if (!queuedMessage && !sent) {
-      if (!messageInput.value) messageInput.value = clearedText
-      inputAttachments.value = clearedAttachments
+      if (!sendingDraft.text) sendingDraft.text = clearedText
+      else if (clearedText) sendingDraft.text = `${clearedText}\n${sendingDraft.text}`
+      sendingDraft.attachments = [...clearedAttachments, ...sendingDraft.attachments.filter(a =>
+        !clearedAttachments.some(b => a.media_id ? a.media_id === b.media_id : JSON.stringify(a) === JSON.stringify(b))
+      )]
       for (const r of clearedRefs) refsApi.add(r)
     }
   } finally {
@@ -5536,18 +5539,13 @@ watch(() => route.params.id, (newId) => {
   if (props.chatId != null) return
   if (newId) {
     const parsed = parseInt(newId)
-    // Re-navigating to the chat we're already on (e.g. dropping a second image
-    // onto the active chat in the sidebar) must NOT clear attachments: the
-    // global pendingMedia watch may have already attached the new media before
-    // this watch runs, and an unconditional clear would wipe it.
+    // Only reset the send queue when moving to a different conversation.
     const chatChanged = chatId.value !== parsed
     // Update chatId - subscriptions filter by this value automatically
     chatId.value = parsed
     loading.value = true
     items.value = []
-    // Drop attachments from the previous chat synchronously, before any pending
-    // media for the new chat gets attached, so the clear can't wipe it.
-    if (chatChanged) inputAttachments.value = []
+    // The composer follows this chat's saved draft; other drafts stay intact.
     // Reset agent state for new chat. The queue must not carry over — a
     // message queued in the previous chat would otherwise post to this one.
     if (chatChanged) messageQueue.value = []
@@ -5589,7 +5587,6 @@ watch(() => props.chatId, (newId) => {
   loadChat()
   loadItems().then(() => {
     syncAgentStatus()
-    inputAttachments.value = []
   })
 })
 

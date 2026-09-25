@@ -1,6 +1,8 @@
 import { ref } from 'vue'
+import { getChatDraft } from './useChatDraft'
 
-// One-shot hand-off for "attach this media when the destination view loads".
+// Chat media is saved directly into the destination draft. Home uses a
+// one-shot hand-off for "attach this media when the destination view loads".
 // Deliberately NOT a URL query param: a query param lives in browser history, so
 // back/forward navigation re-fires the attachment (the "resuscitation" bug), and
 // the async router.replace used to strip it races with the push that set it,
@@ -13,6 +15,14 @@ export const pendingMedia = ref(null)
 export function setPendingMedia(target, mediaIds, chatId = null) {
   const ids = (mediaIds || []).map(Number).filter(Number.isInteger)
   if (ids.length === 0) return
+  // Commit chat drops before routing: no mounted consumer or async load needed.
+  if (target === 'chat' && chatId != null) {
+    const draft = getChatDraft(Number(chatId))
+    for (const id of ids) {
+      if (!draft.attachments.some(a => a.media_id === id)) draft.attachments.push({ media_id: id })
+    }
+    return
+  }
   pendingMedia.value = {
     target,
     chatId: chatId == null ? null : Number(chatId),

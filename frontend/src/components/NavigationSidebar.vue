@@ -1791,7 +1791,7 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     }
   } else if (tab.type === 'chat') {
     emit('media-dropped-on-chat', { chatId: parseInt(tab.entityId, 10), mediaId })
-    setPendingMedia('chat', [mediaId], parseInt(tab.entityId, 10))
+    setPendingMedia('chat', mediaIds, parseInt(tab.entityId, 10))
     router.push({ name: 'chat', params: { id: tab.entityId } })
     if (props.isMobile) emit('close')
   } else if (tab.type === 'flow') {
@@ -2019,7 +2019,6 @@ async function handleNewChatDrop(e: DragEvent) {
 
   const mediaIds = getDroppedMediaIds(e.dataTransfer)
   if (mediaIds.length > 0) {
-    const mediaId = mediaIds[0]
     try {
       const response = await fetch('/api/chats', {
         method: 'POST',
@@ -2028,7 +2027,7 @@ async function handleNewChatDrop(e: DragEvent) {
       })
       if (!response.ok) throw new Error('Failed to create chat')
       const newChat = await response.json()
-      setPendingMedia('chat', [mediaId], newChat.id)
+      setPendingMedia('chat', mediaIds, newChat.id)
       router.push({ name: 'chat', params: { id: newChat.id } })
       if (props.isMobile) emit('close')
     } catch (error) {

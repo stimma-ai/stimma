@@ -264,17 +264,21 @@ async function handleUploadSelect(event) {
 
 async function uploadFileToAttachments(file) {
   if (!file.type.startsWith('image/')) return
+  const draft = props.draft
   try {
     const formData = new FormData()
     formData.append('file', file)
     const response = await axios.post('/api/generate/upload-reference', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    updateAttachments([...props.attachments, {
+    const attachment = {
       media_id: response.data.media_id,
       path: response.data.path,
       filename: response.data.filename
-    }])
+    }
+    // An upload may finish after navigation. Attach to its original draft.
+    if (draft) draft.attachments.push(attachment)
+    else updateAttachments([...props.attachments, attachment])
   } catch (error) {
     console.error('Failed to upload file:', error)
   }
