@@ -678,12 +678,104 @@ def parse_a1111_parameters(raw_metadata: str) -> Optional[dict]:
         return None
 
 
+def _comfyui_node(data: dict, connection) -> Optional[dict]:
+    """Resolve an API prompt connection, ignoring literal input values."""
+    if isinstance(connection, list) and len(connection) >= 2:
+        node = data.get(str(connection[0]))
+        if isinstance(node, dict):
+            return node
+    return None
+
+
+def _comfyui_sampler(data: dict) -> Optional[dict]:
+    """Prefer the sampler feeding a saved output over unrelated graph branches."""
+    def walk(connection, visited):
+        if not isinstance(connection, list) or len(connection) < 2:
+            return None
+        node_id = str(connection[0])
+        if node_id in visited or len(visited) > 100:
+            return None
+        node = _comfyui_node(data, connection)
+        if not node:
+            return None
+        if node.get('class_type') in ('KSampler', 'KSamplerAdvanced'):
+            return node
+        visited.add(node_id)
+        for value in node.get('inputs', {}).values():
+            found = walk(value, visited)
+            if found:
+                return found
+        return None
+
+    for node in data.values():
+        if isinstance(node, dict) and node.get('class_type', '').startswith('SaveImage'):
+            for value in node.get('inputs', {}).values():
+                found = walk(value, set())
+                if found:
+                    return found
+    return next((node for node in data.values() if isinstance(node, dict)
+                 and node.get('class_type') in ('KSampler', 'KSamplerAdvanced')), None)
+
+
+def _comfyui_model_and_loras(data: dict, connection) -> tuple[Optional[str], list]:
+    """Follow only the sampler's model chain, collecting enabled LoRAs."""
+    loras = []
+    visited = set()
+    while isinstance(connection, list) and len(connection) >= 2 and len(visited) < 100:
+        node_id = str(connection[0])
+        if node_id in visited:
+            break
+        visited.add(node_id)
+        node = _comfyui_node(data, connection)
+        if not node:
+            break
+        kind = node.get('class_type', '')
+        inputs = node.get('inputs', {})
+        if kind.startswith('LoraLoader'):
+            name = inputs.get('lora_name')
+            if isinstance(name, str) and name and name != 'None':
+                loras.append({'name': name, 'weight': inputs.get('strength_model', 1.0)})
+        elif 'Power Lora Loader' in kind:
+            for value in inputs.values():
+                if not isinstance(value, dict) or value.get('on', value.get('enabled', True)) is not True:
+                    continue
+                name = value.get('lora')
+                if isinstance(name, str) and name and name != 'None':
+                    loras.append({'name': name, 'weight': value.get('strength', 1.0)})
+        elif kind.endswith('Loader') or kind.startswith('CheckpointLoader'):
+            model = inputs.get('unet_name') or inputs.get('ckpt_name') or inputs.get('model_name')
+            if isinstance(model, str) and model:
+                return model, loras
+        connection = inputs.get('model')
+    return None, loras
+
+
+def parse_comfyui_parameters(data: dict) -> dict:
+    """Extract generation inputs from a ComfyUI API prompt graph."""
+    sampler = _comfyui_sampler(data)
+    inputs = sampler.get('inputs', {}) if sampler else {}
+    model, loras = _comfyui_model_and_loras(data, inputs.get('model'))
+    parameters = {}
+    for key, value in (('seed', inputs.get('seed', inputs.get('noise_seed'))),
+                       ('steps', inputs.get('steps')), ('cfg', inputs.get('cfg')),
+                       ('sampler', inputs.get('sampler_name')),
+                       ('scheduler', inputs.get('scheduler'))):
+        if value is not None and not isinstance(value, (list, dict)):
+            parameters[key] = value
+    negative = _walk_to_text(data, inputs.get('negative')) if inputs.get('negative') else None
+    return {
+        'source': 'external', 'format': 'comfyui', 'generator': 'comfyui',
+        'model': model, 'prompt': _extract_prompt_comfyui(data),
+        'negative_prompt': negative, 'parameters': parameters, 'loras': loras,
+    }
+
+
 def parse_external_metadata(raw_metadata: str) -> Optional[dict]:
     """
     Detect external metadata format and parse into the CANONICAL generation_metadata
     shape (source="external") so imported media match natively-generated media.
 
-    Currently supports A1111/Forge format. ComfyUI/Fooocus can be added later.
+    Supports A1111/Forge text and ComfyUI API prompt JSON.
     """
     if not raw_metadata:
         return None
@@ -692,7 +784,13 @@ def parse_external_metadata(raw_metadata: str) -> Optional[dict]:
     # A1111/Forge: plain text with "Steps:" marker
     if "Steps:" in raw_metadata and not raw_metadata.strip().startswith('{'):
         parsed = parse_a1111_parameters(raw_metadata)
-    # Future: ComfyUI, Fooocus, etc.
+    elif raw_metadata.lstrip().startswith('{'):
+        try:
+            data = json.loads(raw_metadata)
+            if isinstance(data, dict) and _is_comfyui_format(data):
+                parsed = parse_comfyui_parameters(data)
+        except json.JSONDecodeError:
+            pass
 
     if not parsed:
         return None
