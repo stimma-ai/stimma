@@ -33,10 +33,12 @@
 
   <!-- Full-screen lock screen when PIN is required -->
   <div v-else-if="isLocked" class="fixed inset-0 z-top bg-surface-overlay">
-    <!-- Draggable title bar region -->
-    <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
+    <!-- Draggable title bar region. The centered content panel below is
+         z-[1] and spans the whole screen, so anything that must stay
+         clickable up here has to sit above it. -->
+    <div class="absolute top-0 left-0 right-0 h-14 z-[1]" data-tauri-drag-region />
     <!-- Profile switcher in top-right corner -->
-    <div class="absolute top-4 right-4">
+    <div class="absolute top-4 right-4 z-[2]">
       <div class="relative lock-screen-profile-dropdown">
         <!-- Ghost trigger matching the main app top bar's profile switcher. -->
         <button
@@ -109,7 +111,6 @@
           autocomplete="off"
           aria-label="PIN"
           class="lock-pin-input"
-          @keydown.enter="submitLockScreenPin"
         />
 
         <!-- PIN dots (one per digit, min 4) -->
@@ -454,6 +455,57 @@ const lockGlowBlobs = computed(() => {
   })
 })
 const lockScreenDotCount = computed(() => Math.max(4, lockScreenPin.value.length))
+
+// Keyboard PIN entry is handled here, at the window in the capture phase,
+// instead of relying on the hidden <input> holding focus. WebViews drop
+// element.focus() while the native window is inactive, any click on the
+// backdrop blurs the input, and other windows/shortcuts steal focus; each of
+// those left the keypad mouse-only. Key events reach the window regardless of
+// focus, so this path always works. Digits are appended manually and the
+// default is suppressed so a focused input does not also insert them.
+function handleLockScreenKeydown(e) {
+  if (!isLocked.value || showConnectionScreen.value) return
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  if (e.isComposing) return
+  const key = e.key
+  let handled = true
+  if (key === 'Enter') {
+    if (lockScreenProfileDropdownOpen.value) handled = false
+    else void submitLockScreenPin()
+  } else if (key === 'Backspace') {
+    lockScreenKey('del')
+  } else if (key === 'Escape') {
+    if (lockScreenProfileDropdownOpen.value) {
+      lockScreenProfileDropdownOpen.value = false
+      document.removeEventListener('click', handleLockScreenProfileClickOutside)
+    } else {
+      lockScreenError.value = ''
+      lockScreenPin.value = ''
+    }
+  } else if (key.length === 1 && key >= '0' && key <= '9') {
+    lockScreenKey(key)
+  } else {
+    handled = false
+  }
+  if (handled) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}
+
+// Pasting a PIN should work without the hidden input focused, too.
+function handleLockScreenPaste(e) {
+  if (!isLocked.value || showConnectionScreen.value || lockScreenSubmitting.value) return
+  const text = e.clipboardData?.getData('text') ?? ''
+  const digits = text.replace(/\D/g, '')
+  if (!digits) return
+  e.preventDefault()
+  e.stopPropagation()
+  lockScreenError.value = ''
+  lockScreenPin.value = (lockScreenPin.value + digits).slice(0, 20)
+  void focusLockScreenPinInput()
+}
+
 function lockScreenKey(k) {
   if (lockScreenSubmitting.value) return
   lockScreenError.value = ''
@@ -1351,6 +1403,8 @@ onMounted(async () => {
   document.getElementById('app')?.addEventListener('scroll', rootGuard, { passive: true })
 
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keydown', handleLockScreenKeydown, true)
+  window.addEventListener('paste', handleLockScreenPaste, true)
   window.addEventListener('pin-auto-locked', handleAutoLock)
   window.addEventListener('open-settings', handleOpenSettings)
   window.addEventListener('focus', handleWindowFocusSync)
@@ -1371,6 +1425,8 @@ onMounted(async () => {
 onUnmounted(() => {
   stopServerUpdater()
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keydown', handleLockScreenKeydown, true)
+  window.removeEventListener('paste', handleLockScreenPaste, true)
   window.removeEventListener('pin-auto-locked', handleAutoLock)
   window.removeEventListener('open-settings', handleOpenSettings)
   window.removeEventListener('focus', handleWindowFocusSync)
