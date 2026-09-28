@@ -125,7 +125,7 @@ test.describe('voice input acceptance', () => {
     }
   });
 
-  test('rapid press/release pairs type spaces without starting dictation', async ({ page }) => {
+  test('a short burst of rapid space taps types normally', async ({ page }) => {
     await page.goto('/browse');
     await waitForShell(page);
     const chat = await createChat(page, 'Voice Rapid Spaces Chat');
@@ -136,13 +136,57 @@ test.describe('voice input acceptance', () => {
     const micButton = page.locator('button[title*="Hold to talk"]').first();
     await expect(micButton).toBeVisible();
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 5; i++) {
       await page.keyboard.press('Space');
       await page.waitForTimeout(25);
     }
     await page.waitForTimeout(350);
-    await expect(input).toHaveValue(' '.repeat(20));
+    await expect(input).toHaveValue(' '.repeat(5));
     await expect(micButton).toBeVisible();
+
+    // Ambiguous taps must flush at the caret before the next native character.
+    await input.fill('AB');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Space');
+    await page.keyboard.press('x');
+    await expect(input).toHaveValue('A  xB');
+    await expect(micButton).toBeVisible();
+  });
+
+  test('sustained keyboard-bridge press/release pairs start dictation', async ({ page }) => {
+    await page.goto('/browse');
+    await waitForShell(page);
+    const chat = await createChat(page, 'Voice Paired Repeat Chat');
+    await page.goto(`/chat/${chat.id}`);
+    const input = page.getByRole('textbox', { name: 'Type a message...' });
+    await expect(input).toBeVisible({ timeout: 30000 });
+    await input.click();
+    const micButton = page.locator('button[title*="Hold to talk"]').first();
+    await expect(micButton).toBeVisible();
+
+    // Reproduce keyboard bridges that emit keyup between auto-repeat presses.
+    const values = await input.evaluate(async el => {
+      const field = el as HTMLTextAreaElement;
+      const values: string[] = [];
+      for (let i = 0; i < 30; i++) {
+        for (const type of ['keydown', 'keyup']) {
+          const typeNormally = el.dispatchEvent(new KeyboardEvent(type, {
+            key: ' ', code: 'Space', bubbles: true, cancelable: true,
+          }));
+          // Synthetic events need the browser's default text insertion modeled.
+          if (type === 'keydown' && typeNormally) {
+            field.setRangeText(' ', field.selectionStart, field.selectionEnd, 'end');
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+        values.push(field.value);
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      return values;
+    });
+    expect(values.every(value => value === ' ' || value === ''), 'a held key must never paint repeated spaces').toBe(true);
+    await expect(page.getByRole('button', { name: /voice model downloads are disabled/i })).toBeVisible();
   });
 
   test('a single space tap does not start dictation', async ({ page }) => {

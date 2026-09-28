@@ -19,7 +19,7 @@ import { addToast } from './useToasts'
 export const VOICE_DOWNLOAD_LOCKDOWN_MESSAGE =
   'Voice model downloads are disabled while Privacy Lockdown is enabled. Disable Privacy Lockdown to download this model.'
 
-export type VoiceState = 'idle' | 'downloading' | 'recording' | 'finalizing' | 'error'
+export type VoiceState = 'idle' | 'starting' | 'downloading' | 'recording' | 'finalizing' | 'error'
 
 // Remove the preference left by builds that offered multiple voice models.
 localStorage.removeItem('stimma.voiceModel')
@@ -94,7 +94,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   let interim = ''
 
   const isRecording = computed(() => state.value === 'recording')
-  const isBusy = computed(() => state.value === 'downloading' || state.value === 'finalizing')
+  const isBusy = computed(() => state.value === 'starting' || state.value === 'downloading' || state.value === 'finalizing')
   const downloadFraction = computed(() => {
     if (!downloadTotal.value) return null
     return Math.min(1, downloaded.value / downloadTotal.value)
@@ -168,47 +168,56 @@ export function useVoiceInput(opts: VoiceInputOptions) {
    * download instead of recording — the caller presses again once it's ready.
    * Returns true if recording actually started.
    */
+  let startAttempt = 0
+
   async function start(): Promise<boolean> {
-    if (state.value === 'recording' || state.value === 'finalizing' || state.value === 'downloading') {
+    if (state.value === 'starting' || state.value === 'recording' || state.value === 'finalizing' || state.value === 'downloading') {
       return false
     }
+    const attempt = ++startAttempt
+    state.value = 'starting'
     error.value = null
-    await initTauri()
-    if (!supported.value) {
-      error.value = 'Voice input requires the desktop app'
-      state.value = 'error'
-      return false
-    }
-
-    if (!(await isModelReady())) {
-      await downloadModel()
-      return false
-    }
-
-    // Treat an all-whitespace field (including the lone space typed just before
-    // a hold) as empty so dictation doesn't start with a leading space.
-    baseText = opts.getText() ?? ''
-    if (baseText.trim().length === 0) baseText = ''
-    interim = ''
-
-    const onEvent = (ev: any) => {
-      if (ev.type === 'partial') {
-        interim = ev.text
-        applyText()
-      } else if (ev.type === 'error') {
-        error.value = ev.message
-        state.value = 'error'
-      }
-    }
-
-    state.value = 'recording'
-    recordingStartedAt = Date.now()
-    console.debug('[voice] start: beginning capture')
     try {
+      await initTauri()
+      if (attempt !== startAttempt) return false
+      if (!supported.value) {
+        error.value = 'Voice input requires the desktop app'
+        state.value = 'error'
+        return false
+      }
+
+      const modelReady = await isModelReady()
+      if (attempt !== startAttempt) return false
+      if (!modelReady) {
+        await downloadModel()
+        return false
+      }
+
+      // Treat an all-whitespace field (including the lone space typed just before
+      // a hold) as empty so dictation doesn't start with a leading space.
+      baseText = opts.getText() ?? ''
+      if (baseText.trim().length === 0) baseText = ''
+      interim = ''
+
+      const onEvent = (ev: any) => {
+        if (ev.type === 'partial') {
+          interim = ev.text
+          applyText()
+        } else if (ev.type === 'error') {
+          error.value = ev.message
+          state.value = 'error'
+        }
+      }
+
+      state.value = 'recording'
+      recordingStartedAt = Date.now()
+      console.debug('[voice] start: beginning capture')
       await desktop.voiceStart(onEvent)
+      if (attempt !== startAttempt || state.value !== 'recording') return false
       startKeepalive()
       return true
     } catch (e) {
+      if (attempt !== startAttempt) return false
       error.value = String(e)
       state.value = 'error'
       return false
@@ -217,6 +226,12 @@ export function useVoiceInput(opts: VoiceInputOptions) {
 
   /** End push-to-talk and commit the final transcript. */
   async function stop(): Promise<void> {
+    // A release during the model check must not start capture afterwards.
+    ++startAttempt
+    if (state.value === 'starting') {
+      state.value = 'idle'
+      return
+    }
     if (state.value !== 'recording') return
     console.debug(`[voice] stop after ${Date.now() - recordingStartedAt}ms`)
     stopKeepalive()
@@ -245,12 +260,69 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // key-repeat during the hold — the lone space becomes the word separator,
   // and an all-whitespace field is normalized away in start().
   //
-  // Every keyup ends the gesture immediately. Inferring a hold from rapid
-  // press/release pairs also merges normal typing and can swallow spaces.
+  // Some keyboard bridges send a hold as rapid down/up pairs. Require a
+  // sustained burst before treating those pairs as repeat; short runs of
+  // spaces remain ordinary typing. Buffer ambiguous repeats briefly so a
+  // hold never paints a run of spaces that disappears when capture starts.
   const SPACE_HOLD_MS = 250
+  const SPACE_REPEAT_GAP_MS = 60
+  const SPACE_REPEAT_MIN_PRESSES = 10
   let spacePending = false
   let spaceDictating = false
   let spaceTimer: ReturnType<typeof setTimeout> | null = null
+
+  let repeatReleaseTimer: ReturnType<typeof setTimeout> | null = null
+  let repeatPresses = 0
+  let repeatStartedAt = 0
+  let bufferedSpaces = 0
+  let bufferedInput: HTMLInputElement | HTMLTextAreaElement | null = null
+  let bufferedStart = 0
+  let bufferedEnd = 0
+  let pairedRepeat = false
+
+  function discardBufferedSpaces() {
+    bufferedSpaces = 0
+    bufferedInput = null
+  }
+
+  function flushBufferedSpaces() {
+    if (!bufferedSpaces) return
+    const spaces = ' '.repeat(bufferedSpaces)
+    if (bufferedInput) {
+      // Update the DOM synchronously: a following character's native input
+      // must see these spaces at the original caret, before Vue renders.
+      bufferedInput.setRangeText(spaces, bufferedStart, bufferedEnd, 'end')
+      opts.setText(bufferedInput.value)
+    } else {
+      opts.setText((opts.getText() ?? '') + spaces)
+    }
+    discardBufferedSpaces()
+  }
+
+  function bufferSpace(e: KeyboardEvent) {
+    e.preventDefault()
+    if (!bufferedSpaces) {
+      const input = e.target as HTMLInputElement | HTMLTextAreaElement | null
+      if (input && typeof input.setRangeText === 'function' && input.selectionStart != null) {
+        bufferedInput = input
+        bufferedStart = input.selectionStart
+        bufferedEnd = input.selectionEnd ?? bufferedStart
+      }
+    }
+    bufferedSpaces++
+  }
+
+  function clearRepeatRelease() {
+    if (repeatReleaseTimer != null) clearTimeout(repeatReleaseTimer)
+    repeatReleaseTimer = null
+  }
+
+  function resetRepeat() {
+    flushBufferedSpaces()
+    clearRepeatRelease()
+    repeatPresses = 0
+    pairedRepeat = false
+  }
 
   function clearSpaceTimer() {
     if (spaceTimer != null) {
@@ -262,6 +334,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   function finalizeSpaceRelease() {
     console.debug(`[voice] space release (dictating=${spaceDictating})`)
     clearSpaceTimer()
+    resetRepeat()
     const wasDictating = spaceDictating
     spacePending = false
     spaceDictating = false
@@ -273,22 +346,52 @@ export function useVoiceInput(opts: VoiceInputOptions) {
       // Typing another character means this is text entry, even if Space
       // has not been released yet (overlapping keystrokes).
       clearSpaceTimer()
+      if (!spaceDictating) resetRepeat()
       spacePending = false
       return
     }
-    if (!supported.value || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+    if (!supported.value || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+      if (!spaceDictating) {
+        clearSpaceTimer()
+        resetRepeat()
+        spacePending = false
+      }
+      return
+    }
     if (e.repeat) {
       // Suppress auto-repeat spaces while deciding tap-vs-hold or dictating.
       if (spacePending || spaceDictating) e.preventDefault()
       return
     }
-    if (state.value !== 'idle') return
+    const continuesRepeat = repeatReleaseTimer != null
+    clearRepeatRelease()
+    if (pairedRepeat && spaceDictating) {
+      e.preventDefault()
+      return
+    }
+    if (state.value !== 'idle' && state.value !== 'error') return
+    if (!continuesRepeat) {
+      repeatPresses = 0
+      repeatStartedAt = Date.now()
+    }
+    repeatPresses++
+    if (continuesRepeat) bufferSpace(e)
+    if (continuesRepeat && repeatPresses >= SPACE_REPEAT_MIN_PRESSES
+        && Date.now() - repeatStartedAt >= SPACE_HOLD_MS) {
+      discardBufferedSpaces()
+      clearSpaceTimer()
+      pairedRepeat = true
+      spaceDictating = true
+      void start()
+      return
+    }
     spacePending = true
     spaceDictating = false
     clearSpaceTimer()
     spaceTimer = setTimeout(() => {
       spaceTimer = null
-      if (spacePending && state.value === 'idle') {
+      if (spacePending && (state.value === 'idle' || state.value === 'error')) {
+        discardBufferedSpaces()
         console.debug('[voice] space-hold threshold reached; starting dictation')
         spaceDictating = true
         void start()
@@ -299,16 +402,24 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   function handleInputKeyup(e: KeyboardEvent) {
     if (e.code !== 'Space' && e.key !== ' ') return
     if (!spacePending && !spaceDictating) return
-    finalizeSpaceRelease()
+    if (spaceDictating && !pairedRepeat) {
+      finalizeSpaceRelease()
+      return
+    }
+    clearSpaceTimer()
+    clearRepeatRelease()
+    repeatReleaseTimer = setTimeout(finalizeSpaceRelease, SPACE_REPEAT_GAP_MS)
   }
 
   /** Abort without committing (best effort). */
   async function cancel(reason = 'explicit'): Promise<void> {
-    if (state.value === 'recording' || spacePending || spaceDictating) {
+    ++startAttempt
+    if (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating) {
       console.debug(`[voice] cancel (${reason}) state=${state.value}`)
     }
     stopKeepalive()
     clearSpaceTimer()
+    resetRepeat()
     spacePending = false
     spaceDictating = false
     if (state.value === 'recording') {
@@ -326,13 +437,13 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   // these don't fire, the Rust lease still catches it; this just makes it
   // immediate.)
   function onWindowBlur() {
-    if (state.value === 'recording' || spacePending || spaceDictating) void cancel('window-blur')
+    if (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating) void cancel('window-blur')
   }
   function onVisibilityChange() {
-    if (document.hidden && (state.value === 'recording' || spacePending || spaceDictating)) void cancel('visibility-hidden')
+    if (document.hidden && (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating)) void cancel('visibility-hidden')
   }
   function onPageHide() {
-    if (state.value === 'recording' || spacePending || spaceDictating) void cancel('page-hide')
+    if (state.value === 'starting' || state.value === 'recording' || spacePending || spaceDictating) void cancel('page-hide')
   }
 
   onMounted(() => {

@@ -116,6 +116,7 @@ const buttonClass = computed(() => {
 
 const title = computed(() => {
   if (state.value === 'error') return error.value || 'Voice input error'
+  if (state.value === 'starting') return 'Starting microphone…'
   if (state.value === 'downloading') return `Downloading voice model… ${downloadLabel.value}`
   if (state.value === 'finalizing') return 'Transcribing…'
   if (isRecording.value) return 'Recording — release or tap to stop'
