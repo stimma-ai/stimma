@@ -2559,6 +2559,20 @@ async def _resolve_source_inputs(db: AsyncSession, source_inputs: list) -> list:
     return resolved
 
 
+# Params whose meaning belongs to one tool's model and workflow: sampler and
+# scheduler names, step counts, CFG and shift scales, denoise, and video frame
+# timing differ across model families, and even between variants of one family
+# (turbo/lightning distills vs base). Remix carries them only back into the
+# exact tool that recorded them; any other tool keeps its own settings.
+_TOOL_SPECIFIC_REMIX_PARAMS = ("cfg", "steps", "sampler", "scheduler", "denoise", "shift", "frame_count", "fps")
+
+
+def _tool_specific_remix_params(params: Dict[str, Any], is_exact_match: bool) -> Dict[str, Any]:
+    if not is_exact_match:
+        return {}
+    return {k: params[k] for k in _TOOL_SPECIFIC_REMIX_PARAMS if params.get(k) is not None}
+
+
 @router.post("/config-from-media/{media_id}")
 async def generate_config_from_media(
     media_id: int,
@@ -2577,8 +2591,10 @@ async def generate_config_from_media(
     "generate video" feature yet - the user will be sent to "Generate Image"
     which uses different models and parameters.
 
-    When target_tool_id is provided, parameters are filtered based on model
-    compatibility and preserve_seed is set appropriately.
+    Tool-specific params (sampler, scheduler, steps, cfg, shift, denoise,
+    frame_count, fps) are returned only when target_tool_id is the exact tool
+    that made the media; otherwise the target keeps its own settings.
+    preserve_seed follows the same rule.
 
     Always includes input_media_id for potential img2img use.
     """
@@ -2688,6 +2704,9 @@ async def generate_config_from_media(
             original_prompt = prompt_metadata.get("original_prompt") if prompt_metadata else None
             effective_prompt = original_prompt or gen_meta.get("prompt", "")
 
+            is_exact_match = source_tool_id is not None and source_tool_id == target_tool_id
+            tool_specific_params = _tool_specific_remix_params(params, is_exact_match)
+
             # For videos, return prompt + video-specific params + source inputs
             if is_video:
                 rendered_prompt = gen_meta.get("prompt", "")
@@ -2711,11 +2730,11 @@ async def generate_config_from_media(
                     "seed": params.get("seed"),
                     "preserve_seed": False,
                 }
-                # Include video-specific params
-                if params.get("frame_count") is not None:
-                    video_config["frame_count"] = params["frame_count"]
-                if params.get("fps") is not None:
-                    video_config["fps"] = params["fps"]
+                # Frame count/fps only back into the same tool; duration is
+                # seconds everywhere.
+                for key in ("frame_count", "fps"):
+                    if key in tool_specific_params:
+                        video_config[key] = tool_specific_params[key]
                 if params.get("duration") is not None:
                     video_config["duration"] = params["duration"]
                 # Include loras
@@ -2757,38 +2776,23 @@ async def generate_config_from_media(
                 video_config["source_inputs"] = resolved
                 return video_config
 
-            # Build full params dict for filtering
             # Check both top-level and parameters dict for negative_prompt (backward compatibility)
             full_params = {
                 "prompt": effective_prompt,
                 "negative_prompt": gen_meta.get("negative_prompt") or params.get("negative_prompt", ""),
                 "width": params.get("width", 848),
                 "height": params.get("height", 1152),
-                "cfg": params.get("cfg", 3.5),
-                "steps": params.get("steps", 20),
-                "sampler": params.get("sampler", "euler"),
-                "scheduler": params.get("scheduler", "simple"),
                 "seed": params.get("seed"),
-                "denoise": params.get("denoise", 1.0),
-                "shift": params.get("shift", 3.1),
                 "loras": params.get("loras", []),
+                **tool_specific_params,
             }
-
-            # Include video params if present
-            if params.get("frame_count") is not None:
-                full_params["frame_count"] = params["frame_count"]
-            if params.get("fps") is not None:
-                full_params["fps"] = params["fps"]
 
             # Post-processing chain recorded in lineage (the steps that ran) —
             # Remix merges it back into the on-screen chain.
             if params.get("post_processing_chain"):
                 full_params["post_processing_chain"] = params["post_processing_chain"]
 
-            # Determine compatibility and filter params if needed
-            is_exact_match = source_tool_id is not None and source_tool_id == target_tool_id
             preserve_seed = is_exact_match
-            filter_reason = None
 
             log.info(f"Compatibility check: source_tool_id={source_tool_id}, target_tool_id={target_tool_id}, "
                      f"is_exact_match={is_exact_match}")
@@ -2809,8 +2813,6 @@ async def generate_config_from_media(
 
             # Update full_params with the matched loras
             full_params["loras"] = final_loras
-
-            # Pass through all params — no model_family-based filtering
             final_params = full_params
 
             # Build prompt_variants for frontend flexibility
@@ -2880,18 +2882,14 @@ async def generate_config_from_media(
 
                 log.info(f"Case 2 (raw metadata): extracted_model={extracted_model}")
 
-                # Build params dict from parsed external metadata
+                # External software's sampler/steps/cfg don't map onto any of
+                # our tools — carry only the portable params.
                 full_params = {
                     "prompt": parsed_config.get("prompt") or "",
                     "negative_prompt": parsed_config.get("negative_prompt") or "",
                     "width": parsed_config.get("width") or 848,
                     "height": parsed_config.get("height") or 1152,
-                    "cfg": parsed_config.get("cfg") or 3.5,
-                    "steps": parsed_config.get("steps") or 20,
-                    "sampler": parsed_config.get("sampler") or "euler",
-                    "scheduler": parsed_config.get("scheduler") or "simple",
                     "seed": parsed_config.get("seed"),
-                    "denoise": parsed_config.get("denoise") or 1.0,
                 }
                 final_params = full_params
 

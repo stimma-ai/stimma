@@ -137,7 +137,8 @@ export function parseGenerationConfig(
   if (data.width !== undefined) result.modelParams.width = data.width
   if (data.height !== undefined) result.modelParams.height = data.height
 
-  // Sampling params (only transferred if models are compatible)
+  // Tool-specific params — the backend sends these only when remixing back
+  // into the exact tool that made the image
   if (data.cfg !== undefined) result.modelParams.cfg = data.cfg
   if (data.steps !== undefined) result.modelParams.steps = data.steps
   if (data.sampler !== undefined) result.modelParams.sampler = data.sampler

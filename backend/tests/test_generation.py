@@ -1049,6 +1049,101 @@ class TestConfigFromMedia:
         assert response.status_code == 200
         assert response.json()["duration"] == 8
 
+    async def test_remix_to_other_tool_drops_tool_specific_params(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+    ):
+        """Sampler/steps/cfg don't mean the same thing on another model — only portable params cross."""
+        from tests.helpers import create_media_item
+
+        async with generation_db_session() as session:
+            media = await create_media_item(
+                session,
+                generation_metadata=json.dumps({
+                    "tool_id": "test:text-to-image:qwen-image-2512",
+                    "prompt": "a lighthouse at dusk",
+                    "parameters": {
+                        "width": 1328, "height": 1328, "seed": 42,
+                        "cfg": 4.0, "steps": 50, "sampler": "res_multistep",
+                        "scheduler": "beta", "shift": 3.1, "denoise": 1.0,
+                        "loras": [],
+                    },
+                }),
+            )
+
+        response = await generation_client.post(
+            f"/api/generate/config-from-media/{media.id}",
+            params={"target_tool_id": "test:text-to-image:krea2-turbo"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["prompt"] == "a lighthouse at dusk"
+        assert (data["width"], data["height"]) == (1328, 1328)
+        for key in ("cfg", "steps", "sampler", "scheduler", "shift", "denoise"):
+            assert key not in data
+        assert data["preserve_seed"] is False
+
+    async def test_remix_to_same_tool_keeps_recorded_params_only(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+    ):
+        """Same tool reproduces exactly what was recorded, without invented defaults."""
+        from tests.helpers import create_media_item
+
+        tool_id = "test:text-to-image:qwen-image-2512"
+        async with generation_db_session() as session:
+            media = await create_media_item(
+                session,
+                generation_metadata=json.dumps({
+                    "tool_id": tool_id,
+                    "prompt": "a lighthouse at dusk",
+                    "parameters": {"seed": 42, "cfg": 4.0, "steps": 50, "sampler": "res_multistep"},
+                }),
+            )
+
+        response = await generation_client.post(
+            f"/api/generate/config-from-media/{media.id}",
+            params={"target_tool_id": tool_id},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["cfg"], data["steps"], data["sampler"]) == (4.0, 50, "res_multistep")
+        assert "scheduler" not in data and "shift" not in data
+        assert data["preserve_seed"] is True
+
+    async def test_video_remix_to_other_tool_drops_frame_timing(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+    ):
+        """Frame counts and fps are model-specific; duration in seconds carries."""
+        from tests.helpers import create_media_item
+
+        async with generation_db_session() as session:
+            media = await create_media_item(
+                session,
+                file_format="mp4",
+                generation_metadata=json.dumps({
+                    "tool_id": "test:image-to-video:wan",
+                    "prompt": "waves",
+                    "parameters": {"frame_count": 81, "fps": 16, "duration": 5, "seed": 7},
+                }),
+            )
+
+        response = await generation_client.post(
+            f"/api/generate/config-from-media/{media.id}",
+            params={"target_tool_id": "test:image-to-video:ltx"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "frame_count" not in data and "fps" not in data
+        assert data["duration"] == 5
+
 
 # =============================================================================
 # Job Listing Tests
