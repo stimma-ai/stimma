@@ -31,12 +31,12 @@ test.describe('app shell acceptance', () => {
     await expect(page.getByText('All Tools', { exact: true })).toBeVisible({ timeout: 30000 });
 
     await page.goto('/projects');
-    await expect(page.getByRole('dialog', { name: 'Choose working context' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('dialog', { name: 'Choose a project' })).toBeVisible({ timeout: 30000 });
 
     await page.goBack();
     await expect(page.getByText('All Tools', { exact: true })).toBeVisible({ timeout: 30000 });
 
     await page.goForward();
-    await expect(page.getByRole('dialog', { name: 'Choose working context' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('dialog', { name: 'Choose a project' })).toBeVisible({ timeout: 30000 });
   });
 });

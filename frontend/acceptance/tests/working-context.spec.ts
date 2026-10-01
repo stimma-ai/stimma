@@ -22,7 +22,7 @@ test.describe('working context', () => {
     await expect(projects.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
     await expect(projects.getByText('Keep the assets, chats and boards')).toBeVisible();
     await page.goto('/projects');
-    const picker = page.getByRole('dialog', { name: 'Choose working context' });
+    const picker = page.getByRole('dialog', { name: 'Choose a project' });
     await expect(picker).toBeVisible();
     await expect(picker.getByRole('button', { name: 'New project' })).toBeVisible();
     await expect(picker.getByRole('textbox')).toHaveCount(0);
@@ -57,7 +57,7 @@ test.describe('working context', () => {
     await choose(page, 'Everything');
     await expect(page).toHaveURL(/\/boards$/);
     await sidebar(page).getByRole('region', { name: 'Projects' }).getByRole('button', { name: /^All projects/ }).click();
-    const picker = page.getByRole('dialog', { name: 'Choose working context' });
+    const picker = page.getByRole('dialog', { name: 'Choose a project' });
     await picker.getByRole('textbox', { name: 'Find a project' }).fill(project.name);
     await picker.getByRole('button', { name: `Manage ${project.name}` }).click();
     await picker.getByRole('textbox', { name: 'Project name' }).fill('Renamed context');

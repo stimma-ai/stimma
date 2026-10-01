@@ -732,7 +732,7 @@ export async function chooseContext(page: Page, name: string) {
   }
   if (await back.isVisible()) {
     await sidebar.getByRole('button', { name: 'Working context', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
+    await page.getByRole('dialog', { name: 'Choose a project' }).getByRole('button', { name, exact: true }).click();
   } else {
     const projects = sidebar.getByRole('region', { name: 'Projects' });
     const row = projects.getByRole('button', { name, exact: true });
@@ -743,7 +743,7 @@ export async function chooseContext(page: Page, name: string) {
       await row.click();
     } else {
       await all.click();
-      await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
+      await page.getByRole('dialog', { name: 'Choose a project' }).getByRole('button', { name, exact: true }).click();
     }
   }
   await expect(sidebar.getByRole('button', { name: 'Working context', exact: true })).toHaveText(name);

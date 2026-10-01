@@ -11,13 +11,15 @@ for (const count of [0, 1, 5, 50]) {
     await expect(section.getByRole('button', { name: /^Project \d+$/ })).toHaveCount(Math.min(count, 5));
     await expect(section.getByRole('button', { name: /^All projects/ })).toHaveCount(count > 5 ? 1 : 0);
     await page.goto('/browse?library=1&projects=1');
-    const picker = page.getByRole('dialog', { name: 'Choose working context' });
-    await expect(picker.getByRole('button', { name: 'Everything', exact: true })).toBeVisible();
+    const picker = page.getByRole('dialog', { name: 'Choose a project' });
+    // A pure project picker: no everything row, no section header.
+    await expect(picker.getByRole('button', { name: 'Everything', exact: true })).toHaveCount(0);
     await expect(picker.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
     if (count <= 5) {
       await expect(picker.getByRole('textbox')).toHaveCount(0);
       await expect(picker.getByText('Projects', { exact: true })).toHaveCount(0);
       await expect(picker.getByRole('button', { name: /^Project \d+$/ })).toHaveCount(count);
+      if (!count) await expect(picker.getByText('No projects yet')).toBeVisible();
       if (count) {
         const last = picker.getByRole('button', { name: `Project ${count}`, exact: true });
         await expect(last).toBeVisible();
