@@ -117,7 +117,6 @@ from project_service import infer_project_id_from_workspace_path
 from .code_lint import lint_code, format_lint_errors
 from .vision_payload import encode_agent_jpeg
 from .tools.call_tool import execute_call_tool, _json_safe_pathlikes
-from .tools.delegate import _run_delegate_loop
 from .tools.library import get_media_for_workspace, save_workspace_file
 from .tools.show import show as show_tool
 
@@ -2007,6 +2006,8 @@ class StimmaSDK:
         Returns:
             The subagent's final text response.
         """
+        from .tools.delegate import _run_delegate_loop
+
         effective_max_turns = min(max_turns, 30)
 
         # Each subagent gets its own DB session so gather() can run many concurrently

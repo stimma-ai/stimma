@@ -152,6 +152,8 @@ def get_tools_schema(scope: str = "agent") -> List[dict]:
             f"get_tools_schema: invalid scope {scope!r}; must be one of "
             f"{sorted(VALID_SCOPES)}"
         )
+    from .tools import register_builtin_tools
+    register_builtin_tools()
     return [
         t.to_openai_schema(scope=scope)
         for t in _tools.values()
@@ -164,6 +166,8 @@ def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
     tool exists but isn't visible in that scope — so a stale schema or
     hallucinated name can't slip an agent-only tool into flow chat.
     """
+    from .tools import register_builtin_tools
+    register_builtin_tools()
     if name in RETIRED_TOOLS:
         return None
     t = _tools.get(name)
@@ -176,4 +180,6 @@ def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
 
 def get_all_tools() -> Dict[str, Tool]:
     """Get all registered tools."""
+    from .tools import register_builtin_tools
+    register_builtin_tools()
     return dict(_tools)
