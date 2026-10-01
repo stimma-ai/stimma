@@ -3,6 +3,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { makeProfileKey, makeGlobalKey, makeToolProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { listBlobKeys, getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
 import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
+import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
 import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
 
@@ -718,11 +719,23 @@ export function useWorkspaceTabs() {
   }
 
   /**
-   * Pin a session in its own context. Tool favorites are separate shortcuts.
+   * Pin a tab. For tool tabs, also calls the backend pin API.
    */
   async function pinTab(tabId: string) {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab || tab.pinned) return
+
+    // Backend pins are tool-level; only call the API when this is the first
+    // pinned instance of the tool.
+    if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId)) {
+      const { pinProviderTool } = useProvidersApi()
+      try {
+        await pinProviderTool(tab.entityId)
+      } catch (err) {
+        console.error('[useWorkspaceTabs] Failed to pin tool:', err)
+        return
+      }
+    }
 
     tab.pinned = true
     // Trigger reactivity
@@ -730,11 +743,23 @@ export function useWorkspaceTabs() {
   }
 
   /**
-   * Unpin a session without changing the shared tool favorites.
+   * Unpin a tab. For tool tabs, also calls the backend unpin API.
    */
   async function unpinTab(tabId: string) {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab || !tab.pinned) return
+
+    // Backend pins are tool-level; only unpin the API when no other pinned
+    // instance of this tool remains.
+    if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId && t.id !== tab.id)) {
+      const { unpinProviderTool } = useProvidersApi()
+      try {
+        await unpinProviderTool(tab.entityId)
+      } catch (err) {
+        console.error('[useWorkspaceTabs] Failed to unpin tool:', err)
+        return
+      }
+    }
 
     tab.pinned = false
     // Trigger reactivity
@@ -832,7 +857,18 @@ export function useWorkspaceTabs() {
     // Force reactivity by creating a completely new array reference
     tabs.value = tabs.value.slice()
 
-
+    // If reordering pinned tools, also update backend
+    if (group === 'pinned') {
+      // Backend pin order is tool-level: dedupe multiple pinned instances of
+      // the same tool, keeping first occurrence in display order.
+      const pinnedToolIds = [...new Set(orderedPinned.filter(t => t.type === 'tool').map(t => t.entityId))]
+      if (pinnedToolIds.length > 0) {
+        const { reorderPinnedTools } = useProvidersApi()
+        reorderPinnedTools(pinnedToolIds).catch(err => {
+          console.error('[useWorkspaceTabs] Failed to reorder pinned tools:', err)
+        })
+      }
+    }
   }
 
   /**
@@ -846,11 +882,41 @@ export function useWorkspaceTabs() {
     // (profile-changed handler / pin events).
     if (!tabsLoadedForProfile) return
 
-    // Backend favorites are launchers, not global sessions. Preserve existing
-    // session pins during migration; never synthesize a global instance here.
-    const names = new Map(pinnedToolsFromApi.map(t => [t.full_tool_id, t.name]))
+    const apiPinnedIds = new Set(pinnedToolsFromApi.map(t => t.full_tool_id))
+
+    // Backend pins are tool-level; ensure each API-pinned tool has at least
+    // one pinned instance tab (any project scope counts).
+    for (const tool of pinnedToolsFromApi) {
+      const matching = tabs.value.filter(t => t.type === 'tool' && t.entityId === tool.full_tool_id)
+      if (matching.length > 0) {
+        for (const t of matching) {
+          if (t.displayName !== tool.name) t.displayName = tool.name
+        }
+        if (!matching.some(t => t.pinned)) {
+          const best = matching.reduce((a, b) => (b.lastActivatedAt ?? 0) > (a.lastActivatedAt ?? 0) ? b : a)
+          best.pinned = true
+        }
+      } else {
+        const instanceId = nextToolInstanceId()
+        tabs.value.push({
+          id: makeTabId('tool', tool.full_tool_id, undefined, instanceId),
+          type: 'tool',
+          entityId: tool.full_tool_id,
+          pinned: true,
+          displayOrder: nextDisplayOrder++,
+          displayName: tool.name,
+          instanceId,
+          feedScope: toolInstanceFeedScope(tool.full_tool_id, undefined, instanceId),
+          lastActivatedAt: Date.now()
+        })
+      }
+    }
+
+    // Unpin tool tabs whose tool is no longer pinned in API
     for (const tab of tabs.value) {
-      if (tab.type === 'tool' && names.has(tab.entityId)) tab.displayName = names.get(tab.entityId) as string
+      if (tab.type === 'tool' && tab.pinned && !apiPinnedIds.has(tab.entityId)) {
+        tab.pinned = false
+      }
     }
 
     tabs.value = [...tabs.value]

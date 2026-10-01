@@ -128,12 +128,52 @@ test.describe('working context', () => {
     await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/assets`));
   });
 
+  test('sidebar pins retain backend persistence and stay in their project', async ({ page }) => {
+    await page.goto('/browse');
+    await waitForShell(page);
+    const project = await createProject(page, 'Context pins');
+    await openToolById(page, TEST_I2I_TOOL_ID, project.id);
+    const session = sidebar(page).getByRole('button', { name: /Test Image to Image/ }).first();
+    await session.click({ button: 'right' });
+    await page.getByRole('button', { name: 'Pin', exact: true }).click();
+    await expect.poll(async () => (await apiJSON<any[]>(page, '/api/tools/pinned')).some(tool => tool.full_tool_id === TEST_I2I_TOOL_ID)).toBe(true);
+    await page.reload();
+    await waitForShell(page);
+    await expect(sidebar(page).getByText('Pinned', { exact: true })).toBeVisible();
+    await expect(session).toBeVisible();
+    await sidebar(page).getByRole('button', { name: 'Assets', exact: true }).click();
+    await choose(page, 'Everything');
+    await expect(session).toHaveCount(0);
+    await choose(page, project.name);
+    await session.click({ button: 'right' });
+    await page.getByRole('button', { name: 'Unpin', exact: true }).click();
+    await expect.poll(async () => (await apiJSON<any[]>(page, '/api/tools/pinned')).some(tool => tool.full_tool_id === TEST_I2I_TOOL_ID)).toBe(false);
+    await page.reload();
+    await waitForShell(page);
+    await expect(sidebar(page).getByText('Pinned', { exact: true })).toHaveCount(0);
+    await expect(session).toBeVisible();
+  });
+
+  test('existing saved tool pins return as normal sidebar rows', async ({ page }) => {
+    await page.goto('/browse');
+    await waitForShell(page);
+    await apiJSON(page, '/api/tools/pin', { method: 'POST', data: { full_tool_id: TEST_I2I_TOOL_ID } } as any);
+    await page.reload();
+    await waitForShell(page);
+    await expect(sidebar(page).getByText('Pinned', { exact: true })).toBeVisible();
+    const session = sidebar(page).getByRole('button', { name: /Test Image to Image/ }).first();
+    await expect(session).toBeVisible();
+    const bounds = await session.boundingBox();
+    expect(bounds!.height).toBeLessThan(80);
+    await expect(sidebar(page).getByText('Tool shortcuts', { exact: true })).toHaveCount(0);
+    await apiJSON(page, `/api/tools/pin/${encodeURIComponent(TEST_I2I_TOOL_ID)}`, { method: 'DELETE' });
+  });
+
   test('an Everything image dropped on a project tool session produces project output', async ({ page }) => {
     await page.goto('/browse');
     await waitForShell(page);
     const source = await generateMedia(page, `context borrowed input ${Date.now()}`);
     const project = await createProject(page, 'Context handoff');
-    await apiJSON(page, '/api/tools/pin', { method: 'POST', data: { full_tool_id: TEST_I2I_TOOL_ID } } as any);
     await choose(page, project.name);
     await openToolById(page, TEST_I2I_TOOL_ID, project.id);
     await sidebar(page).getByRole('button', { name: 'Assets', exact: true }).click();
