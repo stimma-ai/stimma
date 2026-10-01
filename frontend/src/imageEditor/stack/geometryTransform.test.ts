@@ -119,3 +119,17 @@ test('identity multiplication is neutral', () => {
   assert.deepEqual(multiply(matrix, IDENTITY), matrix)
   assert.deepEqual(multiply(IDENTITY, matrix), matrix)
 })
+
+test('quarter turns preserve a rectangular crop without stretching its geometry', () => {
+  for (const rotation90 of [1, 3] as const) {
+    for (const cropRotation of [0, 0.2]) {
+      const { matrix, width, height } = cropAffine({
+        rect: { x: 0.4, y: 0.6, width: 0.5, height: 0.5 }, rotation90, cropRotation,
+      }, 400, 200)
+      assert.deepEqual([width, height], [100, 200])
+      assertPoint(applyToPoint(matrix, 160, 120), [50, 100], 'crop centre')
+      assert.ok(close(Math.hypot(matrix[0], matrix[1]), 1), 'horizontal pixels retain size')
+      assert.ok(close(Math.hypot(matrix[2], matrix[3]), 1), 'vertical pixels retain size')
+    }
+  }
+})

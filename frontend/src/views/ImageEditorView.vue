@@ -4180,8 +4180,9 @@ const cropAspectRatio = computed<number | null>(() => {
   const preset = CROP_ASPECTS.find(a => a.id === cropAspect.value)
   if (!preset || preset.ratio == null) return null
   const frame = cropInput.value
-  if (preset.ratio === -1) return frame ? frame.width / frame.height : null
-  return preset.ratio
+  if (!frame) return null
+  const rect = cropParamsOf().rect
+  return rect ? rect.width * frame.width / (rect.height * frame.height) : frame.width / frame.height
 })
 
 /** The selected annotation, whose properties the inspector edits. */
@@ -4505,11 +4506,19 @@ function chooseAspect(id: string) {
     ? frame.width / frame.height
     : preset?.ratio ?? null
   void applyCropChange({
-    rect: cropRectForAspect(ratio, frame.width, frame.height),
+    rect: cropRectForAspect(
+      ratio && preset?.ratio !== -1 && (cropParamsOf().rotation90 ?? 0) % 2 ? 1 / ratio : ratio,
+      frame.width, frame.height,
+    ),
   })
 }
 
 function rotateQuarter() {
+  const preset = CROP_ASPECTS.find(a => a.id === cropAspect.value)
+  if (preset?.ratio && preset.ratio > 0) {
+    const rotated = CROP_ASPECTS.find(a => a.ratio && Math.abs(a.ratio - 1 / preset.ratio!) < 1e-8)
+    if (rotated) cropAspect.value = rotated.id
+  }
   void applyCropChange({ rotation90: (((cropParamsOf().rotation90 ?? 0) + 1) % 4) as 0 | 1 | 2 | 3 })
 }
 

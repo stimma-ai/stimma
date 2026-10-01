@@ -12,7 +12,7 @@ export type CropPinchFrame = {
 }
 
 /** Screen offset back into source pixels, matching the crop preview transform. */
-function sourceOffset(point: Point, frame: CropPinchFrame): Point {
+export function sourceOffset(point: Point, frame: CropPinchFrame): Point {
   const c = Math.cos(frame.rotation), s = Math.sin(frame.rotation)
   const x = (c * point.x + s * point.y) * (frame.flipX ? -1 : 1)
   const y = (-s * point.x + c * point.y) * (frame.flipY ? -1 : 1)
