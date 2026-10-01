@@ -1375,6 +1375,7 @@ import { subscribeImageRecovery, recoveredImageUrl } from '../utils/imageRecover
 import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobilePlayback } from '../composables/useMobilePlaybackLifecycle'
 import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
 import { useViewport } from '../composables/useViewport'
+import { useBackOverride } from '../composables/useBackOverride'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -4705,6 +4706,9 @@ function close() {
   stopSlideshowTimer()
   emit('close')
 }
+
+// Header Back exits the mounted slideshow before navigating away from its screen.
+useBackOverride(() => true, close)
 
 // Handle close button click - exit nested views first, then close slideshow
 function handleCloseClick() {
