@@ -9,6 +9,18 @@
  * @param {string|null} dateStr - ISO timestamp
  * @returns {string} Relative time string, or '' for falsy input
  */
+/**
+ * Epoch ms for a server timestamp. The backend writes naive UTC
+ * ("2026-09-05T19:39:00.938589"); without a suffix Date.parse would read it
+ * as local time and skew ordering by the UTC offset.
+ */
+export function parseServerTime(value) {
+  if (!value) return 0
+  const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value}Z`
+  const ms = Date.parse(iso)
+  return Number.isNaN(ms) ? 0 : ms
+}
+
 export function formatRelativeTime(dateStr) {
   if (!dateStr) return ''
   const date = new Date(dateStr)

@@ -36,7 +36,9 @@ test.describe('app shell acceptance', () => {
     await page.goBack();
     await expect(page.getByText('All Tools', { exact: true })).toBeVisible({ timeout: 30000 });
 
+    // The legacy link opens the picker once and drops ?projects=1, so
+    // Forward returns to the plain destination rather than reopening it.
     await page.goForward();
-    await expect(page.getByRole('dialog', { name: 'Choose a project' })).toBeVisible({ timeout: 30000 });
+    await expect(page).toHaveURL(/\/home$/);
   });
 });

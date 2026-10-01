@@ -200,9 +200,9 @@ defineExpose({ toggle, manage })
           </template>
           <template v-else>
             <!-- Past five projects the picker leads with a filter. -->
-            <label v-if="searchable" class="mb-1 flex items-center gap-2 rounded-md bg-overlay-subtle px-2.5 focus-within:ring-2 ring-accent/60 coarse:min-h-11">
+            <label v-if="searchable" class="mb-1 flex items-center gap-2 rounded-md bg-overlay-subtle px-2.5 focus-within:ring-2 ring-accent/60">
               <MagnifyingGlassIcon class="h-3.5 w-3.5 shrink-0 text-content-muted" />
-              <input ref="search" v-model="query" aria-label="Find a project" placeholder="Find a project…" class="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-content placeholder:text-content-muted focus-visible:outline-none" />
+              <input ref="search" v-model="query" aria-label="Find a project" placeholder="Find a project…" class="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-content placeholder:text-content-muted focus-visible:outline-none coarse:min-h-11" />
             </label>
             <div class="max-h-72 overflow-y-auto">
               <div v-for="project in filtered" :key="project.id" class="group flex items-center rounded transition-colors" :class="activeProjectId === project.id ? 'bg-selection/15' : 'hover:bg-overlay-subtle'">

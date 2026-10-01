@@ -216,7 +216,7 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
           <button
             type="button"
             :aria-label="`Manage ${project.name || 'Untitled'}`"
-            class="absolute inset-y-0 right-1.5 my-auto flex h-5 w-5 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover/project:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100"
+            class="absolute inset-y-0 right-1.5 my-auto flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover/project:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100"
             @click.stop="manage(project, $event)"
           >
             <EllipsisHorizontalIcon class="h-3.5 w-3.5" />

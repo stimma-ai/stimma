@@ -5,6 +5,7 @@ import { getCurrentDbGuid, getCurrentProfileId } from './useProfile'
 import { makeStorageKey } from '../utils/storageKeys'
 import { recordEntityVisit, recentEntities } from './useRecentEntities'
 import { contextSwitchRoute, projectIdFrom } from '../utils/workingContext'
+import { parseServerTime } from '../utils/timeFormat'
 import { addToast } from './useToasts'
 
 export interface WorkingProject {
@@ -22,7 +23,7 @@ const visitVersion = ref(0)
 const orderedProjects = computed(() => {
   void visitVersion.value
   const visits = new Map(recentEntities(60).filter(e => e.type === 'project').map(e => [Number(e.id), e.lastVisited]))
-  return [...projects.value].sort((a, b) => (visits.get(b.id) || Date.parse(b.updated_at || '') || 0) - (visits.get(a.id) || Date.parse(a.updated_at || '') || 0))
+  return [...projects.value].sort((a, b) => (visits.get(b.id) || parseServerTime(b.updated_at)) - (visits.get(a.id) || parseServerTime(a.updated_at)))
 })
 let scopeKey = ''
 let request: Promise<void> | null = null
