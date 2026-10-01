@@ -91,6 +91,13 @@ const emit = defineEmits<{
 
 const family = computed(() => familyById(props.family))
 
+function onPromptKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey) || event.isComposing) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (!event.repeat && props.canRun && !props.busy) emit('run')
+}
+
 /** Stroke weights the width popover offers, in canvas pixels. */
 const STROKE_WEIGHTS = [2, 4, 8, 14, 22]
 
@@ -589,7 +596,7 @@ function chipClass(active: boolean, pending = false) {
             placeholder="Describe the changes for the selected area"
             :value="state.prompt"
             @input="emit('set', { prompt: ($event.target as HTMLTextAreaElement).value })"
-            @keydown.enter.meta="emit('run')"
+            @keydown="onPromptKeydown"
           />
           <ReferenceImageStrip
             v-if="state.referenceMax > 0 || state.referenceImages?.length"
