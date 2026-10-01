@@ -1,11 +1,8 @@
 import { expect, test } from '../helpers/testbed';
-import { apiJSON, createProject, waitForShell } from '../helpers/app';
+import { apiJSON, chooseContext, createProject, expectContext, waitForShell } from '../helpers/app';
 
 const sidebar = (page: any) => page.locator('.navigation-sidebar');
-async function choose(page: any, name: string) {
-  await sidebar(page).getByRole('button', { name: 'Working context', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
-}
+const choose = chooseContext;
 
 test('saved views are created, restored and listed within their owning context', async ({ page }) => {
   await page.goto('/browse?library=1');
@@ -35,8 +32,8 @@ test('saved views are created, restored and listed within their owning context',
   const scopedRequest = page.waitForRequest(r => new URL(r.url()).pathname === '/api/assets/browse' && new URL(r.url()).searchParams.get('project_id') === String(project.id));
   await page.goto(`/saved-view/${saved.id}`);
   await scopedRequest;
-  await expect(sidebar(page).getByRole('button', { name: 'Working context', exact: true })).toHaveText(project.name);
+  await expectContext(page, project.name);
   await page.reload();
-  await expect(sidebar(page).getByRole('button', { name: 'Working context', exact: true })).toHaveText(project.name);
+  await expectContext(page, project.name);
   await expect(page.getByRole('button', { name: 'Oldest First', exact: true })).toBeVisible();
 });

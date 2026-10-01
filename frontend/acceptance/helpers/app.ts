@@ -716,3 +716,46 @@ async function dismissReadinessPanelIfNeeded(page: Page) {
     await expect(page.getByTestId('readiness-panel')).toBeHidden({ timeout: 5000 });
   }
 }
+
+/**
+ * Enters a working context through the sidebar. Everything lists recent
+ * projects in its Projects section (older ones behind "All projects"); inside
+ * a project, the project header opens the switcher and "‹ stimma" leaves.
+ */
+export async function chooseContext(page: Page, name: string) {
+  const sidebar = page.locator('.navigation-sidebar');
+  const back = sidebar.getByRole('button', { name: 'Back to everything', exact: true });
+  if (name === 'Everything') {
+    if (await back.isVisible()) await back.click();
+    await expect(back).toHaveCount(0);
+    return;
+  }
+  if (await back.isVisible()) {
+    await sidebar.getByRole('button', { name: 'Working context', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
+  } else {
+    const projects = sidebar.getByRole('region', { name: 'Projects' });
+    const row = projects.getByRole('button', { name, exact: true });
+    const all = projects.getByRole('button', { name: /^All projects/ });
+    // The list refreshes when projects change; wait for whichever path appears.
+    await expect(row.or(all).first()).toBeVisible();
+    if (await row.isVisible()) {
+      await row.click();
+    } else {
+      await all.click();
+      await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
+    }
+  }
+  await expect(sidebar.getByRole('button', { name: 'Working context', exact: true })).toHaveText(name);
+}
+
+/** The sidebar header names the project, or shows the stimma row in Everything. */
+export async function expectContext(page: Page, name: string) {
+  const sidebar = page.locator('.navigation-sidebar');
+  if (name === 'Everything') {
+    await expect(sidebar.getByRole('button', { name: 'Back to everything', exact: true })).toHaveCount(0);
+    await expect(sidebar.getByRole('region', { name: 'Projects' })).toBeVisible();
+  } else {
+    await expect(sidebar.getByRole('button', { name: 'Working context', exact: true })).toHaveText(name);
+  }
+}

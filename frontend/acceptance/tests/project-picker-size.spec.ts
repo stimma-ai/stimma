@@ -6,7 +6,11 @@ for (const count of [0, 1, 5, 50]) {
     await page.route('**/api/projects', route => route.fulfill({ json: Array.from({ length: count }, (_, i) => ({ id: i + 1, name: `Project ${i + 1}` })) }));
     await page.goto('/browse?library=1');
     await waitForShell(page);
-    await page.getByRole('button', { name: 'Working context', exact: true }).click();
+    // The sidebar lists five recent projects; the rest sit behind All projects.
+    const section = page.locator('.navigation-sidebar').getByRole('region', { name: 'Projects' });
+    await expect(section.getByRole('button', { name: /^Project \d+$/ })).toHaveCount(Math.min(count, 5));
+    await expect(section.getByRole('button', { name: /^All projects/ })).toHaveCount(count > 5 ? 1 : 0);
+    await page.goto('/browse?library=1&projects=1');
     const picker = page.getByRole('dialog', { name: 'Choose working context' });
     await expect(picker.getByRole('button', { name: 'Everything', exact: true })).toBeVisible();
     await expect(picker.getByRole('button', { name: 'New project', exact: true })).toBeVisible();

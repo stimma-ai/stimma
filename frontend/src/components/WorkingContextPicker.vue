@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArchiveBoxIcon, BookOpenIcon, CheckIcon, ChevronUpDownIcon, EllipsisHorizontalIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import { useWorkingContext, type WorkingProject } from '../composables/useWorkingContext'
+import { ArchiveBoxIcon, BookOpenIcon, CheckIcon, Cog6ToothIcon, EllipsisHorizontalIcon, MagnifyingGlassIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { useContextSwitch, useWorkingContext, type WorkingProject } from '../composables/useWorkingContext'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useContextMenuPosition } from '../composables/useContextMenuPosition'
-import { contextSwitchRoute } from '../utils/workingContext'
 import { useDragStore } from '../stores/dragStore'
 import { addToast } from '../composables/useToasts'
 import ConfirmModal from './ConfirmModal.vue'
 import Button from './ui/Button.vue'
 import Spinner from './ui/Spinner.vue'
 
+// The sidebar owns the triggers (project header, All projects row, project
+// row menus); this component owns the one switcher/manager dialog they open.
+const props = defineProps<{ fallbackAnchor?: HTMLElement | null }>()
 const emit = defineEmits<{ selected: [] }>()
 const route = useRoute()
 const router = useRouter()
 const { activeProjectId, activeProject, projects, orderedProjects, loading, error, selectProject, refreshProjects, rememberProject } = useWorkingContext()
+const switchContext = useContextSwitch()
 const { createProject, updateProject, deleteProject } = useMediaApi()
 const { draggedMediaItems } = useDragStore()
 const trigger = ref<HTMLElement | null>(null)
@@ -40,33 +43,33 @@ function close() {
   editing.value = null
   trigger.value?.focus()
 }
-async function toggle() {
+function anchorAt(anchor: HTMLElement | null | undefined) {
+  trigger.value = anchor ?? props.fallbackAnchor ?? null
+  const rect = trigger.value?.getBoundingClientRect()
+  coords.value = rect ? { x: rect.left, y: rect.bottom + 6 } : { x: 12, y: 48 }
+}
+async function toggle(anchor?: HTMLElement | null) {
   // A drag target's scope must stay stable until the drop finishes.
   if (draggedMediaItems.value.length) return
   if (open.value) { close(); return }
-  const rect = trigger.value!.getBoundingClientRect()
-  coords.value = { x: rect.left, y: rect.bottom + 6 }
+  anchorAt(anchor)
   query.value = ''
+  editing.value = null
   open.value = true
   await refreshProjects()
   await nextTick()
   ;(search.value ?? menu.value)?.focus()
 }
+/** Opens straight into one project's rename/settings/delete view. */
+async function manage(project: WorkingProject, anchor?: HTMLElement | null) {
+  if (draggedMediaItems.value.length) return
+  anchorAt(anchor)
+  open.value = true
+  await edit(project)
+}
 async function choose(id: number | null) {
-  const same = activeProjectId.value === id
   close()
-  if (same) { emit('selected'); return }
-  const target = contextSwitchRoute(route, id)
-  const previous = activeProjectId.value
-  selectProject(id)
-  try {
-    const failure = await router.push(target)
-    if (failure) selectProject(previous)
-    else emit('selected')
-  } catch {
-    selectProject(previous)
-    addToast('Could not switch projects.', 'warning')
-  }
+  if (await switchContext(id)) emit('selected')
 }
 async function edit(project: WorkingProject) {
   editing.value = { ...project }
@@ -101,7 +104,9 @@ async function saveName() {
 }
 async function settings() {
   if (!editing.value) return
-  const id = editing.value.id
+  await openSettings(editing.value.id)
+}
+async function openSettings(id: number) {
   close()
   await router.push({ name: 'project-settings', params: { id } })
   emit('selected')
@@ -134,7 +139,7 @@ function outside(event: MouseEvent) {
   // Inline management replaces the clicked row before this document listener
   // runs. The original event path still identifies a click inside the picker.
   const path = event.composedPath()
-  if (open.value && !path.includes(menu.value!) && !path.includes(trigger.value!)) close()
+  if (open.value && !path.includes(menu.value!) && !(trigger.value && path.includes(trigger.value))) close()
 }
 function keyboard(event: KeyboardEvent) {
   if (!open.value) return
@@ -170,16 +175,12 @@ watch(() => route.query.projects, async value => {
   await router.replace({ query })
 }, { immediate: true })
 onBeforeUnmount(() => { document.removeEventListener('click', outside); document.removeEventListener('keydown', keyboard) })
+defineExpose({ toggle, manage })
 </script>
 
 <template>
-  <div class="mb-3">
-    <button ref="trigger" type="button" aria-label="Working context" aria-haspopup="dialog" :aria-expanded="open" class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11" @click="toggle">
-      <ArchiveBoxIcon v-if="activeProjectId != null" class="h-4 w-4 shrink-0 text-content-muted" />
-      <BookOpenIcon v-else class="h-4 w-4 shrink-0 text-content-muted" />
-      <span class="min-w-0 flex-1 truncate text-left">{{ activeProjectId != null ? activeProject?.name || 'Untitled project' : 'Everything' }}</span>
-      <ChevronUpDownIcon class="h-3 w-3 shrink-0 text-content-muted" />
-    </button>
+  <div class="contents">
+    <slot :toggle="toggle" :open="open" />
     <Teleport to="body">
       <Transition name="menu">
         <div v-if="open" ref="menu" :style="menuStyle" tabindex="-1" role="dialog" aria-label="Choose working context" class="fixed z-menu focus-visible:outline-none w-[288px] max-w-[calc(100vw-16px)] rounded-lg border border-edge-subtle bg-surface p-1.5 shadow-lg">
@@ -195,6 +196,11 @@ onBeforeUnmount(() => { document.removeEventListener('click', outside); document
             </div>
           </template>
           <template v-else>
+            <template v-if="activeProjectId != null && activeProject">
+              <button class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle coarse:min-h-11" @click="edit(activeProject as WorkingProject)"><PencilIcon class="h-4 w-4 shrink-0" />Rename project</button>
+              <button class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle coarse:min-h-11" @click="openSettings(activeProjectId)"><Cog6ToothIcon class="h-4 w-4 shrink-0" />Project settings</button>
+              <div class="my-1.5 border-t border-edge-subtle"></div>
+            </template>
             <div v-if="searchable" class="flex items-center gap-2 px-3 py-2">
               <MagnifyingGlassIcon class="h-3.5 w-3.5 shrink-0 text-content-muted" />
               <input ref="search" v-model="query" aria-label="Find a project" placeholder="Find a project…" class="min-w-0 w-full rounded-md bg-overlay-subtle px-2 py-1 text-sm text-content placeholder:text-content-muted focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-inset coarse:min-h-11" />

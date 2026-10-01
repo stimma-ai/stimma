@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apiJSON, createProject } from '../helpers/app';
+import { apiJSON, createProject, expectContext } from '../helpers/app';
 import { settleAnyViewport } from '../helpers/viewport';
 
 test('phone saved views follow the project in the drawer and Assets scope sheet', async ({ page }) => {
@@ -13,7 +13,7 @@ test('phone saved views follow the project in the drawer and Assets scope sheet'
   await settleAnyViewport(page);
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   const drawer = page.locator('.navigation-sidebar');
-  await expect(drawer.getByRole('button', { name: 'Working context', exact: true })).toHaveText(project.name);
+  await expectContext(page, project.name);
   await expect(drawer.getByRole('button', { name: scoped.name, exact: true })).toBeVisible();
   await expect(drawer.getByRole('button', { name: global.name, exact: true })).toHaveCount(0);
   await drawer.getByRole('button', { name: scoped.name, exact: true }).click();
@@ -27,7 +27,7 @@ test('phone saved views follow the project in the drawer and Assets scope sheet'
   await page.goto(`/saved-view/${global.id}`);
   await settleAnyViewport(page);
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await expect(drawer.getByRole('button', { name: 'Working context', exact: true })).toHaveText('Everything');
+  await expectContext(page, 'Everything');
   await expect(drawer.getByRole('button', { name: global.name, exact: true })).toBeVisible();
   await expect(drawer.getByRole('button', { name: scoped.name, exact: true })).toHaveCount(0);
 });

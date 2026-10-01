@@ -3,6 +3,7 @@ import {
   addMediaToBoard,
   createBoard,
   createProject,
+  expectContext,
   generateMedia,
   getBoard,
   listMedia,
@@ -39,7 +40,7 @@ test.describe('projects acceptance', () => {
 
     await page.goto(`/projects/${project.id}/assets`);
     await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole('button', { name: 'Working context', exact: true })).toHaveText(project.name);
+    await expectContext(page, project.name);
 
     await page.goto(`/projects/${project.id}/boards`);
     await expect(page.getByText('Acceptance Project Board').first()).toBeVisible({ timeout: 30000 });

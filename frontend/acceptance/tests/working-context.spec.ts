@@ -1,5 +1,5 @@
 import { expect, test } from '../helpers/testbed';
-import { apiJSON, createProject, generateMedia, listMedia, openTool, openToolById, promptInput, submitGeneration, TEST_I2I_TOOL_ID, waitFor, waitForShell } from '../helpers/app';
+import { apiJSON, chooseContext, createProject, expectContext, generateMedia, listMedia, openTool, openToolById, promptInput, submitGeneration, TEST_I2I_TOOL_ID, waitFor, waitForShell } from '../helpers/app';
 
 const promptText = (page: any) => promptInput(page).evaluate(el => [...el.querySelectorAll('.cm-line')].map(line => {
   const clone = line.cloneNode(true) as HTMLElement;
@@ -7,32 +7,42 @@ const promptText = (page: any) => promptInput(page).evaluate(el => [...el.queryS
   return clone.textContent;
 }).join('\n'));
 const sidebar = (page: any) => page.locator('.navigation-sidebar');
-async function choose(page: any, name: string) {
-  await sidebar(page).getByRole('button', { name: 'Working context', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Choose working context' }).getByRole('button', { name, exact: true }).click();
-}
+const choose = chooseContext;
 
 test.describe('working context', () => {
-  test('no projects keeps a quiet picker, and legacy projects links open it', async ({ page }) => {
+  test('no projects shows a labelled New project row, and legacy projects links open the picker', async ({ page }) => {
     await page.route('**/api/projects', async route => {
       if (route.request().method() === 'GET') await route.fulfill({ json: [] });
       else await route.continue();
     });
     await page.goto('/browse');
     await waitForShell(page);
-    await expect(sidebar(page).getByRole('button', { name: 'Working context' })).toHaveText('Everything');
-    await expect(sidebar(page).getByRole('button', { name: 'Projects', exact: true })).toHaveCount(0);
-    await sidebar(page).getByRole('button', { name: 'Working context' }).click();
+    await expectContext(page, 'Everything');
+    const projects = sidebar(page).getByRole('region', { name: 'Projects' });
+    await expect(projects.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
+    await expect(projects.getByText('Keep the assets, chats and boards')).toBeVisible();
+    await page.goto('/projects');
     const picker = page.getByRole('dialog', { name: 'Choose working context' });
+    await expect(picker).toBeVisible();
     await expect(picker.getByRole('button', { name: 'New project' })).toBeVisible();
     await expect(picker.getByRole('textbox')).toHaveCount(0);
-    await expect(picker.getByText('Recent projects')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home/);
     await page.keyboard.press('Escape');
     await expect(picker).toBeHidden();
-    await expect(sidebar(page).getByRole('button', { name: 'Working context' })).toBeFocused();
-    await page.goto('/projects');
-    await expect(picker).toBeVisible();
-    await expect(page).toHaveURL(/\/home/);
+  });
+
+  test('sidebar creates a project inline and enters it', async ({ page }) => {
+    await page.goto('/browse');
+    await waitForShell(page);
+    const projects = sidebar(page).getByRole('region', { name: 'Projects' });
+    await projects.hover();
+    await projects.getByRole('button', { name: 'New project', exact: true }).first().click();
+    await projects.getByRole('textbox', { name: 'Project name' }).fill('Inline sidebar project');
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/projects\/\d+\/overview/);
+    await expectContext(page, 'Inline sidebar project');
+    await chooseContext(page, 'Everything');
+    await expect(projects.getByRole('button', { name: 'Inline sidebar project', exact: true })).toBeVisible();
   });
 
   test('picker keeps the browser section, searches every project and renames inline', async ({ page }) => {
@@ -46,7 +56,7 @@ test.describe('working context', () => {
     await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/boards`));
     await choose(page, 'Everything');
     await expect(page).toHaveURL(/\/boards$/);
-    await sidebar(page).getByRole('button', { name: 'Working context' }).click();
+    await sidebar(page).getByRole('region', { name: 'Projects' }).getByRole('button', { name: /^All projects/ }).click();
     const picker = page.getByRole('dialog', { name: 'Choose working context' });
     await picker.getByRole('textbox', { name: 'Find a project' }).fill(project.name);
     await picker.getByRole('button', { name: `Manage ${project.name}` }).click();

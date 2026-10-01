@@ -1,9 +1,11 @@
 import { computed, readonly, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useMediaApi } from './useMediaApi'
 import { getCurrentDbGuid, getCurrentProfileId } from './useProfile'
 import { makeStorageKey } from '../utils/storageKeys'
 import { recordEntityVisit, recentEntities } from './useRecentEntities'
-import { projectIdFrom } from '../utils/workingContext'
+import { contextSwitchRoute, projectIdFrom } from '../utils/workingContext'
+import { addToast } from './useToasts'
 
 export interface WorkingProject {
   id: number
@@ -24,6 +26,8 @@ const orderedProjects = computed(() => {
 })
 let scopeKey = ''
 let request: Promise<void> | null = null
+// A change announced mid-request must not be lost to the in-flight response.
+let stale = false
 
 function storageKey() {
   return makeStorageKey('working_context', getCurrentProfileId() || 'default')
@@ -35,6 +39,7 @@ function hydrate() {
   scopeKey = key
   projects.value = []
   request = null
+  stale = false
   error.value = ''
   loading.value = false
   try {
@@ -61,7 +66,7 @@ function selectProject(id: number | null) {
 
 async function refreshProjects() {
   hydrate()
-  if (request) return request
+  if (request) { stale = true; return request }
   const key = scopeKey
   loading.value = true
   error.value = ''
@@ -76,7 +81,11 @@ async function refreshProjects() {
     } catch {
       if (key === scopeKey) error.value = 'Could not load projects. Try again.'
     } finally {
-      if (key === scopeKey) { loading.value = false; request = null }
+      if (key === scopeKey) {
+        loading.value = false
+        request = null
+        if (stale) { stale = false; void refreshProjects() }
+      }
     }
   })()
   request = pending
@@ -99,5 +108,26 @@ export function useWorkingContext() {
     activeProject: computed(() => projects.value.find(p => p.id === activeProjectId.value) ?? (activeProjectId.value == null ? null : { id: activeProjectId.value, name: null })),
     projects: readonly(projects), orderedProjects, loading: readonly(loading), error: readonly(error),
     selectProject, refreshProjects, rememberProject,
+  }
+}
+
+/** Enters a project (or Everything for null), keeping the current section. */
+export function useContextSwitch() {
+  const router = useRouter()
+  const route = useRoute()
+  return async function switchContext(id: number | null): Promise<boolean> {
+    if (activeProjectId.value === id) return true
+    const target = contextSwitchRoute(route, id)
+    const previous = activeProjectId.value
+    selectProject(id)
+    try {
+      const failure = await router.push(target)
+      if (failure) { selectProject(previous); return false }
+      return true
+    } catch {
+      selectProject(previous)
+      addToast('Could not switch projects.', 'warning')
+      return false
+    }
   }
 }

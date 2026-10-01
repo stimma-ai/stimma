@@ -34,30 +34,69 @@
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
-          <!-- Stimma Home -->
+          <!-- Everything: the brand row goes home and takes drops. Inside a
+               project the sidebar drills in: a way back, then the project as
+               the header (its menu renames, opens settings, and switches). -->
           <button
+            v-if="activeProjectId == null"
             @click="handleNavClick('home')"
             @dragover="handleDragOver"
             @dragenter="handleStimmaHomeDragEnter"
             @dragleave="handleStimmaHomeDragLeave"
             @drop="handleStimmaHomeDrop"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="[
-              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
-            ]"
+            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-[5px]"
+            :class="dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''"
             title="Stimma (drag media here to attach)"
           >
             <img src="/logo.svg" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
+          <template v-else>
+            <button
+              type="button"
+              aria-label="Back to everything"
+              class="flex w-fit items-center gap-1.5 rounded px-3 py-0.5 text-content-muted transition-colors hover:text-content coarse:min-h-11"
+              @click="leaveProject"
+            >
+              <ChevronLeftIcon class="h-3 w-3" />
+              <span class="font-brand text-[11px] lowercase tracking-[0.12em]">stimma</span>
+            </button>
+            <WorkingContextPicker v-slot="{ toggle, open }" @selected="props.isMobile && emit('close')">
+              <button
+                type="button"
+                aria-label="Working context"
+                aria-haspopup="dialog"
+                :aria-expanded="open"
+                class="mb-1.5 flex w-full items-start gap-2 rounded-md px-3 py-1.5 text-left transition-colors hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+                :class="open ? 'bg-overlay-subtle' : ''"
+                @click="toggle($event.currentTarget)"
+              ><span class="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1 h-3 w-3 shrink-0 text-content-muted" /></button>
+            </WorkingContextPicker>
+          </template>
 
-          <WorkingContextPicker @selected="props.isMobile && emit('close')" />
-          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11" :class="activeTab === 'home' ? '!bg-selection/15 !text-selection' : ''"><HomeIcon class="h-3.5 w-3.5" />Home</button>
+          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-[5px]" :class="activeTab === 'home' ? '!bg-selection/15 !text-selection' : ''"><HomeIcon class="h-3.5 w-3.5 flex-shrink-0" />Home</button>
+
+          <!-- Saved views sit with Home: places, before the kinds of things. -->
+          <button
+            v-for="savedView in contextSavedViews"
+            :key="savedView.id"
+            @click="openSavedView(savedView.id)"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-[5px]"
+            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-selection' : ''"
+            :title="savedView.name"
+          >
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+            </svg>
+            <span class="truncate text-sm">{{ savedView.name }}</span>
+          </button>
+
+          <div class="h-2 flex-shrink-0" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
             @click="handleNavClick('browse')"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
             :class="activeTab === 'browse' ? '!bg-selection/15 !text-selection' : ''"
           >
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -74,7 +113,7 @@
               @dragenter="handleNewBoardDragEnter"
               @dragleave="handleNewBoardDragLeave"
               @drop="handleNewBoardDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
                 activeTab === 'boards' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
@@ -108,7 +147,7 @@
               @dragenter="handleNewChatDragEnter"
               @dragleave="handleNewChatDragLeave"
               @drop="handleNewChatDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
                 activeTab === 'chats' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
@@ -141,7 +180,7 @@
               @dragenter="handleNewFlowDragEnter"
               @dragleave="handleNewFlowDragLeave"
               @drop="handleNewFlowDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
                 activeTab === 'flows' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
@@ -169,7 +208,7 @@
           <button
             @click="handleNavClick('all-tools')"
             data-tour="tools"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
             :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-selection' : ''"
           >
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -179,41 +218,15 @@
           </button>
 
 
-          <!-- Trash -->
-          <button
-            @click="handleNavClick('trash')"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="activeTab === 'trash' ? '!bg-selection/15 !text-selection' : ''"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span>Trash</span>
-          </button>
-
-          <div v-if="contextSavedViews.length" class="px-3 pt-3 pb-1 text-xs text-content-muted">Saved views</div>
-          <!-- Saved Views -->
-          <button
-            v-for="savedView in contextSavedViews"
-            :key="savedView.id"
-            @click="openSavedView(savedView.id)"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-selection' : ''"
-            :title="savedView.name"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-            </svg>
-            <span class="truncate text-sm">{{ savedView.name }}</span>
-          </button>
+          <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3">
-            <div class="px-3 mb-1.5 text-xs text-content-muted">Open here</div>
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="flex flex-col gap-1">
 
-            <!-- Pinned/open micro-labels replace the old dashed separator -->
-            <div v-if="pinnedTabs.length > 0" class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">Pinned</div>
+            <!-- Pinned, Editing and Open share the section label recipe. -->
+            <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
 
+            <template v-if="!isCollapsed('pinned')">
             <!-- Pinned tabs -->
             <div
               v-for="(tab, index) in pinnedTabs"
@@ -237,25 +250,24 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="flex items-center gap-2.5 px-3 py-2 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
                   isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
-                :style="{ minHeight: '44px' }"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-rename-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -280,18 +292,18 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
                     @keydown="handleRenameKeydown"
@@ -304,13 +316,13 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -335,33 +347,33 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
                            line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
                         v-else
-                        class="truncate text-[11px]"
+                        class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
                         {{ getToolSubtitle(tab.entityId) }}
@@ -372,20 +384,20 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] text-content">
+                    <span class="truncate text-[13px] leading-4 text-content">
                       {{ tab.displayName }}
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -394,11 +406,11 @@
                   <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this project...
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -406,10 +418,10 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -425,11 +437,11 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -444,21 +456,21 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] text-content"
+                      class="truncate text-[13px] leading-4 text-content"
                     >
                       {{ tab.displayName }}
                     </span>
                     <span
                       v-else
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this flow...
                     </span>
                     <FlowStatusPill
                       :flow-id="tab.entityId"
                       show-pending
-                      text-class="truncate text-[11px] text-content-muted"
+                      text-class="truncate text-[11px] leading-[14px] text-content-muted"
                     />
                   </div>
 
@@ -516,18 +528,13 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
-
-            <!-- Durable pins are a separate group from the current workspace. -->
-            <div
-              v-if="pinnedTabs.length > 0 && (editorTabs.length > 0 || openTabs.length > 0)"
-              class="mx-3 mt-1 border-t border-edge-subtle"
-              :class="editorTabs.length > 0 ? 'mb-2' : 'mb-1'"
-            ></div>
+            </template>
 
             <!-- Open editors are a working set, not documents with names. -->
-            <div v-if="editorTabs.length > 0" class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">Editing</div>
+            <SidebarSectionHeader v-if="editorTabs.length > 0" id="editing" label="Editing" />
 
             <EditorShelf
+              v-if="!isCollapsed('editing')"
               :tabs="editorTabs"
               @open="navigateToTabId"
               @remove="closeTab"
@@ -535,10 +542,9 @@
               @media-drop="handleShelfMediaDrop"
             />
 
-            <div v-if="editorTabs.length > 0 && openTabs.length > 0" class="mx-3 my-1 border-t border-edge-subtle"></div>
+            <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
-            <div v-if="openTabs.length > 0 && editorTabs.length === 0" class="pt-1"></div>
-
+            <template v-if="!isCollapsed('open')">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
@@ -562,26 +568,25 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="flex items-center gap-3 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
                   isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
-                  tab.type === 'tool' ? 'py-1.5' : 'py-2'
+                  'py-1'
                 ]"
-                :style="{ minHeight: '44px' }"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-rename-open-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -606,18 +611,18 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
                     @keydown="handleRenameKeydown"
@@ -630,13 +635,13 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-open-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -661,33 +666,33 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
                            line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
                         v-else
-                        class="truncate text-[11px]"
+                        class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
                         {{ getToolSubtitle(tab.entityId) }}
@@ -698,20 +703,20 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] text-content">
+                    <span class="truncate text-[13px] leading-4 text-content">
                       {{ tab.displayName }}
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -720,11 +725,11 @@
                   <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this project...
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -732,10 +737,10 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -751,11 +756,11 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -770,21 +775,21 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] text-content"
+                      class="truncate text-[13px] leading-4 text-content"
                     >
                       {{ tab.displayName }}
                     </span>
                     <span
                       v-else
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this flow...
                     </span>
                     <FlowStatusPill
                       :flow-id="tab.entityId"
                       show-pending
-                      text-class="truncate text-[11px] text-content-muted"
+                      text-class="truncate text-[11px] leading-[14px] text-content-muted"
                     />
                   </div>
 
@@ -856,6 +861,7 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
+            </template>
           </div>
 
         </nav>
@@ -899,6 +905,18 @@
                dresses the footer for screenshots and must not take the
                picker with it. -->
           <DeviceChip v-if="isAuthenticated" variant="footer" />
+          <!-- Trash is an occasional destination, so it lives with the other
+               occasional actions instead of in the nav run. -->
+          <Tooltip text="Trash" class="w-8 flex-shrink-0 coarse:w-11">
+            <button
+              @click="handleNavClick('trash')"
+              aria-label="Trash"
+              class="w-full h-8 flex items-center justify-center rounded transition-colors cursor-pointer border-none coarse:min-h-11"
+              :class="activeTab === 'trash' ? 'bg-selection/15 text-selection' : 'bg-transparent text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
+            >
+              <TrashIcon class="w-[18px] h-[18px]" />
+            </button>
+          </Tooltip>
           <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
             <button
               @click="openSettingsFromFooter"
@@ -984,7 +1002,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon, HomeIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ChevronLeftIcon, ChevronUpDownIcon, HomeIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
@@ -1006,9 +1024,12 @@ import { useWorkspaceTabs, toolTabRoute, editorTabRoute, editorRouteTabId, type 
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
-import { useWorkingContext } from '../composables/useWorkingContext'
+import { useContextSwitch, useWorkingContext } from '../composables/useWorkingContext'
 import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
 import WorkingContextPicker from './WorkingContextPicker.vue'
+import SidebarProjects from './sidebar/SidebarProjects.vue'
+import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
+import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
 import { useFlowsApi } from '../composables/useFlowsApi'
@@ -1050,7 +1071,12 @@ const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
 // Navigation
 const router = useRouter()
 const route = useRoute()
-const { activeProjectId, refreshProjects, rememberProject, selectProject } = useWorkingContext()
+const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
+const switchContext = useContextSwitch()
+const { isCollapsed } = useSidebarSections()
+async function leaveProject() {
+  if (await switchContext(null) && props.isMobile) emit('close')
+}
 const activeTab = computed(() => contextSection(route.name) || route.name)
 
 // WebSocket

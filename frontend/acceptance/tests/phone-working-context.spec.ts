@@ -1,31 +1,33 @@
 import { expect, test } from '@playwright/test';
 import { settleAnyViewport, auditHorizontalOverflow, expectNoOverflow, auditHitTargets } from '../helpers/viewport';
+import { expectContext } from '../helpers/app';
 
-test('project picker creates and renames inline on touch without moving the main navigation', async ({ page }) => {
+test('drawer creates a project inline on touch and drills into it', async ({ page }) => {
   await page.goto('/browse');
   await settleAnyViewport(page);
   const drawer = page.locator('.navigation-sidebar');
   const menu = page.getByRole('button', { name: 'Menu', exact: true });
   await menu.click();
-  const assets = drawer.getByRole('button', { name: 'Assets', exact: true });
-  const initialY = (await assets.boundingBox())!.y;
-  await drawer.getByRole('button', { name: 'Working context' }).click();
-  const picker = page.getByRole('dialog', { name: 'Choose working context' });
-  await expect(picker).toHaveAttribute('data-sheet-menu', '');
-  await picker.getByRole('button', { name: 'New project' }).click();
-  await picker.getByRole('textbox', { name: 'Project name' }).fill('Touch context');
-  await picker.getByRole('button', { name: 'Save name' }).click();
-  await expect(picker.getByRole('button', { name: 'Touch context', exact: true })).toBeVisible();
-  expectNoOverflow(await auditHorizontalOverflow(page), 'working context picker');
+  const projects = drawer.getByRole('region', { name: 'Projects' });
+  await projects.getByRole('button', { name: 'New project', exact: true }).first().click();
+  await projects.getByRole('textbox', { name: 'Project name' }).fill('Touch context');
+  expectNoOverflow(await auditHorizontalOverflow(page), 'sidebar project naming');
   expect((await auditHitTargets(page)).small).toHaveLength(0);
-  await picker.getByRole('button', { name: 'Touch context', exact: true }).click();
+  await page.keyboard.press('Enter');
   await expect(drawer).toHaveAttribute('aria-hidden', 'true');
   await expect(page).toHaveURL(/\/projects\/\d+\/overview/);
   await menu.click();
-  expect((await assets.boundingBox())!.y).toBe(initialY);
-  await assets.click();
+  await expectContext(page, 'Touch context');
+  expect((await auditHitTargets(page)).small).toHaveLength(0);
+  await drawer.getByRole('button', { name: 'Assets', exact: true }).click();
   await expect(page).toHaveURL(/\/projects\/\d+\/assets/);
   await expect(drawer).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.compact-header')).toContainText('Assets');
   await expect(page.locator('.compact-header')).toContainText('Touch context');
+  await menu.click();
+  await drawer.getByRole('button', { name: 'Back to everything', exact: true }).click();
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  await menu.click();
+  await expectContext(page, 'Everything');
+  await expect(projects.getByRole('button', { name: 'Touch context', exact: true })).toBeVisible();
 });
