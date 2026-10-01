@@ -12,7 +12,7 @@ the editor:
      the LLM steps.
   2. Enhance (autoImprove) — family-aware LLM rewrite with [verbatim]
      protection and a 3-attempt retry when placeholders get dropped
-     (falls back to the original prompt, like improveViaApi).
+     (fails generation if no attempt passes validation).
      Skipped in Ideogram JSON mode — that runs post-resolve (step 5).
   3. Translate — same verbatim protection; unknown language codes are a
      no-op (mirrors translateViaApi).
@@ -206,7 +206,7 @@ async def _improve_with_verbatim_protection(
         ),
     )
 
-    last_candidate: Optional[str] = None
+    failure_reason = "the rewrite did not preserve protected text"
     for attempt in range(_MAX_LLM_RETRIES):
         request = ImprovePromptRequest(
             prompt=prompt_with_placeholders,
@@ -229,7 +229,9 @@ async def _improve_with_verbatim_protection(
         )
         async with db.async_session_maker() as session:
             candidate = (await improve_prompt(request, session)).improved_prompt
-        last_candidate = candidate
+        if not candidate.strip():
+            failure_reason = "the assistant returned an empty prompt"
+            continue
         if h3_task is not None and not _valid_h3_context_ir(
             candidate,
             h3_task,
@@ -237,11 +239,13 @@ async def _improve_with_verbatim_protection(
             h3_reference_manifest,
             source_prompt=prompt_with_placeholders,
         ):
+            failure_reason = "the rewrite did not satisfy the required video prompt format"
             log.warning(
                 f"[prompt-pipeline] Improve attempt {attempt + 1}: invalid H3 Context-IR, retrying..."
             )
             continue
         if not _image_tags_in_range(candidate, input_image_count, prompt_with_placeholders):
+            failure_reason = "the rewrite referenced an image that was not supplied"
             log.warning(
                 f"[prompt-pipeline] Improve attempt {attempt + 1}: referenced a missing <imageN>, retrying..."
             )
@@ -253,12 +257,15 @@ async def _improve_with_verbatim_protection(
                 candidate, segments, include_brackets=(h3_task is None)
             )
         log.warning(f"[prompt-pipeline] Improve attempt {attempt + 1}: verbatim placeholders dropped, retrying...")
+        failure_reason = "the rewrite did not preserve protected text"
 
-    if h3_task is not None and last_candidate is not None and not segments:
-        log.warning("[prompt-pipeline] H3 enhancement never passed validation; using original prompt")
-        return prompt
-    log.warning("[prompt-pipeline] All improve retries failed validation, using original prompt")
-    return prompt
+    from fastapi import HTTPException
+
+    raise HTTPException(status_code=422, detail={
+        "code": "prompt_enhancement_failed",
+        "message": f"Prompt enhancement failed after {_MAX_LLM_RETRIES} attempts: {failure_reason}. "
+                   "Generation was not started. Retry or check the tool assistant model in Settings.",
+    })
 
 
 _IMAGE_TAG_RE = re.compile(r"<image(\d+)>", re.IGNORECASE)
@@ -506,17 +513,16 @@ def _validated_prompt_preload(
         return None
     if not isinstance(improved_prompt, str) or not improved_prompt.strip():
         return None
+    if " ".join(improved_prompt.split()) == " ".join(processed_prompt.split()):
+        return None
     return improved_prompt
 
 
 def _is_llm_unconfigured_error(exc: Exception) -> bool:
     """True only for the strict "no LLM source configured at all" failure.
 
-    A user with zero LLM sources has opted out of LLM features, so a stale
-    enhance/translate flag (an old preset, a queued job, a chain step) must not
-    fail their generation — the step is skipped instead. Every other LLM
-    failure (no balance, provider down, cloud unreachable) means a configured
-    source is broken, and the job keeps failing loudly as before.
+    Used only by optional translation. Enabled enhancement always propagates
+    missing-model errors so the original prompt cannot bypass enhancement.
     """
     from fastapi import HTTPException
 
@@ -560,10 +566,8 @@ async def run_prompt_pipeline(
     (comments/verbatim and any LLM-introduced wildcards) ALWAYS runs — same
     as an interactive submit.
     LLM failures propagate (the caller fails the step, like the interactive
-    submit surfaces the error); verbatim-drop retries fall back non-fatally.
-    The one exception is the strict "no LLM configured at all" state — the
-    user has opted out of LLM features, so the LLM steps are skipped and the
-    prompt passes through (see _is_llm_unconfigured_error).
+    submit surfaces the error). Enabled enhancement must succeed, including
+    validation, before generation can start.
     """
     if not prompt:
         return prompt
@@ -607,31 +611,26 @@ async def run_prompt_pipeline(
 
     # 2) Enhance (text styles only; Ideogram JSON runs post-resolve).
     if enhance_on and not ideogram_json_mode and preloaded_improved is None:
-        try:
-            processed = await _improve_with_verbatim_protection(
-                db,
-                processed,
-                instructions=instructions,
-                model=model,
-                is_video=is_video,
-                is_audio=is_audio,
-                input_image_count=input_image_count,
-                audio_conditioned=audio_conditioned,
-                media_id=media_id,
-                h3_task=h3_task,
-                h3_duration=h3_duration,
-                h3_media_ids=h3_media_ids,
-                h3_reference_manifest=h3_reference_manifest,
-                h3_generate_audio=h3_generate_audio,
-                input_media_ids=input_media_ids,
-                width=width,
-                height=height,
-                project_id=project_id,
-            )
-        except Exception as e:
-            if not _is_llm_unconfigured_error(e):
-                raise
-            log.info("[prompt-pipeline] No LLM configured; skipping enhancement")
+        processed = await _improve_with_verbatim_protection(
+            db,
+            processed,
+            instructions=instructions,
+            model=model,
+            is_video=is_video,
+            is_audio=is_audio,
+            input_image_count=input_image_count,
+            audio_conditioned=audio_conditioned,
+            media_id=media_id,
+            h3_task=h3_task,
+            h3_duration=h3_duration,
+            h3_media_ids=h3_media_ids,
+            h3_reference_manifest=h3_reference_manifest,
+            h3_generate_audio=h3_generate_audio,
+            input_media_ids=input_media_ids,
+            width=width,
+            height=height,
+            project_id=project_id,
+        )
 
     # 3) Translate.
     # H3 Base's Context-IR field names and prose must remain English; the H3
@@ -655,11 +654,6 @@ async def run_prompt_pipeline(
 
     # 5) Ideogram JSON — on the fully resolved prompt (last step).
     if ideogram_json_mode:
-        try:
-            processed = await _to_ideogram_json(processed, width, height, project_id)
-        except Exception as e:
-            if not _is_llm_unconfigured_error(e):
-                raise
-            log.info("[prompt-pipeline] No LLM configured; skipping Ideogram JSON conversion")
+        processed = await _to_ideogram_json(processed, width, height, project_id)
 
     return processed

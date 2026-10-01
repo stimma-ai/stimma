@@ -669,6 +669,28 @@ class TestPromptWarmPool:
         kwargs.update(overrides)
         await queue.update_prompt_warm_pool(client, **kwargs)
 
+    async def test_invalid_enhancement_never_enters_warm_pool(
+        self, generation_queue, generation_db_session
+    ):
+        from types import SimpleNamespace
+        import routes.prompt_enhancement as pe
+
+        _clear_warm_pool(generation_queue)
+        client = "warm-invalid"
+        improve = AsyncMock(return_value=pe.ImprovePromptResponse(improved_prompt="dropped protected text"))
+        with (
+            patch("prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])),
+            patch.object(generation_queue, "_get_db", return_value=SimpleNamespace(
+                async_session_maker=generation_db_session
+            )),
+            patch.object(pe, "improve_prompt", improve),
+        ):
+            await self._update(generation_queue, client, prompt="[exact text]", concurrency=1)
+            await _await_warm_tasks(generation_queue, client)
+        assert improve.await_count == 3
+        assert generation_queue.consume_prompt_warm_pool(client) is None
+        _clear_warm_pool(generation_queue)
+
     async def test_update_spawns_refills_and_consume_returns_ready_entry(self, generation_queue):
         _clear_warm_pool(generation_queue)
         client = "warm-basic"
@@ -676,7 +698,7 @@ class TestPromptWarmPool:
         with patch(
             "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
         ), patch(
-            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="an improved cat")
+            "prompt_pipeline._improve_with_verbatim_protection", autospec=True, return_value="an improved cat"
         ):
             await self._update(generation_queue, client, concurrency=2)
             await _await_warm_tasks(generation_queue, client)

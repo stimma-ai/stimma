@@ -1876,8 +1876,7 @@ const submissionError = ref<string | null>(null)
 const submissionErrorCode = ref<string | null>(null)
 
 // No LLM configured at all = the user opted out of LLM features: the agent
-// dock hides and the enhance/translate flags are treated as off at submit so
-// generation never trips over them. A configured-but-broken LLM changes
+// dock hides; an enabled enhancement still requires a working model. A configured-but-broken LLM changes
 // nothing here — submits keep failing loudly with the CTA below.
 const { llmUnconfigured, checkAgentModels } = useAgentModelAvailability()
 void checkAgentModels()
@@ -5009,12 +5008,12 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         // Tools with no prompt input have nothing to enhance or translate —
         // force both off here rather than trusting stale UI state left over
         // from a previously-selected prompt tool (autoImprove.enabled/translate
-        // panels are shared, generic components). With no LLM configured the
-        // flags are likewise treated as off (the chips are grayed out), while
-        // the stored setting survives for when a model appears.
+        // panels are shared, generic components). Enabled enhancement must
+        // reach the backend even when no assistant is configured, so it fails
+        // visibly rather than sending the raw prompt.
         autoImprove: {
           ...rawPromptOptions.autoImprove,
-          enabled: toolHasPrompt && !llmUnconfigured.value && !!rawPromptOptions.autoImprove?.enabled,
+          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled,
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,

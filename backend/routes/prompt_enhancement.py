@@ -821,12 +821,13 @@ DEFAULT_IMPROVE_SYSTEM_PROMPT = """You are a helpful assistant that improves ima
 Your job is to take a prompt and make it better while preserving the user's original intent.
 
 Guidelines:
-- Apply a light touch - don't completely rewrite the prompt
+- Turn sparse requests into complete, concrete visual descriptions
+- Describe the subject's appearance, pose, clothing, setting, and lighting when unspecified
 - Fix grammar and spelling issues
 - Add clarity where the intent is unclear
 - Enhance descriptive language where appropriate
 - Keep the same subject, style, and mood
-- If the prompt already looks well-crafted, make minimal changes
+- For an already detailed prompt, refine its wording while retaining all specific choices
 - Output ONLY the improved prompt, no explanations or additional text"""
 
 @router.post("/improve", response_model=ImprovePromptResponse)
@@ -834,8 +835,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     """
     Auto-improve an image generation prompt using AI.
 
-    Applies light-touch improvements to fix grammar, add clarity,
-    and enhance descriptions while preserving the original intent.
+    Fleshes out sparse requests and refines detailed descriptions while
+    preserving the original intent. Retries unchanged model responses.
     """
     if not request.prompt.strip():
         # Nothing to improve (e.g. a tool with no prompt input) — don't spend
@@ -982,6 +983,15 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
                  if request.instructions and request.instructions.strip() else "")
         user_content = f"Refine this image-edit instruction:\n\n{request.prompt}{instr}"
+    elif mode == "prose":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            "Rewrite this image request as a concrete visual description. Flesh out missing "
+            "subject and scene details while preserving the original intent. "
+            "Return only the rewritten prompt:\n\n"
+            f"{request.prompt}{instr}"
+        )
     elif request.instructions and request.instructions.strip():
         user_content = f"Please improve this prompt according to these instructions:\n\nInstructions: {request.instructions}\n\nPrompt:\n{request.prompt}"
     else:
@@ -1019,23 +1029,57 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     with llm_correlation_context("prompt-agent"):
         try:
             log.info(f"Sending prompt improve request")
+            original_messages = messages
 
-            improved_prompt = await llm_complete_text(
-                config=llm_config,
-                messages=messages,
-                max_tokens=8192,
-                temperature=0.7,
+            for attempt in range(3):
+                improved_prompt = await llm_complete_text(
+                    config=llm_config,
+                    messages=messages,
+                    max_tokens=8192,
+                    temperature=0.7,
+                )
 
-            )
-
-            # Safety net: a fast model can still emit a placeholder token that was
-            # never in the input. Strip it before it reaches the image model.
-            improved_prompt = _strip_hallucinated_placeholders(improved_prompt, request.prompt)
+                # Strip placeholder tokens the input never supplied.
+                improved_prompt = _strip_hallucinated_placeholders(improved_prompt, request.prompt)
+                if not improved_prompt.strip():
+                    raise HTTPException(status_code=502, detail={
+                        "code": "prompt_enhancement_failed",
+                        "message": "The tool assistant returned an empty prompt. Generation was not started. "
+                                   "Retry or check the tool assistant model in Settings.",
+                    })
+                if " ".join(improved_prompt.split()) != " ".join(request.prompt.split()):
+                    break
+                log.warning("Prompt improve returned unchanged text", attempt=attempt + 1)
+                if attempt == 2:
+                    raise HTTPException(status_code=502, detail={
+                        "code": "prompt_enhancement_failed",
+                        "message": "The tool assistant returned the original prompt unchanged after 3 attempts. "
+                                   "Generation was not started. Retry or check the tool assistant model in Settings.",
+                    })
+                # Start afresh instead of putting the failed copy into history,
+                # which can encourage another identical answer. Keep the
+                # original instructions and attached images on every attempt.
+                feedback = (
+                    "Rewrite feedback: the previous answer repeated the input. "
+                    "Perform the rewrite using different wording. For a sparse request, "
+                    "add concrete visual or sensory details appropriate to the requested medium. "
+                    "For a detailed prompt, rephrase its sentences while retaining every specific "
+                    "subject, colour, material, number, action, and spatial relationship. "
+                    "Preserve protected text and required model formatting. Return only the rewritten prompt."
+                )
+                original_user = original_messages[-1]["content"]
+                retry_user = (
+                    f"{original_user}\n\n{feedback}" if isinstance(original_user, str)
+                    else [*original_user, {"type": "text", "text": feedback}]
+                )
+                messages = [*original_messages[:-1], {"role": "user", "content": retry_user}]
 
             log.info(f"Prompt improve successful ({len(improved_prompt)} chars)")
 
             return ImprovePromptResponse(improved_prompt=improved_prompt)
 
+        except HTTPException:
+            raise
         except asyncio.TimeoutError:
             log.error("Prompt improve request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")

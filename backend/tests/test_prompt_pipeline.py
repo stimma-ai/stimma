@@ -249,7 +249,7 @@ class TestRunPromptPipeline:
         assert out.startswith("integrated_multimodal_description:")
         assert "[Shot 1]" in out
 
-    async def test_h3_falls_back_to_original_when_every_attempt_invents_dialogue(
+    async def test_h3_fails_when_every_attempt_invents_dialogue(
         self, generation_app, generation_db_session, monkeypatch
     ):
         import routes.prompt_enhancement as pe
@@ -266,18 +266,21 @@ class TestRunPromptPipeline:
 
         monkeypatch.setattr(pe, "improve_prompt", fake_improve)
         original = "a baker opens the shop"
-        out = await pp.run_prompt_pipeline(
-            _db(generation_db_session),
-            original,
-            {"autoImprove": {"enabled": True}},
-            model="minimax-h3-t2v",
-            is_video=True,
-            h3_task="t2va",
-            h3_duration=5,
-        )
+        from fastapi import HTTPException
 
+        with pytest.raises(HTTPException) as exc:
+            out = await pp.run_prompt_pipeline(
+                _db(generation_db_session),
+                original,
+                {"autoImprove": {"enabled": True}},
+                model="minimax-h3-t2v",
+                is_video=True,
+                h3_task="t2va",
+                h3_duration=5,
+            )
         assert len(attempts) == 3
-        assert out == original
+        assert exc.value.detail["code"] == "prompt_enhancement_failed"
+        assert "video prompt format" in exc.value.detail["message"]
 
     async def test_h3_preserves_structure_but_unwraps_user_verbatim(
         self, generation_app, generation_db_session, monkeypatch
@@ -405,7 +408,7 @@ class TestRunPromptPipeline:
         assert "exact words" in out
         assert "__VERBATIM_A__" not in out
 
-    async def test_enhance_falls_back_to_original_when_verbatim_never_survives(
+    async def test_enhance_fails_when_verbatim_never_survives(
         self, generation_app, generation_db_session, monkeypatch
     ):
         import routes.prompt_enhancement as pe
@@ -415,13 +418,16 @@ class TestRunPromptPipeline:
 
         monkeypatch.setattr(pe, "improve_prompt", fake_improve)
 
-        out = await pp.run_prompt_pipeline(
-            _db(generation_db_session),
-            "[exact words] scene",
-            {"autoImprove": {"enabled": True, "instructions": ""}},
-        )
-        # Falls back to the original prompt (then final-processed).
-        assert out == "exact words scene"
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc:
+            out = await pp.run_prompt_pipeline(
+                _db(generation_db_session),
+                "[exact words] scene",
+                {"autoImprove": {"enabled": True, "instructions": ""}},
+            )
+        assert exc.value.detail["code"] == "prompt_enhancement_failed"
+        assert "protected text" in exc.value.detail["message"]
 
     async def test_unknown_translate_language_is_noop(self, generation_app, monkeypatch):
         import routes.prompt_enhancement as pe
@@ -675,12 +681,10 @@ class TestRunPromptPipeline:
         assert len(calls) == 1
 
 
-class TestUnconfiguredLlmSkipsSteps:
-    """A user with zero LLM sources has opted out: stale enhance/translate
-    flags must pass the prompt through instead of failing the job. Every
-    other LLM failure keeps propagating."""
+class TestUnconfiguredLlm:
+    """Enabled enhancement requires a working assistant."""
 
-    async def test_not_configured_skips_enhance_and_translate(
+    async def test_not_configured_blocks_enabled_enhancement(
         self, generation_app, generation_db_session, monkeypatch
     ):
         from fastapi import HTTPException
@@ -701,16 +705,16 @@ class TestUnconfiguredLlmSkipsSteps:
         monkeypatch.setattr(pe, "improve_prompt", not_configured_improve)
         monkeypatch.setattr(pe, "translate_prompt", not_configured_translate)
 
-        out = await pp.run_prompt_pipeline(
-            _db(generation_db_session),
-            "a red fox in the snow",
-            {
-                "autoImprove": {"enabled": True},
-                "translate": {"enabled": True, "language": "zh-Hans"},
-            },
-        )
-
-        assert out == "a red fox in the snow"
+        with pytest.raises(HTTPException) as exc:
+            out = await pp.run_prompt_pipeline(
+                _db(generation_db_session),
+                "a red fox in the snow",
+                {
+                    "autoImprove": {"enabled": True},
+                    "translate": {"enabled": True, "language": "zh-Hans"},
+                },
+            )
+        assert exc.value.detail["code"] == "llm_not_configured"
 
     async def test_other_llm_failures_still_propagate(
         self, generation_app, generation_db_session, monkeypatch
@@ -743,3 +747,60 @@ def test_image_tags_in_range_rejects_invented_references_only():
     assert not _image_tags_in_range("Dress <image1> in the coat from <image3>", 2, "coat swap")
     # A tag the user wrote survives even when it points past the inputs.
     assert _image_tags_in_range("Use <image4> as the style", 1, "style from <image4>")
+
+@pytest.mark.parametrize(('candidate', 'source', 'context', 'reason'), [
+    ('', 'a cat', {}, 'empty prompt'),
+    ('   ', 'a cat', {}, 'empty prompt'),
+    ('a generic paragraph', 'a cyclist rides', {'h3_task': 't2va', 'is_video': True}, 'video prompt format'),
+    ('Use <image3>', 'edit the photo', {'input_image_count': 1}, 'image that was not supplied'),
+])
+async def test_invalid_enhancement_blocks_submission(
+    generation_client, output_folder, monkeypatch, candidate, source, context, reason
+):
+    import routes.prompt_enhancement as pe
+    from unittest.mock import AsyncMock, patch
+
+    improve = AsyncMock(return_value=pe.ImprovePromptResponse(improved_prompt=candidate))
+    monkeypatch.setattr(pe, 'improve_prompt', improve)
+    queue = AsyncMock()
+    with patch('generation_queue.get_generation_queue', return_value=queue):
+        # Supply the model context at the descriptor boundary, then run the real
+        # submission and prompt pipeline to prove nothing reaches the queue.
+        model = 'minimax-h3' if context.get('h3_task') else 'flux1-dev'
+        schema = {'input_images': {'type': 'array'}} if context.get('input_image_count') else {}
+        parameters = {'prompt': source}
+        if context.get('input_image_count'):
+            parameters['input_images'] = ['input.png']
+        with patch('routes.generation._prompt_pipeline_context', return_value=(
+            model, None, 'text-to-video' if context.get('is_video') else 'image-to-image', schema
+        )):
+            response = await generation_client.post('/api/generate/submit', json={
+                'tool_id': 'test:text-to-image', 'parameters': parameters,
+                'folder_path': output_folder, 'task_type': 'text-to-video' if context.get('is_video') else 'image-to-image',
+                'prompt_options': {'autoImprove': {'enabled': True}},
+            })
+    assert response.status_code == 422, response.text
+    assert isinstance(response.json()['detail'], dict), response.text
+    assert response.json()['detail']['code'] == 'prompt_enhancement_failed'
+    assert reason in response.json()['detail']['message']
+    assert improve.await_count == 3
+    queue.submit_job.assert_not_called()
+
+async def test_unchanged_cached_rewrite_runs_live_enhancement(
+    generation_app, generation_db_session, monkeypatch
+):
+    import routes.prompt_enhancement as pe
+    from unittest.mock import AsyncMock
+
+    prompt = 'Joshua posing for a photo in a room'
+    improve = AsyncMock(return_value=pe.ImprovePromptResponse(improved_prompt='A detailed portrait of Joshua.'))
+    monkeypatch.setattr(pe, 'improve_prompt', improve)
+    result = await pp.run_prompt_pipeline(
+        _db(generation_db_session), prompt, {'autoImprove': {'enabled': True}},
+        prompt_preload={
+            'originalPrompt': prompt, 'processedPrompt': prompt, 'improvedPrompt': prompt,
+            'promptSourcesSignature': pp.prompt_sources_signature([], []),
+        },
+    )
+    assert result == 'A detailed portrait of Joshua.'
+    improve.assert_awaited_once()

@@ -66,15 +66,14 @@ async def test_explicit_true_enhances_any_model():
 
 
 @pytest.mark.asyncio
-async def test_enhancement_failure_sends_the_prompt_as_written():
+async def test_enhancement_failure_blocks_generation():
     with patch("routes.generation.native_prompt_format", return_value="MiniMax H3"), \
             patch("routes.generation.enhance_tool_prompt", new=AsyncMock(side_effect=RuntimeError("no LLM"))):
-        params, note = await _enhance_prompt_for_tool(
-            {"prompt": "a baker opens the shop"},
-            tool_id="x", task_type="text-to-video", enhance_prompt="auto", project_id=None,
-        )
-    assert params["prompt"] == "a baker opens the shop"
-    assert "sent as written" in note
+        with pytest.raises(ValueError, match="No generation was started"):
+            await _enhance_prompt_for_tool(
+                {"prompt": "a baker opens the shop"},
+                tool_id="x", task_type="text-to-video", enhance_prompt="auto", project_id=None,
+            )
 
 
 @pytest.mark.asyncio
