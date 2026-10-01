@@ -5,7 +5,6 @@ Uses guided filter for luminance and gaussian chrominance smoothing.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, uniform_filter
 
 from ..utils.color import luminance_rec709, blend
 from ..utils.image import tensor_to_numpy_batch, numpy_batch_to_tensor
@@ -17,6 +16,7 @@ def _guided_filter(guide, target, radius, eps):
     Edge-preserving smooth of 'target' using 'guide' as structure reference.
     Both inputs: (H, W) float32.
     """
+    from scipy.ndimage import uniform_filter
     size = 2 * radius + 1
     mean_g = uniform_filter(guide, size=size)
     mean_t = uniform_filter(target, size=size)
@@ -116,6 +116,7 @@ class NoiseReduction:
                 strength=1.0):
 
         # Apply preset values (override sliders unless Custom)
+        from scipy.ndimage import gaussian_filter
         p = NR_PRESETS.get(preset)
         if p is not None:
             luminance_amount, luminance_detail, luminance_contrast, color_amount, color_detail = p

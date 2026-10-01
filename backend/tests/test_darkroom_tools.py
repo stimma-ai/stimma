@@ -425,3 +425,20 @@ async def test_provider_registers_and_executes(tmp_path):
             assert out.size == _test_image().size
     finally:
         await provider.disconnect()
+
+
+def test_builtin_catalog_does_not_import_scipy():
+    """HTTP startup must not load numerical kernels to describe tools."""
+    import subprocess
+    import sys
+
+    subprocess.run(
+        [sys.executable, '-c',
+         'import sys; from providers.lightweight import LightweightProvider; '
+         'provider = LightweightProvider(); provider._register_tools(); '
+         'assert provider._tools; '
+         'assert not any(name == "scipy" or name.startswith("scipy.") for name in sys.modules)'],
+        check=True,
+        capture_output=True,
+        text=True,
+    )

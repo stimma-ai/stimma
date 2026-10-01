@@ -13,7 +13,6 @@ deterministic per seed.
 import math
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 EPS = 0.1 / 255.0          # paper's ε (≈ 0.1 gray-levels), keeps ũ < 1
 _Z999 = 3.090232           # 0.999 normal quantile, for the log-normal rm
@@ -239,6 +238,7 @@ def _render_channel(u, mu_r, sigma_r, n_samples, filter_sigma, seed):
     nearer small grains miss it; comparisons with the exact implementation
     keep the resulting mean and standard deviation well below one percent.
     """
+    from scipy.spatial import cKDTree
     H, W = u.shape
     u = u.astype(np.float32, copy=False)
     seed_i = int(seed) & 0x7FFFFFFF

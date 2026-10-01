@@ -5,7 +5,6 @@ All functions operate on numpy float32 arrays in 0-1 range.
 """
 
 import numpy as np
-from scipy.interpolate import PchipInterpolator
 
 
 def cubic_spline_curve(x, control_points):
@@ -19,6 +18,7 @@ def cubic_spline_curve(x, control_points):
     Returns:
         Mapped values clamped to 0-1.
     """
+    from scipy.interpolate import PchipInterpolator
     pts = sorted(control_points, key=lambda p: p[0])
     xs = np.array([p[0] for p in pts], dtype=np.float64)
     ys = np.array([p[1] for p in pts], dtype=np.float64)

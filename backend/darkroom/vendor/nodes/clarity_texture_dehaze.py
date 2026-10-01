@@ -4,7 +4,6 @@ Three mid-frequency contrast tools in one node.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, minimum_filter
 
 from ..utils.color import luminance_rec709, blend
 from ..utils.image import tensor_to_numpy_batch, numpy_batch_to_tensor
@@ -50,6 +49,7 @@ class ClarityTextureDehaze:
 
     def execute(self, image, clarity=0.0, texture=0.0, dehaze=0.0, strength=1.0,
                 preset="Custom (manual)"):
+        from scipy.ndimage import gaussian_filter, minimum_filter
         if preset != "Custom (manual)" and preset in AI_MITIGATION_CTD:
             p = AI_MITIGATION_CTD[preset]
             clarity = clarity + p.clarity

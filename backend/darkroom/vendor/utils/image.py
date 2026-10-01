@@ -4,10 +4,8 @@ Handles tensor↔numpy conversion and blur operations.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
-from scipy.signal import fftconvolve
 
-# Stimma patch (the only vendored-file modification, see ../ATTRIBUTION.md):
+# Stimma patches are documented in ../ATTRIBUTION.md.
 # upstream these two functions convert ComfyUI torch IMAGE tensors. Stimma's
 # backend has no torch; an "IMAGE tensor" here is a numpy (B, H, W, C) float32
 # array, so the node code above these helpers runs unmodified.
@@ -57,6 +55,7 @@ def apply_gaussian_blur(img, radius, sigma=None):
     Apply Gaussian blur per-channel.
     img: (H, W, C) float32. radius: approximate kernel radius. sigma: defaults to radius/3.
     """
+    from scipy.ndimage import gaussian_filter
     if radius <= 0:
         return img
     if sigma is None:
@@ -72,6 +71,7 @@ def apply_disk_blur(img, radius):
     Apply disk (uniform circle) blur per-channel via FFT convolution.
     Physically accurate for halation. Slower than Gaussian.
     """
+    from scipy.signal import fftconvolve
     if radius <= 0:
         return img
     kernel = disk_kernel(radius)

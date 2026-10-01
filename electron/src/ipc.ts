@@ -141,13 +141,9 @@ export function registerIpcHandlers(): void {
   })
 
   // ---- app / backend -------------------------------------------------------
-  // The renderer talks to the proxy, never to the backend directly. Still
-  // gated on the backend port so boot semantics are unchanged: resolving
-  // early would just hand back a proxy that 503s until the target is set.
-  handle('stimma:get-backend-port', async () => {
-    await waitForBackendPort()
-    return waitForProxyPort()
-  })
+  // The renderer waits for the active target's health. Remote sessions can
+  // become ready before local Python, so only the proxy listener gates this.
+  handle('stimma:get-backend-port', async () => waitForProxyPort())
 
   // ---- multi-device --------------------------------------------------------
   // The renderer never talks to a remote device itself; it asks main to point
@@ -174,8 +170,8 @@ export function registerIpcHandlers(): void {
     if (typeof pathname !== 'string' || !pathname.startsWith('/auth/')) {
       throw new Error('path must be under /auth/')
     }
-    // Same gate as get-backend-port: the answer is about the local install,
-    // so wait for it rather than reporting "signed out" while it boots.
+    // Account state belongs to local Python even when the window is remote.
+    // localAuth also waits for HTTP readiness after the port announcement.
     await waitForBackendPort()
     return localAuth(method, pathname, body ?? undefined)
   })

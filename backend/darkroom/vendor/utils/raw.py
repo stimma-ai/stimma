@@ -4,7 +4,6 @@ All functions operate on numpy float32 arrays.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 
 def kelvin_to_rgb(kelvin):
@@ -137,6 +136,7 @@ def unsharp_mask_channel(channel, sigma, amount):
     amount: sharpening strength (0-1+ range)
     Returns: sharpened (H, W) float32
     """
+    from scipy.ndimage import gaussian_filter
     blurred = gaussian_filter(channel, sigma=sigma)
     detail = channel - blurred
     return (channel + detail * amount).astype(np.float32)

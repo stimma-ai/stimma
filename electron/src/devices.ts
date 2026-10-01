@@ -138,22 +138,21 @@ export function getKnownDevices(): DeviceRecord[] {
   return state.devices
 }
 
-/**
- * Called by backend.ts whenever the local Python port is known.
- *
- * Connects the local device right away: the renderer waits on that
- * backend's health itself. A satellite boots with a REMOTE active device
- * and dials it from here instead — but the port is announced before uvicorn
- * listens, while migrations still run, and bootstrapping a session needs
- * local Python for an account token. Dialling immediately therefore failed
- * every launch within a few hundred milliseconds and flashed "unreachable"
- * at a server that was fine. So wait until Python answers, and only then
- * start the patience window for the remote device.
- *
- * A remote session already established does not depend on local Python, so
- * a backend restart mid-session leaves it alone rather than re-dialling
- * (which would flash the connection screen over a healthy window).
- */
+let cachedConnection: Promise<void> | null = null
+
+/** Called after Electron ready, when safeStorage can decrypt saved sessions. */
+export function startCachedDeviceConnection(): void {
+  if (state.activeDeviceId === LOCAL_DEVICE || cachedConnection) return
+  const device = state.devices.find((d) => d.deviceId === state.activeDeviceId)
+  if (!device?.serving || !device.certFingerprint || !loadSession(device.deviceId)) return
+  const gen = ++connectGen
+  const deviceId = state.activeDeviceId
+  cachedConnection = (async () => {
+    await sweepRoutes(device, () => gen !== connectGen || state.activeDeviceId !== deviceId, true)
+  })().catch((e) => log.warn('devices', `Cached connection failed: ${e}`))
+}
+
+/** Local Python supplies account authentication only when the cache cannot. */
 export function setLocalBackendPort(port: number): void {
   localBackendPort = port
   void (async () => {
@@ -161,12 +160,16 @@ export function setLocalBackendPort(port: number): void {
       await connect()
       return
     }
-    if (connectionState === 'ready') return
     if (!(await waitForLocalBackend(port))) return
-    // Routes and fingerprints may have changed since we last ran; the
-    // cached list is only the fallback for when the registry is down.
-    await refreshDevices()
-    await connect({ patienceMs: CONNECT_PATIENCE_MS })
+    await cachedConnection
+    // Keep the account roster current without delaying an authenticated
+    // remote session. A revoked cached session falls back to bootstrap.
+    if (connectionState === 'ready') {
+      await refreshDevices()
+      return
+    }
+    const connected = await connect({ patienceMs: CONNECT_PATIENCE_MS })
+    if (connected === 'ready') await refreshDevices()
   })()
 }
 
@@ -177,6 +180,7 @@ export function setLocalBackendPort(port: number): void {
  * supersedes this one first (the watchdog restarted the backend).
  */
 async function waitForLocalBackend(port: number): Promise<boolean> {
+  const startedAt = Date.now()
   while (localBackendPort === port) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/`)
@@ -184,7 +188,7 @@ async function waitForLocalBackend(port: number): Promise<boolean> {
     } catch {
       // Not listening yet.
     }
-    await sleep(500)
+    await sleep(Date.now() - startedAt < 5000 ? 50 : 500)
   }
   return false
 }
@@ -254,6 +258,7 @@ export async function localAuth(
 ): Promise<LocalAuthResponse> {
   if (!LOCAL_AUTH_PATH.test(pathname)) throw new Error(`Not a local auth path: ${pathname}`)
   if (localBackendPort === null) throw new Error('local backend not ready')
+  if (!(await waitForLocalBackend(localBackendPort))) throw new Error('local backend restarted')
 
   const init: RequestInit = { method }
   if (body !== undefined && body !== null) {
@@ -599,7 +604,7 @@ export async function connect(options: { patienceMs?: number } = {}): Promise<Co
 }
 
 /** One pass over a device's routes. True once the proxy points at it. */
-async function sweepRoutes(device: DeviceRecord, superseded: () => boolean): Promise<boolean> {
+async function sweepRoutes(device: DeviceRecord, superseded: () => boolean, cachedOnly = false): Promise<boolean> {
   for await (const route of reachableRoutes(device)) {
     if (superseded()) return false
 
@@ -622,6 +627,7 @@ async function sweepRoutes(device: DeviceRecord, superseded: () => boolean): Pro
     if (superseded()) return false
 
     if (!session) {
+      if (cachedOnly) continue
       session = await bootstrapSession(device, route)
       if (!session) continue
       // The session is valid for that device regardless of who wins, so
