@@ -204,9 +204,9 @@
       <div
         class="compact-pushed h-full flex flex-col bg-base relative"
         @touchstart.passive="onCompactTouchStart"
-        @touchmove.passive="onCompactTouchMove"
+        @touchmove="onCompactTouchMove"
         @touchend.passive="onCompactTouchEnd"
-        @touchcancel.passive="onCompactTouchEnd"
+        @touchcancel.passive="drawerDragging = false; dragIntent = null"
       >
       <div v-if="sidebarOpen && !sidebarDocked" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
       <!-- v-show, not v-if, under the slideshow: views teleport controls into
@@ -285,6 +285,7 @@ const vScrollGuard = {
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import { useViewport } from './composables/useViewport'
+import { isDrawerEdgeTouch } from './utils/drawerGesture'
 import { makeProfileKey } from './utils/storageKeys'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
@@ -651,18 +652,19 @@ function closeSidebar() {
 
 // The drawer follows the finger: a horizontal drag anywhere on the app
 // reveals it (right) or puts it away (left); on release it snaps by distance
-// and speed. Vertical intent, horizontal scrollers and the slideshow are
-// left alone.
+// and speed. The left edge belongs to the drawer even over the slideshow;
+// elsewhere, vertical intent, horizontal scrollers and the slideshow win.
 const DRAWER_W = 276
 const drawerDragging = ref(false)
 const drawerDragX = ref(0)
 const drawerX = computed(() => drawerDragging.value ? drawerDragX.value : (sidebarOpen.value ? 0 : -DRAWER_W))
-let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0
+let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0, dragFromEdge = false
 function onCompactTouchStart(e) {
   const t = e.touches[0]
   if (!t || e.touches.length > 1 || sidebarDocked.value) { dragIntent = 'no'; return }
   const el = e.target
-  const blocked = el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
+  dragFromEdge = isDrawerEdgeTouch(e)
+  const blocked = !dragFromEdge && el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
   dragIntent = blocked ? 'no' : null
   dragStartX = dragLastX = t.clientX; dragStartY = t.clientY; dragStartT = dragLastT = Date.now()
 }
@@ -676,7 +678,7 @@ function onCompactTouchMove(e) {
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
     if (Math.abs(dy) > Math.abs(dx)) { dragIntent = 'no'; return }
     // A right-drag inside something that scrolls sideways is that thing's.
-    if (!sidebarOpen.value) {
+    if (!sidebarOpen.value && !dragFromEdge) {
       let n = e.target
       while (n && n !== e.currentTarget) {
         if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX) && n.scrollLeft > 0) { dragIntent = 'no'; return }
@@ -687,6 +689,7 @@ function onCompactTouchMove(e) {
     drawerDragging.value = true
   }
   const base = sidebarOpen.value ? 0 : -DRAWER_W
+  if (e.cancelable) e.preventDefault()
   drawerDragX.value = Math.max(-DRAWER_W, Math.min(0, base + dx))
   dragLastX = t.clientX; dragLastT = Date.now()
 }
@@ -1376,7 +1379,7 @@ onUnmounted(() => {
   transition: margin-top 0.3s ease, opacity 0.3s ease;
 }
 
-body.slideshow-focus-mode .navigation-sidebar {
+body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer) {
   margin-left: 0 !important;
   width: 0 !important; /* Override inline width style from resizable sidebar */
   flex-basis: 0 !important;

@@ -1370,6 +1370,9 @@
 import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
+import { isDrawerEdgeTouch } from '../utils/drawerGesture'
+import { useSlideshowPresence } from '../composables/useTabNavigation'
+
 import { createSlideshowDwell } from '../utils/slideshowDwell'
 import { subscribeImageRecovery, recoveredImageUrl } from '../utils/imageRecovery'
 import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobilePlayback } from '../composables/useMobilePlaybackLifecycle'
@@ -1446,6 +1449,8 @@ import {
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
 import { nearbyPreloadIndices, shouldPreloadVideoBytes } from '../utils/slideshowPreload'
+
+useSlideshowPresence()
 
 const router = useRouter()
 const { setKeywordFilter, setTagFilter, setSimilarFilter } = useBrowseFilters()
@@ -1737,6 +1742,7 @@ function navigateGallery(direction) {
   }, 200)
 }
 const slideshowSwipe = createSlideshowSwipe({
+  reserveGesture: event => slideshowCompact.value && isDrawerEdgeTouch(event),
   canNavigate: () => zoomScale.value <= 1 && !gallerySettling.value,
   navigate: navigateGallery,
   drag: dragGallery,
@@ -4812,6 +4818,9 @@ function handleWheel(event) {
 
 // Mouse pan handlers
 function startPan(event) {
+  // Touch has its own pinch/pan handlers and edge-gesture ownership. Pointer
+  // capture here would suppress touchstart before the drawer can claim it.
+  if (event.pointerType === 'touch') return
   if (zoomScale.value <= 1 && event.button !== 1) return
   if (event.button !== 0 && event.button !== 1) return // Left or middle mouse button
 
@@ -4854,8 +4863,11 @@ function getTouchCenter(touches) {
   }
 }
 
+let drawerEdgeGesture = false
 function handleTouchStart(event) {
+  drawerEdgeGesture = slideshowCompact.value && isDrawerEdgeTouch(event)
   slideshowSwipe.start(event)
+  if (drawerEdgeGesture) return
   if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
     // Pinch start
@@ -4875,6 +4887,7 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
+  if (drawerEdgeGesture) return
   slideshowSwipe.move(event)
   if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
@@ -4926,6 +4939,10 @@ function handleTouchMove(event) {
 }
 
 function handleTouchEnd(event) {
+  if (drawerEdgeGesture) {
+    if (!event.touches.length) drawerEdgeGesture = false
+    return
+  }
   slideshowSwipe.end(event)
   if (!pictureGesturesEnabled()) return
   if (event.touches.length < 2) {
