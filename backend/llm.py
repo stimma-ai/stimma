@@ -252,6 +252,26 @@ def _normalize_finish_reason(raw: str | None) -> FinishReason:
     return mapping.get(raw.lower(), FinishReason.UNKNOWN)
 
 
+def _glm_reasoning_parser_body(model: str, extra_body: Optional[Dict]) -> Optional[Dict]:
+    """Keep vLLM's GLM parser active even when a caller wants only an answer.
+
+    Some GLM models reason regardless of the off switch. vLLM's glm45 parser
+    bypasses extraction for that switch and concatenates reasoning and answer
+    without a boundary. Enable extraction and discard reasoning after parsing.
+    This is a transport workaround, not a request to expose reasoning.
+    """
+    if not re.search(r'\bglm[-_ ]?[45](?:\b|[._-])', model, re.IGNORECASE):
+        return extra_body
+    body = extra_body or {}
+    ctk = body.get("chat_template_kwargs") or {}
+    if ctk.get("enable_thinking") is not False and body.get("reasoning_effort") != "none":
+        return extra_body
+    body = {**body, "chat_template_kwargs": {**ctk, "enable_thinking": True}}
+    if body.get("reasoning_effort") == "none":
+        body.pop("reasoning_effort")
+    return body
+
+
 def _normalize_response(raw_response) -> LLMResponse:
     """Normalize an _Obj response from acompletion into LLMResponse.
 
@@ -734,6 +754,11 @@ async def llm_completion(
         # (OpenRouter) 400 when it's sent alongside their reasoning param.
         thinking = None
 
+    if getattr(config, "provider_kind", None) == "local" or str(
+        getattr(config, "detected_runtime", None) or ""
+    ).lower().startswith("vllm"):
+        extra_body = _glm_reasoning_parser_body(model, extra_body)
+
     kwargs: Dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -757,6 +782,13 @@ async def llm_completion(
 
     start = time.time()
     raw = await _raw_acompletion(**kwargs)
+    # Legacy/unprofiled endpoints may not identify their runtime until the
+    # first response. Never return the potentially concatenated first answer.
+    if str(getattr(raw, "system_fingerprint", "") or "").lower().startswith("vllm"):
+        parser_body = _glm_reasoning_parser_body(model, kwargs.get("extra_body"))
+        if parser_body != kwargs.get("extra_body"):
+            kwargs = {**kwargs, "extra_body": parser_body}
+            raw = await _raw_acompletion(**kwargs)
     retry_kwargs = _malformed_tool_retry_kwargs(raw, kwargs)
     if retry_kwargs is not None:
         log.warning(
