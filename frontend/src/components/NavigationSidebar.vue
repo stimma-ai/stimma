@@ -207,14 +207,6 @@
             <span class="truncate text-sm">{{ savedView.name }}</span>
           </button>
 
-          <div v-if="pinnedTools.length" class="mt-4">
-            <div class="px-3 pb-1.5 text-xs text-content-muted">Tool shortcuts</div>
-            <button v-for="tool in pinnedTools" :key="tool.full_tool_id" :aria-label="tool.name" class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11" :class="[shortcutHover === tool.full_tool_id ? 'ring-1 ring-accent/50 bg-accent/10' : '', getToolAvailability(tool.full_tool_id) !== 'available' || !isToolCompatible(tool.full_tool_id) ? 'opacity-50' : '']" @click="openShortcut(tool)" @dragover.prevent="handleDragOver" @dragenter="shortcutHover = tool.full_tool_id" @dragleave="shortcutHover = null" @drop="dropOnShortcut(tool, $event)">
-              <ToolIcon :tool="allToolsMap.get(tool.full_tool_id) || tool" bare :ring="false" class="h-4 w-4 shrink-0" /><span class="truncate">{{ tool.name || tool.full_tool_id }}</span>
-            </button>
-            <p v-if="shortcutHover" class="px-3 py-2 text-[11px] text-content-muted">Use as input · output {{ activeProjectId != null ? `to ${activeProject?.name || 'this project'}` : 'has no project' }}</p>
-          </div>
-
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
           <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3">
             <div class="px-3 mb-1.5 text-xs text-content-muted">Open here</div>
@@ -1058,7 +1050,7 @@ const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
 // Navigation
 const router = useRouter()
 const route = useRoute()
-const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
+const { activeProjectId, refreshProjects, rememberProject, selectProject } = useWorkingContext()
 const activeTab = computed(() => contextSection(route.name) || route.name)
 
 // WebSocket
@@ -1219,35 +1211,6 @@ const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
 const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
 const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
 const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
-const shortcutHover = ref<string | null>(null)
-
-async function openShortcut(tool: any) {
-  if (getToolAvailability(tool.full_tool_id) !== 'available') {
-    addToast(getToolSubtitle(tool.full_tool_id), 'warning')
-    return
-  }
-  await router.push({ name: 'tool', params: { fullToolId: tool.full_tool_id }, query: activeProjectId.value == null ? {} : { project_id: String(activeProjectId.value) } })
-  if (props.isMobile) emit('close')
-}
-async function dropOnShortcut(tool: any, event: DragEvent) {
-  const ids = getDroppedMediaIds(event.dataTransfer)
-  if (!ids.length) return
-  event.preventDefault()
-  event.stopPropagation()
-  shortcutHover.value = null
-  const destination = activeProjectId.value
-  if (getToolAvailability(tool.full_tool_id) !== 'available') {
-    addToast(getToolSubtitle(tool.full_tool_id), 'warning')
-    return
-  }
-  try {
-    await sendToTool(ids.length > 1 ? ids : ids[0], { ...allToolsMap.value.get(tool.full_tool_id), ...tool }, undefined, destination, null, { add: event.shiftKey || dragAddModifier.value })
-    if (props.isMobile) emit('close')
-  } catch (error) {
-    addToast(error instanceof Error ? error.message : 'Could not send assets to this tool.', 'warning')
-  }
-}
-
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)
 // Live shift state while dragging over a tool tab: shift flips the drop from

@@ -1,5 +1,5 @@
 import { expect, test } from '../helpers/testbed';
-import { apiJSON, createProject, generateMedia, listMedia, openTool, promptInput, submitGeneration, TEST_I2I_TOOL_ID, waitFor, waitForShell } from '../helpers/app';
+import { apiJSON, createProject, generateMedia, listMedia, openTool, openToolById, promptInput, submitGeneration, TEST_I2I_TOOL_ID, waitFor, waitForShell } from '../helpers/app';
 
 const promptText = (page: any) => promptInput(page).evaluate(el => [...el.querySelectorAll('.cm-line')].map(line => {
   const clone = line.cloneNode(true) as HTMLElement;
@@ -128,16 +128,19 @@ test.describe('working context', () => {
     await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/assets`));
   });
 
-  test('a Library image dropped on a shared tool shortcut produces project output', async ({ page }) => {
+  test('an Everything image dropped on a project tool session produces project output', async ({ page }) => {
     await page.goto('/browse');
     await waitForShell(page);
     const source = await generateMedia(page, `context borrowed input ${Date.now()}`);
     const project = await createProject(page, 'Context handoff');
     await apiJSON(page, '/api/tools/pin', { method: 'POST', data: { full_tool_id: TEST_I2I_TOOL_ID } } as any);
     await choose(page, project.name);
-    const shortcut = sidebar(page).getByRole('button', { name: 'Test Image to Image', exact: true });
-    await expect(shortcut).toBeVisible();
-    await shortcut.evaluate((element, mediaId) => {
+    await openToolById(page, TEST_I2I_TOOL_ID, project.id);
+    await sidebar(page).getByRole('button', { name: 'Assets', exact: true }).click();
+    await expect(sidebar(page).getByText('Tool shortcuts', { exact: true })).toHaveCount(0);
+    const session = sidebar(page).getByRole('button', { name: /Test Image to Image/ }).first();
+    await expect(session).toBeVisible();
+    await session.evaluate((element, mediaId) => {
       const dataTransfer = new DataTransfer();
       dataTransfer.setData('application/x-media-id', String(mediaId));
       element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
