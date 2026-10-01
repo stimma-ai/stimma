@@ -56,7 +56,7 @@ class EquationType(str, Enum):
 
 
 # Transitions allowed on an equation's status. Any transition not listed is
-# a bug. See FLOWS_TECH.md §FRP Runtime for the lifecycle.
+# a bug.
 _STATUS_TRANSITIONS = {
     EquationStatus.PENDING: {
         EquationStatus.COMPUTING,
@@ -126,8 +126,7 @@ class NodeRef:
 
     Build-time inspection is rejected. Attribute access, iteration,
     subscript access, arithmetic, comparison, boolean coercion, and
-    f-string interpolation all raise NodeUsageError. This matches FLOWS_DSL
-    §8 ("you tried to use a value reference as a resolved value") — the
+    f-string interpolation all raise NodeUsageError ("you tried to use a value reference as a resolved value") — the
     single most common agent mistake per the authoring experiment.
     """
     equation_key: str
@@ -478,7 +477,7 @@ class EquationGraph:
 
         A dep is "satisfied" if it is COMPLETED (has a result to pass
         through) or SKIPPED (the iteration's output is dropped from the
-        parent foreach's collection; see FLOWS_TECH §Failure Isolation).
+        parent foreach's collection).
 
         Control wrappers with an unexpanded deferred (foreach) are
         skipped: their real dependencies are the per-iteration children

@@ -23,7 +23,6 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import SearchResultsView from '../views/SearchResultsView.vue'
-import ForeachMockView from '../views/ForeachMockView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
@@ -216,12 +215,6 @@ const routes = [
     meta: { surface: 'detail' },
     component: ToolView,
     props: true
-  },
-  {
-    path: '/dev/foreach-mock',
-    name: 'dev-foreach-mock',
-    component: ForeachMockView,
-    meta: { surface: 'detail', skipRouteRestore: true }
   }
 ]
 

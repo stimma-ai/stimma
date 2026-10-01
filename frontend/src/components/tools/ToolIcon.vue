@@ -44,8 +44,6 @@
  *     neutral tile. The ring can be suppressed via `ring=false` when the
  *     surrounding surface already conveys "Stimma Cloud" (e.g. a card border),
  *     to avoid stacking two cloud rims.
- *
- * Treatment, sizes, and glyphs mirror plans/icon-branding/mocks/tool-icons.html.
  */
 import { computed } from 'vue'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'

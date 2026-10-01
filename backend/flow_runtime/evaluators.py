@@ -24,7 +24,7 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 class EvaluatorError(RuntimeError):
     """Base class for evaluator-surfaced errors, classified by category.
 
-    Categories follow FLOWS_TECH.md §Error Handling:
+    Categories:
 
       - transient      (retryable — network, rate limit, 5xx)
       - tool_error     (no retry — safety filter, bad input)
@@ -63,8 +63,7 @@ class EvaluationRequest:
     instructions: Optional[str] = None
     payload: dict[str, Any] = field(default_factory=dict)
     # Populated by the engine so production evaluators can tag produced
-    # artifacts back to the flow that made them (FLOWS_TECH §Media
-    # Integration). Optional / empty for older tests that construct a
+    # artifacts back to the flow that made them. Optional / empty for older tests that construct a
     # request by hand.
     flow_id: Optional[int] = None
     project_id: Optional[int] = None

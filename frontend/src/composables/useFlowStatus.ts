@@ -15,7 +15,7 @@ export { deriveFlowStatusLabel, type FlowStatusLabel } from '../utils/flowStatus
  * Error / Done.
  */
 // Colors route through the statusColors.ts single source of truth
-// (STANDARDS.md §1.9). Running and Your Turn are the two "live" states —
+// (DESIGN.md §1.9). Running and Your Turn are the two "live" states —
 // they get pulse-soft (never stock animate-pulse) on top of the bucket dot.
 export function flowStatusDotClass(label: FlowStatusLabel): string {
   const base = dotClass(mapFlowStatus(label))

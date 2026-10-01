@@ -81,7 +81,7 @@ class MediaItem(Base):
     # abstraction (flow-as-tool). These are NEVER part of the user's library — they
     # are tagged with the run id, excluded from every user-facing query / ingestion /
     # lineage / websocket path, and hard-deleted when the run ends (or swept if the
-    # run crashes). NULL = normal, permanent media. See plans/CUSTOM_TOOLS_BUILD.md.
+    # run crashes). NULL = normal, permanent media.
     ephemeral_run_id = Column(String, nullable=True, index=True)
 
     # Tool/preset provenance - which tool and preset created this media
@@ -1059,7 +1059,7 @@ class UserTool(Base):
     ``output_map``) record how the flow was made unattended-runnable.
 
     Registered into the tool namespace by ``UserToolsProvider`` and executed via
-    ``flow_runtime.oneshot.run_flow_once``. See plans/FLOW_TO_TOOL.md §2/§7.
+    ``flow_runtime.oneshot.run_flow_once``.
     """
     __tablename__ = "user_tools"
 

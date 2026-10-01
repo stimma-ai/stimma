@@ -731,7 +731,7 @@ def recover_all_running_flows(
 ) -> list[FlowRuntime]:
     """Reset `computing` rows to `pending` and return runtimes ready to start.
 
-    Called at backend startup (FLOWS_TECH §Implementation Notes). Caller
+    Called at backend startup. Caller
     supplies `flow_rows` (list of row-dicts with at least id and
     state_db_path accessible), and a builder that constructs a configured
     `FlowRuntime` for each.

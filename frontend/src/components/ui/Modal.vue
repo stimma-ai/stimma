@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Atelier Modal shell (STANDARDS.md §2, §3 "Modal" pattern). The one modal
+// Atelier Modal shell (DESIGN.md §2, §3 "Modal" pattern). The one modal
 // backdrop/card/transition implementation in the app — everything else in
-// the modal family (ConfirmDialog, and eventually the ~25 ad-hoc modals in
-// INVENTORY.md §2) builds on this rather than re-pasting Teleport/backdrop/
+// the modal family (ConfirmDialog, and eventually the ad-hoc modals)
+// builds on this rather than re-pasting Teleport/backdrop/
 // Transition markup.
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { isTauri } from '../../apiConfig'

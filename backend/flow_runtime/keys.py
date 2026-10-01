@@ -1,6 +1,6 @@
 """Equation key and iteration key derivation.
 
-See docs/FLOWS_EQUATION_KEYS.md §3, §6, §7 for the full spec. In short:
+In short:
 
 - Equation keys are structural, human-readable, and stable under edits that
   don't change function names or the ordering of DSL calls. Format:
@@ -49,7 +49,7 @@ class EquationKeyError(ValueError):
 def validate_function_name(name: str) -> None:
     """Reject names that would produce ambiguous or invalid keys.
 
-    Per FLOWS_EQUATION_KEYS.md §7: `@` is reserved for the sub-flow
+    `@` is reserved for the sub-flow
     namespace prefix and `$` is reserved as the positional-index separator.
     Function names must also be valid Python identifiers (with `.` allowed
     to support `hitl.select` et al, which we use as function-name-like
@@ -172,7 +172,7 @@ def make_nested_foreach_iteration_key(
     function_name: str,
     iteration_key: Any,
 ) -> str:
-    """Nested foreach-callback wrapper: `<parent>/fn:iter` (FLOWS_EQUATION_KEYS §6 nested foreach)."""
+    """Nested foreach-callback wrapper: `<parent>/fn:iter` (nested foreach)."""
     validate_function_name(function_name)
     return f"{parent_key}/{function_name}:{encode_iteration_key(iteration_key)}"
 

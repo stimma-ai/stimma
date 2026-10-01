@@ -174,7 +174,7 @@ function unapprove() {
 }
 
 // 'approved' stays a literal blue frame — that's the app's selection-accent
-// convention (STANDARDS §1.8 filter-state pair), not a status bucket.
+// convention (DESIGN.md §1.8 filter-state pair), not a status bucket.
 const frameClass = computed(() => {
   switch (cellState.value) {
     case 'failed':   return `${cardFrameClass('failed')} ${rowBgClass('failed')}`

@@ -13,7 +13,7 @@ Owns one `FlowRun` per running flow. Responsibilities:
 
 Tool invocations submitted by evaluators are expected to go through the
 existing generation queue, which handles provider-side concurrency below
-the flow's cap (FLOWS_TECH §FRP Runtime).
+the flow's cap.
 
 All state changes write through to the per-flow state.db via
 `graph_db.py`.
@@ -231,8 +231,7 @@ class FlowRun:
     async def pause(self) -> None:
         """Stop scheduling new work. Returns immediately; in-flight
         evaluations keep running and finish naturally (their results are
-        written through to state.db on completion). Per FLOWS_TECH
-        §Pause / Resume.
+        written through to state.db on completion).
         """
         if self._state != RunState.RUNNING:
             return
@@ -1894,8 +1893,8 @@ class FlowRun:
         """Fire flow_equation_updated for the current in-memory equation.
 
         Called from _persist_status after the state.db write so every
-        persisted status transition produces a WS event. The payload follows
-        FLOWS_TECH §WebSocket Events and includes enough state for the
+        persisted status transition produces a WS event. The payload
+        includes enough state for the
         phase tree to rerender without a refetch.
 
         We also piggyback the root-phase status_summary so non-active
@@ -2043,8 +2042,7 @@ class FlowRun:
     def _collect_foreach_result(self, wrapper: Equation) -> list[Any]:
         """For a completed foreach, gather results from child per-iteration wrappers.
 
-        Skipped iterations (per FLOWS_TECH §Failure Isolation and §User
-        Response to Failures: "The loop's output collection omits the
+        Skipped iterations (failure isolation: "The loop's output collection omits the
         skipped item.") are dropped from the output collection; the rest of
         the scheduler must only call this once all children are terminal.
         """
@@ -2344,8 +2342,8 @@ def _error_actions_for(in_loop: bool) -> list[str]:
 
 def _is_inside_foreach_iteration(equation_key: str) -> bool:
     """True when the key has at least one `fn:iter_key` segment, meaning it
-    sits inside (or is) a foreach-iteration wrapper. The FLOWS_EQUATION_KEYS
-    §3 format uses `:` to separate a function name from its iteration key,
+    sits inside (or is) a foreach-iteration wrapper. The equation key
+    format uses `:` to separate a function name from its iteration key,
     while `/` separates nesting levels.
 
     LLM slots use `slot:N`; they are not foreach iterations and should not

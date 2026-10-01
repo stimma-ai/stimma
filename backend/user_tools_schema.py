@@ -5,7 +5,6 @@ source by ``flow_dsl.loader._input_spec_to_stp_property``. There is **no
 vocabulary translation here** (that was the bug). This is pure structural
 assembly: wrap the per-name STP properties into one STP object schema and hoist
 the per-property ``optional`` marker into the object-level ``required`` array.
-See plans/FLOW_TO_TOOL.md §2.1.
 """
 
 from __future__ import annotations

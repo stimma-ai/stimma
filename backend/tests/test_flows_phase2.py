@@ -1,6 +1,6 @@
 """Phase 2 tests for the Flows feature — FRP runtime core.
 
-Covers the Phase 2 exit gate from docs/FLOWS_DEV_PLAN.md §Phase 2:
+Covers:
 
 1. Hand-written flow with foreach + HITL + parallel branches runs end-to-end.
 2. Invalidation + re-evaluation works.

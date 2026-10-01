@@ -1,6 +1,6 @@
 """Phase 4 tests — HITL + task system.
 
-Covers the Phase 4 exit gate from docs/FLOWS_DEV_PLAN.md §Phase 4:
+Covers:
 
   1. HITL primitives work end-to-end: task creation, payload,
      resolution, downstream unblock.
@@ -407,7 +407,7 @@ async def test_error_task_created_on_failure(isolated_store_and_db):
 @pytest.mark.parametrize("category", ["transient", "tool_error", "code_error", "llm_error", "resource"])
 async def test_error_task_metadata_per_failure_category(isolated_store_and_db, category):
     """Error task records the category across all five failure categories
-    per FLOWS_TECH §Error Handling. RESOURCE pauses the flow but still
+    RESOURCE pauses the flow but still
     surfaces the task before pausing."""
     db_path, store = isolated_store_and_db
 

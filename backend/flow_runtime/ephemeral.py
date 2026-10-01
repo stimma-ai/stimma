@@ -14,8 +14,6 @@ This module is the small, dependency-light core:
   evaluator → ``execute_call_tool`` → job submission all see it. The job carries
   the id forward into the (separate) generation-queue worker via its params.
 - ``purge_ephemeral_run`` — the hard-delete used both at run end and by the sweeper.
-
-See plans/FLOW_TO_TOOL.md §7 and plans/CUSTOM_TOOLS_BUILD.md.
 """
 
 from __future__ import annotations

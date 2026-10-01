@@ -1,6 +1,6 @@
 """Shape-propagation validator tests.
 
-Covers the v1 build-time checks from docs/FLOWS_SHAPE_VALIDATION.md:
+Covers the v1 build-time shape checks:
 
 - ``code()`` subscript access against an upstream ``llm(response_format=…)``
   dict: invalid keys flagged, valid keys pass through.

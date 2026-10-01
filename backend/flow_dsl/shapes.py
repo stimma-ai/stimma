@@ -17,7 +17,7 @@ its returned NodeRef, plus the helpers two v1 validators need:
   compared against the shapes bound to each tool param (required missing,
   scalar-vs-array mismatch, literal-type mismatch).
 
-Design: see docs/FLOWS_SHAPE_VALIDATION.md. The taxonomy is intentionally
+The taxonomy is intentionally
 small. ``Unknown`` is the escape hatch — we never raise on an Unknown
 mismatch, so programs only break if we *positively* detect a wrong handoff.
 """

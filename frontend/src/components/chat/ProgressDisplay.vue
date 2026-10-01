@@ -112,7 +112,7 @@ const progressPercent = computed(() => {
   return Math.round((props.displayData.current / props.displayData.total) * 100)
 })
 
-// Status → bucket per STANDARDS.md §1.9 (statusColors.ts is the single
+// Status → bucket per DESIGN.md §1.9 (statusColors.ts is the single
 // source of truth): cancelled/timed_out are non-fatal trouble (warning),
 // completed is terminal success (done), error is terminal failure (failed),
 // everything else (in_progress) is running.

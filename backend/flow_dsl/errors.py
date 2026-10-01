@@ -2,8 +2,8 @@
 
 The goal of this module is to produce error messages that an LLM agent can
 fix by reading. Each error category points at the mistake and suggests the
-correct pattern, matching the failure modes observed in the DSL authoring
-experiment (see stimma-cloud/docs/dsl_experiment/REPORT.md).
+correct pattern, matching the failure modes observed when agents author
+flows.
 
 Categories:
 
@@ -45,7 +45,7 @@ class NodeUsageError(DSLError):
     This includes: attribute access on a Node, iteration/unpacking, arithmetic,
     comparisons, boolean coercion, subscript access, and f-string interpolation.
     The agent sees ``"you tried to use a value reference as a resolved value"``
-    as the leading phrase, which matches the language in FLOWS_DSL.md §8.
+    as the leading phrase, which matches the language NodeUsageError uses.
     """
 
     def __init__(self, operation: str, *, hint: str = "") -> None:

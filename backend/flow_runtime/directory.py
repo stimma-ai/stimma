@@ -1,6 +1,6 @@
 """Flow on-disk directory lifecycle (create, delete, fork).
 
-Layout per FLOWS_TECH.md §"On-Disk Storage":
+On-disk layout:
 
     <data_dir>/<profile_id>/flows/<flow_id>/
     ├── program.py
@@ -198,7 +198,7 @@ def fork_flow_directory(
 ) -> Path:
     """Fork the on-disk directory of `parent_flow_id` into `new_flow_id`.
 
-    Steps (per FLOWS_TECH.md §Forking, steps 2–5):
+    Forking steps 2–5:
       2. Copy parent's flow directory to the new location (APFS clonefile
          when available, otherwise recursive copy).
       3. Snapshot the parent's current program.py as program_base.py in the

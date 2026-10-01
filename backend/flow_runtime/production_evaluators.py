@@ -3,7 +3,7 @@
 Phase 5.5 filler. Each evaluator here implements
 ``flow_runtime.evaluators.Evaluator`` for one equation type and raises
 ``EvaluatorError`` with the correct category so the engine's retry / pause /
-error-task flow does the right thing (see FLOWS_TECH.md §Error Handling):
+error-task flow does the right thing:
 
   - ``tool_call``  → generation queue + ``execute_call_tool`` path used by
     the agent. Returns an ``EvaluationResult`` whose ``media_ids`` are the

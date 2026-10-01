@@ -7,8 +7,7 @@ polluting the main database with potentially millions of equation rows and
 makes forking efficient (the file can be copied — APFS clonefile when
 available).
 
-Schema matches FLOWS_TECH.md §"Data Model" and §"Indexes (per-flow
-database)" exactly.
+The per-flow database schema and its indexes.
 """
 
 from __future__ import annotations
@@ -64,7 +63,7 @@ CREATE TABLE IF NOT EXISTS hitl_results (
 )
 """
 
-# Indexes per FLOWS_TECH.md §"Indexes (per-flow database)"
+# Indexes for the per-flow database
 _INDEX_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS ix_equations_status ON equations(status)",
     "CREATE INDEX IF NOT EXISTS ix_equations_key ON equations(equation_key)",
@@ -170,7 +169,7 @@ def verify_state_db_schema(db_path: Path) -> None:
 def reset_transient_equation_states(db_path: Path) -> int:
     """Reset `computing` and `awaiting_input` equations back to `pending`.
 
-    Used on fork (per FLOWS_TECH.md §Forking step 5) and on app restart to
+    Used on fork (step 5) and on app restart to
     recover from interrupted evaluations. Returns the number of rows updated.
     """
     conn = _connect(db_path)

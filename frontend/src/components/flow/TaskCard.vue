@@ -230,7 +230,7 @@ function submitErrorAction(action: string, value?: any) {
 }
 
 // ----- Type badge -----
-// Task-type buckets, routed through statusColors.ts (STANDARDS 1.9) rather
+// Task-type buckets, routed through statusColors.ts (DESIGN.md §1.9) rather
 // than an inline switch of raw color classes: select reads as an open
 // decision (running/blue), approve as a settled ask (done/green), error as
 // failed (red), waiting_for_tool as non-fatal trouble (warning/amber).

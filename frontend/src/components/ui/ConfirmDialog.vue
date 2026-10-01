@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Atelier ConfirmDialog — absorbs ConfirmModal + DeleteConfirmModal
-// (STANDARDS.md §2). Built on Modal.vue + Button.vue so every confirm in
+// (DESIGN.md §2). Built on Modal.vue + Button.vue so every confirm in
 // the app shares one backdrop/z-index/transition/button implementation.
 import Modal from './Modal.vue'
 import Button from './Button.vue'

@@ -1777,7 +1777,7 @@ function formatStepParamValue(key, value) {
 
 // Local status vocabulary (clip_status/face_detection_status/vlm_caption_status)
 // mapped onto the shared StatusBucket vocabulary — colors always come from
-// statusColors.ts via StatusDot (STANDARDS.md §1.9); this only knows the
+// statusColors.ts via StatusDot (DESIGN.md §1.9); this only knows the
 // mapping, never a color.
 function processingStatusBucket(status) {
   switch (status) {

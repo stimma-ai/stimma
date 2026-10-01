@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-// Atelier Spinner — the one hand-rolled spinner treatment (STANDARDS.md §2,
+// Atelier Spinner — the one hand-rolled spinner treatment (DESIGN.md §2,
 // §4: inline `<svg class="animate-spin">` and bespoke bordered-div spinners
 // are a review rejection outside this component). `hue` lets a caller swap
 // the leading-edge color for a status-specific spinner (e.g. purple for

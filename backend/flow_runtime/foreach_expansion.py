@@ -299,7 +299,7 @@ def expand_foreach(
     For each item we run the callback inside a fresh BuildFrame whose
     parent_key is ``<wrapper_key>/<fn_name>:<iter_key>``. That frame is
     the one the callback's DSL calls register equations under, which
-    gives the full-nested key format from FLOWS_EQUATION_KEYS §3.
+    gives the full-nested key format.
 
     When ``persistor`` is None (build-time path), no DB writes happen and
     callback failures re-raise so the loader aborts. When supplied, every

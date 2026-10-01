@@ -4,8 +4,6 @@ Freezing snapshots a flow's program text and derives a canonical STP interface
 from its declared ``input_schema``, validates that interface against the
 declared task type(s), and persists it. The resulting tool runs unattended via
 ``flow_runtime.oneshot.run_flow_once`` even if the source flow is later deleted.
-
-See plans/FLOW_TO_TOOL.md §2/§7.
 """
 
 from __future__ import annotations
@@ -30,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 def slugify_tool_name(name: str) -> str:
-    """Stable URL slug for a tool name. Frozen at creation (see FLOW_TO_TOOL §10.8)
+    """Stable URL slug for a tool name. Frozen at creation
     so the tool id (``{slug}-{id}``) survives renames."""
     return re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-") or "tool"
 

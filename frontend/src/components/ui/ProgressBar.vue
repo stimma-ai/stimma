@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-// Atelier ProgressBar — the one progress-bar treatment (STANDARDS.md §2).
+// Atelier ProgressBar — the one progress-bar treatment (DESIGN.md §2).
 // Determinate fill takes a 0-100 `value`; `indeterminate` swaps to the
 // shimmer pattern (PipelineProgressBar.vue's travelling-sheen pattern) for
 // "working, position unknown" states. `hue` overrides the fill color for

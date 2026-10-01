@@ -5,7 +5,7 @@
       <div ref="editorMount"></div>
 
       <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
-           (STANDARDS §3.3). Every control here is monochrome text/icons, 11px,
+           (DESIGN.md §3.3). Every control here is monochrome text/icons, 11px,
            no pills — the AI sparkle is the only colored glyph in the bar. -->
       <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-edge-subtle">
         <!-- Left: generate-time prompt pipeline (hidden in flow context — flows

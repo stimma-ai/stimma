@@ -354,7 +354,7 @@ body {
   --color-slideshow-matt: #000000;
   --color-surface-elevated: rgba(19,23,32,0.95);
 
-  /* Atelier accents (see plans/reskin/STANDARDS.md outside this repo).
+  /* Atelier accents (see frontend/DESIGN.md).
      accent      = THE interactive accent (fills: buttons, toggles-on).
      accent-hi   = brightened accent for text/icons/rings on dark grounds.
      selection   = selected-state accent (indigo family). Selection ≠ action.
@@ -700,7 +700,7 @@ select option {
 }
 
 /* ============================================
-   Canonical Vue <Transition> vocabulary (STANDARDS.md §1.7)
+   Canonical Vue <Transition> vocabulary (DESIGN.md §1.7)
    ============================================
    Named transitions come from THIS stylesheet only — per-component scoped
    copies (`fade`/`modal` re-pasted into ~20 files) are drift, not variants.
@@ -745,7 +745,7 @@ select option {
 }
 
 /* menu — context menus, dropdowns, popovers: fast fade+scale in, faster
-   out. Distinct timing from `modal` per STANDARDS.md §1.7. */
+   out. Distinct timing from `modal` per DESIGN.md §1.7. */
 .menu-enter-active {
   transition: opacity 120ms ease-out, transform 120ms ease-out;
 }

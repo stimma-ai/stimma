@@ -1,6 +1,6 @@
 """Store key derivation for the global equation store.
 
-See docs/FLOWS_EQUATION_KEYS.md §4 and docs/FLOWS_DSL.md §7. In short:
+In short:
 
     store_key = sha256(equation_type + ":" + definition_hash + ":"
                        + inputs_hash + ":" + attempt)
@@ -287,7 +287,7 @@ def compute_store_key(
 ) -> str:
     """Final store key. See module docstring for layout.
 
-    We keep the exact structure specified in FLOWS_EQUATION_KEYS.md §4
+    We keep the exact structure of the store key
     ("sha256(equation_type + ":" + definition_hash + ":" + inputs_hash
     + ":" + str(attempt))") — including the explicit `:` separators — so
     store keys produced by different implementations match byte-for-byte.
@@ -306,7 +306,7 @@ def compute_store_key(
 def derive_seed(equation_key: str, attempt: int) -> int:
     """Seed for tools that support seeds (§4).
 
-    `seed = hash(equation_key + attempt)` per FLOWS_TECH.md §Store Keys.
+    `seed = hash(equation_key + attempt)`.
     Returns an unsigned 32-bit integer (most generation tools constrain the
     seed to a 32-bit space).
     """
