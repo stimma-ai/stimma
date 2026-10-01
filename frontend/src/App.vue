@@ -212,11 +212,6 @@
       <!-- v-show, not v-if, under the slideshow: views teleport controls into
            this header, and a remount would strand them in the old element. -->
       <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" :sidebar-docked="sidebarDocked" :sidebar-dockable="sidebarDockable" @open-settings="openSettings($event)" @open-menu="onCompactMenu" />
-      <ProjectScopeBar
-        v-if="projectChrome.project && !slideshowActive && !compactOverlay"
-        :project="projectChrome.project"
-        :active-name="projectChrome.activeRouteName"
-      />
       <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
         <router-view v-slot="{ Component, route }">
           <KeepAlive :max="20">
@@ -254,12 +249,6 @@
         @open-settings="openSettings($event)"
       />
 
-      <ProjectScopeBar
-        v-if="projectChrome.project && !slideshowActive"
-        :project="projectChrome.project"
-        :active-name="projectChrome.activeRouteName"
-      />
-
       <!-- Page content -->
       <div v-scroll-guard class="flex-1 overflow-hidden flex flex-col relative">
         <router-view v-slot="{ Component, route }">
@@ -279,7 +268,6 @@
 <script setup>
 import { mobileRecoveryVisible } from './composables/useMobileRecovery.js'
 
-import axios from 'axios'
 import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -305,7 +293,8 @@ import CompactHeader from './components/compact/CompactHeader.vue'
 import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
 import GlowCanvas from './components/ui/GlowCanvas.vue'
-import ProjectScopeBar from './components/ProjectScopeBar.vue'
+import { useWorkingContext } from './composables/useWorkingContext'
+import { belongsToContext, contextRoute, contextSection, projectIdFrom } from './utils/workingContext'
 import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
@@ -317,6 +306,7 @@ import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import DirectoryPickerModal from './components/DirectoryPickerModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
+import { getCurrentProfileId, getCurrentDbGuid } from './composables/useProfile'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
@@ -355,7 +345,6 @@ import { refreshAvailableModels } from './composables/useAvailableModels'
 import { useRouteRestore, getSavedRouteForProfile } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
-import { useMediaApi } from './composables/useMediaApi'
 import { useWorkspaceTabs, toolTabRoute, toolRouteTabId, editorTabRoute, editorRouteTabId } from './composables/useWorkspaceTabs'
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
@@ -369,7 +358,6 @@ import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables
 
 const route = useRoute()
 const router = useRouter()
-const { getBoard, getProject } = useMediaApi()
 const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
 const { isAuthenticated, initAuth } = useAuth()
 const { checkStartupReadiness, refreshReadiness } = useReadiness()
@@ -555,16 +543,9 @@ const lockedProfileName = computed(() => {
 
 // Check if current route wants no chrome (sidebar/topbar)
 const noChrome = computed(() => route.meta?.noChrome === true)
-const projectChrome = ref({
-  project: null,
-  activeRouteName: '',
-  surfaceLabel: ''
-})
-
-// Current project context for the global search omnibox scope chip. Follows
-// the same resolution as the ProjectScopeBar: whenever that bar is visible,
-// search opens scoped to that project.
-provide('searchProjectScope', computed(() => projectChrome.value.project))
+const workingContext = useWorkingContext()
+provide('searchProjectScope', workingContext.activeProject)
+const contextTabIds = computed(() => allTabs.value.filter(tab => belongsToContext(tab, workingContext.activeProjectId.value)).map(tab => tab.id))
 
 // Generate a unique component key for each route
 // For tools and chats, include the ID so each gets its own cached instance
@@ -611,75 +592,6 @@ function getComponentKey(route) {
   }
   // For other routes, use the route name for consistent caching
   return route.name || route.path
-}
-
-const projectRouteNameBySurface = {
-  overview: 'project-overview',
-  assets: 'project-assets',
-  chats: 'project-chats',
-  boards: 'project-boards',
-  flows: 'project-flows',
-  tools: 'project-tools',
-  settings: 'project-settings'
-}
-
-async function resolveProjectChrome() {
-  try {
-    const routeName = String(route.name || '')
-    let projectId = null
-    let activeRouteName = ''
-    let surfaceLabel = ''
-
-    if (routeName.startsWith('project-')) {
-      projectId = Number.parseInt(String(route.params.id), 10)
-      activeRouteName = routeName
-      surfaceLabel = routeName.replace('project-', '').replace(/^\w/, (c) => c.toUpperCase())
-    } else if (routeName === 'board-detail') {
-      const board = await getBoard(Number.parseInt(String(route.params.id), 10))
-      projectId = board?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.boards : ''
-      surfaceLabel = projectId != null ? 'Board' : ''
-    } else if (routeName === 'chat') {
-      const response = await axios.get(`${getApiBase()}/chats/${route.params.id}`)
-      projectId = response.data?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.chats : ''
-      surfaceLabel = projectId != null ? 'Chat' : ''
-    } else if (routeName === 'flow') {
-      const response = await axios.get(`${getApiBase()}/flows/${route.params.id}`)
-      projectId = response.data?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.flows : ''
-      surfaceLabel = projectId != null ? 'Flow' : ''
-    } else if (routeName === 'tool' || routeName === 'all-tools' || routeName === 'upload') {
-      const rawProjectId = route.query.project_id
-      if (typeof rawProjectId === 'string' && rawProjectId.trim()) {
-        projectId = Number.parseInt(rawProjectId, 10)
-        activeRouteName = ''
-        surfaceLabel = routeName === 'upload' ? 'Upload' : routeName === 'tool' ? 'Tool' : 'Tools'
-      }
-    }
-
-    if (!projectId || !Number.isFinite(projectId)) {
-      projectChrome.value = {
-        project: null,
-        activeRouteName: '',
-        surfaceLabel: ''
-      }
-      return
-    }
-
-    const project = await getProject(projectId)
-    projectChrome.value = {
-      project,
-      activeRouteName,
-      surfaceLabel
-    }
-  } catch {
-    projectChrome.value = {
-      project: null,
-      activeRouteName: '',
-      surfaceLabel: ''
-    }
-  }
 }
 
 // Chrome mode comes from the one viewport source of truth (useViewport):
@@ -906,7 +818,7 @@ function handleKeydown(e) {
         addToast('Unpin this tab before closing it', 'warning', 3000)
         return
       }
-      const next = findNextTab(new Set([activeId]))
+      const next = findNextTab(new Set([activeId]), contextTabIds.value)
       if (next) navigateToTab(next)
       else router.push({ name: 'browse' })
       removeTab(activeId)
@@ -938,7 +850,7 @@ function handleKeydown(e) {
   if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
     const activeId = getActiveTabId()
     if (activeId) {
-      const next = getNextTab(activeId)
+      const next = getNextTab(activeId, contextTabIds.value)
       if (next) {
         e.preventDefault()
         navigateToTab(next)
@@ -950,7 +862,7 @@ function handleKeydown(e) {
   if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
     const activeId = getActiveTabId()
     if (activeId) {
-      const prev = getPrevTab(activeId)
+      const prev = getPrevTab(activeId, contextTabIds.value)
       if (prev) {
         e.preventDefault()
         navigateToTab(prev)
@@ -1112,6 +1024,7 @@ async function loadAppSettings() {
   }
   // Notify components that settings (especially bundle_id/sandbox) are now available
   window.dispatchEvent(new CustomEvent('settings-loaded'))
+  await syncWorkingContext()
 }
 
 /**
@@ -1248,13 +1161,28 @@ watch([currentProfileId, profiles], async ([profileId]) => {
   }
 }, { immediate: true })
 
-watch(
-  () => [route.name, route.params.id, route.query.project_id],
-  () => {
-    resolveProjectChrome()
-  },
-  { immediate: true }
-)
+// Settings establish the bundle/sandbox storage prefix after the router's
+// first navigation. Reconcile explicit destinations against the final key so
+// an old project link cannot leave a Library picker above a project browser.
+async function syncWorkingContext() {
+  await workingContext.refreshProjects()
+  const name = String(route.name || '')
+  const explicitId = name.startsWith('project-')
+    ? projectIdFrom(route.params.id)
+    : name === 'tool' ? projectIdFrom(route.query.project_id) : null
+  if (explicitId != null && workingContext.projects.value.some(p => p.id === explicitId)) {
+    workingContext.selectProject(explicitId)
+  } else if (name === 'tool' && route.query.project_id === '0') {
+    workingContext.selectProject(null)
+  } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(name) && 'workingProjectId' in route.meta) {
+    workingContext.selectProject(route.meta.workingProjectId)
+  }
+  const section = contextSection(route.name)
+  if (section && route.name === section && workingContext.activeProjectId.value != null && route.query.projects !== '1' && route.query.library !== '1') {
+    await router.replace({ ...contextRoute(section, workingContext.activeProjectId.value), query: route.query })
+  }
+}
+watch(() => [getCurrentProfileId(), getCurrentDbGuid()], syncWorkingContext, { immediate: true })
 
 // When user signs in via settings, refresh cloud-specific state (credits)
 watch(isAuthenticated, async (authenticated) => {

@@ -18,6 +18,7 @@ from database import (
     Project,
     ProjectAsset,
     ProjectMedia,
+    SavedView,
 )
 from models.api_models import (
     ProjectCreateRequest,
@@ -244,6 +245,10 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
     await session.execute(
         delete(ProjectMedia).where(ProjectMedia.project_id == project_id)
     )
+
+    await session.execute(update(SavedView).where(
+        SavedView.project_id == project_id, SavedView.deleted_at.is_(None)
+    ).values(deleted_at=deleted_at, updated_at=deleted_at))
 
     project.deleted_at = deleted_at
     project.updated_at = deleted_at

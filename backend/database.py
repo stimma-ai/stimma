@@ -1496,6 +1496,8 @@ class SavedView(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    deleted_at = Column(DateTime, nullable=True)
     filters = Column(String, nullable=False)  # JSON string of filter criteria
     sort_by = Column(String, nullable=False, default='created_desc')
     display_order = Column(Integer, nullable=False, default=0)  # For manual ordering
@@ -1510,6 +1512,7 @@ class SavedView(Base):
         return {
             "id": self.id,
             "name": self.name,
+            "project_id": self.project_id,
             "filters": json.loads(self.filters) if self.filters else {},
             "sort_by": self.sort_by,
             "display_order": self.display_order,

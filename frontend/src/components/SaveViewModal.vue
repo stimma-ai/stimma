@@ -43,6 +43,7 @@ const props = defineProps({
     type: Object,
     required: true
   },
+  projectId: { type: Number, default: null },
   sortBy: {
     type: String,
     default: 'created_desc'
@@ -82,7 +83,7 @@ async function handleSave() {
   saving.value = true
   errorMessage.value = ''
   try {
-    const newView = await createSavedView(viewName.value.trim(), props.filters, props.sortBy)
+    const newView = await createSavedView(viewName.value.trim(), props.filters, props.sortBy, props.projectId)
     emit('saved', newView)
     emit('close')
     // Navigate to the new saved view

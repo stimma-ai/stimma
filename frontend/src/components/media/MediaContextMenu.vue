@@ -925,6 +925,7 @@ import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { planToolHandoff } from '../../utils/toolHandoff'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
+import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { openImageEditor } from '../../imageEditor/stack/openImageEditor'
 import { usePrint } from '../../composables/usePrint'
@@ -961,6 +962,7 @@ interface GenerateMoreTool {
 }
 
 const router = useRouter()
+const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
 const { printAssetDetail, printContactSheet } = usePrint()
@@ -1078,6 +1080,7 @@ const originalToolInstance = computed(() => {
   if (!tool || !generatorId) return undefined
   return (workspaceTabs.value as WorkspaceTab[]).find(tab =>
     tab.type === 'tool' &&
+    (tab.projectId ?? null) === workingProjectId.value &&
     tab.entityId === tool.full_tool_id &&
     !!tab.instanceId &&
     !!tab.feedScope &&
@@ -1092,7 +1095,7 @@ const originalToolInstance = computed(() => {
 const remixOpenInstances = computed(() => {
   const toolById = new Map(generateMoreTools.value.map(t => [t.full_tool_id, t]))
   return (workspaceTabs.value as WorkspaceTab[])
-    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .filter(t => t.type === 'tool' && (t.projectId ?? null) === workingProjectId.value && !!t.instanceId && toolById.has(t.entityId))
     .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
     .slice(0, 5)
     .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))
@@ -1887,7 +1890,7 @@ async function handleCreateBoardQuickAdd() {
   if (creatingBoardQuickAdd.value) return
   creatingBoardQuickAdd.value = true
   try {
-    const board = await createBoard('', currentProjectId.value)
+    const board = await createBoard('', workingProjectId.value)
     if (targetAssetIds.value.length > 0) {
       await addAssetsToBoard(board.id, targetAssetIds.value)
     } else {
@@ -1915,11 +1918,7 @@ function sendToGenerateTool(tool: GenerateMoreTool) {
   // Target the most-recent open instance of the tool in the current project
   // context (mirrors useSendToTool's effectiveProjectId inference — remix
   // previously dropped project scope entirely).
-  const route = router.currentRoute.value
-  const projectId = route.params.id && String(route.name || '').startsWith('project-')
-    ? Number(route.params.id)
-    : null
-  const { resolveToolInstance } = useWorkspaceTabs()
+  const projectId = workingProjectId.value
   const { instanceId } = resolveToolInstance(tool.full_tool_id, projectId)
   router.push(toolInstanceRoute(tool.full_tool_id, projectId, instanceId, {
     remixFrom: mediaId.toString(),
@@ -1987,7 +1986,7 @@ async function sendToNewChat() {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify({ name: null, project_id: currentProjectId.value || null })
+      body: JSON.stringify({ name: null, project_id: workingProjectId.value })
     })
 
     if (response.ok) {
@@ -2036,7 +2035,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
 
 async function sendToNewFlow() {
   const ids = [...targetMediaIds.value]
-  const projectId = currentProjectId.value || null
+  const projectId = workingProjectId.value
   contextMenu.hide()
   activeSubmenu.value = null
   clearFlowDestination()

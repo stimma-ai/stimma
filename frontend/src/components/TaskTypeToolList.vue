@@ -165,6 +165,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
+import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import ToolIcon from './tools/ToolIcon.vue'
 import ToolProviderLabel from './tools/ToolProviderLabel.vue'
@@ -338,12 +339,13 @@ const allToolsForSelectedTaskType = computed(() => {
 
 // Eligible open tool-instance tabs, most-recently-active first. Eligibility
 // is the tool's (instances inherit their tool's schema).
+const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs } = useWorkspaceTabs()
 const eligibleOpenInstances = computed(() => {
   if (!props.showOpenInstances) return []
   const toolById = new Map(eligibleTools.value.map(t => [t.full_tool_id, t]))
   return (workspaceTabs.value as WorkspaceTab[])
-    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .filter(t => t.type === 'tool' && (t.projectId ?? null) === workingProjectId.value && !!t.instanceId && toolById.has(t.entityId))
     .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
     .slice(0, 5)
     .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))

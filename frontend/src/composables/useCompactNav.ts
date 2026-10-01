@@ -19,6 +19,9 @@
 import { hasBackOverride, consumeBackOverride } from './useBackOverride'
 import { reactive, readonly } from 'vue'
 import type { Router } from 'vue-router'
+import { useWorkingContext } from './useWorkingContext'
+import { contextRoute } from '../utils/workingContext'
+import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { hubForRoute, HUB_ROOTS, type HubId } from './useCompactChrome'
 
 interface NavState {
@@ -43,20 +46,40 @@ let router: Router | null = null
 // the result as a pop / switch instead of a fresh push.
 let driving: 'pop' | 'switch' | null = null
 
+const histories = new Map<string, NavState>()
+let contextKey = ''
+function root(hub: HubId): string {
+  const section = { home: 'home', library: 'browse', workspace: 'all-tools', chats: 'chats' }[hub]
+  const id = useWorkingContext().activeProjectId.value
+  return router?.resolve(contextRoute(section, id)).fullPath || HUB_ROOTS[hub]
+}
+function ensureContext() {
+  const key = `${getCurrentProfileId()}:${getCurrentDbGuid()}:${useWorkingContext().activeProjectId.value ?? 'library'}`
+  if (contextKey === key) return
+  if (contextKey) histories.set(contextKey, JSON.parse(JSON.stringify(state)))
+  contextKey = key
+  const saved = histories.get(key)
+  Object.assign(state, saved || {
+    current: 'home', stacks: { home: [root('home')], library: [root('library')], workspace: [root('workspace')], chats: [root('chats')] }, hubHistory: [],
+  })
+  driving = null
+}
+
 function top(hub: HubId): string {
   const s = state.stacks[hub]
   // A stack must stand on its hub's root; anything else is stale (a root
   // that moved under a live session) and starts over.
-  if ((s[0] ?? '').split('?')[0] !== HUB_ROOTS[hub]) state.stacks[hub] = [HUB_ROOTS[hub]]
+  if ((s[0] ?? '').split('?')[0] !== root(hub)) state.stacks[hub] = [root(hub)]
   const t = state.stacks[hub]
-  return t[t.length - 1] ?? HUB_ROOTS[hub]
+  return t[t.length - 1] ?? root(hub)
 }
 
 function isRoot(hub: HubId, path: string): boolean {
-  return path.split('?')[0] === HUB_ROOTS[hub]
+  return path.split('?')[0] === root(hub)
 }
 
 function record(fullPath: string, name: unknown, replaced: boolean) {
+  ensureContext()
   const hub = hubForRoute(name) ?? state.current
   if (driving) {
     driving = null
@@ -83,6 +106,7 @@ function record(fullPath: string, name: unknown, replaced: boolean) {
 export function compactBack() {
   if (consumeBackOverride()) return
   if (!router) return
+  ensureContext()
   const stack = state.stacks[state.current]
   if (stack.length > 1) {
     stack.pop()
@@ -107,6 +131,7 @@ export function compactBack() {
 /** Tab bar tap. */
 export function compactGoToHub(hub: HubId) {
   if (!router) return
+  ensureContext()
   if (hub === state.current) {
     const stack = state.stacks[hub]
     if (stack.length > 1) {
@@ -124,6 +149,7 @@ export function compactGoToHub(hub: HubId) {
 
 /** True when back has somewhere to go other than Home's root. */
 export function compactCanGoBack(): boolean {
+  ensureContext()
   return hasBackOverride.value || state.stacks[state.current].length > 1 || state.hubHistory.length > 0 || state.current !== 'home'
 }
 

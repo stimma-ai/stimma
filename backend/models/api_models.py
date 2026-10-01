@@ -466,6 +466,7 @@ class BulkTrashRequest(BaseModel):
 
 # Saved Views models
 class SavedViewResponse(BaseModel):
+    project_id: Optional[int] = None
     id: int
     name: str
     filters: dict
@@ -479,6 +480,7 @@ class SavedViewResponse(BaseModel):
 
 
 class SavedViewCreateRequest(BaseModel):
+    project_id: Optional[int] = None
     name: str
     filters: dict
     sort_by: str = 'created_desc'

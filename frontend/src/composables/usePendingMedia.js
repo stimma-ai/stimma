@@ -12,7 +12,7 @@ import { getChatDraft } from './useChatDraft'
 // Shape: { target: 'chat' | 'home', chatId: number | null, mediaIds: number[] }
 export const pendingMedia = ref(null)
 
-export function setPendingMedia(target, mediaIds, chatId = null) {
+export function setPendingMedia(target, mediaIds, chatId = null, projectId = null) {
   const ids = (mediaIds || []).map(Number).filter(Number.isInteger)
   if (ids.length === 0) return
   // Commit chat drops before routing: no mounted consumer or async load needed.
@@ -25,6 +25,7 @@ export function setPendingMedia(target, mediaIds, chatId = null) {
   }
   pendingMedia.value = {
     target,
+    projectId,
     chatId: chatId == null ? null : Number(chatId),
     mediaIds: ids
   }
@@ -32,9 +33,10 @@ export function setPendingMedia(target, mediaIds, chatId = null) {
 
 // Returns the pending media IDs (and clears the store) if they were destined for
 // this target/chat; otherwise returns null and leaves the store untouched.
-export function consumePendingMedia(target, chatId = null) {
+export function consumePendingMedia(target, chatId = null, projectId = null) {
   const p = pendingMedia.value
   if (!p || p.target !== target) return null
+  if (target === 'home' && (p.projectId ?? null) !== projectId) return null
   if (target === 'chat' && chatId != null && p.chatId !== chatId) return null
   pendingMedia.value = null
   return p.mediaIds

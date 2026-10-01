@@ -177,12 +177,17 @@ import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsCont
 import { useWorkspaceTabs, toolTabRoute, toolInstanceRoute, toolRouteTabId, editorTabRoute, editorRouteTabId } from '../composables/useWorkspaceTabs'
 import { useProjectRoute } from '../composables/useProjectRoute'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useWorkingContext } from '../composables/useWorkingContext'
+import { belongsToContext } from '../utils/workingContext'
 import { useToasts } from '../composables/useToasts'
 import { useContextMenuPosition, useSubmenuPosition } from '../composables/useContextMenuPosition'
 import ProjectPickerSubmenu from './ProjectPickerSubmenu.vue'
 
 const contextMenu = useWorkspaceTabsContextMenu()
 const { allTabs, findNextTab, removeTab, pinTab, unpinTab, closeOthers, closeAllUnpinned } = useWorkspaceTabs()
+const { activeProjectId } = useWorkingContext()
+const contextTabs = computed(() => allTabs.value.filter(tab => belongsToContext(tab, activeProjectId.value)))
+const contextTabIds = computed(() => contextTabs.value.map(tab => tab.id))
 const { getLastProjectRoute } = useProjectRoute()
 const { deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 const { addToast } = useToasts()
@@ -226,7 +231,7 @@ function goToTab(tab: import('../composables/useWorkspaceTabs').WorkspaceTab) {
 function navigateAfterClose(excludeIds: Set<string>) {
   const activeId = getActiveTabId()
   if (activeId && excludeIds.has(activeId)) {
-    const next = findNextTab(excludeIds)
+    const next = findNextTab(excludeIds, contextTabIds.value)
     if (next) goToTab(next)
     else router.push({ name: 'browse' })
   }
@@ -284,17 +289,17 @@ function handleCloseOthers() {
   const tabId = contextMenu.state.value.tabId
   contextMenu.hide()
   if (tabId) {
-    const removedIds = new Set(allTabs.value.filter(t => t.id !== tabId && !t.pinned).map(t => t.id))
+    const removedIds = new Set(contextTabs.value.filter(t => t.id !== tabId && !t.pinned).map(t => t.id))
     navigateAfterClose(removedIds)
-    closeOthers(tabId)
+    closeOthers(tabId, contextTabIds.value)
   }
 }
 
 function handleCloseAllUnpinned() {
   contextMenu.hide()
-  const removedIds = new Set(allTabs.value.filter(t => !t.pinned).map(t => t.id))
+  const removedIds = new Set(contextTabs.value.filter(t => !t.pinned).map(t => t.id))
   navigateAfterClose(removedIds)
-  closeAllUnpinned()
+  closeAllUnpinned(contextTabIds.value)
 }
 
 function handleRename() {

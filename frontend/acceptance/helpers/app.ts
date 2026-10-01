@@ -67,7 +67,7 @@ type ChatItem = {
 
 export async function waitForShell(page: Page) {
   await continueWithoutAccountIfNeeded(page);
-  await expect(page.getByText('All Assets', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Assets', { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText('Tools', { exact: true }).first()).toBeVisible();
 }
 
@@ -92,7 +92,7 @@ export async function goToBrowse(page: Page) {
     await page.getByRole('link', { name: 'View all' }).first().click();
   }
   if (!(await uploadButton.isVisible({ timeout: 3000 }).catch(() => false))) {
-    await page.getByRole('button', { name: 'All Assets' }).click();
+    await page.getByRole('button', { name: 'Assets' }).click();
   }
   await expect(page).toHaveURL(/\/browse/, { timeout: 10000 });
   await expect(homeHeading).toBeHidden({ timeout: 10000 });
@@ -105,7 +105,7 @@ export async function openTool(page: Page, projectId?: number) {
 
 export async function openToolById(page: Page, toolId: string, projectId?: number, extraQuery: Record<string, string> = {}) {
   const query = new URLSearchParams(extraQuery);
-  if (projectId) query.set('project_id', String(projectId));
+  query.set('project_id', projectId == null ? '0' : String(projectId));
   const suffix = query.toString() ? `?${query.toString()}` : '';
   const toolUrl = `/tools/${toolId}`;
   const url = `${toolUrl}${suffix}`;
@@ -124,6 +124,7 @@ export async function openPromptToolById(page: Page, toolId: string, projectId?:
 }
 
 export async function submitGeneration(page: Page, prompt: string) {
+  await dismissReadinessPanelIfNeeded(page);
   await disablePromptTransforms(page);
   await promptInput(page).fill(prompt);
   // Readiness is fetched asynchronously after route settlement. On a fresh
@@ -140,9 +141,9 @@ export function toolRunButton(page: Page) {
 }
 
 async function disablePromptTransforms(page: Page) {
-  const enhanceButton = page.getByRole('button', { name: 'Enhance Prompt' }).first();
+  const enhanceButton = page.getByRole('button', { name: /^Enhance(?: Prompt)?$/ }).first();
   if (await enhanceButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    const isActive = await enhanceButton.evaluate((el) => el.className.includes('text-purple-500'));
+    const isActive = await enhanceButton.evaluate((el) => el.className.includes('text-purple-500') || el.className.includes('text-accent'));
     if (isActive) await enhanceButton.click();
   }
 
@@ -686,7 +687,7 @@ export function promptInput(page: Page) {
 }
 
 export async function continueWithoutAccountIfNeeded(page: Page) {
-  const shell = page.getByText('All Assets', { exact: true }).first();
+  const shell = page.getByText('Assets', { exact: true }).first();
   const getStarted = page.getByRole('button', { name: 'Get started' }).first();
   const deadline = Date.now() + 30000;
 
@@ -710,7 +711,7 @@ export async function continueWithoutAccountIfNeeded(page: Page) {
 // the shell on every full page load, so dismiss it wherever we settle a load.
 async function dismissReadinessPanelIfNeeded(page: Page) {
   const dismiss = page.getByTestId('readiness-dismiss');
-  if (await dismiss.isVisible({ timeout: 1500 }).catch(() => false)) {
+  if (await dismiss.waitFor({ state: 'visible', timeout: 1500 }).then(() => true).catch(() => false)) {
     await dismiss.click();
     await expect(page.getByTestId('readiness-panel')).toBeHidden({ timeout: 5000 });
   }

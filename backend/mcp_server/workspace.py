@@ -307,13 +307,10 @@ async def catalog(caller, kind, offset, session):
             ],
         }
     model = {"markers": Marker, "tags": Tag, "saved_views": SavedView}[kind]
-    rows = list(
-        (
-            await session.scalars(
-                select(model).order_by(model.id).offset(offset).limit(100)
-            )
-        ).all()
-    )
+    query = select(model)
+    if kind == "saved_views":
+        query = query.where(SavedView.deleted_at.is_(None))
+    rows = list((await session.scalars(query.order_by(model.id).offset(offset).limit(100))).all())
     return {
         "items": present(
             caller,

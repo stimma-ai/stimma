@@ -161,6 +161,7 @@ import ToolIcon from './tools/ToolIcon.vue'
 import ToolProviderLabel from './tools/ToolProviderLabel.vue'
 import { makeStorageKey } from '../utils/storageKeys'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
+import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 
 interface RemixTool {
@@ -243,11 +244,12 @@ const recentTools = computed(() => {
 // active first. Eligibility = the tool appears in the remix tool list; each
 // row targets its exact tab, which is the only way remix reaches named
 // instances (instance resolution skips them by design).
+const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs } = useWorkspaceTabs()
 const openInstances = computed(() => {
   const toolById = new Map(tools.value.map(t => [t.full_tool_id, t]))
   return (workspaceTabs.value as WorkspaceTab[])
-    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .filter(t => t.type === 'tool' && (t.projectId ?? null) === workingProjectId.value && !!t.instanceId && toolById.has(t.entityId))
     .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
     .slice(0, 5)
     .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))

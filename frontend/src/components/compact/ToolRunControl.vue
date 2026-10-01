@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<{
   concurrency: number
   idleLimit: number
   isMac?: boolean
+  outputDestination?: string
 }>(), { isMac: false })
 
 const emit = defineEmits<{
@@ -92,6 +93,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
   </button>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">
+    <p v-if="outputDestination" class="px-4 py-3 text-sm text-content-muted">Output: {{ outputDestination }}</p>
     <div class="flex items-center justify-between px-4 min-h-14">
       <span class="text-[15px] text-content">Batch size</span>
       <div class="flex items-center rounded-md bg-overlay-subtle overflow-hidden">

@@ -3,12 +3,13 @@
  * Assets scope, opened by tapping the Assets hub's title: All assets, saved
  * views, Upload, Trash. The desktop sidebar's zone 1 as a sheet.
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Squares2X2Icon, TrashIcon, BookmarkIcon, ArrowUpTrayIcon, CheckIcon,
 } from '@heroicons/vue/24/outline'
 import Sheet from '../ui/Sheet.vue'
+import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useMediaApi } from '../../composables/useMediaApi'
 
 const props = defineProps<{ show: boolean }>()
@@ -18,7 +19,9 @@ const route = useRoute()
 const router = useRouter()
 const { getSavedViews } = useMediaApi()
 
+const { activeProjectId } = useWorkingContext()
 const savedViews = ref<any[]>([])
+const contextSavedViews = computed(() => savedViews.value.filter(v => (v.project_id ?? null) === activeProjectId.value))
 
 watch(() => props.show, async (open) => {
   if (!open) return
@@ -40,15 +43,15 @@ function isActive(name: string, id?: string | number) {
     <div class="pb-2">
       <button type="button" class="sheet-row" :class="isActive('browse') && 'text-accent-hi'" @click="go('/browse')">
         <Squares2X2Icon class="sheet-row-icon" />
-        <span class="flex-1 truncate">All assets</span>
+        <span class="flex-1 truncate">Assets</span>
         <CheckIcon v-if="isActive('browse')" class="w-5 h-5 text-accent-hi" />
       </button>
 
 
-      <template v-if="savedViews.length">
+      <template v-if="contextSavedViews.length">
         <div class="sheet-section">Saved views</div>
         <button
-          v-for="v in savedViews"
+          v-for="v in contextSavedViews"
           :key="v.id"
           type="button"
           class="sheet-row"

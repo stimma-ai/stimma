@@ -166,7 +166,7 @@ const projectId = computed(() => {
   const raw = route.query.project_id
   if (typeof raw !== 'string' || !raw.trim()) return null
   const parsed = Number.parseInt(raw, 10)
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
 
 // Handle markers config change

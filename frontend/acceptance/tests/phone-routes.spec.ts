@@ -32,7 +32,6 @@ const KNOWN_BAD: Record<string, { overflow?: boolean; hitTargets?: boolean }> = 
   // Overflow is clean on every hub since the compact chrome landed, except
   // the Boards landing's fixed-width search field. Hit targets are the
   // per-hub PRs' job; each one deletes its row here.
-  '/home': { hitTargets: true },
   '/browse': { hitTargets: true },
   '/trash': { hitTargets: true },
   '/upload': { hitTargets: true },

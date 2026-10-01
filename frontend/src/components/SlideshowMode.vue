@@ -1424,6 +1424,7 @@ import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructu
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { editorLiveFrame } from '../imageEditor/liveEditorPreview'
@@ -5307,10 +5308,7 @@ function viewInTool(step) {
   // current project context, and write the handoff under the matching
   // instance-scoped key — ToolView.vue's loadPendingGeneration() reads
   // scopedToolId(tool) + 'pending_generation'.
-  const slideshowRoute = router.currentRoute.value
-  const projectId = slideshowRoute.params.id && String(slideshowRoute.name || '').startsWith('project-')
-    ? Number(slideshowRoute.params.id)
-    : null
+  const projectId = useWorkingContext().activeProjectId.value
   const { resolveToolInstance } = useWorkspaceTabs()
   const { instanceId } = resolveToolInstance(toolId, projectId)
   const storageKey = makeToolDbKey(toolInstanceScopedId(toolId, projectId, instanceId), 'pending_generation')

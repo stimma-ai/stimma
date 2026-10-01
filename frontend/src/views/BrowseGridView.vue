@@ -219,6 +219,7 @@
     <!-- Save View Modal -->
     <SaveViewModal
       :visible="showSaveViewModal"
+      :project-id="projectId"
       :filters="{ ...filters }"
       :sort-by="filters.sortBy"
       @close="showSaveViewModal = false"

@@ -4,8 +4,7 @@
          "Tools" title is the compact header's): one 44px row — the provider
          filter chip and a search icon that expands into the box. -->
     <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle compact:px-3 compact:py-1 compact:gap-2">
-      <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
-      <div v-else class="compact:hidden"></div>
+      <h1 class="text-xl font-semibold leading-none text-content compact:hidden">All Tools</h1>
 
       <div class="flex items-center gap-3 compact:flex-1 compact:gap-1 compact:min-w-0">
         <!-- Provider filter. Wide: an inline dropdown. Compact / coarse: the
