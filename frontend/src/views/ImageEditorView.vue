@@ -967,6 +967,19 @@ const heldCombineOverride = ref<SelectionMode | null>(null)
 let workspaceMaskComposition: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null
 let workspaceMaskCompositionKey: string | null = null
 
+const inspectingMask = ref(false)
+watch(() => !!selection.value, hasSelection => {
+  if (!hasSelection) inspectingMask.value = false
+})
+
+function toggleMaskInspection() {
+  inspectingMask.value = !inspectingMask.value
+  if (inspectingMask.value) {
+    comparing.value = false
+    resetView()
+  }
+}
+
 // Retouch
 const retouchRef = ref<InstanceType<typeof StackPaintCanvas> | null>(null)
 const retouchOpId = ref<string | null>(null)
@@ -2914,7 +2927,7 @@ function onSubbarSet(patch: Record<string, any>, continuous = false) {
   // strip puts itself away. Picking a LOOK does not: trying several against
   // the picture is the whole point of a strip.
   if ('auto' in patch || 'addLevel' in patch) looksOpen.value = false
-  if ('auto' in patch) runAuto(patch.auto)
+  if ('auto' in patch) void runAutoAction(patch.auto)
   if ('applyLook' in patch) applyLook(patch.applyLook)
   if ('looksOpen' in patch) {
     looksOpen.value = patch.looksOpen
@@ -3781,14 +3794,31 @@ function addScopedLook(
  * Light step seeded with the values it chose — inspectable, adjustable and
  * deletable like anything else.
  */
-function runAuto(kind: 'levels' | 'contrast' | 'balance') {
+const autoRunning = ref(false)
+
+async function runAutoAction(kind: 'levels' | 'contrast' | 'balance' | 'all') {
+  if (autoRunning.value || !composite.value) return
+  autoRunning.value = true
+  try {
+    await render()
+    for (const auto of kind === 'all' ? AUTO_EDITS : AUTO_EDITS.filter(auto => auto.id === kind)) {
+      runAuto(auto.id, kind === 'all')
+      // Each histogram must read the result of the preceding correction.
+      await render()
+    }
+  } finally {
+    autoRunning.value = false
+  }
+}
+
+function runAuto(kind: 'levels' | 'contrast' | 'balance', keepIdentity = false) {
   const source = composite.value
   const patch = kind === 'levels' ? autoLevels(source)
     : kind === 'contrast' ? autoContrast(source)
     : autoBalance(source)
-  // An auto that computes no change makes no step. The histogram is already
-  // where it wants it, and a row that does nothing is worse than no row.
-  if (!patch || Object.values(patch).every(value => value === 0)) return
+  // Individual Autos skip identity results. Auto All keeps all three entries
+  // so the batch always has three independently adjustable steps.
+  if (!patch || (!keepIdentity && Object.values(patch).every(value => value === 0))) return
   const label = AUTO_EDITS.find(auto => auto.id === kind)?.label ?? 'Auto'
   // Autos ALWAYS append. Try-then-replace exists for doorway clicks whose
   // step starts at identity; an Auto lands complete, with nothing for the
@@ -9307,6 +9337,18 @@ watch(
         @mousedown.self="onViewportMatteMouseDown"
         @click.self="onViewportMatteClick"
       >
+        <div
+          v-if="selection && family !== 'crop' && !comparing"
+          class="absolute top-2 left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
+        >
+          <Button size="sm" variant="secondary"
+            :aria-pressed="inspectingMask" @click="toggleMaskInspection">
+            {{ inspectingMask ? 'Back to image' : 'Inspect full mask' }}
+          </Button>
+          <span v-if="inspectingMask" class="px-2 py-1 rounded-md bg-surface text-content-secondary text-xs pointer-events-none">
+            White: full · Gray: partial · Black: untouched
+          </span>
+        </div>
         <!-- Crop works on the step's INPUT, not on the composite: the region
              outside the crop is dimmed rather than absent, so it takes the
              whole viewport instead of the cropped display box. -->
@@ -9455,6 +9497,7 @@ watch(
             ref="selectRef"
             :source="composite"
             :model="selModel"
+            :coverage-preview="inspectingMask"
             :armed="armedSelectTool"
             :busy="aiSelectProgressVisible"
             :visible="editorActive"
@@ -10022,6 +10065,8 @@ watch(
               />
               <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
                 <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
+                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto All</Button>
+                  <span role="separator" class="w-px shrink-0 bg-edge-subtle mx-1" />
                   <button
                     v-for="auto in AUTO_EDITS"
                     :key="auto.id"

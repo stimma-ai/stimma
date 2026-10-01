@@ -908,6 +908,17 @@ function chipClass(active: boolean, pending = false) {
           <ToolIcon name="wand" />
         </template>
         <button
+          type="button"
+          data-close-popover
+          class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left transition-colors
+                 text-content-secondary hover:text-content hover:bg-overlay-subtle"
+          @click="emit('set', { auto: 'all' })"
+        >
+          <ToolIcon name="wand" />
+          <span class="text-xs">Auto All</span>
+        </button>
+        <div role="separator" class="h-px bg-edge-subtle my-1" />
+        <button
           v-for="auto in AUTO_EDITS"
           :key="auto.id"
           type="button"

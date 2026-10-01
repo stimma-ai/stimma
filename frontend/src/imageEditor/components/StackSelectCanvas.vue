@@ -70,6 +70,8 @@ const props = withDefaults(defineProps<{
   brushSize?: number
   /** Visual chrome only; the selection model remains intact while hidden. */
   visible?: boolean
+  /** Opaque grayscale readout of actual mask coverage, including soft holes. */
+  coveragePreview?: boolean
   /** An objectPick is being segmented; the cursor says so. */
   busy?: boolean
   /**
@@ -616,12 +618,25 @@ function draw() {
     0, canvas.height / Math.max(1, props.source.height), 0, 0,
   )
 
-  drawGradientDragPreview(ctx)
+  if (props.coveragePreview) {
+    // Alpha alone determines coverage, regardless of the imported mask's RGB.
+    const mask = selection.getSelectionMask()
+    if (mask) ctx.drawImage(mask, 0, 0, props.source.width, props.source.height)
+    ctx.globalCompositeOperation = 'source-in'
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, props.source.width, props.source.height)
+    ctx.globalCompositeOperation = 'destination-over'
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, props.source.width, props.source.height)
+    ctx.globalCompositeOperation = 'source-over'
+  } else {
+    drawGradientDragPreview(ctx)
+  }
 
   // Live feedback for a brush gesture: rasterize the path opaquely first, then
   // apply one translucent wash. Stroking with the translucent color directly
   // makes self-overlaps visibly darker even though they are one selection.
-  if (drawing && props.armed === 'brush' && brushGesture.length) {
+  if (!props.coveragePreview && drawing && props.armed === 'brush' && brushGesture.length) {
     if (!brushFeedback) brushFeedback = document.createElement('canvas')
     if (brushFeedback.width !== canvas.width) brushFeedback.width = canvas.width
     if (brushFeedback.height !== canvas.height) brushFeedback.height = canvas.height
@@ -964,6 +979,7 @@ watch(() => props.gradient, draw, { deep: true })
 watch(() => props.gradientOwnsResult, draw)
 watch(() => props.gradientPreviewing, draw)
 watch(() => props.visible, draw)
+watch(() => props.coveragePreview, draw)
 // Marching ants animate whenever there IS a selection, not only while drawing.
 watch([
   () => selection.marchingAntsPaths.value.length,
