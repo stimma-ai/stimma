@@ -72,6 +72,7 @@ import SelectIsland from '../imageEditor/components/SelectIsland.vue'
 import StackCropCanvas from '../imageEditor/components/StackCropCanvas.vue'
 import ToolPicker from '../imageEditor/components/ToolPicker.vue'
 import { useStackDocument, newOpId } from '../imageEditor/stack/useStackDocument'
+import type { StackDocument } from '../imageEditor/stack/types'
 import { useStackCandidates } from '../imageEditor/stack/useStackCandidates'
 import { StackCompositor, stackHashes, canvasToBlob } from '../imageEditor/stack/useStackCompositor'
 import {
@@ -1654,11 +1655,25 @@ async function renderSnapshot(requestRevision: number) {
   // The compositor awaits payloads. Snapshot the plain composition so a mutation
   // arriving during that await cannot change the array underneath its loop.
   const doc = JSON.parse(JSON.stringify(liveDoc))
+  const cropSession = family.value === 'crop'
+  const cropId = cropOpId.value
+  // Crop owns the uncropped input, including annotations below its step.
+  // Use the authoritative document even when another overlay trims displayDoc.
+  const cropDoc = cropSession
+    ? (whole ? doc : JSON.parse(JSON.stringify(stack.doc.value)))
+    : null
   bufferedStepPreviews = whole ? {} : null
   try {
     emitPreviews = whole
+    // Keep this replay in the same queue as the head. Independent entry-time
+    // renders left Crop stale on sidebar edits and could finish out of order.
+    const cropSource = cropDoc ? await renderCropInput(cropDoc, cropId) : null
+    if (requestRevision !== renderRequestRevision) return
     const rendered = await compositor.render(doc)
     if (requestRevision !== renderRequestRevision) return
+    if (cropSession && family.value === 'crop' && cropId === cropOpId.value) {
+      cropInput.value = cropSource
+    }
     composite.value = rendered
     if (whole) publishEditorLivePreview(props.assetId, rendered)
     if (whole && bufferedStepPreviews) {
@@ -2703,7 +2718,7 @@ function selectFamily(id: FamilyId) {
     // only time an existing crop is resumed is when its row is selected,
     // which enterParametricOp handles.
     cropOpId.value = null
-    void renderCropInput()
+    void render()
   }
   if (id === 'paint') syncImplicitPaintLayer()
 }
@@ -4148,17 +4163,11 @@ let liveCropBefore: any = null
  */
 const cropInput = ref<HTMLCanvasElement | null>(null)
 
-async function renderCropInput() {
-  const doc = stack.doc.value
-  if (!doc || !baseInfo.value) return
-  const index = cropOpId.value
-    ? doc.edits.findIndex(op => op.id === cropOpId.value)
+async function renderCropInput(doc: StackDocument, opId: string | null) {
+  const index = opId
+    ? doc.edits.findIndex(op => op.id === opId)
     : doc.edits.length
-  try {
-    cropInput.value = await compositor.renderUpTo(doc, index < 0 ? doc.edits.length : index)
-  } catch {
-    cropInput.value = composite.value
-  }
+  return compositor.renderUpTo(doc, index < 0 ? doc.edits.length : index)
 }
 
 /** The crop rectangle the overlay draws, defaulting to the whole frame. */
@@ -4638,7 +4647,7 @@ function enterContainerOp(op: any) {
     sub.value = null
     cropOpId.value = op.id
     cropAspect.value = 'free'
-    void renderCropInput()
+    void render()
     return
   }
   if (op.class !== 'container') return
