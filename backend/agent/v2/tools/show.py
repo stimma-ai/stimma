@@ -574,12 +574,19 @@ async def _auto_save_path(
             )
             provenance = await sdk._build_edit_provenance(source_ids)
 
+        project_id = None
+        if chat_id and session:
+            from database import Chat
+            chat = await session.get(Chat, chat_id)
+            project_id = chat.project_id if chat is not None else None
+
         raw = await save_workspace_file(
             session=session,
             path=path,
             workspace_dir=Path(workspace_dir) if workspace_dir else None,
             save_tags=None,
             provenance=provenance,
+            project_id=project_id,
         )
         if isinstance(raw, str) and not raw.startswith("Error:"):
             return json.loads(raw)["media_id"]

@@ -515,6 +515,54 @@ class TestContainersShareTheirProjects:
         assert response.status_code == 404
 
 
+class TestAgentShowAttaches:
+    async def test_show_auto_save_lands_in_chat_project(self, client, db_session, tmp_path):
+        from agent.v2.tools.show import _auto_save_path
+        from database import ProjectMedia
+
+        p = await _project(client, "Show home")
+        chat = (await client.post("/api/chats", json={"project_id": p})).json()
+        workspace = tmp_path / "ws"
+        workspace.mkdir()
+        (workspace / "shown.png").write_bytes(_png_bytes(color=(4, 5, 6)))
+
+        async with db_session() as session:
+            media_id = await _auto_save_path(
+                "shown.png", str(workspace), session, chat_id=chat["id"]
+            )
+        assert media_id is not None
+        async with db_session() as session:
+            staged = set(await session.scalars(
+                select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+            ))
+        assert staged == {p}
+
+        # Keeping it as an asset puts it in the project.
+        response = await client.post(f"/api/assets/contextual-media/{media_id}/promote")
+        assert response.status_code == 200, response.text
+        assert media_id in await _project_media_ids(client, p)
+
+    async def test_sdk_save_without_materializing_stages_project(self, client, db_session, tmp_path):
+        from agent.v2.tools.library import save_workspace_file
+        from database import ProjectMedia
+
+        p = await _project(client, "SDK home")
+        workspace = tmp_path / "sdk"
+        workspace.mkdir()
+        (workspace / "out.png").write_bytes(_png_bytes(color=(7, 8, 9)))
+        async with db_session() as session:
+            raw = await save_workspace_file(
+                session, "out.png", workspace, None, project_id=p
+            )
+        import json as _json
+        media_id = _json.loads(raw)["media_id"]
+        async with db_session() as session:
+            staged = set(await session.scalars(
+                select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+            ))
+        assert staged == {p}
+
+
 @pytest.fixture
 def isolated_dirs(monkeypatch, tmp_path):
     """Keep chat and project workspaces under this test's temp dir."""

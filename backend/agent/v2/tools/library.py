@@ -1665,6 +1665,11 @@ async def save_workspace_file(
                 )
         asset_id = asset.id
         revision_id = asset.current_revision_id
+    elif effective_project_id is not None:
+        # Contextual output (show, auto-save) stays bare Media for now; stage
+        # the project so it lands there whenever it becomes an Asset.
+        from project_service import attach_media_to_project
+        await attach_media_to_project(session, effective_project_id, media_item.id)
 
     await session.commit()
 
