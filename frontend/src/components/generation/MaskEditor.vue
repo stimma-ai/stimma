@@ -282,6 +282,8 @@ import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
 import type { MaskFormat } from '../../composables/useToolSchemaFeatures'
 import PaintToolIcon from './PaintToolIcon.vue'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 import Spinner from '../ui/Spinner.vue'
 import InpaintPrepRows from './InpaintPrepRows.vue'
 import type { InpaintPrepImage } from './InpaintPrepRows.vue'
@@ -878,11 +880,15 @@ async function addFromMediaId(mediaId: number) {
   }
 }
 
+// Uploaded images become assets in the tool tab's project.
+const uploadProjectId = useOwnerProject()
+
 async function uploadFile(file: File) {
   isUploading.value = true
   try {
     const formData = new FormData()
     formData.append('file', file)
+    appendProjectId(formData, uploadProjectId.value)
 
     const response = await axios.post(`${API_BASE}/generate/upload-reference`, formData, {
       headers: {

@@ -1157,6 +1157,7 @@ import { submitJobAsync, submitBatchJobAsync, submitMediaBatchJobAsync, BatchJob
 import { createDragPreview, handleDragEnd as handleHeroDragEnd } from '../composables/useDragPreview'
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
 import { usePromptWarmPool } from '../composables/usePromptWarmPool'
+import { provideOwnerProject } from '../composables/useProjectScope'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
 import { isInsufficientBalanceCode, isLlmSetupCode } from '../utils/llmErrorCodes'
 import { useTabNavigation } from '../composables/useTabNavigation'
@@ -1271,6 +1272,8 @@ const projectScopeId = ref((() => {
   const parsed = parseInt(String(value), 10)
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })())
+// Uploads into this tab's inputs (slots, mask editor) land in its project.
+provideOwnerProject(projectScopeId)
 // Instance discriminator — injected on every tool route by the router guard.
 // Fixed for this component's lifetime (the KeepAlive key includes it, so a
 // different instance mounts a different ToolView).
@@ -3616,6 +3619,7 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
   audioConditioned: enhanceAudioConditioned,
   active: computed(() => uiState.value.generateForeverMode ?? false),
   concurrency: computed(() => uiState.value.generateForeverConcurrency ?? 1),
+  projectId: projectScopeId,
 })
 
 // Tool state composable - provides state persistence, presets, and modified detection

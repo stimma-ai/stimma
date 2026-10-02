@@ -34,6 +34,9 @@ interface PromptWarmPoolOptions {
   // Forever mode's concurrency. Client authority - it's the one driving how
   // many GPU slots are meant to stay full.
   concurrency: Ref<number>
+  // The tool tab's project. Pre-enhancement applies that project's AI model
+  // override, the same way an enhance-at-submit would.
+  projectId?: Ref<number | null>
   debounceMs?: number
 }
 
@@ -58,6 +61,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
     audioConditioned,
     active,
     concurrency,
+    projectId,
     debounceMs = 1500,
   } = options
 
@@ -103,6 +107,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
       audio_conditioned: audioConditioned?.value ?? false,
       prompt_sources_signature: promptSourcesSignature(),
       concurrency: concurrency.value,
+      project_id: projectId?.value ?? null,
     }).catch(err => {
       console.warn('[PromptWarmPool] update failed:', err)
     })
@@ -175,6 +180,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
       ...(isAudio ? [isAudio] : []),
       ...(inputImageCount ? [inputImageCount] : []),
       ...(audioConditioned ? [audioConditioned] : []),
+      ...(projectId ? [projectId] : []),
     ],
     () => {
       if (active.value) scheduleUpdate()

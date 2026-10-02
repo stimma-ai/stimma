@@ -12,6 +12,8 @@ import MediaImage from '../../components/media/MediaImage.vue'
 import MediaPickerPopover from '../../components/generation/MediaPickerPopover.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { addToast } from '../../composables/useToasts'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 import type { ModelReferenceImage } from '../stack/types'
 
 const props = withDefaults(defineProps<{
@@ -87,6 +89,9 @@ function browse() {
   fileInput.value?.click()
 }
 
+// Uploaded references become assets in the editor's active project.
+const uploadProjectId = useOwnerProject()
+
 async function uploadFiles(event: Event) {
   const input = event.target as HTMLInputElement
   const files = [...(input.files ?? [])].slice(0, Math.max(0, props.maxItems - items.value.length))
@@ -99,6 +104,7 @@ async function uploadFiles(event: Event) {
     for (const file of files) {
       const form = new FormData()
       form.append('file', file)
+      appendProjectId(form, uploadProjectId.value)
       const { data } = await axios.post('/api/generate/upload-reference', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })

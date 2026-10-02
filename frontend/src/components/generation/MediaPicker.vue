@@ -870,6 +870,8 @@ import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
 import Modal from '../ui/Modal.vue'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1006,6 +1008,8 @@ const emit = defineEmits<{
 }>()
 
 const API_BASE = '/api'
+// Uploaded references become assets in the tool tab's project.
+const uploadProjectId = useOwnerProject()
 
 // File accept strings by media type
 const FILE_ACCEPT = {
@@ -1673,6 +1677,7 @@ async function uploadFile(file: File, replaceIndex?: number) {
   try {
     const formData = new FormData()
     formData.append('file', file)
+    appendProjectId(formData, uploadProjectId.value)
 
     const endpoint = UPLOAD_ENDPOINTS[props.accept]
     const response = await axios.post(endpoint, formData, {
