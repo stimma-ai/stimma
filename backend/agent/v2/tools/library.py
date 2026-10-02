@@ -2217,6 +2217,11 @@ async def _board(
         board_payload = (await serialize_board(board, session)).model_dump()
         await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
         await ws_manager.broadcast("board_updated", {"board": board_payload})
+        if board.project_id is not None:
+            from project_service import broadcast_project_assets_changed_for_assets
+            await broadcast_project_assets_changed_for_assets(
+                session, board.project_id, ids, action="added"
+            )
         return json.dumps({"status": "ok", "moved": len(ids), "to_section": target_section.name or "(default)", "board": board.name})
 
     if operation == "add":
@@ -2247,6 +2252,11 @@ async def _board(
         board_payload = (await serialize_board(board, session)).model_dump()
         await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
         await ws_manager.broadcast("board_updated", {"board": board_payload})
+        if board.project_id is not None:
+            from project_service import broadcast_project_assets_changed_for_assets
+            await broadcast_project_assets_changed_for_assets(
+                session, board.project_id, ids, action="added"
+            )
         return json.dumps({"status": "ok", "added": added, "board": board.name})
 
     elif operation == "remove":
