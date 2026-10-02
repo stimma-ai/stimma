@@ -235,6 +235,14 @@ class TestUnfiledScope:
         ids = (await client.get("/api/assets/browse/ids?scope=unfiled")).json()["ids"]
         assert len(ids) == len(unfiled_ids)
 
+        # The grid → slideshow handoff counts positions in the same scope.
+        filed_index = await client.get(f"/api/media/{filed.id}/find-index?scope=unfiled")
+        assert filed_index.status_code == 404  # not in the unfiled result set
+        loose_index = (await client.get(f"/api/media/{loose.id}/find-index?scope=unfiled")).json()
+        assert 0 <= loose_index["index"] < loose_index["total"] == len(unfiled_ids)
+        bad = await client.get(f"/api/media/{loose.id}/find-index?scope=bogus")
+        assert bad.status_code == 422
+
     async def test_unfiled_scope_applies_to_counts_and_search_groups(self, client, db_session):
         async with db_session() as session:
             filed, loose = await create_test_media(session, count=2)

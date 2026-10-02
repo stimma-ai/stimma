@@ -1513,6 +1513,14 @@ async def upload_bulk(
     success = len([r for r in results if r["status"] == "success"])
     errors = total - success
 
+    if success > 0 and project_id is not None:
+        from project_service import broadcast_project_assets_changed
+        await broadcast_project_assets_changed(
+            project_id,
+            media_ids=[r["media_id"] for r in results if r["status"] == "success"],
+            action="added",
+        )
+
     if success > 0:
         from telemetry import get_telemetry_client
         get_telemetry_client().track("media_uploaded", {

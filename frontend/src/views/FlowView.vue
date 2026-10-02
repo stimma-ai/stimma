@@ -518,6 +518,7 @@
                   <div class="py-1">
                     <FlowInputForm
                       ref="inputFormRef"
+                      :project-id="flow ? (flow.project_id ?? null) : undefined"
                       :schema="flow?.input_schema || null"
                       :initial-values="flow?.inputs || null"
                       :applying="submittingInputs"

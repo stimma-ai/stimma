@@ -1230,6 +1230,7 @@
       </div>
       <ChatInputBox
         ref="chatInputBoxRef"
+        :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
         :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"

@@ -217,6 +217,12 @@ async def update(caller, args, session, chat):
         "asset_current_revision_changed" if args.get("target_asset_ref") else "asset_created",
         {"asset_id": asset.id, "revision_id": revision.id, "media_id": result["media_id"]},
     )
+    if chat.project_id is not None and not args.get("target_asset_ref"):
+        from project_service import broadcast_project_assets_changed
+
+        await broadcast_project_assets_changed(
+            chat.project_id, asset_ids=[asset.id], media_ids=[result["media_id"]], action="added",
+        )
     return {
         "asset_ref": access.ref(caller, "asset", asset.id),
         "revision_ref": access.ref(caller, "revision", revision.id),

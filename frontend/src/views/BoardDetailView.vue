@@ -12,7 +12,7 @@
     <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
       <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="board?.project_id" @select="moveBoardToProject" />
     </Sheet>
-    <AssetSelectionSheet :show="addAssetsSection !== null" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
+    <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="board ? (board.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
     <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
     <div v-show="!isCompact && !slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">

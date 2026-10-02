@@ -1259,6 +1259,7 @@ async def find_media_index(
     project_ids: Optional[str] = Query(None, description="Comma-separated project IDs - item must be in at least one (OR logic)"),
     excluded_project_ids: Optional[str] = Query(None, description="Comma-separated project IDs to exclude - item must not be in any"),
     has_project: Optional[bool] = Query(None, description="True = in any project, False = in no project (library only)"),
+    scope: Optional[str] = Query(None, description="'unfiled' = only assets in no project (top-level browser default), 'all' = no constraint"),
     sort_by: str = Query("created_desc", pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|added_desc|added_asc|random|similarity)$"),
     random_seed: Optional[int] = Query(None, description="Seed for stable random ordering"),
     session: AsyncSession = Depends(get_db_session)
@@ -1300,6 +1301,12 @@ async def find_media_index(
     query = query.where(
         (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None))
     )
+
+    if scope not in (None, "all", "unfiled"):
+        raise HTTPException(status_code=422, detail="scope must be 'all' or 'unfiled'")
+    # Mirror the asset browser: scope=unfiled at the top level means "in no project".
+    if scope == "unfiled" and project_id is None and has_project is None:
+        has_project = False
 
     # Project membership: when sorting by added_at we need a join so the sort column is available
     if project_id is not None:
