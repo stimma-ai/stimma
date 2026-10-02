@@ -1933,20 +1933,24 @@ class GenerationQueue:
             result = await session.execute(query)
             return int(result.scalar() or 0)
 
-    async def cancel_job(self, job_id: int) -> bool:
+    async def cancel_job(self, job_id: int, profile_id: Optional[str] = None, error: str = 'Cancelled by user') -> bool:
         """
         Cancel a job if it's still queued, assigned, or processing.
 
         If the job is currently processing, this will send an interrupt
-        signal to the provider to stop the generation.
+        signal to the provider to stop the generation. ``profile_id`` limits
+        the search to one profile (job ids are profile-local).
 
         Returns:
             True if cancelled, False if job not found or already completed
         """
         from providers import ProviderRegistry
 
+        only_profile = profile_id
         # Search all profile databases to find the job
         for profile_id, db in self._get_all_jobs_dbs():
+            if only_profile is not None and profile_id != only_profile:
+                continue
             async with db.async_session_maker() as session:
                 result = await session.execute(
                     select(GenerationJob).where(GenerationJob.id == job_id)
@@ -1966,7 +1970,7 @@ class GenerationQueue:
 
                 # Mark as cancelled
                 job.status = 'cancelled'
-                job.error = 'Cancelled by user'
+                job.error = error
                 job.completed_at = datetime.utcnow()
                 await session.commit()
 

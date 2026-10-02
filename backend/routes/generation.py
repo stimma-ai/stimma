@@ -511,6 +511,19 @@ async def enhance_tool_prompt(
     )
 
 
+async def _reject_missing_project(session, request, generation_queue, provider_id) -> None:
+    """Submits into a missing or deleted project fail before anything queues."""
+    project_id = getattr(request, "project_id", None)
+    if project_id is None:
+        return
+    from project_service import is_live_project
+
+    if await is_live_project(session, project_id):
+        return
+    await _decline_unqueued_reserved_work(generation_queue, request, provider_id, False)
+    raise HTTPException(status_code=404, detail="Project not found")
+
+
 async def _decline_unqueued_reserved_work(
     generation_queue,
     request,
@@ -1655,6 +1668,7 @@ async def submit_generation_job(
     generation_queue = get_generation_queue()
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(f"Received generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
@@ -1748,6 +1762,7 @@ async def submit_batch_jobs(
     generation_queue = get_generation_queue()
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(f"Received batch generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
@@ -2033,6 +2048,7 @@ async def submit_media_batch_jobs(
     media_ids = request.batch_input.media_ids
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(
         f"Received media-batch request: tool_id={request.tool_id}, "

@@ -448,3 +448,119 @@ class TestBoardMove:
         )
         assert response.status_code == 200, response.text
         assert media.id in await _project_media_ids(client, p)
+
+
+class TestProjectActivity:
+    async def _job(self, db_session, project_id, status="queued"):
+        from database import GenerationJob
+
+        async with db_session() as session:
+            job = GenerationJob(
+                status=status,
+                generator_type="test",
+                generator_name="test",
+                model_name="test",
+                parameters="{}",
+                folder_path="/tmp",
+                project_id=project_id,
+            )
+            session.add(job)
+            await session.commit()
+            return job.id
+
+    async def _finish(self, db_session, job_ids):
+        from database import GenerationJob
+
+        async with db_session() as session:
+            for job_id in job_ids:
+                (await session.get(GenerationJob, job_id)).status = "completed"
+            await session.commit()
+
+    async def test_activity_counts_jobs_chats_and_flows(self, client, db_session, monkeypatch):
+        import project_activity
+
+        p = await _project(client, "Busy P")
+        q = await _project(client, "Busy Q")
+        gone = await _project(client, "Busy gone")
+        jobs = [
+            await self._job(db_session, p),
+            await self._job(db_session, p, status="processing"),
+            await self._job(db_session, None, status="assigned"),
+            await self._job(db_session, p, status="completed"),
+            await self._job(db_session, gone),
+        ]
+        chat = (await client.post("/api/chats", json={"project_id": q})).json()
+        flow = (await client.post("/api/flows", json={"name": "busy", "project_id": q})).json()
+        await client.delete(f"/api/projects/{gone}")
+        monkeypatch.setattr(project_activity, "_active_chat_ids", lambda: [chat["id"]])
+        monkeypatch.setattr(project_activity, "_running_flow_ids", lambda: [flow["id"]])
+        try:
+            body = (await client.get("/api/projects/activity")).json()
+            by_project = {entry["project_id"]: entry for entry in body["activity"]}
+            assert by_project[p] == {
+                "project_id": p, "running_jobs": 2, "running_chats": 0, "running_flows": 0,
+            }
+            assert by_project[q] == {
+                "project_id": q, "running_jobs": 0, "running_chats": 1, "running_flows": 1,
+            }
+            assert by_project[None]["running_jobs"] >= 1
+            assert gone not in by_project
+        finally:
+            await self._finish(db_session, jobs)
+
+        monkeypatch.setattr(project_activity, "_active_chat_ids", lambda: [])
+        monkeypatch.setattr(project_activity, "_running_flow_ids", lambda: [])
+        body = (await client.get("/api/projects/activity")).json()
+        assert all(entry["project_id"] not in (p, q) for entry in body["activity"])
+
+    async def test_activity_broadcast_is_debounced_and_coalesced(
+        self, client, db_session, broadcasts, monkeypatch
+    ):
+        import asyncio
+
+        import project_activity
+
+        project_activity.reset()
+        monkeypatch.setattr(project_activity, "DEBOUNCE_SECONDS", 0.05)
+        p = await _project(client, "Debounced")
+        job = await self._job(db_session, p)
+        try:
+            for _ in range(5):
+                project_activity.schedule_project_activity_broadcast()
+            await asyncio.sleep(0.2)
+            sent = _events(broadcasts, "project_activity")
+            assert len(sent) == 1
+            assert any(e["project_id"] == p and e["running_jobs"] == 1 for e in sent[0]["activity"])
+
+            # Nothing changed: no repeat broadcast.
+            project_activity.schedule_project_activity_broadcast()
+            await asyncio.sleep(0.2)
+            assert len(_events(broadcasts, "project_activity")) == 1
+        finally:
+            await self._finish(db_session, [job])
+        project_activity.schedule_project_activity_broadcast()
+        await asyncio.sleep(0.2)
+        last = _events(broadcasts, "project_activity")[-1]
+        assert all(e["project_id"] != p for e in last["activity"])
+        project_activity.reset()
+
+    async def test_work_events_schedule_activity_broadcast(self, monkeypatch):
+        import project_activity
+        from utils.websocket import WebSocketManager
+
+        calls = []
+        monkeypatch.setattr(
+            project_activity, "schedule_project_activity_broadcast", lambda *a: calls.append(1)
+        )
+
+        class _Socket:
+            async def send_text(self, message):
+                pass
+
+        manager = WebSocketManager()
+        manager.active_connections.append(_Socket())
+        await manager.broadcast("media_added", {})
+        assert calls == []
+        for event in ("generation_job_started", "agent_stopped", "flow_equation_updated"):
+            await manager.broadcast(event, {})
+        assert len(calls) == 3

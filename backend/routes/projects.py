@@ -14,6 +14,8 @@ from database import (
     Board,
     BoardSection,
     Chat,
+    Flow,
+    GenerationJob,
     MediaItem,
     Project,
     ProjectAsset,
@@ -32,7 +34,10 @@ from project_service import (
     get_project_or_404,
     initialize_project_root,
 )
+from core.logging import get_logger
 from utils.websocket import ws_manager
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -162,6 +167,18 @@ async def create_project(
     return result
 
 
+@router.get("/activity")
+async def get_project_activity(session: AsyncSession = Depends(get_db_session)):
+    """Running jobs, chats and flows per project (project_id null = top level).
+
+    Only entries with running work are listed. The same payload is pushed as
+    the ``project_activity`` websocket event whenever work starts or stops.
+    """
+    from project_activity import compute_project_activity
+
+    return {"activity": await compute_project_activity(session)}
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(project_id: int, session: AsyncSession = Depends(get_db_session)):
     project = await get_project_or_404(session, project_id)
@@ -236,6 +253,18 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
             .values(deleted_at=deleted_at, updated_at=deleted_at, is_default=False)
         )
 
+    # Flows live in the project like chats and boards do.
+    flow_result = await session.execute(
+        select(Flow.id).where(Flow.project_id == project_id, Flow.deleted_at.is_(None))
+    )
+    deleted_flow_ids = [row[0] for row in flow_result.all()]
+    if deleted_flow_ids:
+        await session.execute(
+            update(Flow)
+            .where(Flow.id.in_(deleted_flow_ids))
+            .values(deleted_at=deleted_at, updated_at=deleted_at, execution_state="idle")
+        )
+
     # Assets are independent roots. Soft-delete organizational membership.
     await session.execute(
         update(ProjectAsset)
@@ -258,6 +287,18 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
     project.updated_at = deleted_at
     await session.commit()
 
+    await _cancel_project_jobs(session, project_id)
+    if deleted_flow_ids:
+        import flow_lifecycle
+
+        for flow_id in deleted_flow_ids:
+            try:
+                await flow_lifecycle.stop_and_unregister(flow_id)
+            except Exception as exc:  # noqa: BLE001 - deletion already committed
+                log.warning(f"Stopping flow {flow_id} after project delete failed: {exc}")
+
+    for flow_id in deleted_flow_ids:
+        await ws_manager.broadcast("flow_deleted", {"flow_id": flow_id})
     for chat_id in deleted_chat_ids:
         await ws_manager.broadcast("chat_deleted", {"chat_id": chat_id})
     for board_id in deleted_board_ids:
@@ -271,6 +312,51 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
     }, category="organize")
 
     return {"status": "success"}
+
+
+_ACTIVE_JOB_STATUSES = ("queued", "assigned", "processing")
+
+
+async def _cancel_project_jobs(session: AsyncSession, project_id: int) -> None:
+    """Stop queued and running tool jobs (single, batch, forever) of a deleted project."""
+    from core.profile_context import get_current_profile
+
+    job_ids = list(await session.scalars(
+        select(GenerationJob.id).where(
+            GenerationJob.project_id == project_id,
+            GenerationJob.status.in_(_ACTIVE_JOB_STATUSES),
+        )
+    ))
+    if not job_ids:
+        return
+    from generation_queue import get_generation_queue
+
+    queue = get_generation_queue()
+    profile_id = get_current_profile()
+    for job_id in job_ids:
+        try:
+            await queue.cancel_job(
+                job_id,
+                profile_id=profile_id,
+                error="Cancelled because the project was deleted",
+            )
+        except Exception as exc:  # noqa: BLE001 - fall back to marking it below
+            log.warning(f"Cancelling job {job_id} after project delete failed: {exc}")
+    # Anything the queue couldn't reach is still marked cancelled, so no
+    # worker picks it up.
+    await session.execute(
+        update(GenerationJob)
+        .where(
+            GenerationJob.id.in_(job_ids),
+            GenerationJob.status.in_(_ACTIVE_JOB_STATUSES),
+        )
+        .values(
+            status="cancelled",
+            error="Cancelled because the project was deleted",
+            completed_at=datetime.utcnow(),
+        )
+    )
+    await session.commit()
 
 
 class _ProjectMediaRequest(BaseModel):
