@@ -5,7 +5,6 @@ import { EllipsisHorizontalIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { useContextSwitch, useWorkingContext, type WorkingProject } from '../../composables/useWorkingContext'
 import { useSidebarSections } from '../../composables/useSidebarSections'
 import { useMediaApi } from '../../composables/useMediaApi'
-import { useDragStore } from '../../stores/dragStore'
 import { getDroppedMediaIds } from '../../composables/useDragPreview'
 import { addToast } from '../../composables/useToasts'
 import SidebarSectionHeader from './SidebarSectionHeader.vue'
@@ -22,7 +21,6 @@ const { orderedProjects, projects, refreshProjects, rememberProject, selectProje
 const switchContext = useContextSwitch()
 const { isCollapsed } = useSidebarSections()
 const { createProject, updateProject, addMediaToProject } = useMediaApi()
-const { draggedMediaItems } = useDragStore()
 
 const header = ref<HTMLElement | null>(null)
 const picker = ref<InstanceType<typeof WorkingContextPicker> | null>(null)
@@ -33,12 +31,10 @@ function setNameInput(el: unknown) { if (el) nameInput = el as HTMLInputElement 
 const naming = ref<'new' | number | null>(null)
 const draft = ref('')
 const busy = ref(false)
-const dropTarget = ref<'new' | number | null>(null)
+const dropTarget = ref<number | null>(null)
 
 const collapsed = computed(() => isCollapsed('projects'))
 const recent = computed(() => orderedProjects.value.slice(0, RECENT_LIMIT))
-const dragging = computed(() => draggedMediaItems.value.length > 0)
-const dragCount = computed(() => draggedMediaItems.value.length)
 
 onMounted(() => { refreshProjects() })
 
@@ -87,35 +83,27 @@ function manage(project: WorkingProject, event: MouseEvent) {
   picker.value?.manage(project, event.currentTarget as HTMLElement)
 }
 
-function onDragOver(target: 'new' | number, event: DragEvent) {
+function onDragOver(target: number, event: DragEvent) {
   if (!event.dataTransfer?.types.includes('application/x-media-id')) return
   event.preventDefault()
   event.dataTransfer.dropEffect = 'copy'
   dropTarget.value = target
 }
 
-function onDragLeave(target: 'new' | number) {
+function onDragLeave(target: number) {
   if (dropTarget.value === target) dropTarget.value = null
 }
 
-async function onDrop(target: 'new' | number, event: DragEvent) {
+async function onDrop(target: number, event: DragEvent) {
   event.preventDefault()
   dropTarget.value = null
   const mediaIds = getDroppedMediaIds(event.dataTransfer)
   if (!mediaIds.length) return
   const noun = mediaIds.length === 1 ? 'asset' : 'assets'
   try {
-    if (target === 'new') {
-      const project = await createProject('')
-      rememberProject(project)
-      await addMediaToProject(project.id, mediaIds)
-      addToast(`Added ${mediaIds.length} ${noun} to a new project`, 'success')
-      await startNaming(project.id)
-    } else {
-      await addMediaToProject(target, mediaIds)
-      const name = projects.value.find(p => p.id === target)?.name || 'Untitled project'
-      addToast(`Added ${mediaIds.length} ${noun} to ${name}`, 'success')
-    }
+    await addMediaToProject(target, mediaIds)
+    const name = projects.value.find(p => p.id === target)?.name || 'Untitled project'
+    addToast(`Added ${mediaIds.length} ${noun} to ${name}`, 'success')
   } catch {
     addToast('Could not add to the project.', 'warning')
   }
@@ -144,27 +132,11 @@ const rowClass = 'flex w-full items-center rounded px-3 py-1.5 text-left text-sm
     </div>
 
     <div v-if="!collapsed" class="flex flex-col gap-1">
-      <!-- While media is dragged, the section offers a fresh project as a target. -->
-      <button
-        v-if="dragging && projects.length > 0"
-        type="button"
-        :class="[rowClass, 'gap-2 text-accent', dropTarget === 'new' ? 'bg-accent/10 ring-1 ring-accent' : 'hover:bg-overlay-subtle']"
-        @dragover="onDragOver('new', $event)"
-        @dragleave="onDragLeave('new')"
-        @drop="onDrop('new', $event)"
-      >
-        <PlusIcon class="h-3.5 w-3.5 shrink-0" />
-        <span class="truncate">New project with {{ dragCount }} {{ dragCount === 1 ? 'asset' : 'assets' }}</span>
-      </button>
-
       <template v-if="projects.length === 0 && naming !== 'new'">
         <button
           type="button"
-          :class="[rowClass, 'gap-2 text-accent', dropTarget === 'new' ? 'bg-accent/10 ring-1 ring-accent' : 'hover:bg-overlay-subtle']"
+          :class="[rowClass, 'gap-2 text-accent hover:bg-overlay-subtle']"
           @click="startNaming('new')"
-          @dragover="onDragOver('new', $event)"
-          @dragleave="onDragLeave('new')"
-          @drop="onDrop('new', $event)"
         >
           <PlusIcon class="h-3.5 w-3.5 shrink-0" />
           <span>New project</span>
