@@ -25,7 +25,8 @@ import OnboardingView from '../views/OnboardingView.vue'
 import SearchResultsView from '../views/SearchResultsView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useWorkingContext } from '../composables/useWorkingContext'
-import { contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
+import { assetLinkContext, contextRoute, contextSection, entityFallbackSection, projectIdFrom } from '../utils/workingContext'
+import { addToast } from '../composables/useToasts'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
@@ -228,7 +229,38 @@ const router = createRouter({
 // resolve it here — most-recently-active open instance matching
 // (tool, project), else a freshly minted one. Callers that want an explicit
 // fresh instance pass ?instance themselves.
-router.beforeEach(async (to) => {
+// Loads an entity to learn its project, retrying once for a transient
+// failure. Resolves null when it can't be loaded (or doesn't exist).
+async function fetchOwner(url) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return (await axios.get(url)).data
+    } catch (err) {
+      if (err?.response?.status === 404 || attempt) return null
+      await new Promise(resolve => setTimeout(resolve, 400))
+    }
+  }
+  return null
+}
+
+// The live projects an asset (editor) or media item (lineage) belongs to,
+// or null when that can't be determined.
+async function assetProjectIds(to) {
+  try {
+    let mediaId = to.params.mediaId
+    if (to.name === 'edit-image') {
+      const { data } = await axios.get(`${getApiBase()}/assets/${to.params.assetId}`)
+      mediaId = data?.media?.id
+    }
+    if (mediaId == null) return null
+    const { data } = await axios.get(`${getApiBase()}/media/${mediaId}/projects`)
+    return Array.isArray(data) ? data.map(p => p.id).filter(id => Number.isSafeInteger(id)) : null
+  } catch {
+    return null
+  }
+}
+
+router.beforeEach(async (to, from) => {
   if (['ios', 'android'].includes(desktop.kind) && to.name === 'onboarding') return { name: 'home', replace: true }
   delete to.meta.workingProjectId
   const context = useWorkingContext()
@@ -243,11 +275,23 @@ router.beforeEach(async (to) => {
     to.meta.workingProjectId = null
   } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(to.name)) {
     const kind = { chat: 'chats', 'board-detail': 'boards', flow: 'flows', 'saved-view': 'saved-views' }[to.name]
-    try {
-      const { data } = await axios.get(`${getApiBase()}/${kind}/${to.params.id}`)
-      to.meta.workingProjectId = projectIdFrom(data.project_id)
-    } catch {
-      // Failed detail loading must not silently change the working destination.
+    const data = await fetchOwner(`${getApiBase()}/${kind}/${to.params.id}`)
+    if (!data) {
+      // Never show an item under a context it may not belong to: fall back
+      // to the current context's landing page for that kind.
+      const noun = { chat: 'chat', 'board-detail': 'board', flow: 'flow', 'saved-view': 'saved view' }[to.name]
+      addToast(`Could not open that ${noun}.`, 'warning')
+      if (from.matched.length) return false
+      return { ...contextRoute(entityFallbackSection[to.name], context.activeProjectId.value), replace: true }
+    }
+    to.meta.workingProjectId = projectIdFrom(data.project_id)
+  } else if ((to.name === 'edit-image' || to.name === 'lineage') && context.activeProjectId.value != null) {
+    // An asset link keeps a context that contains the asset; otherwise it
+    // moves to the asset's most recently used project, or to Everything.
+    const projectIds = await assetProjectIds(to)
+    if (projectIds) {
+      to.meta.workingProjectId = assetLinkContext(
+        context.activeProjectId.value, projectIds, context.orderedProjects.value.map(p => p.id))
     }
   } else if (to.name === 'upload' && to.query.project_id == null && context.activeProjectId.value != null) {
     return { name: 'upload', query: { ...to.query, project_id: String(context.activeProjectId.value) }, replace: true }

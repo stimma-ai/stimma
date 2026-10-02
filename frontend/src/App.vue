@@ -1180,7 +1180,7 @@ async function syncWorkingContext() {
     workingContext.selectProject(explicitId)
   } else if (name === 'tool' && route.query.project_id === '0') {
     workingContext.selectProject(null)
-  } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(name) && 'workingProjectId' in route.meta) {
+  } else if (['chat', 'board-detail', 'flow', 'saved-view', 'edit-image', 'lineage'].includes(name) && 'workingProjectId' in route.meta) {
     workingContext.selectProject(route.meta.workingProjectId)
   }
   const section = contextSection(route.name)
