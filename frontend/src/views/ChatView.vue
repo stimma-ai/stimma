@@ -1468,6 +1468,7 @@ import JobInfoModal from '../components/generation/JobInfoModal.vue'
 import JobErrorModal from '../components/generation/JobErrorModal.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
+import { createInitialMessageConsumer } from '../utils/initialMessage'
 import { useCompare } from '../composables/useCompare'
 import ConnectionError from '../components/ConnectionError.vue'
 import HITLContainer from '../components/hitl/HITLContainer.vue'
@@ -5423,18 +5424,16 @@ function checkPendingMedia() {
   }
 }
 
-// Check for initial message from Home screen
+// Check for initial message from Home screen. Mount and KeepAlive activation
+// both call this before the query clears, so the consumer sends it once.
+const consumeInitialMessage = createInitialMessageConsumer()
 function checkInitialMessage() {
-  const text = route.query.initialMessage
-  if (!text) return
-  const attachmentIds = route.query.attachmentIds
+  const initial = consumeInitialMessage(chatId.value, route.query)
+  if (!initial) return
   router.replace({ query: {} })
-  messageInput.value = text
-  if (attachmentIds) {
-    const ids = attachmentIds.split(',').map(id => parseInt(id)).filter(id => !isNaN(id))
-    for (const id of ids) {
-      addAttachmentFromMediaId(id)
-    }
+  messageInput.value = initial.text
+  for (const id of initial.attachmentIds) {
+    addAttachmentFromMediaId(id)
   }
   nextTick(() => sendMessage())
 }
