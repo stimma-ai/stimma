@@ -1449,6 +1449,7 @@ import {
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
 import { nearbyPreloadIndices, shouldPreloadVideoBytes } from '../utils/slideshowPreload'
+import { announceProjectAssetsChanged } from '../utils/projectScope'
 
 useSlideshowPresence()
 
@@ -5380,6 +5381,12 @@ async function toggleProjectMembership(projectId, checked) {
       else await removeMediaFromProject(projectId, currentPayloadId.value)
       projectPickerMembership.value.delete(projectId)
     }
+    announceProjectAssetsChanged({
+      project_id: projectId,
+      asset_ids: currentAssetId.value ? [currentAssetId.value] : [],
+      media_ids: currentPayloadId.value ? [currentPayloadId.value] : [],
+      action: checked ? 'added' : 'removed',
+    })
     // Refresh the info panel list
     invalidateMetadataCache(itemIdentity(currentItem.value))
     mediaProjects.value = currentAssetId.value

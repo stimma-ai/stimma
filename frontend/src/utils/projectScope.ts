@@ -132,3 +132,62 @@ export function assetBrowseScope(
   if (projectId != null || isTrashMode) return undefined
   return includesProjectAssets(filters) ? 'all' : 'unfiled'
 }
+
+// --- Live updates ---------------------------------------------------------
+
+export interface ProjectAssetsChange {
+  project_id: number
+  asset_ids?: number[]
+  media_ids?: number[]
+  action: 'added' | 'removed'
+}
+
+export interface AssetGridScope {
+  projectId?: ProjectId
+  isTrashMode?: boolean
+  filters?: AssetScopeFilters & { excludedProjects?: Array<number | string> | null }
+}
+
+/** Window event a client fires after changing memberships itself. */
+export const PROJECT_ASSETS_CHANGED_EVENT = 'project-assets-changed'
+
+/**
+ * Tells open asset grids in this window about a membership change right away,
+ * ahead of the server's project_assets_changed broadcast.
+ */
+export function announceProjectAssetsChanged(change: ProjectAssetsChange) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(PROJECT_ASSETS_CHANGED_EVENT, {
+    detail: {
+      project_id: change.project_id,
+      asset_ids: [...(change.asset_ids || [])],
+      media_ids: [...(change.media_ids || [])],
+      action: change.action,
+    },
+  }))
+}
+
+/**
+ * How an asset grid reacts to a project membership change:
+ * - 'remove': drop the changed assets now (they left this view), then resync
+ * - 'reload': resync quietly (assets may have entered the view)
+ * - 'ignore': the change can't affect this view
+ * Trash is global and ignores membership.
+ */
+export function projectAssetsChangeEffect(view: AssetGridScope, change: ProjectAssetsChange): 'remove' | 'reload' | 'ignore' {
+  if (view.isTrashMode || !change) return 'ignore'
+  const projectId = view.projectId ?? null
+  if (projectId != null) {
+    if (change.project_id !== projectId) return 'ignore'
+    return change.action === 'removed' ? 'remove' : 'reload'
+  }
+  const filters = view.filters || {}
+  if (assetBrowseScope(filters, { projectId: null }) === 'unfiled') {
+    // An asset that joined a project is no longer unfiled.
+    return change.action === 'added' ? 'remove' : 'reload'
+  }
+  const filtersOnProjects = includesProjectAssets({ ...filters, includeProjects: false })
+    || (Array.isArray(filters.excludedProjects) && filters.excludedProjects.length > 0)
+    || filters.projectMembership === 'none'
+  return filtersOnProjects ? 'reload' : 'ignore'
+}

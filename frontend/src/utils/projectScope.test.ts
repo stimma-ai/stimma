@@ -11,6 +11,7 @@ import {
   membershipState,
   membershipToggleAction,
   orderProjectsCurrentFirst,
+  projectAssetsChangeEffect,
   projectListParam,
   resolveProjectId,
   toProjectId,
@@ -111,4 +112,36 @@ test('project and trash views send no scope', () => {
   assert.equal(assetBrowseScope({}, { projectId: 4 }), undefined)
   assert.equal(assetBrowseScope({ includeProjects: true }, { projectId: 4 }), undefined)
   assert.equal(assetBrowseScope({}, { isTrashMode: true }), undefined)
+})
+
+test('project grid drops removed assets and reloads on additions', () => {
+  const view = { projectId: 4 }
+  assert.equal(projectAssetsChangeEffect(view, { project_id: 4, asset_ids: [1], action: 'removed' }), 'remove')
+  assert.equal(projectAssetsChangeEffect(view, { project_id: 4, asset_ids: [1], action: 'added' }), 'reload')
+  assert.equal(projectAssetsChangeEffect(view, { project_id: 5, asset_ids: [1], action: 'removed' }), 'ignore')
+})
+
+test('top-level unfiled grid drops assets that joined a project', () => {
+  const view = { projectId: null, filters: {} }
+  assert.equal(projectAssetsChangeEffect(view, { project_id: 4, asset_ids: [1], action: 'added' }), 'remove')
+  assert.equal(projectAssetsChangeEffect(view, { project_id: 4, asset_ids: [1], action: 'removed' }), 'reload')
+})
+
+test('top-level grid including project assets only reacts to project filters', () => {
+  assert.equal(projectAssetsChangeEffect(
+    { filters: { includeProjects: true } },
+    { project_id: 4, action: 'added' },
+  ), 'ignore')
+  assert.equal(projectAssetsChangeEffect(
+    { filters: { selectedProjects: [4] } },
+    { project_id: 4, action: 'removed' },
+  ), 'reload')
+  assert.equal(projectAssetsChangeEffect(
+    { filters: { includeProjects: true, excludedProjects: [4] } },
+    { project_id: 4, action: 'added' },
+  ), 'reload')
+})
+
+test('trash ignores membership changes', () => {
+  assert.equal(projectAssetsChangeEffect({ isTrashMode: true }, { project_id: 4, action: 'removed' }), 'ignore')
 })

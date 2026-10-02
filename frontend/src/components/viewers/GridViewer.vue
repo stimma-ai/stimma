@@ -148,6 +148,7 @@ import { MediaImage } from '../media'
 import axios from 'axios'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
+import { useOwnerProject } from '../../composables/useProjectScope'
 
 const props = defineProps({
   mediaId: {
@@ -185,6 +186,8 @@ const colHeaders = ref([])
 const cells = ref([])
 const savingMediaIds = ref(new Set())
 const { promoteContextualMedia } = useAssetApi()
+// Kept members land in the working project, like everything made inside it.
+const keepProjectId = useOwnerProject()
 
 // Track expanded headers (all rows or all cols together)
 const rowHeadersExpanded = ref(false)
@@ -331,7 +334,7 @@ async function keepCell(cell) {
   if (!mediaId || savingMediaIds.value.has(mediaId)) return
   savingMediaIds.value = new Set([...savingMediaIds.value, mediaId])
   try {
-    const result = await promoteContextualMedia(mediaId)
+    const result = await promoteContextualMedia(mediaId, keepProjectId.value)
     cell.resolved.saved_asset_id = result.asset.asset_id
     addToast('Kept in All Assets', 'success')
   } catch (error) {

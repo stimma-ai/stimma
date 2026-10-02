@@ -62,8 +62,14 @@ export function useAssetApi() {
     return (await axios.get(`${api()}/assets/contextual-media`, { params })).data
   }
 
-  async function promoteContextualMedia(mediaId: number) {
-    return (await axios.post(`${api()}/assets/contextual-media/${mediaId}/promote`)).data
+  /** Keeps a contextual Media as an Asset, attached to `projectId` when given. */
+  async function promoteContextualMedia(mediaId: number, projectId: number | null = null) {
+    const scoped = projectId != null ? { project_id: projectId } : undefined
+    return (await axios.post(
+      `${api()}/assets/contextual-media/${mediaId}/promote`,
+      scoped ?? {},
+      { params: scoped },
+    )).data
   }
 
   async function getTags(withCounts = false) {

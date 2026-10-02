@@ -1,5 +1,6 @@
 <template>
-  <Teleport to="body">
+  <!-- Only one mounted menu renders at a time; see useMediaContextMenuHost. -->
+  <Teleport v-if="isRenderer" to="body">
     <!-- SVG gradient definition for Stimma Cloud branding (must be inside Teleport to be accessible) -->
     <svg class="absolute w-0 h-0" aria-hidden="true">
       <defs>
@@ -275,15 +276,17 @@
               :media-ids="targetMediaIds"
               :asset-ids="targetAssetIds"
               mode="assign"
-              @added="handleProjectAdded"
+              :membership="projectMembership"
+              :pinned-project-id="currentProjectId"
+              @changed="handleProjectMembershipChanged"
               @close="contextMenu.hide(); activeSubmenu = null"
             />
           </div>
           </Teleport>
         </div>
 
-        <!-- Remove from Project (only when viewing project assets) -->
-        <template v-if="inProject">
+        <!-- Remove from Project: whenever a target is in the menu's project -->
+        <template v-if="showRemoveFromProject">
           <button
             @click="handleRemoveFromProject"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
@@ -915,7 +918,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
+import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
 import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu, SHEET_MENU_STYLE } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -943,6 +946,7 @@ import { planToolHandoff } from '../../utils/toolHandoff'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
 import { useWorkingContext } from '../../composables/useWorkingContext'
+import { announceProjectAssetsChanged, applyMembershipChange, canRemoveFromProject, countMemberships, projectListParam, resolveProjectId } from '../../utils/projectScope'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useViewport } from '../../composables/useViewport'
 import { openImageEditor } from '../../imageEditor/stack/openImageEditor'
@@ -985,7 +989,7 @@ const { tabs: workspaceTabs, resolveToolInstance } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
 const { isCoarsePointer, allowsAutofocus } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
-const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
+const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject, getMediaProjects } = useMediaApi()
 const {
   getAssetBrowserItem,
   addMarker: addMarkerToAsset,
@@ -994,6 +998,7 @@ const {
   addToBoard: addAssetsToBoard,
   removeFromBoardSection,
   removeFromProject: removeAssetFromProject,
+  getProjects: getAssetProjects,
   trash: trashAsset,
   trashMany: trashAssets,
   restore: restoreAsset,
@@ -1160,10 +1165,18 @@ const explodeAssetId = ref<number | null>(null)
 const explodeSummary = ref<any>(null)
 const shareMediaItem = ref<any>(null)
 
-const emit = defineEmits<{
+const emitToParent = defineEmits<{
   (e: 'refresh'): void
   (e: 'permanent-delete', mediaId: number): void
 }>()
+// Menu events reach every mounted host, not just the one rendering the menu.
+const { isRenderer } = useMediaContextMenuHost((name, ...args) => {
+  if (name === 'refresh') emitToParent('refresh')
+  else if (name === 'permanent-delete') emitToParent('permanent-delete', args[0] as number)
+})
+function emit(name: 'refresh' | 'permanent-delete', ...args: unknown[]) {
+  broadcastMediaContextMenuEvent(name, ...args)
+}
 
 // Multi-selection computed properties
 const targetAssetIds = computed<number[]>(() => (
@@ -1209,9 +1222,42 @@ const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 const inBoard = computed(() => contextMenu.state.value.inBoard || false)
 const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
-// Action-bar and slideshow launchers may omit projectId; retain the active
-// working destination for board/chat/flow pickers and newly created items.
-const currentProjectId = computed(() => contextMenu.state.value.projectId ?? workingProjectId.value)
+// The project this menu acts in: the caller's project when it names one
+// (null for an explicit top-level owner such as an unfiled chat), else the
+// active working project. Lists and creates in the board/chat/flow pickers,
+// the Projects submenu pin and Remove from Project all use it.
+const currentProjectId = computed(() => resolveProjectId(contextMenu.state.value.projectId, workingProjectId.value))
+
+// Project memberships of the targets, loaded when the menu opens. Null while
+// unknown (loading, or too many targets to look up one by one).
+const MEMBERSHIP_LOOKUP_LIMIT = 100
+const projectMembership = ref<Map<number, number> | null>(null)
+let membershipRequest = 0
+const showRemoveFromProject = computed(() => (
+  currentProjectId.value != null && (
+    canRemoveFromProject(projectMembership.value ?? new Map(), currentProjectId.value) ||
+    // A project grid knows its tiles are members before the lookup returns.
+    (inProject.value && (contextMenu.state.value.projectId ?? null) === currentProjectId.value && projectMembership.value == null)
+  )
+))
+
+async function loadProjectMemberships() {
+  const request = ++membershipRequest
+  projectMembership.value = null
+  const assetIds = targetAssetIds.value
+  const mediaIds = targetMediaIds.value
+  const ids = assetIds.length > 0 ? assetIds : mediaIds
+  if (ids.length === 0 || ids.length > MEMBERSHIP_LOOKUP_LIMIT) return
+  try {
+    const lists = await Promise.all(ids.map(id => (
+      (assetIds.length > 0 ? getAssetProjects(id) : getMediaProjects(id)).catch(() => [])
+    )))
+    if (request !== membershipRequest) return
+    projectMembership.value = countMemberships(lists)
+  } catch (err) {
+    if (request === membershipRequest) console.error('Failed to load project memberships:', err)
+  }
+}
 
 // Can create set: multiple atomic items selected (not sets or grids)
 const STRUCTURED_FORMATS = ['stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmapackage']
@@ -1531,9 +1577,8 @@ async function loadChats() {
   lastChatsProjectId.value = currentProjectId.value
   loadingChats.value = true
   try {
-    const params = new URLSearchParams()
-    if (currentProjectId.value) params.set('project_id', String(currentProjectId.value))
-    const url = `/api/chats${params.toString() ? '?' + params.toString() : ''}`
+    const params = new URLSearchParams({ project_id: projectListParam(currentProjectId.value) })
+    const url = `/api/chats?${params.toString()}`
     const response = await fetch(url, {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
@@ -1674,7 +1719,7 @@ function cancelSubmenuClose() {
 
 // Close on click outside
 function handleClickOutside(event: MouseEvent) {
-  if (!contextMenu.state.value.visible) return
+  if (!isRenderer.value || !contextMenu.state.value.visible) return
   const target = event.target as Element
   if (menuRef.value?.contains(target)) return
   // Check all submenu refs (they live in Teleport, outside menuRef)
@@ -1693,6 +1738,7 @@ function handleClickOutside(event: MouseEvent) {
 
 // Close on escape
 function handleKeyDown(event: KeyboardEvent) {
+  if (!isRenderer.value) return
   if (event.key === 'Escape') {
     contextMenu.hide()
     activeSubmenu.value = null
@@ -1726,7 +1772,19 @@ watch(activeSubmenu, async (menu) => {
 })
 
 // Fetch media item and markers when menu becomes visible
-watch(() => contextMenu.state.value.visible, (visible) => {
+// Membership is looked up per opening and per target set (a second right-click
+// while the menu is open retargets it without closing).
+watch(
+  () => (contextMenu.state.value.visible && isRenderer.value
+    ? `${targetAssetIds.value.join(',')}|${targetMediaIds.value.join(',')}`
+    : null),
+  (key) => {
+    if (key != null) loadProjectMemberships()
+    else { membershipRequest++; projectMembership.value = null }
+  },
+)
+
+watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
   if (visible) {
     fetchMediaItem()
     fetchMediaFaces()
@@ -1890,7 +1948,7 @@ async function handleCreateBoardQuickAdd() {
   if (creatingBoardQuickAdd.value) return
   creatingBoardQuickAdd.value = true
   try {
-    const board = await createBoard('', workingProjectId.value)
+    const board = await createBoard('', currentProjectId.value)
     if (targetAssetIds.value.length > 0) {
       await addAssetsToBoard(board.id, targetAssetIds.value)
     } else {
@@ -1986,7 +2044,7 @@ async function sendToNewChat() {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify({ name: null, project_id: workingProjectId.value })
+      body: JSON.stringify({ name: null, project_id: currentProjectId.value })
     })
 
     if (response.ok) {
@@ -2035,7 +2093,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
 
 async function sendToNewFlow() {
   const ids = [...targetMediaIds.value]
-  const projectId = workingProjectId.value
+  const projectId = currentProjectId.value
   contextMenu.hide()
   activeSubmenu.value = null
   clearFlowDestination()
@@ -2149,8 +2207,15 @@ async function confirmExplode() {
   if (!explodeAssetId.value) return
   explodingContainer.value = true
   try {
+    // Members inherit the container's projects on the backend; the working
+    // project rides along so they also land where the user is looking.
+    const projectId = currentProjectId.value
     const result = (
-      await axios.post(`/api/assets/item/${explodeAssetId.value}/explode`)
+      await axios.post(
+        `/api/assets/item/${explodeAssetId.value}/explode`,
+        projectId != null ? { project_id: projectId } : {},
+        { params: projectId != null ? { project_id: projectId } : undefined },
+      )
     ).data
     addToast(
       `Created ${result.created_count} ${result.created_count === 1 ? 'asset' : 'assets'}; container moved to Trash`,
@@ -2173,7 +2238,7 @@ async function handleKeepInAllAssets() {
   if (ids.length === 0) return
 
   try {
-    for (const id of ids) await promoteContextualMedia(id)
+    for (const id of ids) await promoteContextualMedia(id, currentProjectId.value)
     addToast(
       ids.length === 1 ? 'Kept in All Assets' : `Kept ${ids.length} in All Assets`,
       'success',
@@ -2300,27 +2365,45 @@ async function handleRemoveFromBoard() {
   }
 }
 
-function handleProjectAdded(projectId: number) {
-  contextMenu.hide()
-  activeSubmenu.value = null
+function handleProjectMembershipChanged(projectId: number, action: 'add' | 'remove') {
+  projectMembership.value = applyMembershipChange(
+    projectMembership.value ?? new Map(), targetIds.value.length, projectId, action,
+  )
+  emitProjectAssetsChanged(projectId, action, targetAssetIds.value, targetMediaIds.value)
   emit('refresh')
+}
+
+// Local announcement so open grids update at once, ahead of (and regardless
+// of) the server's project_assets_changed broadcast.
+function emitProjectAssetsChanged(projectId: number, action: 'add' | 'remove', assetIds: number[], mediaIds: number[]) {
+  announceProjectAssetsChanged({
+    project_id: projectId,
+    asset_ids: assetIds,
+    media_ids: mediaIds,
+    action: action === 'add' ? 'added' : 'removed',
+  })
 }
 
 async function handleRemoveFromProject() {
   const ids = targetIds.value
+  const assetIds = [...targetAssetIds.value]
+  const mediaIds = [...targetMediaIds.value]
   const projectId = currentProjectId.value
   contextMenu.hide()
   if (ids.length === 0 || !projectId) return
 
   try {
-    if (targetAssetIds.value.length > 0) {
-      await Promise.all(ids.map((id) => removeAssetFromProject(id, projectId)))
-    } else {
-      await Promise.all(ids.map((id) => removeMediaFromProject(projectId, id)))
-    }
+    const results = assetIds.length > 0
+      ? await Promise.allSettled(ids.map((id) => removeAssetFromProject(id, projectId)))
+      : await Promise.allSettled(ids.map((id) => removeMediaFromProject(projectId, id)))
+    // An item that wasn't in the project is not a failure.
+    const failed = results.filter((r: any) => r.status === 'rejected' && r.reason?.response?.status !== 404)
+    if (failed.length > 0 && failed.length === results.length) throw (failed[0] as PromiseRejectedResult).reason
+    emitProjectAssetsChanged(projectId, 'remove', assetIds, mediaIds)
     emit('refresh')
   } catch (err) {
     console.error('Failed to remove from project:', err)
+    addToast('Could not remove from project', 'error')
   }
 }
 </script>

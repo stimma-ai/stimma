@@ -300,6 +300,7 @@ import { isSettingsLoaded } from '../appConfig'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
+import { PROJECT_ASSETS_CHANGED_EVENT, projectAssetsChangeEffect } from '../utils/projectScope'
 
 // Props
 const props = defineProps({
@@ -1153,6 +1154,27 @@ async function reconcileRemoval(removedIds) {
   await loadImplicitMarkers()
 }
 
+// A project membership change, from the server broadcast or from this
+// window's own menus (which announce it before the broadcast arrives).
+async function handleProjectAssetsChanged(change) {
+  const effect = projectAssetsChangeEffect(
+    { projectId: props.projectId, isTrashMode: props.isTrashMode, filters },
+    change,
+  )
+  if (effect === 'ignore') return
+  const assetIds = (change?.asset_ids || []).map(id => parseInt(id)).filter(Number.isFinite)
+  if (effect === 'remove' && assetIds.length > 0) {
+    removeFromSelection(assetIds)
+    await reconcileRemoval(assetIds)
+  } else {
+    await softReloadMedia()
+  }
+}
+
+function handleLocalProjectAssetsChanged(event) {
+  void handleProjectAssetsChanged(event.detail)
+}
+
 // Soft reload - updates data without showing loading state or unmounting the grid
 // Used for live updates (websocket events) where we want seamless visual updates
 async function softReloadMedia() {
@@ -1644,6 +1666,10 @@ async function handleContextMenuAction({ action, item, targetIds, inSelection })
       // Permanent delete all targeted items
       confirmPermanentDeleteMultiple(targetIds)
       break
+    case 'refresh':
+      // The media menu changed something (trash, membership, explode, keep...).
+      await softReloadMedia()
+      break
     default:
       console.warn('Unknown context menu action:', action)
   }
@@ -1658,9 +1684,9 @@ function handleEmptySpaceAction({ action }) {
       selectAll()
       break
     case 'import':
-      // Emit to parent or trigger import dialog
-      // For now, log - actual import handling depends on parent
-      console.log('Import requested from context menu')
+      // Same destination as the upload button: the Upload page, carrying
+      // this grid's project so imports land in it.
+      goToUpload()
       break
     default:
       console.warn('Unknown empty space action:', action)
@@ -2009,6 +2035,12 @@ onMounted(async () => {
   console.log('[BrowseGridView] similarSearchSourceItems:', similarSearchSourceItems.value)
 
   // Setup WebSocket event listeners
+  wsUnsubscribers.push(wsOn('project_assets_changed', (data) => {
+    if (data?.profile_id && data.profile_id !== getCurrentProfileId()) return
+    void handleProjectAssetsChanged(data)
+  }))
+  window.addEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleLocalProjectAssetsChanged)
+
   wsUnsubscribers.push(wsOn('asset_created', async (data) => {
     void loadImplicitMarkers()
     const count = data.count || 1
@@ -2272,6 +2304,7 @@ onUnmounted(() => {
   })
 
   // Cleanup event listeners
+  window.removeEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleLocalProjectAssetsChanged)
   window.removeEventListener('profile-changed', handleProfileChanged)
   window.removeEventListener('settings-loaded', handleSettingsLoaded)
   window.removeEventListener('markers-changed', handleMarkersChanged)
