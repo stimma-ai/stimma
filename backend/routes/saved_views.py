@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SavedView
-from project_service import get_project_or_404
+from project_service import PROJECT_NONE, get_project_or_404, parse_project_filter
 from core.dependencies import get_db_session
 from models.api_models import SavedViewResponse, SavedViewCreateRequest, SavedViewUpdateRequest, SavedViewReorderRequest
 from sqlalchemy import func
@@ -20,13 +20,18 @@ log = get_logger(__name__)
 
 @router.get("", response_model=List[SavedViewResponse])
 async def get_saved_views(
-    project_id: int | None = Query(default=None, ge=0),
+    project_id: str | None = Query(default=None),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Get saved views; project_id=0 selects Everything, omission lists all."""
+    """Get saved views; project_id=none (or 0) selects Everything, omission lists all."""
     query = select(SavedView).where(SavedView.deleted_at.is_(None))
-    if project_id is not None:
-        query = query.where(SavedView.project_id == (project_id or None))
+    project_filter = parse_project_filter(project_id)
+    if isinstance(project_filter, int) and project_filter < 0:
+        raise HTTPException(status_code=422, detail="project_id must be a project id or 'none'")
+    if project_filter == PROJECT_NONE or project_filter == 0:
+        query = query.where(SavedView.project_id.is_(None))
+    elif project_filter is not None:
+        query = query.where(SavedView.project_id == project_filter)
     result = await session.execute(query.order_by(SavedView.display_order.asc(), SavedView.name.asc()))
     saved_views = result.scalars().all()
 

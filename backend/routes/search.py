@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
@@ -50,6 +50,8 @@ class SearchHit(BaseModel):
     name: str
     updated_at: Optional[str] = None
     project_id: Optional[int] = None
+    # Name of the project the item belongs to (None at the top level).
+    project_name: Optional[str] = None
     # Presets only: the tool the preset belongs to.
     tool_id: Optional[str] = None
     # Chats only: most recent generated media, for the row thumbnail.
@@ -97,12 +99,14 @@ def _match_and_rank(rows, tokens: List[str], limit: int):
     return [row for _, row in scored[:limit]]
 
 
-def _hit(row, tool_id: bool = False) -> SearchHit:
+def _hit(row, tool_id: bool = False, project_names: Optional[dict] = None) -> SearchHit:
+    project_id = getattr(row, "project_id", None)
     return SearchHit(
         id=row.id,
         name=row.name or "",
         updated_at=row.updated_at.isoformat() if row.updated_at is not None else None,
-        project_id=getattr(row, "project_id", None),
+        project_id=project_id,
+        project_name=(project_names or {}).get(project_id) if project_id is not None else None,
         tool_id=row.tool_id if tool_id else None,
     )
 
@@ -157,7 +161,11 @@ async def global_search(
     project_id: Optional[int] = Query(None, description="Scope chats/flows/boards to a project"),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Search entity names for the omnibox / search page."""
+    """Search entity names for the omnibox / search page.
+
+    Without ``project_id`` this covers every project as well as the top level;
+    each hit carries ``project_id`` and ``project_name``.
+    """
     tokens = _tokenize(q)
     if not tokens:
         return SearchResponse(query=q, chats=[], flows=[], boards=[], projects=[], presets=[])
@@ -169,19 +177,28 @@ async def global_search(
         result = await session.execute(query)
         return result.scalars().all()
 
+    live_projects = await fetch(Project)
+    project_names = {p.id: p.name or "" for p in live_projects}
+
     def scoped(model):
-        return [model.project_id == project_id] if project_id is not None else []
+        if project_id is not None:
+            return [model.project_id == project_id]
+        # Items left behind by a deleted project aren't reachable; skip them.
+        return [or_(model.project_id.is_(None), model.project_id.in_(list(project_names) or [0]))]
 
     # Flow-backed chats surface through their flow, not as standalone chats.
     chats = await fetch(Chat, Chat.flow_id.is_(None), *scoped(Chat))
     flows = await fetch(Flow, *scoped(Flow))
     boards = await fetch(Board, *scoped(Board))
     # Searching projects makes no sense inside a project scope.
-    projects = [] if project_id is not None else await fetch(Project)
+    projects = [] if project_id is not None else live_projects
     presets = await fetch(Preset)
 
-    chat_hits = [_hit(r) for r in _match_and_rank(chats, tokens, limit)]
-    board_hits = [_hit(r) for r in _match_and_rank(boards, tokens, limit)]
+    def hits(rows):
+        return [_hit(r, project_names=project_names) for r in _match_and_rank(rows, tokens, limit)]
+
+    chat_hits = hits(chats)
+    board_hits = hits(boards)
 
     # Preview enrichment for the returned hits only (same treatments as the
     # sidebar: chat thumbnail, board mosaic).
@@ -195,7 +212,7 @@ async def global_search(
     return SearchResponse(
         query=q,
         chats=chat_hits,
-        flows=[_hit(r) for r in _match_and_rank(flows, tokens, limit)],
+        flows=hits(flows),
         boards=board_hits,
         projects=[_hit(r) for r in _match_and_rank(projects, tokens, limit)],
         presets=[_hit(r, tool_id=True) for r in _match_and_rank(presets, tokens, limit)],

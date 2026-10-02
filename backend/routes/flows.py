@@ -34,7 +34,7 @@ from models.api_models import (
     FlowTaskResponse,
     FlowUpdateRequest,
 )
-from project_service import get_project_or_404
+from project_service import PROJECT_NONE, get_project_or_404, parse_project_filter
 from flow_runtime import (
     DryRunConfig,
     EquationStatus,
@@ -241,7 +241,7 @@ async def create_flow(
 @router.get("", response_model=list[FlowResponse])
 async def list_flows(
     execution_state: Optional[str] = Query(None),
-    project_id: Optional[int] = Query(None),
+    project_id: Optional[str] = Query(None),
     parent_id: Optional[int] = Query(None),
     include_deleted: bool = Query(False),
     session: AsyncSession = Depends(get_db_session),
@@ -256,10 +256,12 @@ async def list_flows(
                 detail=f"invalid execution_state; expected one of {sorted(_VALID_EXECUTION_STATES)}",
             )
         conditions.append(Flow.execution_state == execution_state)
-    if project_id is not None:
-        conditions.append(Flow.project_id == project_id)
-    else:
+    # No project_id (back-compat) and project_id=none both mean unscoped flows.
+    project_filter = parse_project_filter(project_id)
+    if project_filter is None or project_filter == PROJECT_NONE:
         conditions.append(Flow.project_id.is_(None))
+    else:
+        conditions.append(Flow.project_id == project_filter)
     if parent_id is not None:
         conditions.append(Flow.parent_id == parent_id)
 

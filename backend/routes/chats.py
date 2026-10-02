@@ -12,7 +12,7 @@ from database import Chat, ChatItem, GenerationJob, LLMTrace, UserPreference, Me
 from core.dependencies import get_db_session
 from models.api_models import BaseModel
 from pydantic import BaseModel as PydanticBaseModel
-from project_service import get_project_or_404
+from project_service import PROJECT_NONE, get_project_or_404, parse_project_filter
 from utils.websocket import ws_manager
 from config import get_settings
 from llm_resolver import (
@@ -582,6 +582,14 @@ async def _run_agent_background(
         log.error(f"Agent execution error for chat {chat_id}: {e}", exc_info=True)
 
 
+def _apply_chat_project_filter(query, project_filter):
+    if project_filter == PROJECT_NONE:
+        return query.where(Chat.project_id.is_(None))
+    if project_filter is not None:
+        return query.where(Chat.project_id == project_filter)
+    return query
+
+
 @router.post("", response_model=ChatResponse)
 async def create_chat(
     request: ChatCreateRequest,
@@ -650,19 +658,23 @@ async def list_chats(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     include_deleted: bool = Query(False),
-    project_id: Optional[int] = Query(None),
+    project_id: Optional[str] = Query(None),
     flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """List all chats, paginated and reverse chronological."""
+    """List all chats, paginated and reverse chronological.
+
+    ``project_id=none`` lists only chats with no project; omitting it lists
+    chats from every project.
+    """
+    project_filter = parse_project_filter(project_id)
     # Build query
     query = select(Chat)
     if not include_deleted:
         query = query.where(Chat.deleted_at.is_(None))
     if flow_id is None:
         query = query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        query = query.where(Chat.project_id == project_id)
+    query = _apply_chat_project_filter(query, project_filter)
     if flow_id is not None:
         query = query.where(Chat.flow_id == flow_id)
 
@@ -674,8 +686,7 @@ async def list_chats(
         count_query = count_query.where(Chat.deleted_at.is_(None))
     if flow_id is None:
         count_query = count_query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        count_query = count_query.where(Chat.project_id == project_id)
+    count_query = _apply_chat_project_filter(count_query, project_filter)
     if flow_id is not None:
         count_query = count_query.where(Chat.flow_id == flow_id)
     total_result = await session.execute(count_query)
@@ -698,20 +709,20 @@ async def list_chats(
 async def list_chat_previews(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    project_id: Optional[int] = Query(None),
+    project_id: Optional[str] = Query(None),
     flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List chats with message counts and recent generated media for the landing page."""
+    project_filter = parse_project_filter(project_id)
     # Get paginated chats
     query = select(Chat).where(Chat.deleted_at.is_(None))
     count_query = select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
     if flow_id is None:
         query = query.where(Chat.flow_id.is_(None))
         count_query = count_query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        query = query.where(Chat.project_id == project_id)
-        count_query = count_query.where(Chat.project_id == project_id)
+    query = _apply_chat_project_filter(query, project_filter)
+    count_query = _apply_chat_project_filter(count_query, project_filter)
     if flow_id is not None:
         query = query.where(Chat.flow_id == flow_id)
         count_query = count_query.where(Chat.flow_id == flow_id)
