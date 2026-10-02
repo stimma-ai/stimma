@@ -148,6 +148,31 @@ async def attach_media_to_projects(
         await attach_media_to_project(session, project_id, media_id)
 
 
+async def attach_assets_to_projects(
+    session: AsyncSession, project_ids, asset_ids
+) -> dict[int, list[int]]:
+    """Attach Assets to each live project; returns {project_id: asset_ids}."""
+    from asset_association_service import attach_asset_to_project
+
+    attached: dict[int, list[int]] = {}
+    asset_ids = [a for a in dict.fromkeys(asset_ids) if a is not None]
+    for project_id in dict.fromkeys(project_ids):
+        if not await is_live_project(session, project_id):
+            continue
+        for asset_id in asset_ids:
+            await attach_asset_to_project(session, project_id, asset_id)
+        if asset_ids:
+            attached[project_id] = asset_ids
+    return attached
+
+
+async def broadcast_attached(session: AsyncSession, attached: dict[int, list[int]]) -> None:
+    for project_id, asset_ids in attached.items():
+        await broadcast_project_assets_changed_for_assets(
+            session, project_id, asset_ids, action="added"
+        )
+
+
 async def current_media_ids_for_assets(session: AsyncSession, asset_ids) -> list[int]:
     from database import Asset, AssetRevision
 

@@ -1745,10 +1745,21 @@ async def create_set_from_media(
     # this set. This is what enables genuine multiple membership.
     from asset_service import create_asset_from_media
     from container_service import create_container_asset_from_media
-    member_assets = [
-        asset or await create_asset_from_media(session, media_id=item.id)
-        for asset, item in zip(member_assets, ordered_items)
-    ]
+    promoted_member_ids = []
+    resolved_members = []
+    for asset, item in zip(member_assets, ordered_items):
+        if asset is None:
+            asset = await create_asset_from_media(session, media_id=item.id)
+            promoted_member_ids.append(asset.id)
+        resolved_members.append(asset)
+    member_assets = resolved_members
+    # Members this set had to promote are new here; they join its project.
+    member_attached = {}
+    if request.project_id is not None and promoted_member_ids:
+        from project_service import attach_assets_to_projects
+        member_attached = await attach_assets_to_projects(
+            session, [request.project_id], promoted_member_ids
+        )
     set_asset = await create_container_asset_from_media(
         session,
         media_id=set_media_item.id,
@@ -1782,6 +1793,9 @@ async def create_set_from_media(
         'media_id': set_media_item.id,
         'revision_id': set_asset.current_revision_id,
     })
+    if member_attached:
+        from project_service import broadcast_attached
+        await broadcast_attached(session, member_attached)
 
     log.info(f"Set Asset {set_asset.id} created with linked members: {source_ids}")
 
@@ -2327,11 +2341,21 @@ async def explode_set_or_grid(
             detail="Media is not uniquely mapped to a container Asset",
         )
     from container_service import explode_container
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    container_project_ids = await live_project_ids_for_asset(session, revision.asset_id)
     promoted_asset_ids = await explode_container(
         session, asset_id=revision.asset_id
     )
+    attached = await attach_assets_to_projects(
+        session, container_project_ids, promoted_asset_ids
+    )
     await session.commit()
+    await broadcast_attached(session, attached)
     await ws_manager.broadcast(
         "asset_trashed", {"asset_id": revision.asset_id}
     )

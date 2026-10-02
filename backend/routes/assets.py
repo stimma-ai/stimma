@@ -1890,18 +1890,27 @@ async def promote_container_members(
     session: AsyncSession = Depends(get_db_session),
 ):
     from container_service import save_container_members_as_assets
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    # Members kept from a project's set or grid stay in that project.
+    container_project_ids = await live_project_ids_for_asset(session, asset_id)
     try:
         promoted_ids = await save_container_members_as_assets(
             session, asset_id=asset_id
         )
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = await attach_assets_to_projects(session, container_project_ids, promoted_ids)
     await session.commit()
     await ws_manager.broadcast(
         "assets_created",
         {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
     )
+    await broadcast_attached(session, attached)
     return {"asset_ids": promoted_ids, "count": len(promoted_ids)}
 
 
@@ -1924,12 +1933,20 @@ async def explode_container_asset(
     session: AsyncSession = Depends(get_db_session),
 ):
     from container_service import explode_container, get_container_member_summary
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    # Breaking apart a project's set or grid puts its members in that project.
+    container_project_ids = await live_project_ids_for_asset(session, asset_id)
     try:
         summary = await get_container_member_summary(session, asset_id=asset_id)
         promoted_ids = await explode_container(session, asset_id=asset_id)
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = await attach_assets_to_projects(session, container_project_ids, promoted_ids)
     await session.commit()
     await ws_manager.broadcast("asset_trashed", {"asset_id": asset_id})
     if promoted_ids:
@@ -1937,6 +1954,7 @@ async def explode_container_asset(
             "assets_created",
             {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
         )
+    await broadcast_attached(session, attached)
     return {
         "asset_id": asset_id,
         "asset_ids": promoted_ids,
@@ -2083,12 +2101,31 @@ async def list_contextual_media(
     }
 
 
+class ContextualPromoteRequest(BaseModel):
+    project_id: int | None = None
+
+
 @router.post("/contextual-media/{media_id}/promote")
 async def promote_contextual_media(
     media_id: int,
+    project_id: int | None = Query(None),
+    request: ContextualPromoteRequest | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Explicitly save a contextual/intermediate Media result as an Asset."""
+    """Explicitly save a contextual/intermediate Media result as an Asset.
+
+    ``project_id`` (query or JSON body) also puts the new Asset in that project.
+    """
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        get_project_or_404,
+    )
+
+    if project_id is None and request is not None:
+        project_id = request.project_id
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
     try:
         asset = await create_asset_from_media(
             session,
@@ -2098,9 +2135,13 @@ async def promote_contextual_media(
         )
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = {}
+    if project_id is not None:
+        attached = await attach_assets_to_projects(session, [project_id], [asset.id])
     await session.commit()
     item = await get_asset_browser_item(asset.id, session=session)
     await ws_manager.broadcast("asset_created", {"asset": item})
+    await broadcast_attached(session, attached)
     return {"asset": item}
 
 

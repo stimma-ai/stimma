@@ -450,6 +450,71 @@ class TestBoardMove:
         assert media.id in await _project_media_ids(client, p)
 
 
+class TestContainersShareTheirProjects:
+    async def _set_in_project(self, client, db_session, project_id):
+        async with db_session() as session:
+            members = await create_test_media(session, count=2)
+        response = await client.post("/api/media/sets", json={
+            "media_ids": [m.id for m in members], "title": "World set", "project_id": project_id,
+        })
+        assert response.status_code == 200, response.text
+        return response.json()["asset_id"], [m.id for m in members]
+
+    async def test_explode_puts_members_in_container_projects(self, client, db_session, broadcasts):
+        p = await _project(client, "Explode P")
+        set_asset_id, member_media = await self._set_in_project(client, db_session, p)
+        q = await _project(client, "Explode Q")
+        await client.post(f"/api/assets/batch/projects/{q}", json={"asset_ids": [set_asset_id]})
+        assert not set(member_media) & await _project_media_ids(client, p)
+
+        response = await client.post(f"/api/assets/item/{set_asset_id}/explode")
+        assert response.status_code == 200, response.text
+        assert set(member_media) <= await _project_media_ids(client, p)
+        assert set(member_media) <= await _project_media_ids(client, q)
+        changed = {e["project_id"] for e in _events(broadcasts, "project_assets_changed")
+                   if set(e["media_ids"]) == set(member_media)}
+        assert changed == {p, q}
+
+    async def test_container_member_promote_inherits_projects(self, client, db_session):
+        p = await _project(client, "Keep P")
+        set_asset_id, member_media = await self._set_in_project(client, db_session, p)
+        response = await client.post(f"/api/assets/item/{set_asset_id}/container-members/promote")
+        assert response.status_code == 200, response.text
+        assert set(member_media) <= await _project_media_ids(client, p)
+
+    async def test_explode_outside_projects_attaches_nothing(self, client, db_session):
+        async with db_session() as session:
+            members = await create_test_media(session, count=2)
+        made = (await client.post("/api/media/sets", json={
+            "media_ids": [m.id for m in members], "title": "Free set",
+        })).json()
+        response = await client.post(f"/api/assets/item/{made['asset_id']}/explode")
+        assert response.status_code == 200
+        unfiled = (await client.get("/api/assets/browse?scope=unfiled&page_size=200")).json()
+        assert {m.id for m in members} <= {item["media_id"] for item in unfiled["items"]}
+
+    async def test_promote_contextual_media_into_project(self, client, db_session):
+        async with db_session() as session:
+            loose, bodied, plain = await create_test_media(session, count=3, materialize_assets=False)
+        p = await _project(client, "Keep in all")
+        response = await client.post(f"/api/assets/contextual-media/{loose.id}/promote?project_id={p}")
+        assert response.status_code == 200, response.text
+        response = await client.post(
+            f"/api/assets/contextual-media/{bodied.id}/promote", json={"project_id": p}
+        )
+        assert response.status_code == 200, response.text
+        assert {loose.id, bodied.id} <= await _project_media_ids(client, p)
+
+        response = await client.post(f"/api/assets/contextual-media/{plain.id}/promote")
+        assert response.status_code == 200, response.text
+        assert plain.id not in await _project_media_ids(client, p)
+
+        response = await client.post(
+            f"/api/assets/contextual-media/{plain.id}/promote?project_id=999999"
+        )
+        assert response.status_code == 404
+
+
 @pytest.fixture
 def isolated_dirs(monkeypatch, tmp_path):
     """Keep chat and project workspaces under this test's temp dir."""
