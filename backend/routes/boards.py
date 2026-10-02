@@ -32,7 +32,12 @@ from models.api_models import (
     BoardSummaryResponse,
     BoardUpdateRequest,
 )
-from project_service import get_project_or_404
+from project_service import (
+    PROJECT_NONE,
+    broadcast_project_assets_changed_for_assets,
+    get_project_or_404,
+    parse_project_filter,
+)
 from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api/boards", tags=["boards"])
@@ -151,7 +156,7 @@ async def _serialize_board(board: Board, session: AsyncSession) -> BoardResponse
 
 @router.get("", response_model=List[BoardSummaryResponse])
 async def get_boards(
-    project_id: int | None = None,
+    project_id: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     query = (
@@ -194,10 +199,12 @@ async def get_boards(
         .group_by(Board.id)
         .order_by(Board.updated_at.desc())
     )
-    if project_id is None:
+    # No project_id (back-compat) and project_id=none both mean unscoped boards.
+    project_filter = parse_project_filter(project_id)
+    if project_filter is None or project_filter == PROJECT_NONE:
         query = query.where(Board.project_id.is_(None))
     else:
-        query = query.where(Board.project_id == project_id)
+        query = query.where(Board.project_id == project_filter)
     result = await session.execute(query)
     return [
         BoardSummaryResponse(**board.to_dict(), asset_count=asset_count)
@@ -245,13 +252,66 @@ async def update_board(
     board = await _get_board_or_404(board_id, session)
     if request.name is not None:
         board.name = request.name
-    if 'project_id' in request.model_fields_set:
+    attached_asset_ids: list[int] = []
+    if 'project_id' in request.model_fields_set and request.project_id != board.project_id:
+        if request.project_id is not None:
+            await get_project_or_404(session, request.project_id)
         board.project_id = request.project_id
+        # A board moving into a project brings its assets with it.
+        attached_asset_ids = await _attach_assets_to_board_project(
+            session, board, await _board_asset_ids(session, board.id)
+        )
     board.updated_at = datetime.utcnow()
     await session.commit()
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
+    if attached_asset_ids:
+        await broadcast_project_assets_changed_for_assets(
+            session, board.project_id, attached_asset_ids, action="added"
+        )
     return payload
+
+
+async def _board_asset_ids(session: AsyncSession, board_id: int) -> list[int]:
+    rows = await session.scalars(
+        select(BoardAssetItem.asset_id)
+        .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+        .where(
+            BoardSection.board_id == board_id,
+            BoardSection.deleted_at.is_(None),
+            BoardAssetItem.deleted_at.is_(None),
+        )
+        .order_by(BoardSection.display_order, BoardAssetItem.display_order)
+    )
+    return list(dict.fromkeys(rows))
+
+
+async def _attach_assets_to_board_project(
+    session: AsyncSession, board: Board, asset_ids
+) -> list[int]:
+    """Attach live Assets to the board's project; returns the ids attached."""
+    if board.project_id is None:
+        return []
+    ids = list(dict.fromkeys(asset_ids))
+    if not ids:
+        return []
+    from asset_association_service import attach_asset_to_project
+
+    live_ids = set(
+        await session.scalars(
+            select(Asset.id).where(
+                Asset.id.in_(ids),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    )
+    attached = []
+    for asset_id in ids:
+        if asset_id in live_ids:
+            await attach_asset_to_project(session, board.project_id, asset_id)
+            attached.append(asset_id)
+    return attached
 
 
 @router.delete("/{board_id}")
@@ -476,6 +536,13 @@ async def add_board_items(
         from asset_association_service import broadcast_assets_retained
 
         await broadcast_assets_retained(session, valid_asset_ids, ws_manager)
+        if board.project_id is not None:
+            await broadcast_project_assets_changed_for_assets(
+                session,
+                board.project_id,
+                [a for a in requested_asset_ids if a in valid_asset_ids],
+                action="added",
+            )
     if added > 0:
         _track_board_event("board_items_added", board.id, {"count": added})
     payload = await _serialize_board(board, session)
@@ -785,8 +852,15 @@ async def bulk_move_board_items(
         )
         next_asset_order += 1
 
+    attached_asset_ids = await _attach_assets_to_board_project(
+        session, board, asset_ids_set
+    )
     board.updated_at = datetime.utcnow()
     await session.commit()
+    if attached_asset_ids:
+        await broadcast_project_assets_changed_for_assets(
+            session, board.project_id, attached_asset_ids, action="added"
+        )
     _track_board_event(
         "board_items_moved", board.id,
         {"count": len(asset_ids_set)},

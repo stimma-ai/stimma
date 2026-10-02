@@ -27,7 +27,11 @@ from models.api_models import (
     ProjectUpdateRequest,
 )
 from llm_resolver import PROJECT_EFFORT_COLUMNS, PROJECT_ROLE_COLUMNS, normalize_model_slug
-from project_service import get_project_or_404, initialize_project_root
+from project_service import (
+    broadcast_project_assets_changed,
+    get_project_or_404,
+    initialize_project_root,
+)
 from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -289,7 +293,8 @@ async def add_media_to_project(
     valid_ids = [row[0] for row in result.all()]
     from asset_association_service import asset_for_media, attach_asset_to_project
 
-    added = 0
+    added_asset_ids: list[int] = []
+    added_media_ids: list[int] = []
     for media_id in valid_ids:
         asset = await asset_for_media(
             session,
@@ -300,9 +305,16 @@ async def add_media_to_project(
         if asset is None:
             continue
         await attach_asset_to_project(session, project_id, asset.id)
-        added += 1
+        added_asset_ids.append(asset.id)
+        added_media_ids.append(media_id)
     await session.commit()
-    return {"status": "success", "added": added}
+    await broadcast_project_assets_changed(
+        project_id,
+        asset_ids=added_asset_ids,
+        media_ids=added_media_ids,
+        action="added",
+    )
+    return {"status": "success", "added": len(added_asset_ids)}
 
 
 @router.delete("/{project_id}/assets/{media_id}")
@@ -322,4 +334,10 @@ async def remove_project_media(
     await session.commit()
     if not removed:
         raise HTTPException(status_code=404, detail="Asset not in project")
+    await broadcast_project_assets_changed(
+        project_id,
+        asset_ids=[asset.id],
+        media_ids=[media_id],
+        action="removed",
+    )
     return {"status": "success"}
