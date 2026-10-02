@@ -65,6 +65,8 @@ import { useRouter } from 'vue-router'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
+import { useOwnerProject } from '../composables/useProjectScope'
+import { projectListParam } from '../utils/projectScope'
 
 interface Chat {
   id: number
@@ -74,9 +76,15 @@ interface Chat {
 
 interface Props {
   mediaId: number
+  // Chats listed and created here belong to this project. Defaults to the
+  // active working project.
+  projectId?: number | null
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { projectId: undefined })
+const chatProjectId = useOwnerProject(() => props.projectId)
+// The list is cached per project so switching projects reloads it.
+let loadedProjectId: number | null | undefined
 const emit = defineEmits<{
   (e: 'sent'): void
 }>()
@@ -100,13 +108,16 @@ const menuStyle = computed(() => ({
 async function loadChats() {
   loading.value = true
   try {
-    const response = await fetch('/api/chats', {
+    const projectId = chatProjectId.value
+    const params = new URLSearchParams({ project_id: projectListParam(projectId) })
+    const response = await fetch(`/api/chats?${params}`, {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
     if (response.ok) {
       const data = await response.json()
       // API returns { items: [...], total, page, page_size }
       chats.value = data.items || []
+      loadedProjectId = projectId
     }
   } catch (err) {
     console.error('Failed to load chats:', err)
@@ -127,7 +138,7 @@ async function toggleMenu() {
   showMenu.value = true
 
   // Load chats if not already loaded
-  if (chats.value.length === 0) {
+  if (chats.value.length === 0 || loadedProjectId !== chatProjectId.value) {
     await loadChats()
   }
 }
@@ -143,7 +154,7 @@ async function sendToNewChat() {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify({ name: null })
+      body: JSON.stringify({ name: null, project_id: chatProjectId.value })
     })
 
     if (response.ok) {

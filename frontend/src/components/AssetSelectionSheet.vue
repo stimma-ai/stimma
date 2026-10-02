@@ -4,10 +4,14 @@ import Sheet from './ui/Sheet.vue'
 import AppImage from './media/AppImage.vue'
 import { useAssetApi, type AssetBrowserItem } from '../composables/useAssetApi'
 import { useMediaApi } from '../composables/useMediaApi'
-const props = defineProps<{ show: boolean; saving?: boolean }>()
+import { useOwnerProject } from '../composables/useProjectScope'
+// projectId: the board's project. Its assets are offered; defaults to the
+// active working project. At the top level every asset is offered.
+const props = withDefaults(defineProps<{ show: boolean; saving?: boolean; projectId?: number | null }>(), { projectId: undefined })
 const emit = defineEmits<{ close: []; select: [ids: number[]] }>()
 const { fetchAssets } = useAssetApi()
 const { getThumbnailUrl } = useMediaApi()
+const sheetProjectId = useOwnerProject(() => props.projectId)
 const items = ref<AssetBrowserItem[]>([])
 const selected = ref<number[]>([])
 const query = ref('')
@@ -22,7 +26,12 @@ async function load(reset = false) {
   loading.value = true
   error.value = ''
   try {
-    const result = await fetchAssets({ page: page.value + 1, page_size: 60, caption_query: query.value || undefined })
+    const result = await fetchAssets({
+      page: page.value + 1,
+      page_size: 60,
+      caption_query: query.value || undefined,
+      project_id: sheetProjectId.value ?? undefined,
+    })
     if (token !== request || !props.show) return
     items.value.push(...result.items)
     total.value = result.total
