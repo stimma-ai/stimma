@@ -1670,7 +1670,7 @@ const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPl
 const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
-const { isCompact: slideshowCompact } = useViewport()
+const { isCompact: slideshowCompact, allowsAutofocus } = useViewport()
 // Phones always take the whole screen: inline embedding (chat, tool, flow) is a desktop layout.
 const fullscreen = computed(() => !props.inline || slideshowCompact.value)
 const compactMoreOpen = ref(false)
@@ -5364,7 +5364,7 @@ async function addToProject() {
     projectPickerLoading.value = false
   }
   await nextTick()
-  projectPickerSearch.value?.focus()
+  if (allowsAutofocus.value) projectPickerSearch.value?.focus()
 }
 
 async function toggleProjectMembership(projectId, checked) {

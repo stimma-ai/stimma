@@ -201,7 +201,7 @@
 
           <div ref="managerBody" class="p-6">
             <div v-if="modelAddStep === 'choose'" class="space-y-3">
-              <input v-model="modelSearch" type="search" autofocus placeholder="Search models…" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none" />
+              <input v-model="modelSearch" type="search" :autofocus="allowsAutofocus" placeholder="Search models…" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none" />
               <div v-if="managerLoadingModels" class="py-10 text-center text-sm text-content-muted">Loading models…</div>
               <div v-else-if="availableProviderModels.length" class="space-y-0.5">
                 <button v-for="model in availableProviderModels" :key="model.id" type="button" @click="chooseProviderModel(model)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-overlay-subtle">
@@ -618,6 +618,7 @@
 </template>
 
 <script setup>
+import { useViewport } from '../../../composables/useViewport'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
@@ -633,6 +634,8 @@ import KeyValueList from '../../ui/KeyValueList.vue'
 import ProgressBar from '../../ui/ProgressBar.vue'
 import Spinner from '../../ui/Spinner.vue'
 import { getModelVendorInfo, MODEL_VENDOR_OPTIONS, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
+
+const { allowsAutofocus } = useViewport()
 
 const ChevronIcon = defineComponent({
   props: { open: Boolean },

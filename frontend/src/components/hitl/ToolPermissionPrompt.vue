@@ -151,10 +151,13 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../../composables/useViewport'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps<{
   prompt: string
@@ -267,7 +270,7 @@ function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
   if (dropdownOpen.value) {
     // Focus search input after dropdown opens
-    setTimeout(() => searchInputRef.value?.focus(), 0)
+    setTimeout(() => { if (allowsAutofocus.value) searchInputRef.value?.focus() }, 0)
   } else {
     toolSearch.value = ''
   }

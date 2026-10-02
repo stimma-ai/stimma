@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useViewport } from '../composables/useViewport'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { CheckIcon, ChevronLeftIcon, EllipsisHorizontalIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
@@ -10,6 +11,8 @@ import { addToast } from '../composables/useToasts'
 import ConfirmModal from './ConfirmModal.vue'
 import Button from './ui/Button.vue'
 import Spinner from './ui/Spinner.vue'
+
+const { allowsAutofocus } = useViewport()
 
 // The project picker. The sidebar owns the triggers (project header, All
 // projects row, project row menus); this owns the one dialog they open.
@@ -60,7 +63,7 @@ async function toggle(anchor?: HTMLElement | null) {
   open.value = true
   await refreshProjects()
   await nextTick()
-  ;(search.value ?? menu.value)?.focus()
+  ;(allowsAutofocus.value ? search.value ?? menu.value : menu.value)?.focus()
 }
 /** Opens straight into one project's rename/settings/delete view. */
 async function manage(project: WorkingProject, anchor?: HTMLElement | null) {

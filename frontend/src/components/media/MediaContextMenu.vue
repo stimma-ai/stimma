@@ -10,11 +10,14 @@
         </linearGradient>
       </defs>
     </svg>
+    <!-- Each submenu teleports separately so this scrolling menu cannot clip
+         its sheet or become its containing block during the reveal animation. -->
     <Transition name="menu">
     <div
       v-if="contextMenu.state.value.visible"
       ref="menuRef"
       data-context-menu
+      v-show="!isCoarsePointer || !activeSubmenu"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
       :style="menuPosition"
     >
@@ -155,13 +158,16 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'board'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'board')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'board'"
             ref="boardSubmenuRef"
@@ -171,6 +177,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted">
@@ -186,7 +193,7 @@
               </div>
             </div>
 
-            <div class="overflow-y-auto flex-1">
+            <div class="min-h-0 overflow-y-auto flex-1">
               <button
                 class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
                 :disabled="creatingBoardQuickAdd"
@@ -221,6 +228,7 @@
             </div>
 
           </div>
+          </Teleport>
         </div>
 
         <!-- Projects -->
@@ -243,13 +251,16 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'project'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'project')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'project'"
             ref="projectSubmenuRef"
@@ -259,6 +270,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <ProjectPickerSubmenu
               :media-ids="targetMediaIds"
               :asset-ids="targetAssetIds"
@@ -267,6 +279,7 @@
               @close="contextMenu.hide(); activeSubmenu = null"
             />
           </div>
+          </Teleport>
         </div>
 
         <!-- Remove from Project (only when viewing project assets) -->
@@ -344,14 +357,17 @@
           </button>
 
           <!-- Invisible bridge to submenu - prevents mouseleave when traversing gap -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'generate'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'generate')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Generate submenu -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'generate'"
             ref="generateSubmenuRef"
@@ -361,6 +377,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <!-- Filter box -->
             <div class="px-2.5 py-2 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
@@ -377,7 +394,7 @@
               </div>
             </div>
 
-            <div class="overflow-y-auto flex-1">
+            <div class="min-h-0 overflow-y-auto flex-1">
               <!-- Original tool section (if exists) -->
               <template v-if="!generateSearchQuery.trim() && originalTool">
                 <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
@@ -482,6 +499,7 @@
               </template>
             </div>
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Tool - with submenu (hidden when grids are selected) -->
@@ -506,14 +524,17 @@
           </button>
 
           <!-- Invisible bridge to submenu -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'tool'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'tool')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Tool submenu (accordion with task type expand/collapse) -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'tool'"
             ref="toolSubmenuRef"
@@ -523,6 +544,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop="lockSubmenuOpen"
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <TaskTypeToolList
               ref="toolListRef"
               :tools="sendToTools"
@@ -536,6 +558,7 @@
               @select-instance="handleToolInstanceSelect"
             />
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Chat - with submenu -->
@@ -559,14 +582,17 @@
           </button>
 
           <!-- Invisible bridge to submenu -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'chat'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'chat')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Chat submenu -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'chat'"
             ref="chatSubmenuRef"
@@ -576,6 +602,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div v-if="loadingChats" class="px-3 py-2 text-xs text-content-tertiary">Loading chats...</div>
             <template v-else>
               <!-- New chat option -->
@@ -602,6 +629,7 @@
               </button>
             </template>
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Flow - flow submenu, then destination submenu -->
@@ -624,22 +652,27 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'flow'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'flow')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow'"
             ref="flowSubmenuRef"
+            v-show="!isCoarsePointer || !activeFlowDestination"
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[220px] max-w-[300px] max-h-[400px] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div v-if="loadingFlows" class="px-3 py-2 text-xs text-content-tertiary">Loading flows...</div>
             <template v-else>
               <button
@@ -670,14 +703,18 @@
               </div>
             </template>
           </div>
+          </Teleport>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'flow' && activeFlowDestination"
+            v-if="!isCoarsePointer && (activeSubmenu === 'flow' && activeFlowDestination)"
             class="fixed z-submenu"
             :style="flowDestinationBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow' && activeFlowDestination"
             ref="flowDestinationSubmenuRef"
@@ -687,6 +724,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="clearFlowDestination()"><span aria-hidden="true">‹</span> Back to flows</button>
             <button
               @click="sendToFlowChat(activeFlowDestination)"
               class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
@@ -708,6 +746,7 @@
               <span class="truncate">{{ field.label }}</span>
             </button>
           </div>
+          </Teleport>
         </div>
 
         <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
@@ -878,7 +917,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
-import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
+import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu, SHEET_MENU_STYLE } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
@@ -944,7 +983,7 @@ const router = useRouter()
 const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs, resolveToolInstance } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
-const { isCoarsePointer } = useViewport()
+const { isCoarsePointer, allowsAutofocus } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
 const {
@@ -1366,6 +1405,13 @@ function getActiveSubmenuEl(): HTMLElement | null {
 let submenuAppliedCap: number | null = null
 
 function repositionSubmenu() {
+  if (isCoarsePointer.value) {
+    submenuPosition.value = { ...SHEET_MENU_STYLE }
+    submenuBridgeStyle.value = { display: 'none' }
+    submenuAppliedCap = null
+    getActiveSubmenuEl()?.setAttribute('data-sheet-menu', '')
+    return
+  }
   if (!submenuTriggerRect.value || !menuRef.value) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
@@ -1672,10 +1718,10 @@ watch(activeSubmenu, async (menu) => {
   if (menu !== 'flow') clearFlowDestination()
   if (menu === 'generate') {
     await nextTick()
-    generateSearchInputRef.value?.focus()
+    if (allowsAutofocus.value) generateSearchInputRef.value?.focus()
   } else if (menu === 'board') {
     await nextTick()
-    boardSearchInputRef.value?.focus()
+    if (allowsAutofocus.value) boardSearchInputRef.value?.focus()
   }
 })
 

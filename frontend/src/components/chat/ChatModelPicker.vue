@@ -222,6 +222,7 @@
 </template>
 
 <script setup>
+import { useViewport } from '../../composables/useViewport'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
@@ -230,6 +231,8 @@ import { makeProfileKey } from '../../utils/storageKeys'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
 import { getModelVendorInfo, sortModelsByBrand } from '../../utils/modelVendors'
 import { modelSourceLine } from '../../utils/modelFunding'
+
+const { allowsAutofocus } = useViewport()
 
 const MAX_RECENT_MODELS = 4
 
@@ -373,7 +376,7 @@ function open() {
   isOpen.value = true
   nextTick(() => {
     positionDropdown()
-    searchInput.value?.focus()
+    if (allowsAutofocus.value) searchInput.value?.focus()
   })
 }
 

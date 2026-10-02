@@ -86,6 +86,8 @@ class MainActivity : ComponentActivity() {
         picker?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)); picker = null
     }
 
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
@@ -108,17 +110,41 @@ class MainActivity : ComponentActivity() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         cover = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(BACKGROUND)
-            addView(ProgressBar(this@MainActivity), LinearLayout.LayoutParams(72, 72))
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            addView(ProgressBar(this@MainActivity).apply {
+                indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.rgb(45, 212, 191))
+            }, LinearLayout.LayoutParams(dp(28), dp(28)))
         }
         waiting = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; visibility = View.INVISIBLE
-            addView(TextView(this@MainActivity).apply { setText(R.string.connecting); setTextColor(Color.LTGRAY); gravity = Gravity.CENTER })
+            addView(TextView(this@MainActivity).apply {
+                setText(R.string.connecting)
+                setTextColor(Color.LTGRAY)
+                textSize = 14f
+                gravity = Gravity.CENTER
+                maxWidth = dp(360)
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             addView(Button(this@MainActivity).apply {
                 setText(R.string.choose_server)
+                isAllCaps = false
+                textSize = 14f
+                setTextColor(Color.rgb(45, 212, 191))
+                minWidth = 0
+                minimumWidth = 0
+                minHeight = dp(44)
+                minimumHeight = dp(44)
+                setPadding(dp(16), 0, dp(16), 0)
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(Color.argb(32, 45, 212, 191)),
+                    android.graphics.drawable.ColorDrawable(Color.TRANSPARENT), null)
                 setOnClickListener { model.cancelRestore(); ready.add(setupView); render() }
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(8)
             })
         }
-        cover.addView(waiting)
+        cover.addView(waiting, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(24)
+        })
         setupView = createWebView(model.setup, "/mobile.html")
         root.addView(setupView, fullSize())
         root.addView(cover, fullSize())

@@ -278,6 +278,7 @@
 </template>
 
 <script setup>
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaContextMenu, MediaImage } from '../components/media'
@@ -310,6 +311,8 @@ import { useWorkingContext } from '../composables/useWorkingContext'
 import { contextRoute } from '../utils/workingContext'
 import { makeStorageKey } from '../utils/storageKeys'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps({ project: { type: Object, default: null } })
 const projectId = computed(() => props.project?.id ?? null)
@@ -984,7 +987,7 @@ onMounted(() => {
   loadAll()
   checkAgentModels(projectId.value)
   checkPendingMedia()
-  chatInputBoxRef.value?.focus()
+  if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
   unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
 })
 
@@ -1001,6 +1004,6 @@ onActivated(() => {
   loadAll()
   checkAgentModels(projectId.value)
   checkPendingMedia()
-  chatInputBoxRef.value?.focus()
+  if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
 })
 </script>

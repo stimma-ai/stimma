@@ -21,7 +21,7 @@
           @input="handleSearchInput"
           placeholder="Search keywords..."
           class="w-full bg-overlay-subtle border border-transparent rounded-md py-2 pr-3 pl-9 text-content text-sm focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 placeholder:text-content-muted"
-          autofocus
+          :autofocus="allowsAutofocus"
         />
       </div>
 
@@ -92,12 +92,15 @@
 </template>
 
 <script setup>
+import { useViewport } from '../composables/useViewport'
 import { ref, onMounted } from 'vue'
 import Modal from './ui/Modal.vue'
 import IconButton from './ui/IconButton.vue'
 import Button from './ui/Button.vue'
 import Spinner from './ui/Spinner.vue'
 import { useAssetApi } from '../composables/useAssetApi'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps({
   selectedKeywords: {

@@ -129,6 +129,8 @@ const isWide = computed(() => tier.value === 'wide')
 /** Compact chrome with room to spare: an unfolded foldable, a tablet in the phone shell. */
 const isRoomy = computed(() => tier.value === 'compact' && width.value !== 'narrow')
 const isCoarsePointer = computed(() => pointer.value === 'coarse')
+/** Browsing a touch surface should never summon the software keyboard. */
+const allowsAutofocus = computed(() => !isCompact.value && !isCoarsePointer.value)
 const hasOverride = computed(() => !!(override.value.tier || override.value.pointer || override.value.width))
 
 /** Mirror onto <html> so CSS and tests can hook the same truth. */
@@ -172,6 +174,7 @@ export function useViewport() {
     isRoomy,
     isCoarsePointer,
     hasOverride,
+    allowsAutofocus,
     setViewportOverride,
     clearViewportOverride,
   }

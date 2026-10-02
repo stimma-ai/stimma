@@ -268,7 +268,7 @@ const props = defineProps({
 const router = useRouter()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
-const { isCompact } = useViewport()
+const { isCompact, allowsAutofocus } = useViewport()
 const { addToast } = useToasts()
 
 const searchInputRef = ref(null)
@@ -668,12 +668,12 @@ on('chat_restored', () => loadChats())
 
 onMounted(() => {
   loadChats()
-  searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
 })
 
 onActivated(() => {
   loadChats()
-  searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleEmptyMenuClickOutside)
 })

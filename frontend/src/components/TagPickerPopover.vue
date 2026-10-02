@@ -82,11 +82,14 @@
 </template>
 
 <script setup>
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useAnchoredMenuPosition, useSubmenuPosition } from '../composables/useContextMenuPosition'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { shouldShowTagInPicker } from '../utils/tagPickerOptions'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -216,7 +219,7 @@ async function open() {
   listHeight.value = Math.min(Math.max(pickable + 1, 4), 9) * ROW_H
 
   await nextTick()
-  inputRef.value?.focus()
+  if (allowsAutofocus.value) inputRef.value?.focus()
 }
 
 async function toggleTag(tag) {

@@ -175,9 +175,12 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../../composables/useViewport'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { MediaImage } from '../media'
 import AskOptionTiles from './AskOptionTiles.vue'
+
+const { allowsAutofocus } = useViewport()
 
 interface AskOption {
   label: string
@@ -261,7 +264,7 @@ watch(groupedQuestions, () => {
 
 watch(activeTabIndex, async () => {
   await nextTick()
-  groupedInputRef.value?.focus()
+  if (allowsAutofocus.value) groupedInputRef.value?.focus()
 })
 
 function groupedAnswer(question: string) {

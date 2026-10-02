@@ -74,9 +74,12 @@
 </template>
 
 <script setup>
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps({
   mediaIds: {
@@ -167,6 +170,6 @@ async function handleCreateProject() {
 onMounted(async () => {
   await loadProjects()
   await nextTick()
-  searchInput.value?.focus()
+  if (allowsAutofocus.value) searchInput.value?.focus()
 })
 </script>

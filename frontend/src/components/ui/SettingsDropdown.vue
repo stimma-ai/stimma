@@ -154,9 +154,12 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../../composables/useViewport'
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
 import type { ModelVendorId } from '../../utils/modelVendors'
+
+const { allowsAutofocus } = useViewport()
 
 interface Option {
   value: string
@@ -267,7 +270,7 @@ function open() {
   nextTick(() => {
     positionDropdown()
     // Focus the search box if present, otherwise the options list for keyboard events
-    if (searchable.value) {
+    if (searchable.value && allowsAutofocus.value) {
       searchInput.value?.focus()
     } else {
       optionsList.value?.focus()

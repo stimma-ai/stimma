@@ -143,6 +143,11 @@ jobs:
             npx playwright install --with-deps chromium
           fi
 
+      - name: Check touch focus and actions sheets
+        if: matrix.lane == 'desktop'
+        working-directory: frontend
+        run: npm run test:mobile-experience
+
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend
 

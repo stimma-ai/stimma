@@ -13,10 +13,10 @@ const built = await build({ ...base, configFile: false, logLevel: 'error',
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-for (const source of ['slideshow', 'selection']) for (const projectId of [null, 9]) for (const action of ['remix', 'chat', 'new-chat', 'flow', 'lineage']) test(`phone ${action} from ${source}, project ${projectId}`, async t => {
+for (const source of ['slideshow', 'selection']) for (const projectId of [null, 9]) for (const action of ['remix', 'chat', 'new-chat', 'flow', 'lineage']) for (const [width, height] of action === 'remix' ? [[390, 844], [752, 844], [1100, 844], [752, 420]] : [[390, 844]]) test(`phone ${action} from ${source}, project ${projectId}, ${width}×${height}`, async t => {
   const browser = await chromium.launch()
   t.after(() => browser.close())
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true })
   page.setDefaultTimeout(5000)
   const errors = []
   const requests = []
@@ -50,7 +50,30 @@ for (const source of ['slideshow', 'selection']) for (const projectId of [null, 
   if (source === 'slideshow') await expect(page.locator('[data-test-header]')).toBeHidden()
   if (action === 'remix') {
     await page.getByRole('button', { name: 'Remix', exact: true }).tap()
-    await page.getByRole('button', { name: /Test generator/ }).tap()
+    const root = page.locator('[data-context-menu]')
+    const search = page.getByPlaceholder('Filter tools...')
+    const tool = page.getByRole('button', { name: /Test generator/ })
+    await expect(root).toBeHidden()
+    await expect(search).not.toBeFocused()
+    await expect(tool).toBeVisible()
+    assert.equal(await tool.evaluate(el => {
+      const box = el.getBoundingClientRect()
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
+    }), true, 'the tool row must own its hit area')
+    await page.getByRole('button', { name: 'Back to actions' }).tap()
+    await expect(root).toBeVisible()
+    await page.getByRole('button', { name: 'Remix', exact: true }).tap()
+    await search.tap()
+    await expect(search).toBeFocused()
+    if (width === 752 && height === 420 && source === 'selection' && projectId === null) await page.screenshot({ path: '/tmp/stimma-actions-foldable.png' })
+    if (source === 'selection' && projectId === null && width === 752 && height === 844) {
+      await page.locator('[data-sheet-backdrop]').tap({ position: { x: 10, y: 10 } })
+      await expect(search).toBeHidden()
+      await expect(root).toBeHidden()
+      await page.getByRole('button', { name: 'More actions' }).tap()
+      await page.getByRole('button', { name: 'Remix', exact: true }).tap()
+    }
+    await tool.tap()
   } else if (action === 'chat' || action === 'new-chat') {
     await page.getByRole('button', { name: 'Send to Chat', exact: true }).tap()
     await page.getByRole('button', { name: action === 'chat' ? 'Destination chat' : 'New Chat', exact: true }).tap()

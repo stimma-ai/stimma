@@ -534,6 +534,7 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../../composables/useViewport'
 import { ref, watch, nextTick, onMounted, onUnmounted, inject, computed } from 'vue'
 import type { PromptEditorAgent } from '../../composables/promptEditorAgentKey'
 import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
@@ -556,6 +557,8 @@ import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { isTauri } from '../../apiConfig'
 import Spinner from '../ui/Spinner.vue'
+
+const { allowsAutofocus } = useViewport()
 
 interface Message {
   role: 'user' | 'assistant'
@@ -1123,7 +1126,7 @@ async function processEnhanceQueue() {
 
   isProcessingQueue = false
   isLoading.value = false
-  feedbackInput.value?.focus()
+  if (allowsAutofocus.value) feedbackInput.value?.focus()
 }
 
 // Actually perform the enhancement (prompt-only mode).

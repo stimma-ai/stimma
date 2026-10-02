@@ -54,9 +54,12 @@
 </template>
 
 <script setup>
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps({
   mediaId: {
@@ -90,7 +93,7 @@ const opCounter = ref(0)
 onMounted(async () => {
   localTags.value = [...props.tags]
   await nextTick()
-  inputRef.value?.focus()
+  if (allowsAutofocus.value) inputRef.value?.focus()
 
   try {
     allTags.value = props.assetId ? await getAssetTags(true) : await getTags(true)
