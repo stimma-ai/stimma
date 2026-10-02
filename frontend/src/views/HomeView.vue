@@ -93,13 +93,6 @@
             </div>
           </div>
 
-          <div v-if="projectId == null && recentProjects.length" class="relative w-full max-w-[720px] mt-8">
-            <div class="mb-2 text-xs text-content-muted">Recent projects</div>
-            <div class="flex flex-wrap gap-2">
-              <router-link v-for="item in recentProjects" :key="item.id" :to="contextRoute('home', item.id)" class="rounded-md px-3 py-2 text-sm text-content-secondary coarse:inline-flex coarse:min-h-11 coarse:items-center hover:bg-overlay-subtle">{{ item.name || 'Untitled project' }}</router-link>
-            </div>
-          </div>
-
           <!-- First run: recommended starting points instead of empty sections.
                Skipped when no chat model is configured — the hero grid above
                already fills this role. -->
@@ -320,8 +313,7 @@ import { modelRejectsImageInput } from '../utils/settingsReadiness'
 
 const props = defineProps({ project: { type: Object, default: null } })
 const projectId = computed(() => props.project?.id ?? null)
-const { projects, orderedProjects } = useWorkingContext()
-const recentProjects = computed(() => orderedProjects.value.slice(0, 3))
+const { projects } = useWorkingContext()
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 // Face-aware framing for "Jump back in" cover art (see useFaceFocalPoints).
