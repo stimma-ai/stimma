@@ -310,18 +310,6 @@
           <span>{{ creatingSet ? 'Creating...' : `Create Set (${targetCount} items)` }}</span>
         </button>
 
-        <!-- Package as… (atomic items only; a single item is a valid package) -->
-        <button
-          v-if="canPackageAs"
-          @click="handlePackageAs"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-          </svg>
-          <span>Package as…</span>
-        </button>
-
         <!-- Explode action - only for sets/grids -->
         <button
           v-if="!isMultiple && isSetOrGrid"
@@ -875,16 +863,6 @@
       @close="showExportModal = false"
     />
 
-    <!-- Package as… -->
-    <PackageAsModal
-      :show="showPackageAsModal"
-      :media-ids="packageMediaIds"
-      :media-items="packageMediaItems"
-      :project-id="packageProjectId"
-      @close="showPackageAsModal = false"
-      @created="emit('refresh')"
-    />
-
     <NativeShareDialog v-if="nativeShareMediaId" :media-id="nativeShareMediaId" @close="nativeShareMediaId = null" />
 
     <!-- Share Dialog -->
@@ -910,7 +888,6 @@ import { getCurrentProfileId } from '../../composables/useProfile'
 import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
-import PackageAsModal from '../PackageAsModal.vue'
 import ShareDialog from '../ShareDialog.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
 import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
@@ -1137,10 +1114,6 @@ const tagPickerAnchor = ref<HTMLElement | null>(null)
 const showExportModal = ref(false)
 const exportMediaIds = ref<number[]>([])
 const exportMediaItems = ref<any[]>([])
-const showPackageAsModal = ref(false)
-const packageMediaIds = ref<number[]>([])
-const packageMediaItems = ref<any[]>([])
-const packageProjectId = ref<number | null>(null)
 const showShareDialog = ref(false)
 const showExplodeConfirm = ref(false)
 const explodingContainer = ref(false)
@@ -1209,19 +1182,6 @@ const canCreateSet = computed(() => {
   const items = selectedItems.value
   if (items.length === 0) {
     // Fallback to mediaItem if selectedItems not populated
-    if (mediaItem.value) {
-      return !STRUCTURED_FORMATS.includes(mediaItem.value.file_format?.toLowerCase())
-    }
-    return false
-  }
-  return items.every(item => !STRUCTURED_FORMATS.includes(item.file_format?.toLowerCase()))
-})
-
-// Package as…: same atomic-only guard as Create Set, but one item is enough —
-// a package of one deliverable is a normal thing to want.
-const canPackageAs = computed(() => {
-  const items = selectedItems.value
-  if (items.length === 0) {
     if (mediaItem.value) {
       return !STRUCTURED_FORMATS.includes(mediaItem.value.file_format?.toLowerCase())
     }
@@ -1808,20 +1768,6 @@ async function handleCreateSet() {
   } finally {
     creatingSet.value = false
   }
-}
-
-// Package as… handler: the menu closes, the dialog owns the rest.
-function handlePackageAs() {
-  const ids = targetMediaIds.value
-  const items = selectedItems.value.length > 0
-    ? selectedItems.value.map(item => ({ ...item, id: mediaIdOf(item) }))
-    : (mediaItem.value ? [{ ...mediaItem.value, id: mediaIdOf(mediaItem.value) }] : [])
-  packageProjectId.value = currentProjectId.value || null
-  contextMenu.hide()
-  if (ids.length === 0) return
-  packageMediaIds.value = ids
-  packageMediaItems.value = items
-  showPackageAsModal.value = true
 }
 
 // Marker toggle handler
