@@ -281,6 +281,7 @@ async def get_flow(flow_id: int, session: AsyncSession = Depends(get_db_session)
 
 
 @router.patch("/{flow_id}", response_model=FlowResponse)
+@router.put("/{flow_id}", response_model=FlowResponse)
 async def update_flow(
     flow_id: int,
     request: FlowUpdateRequest,
@@ -292,9 +293,23 @@ async def update_flow(
         flow.name = request.name.strip()
     if request.description is not None:
         flow.description = request.description
-    if "project_id" in request.model_fields_set:
+    moved_chats = []
+    chat_moves = []
+    if "project_id" in request.model_fields_set and request.project_id != flow.project_id:
+        from database import Chat
+        from routes.chats import _check_chat_movable
+
         if request.project_id is not None:
             await get_project_or_404(session, request.project_id)
+        # A flow's chats move with it, under the same rules as moving a chat.
+        moved_chats = list(await session.scalars(
+            select(Chat).where(Chat.flow_id == flow.id, Chat.deleted_at.is_(None))
+        ))
+        for chat in moved_chats:
+            await _check_chat_movable(session, chat, request.project_id)
+        for chat in moved_chats:
+            chat_moves.append((chat.id, chat.project_id, request.project_id))
+            chat.project_id = request.project_id
         flow.project_id = request.project_id
     if request.input_schema is not None:
         flow.input_schema = json.dumps(request.input_schema)
@@ -311,8 +326,20 @@ async def update_flow(
         flow.execution_state = request.execution_state
 
     flow.updated_at = datetime.utcnow()
-    await session.commit()
+    if chat_moves:
+        from routes.chats import _commit_with_workspace_moves
+        await _commit_with_workspace_moves(session, chat_moves)
+    else:
+        await session.commit()
     await session.refresh(flow)
+    for chat in moved_chats:
+        await session.refresh(chat)
+        await ws_manager.broadcast("chat_updated", {
+            "chat_id": chat.id,
+            "project_id": chat.project_id,
+            "chat": chat.to_dict(),
+            "settings_changed": False,
+        })
 
     # If the user just changed the flow's `inputs` and a runtime is live,
     # push the new values into the runtime and diff-rebuild. Otherwise the
@@ -349,7 +376,9 @@ async def update_flow(
                 log.exception("auto-start on inputs PATCH failed", extra={"flow_id": flow_id})
 
     response = _serialize(flow)
-    await ws_manager.broadcast("flow_updated", {"flow": response.model_dump()})
+    await ws_manager.broadcast(
+        "flow_updated", {"flow": response.model_dump(), "project_id": flow.project_id}
+    )
     return response
 
 

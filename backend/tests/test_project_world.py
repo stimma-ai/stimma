@@ -450,6 +450,134 @@ class TestBoardMove:
         assert media.id in await _project_media_ids(client, p)
 
 
+@pytest.fixture
+def isolated_dirs(monkeypatch, tmp_path):
+    """Keep chat and project workspaces under this test's temp dir."""
+    import agent.v2.workspace as workspace
+    import project_service
+
+    monkeypatch.setattr(project_service, "get_data_dir", lambda *a, **k: tmp_path)
+    monkeypatch.setattr(workspace, "get_data_dir", lambda *a, **k: tmp_path)
+    monkeypatch.setattr(workspace, "get_cache_dir", lambda *a, **k: tmp_path / "cache")
+    return tmp_path
+
+
+class TestChatsStayInTheirProject:
+    async def test_clone_keeps_project_flow_and_agent_config(self, client, db_session):
+        from database import Chat
+
+        p = await _project(client, "Clone home")
+        flow = (await client.post("/api/flows", json={"name": "clone flow", "project_id": p})).json()
+        source = (await client.post(
+            "/api/chats", json={"name": "src", "project_id": p, "flow_id": flow["id"], "model_slug": "some-model"}
+        )).json()
+        async with db_session() as session:
+            chat = await session.get(Chat, source["id"])
+            chat.additional_instructions = "be terse"
+            chat.agent_tool_config = '{"allowed_tools": ["x"]}'
+            await session.commit()
+
+        clone = (await client.post(f"/api/chats/{source['id']}/clone")).json()
+        assert clone["id"] != source["id"]
+        assert clone["project_id"] == p
+        assert clone["flow_id"] == flow["id"]
+        assert clone["model_slug"] == source["model_slug"]
+        async with db_session() as session:
+            cloned = await session.get(Chat, clone["id"])
+            assert cloned.additional_instructions == "be terse"
+            assert cloned.agent_tool_config == '{"allowed_tools": ["x"]}'
+
+    async def test_flow_chat_inherits_flow_project(self, client):
+        p = await _project(client, "Flow home")
+        flow = (await client.post("/api/flows", json={"name": "f", "project_id": p})).json()
+        chat = (await client.post("/api/chats", json={"flow_id": flow["id"]})).json()
+        assert chat["project_id"] == p
+
+        top_flow = (await client.post("/api/flows", json={"name": "top f"})).json()
+        chat = (await client.post("/api/chats", json={"flow_id": top_flow["id"]})).json()
+        assert chat["project_id"] is None
+
+        q = await _project(client, "Explicit")
+        chat = (await client.post("/api/chats", json={"flow_id": flow["id"], "project_id": q})).json()
+        assert chat["project_id"] == q
+
+    async def test_move_chat_moves_workspace_and_broadcasts(self, client, isolated_dirs, broadcasts):
+        from agent.v2.workspace import get_workspace_dir
+
+        p = await _project(client, "Move from")
+        q = await _project(client, "Move to")
+        chat = (await client.post("/api/chats", json={"project_id": p})).json()
+        workspace = get_workspace_dir(chat["id"], p)
+        (workspace / "notes.txt").write_text("keep me")
+
+        response = await client.patch(f"/api/chats/{chat['id']}", json={"project_id": q})
+        assert response.status_code == 200, response.text
+        assert response.json()["project_id"] == q
+        moved = isolated_dirs / "projects" / str(q) / "chats" / str(chat["id"]) / "workspace"
+        assert (moved / "notes.txt").read_text() == "keep me"
+        assert not workspace.exists()
+        updated = _events(broadcasts, "chat_updated")[-1]
+        assert updated["project_id"] == q and updated["chat"]["project_id"] == q
+
+        # Out to the top level, via PUT.
+        response = await client.put(f"/api/chats/{chat['id']}", json={"project_id": None})
+        assert response.status_code == 200, response.text
+        top = isolated_dirs / "chats" / str(chat["id"]) / "workspace"
+        assert (top / "notes.txt").read_text() == "keep me"
+        assert not moved.exists()
+
+    async def test_move_chat_validates_project_and_refuses_while_running(self, client, isolated_dirs):
+        from agent.v2 import service
+
+        chat = (await client.post("/api/chats", json={})).json()
+        response = await client.patch(f"/api/chats/{chat['id']}", json={"project_id": 999999})
+        assert response.status_code == 404
+
+        p = await _project(client, "Busy target")
+        key = service._chat_key(chat["id"])
+        service._active_chat_executions.add(key)
+        try:
+            response = await client.patch(f"/api/chats/{chat['id']}", json={"project_id": p})
+            assert response.status_code == 409
+            assert response.json() == {"detail": "Chat is running"}
+        finally:
+            service._active_chat_executions.discard(key)
+        response = await client.patch(f"/api/chats/{chat['id']}", json={"project_id": p})
+        assert response.status_code == 200
+
+    async def test_moving_flow_moves_its_chats(self, client, isolated_dirs, broadcasts):
+        from agent.v2 import service
+        from agent.v2.workspace import get_workspace_dir
+
+        p = await _project(client, "Flow from")
+        q = await _project(client, "Flow to")
+        flow = (await client.post("/api/flows", json={"name": "mover", "project_id": p})).json()
+        chat = (await client.post("/api/chats", json={"flow_id": flow["id"]})).json()
+        assert chat["project_id"] == p
+        (get_workspace_dir(chat["id"], p) / "a.txt").write_text("a")
+
+        key = service._chat_key(chat["id"])
+        service._active_chat_executions.add(key)
+        try:
+            response = await client.patch(f"/api/flows/{flow['id']}", json={"project_id": q})
+            assert response.status_code == 409
+        finally:
+            service._active_chat_executions.discard(key)
+
+        response = await client.patch(f"/api/flows/{flow['id']}", json={"project_id": q})
+        assert response.status_code == 200, response.text
+        assert response.json()["project_id"] == q
+        moved_chat = (await client.get(f"/api/chats/{chat['id']}")).json()
+        assert moved_chat["project_id"] == q
+        workspace = isolated_dirs / "projects" / str(q) / "chats" / str(chat["id"]) / "workspace"
+        assert (workspace / "a.txt").read_text() == "a"
+        assert _events(broadcasts, "flow_updated")[-1]["project_id"] == q
+        assert any(e["chat_id"] == chat["id"] and e["project_id"] == q for e in _events(broadcasts, "chat_updated"))
+
+        response = await client.patch(f"/api/flows/{flow['id']}", json={"project_id": 999999})
+        assert response.status_code == 404
+
+
 class TestProjectActivity:
     async def _job(self, db_session, project_id, status="queued"):
         from database import GenerationJob
