@@ -1037,6 +1037,7 @@ import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '.
 import WorkingContextPicker from './WorkingContextPicker.vue'
 import SidebarProjects from './sidebar/SidebarProjects.vue'
 import { useProjectActivity } from '../composables/useProjectActivity'
+import { handleProjectDeletedBroadcast } from '../composables/useProjectDeletion'
 import { useDragHoverOpen } from '../composables/useProjectDrop'
 import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
 import { useSidebarSections } from '../composables/useSidebarSections'
@@ -2604,12 +2605,7 @@ on('agent_stopped', (data) => {
 on('project_created', () => refreshProjects())
 on('project_deleted', async (data) => {
   savedViews.value = savedViews.value.filter(v => v.project_id !== data.project_id)
-  if (activeProjectId.value === data.project_id) {
-    selectProject(null)
-    addToast('This project is no longer available.', 'warning')
-    await router.replace({ name: 'browse', query: { library: '1' } })
-  }
-  await refreshProjects()
+  await handleProjectDeletedBroadcast(data.project_id, router, route)
 })
 
 // ==================== Route watcher: auto-create tabs ====================

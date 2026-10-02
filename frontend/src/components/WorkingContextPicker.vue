@@ -8,6 +8,7 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useContextMenuPosition } from '../composables/useContextMenuPosition'
 import { useDragStore } from '../stores/dragStore'
 import { useProjectDrop } from '../composables/useProjectDrop'
+import { useProjectDeletion } from '../composables/useProjectDeletion'
 import { useProjectActivity } from '../composables/useProjectActivity'
 import { addToast } from '../composables/useToasts'
 import ConfirmModal from './ConfirmModal.vue'
@@ -26,7 +27,8 @@ const route = useRoute()
 const router = useRouter()
 const { activeProjectId, projects, orderedProjects, loading, error, selectProject, refreshProjects, rememberProject } = useWorkingContext()
 const switchContext = useContextSwitch()
-const { createProject, updateProject, deleteProject } = useMediaApi()
+const { createProject, updateProject } = useMediaApi()
+const deleteProjectAndCleanUp = useProjectDeletion()
 const { draggedMediaItems, draggedMediaInfo } = useDragStore()
 const { dropTarget, onDragOver, onDragLeave, onDrop } = useProjectDrop()
 const { isBusy } = useProjectActivity()
@@ -150,17 +152,9 @@ const deleteMessage = computed(() => {
 async function confirmDelete() {
   if (!deleting.value || busy.value) return
   busy.value = true
-  const id = deleting.value.id
   try {
-    await deleteProject(id)
-    if (activeProjectId.value === id) {
-      selectProject(null)
-      await router.push({ name: 'browse' })
-    }
-    deleting.value = null
-    await refreshProjects()
-  } catch { addToast('Could not delete the project.', 'warning') }
-  finally { busy.value = false }
+    if (await deleteProjectAndCleanUp(deleting.value.id)) deleting.value = null
+  } finally { busy.value = false }
 }
 function outside(event: MouseEvent) {
   // Inline management replaces the clicked row before this document listener
