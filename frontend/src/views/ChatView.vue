@@ -1469,6 +1469,7 @@ import JobErrorModal from '../components/generation/JobErrorModal.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
 import { createInitialMessageConsumer } from '../utils/initialMessage'
+import { useEntityMove } from '../composables/useEntityMove'
 import { useCompare } from '../composables/useCompare'
 import ConnectionError from '../components/ConnectionError.vue'
 import HITLContainer from '../components/hitl/HITLContainer.vue'
@@ -5606,13 +5607,12 @@ watch([() => route.query.rename, () => chat.value?.id], ([flag, id]) => {
   if (isCompact.value) renameOpen.value = true
 }, { immediate: true })
 const moveProjectOpen = ref(false)
+const moveEntityToProject = useEntityMove()
 async function moveToProject(projectId) {
-  try {
-    const response = await fetch(`/api/chats/${chatId.value}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId }) })
-    if (!response.ok) throw new Error('Move failed')
-    chat.value = await response.json()
-    moveProjectOpen.value = false
-  } catch { addToast('Could not move the chat', 'error') }
+  const updated = await moveEntityToProject('chat', chatId.value, projectId)
+  if (!updated) return
+  chat.value = updated
+  moveProjectOpen.value = false
 }
 function updateCompactHeader() {
   if (props.embedded || route.name !== 'chat' || String(route.params.id) !== String(chat.value?.id)) return

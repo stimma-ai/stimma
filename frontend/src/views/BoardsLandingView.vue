@@ -155,6 +155,7 @@
 </template>
 
 <script setup>
+import { useEntityMove } from '../composables/useEntityMove'
 import { computed, onMounted, onUnmounted, ref, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
@@ -400,13 +401,9 @@ async function renameFromSheet(name) {
   }
 }
 
+const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
-  try {
-    await updateBoard(entityId, { project_id: projectId })
-    await loadBoards()
-  } catch (err) {
-    console.error('Failed to move board to project:', err)
-  }
+  if (await moveEntityToProject('board', entityId, projectId)) await loadBoards()
 }
 
 function selectSort(value) {

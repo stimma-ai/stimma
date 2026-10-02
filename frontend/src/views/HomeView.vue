@@ -215,7 +215,7 @@
                 </div>
                 <!-- Body -->
                 <div class="px-3.5 py-3">
-                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}<span v-if="projectId == null && projects.length" class="font-normal text-content-muted"> · {{ projectLabel(item) }}</span></div>
+                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}</div>
                   <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
@@ -278,6 +278,8 @@
 </template>
 
 <script setup>
+import { useEntityMove } from '../composables/useEntityMove'
+import { fetchScopedJson } from '../utils/scopedList'
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -307,7 +309,6 @@ import { useAgentModelAvailability } from '../composables/useAgentModelAvailabil
 import { useAvailableModels } from '../composables/useAvailableModels'
 import { mediaIdOf } from '../utils/assetIdentity'
 import { useFaceFocalPoints } from '../composables/useFaceFocalPoints'
-import { useWorkingContext } from '../composables/useWorkingContext'
 import { contextRoute } from '../utils/workingContext'
 import { makeStorageKey } from '../utils/storageKeys'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
@@ -316,7 +317,6 @@ const { allowsAutofocus } = useViewport()
 
 const props = defineProps({ project: { type: Object, default: null } })
 const projectId = computed(() => props.project?.id ?? null)
-const { projects } = useWorkingContext()
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 // Face-aware framing for "Jump back in" cover art (see useFaceFocalPoints).
@@ -519,11 +519,6 @@ const jumpBackIn = computed(() => {
     .slice(0, isCompact.value ? 2 : 3)
 })
 
-function projectLabel(item) {
-  const id = (item.board || item.chat || item.flow)?.project_id
-  return id == null ? 'No project' : projects.value.find(p => p.id === id)?.name || 'Untitled project'
-}
-
 function jumpKindLabel(item) {
   return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
 }
@@ -571,9 +566,8 @@ function cleanupResizeObserver() {
 
 async function loadRecentChats() {
   try {
-    const response = await fetch(`/api/chats/previews?page=1&page_size=6${projectId.value == null ? '' : `&project_id=${projectId.value}`}`)
-    if (!response.ok) return
-    const data = await response.json()
+    // The top level shows only chats with no project.
+    const data = await fetchScopedJson('/api/chats/previews', new URLSearchParams({ page: '1', page_size: '6' }), projectId.value)
     recentChats.value = data.items || []
     requestFaceFocalPoints(recentChats.value.map((c) => c.recent_media?.[0]?.media_id))
   } catch (err) {
@@ -613,7 +607,8 @@ function getFlowPreviewMediaIds(flowId) {
 
 async function loadRecentMedia() {
   try {
-    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined })
+    // Top-level Home shows top-level assets, like the top-level browser.
+    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined, scope: projectId.value == null ? 'unfiled' : undefined })
     recentMedia.value = response.items || []
   } catch (err) {
     console.error('Failed to load recent media:', err)
@@ -771,25 +766,13 @@ function handleContextMenuRename(entityType, entityId) {
   else if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId }, query: { rename: '1' } })
 }
 
+const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
-  try {
-    if (entityType === 'board') {
-      await updateBoard(entityId, { project_id: projectId })
-      await loadRecentBoards()
-    } else if (entityType === 'flow') {
-      await updateFlow(entityId, { project_id: projectId })
-      await loadRecentFlows()
-    } else if (entityType === 'chat') {
-      await fetch(`/api/chats/${entityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId })
-      })
-      await loadRecentChats()
-    }
-  } catch (err) {
-    console.error(`Failed to move ${entityType} to project:`, err)
-  }
+  if (!['board', 'flow', 'chat'].includes(entityType)) return
+  if (!await moveEntityToProject(entityType, entityId, projectId)) return
+  if (entityType === 'board') await loadRecentBoards()
+  else if (entityType === 'flow') await loadRecentFlows()
+  else await loadRecentChats()
 }
 
 function handleContextMenuDelete(entityType, entityId) {
