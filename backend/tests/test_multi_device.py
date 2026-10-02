@@ -631,6 +631,112 @@ async def test_a_registry_that_does_not_answer_is_an_error_not_a_sign_out(monkey
         await registry.list_devices()
 
 
+@pytest.fixture
+def counting_registry(monkeypatch):
+    """A registry endpoint that counts posts, with a controllable clock."""
+    from multi_device import registry
+
+    posts: list[dict] = []
+    clock = {"now": 1000.0}
+
+    async def headers():
+        return {"Authorization": "Bearer t"}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"devices": []}
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            posts.append(json)
+            return Response()
+
+    monkeypatch.setattr(registry, "_cloud_headers", headers)
+    monkeypatch.setattr(registry, "is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr(registry.httpx, "AsyncClient", lambda **kwargs: Client())
+    monkeypatch.setattr(registry.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(registry, "_last_published", None)
+    return posts, clock
+
+
+def _publish(registry, routes, **kwargs):
+    return registry.register(
+        device_id="device-alpha",
+        name="ALPHA",
+        platform="linux",
+        serving=True,
+        routes=routes,
+        cert_fingerprint="a" * 64,
+        **kwargs,
+    )
+
+
+# Every registry call wakes the cloud database. A serving install that changes
+# nothing must not ping it every heartbeat, or an idle account keeps the
+# database running around the clock.
+@pytest.mark.asyncio
+async def test_a_heartbeat_with_nothing_new_does_not_call_the_cloud(counting_registry):
+    from multi_device import registry
+
+    posts, clock = counting_registry
+    routes = [{"kind": "lan", "host": "192.168.1.5", "port": 43239}]
+
+    await _publish(registry, routes)
+    clock["now"] += registry.HEARTBEAT_INTERVAL_S
+    await _publish(registry, routes, only_if_changed=True)
+
+    assert len(posts) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_heartbeat_publishes_when_routes_move(counting_registry):
+    from multi_device import registry
+
+    posts, clock = counting_registry
+    await _publish(registry, [{"kind": "lan", "host": "192.168.1.5", "port": 43239}])
+    clock["now"] += registry.HEARTBEAT_INTERVAL_S
+    await _publish(
+        registry, [{"kind": "lan", "host": "10.0.0.7", "port": 43239}], only_if_changed=True
+    )
+
+    assert [p["routes"][0]["host"] for p in posts] == ["192.168.1.5", "10.0.0.7"]
+
+
+@pytest.mark.asyncio
+async def test_a_heartbeat_still_republishes_an_unchanged_row_eventually(counting_registry):
+    from multi_device import registry
+
+    posts, clock = counting_registry
+    routes = [{"kind": "lan", "host": "192.168.1.5", "port": 43239}]
+    await _publish(registry, routes)
+    clock["now"] += registry.REPUBLISH_INTERVAL_S
+    await _publish(registry, routes, only_if_changed=True)
+
+    assert len(posts) == 2
+
+
+@pytest.mark.asyncio
+async def test_explicit_registration_always_reaches_the_cloud(counting_registry):
+    """Serving toggles, renames and startup must not be swallowed as duplicates."""
+    from multi_device import registry
+
+    posts, _clock = counting_registry
+    routes = [{"kind": "lan", "host": "192.168.1.5", "port": 43239}]
+    await _publish(registry, routes)
+    await _publish(registry, routes)
+
+    assert len(posts) == 2
+
+
 @pytest.mark.asyncio
 async def test_being_signed_out_is_not_an_error(monkeypatch):
     from multi_device import registry

@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 
 import asyncio
+import time
 from typing import Optional
 
 import httpx
@@ -29,8 +30,16 @@ from .identity import is_tailscale_address, local_addresses
 
 log = get_logger(__name__)
 
+# How often the heartbeat checks whether anything we publish has changed
+# (routes move when the machine changes networks). The check is local; the
+# cloud is only called when the payload differs from what it already has, or
+# when the row is REPUBLISH_INTERVAL_S old. Every call wakes the cloud
+# database, so an idle serving install must not ping it every few minutes.
+# "Online" and "last seen" come from the account-events socket, not from this.
 HEARTBEAT_INTERVAL_S = 120
+REPUBLISH_INTERVAL_S = 6 * 60 * 60
 _heartbeat_task: Optional[asyncio.Task] = None
+_last_published: Optional[tuple[dict, float]] = None
 
 
 def build_routes(port: int) -> list[dict]:
@@ -91,8 +100,14 @@ async def register(
     channel: Optional[str] = None,
     sandbox: Optional[str] = None,
     app_version: Optional[str] = None,
+    only_if_changed: bool = False,
 ) -> Optional[list[dict]]:
-    """Upsert this device; returns the account's other devices, or None."""
+    """Upsert this device; returns the account's other devices, or None.
+
+    With ``only_if_changed`` the call is skipped (returning None) when the
+    cloud already holds this exact payload from a recent registration.
+    """
+    global _last_published
     if is_privacy_lockdown_enabled():
         return None
 
@@ -117,14 +132,21 @@ async def register(
         "appVersion": app_version,
     }
 
+    if only_if_changed and _last_published is not None:
+        last_payload, published_at = _last_published
+        if last_payload == payload and time.monotonic() - published_at < REPUBLISH_INTERVAL_S:
+            return None
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
                 f"{_base_url()}/api/devices/register", headers=headers, json=payload
             )
             response.raise_for_status()
+            _last_published = (payload, time.monotonic())
             return response.json().get("devices", [])
     except Exception as exc:
+        _last_published = None
         # Discovery being briefly unavailable is not an error worth surfacing:
         # an established link keeps working, and the next heartbeat retries.
         log.warning("multi-device: registration failed", error=str(exc))
@@ -177,7 +199,7 @@ async def remove_device(device_id: str) -> bool:
 
 
 def start_heartbeat(register_now) -> None:
-    """Keep last_seen fresh (and routes current) while serving."""
+    """Keep the published routes current while serving."""
     global _heartbeat_task
     stop_heartbeat()
 
@@ -185,7 +207,7 @@ def start_heartbeat(register_now) -> None:
         while True:
             try:
                 await asyncio.sleep(HEARTBEAT_INTERVAL_S)
-                await register_now()
+                await register_now(only_if_changed=True)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
