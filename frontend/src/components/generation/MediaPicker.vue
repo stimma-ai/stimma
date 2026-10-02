@@ -1720,16 +1720,17 @@ async function uploadFile(file: File, replaceIndex?: number) {
 
 async function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
-  const files = input.files
+  // Copy before clearing: Chromium empties the input's FileList in place.
+  const files = Array.from(input.files ?? [])
 
-  if (!files || files.length === 0) return
+  if (files.length === 0) return
 
   // Clear the input so the same file can be selected again
   input.value = ''
 
   // Upload files up to max
   const slotsAvailable = props.maxItems - items.value.length
-  const filesToUpload = Array.from(files).slice(0, slotsAvailable)
+  const filesToUpload = files.slice(0, slotsAvailable)
 
   for (const file of filesToUpload) {
     await uploadFile(file)
