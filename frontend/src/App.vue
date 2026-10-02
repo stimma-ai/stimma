@@ -84,8 +84,9 @@
     <GlowCanvas class="absolute inset-0" :blobs="lockGlowBlobs" />
 
     <!-- Centered lock content -->
-    <div class="relative z-[1] h-full overflow-y-auto">
-      <div class="min-h-full flex flex-col items-center justify-center gap-5 sm:gap-6 px-6 pb-6 pt-safe" style="padding-top: calc(var(--safe-top) + 4rem)">
+    <div class="relative z-[1] h-full px-6" style="padding-top: calc(var(--safe-top) + 4rem); padding-bottom: calc(var(--safe-bottom) + 1.5rem)">
+      <FitToSpace>
+      <div class="flex flex-col items-center gap-5 sm:gap-6">
         <!-- Brand -->
         <div class="flex flex-col items-center gap-3">
           <img src="/logo.svg" alt="" class="w-14 h-14 sm:w-[72px] sm:h-[72px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)]" />
@@ -115,7 +116,7 @@
 
         <!-- PIN dots (one per digit, min 4) -->
         <div
-          class="lock-dots flex items-center justify-center gap-3.5 min-h-[20px] cursor-text"
+          class="lock-dots flex flex-wrap items-center justify-center gap-3.5 min-h-[20px] cursor-text"
           :class="{ 'lock-dots-error': lockScreenShake }"
           @click="lockScreenPinInput?.focus()"
         >
@@ -155,6 +156,7 @@
           </button>
         </div>
       </div>
+      </FitToSpace>
     </div>
   </div>
 
@@ -284,6 +286,7 @@ const vScrollGuard = {
   unmounted(el) { el.removeEventListener('scroll', el.__scrollGuard) },
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
+import FitToSpace from './components/FitToSpace.vue'
 import { useViewport } from './composables/useViewport'
 import { isDrawerEdgeTouch } from './utils/drawerGesture'
 import { makeProfileKey } from './utils/storageKeys'
