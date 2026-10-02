@@ -21,6 +21,7 @@ export interface RecentEntity {
   name: string
   lastVisited: number // epoch ms
   count: number
+  projectId?: number | null // chats, boards, flows: owning project (null = top level)
 }
 
 const MAX_ENTRIES = 60
@@ -95,6 +96,17 @@ export function updateRecentEntityName(type: RecentEntityType, id: string, name:
   const existing = entries.find(e => e.type === type && e.id === id)
   if (existing && existing.name !== name) {
     existing.name = name
+    save(entries)
+  }
+}
+
+/** Record which project a chat, board or flow belongs to (scoped recents). */
+export function setRecentEntityProject(type: RecentEntityType, id: string, projectId: number | null) {
+  if (type !== 'chat' && type !== 'board' && type !== 'flow') return
+  const entries = load()
+  const existing = entries.find(e => e.type === type && e.id === id)
+  if (existing && existing.projectId !== projectId) {
+    existing.projectId = projectId
     save(entries)
   }
 }

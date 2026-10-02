@@ -189,6 +189,14 @@
                     <ArchiveBoxIcon class="w-3 h-3 flex-shrink-0" />
                     <span class="truncate max-w-[100px]">{{ item.data.projectName }}</span>
                   </span>
+                  <!-- Unscoped results roll up every project; items in one say which. -->
+                  <span
+                    v-if="item.projectName"
+                    class="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-overlay-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-secondary"
+                  >
+                    <ArchiveBoxIcon class="w-3 h-3 flex-shrink-0" />
+                    <span class="truncate max-w-[100px]">{{ item.projectName }}</span>
+                  </span>
                   <span
                     v-if="(item.kind === 'tool' || item.kind === 'preset') && scopeProject"
                     class="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-overlay-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-secondary"
@@ -246,6 +254,8 @@ import {
   type MediaSearchHit,
   type SearchResultKind, assetDisplayTitle, type AssetGroup } from '../../composables/useGlobalSearch'
 import { recentEntities, type RecentEntity } from '../../composables/useRecentEntities'
+import { useWorkingContext } from '../../composables/useWorkingContext'
+import { countOutside, outsideLabel, recentsInScope, type OutsideCount } from '../../utils/searchScope'
 import { toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { supported as voiceSupported } from '../../composables/useVoiceInput'
@@ -256,7 +266,7 @@ import { encodeMediaType } from '../../composables/useUrlState'
 
 interface SelectableItem {
   key: string
-  kind: SearchResultKind | 'tool-instance' | 'asset' | 'contextual' | 'browse-prompt' | 'browse-visual'
+  kind: SearchResultKind | 'tool-instance' | 'asset' | 'contextual' | 'browse-prompt' | 'browse-visual' | 'outside'
   label: string
   sub?: string
   meta?: string
@@ -265,6 +275,8 @@ interface SelectableItem {
   /** Which asset flavor this thumbnail belongs to (assets only). */
   set?: 'prompt' | 'visual'
   highlight?: boolean
+  /** Owning project, shown on unscoped results that live in one. */
+  projectName?: string
   data: any
   index: number
 }
@@ -280,7 +292,7 @@ interface Section {
 }
 
 function isEscapeKind(kind: SelectableItem['kind']): boolean {
-  return kind === 'browse-prompt' || kind === 'browse-visual'
+  return kind === 'browse-prompt' || kind === 'browse-visual' || kind === 'outside'
 }
 
 const DROPDOWN_ENTITY_LIMIT = 5
@@ -289,6 +301,9 @@ const DROPDOWN_MEDIA_LIMIT = 6
 const DROPDOWN_ASSET_GROUPS = 3
 const DROPDOWN_ASSET_ROWS = 4
 const DEBOUNCE_MS = 150
+// Unscoped entity fetch used only to count matches outside the scope.
+const OUTSIDE_ENTITY_LIMIT = 20
+const ALL_ASSET_GROUPS = 10 // every asset type the search groups by
 
 const router = useRouter()
 const route = useRoute()
@@ -296,6 +311,7 @@ const { searchEntities, searchTools, searchOpenToolInstances, searchAssetGroups,
 const { getContextualMedia } = useAssetApi()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject } = useMediaApi()
+const { projects: knownProjects, activeProjectId } = useWorkingContext()
 const { track } = useTelemetry()
 const focusSignal = useGlobalSearchFocusSignal()
 
@@ -335,6 +351,12 @@ const visualMediaResults = ref<MediaSearchHit[]>([])
 const contextualMediaResults = ref<Array<MediaSearchHit & { root_kind: string; root_id: string }>>([])
 const toolById = ref<Map<string, ProviderTool>>(new Map())
 const recents = ref<RecentEntity[]>([])
+const outside = ref<OutsideCount | null>(null)
+
+function projectNameFor(projectId: number | null | undefined, fallback?: string | null): string | undefined {
+  if (projectId == null || scopeProject.value) return undefined
+  return fallback || knownProjects.value.find(p => p.id === projectId)?.name || 'Untitled project'
+}
 
 // --- Voice wiring (standard hold-space contract) ---
 function getQueryText() { return query.value }
@@ -352,7 +374,7 @@ const sections = computed<Section[]>(() => {
     if (recents.value.length > 0) {
       result.push({
         title: 'Recent',
-        items: recents.value.map(r => {
+        items: recentsInScope(recents.value, scopeProject.value?.id ?? null).slice(0, 8).map(r => {
           const time = formatRelativeTime(new Date(r.lastVisited).toISOString())
           if (r.type === 'tool') {
             const tool = toolById.value.get(r.id)
@@ -369,6 +391,7 @@ const sections = computed<Section[]>(() => {
             key: `recent:${r.type}:${r.id}`,
             kind: r.type,
             label: r.name,
+            projectName: projectNameFor(r.projectId),
             // Time only — the row's left icon already conveys the type, so the
             // trailing column stays a uniform width and lines up across rows.
             meta: time,
@@ -436,6 +459,7 @@ const sections = computed<Section[]>(() => {
         kind,
         label: hit.name || `Untitled ${kind}`,
         sub: kind === 'preset' ? (toolById.value.get(hit.tool_id)?.name || undefined) : undefined,
+        projectName: kind === 'chat' || kind === 'flow' || kind === 'board' ? projectNameFor(hit.project_id, hit.project_name) : undefined,
         meta: hit.updated_at ? formatRelativeTime(hit.updated_at) : undefined,
         highlight: true,
         data: hit,
@@ -519,6 +543,18 @@ const sections = computed<Section[]>(() => {
       })),
     })
   }
+  if (scopeProject.value && outside.value && outside.value.count > 0) {
+    result.push({
+      title: 'Elsewhere',
+      items: [next({
+        key: 'outside',
+        kind: 'outside',
+        label: outsideLabel(outside.value, scopeProject.value.name),
+        meta: 'Show all',
+        data: null,
+      })],
+    })
+  }
   return result
 })
 
@@ -546,6 +582,7 @@ async function runSearch() {
     assetGroupResults.value = []
     visualMediaResults.value = []
     contextualMediaResults.value = []
+    outside.value = null
     selectedIndex.value = 0
     return
   }
@@ -554,6 +591,8 @@ async function runSearch() {
     // Entity + tool matches land together; the two asset flavors fill in
     // after so they never delay the navigational hits.
     const projectId = scopeProject.value?.id ?? null
+    outside.value = null
+    if (projectId != null) void countOutsideMatches(q, projectId, seq)
     // Asset groups are the slowest hit; start them with the navigational
     // searches rather than after, so nothing waits on anything else.
     searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId).then(groups => {
@@ -595,6 +634,21 @@ async function runSearch() {
   } finally {
     if (seq === searchSeq) loading.value = false
   }
+}
+
+// Inside a project, also run the unscoped search to tell the user what lies
+// outside it. Asset totals compare every type, scoped and unscoped.
+async function countOutsideMatches(q: string, projectId: number, seq: number) {
+  const totals = (groups: AssetGroup[]) => groups.reduce((sum, g) => sum + g.total, 0)
+  const [global, globalAssets, scopedAssets] = await Promise.all([
+    searchEntities(q, OUTSIDE_ENTITY_LIMIT, null).catch(() => null),
+    searchAssetGroups(q, 1, ALL_ASSET_GROUPS, null).catch(() => []),
+    searchAssetGroups(q, 1, ALL_ASSET_GROUPS, projectId).catch(() => []),
+  ])
+  if (seq !== searchSeq) return
+  outside.value = countOutside(global, projectId, OUTSIDE_ENTITY_LIMIT, {
+    scoped: totals(scopedAssets), global: totals(globalAssets),
+  })
 }
 
 async function ensureToolCatalog() {
@@ -640,7 +694,7 @@ function openDropdown() {
     }
     track('search_opened', { scoped: !!scopeProject.value }, 'feature')
   }
-  recents.value = recentEntities(8)
+  recents.value = recentEntities(30)
   isOpen.value = true
   selectedIndex.value = 0
   // Recents tool rows resolve display name / provider / mark from the catalog.
@@ -782,8 +836,13 @@ function activateItem(item: SelectableItem) {
     } else if (item.data.root_kind === 'flow_run') {
       router.push({ name: 'flow', params: { id: item.data.root_id } })
     } else {
-      router.push({ name: 'search', query: { q: query.value.trim() } })
+      router.push({ name: 'search', query: { q: query.value.trim(), ...scopeQuery() } })
     }
+    return
+  }
+  if (item.kind === 'outside') {
+    // Show all = the unscoped results, right here.
+    clearScope()
     return
   }
   if (item.kind === 'tool-instance') {
@@ -804,6 +863,12 @@ function activateItem(item: SelectableItem) {
         : { stt: query.value.trim() }
     if (item.kind === 'browse-prompt' && item.data?.filterKey) browseQuery.mt = encodeMediaType(item.data.filterKey)
     if (scopeProject.value) browseQuery.prj = String(scopeProject.value.id)
+    else {
+      // Unscoped asset matches include project assets; inside a project the
+      // unscoped view lives at the top level rather than the project's assets.
+      browseQuery.include_projects = '1'
+      if (activeProjectId.value != null) browseQuery.library = '1'
+    }
     router.push({ name: 'browse', query: browseQuery })
     return
   }
