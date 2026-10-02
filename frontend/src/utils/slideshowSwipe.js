@@ -1,5 +1,5 @@
 /** One-finger navigation belongs to the unzoomed picture, never its controls. */
-export function createSlideshowSwipe({ canNavigate, navigate, drag = () => {}, release = () => {}, now = () => Date.now() }) {
+export function createSlideshowSwipe({ canNavigate, navigate, reserveGesture = () => false, drag = () => {}, release = () => {}, now = () => Date.now() }) {
   let start = null
   let suppressUntil = 0
   function cancel() {
@@ -12,6 +12,7 @@ export function createSlideshowSwipe({ canNavigate, navigate, drag = () => {}, r
     suppressClick: () => now() < suppressUntil,
     start(event) {
       start = null
+      if (reserveGesture(event)) { cancel(); return }
       if (event.touches.length !== 1 || !canNavigate()) { cancel(); return }
       if (event.target?.closest?.('button, a, input, select, textarea, [role="slider"], [role="button"], [contenteditable="true"], [data-slideshow-interactive]')) return
       const touch = event.touches[0]

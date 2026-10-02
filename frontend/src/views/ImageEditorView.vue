@@ -72,6 +72,7 @@ import SelectIsland from '../imageEditor/components/SelectIsland.vue'
 import StackCropCanvas from '../imageEditor/components/StackCropCanvas.vue'
 import ToolPicker from '../imageEditor/components/ToolPicker.vue'
 import { useStackDocument, newOpId } from '../imageEditor/stack/useStackDocument'
+import type { StackDocument } from '../imageEditor/stack/types'
 import { useStackCandidates } from '../imageEditor/stack/useStackCandidates'
 import { StackCompositor, stackHashes, canvasToBlob } from '../imageEditor/stack/useStackCompositor'
 import {
@@ -966,6 +967,19 @@ const heldCombineOverride = ref<SelectionMode | null>(null)
 let workspaceMaskComposition: WorkspaceMaskGesture<HTMLCanvasElement>[] | null = null
 let workspaceMaskCompositionKey: string | null = null
 
+const inspectingMask = ref(false)
+watch(() => !!selection.value, hasSelection => {
+  if (!hasSelection) inspectingMask.value = false
+})
+
+function toggleMaskInspection() {
+  inspectingMask.value = !inspectingMask.value
+  if (inspectingMask.value) {
+    comparing.value = false
+    resetView()
+  }
+}
+
 // Retouch
 const retouchRef = ref<InstanceType<typeof StackPaintCanvas> | null>(null)
 const retouchOpId = ref<string | null>(null)
@@ -1654,11 +1668,25 @@ async function renderSnapshot(requestRevision: number) {
   // The compositor awaits payloads. Snapshot the plain composition so a mutation
   // arriving during that await cannot change the array underneath its loop.
   const doc = JSON.parse(JSON.stringify(liveDoc))
+  const cropSession = family.value === 'crop'
+  const cropId = cropOpId.value
+  // Crop owns the uncropped input, including annotations below its step.
+  // Use the authoritative document even when another overlay trims displayDoc.
+  const cropDoc = cropSession
+    ? (whole ? doc : JSON.parse(JSON.stringify(stack.doc.value)))
+    : null
   bufferedStepPreviews = whole ? {} : null
   try {
     emitPreviews = whole
+    // Keep this replay in the same queue as the head. Independent entry-time
+    // renders left Crop stale on sidebar edits and could finish out of order.
+    const cropSource = cropDoc ? await renderCropInput(cropDoc, cropId) : null
+    if (requestRevision !== renderRequestRevision) return
     const rendered = await compositor.render(doc)
     if (requestRevision !== renderRequestRevision) return
+    if (cropSession && family.value === 'crop' && cropId === cropOpId.value) {
+      cropInput.value = cropSource
+    }
     composite.value = rendered
     if (whole) publishEditorLivePreview(props.assetId, rendered)
     if (whole && bufferedStepPreviews) {
@@ -2703,7 +2731,7 @@ function selectFamily(id: FamilyId) {
     // only time an existing crop is resumed is when its row is selected,
     // which enterParametricOp handles.
     cropOpId.value = null
-    void renderCropInput()
+    void render()
   }
   if (id === 'paint') syncImplicitPaintLayer()
 }
@@ -2899,7 +2927,7 @@ function onSubbarSet(patch: Record<string, any>, continuous = false) {
   // strip puts itself away. Picking a LOOK does not: trying several against
   // the picture is the whole point of a strip.
   if ('auto' in patch || 'addLevel' in patch) looksOpen.value = false
-  if ('auto' in patch) runAuto(patch.auto)
+  if ('auto' in patch) void runAutoAction(patch.auto)
   if ('applyLook' in patch) applyLook(patch.applyLook)
   if ('looksOpen' in patch) {
     looksOpen.value = patch.looksOpen
@@ -3766,14 +3794,31 @@ function addScopedLook(
  * Light step seeded with the values it chose — inspectable, adjustable and
  * deletable like anything else.
  */
-function runAuto(kind: 'levels' | 'contrast' | 'balance') {
+const autoRunning = ref(false)
+
+async function runAutoAction(kind: 'levels' | 'contrast' | 'balance' | 'all') {
+  if (autoRunning.value || !composite.value) return
+  autoRunning.value = true
+  try {
+    await render()
+    for (const auto of kind === 'all' ? AUTO_EDITS : AUTO_EDITS.filter(auto => auto.id === kind)) {
+      runAuto(auto.id, kind === 'all')
+      // Each histogram must read the result of the preceding correction.
+      await render()
+    }
+  } finally {
+    autoRunning.value = false
+  }
+}
+
+function runAuto(kind: 'levels' | 'contrast' | 'balance', keepIdentity = false) {
   const source = composite.value
   const patch = kind === 'levels' ? autoLevels(source)
     : kind === 'contrast' ? autoContrast(source)
     : autoBalance(source)
-  // An auto that computes no change makes no step. The histogram is already
-  // where it wants it, and a row that does nothing is worse than no row.
-  if (!patch || Object.values(patch).every(value => value === 0)) return
+  // Individual Autos skip identity results. Auto All keeps all three entries
+  // so the batch always has three independently adjustable steps.
+  if (!patch || (!keepIdentity && Object.values(patch).every(value => value === 0))) return
   const label = AUTO_EDITS.find(auto => auto.id === kind)?.label ?? 'Auto'
   // Autos ALWAYS append. Try-then-replace exists for doorway clicks whose
   // step starts at identity; an Auto lands complete, with nothing for the
@@ -4148,17 +4193,11 @@ let liveCropBefore: any = null
  */
 const cropInput = ref<HTMLCanvasElement | null>(null)
 
-async function renderCropInput() {
-  const doc = stack.doc.value
-  if (!doc || !baseInfo.value) return
-  const index = cropOpId.value
-    ? doc.edits.findIndex(op => op.id === cropOpId.value)
+async function renderCropInput(doc: StackDocument, opId: string | null) {
+  const index = opId
+    ? doc.edits.findIndex(op => op.id === opId)
     : doc.edits.length
-  try {
-    cropInput.value = await compositor.renderUpTo(doc, index < 0 ? doc.edits.length : index)
-  } catch {
-    cropInput.value = composite.value
-  }
+  return compositor.renderUpTo(doc, index < 0 ? doc.edits.length : index)
 }
 
 /** The crop rectangle the overlay draws, defaulting to the whole frame. */
@@ -4180,8 +4219,9 @@ const cropAspectRatio = computed<number | null>(() => {
   const preset = CROP_ASPECTS.find(a => a.id === cropAspect.value)
   if (!preset || preset.ratio == null) return null
   const frame = cropInput.value
-  if (preset.ratio === -1) return frame ? frame.width / frame.height : null
-  return preset.ratio
+  if (!frame) return null
+  const rect = cropParamsOf().rect
+  return rect ? rect.width * frame.width / (rect.height * frame.height) : frame.width / frame.height
 })
 
 /** The selected annotation, whose properties the inspector edits. */
@@ -4505,11 +4545,19 @@ function chooseAspect(id: string) {
     ? frame.width / frame.height
     : preset?.ratio ?? null
   void applyCropChange({
-    rect: cropRectForAspect(ratio, frame.width, frame.height),
+    rect: cropRectForAspect(
+      ratio && preset?.ratio !== -1 && (cropParamsOf().rotation90 ?? 0) % 2 ? 1 / ratio : ratio,
+      frame.width, frame.height,
+    ),
   })
 }
 
 function rotateQuarter() {
+  const preset = CROP_ASPECTS.find(a => a.id === cropAspect.value)
+  if (preset?.ratio && preset.ratio > 0) {
+    const rotated = CROP_ASPECTS.find(a => a.ratio && Math.abs(a.ratio - 1 / preset.ratio!) < 1e-8)
+    if (rotated) cropAspect.value = rotated.id
+  }
   void applyCropChange({ rotation90: (((cropParamsOf().rotation90 ?? 0) + 1) % 4) as 0 | 1 | 2 | 3 })
 }
 
@@ -4629,7 +4677,7 @@ function enterContainerOp(op: any) {
     sub.value = null
     cropOpId.value = op.id
     cropAspect.value = 'free'
-    void renderCropInput()
+    void render()
     return
   }
   if (op.class !== 'container') return
@@ -9289,6 +9337,18 @@ watch(
         @mousedown.self="onViewportMatteMouseDown"
         @click.self="onViewportMatteClick"
       >
+        <div
+          v-if="selection && family !== 'crop' && !comparing"
+          class="absolute top-2 left-1/2 -translate-x-1/2 z-chrome flex flex-col items-center gap-1"
+        >
+          <Button size="sm" variant="secondary"
+            :aria-pressed="inspectingMask" @click="toggleMaskInspection">
+            {{ inspectingMask ? 'Back to image' : 'Inspect full mask' }}
+          </Button>
+          <span v-if="inspectingMask" class="px-2 py-1 rounded-md bg-surface text-content-secondary text-xs pointer-events-none">
+            White: full · Gray: partial · Black: untouched
+          </span>
+        </div>
         <!-- Crop works on the step's INPUT, not on the composite: the region
              outside the crop is dimmed rather than absent, so it takes the
              whole viewport instead of the cropped display box. -->
@@ -9437,6 +9497,7 @@ watch(
             ref="selectRef"
             :source="composite"
             :model="selModel"
+            :coverage-preview="inspectingMask"
             :armed="armedSelectTool"
             :busy="aiSelectProgressVisible"
             :visible="editorActive"
@@ -10004,6 +10065,8 @@ watch(
               />
               <div v-else-if="family === 'levels' && compactLevelsMode === 'auto'" class="py-1">
                 <div class="flex gap-1 overflow-x-auto -mx-3 px-3 [scrollbar-width:none]">
+                  <Button size="sm" variant="ghost" @click="onSubbarSet({ auto: 'all' })">Auto All</Button>
+                  <span role="separator" class="w-px shrink-0 bg-edge-subtle mx-1" />
                   <button
                     v-for="auto in AUTO_EDITS"
                     :key="auto.id"

@@ -13,8 +13,7 @@ import type { MediaType } from './mediaTypes'
 export const AUDIO_TASK_TYPES = ['text-to-audio', 'text-to-music', 'text-to-speech', 'audio-to-audio'] as const
 
 /**
- * Improved task-generic glyphs (the 12 redrawn variants from the signed-off
- * icon-branding mock: plans/icon-branding/mocks/tool-icons.html `#tasks`).
+ * Improved task-generic glyphs (the 12 redrawn variants).
  *
  * These are full inner-SVG fragments (multiple shapes, mixed fill/stroke) rather
  * than single path strings, because several glyphs (sparkle, brush, dashed

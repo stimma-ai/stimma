@@ -111,7 +111,7 @@ def test_improve_request_defaults_input_image_count_zero():
         (
             ImprovePromptRequest(prompt="a beautiful handbag", model="flux1-dev", input_image_count=0),
             "improve_system_prompt",
-            "Please improve this prompt with a light touch:",
+            "Rewrite this image request as a concrete visual description.",
         ),
         (
             ImprovePromptRequest(prompt="1girl, handbag", model="sdxl_base_1.0.safetensors", input_image_count=0),
@@ -477,3 +477,66 @@ def test_qwen_canvas_guidance_names_orientation_only_when_known():
     assert "wide (landscape)" in _qwen_canvas_guidance(2752, 1536)
     assert "vertical (portrait)" in _qwen_canvas_guidance(1696, 2528)
     assert "square" in _qwen_canvas_guidance(2048, 2048)
+
+@pytest.mark.parametrize('answer', ['', '   ', '__VERBATIM_Z__'])
+async def test_improve_rejects_empty_answer(generation_app, generation_db_session, monkeypatch, prompt_variant_probe, answer):
+    from fastapi import HTTPException
+    import routes.prompt_enhancement as pe
+
+
+    async def empty_completion(**kwargs):
+        return answer
+
+    monkeypatch.setattr(pe, 'llm_complete_text', empty_completion)
+    async with generation_db_session() as session:
+        with pytest.raises(HTTPException) as exc:
+            await pe.improve_prompt(ImprovePromptRequest(prompt='a cat'), session)
+    assert exc.value.status_code == 502
+    assert exc.value.detail['code'] == 'prompt_enhancement_failed'
+
+async def test_unchanged_rewrite_retries_with_feedback_and_preserves_instructions(
+    prompt_variant_probe, monkeypatch
+):
+    from unittest.mock import AsyncMock
+    import routes.prompt_enhancement as pe
+
+    prompt = 'Joshua posing for a photo in a room'
+    rewrite = 'Joshua with short curly hair in a blue shirt, posing in a warmly lit room.'
+    complete = AsyncMock(side_effect=[prompt, rewrite])
+    monkeypatch.setattr(pe, 'llm_complete_text', complete)
+    result = await pe.improve_prompt(pe.ImprovePromptRequest(
+        prompt=prompt, instructions='Keep the shirt blue.', model='krea-2-turbo'
+    ), session=None)
+    assert result.improved_prompt == rewrite
+    assert complete.await_count == 2
+    first_messages = complete.await_args_list[0].kwargs['messages']
+    retry_messages = complete.await_args_list[1].kwargs['messages']
+    assert 'light touch' not in first_messages[1]['content']
+    assert 'Keep the shirt blue.' in first_messages[1]['content']
+    assert len(retry_messages) == len(first_messages)
+    assert retry_messages[0] == first_messages[0]
+    assert retry_messages[-1]['content'].startswith(first_messages[-1]['content'])
+    assert 'using different wording' in retry_messages[-1]['content']
+
+
+async def test_repeated_echo_blocks_generation_before_queueing(
+    generation_client, output_folder, prompt_variant_probe, monkeypatch
+):
+    from unittest.mock import AsyncMock, patch
+    import routes.prompt_enhancement as pe
+
+    prompt = 'Joshua posing for a photo in a room'
+    # Whitespace-only changes must not let a copy pass as enhancement.
+    complete = AsyncMock(return_value='  Joshua posing for a photo in a room\n')
+    monkeypatch.setattr(pe, 'llm_complete_text', complete)
+    queue = AsyncMock()
+    with patch('generation_queue.get_generation_queue', return_value=queue):
+        response = await generation_client.post('/api/generate/submit', json={
+            'tool_id': 'test:text-to-image', 'task_type': 'text-to-image',
+            'folder_path': output_folder, 'parameters': {'prompt': prompt},
+            'prompt_options': {'autoImprove': {'enabled': True}},
+        })
+    assert response.status_code == 502, response.text
+    assert 'unchanged after 3 attempts' in response.json()['detail']['message']
+    assert complete.await_count == 3
+    queue.submit_job.assert_not_called()

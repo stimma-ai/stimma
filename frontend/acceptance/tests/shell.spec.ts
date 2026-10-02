@@ -8,10 +8,11 @@ test.describe('app shell acceptance', () => {
   });
 
   test('primary sidebar destinations are reachable', async ({ page }) => {
+    page.on('pageerror', error => console.error('Shell runtime error:', error.message));
+    page.on('console', message => { if (message.type() === 'error') console.error('Shell console:', message.text()); });
     const destinations = [
-      { path: '/browse', text: 'All Assets' },
+      { path: '/browse', text: 'Assets' },
       { path: '/tools', text: 'All Tools' },
-      { path: '/projects', text: 'Projects' },
       { path: '/boards', text: 'Boards' },
       { path: '/chats', text: 'Chats' },
       { path: '/flows', text: 'Flows' },
@@ -30,12 +31,14 @@ test.describe('app shell acceptance', () => {
     await expect(page.getByText('All Tools', { exact: true })).toBeVisible({ timeout: 30000 });
 
     await page.goto('/projects');
-    await expect(page.getByText('Projects', { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('dialog', { name: 'Choose a project' })).toBeVisible({ timeout: 30000 });
 
     await page.goBack();
     await expect(page.getByText('All Tools', { exact: true })).toBeVisible({ timeout: 30000 });
 
+    // The legacy link opens the picker once and drops ?projects=1, so
+    // Forward returns to the plain destination rather than reopening it.
     await page.goForward();
-    await expect(page.getByText('Projects', { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(page).toHaveURL(/\/home$/);
   });
 });

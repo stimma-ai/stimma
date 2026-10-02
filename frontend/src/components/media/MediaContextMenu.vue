@@ -138,7 +138,7 @@
         <!-- Boards -->
         <div
           class="relative"
-          @mouseenter="openSubmenu('board', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('board', $event)"
           @click.stop="openSubmenu('board', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -226,7 +226,7 @@
         <!-- Projects -->
         <div
           class="relative"
-          @mouseenter="openSubmenu('project', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('project', $event)"
           @click.stop="openSubmenu('project', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -338,7 +338,7 @@
         <div
           v-if="!isMultiple && !isGrid && !isSprite && !isPackage"
           class="relative"
-          @mouseenter="openSubmenu('generate', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('generate', $event)"
           @click.stop="openSubmenu('generate', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -500,7 +500,7 @@
         <div
           v-if="!hasGridInSelection"
           class="relative"
-          @mouseenter="openSubmenu('tool', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('tool', $event)"
           @click.stop="openSubmenu('tool', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -553,7 +553,7 @@
         <!-- Send to Chat - with submenu -->
         <div
           class="relative"
-          @mouseenter="openSubmenu('chat', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('chat', $event)"
           @click.stop="openSubmenu('chat', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -619,7 +619,7 @@
         <!-- Send to Flow - flow submenu, then destination submenu -->
         <div
           class="relative"
-          @mouseenter="openSubmenu('flow', $event)"
+          @mouseenter="!isCoarsePointer && openSubmenu('flow', $event)"
           @click.stop="openSubmenu('flow', $event)"
           @mouseleave="closeSubmenuDelayed"
         >
@@ -656,7 +656,7 @@
             <template v-else>
               <button
                 @click="sendToNewFlow"
-                @mouseenter="clearFlowDestination"
+                @mouseenter="!isCoarsePointer && clearFlowDestination()"
                 :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', flows.length > 0 ? 'border-b border-edge-subtle' : '']"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
@@ -667,7 +667,8 @@
               <div
                 v-for="flow in flows"
                 :key="flow.id"
-                @mouseenter="openFlowDestination(flow, $event)"
+                @mouseenter="!isCoarsePointer && openFlowDestination(flow, $event)"
+                @click.stop="openFlowDestination(flow, $event)"
               >
                 <button class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
                   <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
@@ -925,7 +926,9 @@ import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { planToolHandoff } from '../../utils/toolHandoff'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
+import { useWorkingContext } from '../../composables/useWorkingContext'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
+import { useViewport } from '../../composables/useViewport'
 import { openImageEditor } from '../../imageEditor/stack/openImageEditor'
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
@@ -961,8 +964,10 @@ interface GenerateMoreTool {
 }
 
 const router = useRouter()
-const { tabs: workspaceTabs } = useWorkspaceTabs()
+const { activeProjectId: workingProjectId } = useWorkingContext()
+const { tabs: workspaceTabs, resolveToolInstance } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
+const { isCoarsePointer } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
 const {
@@ -1078,6 +1083,7 @@ const originalToolInstance = computed(() => {
   if (!tool || !generatorId) return undefined
   return (workspaceTabs.value as WorkspaceTab[]).find(tab =>
     tab.type === 'tool' &&
+    (tab.projectId ?? null) === workingProjectId.value &&
     tab.entityId === tool.full_tool_id &&
     !!tab.instanceId &&
     !!tab.feedScope &&
@@ -1092,7 +1098,7 @@ const originalToolInstance = computed(() => {
 const remixOpenInstances = computed(() => {
   const toolById = new Map(generateMoreTools.value.map(t => [t.full_tool_id, t]))
   return (workspaceTabs.value as WorkspaceTab[])
-    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .filter(t => t.type === 'tool' && (t.projectId ?? null) === workingProjectId.value && !!t.instanceId && toolById.has(t.entityId))
     .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
     .slice(0, 5)
     .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))
@@ -1191,7 +1197,9 @@ const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 const inBoard = computed(() => contextMenu.state.value.inBoard || false)
 const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
-const currentProjectId = computed(() => contextMenu.state.value.projectId)
+// Action-bar and slideshow launchers may omit projectId; retain the active
+// working destination for board/chat/flow pickers and newly created items.
+const currentProjectId = computed(() => contextMenu.state.value.projectId ?? workingProjectId.value)
 
 // Can create set: multiple atomic items selected (not sets or grids)
 const STRUCTURED_FORMATS = ['stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmapackage']
@@ -1626,6 +1634,9 @@ function clearFlowDestination() {
 }
 
 function closeSubmenuDelayed() {
+  // Touch submenus stay open until a choice, outside tap, or Escape. The
+  // synthetic mouseleave from opening a stacked sheet is not a dismissal.
+  if (isCoarsePointer.value) return
   submenuCloseTimeout.value = window.setTimeout(() => {
     // Guard: don't close if a recent click happened (content may have resized)
     if (Date.now() < submenuClickLockUntil.value) return
@@ -1887,7 +1898,7 @@ async function handleCreateBoardQuickAdd() {
   if (creatingBoardQuickAdd.value) return
   creatingBoardQuickAdd.value = true
   try {
-    const board = await createBoard('', currentProjectId.value)
+    const board = await createBoard('', workingProjectId.value)
     if (targetAssetIds.value.length > 0) {
       await addAssetsToBoard(board.id, targetAssetIds.value)
     } else {
@@ -1915,11 +1926,7 @@ function sendToGenerateTool(tool: GenerateMoreTool) {
   // Target the most-recent open instance of the tool in the current project
   // context (mirrors useSendToTool's effectiveProjectId inference — remix
   // previously dropped project scope entirely).
-  const route = router.currentRoute.value
-  const projectId = route.params.id && String(route.name || '').startsWith('project-')
-    ? Number(route.params.id)
-    : null
-  const { resolveToolInstance } = useWorkspaceTabs()
+  const projectId = workingProjectId.value
   const { instanceId } = resolveToolInstance(tool.full_tool_id, projectId)
   router.push(toolInstanceRoute(tool.full_tool_id, projectId, instanceId, {
     remixFrom: mediaId.toString(),
@@ -1987,7 +1994,7 @@ async function sendToNewChat() {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify({ name: null, project_id: currentProjectId.value || null })
+      body: JSON.stringify({ name: null, project_id: workingProjectId.value })
     })
 
     if (response.ok) {
@@ -2036,7 +2043,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
 
 async function sendToNewFlow() {
   const ids = [...targetMediaIds.value]
-  const projectId = currentProjectId.value || null
+  const projectId = workingProjectId.value
   contextMenu.hide()
   activeSubmenu.value = null
   clearFlowDestination()

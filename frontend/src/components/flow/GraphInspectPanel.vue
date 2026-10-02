@@ -763,7 +763,7 @@ const refTarget = computed<{ kind: 'equation' | 'iteration'; key: string } | nul
 })
 
 // ---- Status badge ----
-// Sentence case (STANDARDS §1.5: the all-caps micro-label device is
+// Sentence case (DESIGN.md §1.5: the all-caps micro-label device is
 // retired app-wide). Label vocabulary/branching is unchanged — only the
 // casing and the resulting badge color (now sourced from statusColors.ts)
 // changed.
@@ -1364,7 +1364,7 @@ const statusBuckets = computed(() => {
   // Chip border+bg stay a bespoke bordered-pill treatment (not one of the
   // shared row/badge opacity maps); dot + text colors route through
   // statusColors.ts. `animate-pulse` on a status dot is a banned pattern
-  // (STANDARDS §4) — the running chip's dot uses pulse-soft instead.
+  // (DESIGN.md §4) — the running chip's dot uses pulse-soft instead.
   return [
     { label: 'Done',      count: counts.completed, chipClass: `border-green-500/40 ${bgClass('done')} ${textClass('done')}`,     dotClass: dotClass('done') },
     { label: 'Running',   count: counts.computing, chipClass: `border-blue-500/40 ${bgClass('running')} ${textClass('running')}`, dotClass: `${dotClass('running')} animate-pulse-soft` },

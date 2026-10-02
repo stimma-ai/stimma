@@ -1,6 +1,6 @@
 <template>
   <Transition name="slide-up">
-    <div v-if="visible" class="multi-select-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome max-w-[800px] w-fit bg-surface backdrop-blur-xl border border-edge-subtle rounded-lg shadow-lg compact:left-3 compact:right-3 compact:translate-x-0 compact:w-auto compact:max-w-none compact:bottom-[calc(5.5rem+var(--safe-bottom))]">
+    <div v-if="visible" class="multi-select-action-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-chrome max-w-[800px] w-fit bg-surface backdrop-blur-xl border border-edge-subtle rounded-lg shadow-lg compact:left-3 compact:right-3 compact:translate-x-0 compact:w-auto compact:max-w-none compact:bottom-[calc(0.75rem+var(--safe-bottom))]">
       <div class="action-bar-content flex items-center relative gap-4 px-5 py-3 compact:gap-2 compact:px-3 compact:py-2 compact:overflow-x-auto">
         <!-- Selection controls (left) -->
         <div class="selection-info flex-shrink-0 flex items-center gap-2">
@@ -145,6 +145,7 @@
             <Tooltip text="More actions">
               <button
                 ref="moreActionsButton"
+                aria-label="More actions"
                 class="icon-button flex items-center justify-center p-2 rounded-md bg-overlay-subtle text-content-secondary hover:bg-overlay-hover transition-colors"
                 @click.stop="showContextMenu"
               >

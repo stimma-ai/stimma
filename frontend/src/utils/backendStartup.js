@@ -1,4 +1,5 @@
 const DEFAULT_RETRY_DELAY_MS = 500
+const FAST_RETRY_DELAY_MS = 50
 const LONG_STARTUP_THRESHOLD_MS = 15_000
 
 export function getStartupWaitMessage(elapsedMs) {
@@ -52,6 +53,8 @@ export async function waitForBackendHealth(
       attempt,
       elapsedMs: Date.now() - startedAt,
     })
-    await sleepImpl(retryDelayMs)
+    await sleepImpl(Date.now() - startedAt < 5_000
+      ? Math.min(retryDelayMs, FAST_RETRY_DELAY_MS)
+      : retryDelayMs)
   }
 }

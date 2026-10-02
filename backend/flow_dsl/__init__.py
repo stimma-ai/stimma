@@ -1,6 +1,6 @@
 """Stimma flow DSL — the Python surface the flow agent writes against.
 
-See docs/FLOWS_DSL.md for the full design. In short:
+In short:
 
 - ``@flow(name=..., inputs=..., outputs=...)`` decorates the top-level
   flow function. The function body builds an equation graph.
@@ -8,7 +8,7 @@ See docs/FLOWS_DSL.md for the full design. In short:
 - ``phase("name")`` is a context manager that tags equations for the phase
   tree. Purely organizational — does not constrain execution order.
 - ``foreach(items, callback, **extra)`` registers a loop. Iteration keys
-  are derived by the runtime (FLOWS_EQUATION_KEYS §6); no ``key=``.
+  are derived by the runtime; no ``key=``.
 - ``tool(tool_id, **params)`` — STP tool invocation. Always returns a
   single-call NodeRef; wrap in ``foreach`` for N candidates.
 - ``llm(prompt, *, model, response_format=None, system=None)`` — LLM call.

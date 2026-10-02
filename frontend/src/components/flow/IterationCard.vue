@@ -232,7 +232,7 @@ const tileAspectClass = computed(() => 'aspect-square w-full')
 
 // Background tint for no-media states — keeps the card meaningful at a glance.
 // Pending tiles get a faint reason-specific tint so the icon isn't carrying
-// the full signal alone. Colors come from statusColors.ts (STANDARDS §1.9);
+// the full signal alone. Colors come from statusColors.ts (DESIGN.md §1.9);
 // pending routes its blockReason through the same bucket vocabulary at
 // reduced ("dimmed") opacity.
 const placeholderBgClass = computed(() => {

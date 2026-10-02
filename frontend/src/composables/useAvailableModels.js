@@ -34,6 +34,7 @@ const lastFetchTime = ref(0)
 // window focus) can re-fetch the same scope instead of clobbering it with the
 // global list.
 const lastProjectId = ref(null)
+let fetchVersion = 0
 
 const LEGACY_MODEL_SLUGS = {
   'agent-max': 'stimma:minimax-m3',
@@ -107,12 +108,15 @@ async function fetchModels(projectId = null, force = false) {
     return
   }
 
+  lastFetchTime.value = 0
+  const version = ++fetchVersion
   lastProjectId.value = requestedProjectId
   loading.value = true
   try {
     const params = {}
     if (projectId != null) params.project_id = projectId
     const response = await axios.get(`${getApiBase()}/models/available`, { params })
+    if (version !== fetchVersion) return
     models.value = sortModelsByBrand(response.data.models || [])
     globalDefault.value = normalizeModelSlug(response.data.global_default || 'auto')
     roleDefaults.value = response.data.role_defaults || {}
@@ -125,10 +129,11 @@ async function fetchModels(projectId = null, force = false) {
     error.value = null
     lastFetchTime.value = now
   } catch (err) {
+    if (version !== fetchVersion) return
     console.warn('Failed to fetch available models:', err)
     error.value = err
   } finally {
-    loading.value = false
+    if (version === fetchVersion) loading.value = false
   }
 }
 

@@ -84,8 +84,9 @@
     <GlowCanvas class="absolute inset-0" :blobs="lockGlowBlobs" />
 
     <!-- Centered lock content -->
-    <div class="relative z-[1] h-full overflow-y-auto">
-      <div class="min-h-full flex flex-col items-center justify-center gap-5 sm:gap-6 px-6 pb-6 pt-safe" style="padding-top: calc(var(--safe-top) + 4rem)">
+    <div class="relative z-[1] h-full px-6" style="padding-top: calc(var(--safe-top) + 4rem); padding-bottom: calc(var(--safe-bottom) + 1.5rem)">
+      <FitToSpace>
+      <div class="flex flex-col items-center gap-5 sm:gap-6">
         <!-- Brand -->
         <div class="flex flex-col items-center gap-3">
           <img src="/logo.svg" alt="" class="w-14 h-14 sm:w-[72px] sm:h-[72px] drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)]" />
@@ -115,7 +116,7 @@
 
         <!-- PIN dots (one per digit, min 4) -->
         <div
-          class="lock-dots flex items-center justify-center gap-3.5 min-h-[20px] cursor-text"
+          class="lock-dots flex flex-wrap items-center justify-center gap-3.5 min-h-[20px] cursor-text"
           :class="{ 'lock-dots-error': lockScreenShake }"
           @click="lockScreenPinInput?.focus()"
         >
@@ -155,6 +156,7 @@
           </button>
         </div>
       </div>
+      </FitToSpace>
     </div>
   </div>
 
@@ -204,19 +206,14 @@
       <div
         class="compact-pushed h-full flex flex-col bg-base relative"
         @touchstart.passive="onCompactTouchStart"
-        @touchmove.passive="onCompactTouchMove"
+        @touchmove="onCompactTouchMove"
         @touchend.passive="onCompactTouchEnd"
-        @touchcancel.passive="onCompactTouchEnd"
+        @touchcancel.passive="drawerDragging = false; dragIntent = null"
       >
       <div v-if="sidebarOpen && !sidebarDocked" class="absolute inset-0 z-modal" aria-hidden="true" @click="closeSidebar"></div>
       <!-- v-show, not v-if, under the slideshow: views teleport controls into
            this header, and a remount would strand them in the old element. -->
       <CompactHeader v-if="!compactOverlay" v-show="!slideshowActive" :sidebar-docked="sidebarDocked" :sidebar-dockable="sidebarDockable" @open-settings="openSettings($event)" @open-menu="onCompactMenu" />
-      <ProjectScopeBar
-        v-if="projectChrome.project && !slideshowActive && !compactOverlay"
-        :project="projectChrome.project"
-        :active-name="projectChrome.activeRouteName"
-      />
       <div v-scroll-guard class="flex-1 min-h-0 overflow-hidden flex flex-col relative">
         <router-view v-slot="{ Component, route }">
           <KeepAlive :max="20">
@@ -254,12 +251,6 @@
         @open-settings="openSettings($event)"
       />
 
-      <ProjectScopeBar
-        v-if="projectChrome.project && !slideshowActive"
-        :project="projectChrome.project"
-        :active-name="projectChrome.activeRouteName"
-      />
-
       <!-- Page content -->
       <div v-scroll-guard class="flex-1 overflow-hidden flex flex-col relative">
         <router-view v-slot="{ Component, route }">
@@ -279,7 +270,6 @@
 <script setup>
 import { mobileRecoveryVisible } from './composables/useMobileRecovery.js'
 
-import axios from 'axios'
 import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -296,7 +286,9 @@ const vScrollGuard = {
   unmounted(el) { el.removeEventListener('scroll', el.__scrollGuard) },
 }
 import NavigationSidebar from './components/NavigationSidebar.vue'
+import FitToSpace from './components/FitToSpace.vue'
 import { useViewport } from './composables/useViewport'
+import { isDrawerEdgeTouch } from './utils/drawerGesture'
 import { makeProfileKey } from './utils/storageKeys'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
@@ -305,7 +297,8 @@ import CompactHeader from './components/compact/CompactHeader.vue'
 import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
 import GlowCanvas from './components/ui/GlowCanvas.vue'
-import ProjectScopeBar from './components/ProjectScopeBar.vue'
+import { useWorkingContext } from './composables/useWorkingContext'
+import { belongsToContext, contextRoute, contextSection, projectIdFrom } from './utils/workingContext'
 import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
@@ -317,6 +310,7 @@ import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import DirectoryPickerModal from './components/DirectoryPickerModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
+import { getCurrentProfileId, getCurrentDbGuid } from './composables/useProfile'
 import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
@@ -355,7 +349,6 @@ import { refreshAvailableModels } from './composables/useAvailableModels'
 import { useRouteRestore, getSavedRouteForProfile } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
-import { useMediaApi } from './composables/useMediaApi'
 import { useWorkspaceTabs, toolTabRoute, toolRouteTabId, editorTabRoute, editorRouteTabId } from './composables/useWorkspaceTabs'
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
@@ -369,7 +362,6 @@ import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables
 
 const route = useRoute()
 const router = useRouter()
-const { getBoard, getProject } = useMediaApi()
 const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
 const { isAuthenticated, initAuth } = useAuth()
 const { checkStartupReadiness, refreshReadiness } = useReadiness()
@@ -555,16 +547,9 @@ const lockedProfileName = computed(() => {
 
 // Check if current route wants no chrome (sidebar/topbar)
 const noChrome = computed(() => route.meta?.noChrome === true)
-const projectChrome = ref({
-  project: null,
-  activeRouteName: '',
-  surfaceLabel: ''
-})
-
-// Current project context for the global search omnibox scope chip. Follows
-// the same resolution as the ProjectScopeBar: whenever that bar is visible,
-// search opens scoped to that project.
-provide('searchProjectScope', computed(() => projectChrome.value.project))
+const workingContext = useWorkingContext()
+provide('searchProjectScope', workingContext.activeProject)
+const contextTabIds = computed(() => allTabs.value.filter(tab => belongsToContext(tab, workingContext.activeProjectId.value)).map(tab => tab.id))
 
 // Generate a unique component key for each route
 // For tools and chats, include the ID so each gets its own cached instance
@@ -611,75 +596,6 @@ function getComponentKey(route) {
   }
   // For other routes, use the route name for consistent caching
   return route.name || route.path
-}
-
-const projectRouteNameBySurface = {
-  overview: 'project-overview',
-  assets: 'project-assets',
-  chats: 'project-chats',
-  boards: 'project-boards',
-  flows: 'project-flows',
-  tools: 'project-tools',
-  settings: 'project-settings'
-}
-
-async function resolveProjectChrome() {
-  try {
-    const routeName = String(route.name || '')
-    let projectId = null
-    let activeRouteName = ''
-    let surfaceLabel = ''
-
-    if (routeName.startsWith('project-')) {
-      projectId = Number.parseInt(String(route.params.id), 10)
-      activeRouteName = routeName
-      surfaceLabel = routeName.replace('project-', '').replace(/^\w/, (c) => c.toUpperCase())
-    } else if (routeName === 'board-detail') {
-      const board = await getBoard(Number.parseInt(String(route.params.id), 10))
-      projectId = board?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.boards : ''
-      surfaceLabel = projectId != null ? 'Board' : ''
-    } else if (routeName === 'chat') {
-      const response = await axios.get(`${getApiBase()}/chats/${route.params.id}`)
-      projectId = response.data?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.chats : ''
-      surfaceLabel = projectId != null ? 'Chat' : ''
-    } else if (routeName === 'flow') {
-      const response = await axios.get(`${getApiBase()}/flows/${route.params.id}`)
-      projectId = response.data?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.flows : ''
-      surfaceLabel = projectId != null ? 'Flow' : ''
-    } else if (routeName === 'tool' || routeName === 'all-tools' || routeName === 'upload') {
-      const rawProjectId = route.query.project_id
-      if (typeof rawProjectId === 'string' && rawProjectId.trim()) {
-        projectId = Number.parseInt(rawProjectId, 10)
-        activeRouteName = ''
-        surfaceLabel = routeName === 'upload' ? 'Upload' : routeName === 'tool' ? 'Tool' : 'Tools'
-      }
-    }
-
-    if (!projectId || !Number.isFinite(projectId)) {
-      projectChrome.value = {
-        project: null,
-        activeRouteName: '',
-        surfaceLabel: ''
-      }
-      return
-    }
-
-    const project = await getProject(projectId)
-    projectChrome.value = {
-      project,
-      activeRouteName,
-      surfaceLabel
-    }
-  } catch {
-    projectChrome.value = {
-      project: null,
-      activeRouteName: '',
-      surfaceLabel: ''
-    }
-  }
 }
 
 // Chrome mode comes from the one viewport source of truth (useViewport):
@@ -739,18 +655,19 @@ function closeSidebar() {
 
 // The drawer follows the finger: a horizontal drag anywhere on the app
 // reveals it (right) or puts it away (left); on release it snaps by distance
-// and speed. Vertical intent, horizontal scrollers and the slideshow are
-// left alone.
+// and speed. The left edge belongs to the drawer even over the slideshow;
+// elsewhere, vertical intent, horizontal scrollers and the slideshow win.
 const DRAWER_W = 276
 const drawerDragging = ref(false)
 const drawerDragX = ref(0)
 const drawerX = computed(() => drawerDragging.value ? drawerDragX.value : (sidebarOpen.value ? 0 : -DRAWER_W))
-let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0
+let dragStartX = 0, dragStartY = 0, dragStartT = 0, dragIntent = null, dragLastX = 0, dragLastT = 0, dragFromEdge = false
 function onCompactTouchStart(e) {
   const t = e.touches[0]
   if (!t || e.touches.length > 1 || sidebarDocked.value) { dragIntent = 'no'; return }
   const el = e.target
-  const blocked = el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
+  dragFromEdge = isDrawerEdgeTouch(e)
+  const blocked = !dragFromEdge && el?.closest?.('.bg-slideshow-matt, [data-no-drawer-swipe], input[type="range"], canvas')
   dragIntent = blocked ? 'no' : null
   dragStartX = dragLastX = t.clientX; dragStartY = t.clientY; dragStartT = dragLastT = Date.now()
 }
@@ -764,7 +681,7 @@ function onCompactTouchMove(e) {
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
     if (Math.abs(dy) > Math.abs(dx)) { dragIntent = 'no'; return }
     // A right-drag inside something that scrolls sideways is that thing's.
-    if (!sidebarOpen.value) {
+    if (!sidebarOpen.value && !dragFromEdge) {
       let n = e.target
       while (n && n !== e.currentTarget) {
         if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX) && n.scrollLeft > 0) { dragIntent = 'no'; return }
@@ -775,6 +692,7 @@ function onCompactTouchMove(e) {
     drawerDragging.value = true
   }
   const base = sidebarOpen.value ? 0 : -DRAWER_W
+  if (e.cancelable) e.preventDefault()
   drawerDragX.value = Math.max(-DRAWER_W, Math.min(0, base + dx))
   dragLastX = t.clientX; dragLastT = Date.now()
 }
@@ -906,7 +824,7 @@ function handleKeydown(e) {
         addToast('Unpin this tab before closing it', 'warning', 3000)
         return
       }
-      const next = findNextTab(new Set([activeId]))
+      const next = findNextTab(new Set([activeId]), contextTabIds.value)
       if (next) navigateToTab(next)
       else router.push({ name: 'browse' })
       removeTab(activeId)
@@ -938,7 +856,7 @@ function handleKeydown(e) {
   if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
     const activeId = getActiveTabId()
     if (activeId) {
-      const next = getNextTab(activeId)
+      const next = getNextTab(activeId, contextTabIds.value)
       if (next) {
         e.preventDefault()
         navigateToTab(next)
@@ -950,7 +868,7 @@ function handleKeydown(e) {
   if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
     const activeId = getActiveTabId()
     if (activeId) {
-      const prev = getPrevTab(activeId)
+      const prev = getPrevTab(activeId, contextTabIds.value)
       if (prev) {
         e.preventDefault()
         navigateToTab(prev)
@@ -1112,6 +1030,7 @@ async function loadAppSettings() {
   }
   // Notify components that settings (especially bundle_id/sandbox) are now available
   window.dispatchEvent(new CustomEvent('settings-loaded'))
+  await syncWorkingContext()
 }
 
 /**
@@ -1248,13 +1167,28 @@ watch([currentProfileId, profiles], async ([profileId]) => {
   }
 }, { immediate: true })
 
-watch(
-  () => [route.name, route.params.id, route.query.project_id],
-  () => {
-    resolveProjectChrome()
-  },
-  { immediate: true }
-)
+// Settings establish the bundle/sandbox storage prefix after the router's
+// first navigation. Reconcile explicit destinations against the final key so
+// an old project link cannot leave a Library picker above a project browser.
+async function syncWorkingContext() {
+  await workingContext.refreshProjects()
+  const name = String(route.name || '')
+  const explicitId = name.startsWith('project-')
+    ? projectIdFrom(route.params.id)
+    : name === 'tool' ? projectIdFrom(route.query.project_id) : null
+  if (explicitId != null && workingContext.projects.value.some(p => p.id === explicitId)) {
+    workingContext.selectProject(explicitId)
+  } else if (name === 'tool' && route.query.project_id === '0') {
+    workingContext.selectProject(null)
+  } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(name) && 'workingProjectId' in route.meta) {
+    workingContext.selectProject(route.meta.workingProjectId)
+  }
+  const section = contextSection(route.name)
+  if (section && route.name === section && workingContext.activeProjectId.value != null && route.query.projects !== '1' && route.query.library !== '1') {
+    await router.replace({ ...contextRoute(section, workingContext.activeProjectId.value), query: route.query })
+  }
+}
+watch(() => [getCurrentProfileId(), getCurrentDbGuid()], syncWorkingContext, { immediate: true })
 
 // When user signs in via settings, refresh cloud-specific state (credits)
 watch(isAuthenticated, async (authenticated) => {
@@ -1448,7 +1382,7 @@ onUnmounted(() => {
   transition: margin-top 0.3s ease, opacity 0.3s ease;
 }
 
-body.slideshow-focus-mode .navigation-sidebar {
+body.slideshow-focus-mode .navigation-sidebar:not(.compact-drawer) {
   margin-left: 0 !important;
   width: 0 !important; /* Override inline width style from resizable sidebar */
   flex-basis: 0 !important;

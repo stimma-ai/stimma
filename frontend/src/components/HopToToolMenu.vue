@@ -119,6 +119,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
+import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
@@ -238,12 +239,13 @@ function hopToInstance(row: { tab: WorkspaceTab; tool: ProviderTool }) {
 // Open tool-instance tabs compatible with this tool's task types — including
 // sibling instances of the SAME tool (groupedTools deliberately excludes the
 // tool itself, so without this section siblings would be unreachable).
+const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs } = useWorkspaceTabs()
 const openInstances = computed(() => {
   const byId = new Map(tools.value.map(t => [t.full_tool_id, t]))
   const sourceTypes = new Set(props.sourceTaskTypes)
   return (workspaceTabs.value as WorkspaceTab[])
-    .filter(t => t.type === 'tool' && !!t.instanceId && t.id !== (props.currentTabId ?? undefined))
+    .filter(t => t.type === 'tool' && (t.projectId ?? null) === workingProjectId.value && !!t.instanceId && t.id !== (props.currentTabId ?? undefined))
     .filter(t => {
       const tool = byId.get(t.entityId)
       if (!tool) return false

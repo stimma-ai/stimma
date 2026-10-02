@@ -319,7 +319,7 @@ const loading = ref(false)
 const selectedIndex = ref(0)
 
 // Project scope chip. Seeded from the app-level project context (same
-// resolution as the ProjectScopeBar) each time the dropdown opens fresh;
+// working context as the sidebar) each time the dropdown opens fresh;
 // removable per-session via the chip's ✕ or Backspace on an empty input.
 const injectedProjectScope = inject<ComputedRef<{ id: number; name: string } | null>>(
   'searchProjectScope',

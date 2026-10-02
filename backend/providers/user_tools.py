@@ -5,7 +5,7 @@ Each ``UserTool`` row is a flow frozen into a tool: a self-contained
 / ``output_schema`` / ``task_types``). This provider loads those rows from the
 current profile DB, exposes one ``ToolDescriptor`` per row, and executes them
 via ``flow_runtime.oneshot.run_flow_once`` — running the flow in an ephemeral
-scope so there are zero library side effects (see plans/FLOW_TO_TOOL.md §7).
+scope so there are zero library side effects.
 
 The single canonical output media item is created by the normal outer
 tool-invocation path; this provider returns only the declared output's bytes.

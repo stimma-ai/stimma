@@ -17,8 +17,6 @@ frozen flow runs identically to editing mode), but:
 - reads the declared outputs' **bytes** out of the library *before* the purge,
   and returns them — the single canonical output media item is created by the
   normal outer tool-invocation path, never by the flow itself.
-
-See plans/FLOW_TO_TOOL.md §7.
 """
 
 from __future__ import annotations

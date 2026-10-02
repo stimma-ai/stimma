@@ -457,7 +457,7 @@ const isQueued = computed<boolean>(() => {
   return equationIsReadyToSchedule(props.equation, props.equationsByKey)
 })
 
-// Elevation = actionability (STANDARDS §3.1): rows stay flat regardless of
+// Elevation = actionability (DESIGN.md §3.1): rows stay flat regardless of
 // status — the leftmost icon + pulsing dot already carry running/failed/
 // awaiting signal. Pending rows dim to read as not-yet-relevant.
 const rowOpacityClass = computed(() => (

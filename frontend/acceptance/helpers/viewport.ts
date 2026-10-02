@@ -7,7 +7,7 @@ import { expect, type Page } from '@playwright/test';
 
 /**
  * Settle a fresh page load without assuming the desktop shell exists: the
- * compact chrome has no "All Assets" sidebar link, so the desktop helper's
+ * compact chrome has no "Assets" sidebar link, so the desktop helper's
  * shell probe would never resolve. Handles onboarding's Get started and the
  * readiness panel, then waits for the app to render.
  */

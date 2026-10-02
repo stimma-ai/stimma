@@ -92,6 +92,8 @@ export async function startBackend(identity: AppIdentity, appVersion: string): P
       // the debug bundle id and reports branch "dev" even in official builds.
       '--bundle-id',
       identity.bundleId,
+      '--sandbox',
+      identity.sandbox,
     ],
     {
       env: {

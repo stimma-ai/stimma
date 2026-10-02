@@ -15,12 +15,18 @@
 
 <script setup>
 import { onMounted, provide, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProjectRoute } from '../composables/useProjectRoute'
+import { useWorkingContext } from '../composables/useWorkingContext'
+import { addToast } from '../composables/useToasts'
+import { contextSection } from '../utils/workingContext'
 import { setCompactTitle } from '../composables/useCompactChrome'
 
 const route = useRoute()
+const router = useRouter()
+const ownId = Number(route.params.id)
+const { activeProject, rememberProject, selectProject } = useWorkingContext()
 const { getProject } = useMediaApi()
 const { setLastProjectRoute } = useProjectRoute()
 
@@ -29,7 +35,17 @@ const project = ref(null)
 provide('projectRef', project)
 
 async function loadProject() {
-  project.value = await getProject(route.params.id)
+  try {
+    const loaded = await getProject(ownId)
+    project.value = loaded
+    rememberProject(loaded)
+  } catch {
+    if (String(route.name || '').startsWith('project-') && Number(route.params.id) === ownId) {
+      addToast('This project is no longer available.', 'warning')
+      selectProject(null)
+      await router.replace({ name: 'browse', query: { library: '1' } })
+    }
+  }
 }
 
 // Remember the active project sub-screen per project id so re-entering the
@@ -46,7 +62,9 @@ watch(
 )
 
 onMounted(loadProject)
-watch(() => route.params.id, loadProject)
+watch(activeProject, current => {
+  if (current?.id === ownId) project.value = { ...project.value, ...current }
+})
 
 // Phones: the header carries the project's name on every project screen.
 // App.vue clears the title on each navigation (pre-flush); this re-applies
@@ -54,8 +72,10 @@ watch(() => route.params.id, loadProject)
 watch(
   () => [project.value?.name, route.fullPath],
   () => {
-    if (!project.value || !String(route.name || '').startsWith('project-')) return
-    setCompactTitle(project.value.name || 'Project')
+    if (!project.value || !String(route.name || '').startsWith('project-') || Number(route.params.id) !== ownId) return
+    const section = contextSection(route.name)
+    const label = { home: 'Home', browse: 'Assets', boards: 'Boards', chats: 'Chats', flows: 'Flows', 'all-tools': 'Tools' }[section] || 'Settings'
+    setCompactTitle(label, project.value.name || 'Untitled project')
   },
   { immediate: true, flush: 'post' }
 )

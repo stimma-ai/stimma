@@ -653,7 +653,7 @@ def hydrate_results_into_graph(db_path: Path, graph: EquationGraph) -> None:
 
 
 def reset_computing_to_pending(db_path: Path) -> int:
-    """App-restart recovery (FLOWS_TECH §Implementation Notes).
+    """App-restart recovery.
 
     'computing' equations were interrupted mid-evaluation — their result is
     unknown, so reset to pending. Returns number of rows updated.

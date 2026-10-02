@@ -2,7 +2,7 @@
 
 The callable form (``code(lambda x: ..., inputs={"x": node})``) lets the
 agent write Python directly instead of source-in-a-string, sidestepping
-the double-escape class of f-string bugs. See FLOWS_DSL.md §3, §6.
+the double-escape class of f-string bugs.
 """
 
 from __future__ import annotations

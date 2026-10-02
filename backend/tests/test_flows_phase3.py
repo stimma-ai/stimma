@@ -1,7 +1,7 @@
 """Phase 3 tests for the Flows feature — DSL module, program loader,
 version tracking, flow agent specialization.
 
-Covers the Phase 3 exit gate from docs/FLOWS_DEV_PLAN.md §Phase 3:
+Covers:
 
 - The flow agent can author a multi-phase flow with foreach and HITL
   gates through conversation (tested here as: loader parses an
@@ -72,7 +72,7 @@ from flow_runtime.graph import NodeRef
 
 
 # =============================================================================
-# Node inspection guards — FLOWS_DSL §8, Phase 3 §Risks #1
+# Node inspection guards
 # =============================================================================
 
 
@@ -687,7 +687,7 @@ def r():
 
 
 # =============================================================================
-# Foreach key derivation across source types — FLOWS_EQUATION_KEYS §6
+# Foreach key derivation across source types
 # =============================================================================
 
 
@@ -1473,7 +1473,7 @@ def r(n):
 
 class TestAgentAuthoredPrograms:
     def test_social_media_posts_shape(self):
-        """Matches FLOWS_DSL §9 Example 1 — the simplest happy-path flow."""
+        """The simplest happy-path flow."""
         src = """
 from stimma.flow import flow, input, output, phase, foreach, llm, hitl
 

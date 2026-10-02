@@ -2,6 +2,7 @@
 
 from llm import FinishReason, _normalize_response
 from llm_http import _Obj
+import pytest
 
 
 def test_normalize_tool_call_response_without_content_key():
@@ -124,3 +125,55 @@ def test_empty_reasoning_block_can_still_delimit_an_answer():
     response = _response({"reasoning_content": "<think></think>answer"})
     assert response.content == "answer"
     assert response.thinking is None
+
+
+@pytest.mark.parametrize("off_body", [
+    {"chat_template_kwargs": {"enable_thinking": False, "custom": 1}},
+    {"reasoning_effort": "none", "temperature": 0.2},
+])
+@pytest.mark.parametrize("profiled", [False, True])
+@pytest.mark.parametrize("answer", ["A moonlit forest.", ""])
+async def test_glm_vllm_keeps_reasoning_parser_active(monkeypatch, off_body, profiled, answer):
+    import llm
+    from config import LLMEndpointConfig
+
+    calls = []
+
+    async def completion(**kwargs):
+        calls.append(kwargs)
+        body = kwargs["extra_body"]
+        parsed = body.get("chat_template_kwargs", {}).get("enable_thinking") is True
+        return _Obj({
+            "model": "glm-5.3-flash",
+            "system_fingerprint": "vllm-test",
+            "choices": [{"finish_reason": "stop" if answer else "length", "message": {
+                "content": answer if parsed else "Plan the prompt." + answer,
+                "reasoning": "Plan the prompt." if parsed else None,
+            }}],
+        })
+
+    monkeypatch.setattr(llm, "_raw_acompletion", completion)
+    config = LLMEndpointConfig(
+        url="http://localhost:8000/v1", model="glm-5.3-flash",
+        provider_kind="local" if profiled else None,
+    )
+    response = await llm.llm_completion(
+        config, [], extra_body=off_body, apply_endpoint_extras=False,
+    )
+    assert response.content == answer
+    assert response.thinking == "Plan the prompt."
+    assert len(calls) == (1 if profiled else 2)
+    assert calls[-1]["extra_body"].get("reasoning_effort") != "none"
+    # Preserve caller-owned options and unrelated template parameters.
+    assert off_body.get("chat_template_kwargs", {}).get("enable_thinking") is not True
+    if "custom" in off_body.get("chat_template_kwargs", {}):
+        assert calls[-1]["extra_body"]["chat_template_kwargs"]["custom"] == 1
+
+
+def test_glm_parser_workaround_leaves_other_models_and_on_requests_unchanged():
+    from llm import _glm_reasoning_parser_body
+
+    off = {"chat_template_kwargs": {"enable_thinking": False}}
+    assert _glm_reasoning_parser_body("qwen3", off) is off
+    on = {"chat_template_kwargs": {"enable_thinking": True}}
+    assert _glm_reasoning_parser_body("glm-5.3-flash", on) is on

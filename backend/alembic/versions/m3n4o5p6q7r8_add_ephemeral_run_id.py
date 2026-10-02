@@ -4,7 +4,7 @@ Ephemeral media created while running a flow behind the tool abstraction
 (flow-as-tool). These are never part of the user's library: tagged with the
 one-shot run id, excluded from every user-facing query / ingestion / lineage /
 websocket path, and hard-deleted when the run ends (or swept on crash).
-NULL = normal, permanent media. See plans/CUSTOM_TOOLS_BUILD.md.
+NULL = normal, permanent media.
 
 Revision ID: m3n4o5p6q7r8
 Revises: l2m3n4o5p6q7

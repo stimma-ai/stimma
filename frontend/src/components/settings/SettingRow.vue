@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The settings row grammar (STANDARDS.md §3.2): label + optional one-line
+// The settings row grammar (DESIGN.md §3.2): label + optional one-line
 // description on the left, exactly ONE control on the right. Hairline
 // between rows, no row boxes, no zebra.
 withDefaults(defineProps<{

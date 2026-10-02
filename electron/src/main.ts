@@ -16,7 +16,7 @@ import { initHelper, shutdownHelper } from './helper'
 import { prepareLegacyStorageImport } from './legacyStorage'
 import { readPackagedMetadata, resolveIdentity } from './identity'
 import { registerIpcHandlers } from './ipc'
-import { initDevices, setConnectionStateListener } from './devices'
+import { initDevices, startCachedDeviceConnection, setConnectionStateListener } from './devices'
 import { startProxy, stopProxy } from './proxy'
 import { initLog, log } from './log'
 import { installApplicationMenu } from './menu'
@@ -45,6 +45,14 @@ if (process.argv.includes('--stimma-render-worker')) {
 function startShell() {
 const pkg = readPackagedMetadata(app.getAppPath())
 const PACKAGED_BUNDLE_ID = pkg.stimmaBundleId || 'ai.stimma.stimma.debug'
+
+// Chromium does not recognize several Linux compositors and otherwise falls
+// back to basic_text, which cannot securely persist remote sessions. Preserve
+// explicit choices and KDE's native KWallet selection.
+if (process.platform === 'linux' && !app.commandLine.hasSwitch('password-store') &&
+    !/kde/i.test(process.env.XDG_CURRENT_DESKTOP || process.env.DESKTOP_SESSION || '')) {
+  app.commandLine.appendSwitch('password-store', 'gnome-libsecret')
+}
 
 const identity = resolveIdentity(PACKAGED_BUNDLE_ID)
 
@@ -135,6 +143,7 @@ if (process.argv.includes('--prepare-python-runtime')) {
   if (pkg.productName) setWindowTitlePrefix(pkg.productName)
 
   void app.whenReady().then(async () => {
+    startCachedDeviceConnection()
     if (!identity.dev) {
       installAppProtocolHandler(path.join(process.resourcesPath, 'frontend'))
     }

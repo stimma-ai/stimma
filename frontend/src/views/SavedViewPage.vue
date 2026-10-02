@@ -33,6 +33,7 @@
       v-if="!initializing"
       :filter-state="filters"
       :similar-search-state="similarSearchState"
+      :project-id="savedViewProjectId"
       :saved-view-id="savedViewId"
       :saved-view-name="savedViewName"
       @delete-view="showDeleteConfirm = true"
@@ -129,6 +130,7 @@ const { slideshowActive } = useTabNavigation()
 // Get saved view ID from route
 const savedViewId = computed(() => parseInt(route.params.id))
 const savedViewName = ref('')
+const savedViewProjectId = ref(null)
 
 // Local filter state (passed to BrowseGridView)
 const filters = reactive(cloneDefaultBrowseFilters())
@@ -202,7 +204,7 @@ async function saveAsNew() {
   if (!newViewName.value.trim()) return
 
   try {
-    const newView = await createSavedView(newViewName.value.trim(), { ...filters }, filters.sortBy)
+    const newView = await createSavedView(newViewName.value.trim(), { ...filters }, filters.sortBy, savedViewProjectId.value)
     showSaveAsModal.value = false
     newViewName.value = ''
     // Navigate to the new view
@@ -291,6 +293,7 @@ async function loadSavedView() {
   try {
     const view = await getSavedView(savedViewId.value)
     savedViewName.value = view.name
+    savedViewProjectId.value = view.project_id ?? null
     setCompactTitle(view.name || 'Saved view')
 
     // Apply saved filters

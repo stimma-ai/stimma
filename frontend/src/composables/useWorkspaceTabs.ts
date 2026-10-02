@@ -17,7 +17,8 @@ export interface WorkspaceTab {
   displayOrder: number
   displayName: string     // cached name for rendering without extra API calls
   editorMediaId?: string  // Only for editor tabs: the current mediaId being edited
-  projectId?: number      // For project-scoped tool tabs: the project this instance belongs to
+  projectId?: number | null // Owning project (tool, chat, board, flow), or editor entry context
+  contextProjectIds?: Array<number | null> // Shared editor/lineage access, without duplicating the document
   projectName?: string    // Cached project name for display
   instanceId?: string     // Tool tabs: instance discriminator; every tool tab is an instance
   customName?: string     // Tool tabs: user-given name (window title); displayName stays the tool name
@@ -53,7 +54,7 @@ export function toolInstanceRoute(fullToolId: string, projectId?: number | null,
     name: 'tool' as const,
     params: { fullToolId },
     query: {
-      ...(projectId ? { project_id: String(projectId) } : {}),
+      project_id: projectId == null ? '0' : String(projectId),
       ...(instanceId ? { instance: String(instanceId) } : {}),
       ...(extraQuery || {})
     }
@@ -386,7 +387,7 @@ if (typeof window !== 'undefined') {
 
 // --- Helpers ---
 
-export function makeTabId(type: WorkspaceTabType, entityId: string, projectId?: number, instanceId?: string): string {
+export function makeTabId(type: WorkspaceTabType, entityId: string, projectId?: number | null, instanceId?: string): string {
   if (type === 'tool') {
     const proj = projectId ? `:project:${projectId}` : ''
     const inst = instanceId ? `:i:${instanceId}` : ''
@@ -456,7 +457,7 @@ export function useWorkspaceTabs() {
   /**
    * Add a tab (idempotent by type+entityId+projectId). Returns the tab.
    */
-  function addTab(type: WorkspaceTabType, entityId: string, displayName?: string, projectId?: number, projectName?: string, instanceId?: string): WorkspaceTab {
+  function addTab(type: WorkspaceTabType, entityId: string, displayName?: string, projectId?: number | null, projectName?: string, instanceId?: string): WorkspaceTab {
     // Every entity open flows through here (the sidebar's route watcher), so
     // this is the one place cross-entity recents get recorded.
     recordEntityVisit(type as RecentEntityType, entityId, displayName)
@@ -649,8 +650,8 @@ export function useWorkspaceTabs() {
    * Returns the most recently added remaining tab, or null if no tabs remain.
    * `excludeIds` is the set of tab ids being removed.
    */
-  function findNextTab(excludeIds: Set<string>): WorkspaceTab | null {
-    const remaining = tabs.value.filter(t => !excludeIds.has(t.id))
+  function findNextTab(excludeIds: Set<string>, visibleIds?: string[]): WorkspaceTab | null {
+    const remaining = tabs.value.filter(t => !excludeIds.has(t.id) && (!visibleIds || visibleIds.includes(t.id)))
     if (remaining.length === 0) return null
     // Return the most recently added tab (highest displayOrder)
     return remaining.reduce((best, t) => t.displayOrder > best.displayOrder ? t : best, remaining[0])
@@ -698,8 +699,8 @@ export function useWorkspaceTabs() {
   /**
    * Get the next tab in display order after the given tab id (cycles).
    */
-  function getNextTab(activeTabId: string): WorkspaceTab | null {
-    const sorted = allTabs.value
+  function getNextTab(activeTabId: string, visibleIds?: string[]): WorkspaceTab | null {
+    const sorted = visibleIds ? allTabs.value.filter(t => visibleIds.includes(t.id)) : allTabs.value
     if (sorted.length === 0) return null
     const idx = sorted.findIndex(t => t.id === activeTabId)
     if (idx === -1) return sorted[0]
@@ -709,8 +710,8 @@ export function useWorkspaceTabs() {
   /**
    * Get the previous tab in display order before the given tab id (cycles).
    */
-  function getPrevTab(activeTabId: string): WorkspaceTab | null {
-    const sorted = allTabs.value
+  function getPrevTab(activeTabId: string, visibleIds?: string[]): WorkspaceTab | null {
+    const sorted = visibleIds ? allTabs.value.filter(t => visibleIds.includes(t.id)) : allTabs.value
     if (sorted.length === 0) return null
     const idx = sorted.findIndex(t => t.id === activeTabId)
     if (idx === -1) return sorted[sorted.length - 1]
@@ -780,15 +781,15 @@ export function useWorkspaceTabs() {
   /**
    * Close all unpinned tabs.
    */
-  function closeAllUnpinned() {
-    tabs.value = tabs.value.filter(t => t.pinned)
+  function closeAllUnpinned(visibleIds?: string[]) {
+    tabs.value = tabs.value.filter(t => t.pinned || (visibleIds && !visibleIds.includes(t.id)))
   }
 
   /**
    * Close all tabs except the specified one.
    */
-  function closeOthers(tabId: string) {
-    tabs.value = tabs.value.filter(t => t.id === tabId || t.pinned)
+  function closeOthers(tabId: string, visibleIds?: string[]) {
+    tabs.value = tabs.value.filter(t => t.id === tabId || t.pinned || (visibleIds && !visibleIds.includes(t.id)))
   }
 
   /**
@@ -808,8 +809,10 @@ export function useWorkspaceTabs() {
   /**
    * Reorder tabs within a group (pinned or unpinned).
    */
-  function moveTab(fromIndex: number, toIndex: number, group: 'pinned' | 'open') {
-    const groupTabs = group === 'pinned' ? pinnedTabs.value : openTabs.value
+  function moveTab(fromIndex: number, toIndex: number, group: 'pinned' | 'open', visibleIds?: string[]) {
+    const allGroupTabs = group === 'pinned' ? pinnedTabs.value : openTabs.value
+    const visible = visibleIds ? new Set(visibleIds) : null
+    const groupTabs = visible ? allGroupTabs.filter(t => visible.has(t.id)) : allGroupTabs
 
     // Allow toIndex to be equal to groupTabs.length (drop after last item)
     if (fromIndex < 0 || fromIndex >= groupTabs.length) return
@@ -833,8 +836,10 @@ export function useWorkspaceTabs() {
     // then open tabs. CRITICAL: pinnedTabs sorts displayOrder ASCENDING while
     // openTabs sorts DESCENDING, so the writeback direction must match the
     // group's sort or the displayed order gets inverted on every drag.
-    const orderedPinned = group === 'pinned' ? reordered : pinnedTabs.value
-    const orderedOpen = group === 'open' ? reordered : openTabs.value
+    let visibleIndex = 0
+    const merged = allGroupTabs.map(t => !visible || visible.has(t.id) ? reordered[visibleIndex++] : t)
+    const orderedPinned = group === 'pinned' ? merged : pinnedTabs.value
+    const orderedOpen = group === 'open' ? merged : openTabs.value
 
     let order = 0
     const assign = (tab: WorkspaceTab) => {
@@ -856,7 +861,7 @@ export function useWorkspaceTabs() {
     if (group === 'pinned') {
       // Backend pin order is tool-level: dedupe multiple pinned instances of
       // the same tool, keeping first occurrence in display order.
-      const pinnedToolIds = [...new Set(reordered.filter(t => t.type === 'tool').map(t => t.entityId))]
+      const pinnedToolIds = [...new Set(orderedPinned.filter(t => t.type === 'tool').map(t => t.entityId))]
       if (pinnedToolIds.length > 0) {
         const { reorderPinnedTools } = useProvidersApi()
         reorderPinnedTools(pinnedToolIds).catch(err => {
@@ -917,6 +922,16 @@ export function useWorkspaceTabs() {
     tabs.value = [...tabs.value]
   }
 
+  function setTabContext(tabId: string, projectId: number | null, shared = false) {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (!tab) return
+    if (shared && tab.contextProjectIds?.includes(projectId)) return
+    if (!shared && tab.projectId === projectId) return
+    if (shared) tab.contextProjectIds = [...new Set([...(tab.contextProjectIds ?? []), projectId])]
+    else tab.projectId = projectId
+    tabs.value = [...tabs.value]
+  }
+
   // --- Computed ---
 
   // The row lists. Editor tabs are deliberately absent: they render as
@@ -957,6 +972,7 @@ export function useWorkspaceTabs() {
     updateEditorMedia,
     updateLineageFocus,
     resolveToolInstance,
+    setTabContext,
     getToolInstanceTab,
     duplicateToolTab,
     markTabActivated,

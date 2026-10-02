@@ -7,6 +7,7 @@
  * route change. Views never render their own navigation chrome (DESIGN.md
  * §1.11) — this is the one channel they have into it.
  */
+import { contextSection } from '../utils/workingContext'
 import { computed, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 
@@ -14,7 +15,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 // on its greeting, so the bar there is just Menu and Search.
 const HUB_TITLES: Record<string, string> = {
   home: '',
-  browse: 'All assets',
+  browse: 'Assets',
   search: 'Search',
   trash: 'Trash',
   'saved-view': 'Saved view',
@@ -40,7 +41,7 @@ export type HubId = 'home' | 'library' | 'workspace' | 'chats'
 
 /** Which hub a route belongs to. Detail routes light their parent hub. */
 export function hubForRoute(name: unknown): HubId | null {
-  switch (name) {
+  switch (contextSection(name) || name) {
     case 'home': return 'home'
     case 'browse': case 'trash': case 'saved-view': case 'upload': return 'library'
     // Search belongs to no hub: it rides on whichever hub opened it.

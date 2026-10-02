@@ -166,16 +166,16 @@
                 @click="openAttributionUrl"
               >{{ toolAttribution.label }}</button>
             </template>
-            <template v-if="projectScopeId">
+            <span class="contents">
               <span>·</span>
               <span class="inline-flex items-center gap-1.5">
-                <span>Saving to</span>
+                <span>Output:</span>
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
                   <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
-                  <span class="truncate max-w-[180px]">{{ projectScopeName }}</span>
+                  <span class="truncate max-w-[180px]">{{ projectScopeId == null ? 'No project' : projectScopeName }}</span>
                 </span>
               </span>
-            </template>
+            </span>
           </div>
           </div>
           <!-- Compact: hidden; Run is the header control (ToolRunControl) and
@@ -1005,6 +1005,7 @@
             <SparklesIcon class="w-6 h-6" />
           </button>
           <ToolRunControl
+            :output-destination="projectScopeId == null ? 'No project' : projectScopeName"
             :batch-size="uiState.batchSize"
             :can-submit="canSubmit"
             :forever-active="uiState.generateForeverMode"
@@ -1262,13 +1263,14 @@ const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
 const compactDrawerOpen = computed(() => !!toolDrawerRef.value && toolDrawerRef.value.level !== 'collapsed')
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
-const projectScopeId = computed(() => {
+// A session owns its destination for its whole lifetime, including queued runs.
+const projectScopeId = ref((() => {
   const raw = route.query.project_id
   if (raw == null) return null
   const value = Array.isArray(raw) ? raw[0] : raw
   const parsed = parseInt(String(value), 10)
-  return Number.isFinite(parsed) ? parsed : null
-})
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+})())
 // Instance discriminator — injected on every tool route by the router guard.
 // Fixed for this component's lifetime (the KeepAlive key includes it, so a
 // different instance mounts a different ToolView).
@@ -1874,8 +1876,7 @@ const submissionError = ref<string | null>(null)
 const submissionErrorCode = ref<string | null>(null)
 
 // No LLM configured at all = the user opted out of LLM features: the agent
-// dock hides and the enhance/translate flags are treated as off at submit so
-// generation never trips over them. A configured-but-broken LLM changes
+// dock hides; an enabled enhancement still requires a working model. A configured-but-broken LLM changes
 // nothing here — submits keep failing loudly with the CTA below.
 const { llmUnconfigured, checkAgentModels } = useAgentModelAvailability()
 void checkAgentModels()
@@ -4741,7 +4742,7 @@ async function loadRemix(mediaId: string) {
 }
 
 // Handle hopping to another tool with current state
-async function handleHopToTool(targetTool: { full_tool_id: string; name: string }, targetTab?: { projectId?: number; instanceId?: string }) {
+async function handleHopToTool(targetTool: { full_tool_id: string; name: string }, targetTab?: { projectId?: number | null; instanceId?: string }) {
   if (!tool.value) return
 
   trackTelemetry('tool_hop_used', {
@@ -5007,12 +5008,12 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
         // Tools with no prompt input have nothing to enhance or translate —
         // force both off here rather than trusting stale UI state left over
         // from a previously-selected prompt tool (autoImprove.enabled/translate
-        // panels are shared, generic components). With no LLM configured the
-        // flags are likewise treated as off (the chips are grayed out), while
-        // the stored setting survives for when a model appears.
+        // panels are shared, generic components). Enabled enhancement must
+        // reach the backend even when no assistant is configured, so it fails
+        // visibly rather than sending the raw prompt.
         autoImprove: {
           ...rawPromptOptions.autoImprove,
-          enabled: toolHasPrompt && !llmUnconfigured.value && !!rawPromptOptions.autoImprove?.enabled,
+          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled,
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,

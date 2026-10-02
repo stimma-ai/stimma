@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 
 // Tab names
 export const TAB_NAMES = {
@@ -11,6 +11,21 @@ export const TAB_NAMES = {
 // Singleton state
 const activeTab = ref(TAB_NAMES.BROWSE)
 const slideshowActive = ref(false) // Tracks if ANY section has slideshow active
+const visibleSlideshows = new Set()
+
+/** Keep app chrome in sync when a slideshow's view enters/leaves KeepAlive. */
+export function useSlideshowPresence() {
+  const owner = Symbol('slideshow')
+  const activate = () => { visibleSlideshows.add(owner); slideshowActive.value = true }
+  const deactivate = () => {
+    visibleSlideshows.delete(owner)
+    slideshowActive.value = visibleSlideshows.size > 0
+  }
+  onMounted(activate)
+  onActivated(activate)
+  onDeactivated(deactivate)
+  onUnmounted(deactivate)
+}
 
 export function useTabNavigation() {
   // Switch to a different tab

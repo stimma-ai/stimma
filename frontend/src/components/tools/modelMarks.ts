@@ -2,8 +2,7 @@
  * Vendor brand-mark registry for ToolIcon.
  *
  * - `MODEL_MARK_SVGS` maps a *mark key* to a raw inline SVG string. These are the
- *   exact chosen variants from the signed-off mock
- *   (plans/icon-branding/mocks/tool-icons.html). Rendered via v-html with the
+ *   exact chosen variants from the signed-off design. Rendered via v-html with the
  *   `.tool-mark` tint rule so any embedded fills collapse to `currentColor`.
  * - `VENDOR_MARK_MAP` maps a tool's `model_vendor` slug to a mark key. A vendor
  *   with no mark (e.g. `bria-ai`) is intentionally absent → caller falls back to
@@ -11,8 +10,6 @@
  *
  * Mark = model identity. Tile background (Cloud ring vs neutral) encodes source
  * and is handled separately in ToolIcon.vue. The two are independent.
- *
- * See plans/icon-branding/SLUGS.md §3–4 for the authoritative mapping.
  */
 
 export type ModelMarkKey =
@@ -45,8 +42,7 @@ export const MODEL_MARK_SVGS: Record<ModelMarkKey, string> = {
 /**
  * Map of `tool.model_vendor` slug → mark key. Vendors with no first-party mark
  * (e.g. `bria-ai`) are deliberately omitted so the caller falls through to a
- * task-generic glyph. `google` maps to the nano-banana mark per the signed-off
- * decision in SLUGS.md §4.
+ * task-generic glyph. `google` maps to the nano-banana mark.
  */
 export const VENDOR_MARK_MAP: Record<string, ModelMarkKey> = {
   openai: 'openai',

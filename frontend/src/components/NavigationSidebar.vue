@@ -34,31 +34,55 @@
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
-          <!-- Stimma Home -->
+          <!-- Everything: the brand row goes home and takes drops. Inside a
+               project the sidebar drills in: a way back, then the project as
+               the header (its menu renames, opens settings, and switches). -->
           <button
+            v-if="activeProjectId == null"
             @click="handleNavClick('home')"
             @dragover="handleDragOver"
             @dragenter="handleStimmaHomeDragEnter"
             @dragleave="handleStimmaHomeDragLeave"
             @drop="handleStimmaHomeDrop"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="[
-              activeTab === 'home' ? '!bg-overlay-hover !text-content' : '',
-              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
-            ]"
+            class="mb-1.5 flex w-full items-center gap-2 rounded border-none bg-transparent px-3 py-1.5 text-left text-sm font-medium text-content-secondary no-underline transition-all cursor-pointer whitespace-nowrap hover:bg-overlay-subtle hover:text-content [&>:first-child]:mx-[5px]"
+            :class="dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''"
             title="Stimma (drag media here to attach)"
           >
             <img src="/logo.svg" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
+          <template v-else>
+            <button
+              type="button"
+              aria-label="Back to everything"
+              class="flex w-fit items-center gap-1.5 rounded px-3 py-0.5 text-content-muted transition-colors hover:text-content coarse:min-h-11"
+              @click="leaveProject"
+            >
+              <ChevronLeftIcon class="h-3 w-3" />
+              <span class="font-brand text-[11px] lowercase tracking-[0.12em]">stimma</span>
+            </button>
+            <WorkingContextPicker v-slot="{ toggle, open }" @selected="props.isMobile && emit('close')">
+              <button
+                type="button"
+                aria-label="Working context"
+                aria-haspopup="dialog"
+                :aria-expanded="open"
+                class="mb-1.5 flex w-full items-start gap-2 rounded-md px-3 py-1.5 text-left transition-colors hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+                :class="open ? 'bg-overlay-subtle' : ''"
+                @click="toggle($event.currentTarget)"
+              ><span class="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1 h-3 w-3 shrink-0 text-content-muted" /></button>
+            </WorkingContextPicker>
+          </template>
 
-          <!-- Saved Views -->
+          <button @click="handleNavClick('home')" @dragover="handleDragOver" @dragenter="handleStimmaHomeDragEnter" @dragleave="handleStimmaHomeDragLeave" @drop="handleStimmaHomeDrop" class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 [&>:first-child]:mx-[5px]" :class="activeTab === 'home' ? '!bg-selection/15 !text-selection' : ''"><HomeIcon class="h-3.5 w-3.5 flex-shrink-0" />Home</button>
+
+          <!-- Saved views sit with Home: places, before the kinds of things. -->
           <button
-            v-for="savedView in savedViews"
+            v-for="savedView in contextSavedViews"
             :key="savedView.id"
             @click="openSavedView(savedView.id)"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="isSavedViewActive(savedView.id) ? '!bg-overlay-hover !text-content' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-[5px]"
+            :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-selection' : ''"
             :title="savedView.name"
           >
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -67,50 +91,19 @@
             <span class="truncate text-sm">{{ savedView.name }}</span>
           </button>
 
+          <div class="h-2 flex-shrink-0" aria-hidden="true"></div>
+
           <!-- All Assets -->
           <button
             @click="handleNavClick('browse')"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="activeTab === 'browse' ? '!bg-overlay-hover !text-content' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+            :class="activeTab === 'browse' ? '!bg-selection/15 !text-selection' : ''"
           >
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
             </svg>
-            <span>All Assets</span>
+            <span>Assets</span>
           </button>
-
-          <!-- Trash -->
-          <button
-            @click="handleNavClick('trash')"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="activeTab === 'trash' ? '!bg-overlay-hover !text-content' : ''"
-          >
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span>Trash</span>
-          </button>
-
-          <div class="group relative">
-            <button
-              @click="handleNavClick('projects')"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-              :class="activeTab === 'projects' ? '!bg-overlay-hover !text-content' : ''"
-            >
-              <ArchiveBoxIcon class="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Projects</span>
-            </button>
-            <Tooltip text="Create new project" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                @click.stop="createNewProject"
-                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
-              >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
 
           <!-- Boards landing link (with drag-drop to create new) -->
           <div class="group relative">
@@ -120,9 +113,9 @@
               @dragenter="handleNewBoardDragEnter"
               @dragleave="handleNewBoardDragLeave"
               @drop="handleNewBoardDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
-                activeTab === 'boards' ? '!bg-overlay-hover !text-content' : '',
+                activeTab === 'boards' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Boards (drag media here to create new)"
@@ -154,9 +147,9 @@
               @dragenter="handleNewChatDragEnter"
               @dragleave="handleNewChatDragLeave"
               @drop="handleNewChatDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
-                activeTab === 'chats' ? '!bg-overlay-hover !text-content' : '',
+                activeTab === 'chats' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Chats (drag media here to create new)"
@@ -187,9 +180,9 @@
               @dragenter="handleNewFlowDragEnter"
               @dragleave="handleNewFlowDragLeave"
               @drop="handleNewFlowDrop"
-              class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+              class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
               :class="[
-                activeTab === 'flows' ? '!bg-overlay-hover !text-content' : '',
+                activeTab === 'flows' ? '!bg-selection/15 !text-selection' : '',
                 dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Flows (drag media here to create new)"
@@ -215,8 +208,8 @@
           <button
             @click="handleNavClick('all-tools')"
             data-tour="tools"
-            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-            :class="activeTab === 'all-tools' ? '!bg-overlay-hover !text-content' : ''"
+            class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left coarse:min-h-11 [&>:first-child]:mx-[5px]"
+            :class="activeTab === 'all-tools' ? '!bg-selection/15 !text-selection' : ''"
           >
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
@@ -225,13 +218,15 @@
           </button>
 
 
+          <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
+
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-3">
-            <div class="mx-3 mb-2 border-t border-edge-subtle"></div>
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="flex flex-col gap-1">
 
-            <!-- Pinned/open micro-labels replace the old dashed separator -->
-            <div v-if="pinnedTabs.length > 0" class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">Pinned</div>
+            <!-- Pinned, Editing and Open share the section label recipe. -->
+            <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
 
+            <template v-if="!isCollapsed('pinned')">
             <!-- Pinned tabs -->
             <div
               v-for="(tab, index) in pinnedTabs"
@@ -255,25 +250,24 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="flex items-center gap-2.5 px-3 py-2 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
-                  isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
+                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
-                :style="{ minHeight: '44px' }"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-rename-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -298,18 +292,18 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
                     @keydown="handleRenameKeydown"
@@ -322,13 +316,13 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -353,65 +347,57 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
                            line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
                         v-else
-                        class="truncate text-[11px]"
+                        class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
                         {{ getToolSubtitle(tab.entityId) }}
                       </span>
                     </div>
-                    <span
-                      v-if="tab.projectName"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ tab.projectName }}</span>
                   </div>
 
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
-                    <span
-                      v-if="getBoardProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] text-content">
+                    <span class="truncate text-[13px] leading-4 text-content">
                       {{ tab.displayName }}
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -420,11 +406,11 @@
                   <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this project...
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -432,10 +418,10 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -444,10 +430,6 @@
                       class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
                       title="Driven by a connected assistant over MCP"
                     >MCP</span>
-                    <span
-                      v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
                   <!-- Chat without name -->
@@ -455,11 +437,11 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -468,31 +450,27 @@
                       class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
                       title="Driven by a connected assistant over MCP"
                     >MCP</span>
-                    <span
-                      v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
                   <!-- Flow with title/subtitle -->
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] text-content"
+                      class="truncate text-[13px] leading-4 text-content"
                     >
                       {{ tab.displayName }}
                     </span>
                     <span
                       v-else
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this flow...
                     </span>
                     <FlowStatusPill
                       :flow-id="tab.entityId"
                       show-pending
-                      text-class="truncate text-[11px] text-content-muted"
+                      text-class="truncate text-[11px] leading-[14px] text-content-muted"
                     />
                   </div>
 
@@ -550,18 +528,13 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
-
-            <!-- Durable pins are a separate group from the current workspace. -->
-            <div
-              v-if="pinnedTabs.length > 0 && (editorTabs.length > 0 || openTabs.length > 0)"
-              class="mx-3 mt-1 border-t border-edge-subtle"
-              :class="editorTabs.length > 0 ? 'mb-2' : 'mb-1'"
-            ></div>
+            </template>
 
             <!-- Open editors are a working set, not documents with names. -->
-            <div v-if="editorTabs.length > 0" class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">Editing</div>
+            <SidebarSectionHeader v-if="editorTabs.length > 0" id="editing" label="Editing" />
 
             <EditorShelf
+              v-if="!isCollapsed('editing')"
               :tabs="editorTabs"
               @open="navigateToTabId"
               @remove="closeTab"
@@ -569,10 +542,9 @@
               @media-drop="handleShelfMediaDrop"
             />
 
-            <div v-if="editorTabs.length > 0 && openTabs.length > 0" class="mx-3 my-1 border-t border-edge-subtle"></div>
+            <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
-            <div v-if="openTabs.length > 0 && editorTabs.length === 0" class="pt-1"></div>
-
+            <template v-if="!isCollapsed('open')">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
@@ -596,26 +568,25 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="flex items-center gap-3 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="min-h-10 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
-                  isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
+                  isTabActive(tab) ? '!bg-selection/15 !text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
-                  tab.type === 'tool' ? 'py-1.5' : 'py-2'
+                  'py-1'
                 ]"
-                :style="{ minHeight: '44px' }"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-rename-open-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -640,18 +611,18 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
                     @keydown="handleRenameKeydown"
@@ -664,13 +635,13 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
-                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
+                  <MediaImage v-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-6 h-6 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-px flex-shrink-0">
+                    <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-px">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
                         :key="`${tab.id}-open-board-column-${columnIndex}`"
-                        class="flex min-w-0 flex-1 flex-col gap-0.5"
+                        class="flex min-w-0 flex-1 flex-col gap-px"
                       >
                         <div
                           v-for="(item, index) in column"
@@ -695,65 +666,57 @@
                       </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
+                      <component :is="getTabIcon(tab)" class="w-3.5 h-3.5 text-content-secondary" />
                     </div>
                   </div>
-                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
-                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" size="xs" />
+                  <div v-else-if="tab.type === 'tool'" class="w-6 h-6 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-[22px] h-[22px]"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
-                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
-                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" size="xs" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
+                  <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
                            line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
                         {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
                         v-else
-                        class="truncate text-[11px]"
+                        class="truncate text-[11px] leading-[14px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
                         {{ getToolSubtitle(tab.entityId) }}
                       </span>
                     </div>
-                    <span
-                      v-if="tab.projectName"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ tab.projectName }}</span>
                   </div>
 
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatBoardTabDetail(tab.entityId) }}
                       </span>
                     </div>
-                    <span
-                      v-if="getBoardProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] text-content">
+                    <span class="truncate text-[13px] leading-4 text-content">
                       {{ tab.displayName }}
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -762,11 +725,11 @@
                   <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this project...
                     </span>
-                    <span class="truncate text-[11px] text-content-muted">
+                    <span class="truncate text-[11px] leading-[14px] text-content-muted">
                       Project
                     </span>
                   </div>
@@ -774,10 +737,10 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] text-content">
+                      <span class="truncate text-[13px] leading-4 text-content">
                         {{ tab.displayName }}
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -786,10 +749,6 @@
                       class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
                       title="Driven by a connected assistant over MCP"
                     >MCP</span>
-                    <span
-                      v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
                   <!-- Chat without name -->
@@ -797,11 +756,11 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
                       </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] text-content-muted">
+                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
                         {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
@@ -810,31 +769,27 @@
                       class="flex-shrink-0 rounded px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent/10"
                       title="Driven by a connected assistant over MCP"
                     >MCP</span>
-                    <span
-                      v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
-                    >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
                   <!-- Flow with title/subtitle -->
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] text-content"
+                      class="truncate text-[13px] leading-4 text-content"
                     >
                       {{ tab.displayName }}
                     </span>
                     <span
                       v-else
                       @click.stop="startInlineRename(tab)"
-                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                      class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
                       Name this flow...
                     </span>
                     <FlowStatusPill
                       :flow-id="tab.entityId"
                       show-pending
-                      text-class="truncate text-[11px] text-content-muted"
+                      text-class="truncate text-[11px] leading-[14px] text-content-muted"
                     />
                   </div>
 
@@ -906,6 +861,7 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
+            </template>
           </div>
 
         </nav>
@@ -949,6 +905,18 @@
                dresses the footer for screenshots and must not take the
                picker with it. -->
           <DeviceChip v-if="isAuthenticated" variant="footer" />
+          <!-- Trash is an occasional destination, so it lives with the other
+               occasional actions instead of in the nav run. -->
+          <Tooltip text="Trash" class="w-8 flex-shrink-0 coarse:w-11">
+            <button
+              @click="handleNavClick('trash')"
+              aria-label="Trash"
+              class="w-full h-8 flex items-center justify-center rounded transition-colors cursor-pointer border-none coarse:min-h-11"
+              :class="activeTab === 'trash' ? 'bg-selection/15 text-selection' : 'bg-transparent text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
+            >
+              <TrashIcon class="w-[18px] h-[18px]" />
+            </button>
+          </Tooltip>
           <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
             <button
               @click="openSettingsFromFooter"
@@ -1034,7 +1002,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
-import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ChevronLeftIcon, ChevronUpDownIcon, HomeIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
@@ -1056,6 +1024,12 @@ import { useWorkspaceTabs, toolTabRoute, editorTabRoute, editorRouteTabId, type 
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
+import { useContextSwitch, useWorkingContext } from '../composables/useWorkingContext'
+import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
+import WorkingContextPicker from './WorkingContextPicker.vue'
+import SidebarProjects from './sidebar/SidebarProjects.vue'
+import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
+import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
 import { useFlowsApi } from '../composables/useFlowsApi'
@@ -1097,12 +1071,13 @@ const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
 // Navigation
 const router = useRouter()
 const route = useRoute()
-const activeTab = computed(() => {
-  if (String(route.name || '').startsWith('project-') || route.name === 'projects') {
-    return 'projects'
-  }
-  return route.name
-})
+const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
+const switchContext = useContextSwitch()
+const { isCollapsed } = useSidebarSections()
+async function leaveProject() {
+  if (await switchContext(null) && props.isMobile) emit('close')
+}
+const activeTab = computed(() => contextSection(route.name) || route.name)
 
 // WebSocket
 const { on, connected: wsConnected } = useWebSocket()
@@ -1176,10 +1151,10 @@ const { sendToTool } = useSendToTool()
 
 // Workspace tabs
 const {
-  pinnedTabs, openTabs, editorTabs, allTabs, addTab, addEditorTab, updateEditorMedia,
+  pinnedTabs: allPinnedTabs, openTabs: allOpenTabs, editorTabs: allEditorTabs, allTabs, addTab, addEditorTab, updateEditorMedia,
   findNextTab, removeTab, updateTabName, removeTabByEntity,
-  reconcileToolPins, moveTab, setLastLibraryRoute, getLastLibraryRoute,
-  markTabActivated, updateTabCustomName
+  reconcileToolPins, moveTab, setLastLibraryRoute,
+  markTabActivated, updateTabCustomName, setTabContext
 } = useWorkspaceTabs()
 
 // Per-project last-visited sub-route memory
@@ -1196,12 +1171,13 @@ useFlowCounts()
 const { draggedMediaInfo, draggedMediaItems, draggedMediaCount, draggedMediaType } = useDragStore()
 
 // APIs
-const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard, updateProject } = useMediaApi()
+const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, updateBoard, updateProject } = useMediaApi()
 const { listPinnedTools, fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 // ==================== State ====================
 
 const savedViews = ref([])
+const contextSavedViews = computed(() => savedViews.value.filter(v => (v.project_id ?? null) === activeProjectId.value))
 const allToolsMap = ref<Map<string, any>>(new Map())
 const pinnedTools = ref([])
 const toolAvailabilityMap = ref<Map<string, string>>(new Map())
@@ -1241,6 +1217,26 @@ const boardMetadata = ref<Map<string, BoardMetadata>>(new Map())
 const chatMetadata = ref<Map<string, { thumbnail_media_id: number | null, last_message: string, project_id: number | null, mcp_driven?: boolean }>>(new Map())
 const projectNames = ref<Map<string, string>>(new Map())
 
+const flowMetadata = ref<Map<string, number | null | undefined>>(new Map())
+function isContextTab(tab: WorkspaceTab) {
+  if (tab.type === 'board') {
+    const owner = boardMetadata.value.has(tab.entityId) ? boardMetadata.value.get(tab.entityId)!.project_id : tab.projectId
+    return owner !== undefined && owner === activeProjectId.value
+  }
+  if (tab.type === 'chat') {
+    const owner = chatMetadata.value.has(tab.entityId) ? chatMetadata.value.get(tab.entityId)!.project_id : tab.projectId
+    return owner !== undefined && owner === activeProjectId.value
+  }
+  if (tab.type === 'flow') {
+    const owner = flowMetadata.value.has(tab.entityId) ? flowMetadata.value.get(tab.entityId) : tab.projectId
+    return owner !== undefined && owner === activeProjectId.value
+  }
+  return belongsToContext(tab, activeProjectId.value)
+}
+const pinnedTabs = computed(() => allPinnedTabs.value.filter(isContextTab))
+const openTabs = computed(() => allOpenTabs.value.filter(isContextTab))
+const editorTabs = computed(() => allEditorTabs.value.filter(isContextTab))
+const visibleTabIds = computed(() => allTabs.value.filter(isContextTab).map(t => t.id))
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)
 // Live shift state while dragging over a tool tab: shift flips the drop from
@@ -1418,6 +1414,7 @@ async function ensureProjectName(projectId: number | string | null | undefined) 
 function applyBoardUpdate(board: any) {
   if (!board?.id) return
   const boardId = String(board.id)
+  setTabContext(`board:${boardId}`, board.project_id ?? null)
   boardMetadata.value.set(boardId, extractBoardMetadata(board))
   boardMetadata.value = new Map(boardMetadata.value)
   ensureProjectName(board?.project_id ?? null)
@@ -1477,18 +1474,6 @@ function formatChatTabSubtitle(chatId: string): string {
   return metadata?.last_message || ''
 }
 
-function getChatProjectName(chatId: string): string {
-  const metadata = getChatMetadata(chatId)
-  if (metadata?.project_id == null) return ''
-  return projectNames.value.get(String(metadata.project_id)) || ''
-}
-
-function getBoardProjectName(boardId: string): string {
-  const metadata = getBoardMetadata(boardId)
-  if (metadata?.project_id == null) return ''
-  return projectNames.value.get(String(metadata.project_id)) || ''
-}
-
 function formatBoardTabDetail(boardId: string): string {
   const metadata = getBoardMetadata(boardId)
   const itemText = formatCount(metadata?.item_count || 0, 'item')
@@ -1512,6 +1497,7 @@ async function loadChatMetadata(chatId: string, force = false) {
     if (!res.ok) return
     const preview = await res.json()
     if (preview) {
+      setTabContext(`chat:${chatId}`, preview.project_id ?? null)
       chatMetadata.value.set(chatId, {
         thumbnail_media_id: preview.thumbnail_media_id || null,
         last_message: preview.last_message || '',
@@ -1582,7 +1568,7 @@ function getTabIcon(tab: WorkspaceTab) {
 function isTabActive(tab: WorkspaceTab): boolean {
   if (tab.type === 'tool') {
     if (route.name !== 'tool' || route.params.fullToolId !== tab.entityId) return false
-    const routeProjectId = route.query.project_id ? Number(route.query.project_id) : null
+    const routeProjectId = projectIdFrom(route.query.project_id)
     if ((tab.projectId || null) !== routeProjectId) return false
     return (tab.instanceId || null) === (route.query.instance ? String(route.query.instance) : null)
   }
@@ -1621,7 +1607,7 @@ function closeTab(tabId: string) {
   const closingTab = allTabs.value.find(t => t.id === tabId)
   const isActive = closingTab && isTabActive(closingTab)
   if (isActive) {
-    const next = findNextTab(new Set([tabId]))
+    const next = findNextTab(new Set([tabId]), visibleTabIds.value)
     if (next) {
       navigateToTab(next)
     } else {
@@ -1667,7 +1653,7 @@ function showTabContextMenu(tab: WorkspaceTab, event: MouseEvent) {
 // ==================== Navigation ====================
 
 function handleNavClick(pageName: string) {
-  router.push({ name: pageName })
+  router.push(contextRoute(pageName, activeProjectId.value))
   if (props.isMobile) emit('close')
 }
 
@@ -1981,7 +1967,7 @@ async function handleNewBoardDrop(e: DragEvent) {
   const assetIds = getDroppedAssetRefs(e.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length > 0) {
     try {
-      const newBoard = await apiCreateBoard('')
+      const newBoard = await apiCreateBoard('', activeProjectId.value)
       await fetch(`/api/boards/${newBoard.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2023,7 +2009,7 @@ async function handleNewChatDrop(e: DragEvent) {
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ project_id: activeProjectId.value })
       })
       if (!response.ok) throw new Error('Failed to create chat')
       const newChat = await response.json()
@@ -2090,7 +2076,7 @@ async function handleNewFlowDrop(e: DragEvent) {
       const response = await fetch('/api/flows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ project_id: activeProjectId.value })
       })
       if (!response.ok) throw new Error('Failed to create flow')
       const flow = await response.json()
@@ -2128,8 +2114,8 @@ function handleStimmaHomeDrop(e: DragEvent) {
 
   const mediaIds = getDroppedMediaIds(e.dataTransfer)
   if (mediaIds.length > 0) {
-    setPendingMedia('home', [mediaIds[0]])
-    router.push({ name: 'home' })
+    setPendingMedia('home', [mediaIds[0]], null, activeProjectId.value)
+    router.push(contextRoute('home', activeProjectId.value))
     if (props.isMobile) emit('close')
   }
 }
@@ -2137,7 +2123,7 @@ function handleStimmaHomeDrop(e: DragEvent) {
 // Create new board (from plus button)
 async function createNewBoard() {
   try {
-    const newBoard = await apiCreateBoard('')
+    const newBoard = await apiCreateBoard('', activeProjectId.value)
     router.push({ name: 'board-detail', params: { id: newBoard.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
@@ -2151,7 +2137,7 @@ async function createNewChat() {
     const response = await fetch('/api/chats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({ project_id: activeProjectId.value })
     })
     if (!response.ok) throw new Error('Failed to create chat')
     const newChat = await response.json()
@@ -2167,7 +2153,7 @@ async function createNewFlow() {
     const response = await fetch('/api/flows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({ project_id: activeProjectId.value })
     })
     if (!response.ok) throw new Error('Failed to create flow')
     const flow = await response.json()
@@ -2175,16 +2161,6 @@ async function createNewFlow() {
     if (props.isMobile) emit('close')
   } catch (err) {
     console.error('Failed to create flow:', err)
-  }
-}
-
-async function createNewProject() {
-  try {
-    const newProject = await apiCreateProject('', '')
-    router.push({ name: 'project-overview', params: { id: newProject.id }, query: { rename: '1' } })
-    if (props.isMobile) emit('close')
-  } catch (error) {
-    console.error('Failed to create project:', error)
   }
 }
 
@@ -2212,7 +2188,7 @@ function handleTabReorderDrop(index: number, group: 'pinned' | 'open', e: DragEv
 
   const fromIndex = tabReorderDragSource.value.index
   if (fromIndex !== index) {
-    moveTab(fromIndex, index, group)
+    moveTab(fromIndex, index, group, (group === 'pinned' ? pinnedTabs.value : openTabs.value).map(t => t.id))
   }
   handleTabReorderDragEnd()
 }
@@ -2472,7 +2448,8 @@ on('saved_view_deleted', (data) => {
 })
 
 on('saved_views_reordered', (data) => {
-  savedViews.value = data.saved_views
+  const updatedIds = new Set(data.saved_views.map(v => v.id))
+  savedViews.value = [...savedViews.value.filter(v => !updatedIds.has(v.id)), ...data.saved_views].sort((a, b) => a.display_order - b.display_order)
 })
 
 // Tool pin events
@@ -2493,7 +2470,7 @@ on('chat_deleted', (data) => {
   const tabId = `chat:${data.chat_id}`
   const closingTab = allTabs.value.find(t => t.id === tabId)
   if (closingTab && isTabActive(closingTab)) {
-    const next = findNextTab(new Set([tabId]))
+    const next = findNextTab(new Set([tabId]), visibleTabIds.value)
     if (next) navigateToTab(next)
     else router.push({ name: 'browse' })
   }
@@ -2513,7 +2490,7 @@ on('flow_deleted', (data) => {
   const tabId = `flow:${data.flow_id}`
   const closingTab = allTabs.value.find(t => t.id === tabId)
   if (closingTab && isTabActive(closingTab)) {
-    const next = findNextTab(new Set([tabId]))
+    const next = findNextTab(new Set([tabId]), visibleTabIds.value)
     if (next) navigateToTab(next)
     else router.push({ name: 'flows' })
   }
@@ -2545,7 +2522,7 @@ on('board_deleted', (data) => {
   const tabId = `board:${data.board_id}`
   const closingTab = allTabs.value.find(t => t.id === tabId)
   if (closingTab && isTabActive(closingTab)) {
-    const next = findNextTab(new Set([tabId]))
+    const next = findNextTab(new Set([tabId]), visibleTabIds.value)
     if (next) navigateToTab(next)
     else router.push({ name: 'browse' })
   }
@@ -2558,6 +2535,7 @@ on('board_deleted', (data) => {
 // Chat generation tracking
 on('project_updated', (data) => {
   const project = data.project
+  if (project) rememberProject(project)
   if (!project?.id) return
   const id = String(project.id)
   const name = project.name || 'Untitled Project'
@@ -2578,6 +2556,17 @@ on('project_updated', (data) => {
 // chat preview data (new images/messages may exist).
 on('agent_stopped', (data) => {
   loadChatMetadata(String(data.chat_id), true)
+})
+
+on('project_created', () => refreshProjects())
+on('project_deleted', async (data) => {
+  savedViews.value = savedViews.value.filter(v => v.project_id !== data.project_id)
+  if (activeProjectId.value === data.project_id) {
+    selectProject(null)
+    addToast('This project is no longer available.', 'warning')
+    await router.replace({ name: 'browse', query: { library: '1' } })
+  }
+  await refreshProjects()
 })
 
 // ==================== Route watcher: auto-create tabs ====================
@@ -2619,19 +2608,10 @@ watch(
         const tab = addTab('tool', fullToolId, toolDisplayName, undefined, undefined, instanceId)
         markTabActivated(tab.id)
       }
-    } else if (name?.startsWith('project-') && params.id) {
-      const projectId = String(params.id)
-      const tab = addTab('project', projectId)
-      getProject(parseInt(projectId, 10)).then(project => {
-        if (project) {
-          updateTabName(tab.id, project.name || '')
-          projectNames.value.set(projectId, project.name || 'Untitled Project')
-          projectNames.value = new Map(projectNames.value)
-        }
-      }).catch(() => {})
     } else if (name === 'chat' && params.id) {
       const chatId = String(params.id)
       const tab = addTab('chat', chatId)
+      setTabContext(tab.id, route.meta.workingProjectId ?? null)
       // Fetch real name if we don't have one yet
       if (!tab.displayName || tab.displayName === chatId) {
         fetch(`/api/chats/${chatId}`).then(r => r.ok ? r.json() : null).then(chat => {
@@ -2652,6 +2632,7 @@ watch(
     } else if (name === 'board-detail' && params.id) {
       const colId = String(params.id)
       const tab = addTab('board', colId)
+      setTabContext(tab.id, route.meta.workingProjectId ?? null)
       // Fetch board data for name and metadata
       if (!tab.displayName || tab.displayName === colId || !getBoardMetadata(colId)) {
         getBoard(parseInt(colId, 10)).then(col => {
@@ -2676,6 +2657,7 @@ watch(
       // and name come from the asset's head revision.
       const assetId = String(params.assetId)
       const tab = addEditorTab(assetId)
+      setTabContext(tab.id, activeProjectId.value, true)
       // The shelf ranks by recency, so every visit counts as a touch.
       markTabActivated(tab.id)
       fetch(`/api/assets/${assetId}`).then(r => r.ok ? r.json() : null).then(data => {
@@ -2684,10 +2666,12 @@ watch(
         if (data.asset?.title) updateTabName(tab.id, data.asset.title)
       }).catch(() => {})
     } else if (name === 'lineage' && params.mediaId) {
-      addTab('lineage', String(params.mediaId), 'Lineage')
+      const tab = addTab('lineage', String(params.mediaId), 'Lineage')
+      setTabContext(tab.id, activeProjectId.value, true)
     } else if (name === 'flow' && params.id) {
       const flowId = String(params.id)
       const tab = addTab('flow', flowId)
+      setTabContext(tab.id, route.meta.workingProjectId ?? null)
       if (!tab.displayName || tab.displayName === flowId) {
         fetch(`/api/flows/${flowId}`).then(r => r.ok ? r.json() : null).then(flow => {
           if (flow) updateTabName(tab.id, flow.name || '')
@@ -2701,12 +2685,21 @@ watch(
 // ==================== Lifecycle ====================
 
 async function handleProfileChanged() {
-  console.log('[NavigationSidebar] Profile changed, reloading data')
+  boardMetadata.value = new Map()
+  chatMetadata.value = new Map()
+  flowMetadata.value = new Map()
+  projectNames.value = new Map()
+  chatMetadataLoaded.clear()
+  chatMetadataLoading.clear()
+  refreshProjects()
+  loadAllBoardMetadata()
+  loadAllChatMetadata()
   await fetchProvidersAndTools(true)
   await Promise.all([loadPinnedTools(), loadSavedViews()])
 }
 
 onMounted(() => {
+  refreshProjects()
   loadSavedViews()
   loadPinnedTools()
   loadToolAvailability()
@@ -2729,6 +2722,17 @@ onMounted(() => {
 // Load chat/board metadata whenever tabs change (covers initial load, new tabs, profile switch)
 watch(allTabs, () => loadAllChatMetadata(), { immediate: true })
 watch(allTabs, () => loadAllBoardMetadata(), { immediate: true })
+watch(allTabs, () => {
+  for (const tab of allTabs.value) {
+    if (tab.type === 'flow' && !flowMetadata.value.has(tab.entityId)) {
+      flowMetadata.value.set(tab.entityId, tab.projectId)
+      fetch(`/api/flows/${tab.entityId}`).then(r => r.ok ? r.json() : null).then(flow => {
+        if (flow) { flowMetadata.value.set(tab.entityId, flow.project_id ?? null); flowMetadata.value = new Map(flowMetadata.value); setTabContext(tab.id, flow.project_id ?? null) }
+      }).catch(() => {})
+    }
+  }
+}, { immediate: true })
+
 
 onUnmounted(() => {
   if (unsubscribeFromProviderChanges) {

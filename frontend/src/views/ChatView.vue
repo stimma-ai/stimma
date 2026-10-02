@@ -5949,7 +5949,7 @@ onActivated(updateCompactHeader)
   max-width: 350px;
 }
 
-/* Expanded detail: hairline row, not a nested fill box (STANDARDS.md §1.4
+/* Expanded detail: hairline row, not a nested fill box (DESIGN.md §1.4
    depth budget — the code block below is the one fill in this stack). */
 .activity-step-content {
   margin: 2px 0 6px 4px;

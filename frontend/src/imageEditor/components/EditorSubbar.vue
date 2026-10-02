@@ -91,6 +91,13 @@ const emit = defineEmits<{
 
 const family = computed(() => familyById(props.family))
 
+function onPromptKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey) || event.isComposing) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (!event.repeat && props.canRun && !props.busy) emit('run')
+}
+
 /** Stroke weights the width popover offers, in canvas pixels. */
 const STROKE_WEIGHTS = [2, 4, 8, 14, 22]
 
@@ -589,7 +596,7 @@ function chipClass(active: boolean, pending = false) {
             placeholder="Describe the changes for the selected area"
             :value="state.prompt"
             @input="emit('set', { prompt: ($event.target as HTMLTextAreaElement).value })"
-            @keydown.enter.meta="emit('run')"
+            @keydown="onPromptKeydown"
           />
           <ReferenceImageStrip
             v-if="state.referenceMax > 0 || state.referenceImages?.length"
@@ -900,6 +907,17 @@ function chipClass(active: boolean, pending = false) {
         <template #trigger>
           <ToolIcon name="wand" />
         </template>
+        <button
+          type="button"
+          data-close-popover
+          class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left transition-colors
+                 text-content-secondary hover:text-content hover:bg-overlay-subtle"
+          @click="emit('set', { auto: 'all' })"
+        >
+          <ToolIcon name="wand" />
+          <span class="text-xs">Auto All</span>
+        </button>
+        <div role="separator" class="h-px bg-edge-subtle my-1" />
         <button
           v-for="auto in AUTO_EDITS"
           :key="auto.id"

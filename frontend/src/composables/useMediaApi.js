@@ -484,11 +484,12 @@ export function useMediaApi() {
     return response.data
   }
 
-  async function createSavedView(name, filters, sortBy = 'created_desc') {
+  async function createSavedView(name, filters, sortBy = 'created_desc', projectId = null) {
     const response = await axios.post(`${getAPIBase()}/saved-views`, {
       name,
       filters,
-      sort_by: sortBy
+      sort_by: sortBy,
+      project_id: projectId
     })
     return response.data
   }

@@ -652,6 +652,7 @@ class GenerationQueue:
                 h3_task=None,
                 h3_duration=None,
                 h3_media_ids=None,
+                h3_reference_manifest=None,
                 h3_generate_audio=True,
                 project_id=None,
             )

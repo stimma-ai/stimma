@@ -349,7 +349,7 @@ async def _enhance_prompt_for_tool(
     internal callers that already ran the prompt pipeline), or "auto": enhance
     only for models with their own prompt format, which a general-purpose
     writer gets wrong. Returns the params to submit and a note for the agent
-    when enhancement ran or failed (None when it didn't apply).
+    when enhancement ran (None when it didn't apply). Failure blocks the tool.
     """
     prompt = job_params.get("prompt")
     if not enhance_prompt or not isinstance(prompt, str) or not prompt.strip():
@@ -367,9 +367,11 @@ async def _enhance_prompt_for_tool(
         )
     except Exception as e:
         log.warning(f"[call_tool_v2] Prompt enhancement failed for {tool_id}: {e}")
-        return job_params, (
-            f"Prompt enhancement failed ({e}); the prompt was sent as written."
-        )
+        detail = getattr(e, "detail", None)
+        message = detail.get("message") if isinstance(detail, dict) else detail
+        raise ValueError(
+            f"Prompt enhancement failed: {message or str(e)}. No generation was started."
+        ) from e
 
     if enhanced.get("prompt") == prompt:
         return enhanced, None

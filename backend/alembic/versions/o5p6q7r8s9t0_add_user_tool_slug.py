@@ -2,7 +2,7 @@
 
 The tool id is ``{slug}-{id}`` and is used for routing / pins / presets, so it
 must stay stable when a tool is renamed. We therefore freeze a slug at creation
-instead of recomputing it from the (mutable) name. See plans/FLOW_TO_TOOL.md §10.8.
+instead of recomputing it from the (mutable) name.
 
 Revision ID: o5p6q7r8s9t0
 Revises: n4o5p6q7r8s9

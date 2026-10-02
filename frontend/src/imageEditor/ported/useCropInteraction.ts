@@ -211,7 +211,7 @@ export function useCropInteraction(
     // which are tilted by its rotation. Rotating the delta into crop space is
     // what makes a corner drag follow the pointer on a straightened crop
     // instead of skewing away from it.
-    const rotation = state.startRect.rotation ?? 0
+    const rotation = pinned ? 0 : (state.startRect.rotation ?? 0)
     const rawX = canvasPoint.x - state.startMouse.x
     const rawY = canvasPoint.y - state.startMouse.y
     const cos = Math.cos(-rotation)
@@ -226,8 +226,8 @@ export function useCropInteraction(
     const { handle } = state
 
     if (handle === 'center') {
-      newCrop.x = state.startRect.x + dx
-      newCrop.y = state.startRect.y + dy
+      newCrop.x = state.startRect.x + (pinned ? -dx : dx)
+      newCrop.y = state.startRect.y + (pinned ? -dy : dy)
     } else {
       // aspectRatio is in pixel space but the maths runs in normalized coords,
       // so it is divided through by the image's own aspect ratio.

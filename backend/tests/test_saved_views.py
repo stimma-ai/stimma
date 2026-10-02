@@ -160,3 +160,40 @@ async def test_get_deleted_saved_view_returns_404(client: httpx.AsyncClient):
     view_id = _state["view_id"]
     response = await client.get(f"/api/saved-views/{view_id}")
     assert response.status_code == 404
+
+
+async def test_project_views_have_independent_names_order_and_lifetime(client: httpx.AsyncClient):
+    project = (await client.post('/api/projects', json={'name': 'Saved view scope'})).json()
+    other = (await client.post('/api/projects', json={'name': 'Other saved view scope'})).json()
+
+    async def create(name, owner=None):
+        response = await client.post('/api/saved-views', json={
+            'name': name, 'filters': {}, 'project_id': owner,
+        })
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    global_view = await create('Scoped favorites')
+    first = await create('Scoped favorites', project['id'])
+    second = await create('Second scoped view', project['id'])
+    third = await create('Scoped favorites', other['id'])
+    duplicate = await client.post('/api/saved-views', json={
+        'name': first['name'], 'filters': {}, 'project_id': project['id'],
+    })
+    assert duplicate.status_code == 400
+    rename = await client.put(f"/api/saved-views/{second['id']}", json={'name': third['name']})
+    assert rename.status_code == 400
+    reordered = await client.post(f"/api/saved-views/{second['id']}/reorder", json={'direction': 'up'})
+    assert [v['id'] for v in reordered.json()] == [second['id'], first['id']]
+    assert (await client.get(f"/api/saved-views/{global_view['id']}")).json()['display_order'] == global_view['display_order']
+    scoped = await client.get('/api/saved-views', params={'project_id': project['id']})
+    assert {v['id'] for v in scoped.json()} == {first['id'], second['id']}
+    global_views = (await client.get('/api/saved-views', params={'project_id': 0})).json()
+    assert all(v['project_id'] is None for v in global_views)
+    await client.delete(f"/api/projects/{project['id']}")
+    assert (await client.get(f"/api/saved-views/{first['id']}")).status_code == 404
+    assert (await client.get(f"/api/saved-views/{second['id']}")).status_code == 404
+    assert (await client.get(f"/api/saved-views/{third['id']}")).status_code == 200
+    assert (await client.get(f"/api/saved-views/{global_view['id']}")).status_code == 200
+    missing = await client.post('/api/saved-views', json={'name': 'Missing project', 'filters': {}, 'project_id': project['id']})
+    assert missing.status_code == 404

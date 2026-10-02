@@ -1,5 +1,5 @@
 // Atelier status colors — the single status→color source of truth
-// (STANDARDS.md §1.9). Every surface that shows a status (flow status, job
+// (DESIGN.md §1.9). Every surface that shows a status (flow status, job
 // progress, pipeline segments, phase nodes, foreach counts, tab dots) must
 // consume this map instead of inlining its own status→color switch.
 //
@@ -185,7 +185,7 @@ export function mapBlockReason(reason: BlockReason): StatusBucket {
 
 // Card/row border+ring frame for iteration tiles and rows (IterationCard,
 // FlowIterationRow, SlotApproveRow) — grandfathered as the media-tile
-// exception to the depth-budget rule (STANDARDS §3.1 follow-up), so the
+// exception to the depth-budget rule (DESIGN.md §3.1 follow-up), so the
 // card structure and opacity levels stay; only the bucket→color mapping is
 // centralized here. `dimmed` is for a pending row whose blockReason echoes
 // an upstream bucket at reduced opacity (nothing to act on yet).

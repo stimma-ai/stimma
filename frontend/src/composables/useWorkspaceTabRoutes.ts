@@ -14,6 +14,7 @@ import { watch } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useWorkspaceTabs } from './useWorkspaceTabs'
 import { useProvidersApi } from './useProvidersApi'
+import { useWorkingContext } from './useWorkingContext'
 import { useMediaApi } from './useMediaApi'
 
 let installed = false
@@ -21,7 +22,8 @@ let installed = false
 export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, enabled: () => boolean) {
   if (installed) return
   installed = true
-  const { addTab, addEditorTab, markTabActivated, updateTabName, updateEditorMedia, setLastLibraryRoute } = useWorkspaceTabs()
+  const { addTab, addEditorTab, markTabActivated, updateTabName, updateEditorMedia, setLastLibraryRoute, setTabContext } = useWorkspaceTabs()
+  const { activeProjectId } = useWorkingContext()
   const { fetchProvidersAndTools } = useProvidersApi()
   const { getBoard, getProject } = useMediaApi() as { getBoard: (id: number) => Promise<any>; getProject: (id: number) => Promise<any> }
 
@@ -62,15 +64,10 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
             if (project) addTab('tool', fullToolId, tab.displayName, scopedProject, project.name || 'Untitled Project', instanceId)
           }).catch(() => {})
         }
-      } else if (name?.startsWith('project-') && params.id) {
-        const projectId = String(params.id)
-        const tab = addTab('project', projectId)
-        getProject(parseInt(projectId, 10)).then((project) => {
-          if (project) updateTabName(tab.id, project.name || '')
-        }).catch(() => {})
       } else if (name === 'chat' && params.id) {
         const chatId = String(params.id)
         const tab = addTab('chat', chatId)
+        setTabContext(tab.id, route.meta.workingProjectId as number | null ?? null)
         if (!tab.displayName || tab.displayName === chatId) {
           fetch(`/api/chats/${chatId}`).then((r) => (r.ok ? r.json() : null)).then((chat) => {
             if (chat) updateTabName(tab.id, chat.name || '')
@@ -79,6 +76,7 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
       } else if (name === 'board-detail' && params.id) {
         const boardId = String(params.id)
         const tab = addTab('board', boardId)
+        setTabContext(tab.id, route.meta.workingProjectId as number | null ?? null)
         if (!tab.displayName || tab.displayName === boardId) {
           getBoard(parseInt(boardId, 10)).then((board) => {
             if (board) updateTabName(tab.id, board.name || '')
@@ -87,6 +85,7 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
       } else if (name === 'edit-image' && params.assetId) {
         const assetId = String(params.assetId)
         const tab = addEditorTab(assetId)
+        setTabContext(tab.id, activeProjectId.value, true)
         markTabActivated(tab.id)
         fetch(`/api/assets/${assetId}`).then((r) => (r.ok ? r.json() : null)).then((data) => {
           if (!data) return
@@ -94,10 +93,12 @@ export function installWorkspaceTabRoutes(route: RouteLocationNormalizedLoaded, 
           if (data.asset?.title) updateTabName(tab.id, data.asset.title)
         }).catch(() => {})
       } else if (name === 'lineage' && params.mediaId) {
-        addTab('lineage', String(params.mediaId), 'Lineage')
+        const tab = addTab('lineage', String(params.mediaId), 'Lineage')
+        setTabContext(tab.id, activeProjectId.value, true)
       } else if (name === 'flow' && params.id) {
         const flowId = String(params.id)
         const tab = addTab('flow', flowId)
+        setTabContext(tab.id, route.meta.workingProjectId as number | null ?? null)
         if (!tab.displayName || tab.displayName === flowId) {
           fetch(`/api/flows/${flowId}`).then((r) => (r.ok ? r.json() : null)).then((flow) => {
             if (flow) updateTabName(tab.id, flow.name || '')

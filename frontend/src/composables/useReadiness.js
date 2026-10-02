@@ -14,8 +14,6 @@
  *    re-runs the wizard for every install that hasn't seen the new one.
  *  - post-login handling (refresh account + readiness, show the panel if
  *    still due)
- *
- * See plans/OOBE_ENTITLEMENT_FLOW.md.
  */
 import { ref, computed, readonly } from 'vue'
 import axios from 'axios'

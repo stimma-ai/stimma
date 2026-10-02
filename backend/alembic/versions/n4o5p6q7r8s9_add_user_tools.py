@@ -3,7 +3,7 @@
 A frozen flow registered as a first-class tool: ``program_text`` is the runnable
 body, ``flow_id`` the editing handle, plus the canonical STP interface
 (parameter_schema / output_schema / task_types) and freeze settings
-(hitl_policies / output_map). See plans/FLOW_TO_TOOL.md.
+(hitl_policies / output_map).
 
 Revision ID: n4o5p6q7r8s9
 Revises: m3n4o5p6q7r8

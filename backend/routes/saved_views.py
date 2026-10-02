@@ -3,11 +3,12 @@ import json
 from core.logging import get_logger
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import SavedView
+from project_service import get_project_or_404
 from core.dependencies import get_db_session
 from models.api_models import SavedViewResponse, SavedViewCreateRequest, SavedViewUpdateRequest, SavedViewReorderRequest
 from sqlalchemy import func
@@ -19,13 +20,14 @@ log = get_logger(__name__)
 
 @router.get("", response_model=List[SavedViewResponse])
 async def get_saved_views(
+    project_id: int | None = Query(default=None, ge=0),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Get all saved views, sorted by display_order."""
-    result = await session.execute(
-        select(SavedView)
-        .order_by(SavedView.display_order.asc(), SavedView.name.asc())
-    )
+    """Get saved views; project_id=0 selects Everything, omission lists all."""
+    query = select(SavedView).where(SavedView.deleted_at.is_(None))
+    if project_id is not None:
+        query = query.where(SavedView.project_id == (project_id or None))
+    result = await session.execute(query.order_by(SavedView.display_order.asc(), SavedView.name.asc()))
     saved_views = result.scalars().all()
 
     return [SavedViewResponse(**sv.to_dict()) for sv in saved_views]
@@ -40,22 +42,29 @@ async def create_saved_view(
     try:
         log.debug(f"Creating saved view: {request}")
 
+        if request.project_id is not None:
+            await get_project_or_404(session, request.project_id)
+
         # Check for duplicate name
         existing = await session.execute(
-            select(SavedView)
+            select(SavedView).where(SavedView.deleted_at.is_(None))
             .where(SavedView.name == request.name)
+            .where(SavedView.project_id == request.project_id)
         )
         if existing.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="A view with this name already exists")
 
         # Get the max display_order to add at the end
         max_order_result = await session.execute(
-            select(func.max(SavedView.display_order))
+            select(func.max(SavedView.display_order)).where(
+                SavedView.deleted_at.is_(None), SavedView.project_id == request.project_id
+            )
         )
         max_order = max_order_result.scalar() or 0
 
         saved_view = SavedView(
             name=request.name,
+            project_id=request.project_id,
             filters=json.dumps(request.filters),
             sort_by=request.sort_by,
             display_order=max_order + 1,
@@ -90,7 +99,7 @@ async def get_saved_view(
 ):
     """Get a specific saved view."""
     result = await session.execute(
-        select(SavedView)
+        select(SavedView).where(SavedView.deleted_at.is_(None))
         .where(SavedView.id == view_id)
     )
     saved_view = result.scalar_one_or_none()
@@ -109,7 +118,7 @@ async def update_saved_view(
 ):
     """Update a saved view."""
     result = await session.execute(
-        select(SavedView)
+        select(SavedView).where(SavedView.deleted_at.is_(None))
         .where(SavedView.id == view_id)
     )
     saved_view = result.scalar_one_or_none()
@@ -120,8 +129,9 @@ async def update_saved_view(
     if request.name is not None and request.name != saved_view.name:
         # Check for duplicate name
         existing = await session.execute(
-            select(SavedView)
+            select(SavedView).where(SavedView.deleted_at.is_(None))
             .where(SavedView.name == request.name)
+            .where(SavedView.project_id == saved_view.project_id)
             .where(SavedView.id != view_id)
         )
         if existing.scalar_one_or_none():
@@ -156,7 +166,7 @@ async def delete_saved_view(
         log.debug(f"Deleting saved view: {view_id}")
 
         result = await session.execute(
-            select(SavedView)
+            select(SavedView).where(SavedView.deleted_at.is_(None))
             .where(SavedView.id == view_id)
         )
         saved_view = result.scalar_one_or_none()
@@ -165,7 +175,7 @@ async def delete_saved_view(
         if not saved_view:
             raise HTTPException(status_code=404, detail="Saved view not found")
 
-        await session.delete(saved_view)
+        saved_view.deleted_at = datetime.utcnow()
         await session.commit()
         log.info(f"Deleted saved view: {view_id}")
 
@@ -195,9 +205,15 @@ async def reorder_saved_view(
     if request.direction not in ("up", "down"):
         raise HTTPException(status_code=400, detail="Direction must be 'up' or 'down'")
 
-    # Get all saved views, ordered by display_order
+    target = await session.scalar(select(SavedView).where(
+        SavedView.id == view_id, SavedView.deleted_at.is_(None)
+    ))
+    if target is None:
+        raise HTTPException(status_code=404, detail="Saved view not found")
+
+    # Reordering affects only siblings in the same context.
     result = await session.execute(
-        select(SavedView)
+        select(SavedView).where(SavedView.deleted_at.is_(None), SavedView.project_id == target.project_id)
         .order_by(SavedView.display_order.asc(), SavedView.name.asc())
     )
     views = list(result.scalars().all())

@@ -1,6 +1,6 @@
 /**
  * Chat artifact stage: standalone-ChatView-only state for the "iterating on
- * one deliverable" split view (design: plans/CHAT_ARTIFACTS.html, Mock A/B).
+ * one deliverable" split view.
  *
  * Identity lives in the Asset/AssetRevision chain already used by the media
  * library (see useAssetApi). This composable just tracks which asset is

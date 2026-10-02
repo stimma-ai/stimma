@@ -1370,11 +1370,15 @@
 import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
+import { isDrawerEdgeTouch } from '../utils/drawerGesture'
+import { useSlideshowPresence } from '../composables/useTabNavigation'
+
 import { createSlideshowDwell } from '../utils/slideshowDwell'
 import { subscribeImageRecovery, recoveredImageUrl } from '../utils/imageRecovery'
 import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobilePlayback } from '../composables/useMobilePlaybackLifecycle'
 import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
 import { useViewport } from '../composables/useViewport'
+import { useBackOverride } from '../composables/useBackOverride'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -1423,6 +1427,7 @@ import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructu
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { editorLiveFrame } from '../imageEditor/liveEditorPreview'
@@ -1444,6 +1449,8 @@ import {
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
 import { nearbyPreloadIndices, shouldPreloadVideoBytes } from '../utils/slideshowPreload'
+
+useSlideshowPresence()
 
 const router = useRouter()
 const { setKeywordFilter, setTagFilter, setSimilarFilter } = useBrowseFilters()
@@ -1735,6 +1742,7 @@ function navigateGallery(direction) {
   }, 200)
 }
 const slideshowSwipe = createSlideshowSwipe({
+  reserveGesture: event => slideshowCompact.value && isDrawerEdgeTouch(event),
   canNavigate: () => zoomScale.value <= 1 && !gallerySettling.value,
   navigate: navigateGallery,
   drag: dragGallery,
@@ -4706,6 +4714,9 @@ function close() {
   emit('close')
 }
 
+// Header Back exits the mounted slideshow before navigating away from its screen.
+useBackOverride(() => true, close)
+
 // Handle close button click - exit nested views first, then close slideshow
 function handleCloseClick() {
   if (isViewingGrid.value) {
@@ -4807,6 +4818,9 @@ function handleWheel(event) {
 
 // Mouse pan handlers
 function startPan(event) {
+  // Touch has its own pinch/pan handlers and edge-gesture ownership. Pointer
+  // capture here would suppress touchstart before the drawer can claim it.
+  if (event.pointerType === 'touch') return
   if (zoomScale.value <= 1 && event.button !== 1) return
   if (event.button !== 0 && event.button !== 1) return // Left or middle mouse button
 
@@ -4849,8 +4863,11 @@ function getTouchCenter(touches) {
   }
 }
 
+let drawerEdgeGesture = false
 function handleTouchStart(event) {
+  drawerEdgeGesture = slideshowCompact.value && isDrawerEdgeTouch(event)
   slideshowSwipe.start(event)
+  if (drawerEdgeGesture) return
   if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
     // Pinch start
@@ -4870,6 +4887,7 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
+  if (drawerEdgeGesture) return
   slideshowSwipe.move(event)
   if (!pictureGesturesEnabled()) return
   if (event.touches.length === 2) {
@@ -4921,6 +4939,10 @@ function handleTouchMove(event) {
 }
 
 function handleTouchEnd(event) {
+  if (drawerEdgeGesture) {
+    if (!event.touches.length) drawerEdgeGesture = false
+    return
+  }
   slideshowSwipe.end(event)
   if (!pictureGesturesEnabled()) return
   if (event.touches.length < 2) {
@@ -5303,10 +5325,7 @@ function viewInTool(step) {
   // current project context, and write the handoff under the matching
   // instance-scoped key — ToolView.vue's loadPendingGeneration() reads
   // scopedToolId(tool) + 'pending_generation'.
-  const slideshowRoute = router.currentRoute.value
-  const projectId = slideshowRoute.params.id && String(slideshowRoute.name || '').startsWith('project-')
-    ? Number(slideshowRoute.params.id)
-    : null
+  const projectId = useWorkingContext().activeProjectId.value
   const { resolveToolInstance } = useWorkspaceTabs()
   const { instanceId } = resolveToolInstance(toolId, projectId)
   const storageKey = makeToolDbKey(toolInstanceScopedId(toolId, projectId, instanceId), 'pending_generation')

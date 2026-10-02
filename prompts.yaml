@@ -307,6 +307,8 @@ prompt_enhancement:
 
     Try to strike a good balance between simply adding words verbatim (not sufficient), and adjusting the prompt to be coherent with those words. If the user's command is vague, flesh it out a bit while keeping the original intent. Feel free to change other details of the prompt to harmonize with the change.
 
+    Turn a sparse request into a complete, concrete visual description. Preserve the named subject, action, and setting, and flesh out unspecified visual details that fit them. For a person, describe facial features, hair, expression, clothing, and posture. A name alone is not a visual description. If the input is already detailed, refine its wording while retaining its specific choices. Return the rewritten prompt itself rather than an unchanged copy or an explanation.
+
     {protected_text_guidance}
 
     All responses should just be the improved prompt with no additional commentary or formatting.

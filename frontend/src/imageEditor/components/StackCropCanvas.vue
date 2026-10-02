@@ -27,6 +27,7 @@ import type { CropRect } from '../ported/useCropInteraction'
 import { drawCropOverlay } from '../ported/cropOverlay'
 import type { ViewTransform } from '../ported/geometry'
 import { pinchCrop, type CropPinchFrame } from '../ported/cropPinch'
+import { cropPreviewSize, previewCrop, sourceCrop } from '../ported/cropPreview'
 
 const props = defineProps<{
   /** The composite BELOW the crop step — the uncropped image. */
@@ -60,6 +61,17 @@ const imageSize = computed(() =>
 )
 const canvasSize = computed(() => ({ width: props.viewWidth, height: props.viewHeight }))
 
+const previewSize = computed(() => imageSize.value
+  ? cropPreviewSize(imageSize.value.width, imageSize.value.height, props.rotation90 ?? 0)
+  : null)
+const previewFrame = computed<CropPinchFrame>(() => ({
+  crop: props.crop, zoom: 1,
+  width: imageSize.value?.width ?? 1, height: imageSize.value?.height ?? 1,
+  rotation: (props.rotation ?? 0) + (props.rotation90 ?? 0) * Math.PI / 2,
+  flipX: !!props.flipX, flipY: !!props.flipY,
+}))
+const displayedCrop = computed(() => previewCrop(previewFrame.value, props.rotation90 ?? 0))
+
 /**
  * Start fitted to the viewport; a pinch retains its preview magnification.
  */
@@ -75,9 +87,11 @@ const viewTransform = computed<ViewTransform>(() => {
   // Straightening swings the image's corners out, so the fit is taken against
   // the rotated extent — otherwise tilting clips the picture against the
   // viewport and the dimmed surround runs out of pixels.
-  const angle = Math.abs(props.crop.rotation ?? 0)
-  const spanW = size.width * Math.cos(angle) + size.height * Math.sin(angle)
-  const spanH = size.width * Math.sin(angle) + size.height * Math.cos(angle)
+  const parity = !!props.flipX !== !!props.flipY ? -1 : 1
+  const angle = previewFrame.value.rotation - parity * (props.crop.rotation ?? 0)
+  const c = Math.abs(Math.cos(angle)), s = Math.abs(Math.sin(angle))
+  const spanW = size.width * c + size.height * s
+  const spanH = size.width * s + size.height * c
   const zoom = Math.min(
     (props.viewWidth - margin) / spanW,
     (props.viewHeight - margin) / spanH,
@@ -89,10 +103,10 @@ const viewTransform = computed<ViewTransform>(() => {
 const crop = useCropInteraction(
   canvas,
   viewTransform,
-  imageSize,
+  previewSize,
   canvasSize,
-  () => props.crop,
-  next => emit('change', next),
+  () => displayedCrop.value,
+  next => emit('change', sourceCrop(next, previewFrame.value, props.rotation90 ?? 0)),
   () => emit('commit'),
   true
 )
@@ -126,7 +140,7 @@ function draw() {
   ctx.drawImage(props.source!, 0, 0)
   ctx.restore()
 
-  drawCropOverlay(ctx, props.crop, viewTransform.value, size, canvasSize.value, true)
+  drawCropOverlay(ctx, displayedCrop.value, viewTransform.value, previewSize.value!, canvasSize.value, true)
 }
 
 function resize() {
@@ -140,6 +154,7 @@ function resize() {
 
 watch(() => [props.viewWidth, props.viewHeight], () => { pinchZoom.value = null; resize() })
 watch(() => props.source, resize)
+watch(() => props.rotation90, () => { pinchZoom.value = null })
 watch(
   () => [props.crop, props.flipX, props.flipY, props.rotation, props.rotation90],
   () => nextTick(draw),

@@ -299,8 +299,8 @@ test.describe('core object lifecycle acceptance', () => {
     await page.getByTestId(`chat-row-${first.id}`).getByRole('button').click();
     await page.getByTestId(`chat-row-${second.id}`).getByRole('button').click();
     await expect(page.getByTitle('Delete selected')).toBeVisible();
-    await page.getByRole('button', { name: 'Projects', exact: true }).first().click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await page.getByRole('button', { name: 'Tools', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/tools$/);
 
     // The inactive Chats view must neither retain the old selection nor
     // respond to common shortcuts pressed on another screen.

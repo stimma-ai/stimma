@@ -14,9 +14,7 @@ import ChatsLandingView from '../views/ChatsLandingView.vue'
 import HomeView from '../views/HomeView.vue'
 import FlowsLandingView from '../views/FlowsLandingView.vue'
 import FlowView from '../views/FlowView.vue'
-import ProjectsLandingView from '../views/ProjectsLandingView.vue'
 import ProjectLayoutView from '../views/ProjectLayoutView.vue'
-import ProjectOverviewView from '../views/ProjectOverviewView.vue'
 import ProjectAssetsView from '../views/ProjectAssetsView.vue'
 import ProjectChatsView from '../views/ProjectChatsView.vue'
 import ProjectBoardsView from '../views/ProjectBoardsView.vue'
@@ -25,8 +23,11 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import SearchResultsView from '../views/SearchResultsView.vue'
-import ForeachMockView from '../views/ForeachMockView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
+import { useWorkingContext } from '../composables/useWorkingContext'
+import { contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
+import axios from 'axios'
+import { getApiBase } from '../apiConfig'
 
 // Every route declares its chrome `surface`:
 //   hub     — a top-level landing; on compact viewports the tab bar shows.
@@ -86,8 +87,7 @@ const routes = [
   {
     path: '/projects',
     name: 'projects',
-    meta: { surface: 'hub' },
-    component: ProjectsLandingView
+    redirect: to => ({ name: 'home', query: { ...to.query, projects: '1' } })
   },
   {
     path: '/projects/:id',
@@ -100,31 +100,31 @@ const routes = [
       {
         path: 'overview',
         name: 'project-overview',
-        meta: { surface: 'detail' },
-        component: ProjectOverviewView
+        meta: { surface: 'hub' },
+        component: HomeView
       },
       {
         path: 'assets',
         name: 'project-assets',
-        meta: { surface: 'detail' },
+        meta: { surface: 'hub' },
         component: ProjectAssetsView
       },
       {
         path: 'chats',
         name: 'project-chats',
-        meta: { surface: 'detail' },
+        meta: { surface: 'hub' },
         component: ProjectChatsView
       },
       {
         path: 'boards',
         name: 'project-boards',
-        meta: { surface: 'detail' },
+        meta: { surface: 'hub' },
         component: ProjectBoardsView
       },
       {
         path: 'flows',
         name: 'project-flows',
-        meta: { surface: 'detail' },
+        meta: { surface: 'hub' },
         component: ProjectFlowsView
       },
       {
@@ -136,7 +136,7 @@ const routes = [
       {
         path: 'tools',
         name: 'project-tools',
-        meta: { surface: 'detail' },
+        meta: { surface: 'hub' },
         component: ProjectToolsView
       }
     ]
@@ -215,12 +215,6 @@ const routes = [
     meta: { surface: 'detail' },
     component: ToolView,
     props: true
-  },
-  {
-    path: '/dev/foreach-mock',
-    name: 'dev-foreach-mock',
-    component: ForeachMockView,
-    meta: { surface: 'detail', skipRouteRestore: true }
   }
 ]
 
@@ -236,20 +230,55 @@ const router = createRouter({
 // fresh instance pass ?instance themselves.
 router.beforeEach(async (to) => {
   if (['ios', 'android'].includes(desktop.kind) && to.name === 'onboarding') return { name: 'home', replace: true }
-  if (to.name !== 'tool' || to.query.instance) return true
+  delete to.meta.workingProjectId
+  const context = useWorkingContext()
+  const section = contextSection(to.name)
+  if (to.query.projects === '1' || to.query.library === '1') {
+    to.meta.workingProjectId = null
+  } else if (String(to.name || '').startsWith('project-')) {
+    to.meta.workingProjectId = projectIdFrom(to.params.id)
+  } else if (section && context.activeProjectId.value != null) {
+    return { ...contextRoute(section, context.activeProjectId.value), query: to.query, hash: to.hash, replace: true }
+  } else if (section) {
+    to.meta.workingProjectId = null
+  } else if (['chat', 'board-detail', 'flow', 'saved-view'].includes(to.name)) {
+    const kind = { chat: 'chats', 'board-detail': 'boards', flow: 'flows', 'saved-view': 'saved-views' }[to.name]
+    try {
+      const { data } = await axios.get(`${getApiBase()}/${kind}/${to.params.id}`)
+      to.meta.workingProjectId = projectIdFrom(data.project_id)
+    } catch {
+      // Failed detail loading must not silently change the working destination.
+    }
+  } else if (to.name === 'upload' && to.query.project_id == null && context.activeProjectId.value != null) {
+    return { name: 'upload', query: { ...to.query, project_id: String(context.activeProjectId.value) }, replace: true }
+  }
+  if (to.name !== 'tool') return true
   const { whenTabsReady, useWorkspaceTabs } = await import('../composables/useWorkspaceTabs')
   // Don't hang tool navigation forever if settings never load (e.g. backend
   // unreachable at boot): after the grace period resolve against whatever tab
   // state exists — worst case a fresh instance is minted.
   await Promise.race([whenTabsReady(), new Promise(resolve => setTimeout(resolve, 4000))])
-  const { resolveToolInstance } = useWorkspaceTabs()
-  const projectId = to.query.project_id ? Number(to.query.project_id) : null
+  const { resolveToolInstance, allTabs } = useWorkspaceTabs()
+  // Explicit sessions retain their own destination. Unaddressed launchers use
+  // the working context, including deep links and legacy media handoff paths.
+  const existing = to.query.instance
+    ? allTabs.value.find(t => t.type === 'tool' && t.entityId === String(to.params.fullToolId) && t.instanceId === String(to.query.instance))
+    : null
+  const projectId = existing
+    ? existing.projectId ?? null
+    : to.query.project_id != null ? projectIdFrom(to.query.project_id) : context.activeProjectId.value
+  to.meta.workingProjectId = projectId
+  const query = { ...to.query }
+  if (projectId != null) query.project_id = String(projectId)
+  else query.project_id = '0'
+  if (to.query.instance && query.project_id === to.query.project_id) return true
+  if (to.query.instance) return { name: 'tool', params: to.params, query, replace: true }
   const { instanceId } = resolveToolInstance(String(to.params.fullToolId), projectId)
   return {
     name: 'tool',
     meta: { surface: 'detail' },
     params: to.params,
-    query: { ...to.query, instance: instanceId },
+    query: { ...query, instance: instanceId },
     hash: to.hash,
     replace: true
   }
@@ -259,7 +288,9 @@ router.beforeEach(async (to) => {
 // the route NAME is sent — never the path, which can embed entity ids
 // (/boards/<id>, /lineage/<mediaId>). Dev-only routes are excluded.
 const { track: trackNav } = useTelemetry()
-router.afterEach((to) => {
+router.afterEach((to, _from, failure) => {
+  if (failure) return
+  if ('workingProjectId' in to.meta) useWorkingContext().selectProject(to.meta.workingProjectId)
   const screen = typeof to.name === 'string' ? to.name : null
   if (!screen || screen.startsWith('dev-')) return
   trackNav('screen_viewed', { screen }, 'navigation')

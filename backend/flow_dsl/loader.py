@@ -442,8 +442,8 @@ def _input_spec_to_stp_property(spec: InputSpec) -> dict[str, Any]:
 
     This is the SINGLE point where a flow input becomes STP. Flows carry no
     separate input vocabulary downstream — the input form and the freezer both
-    read this STP shape, so there is no freeze-time translation (see
-    plans/FLOW_TO_TOOL.md §2.1). ``optional`` is the one map-level marker (a
+    read this STP shape, so there is no freeze-time translation.
+    ``optional`` is the one map-level marker (a
     ``{name: prop}`` map can't hold STP's object-level ``required`` array); the
     freezer hoists it into ``required`` when assembling the tool's schema.
     """
@@ -504,7 +504,7 @@ def _input_spec_to_stp_property(spec: InputSpec) -> dict[str, Any]:
 
     # Seed: a first-class control (type="seed" or ui control="seed"). It renders
     # as the standard randomizable seed control in tools and as a value + dice
-    # (reroll) on the flow screen — see plans/FLOW_TO_TOOL.md §seed. Give it a
+    # (reroll) on the flow screen. Give it a
     # sane integer range so the reroll/randomize lands on a valid value.
     if (spec.type or "").strip().lower() == "seed" or control == "seed":
         prop["type"] = "integer"
@@ -807,7 +807,7 @@ def build_graph_from_program_file(
     """Read ``program.py`` from disk and build its graph.
 
     A fresh module namespace is used each call so re-parses are
-    deterministic (invariant I2 — see FLOWS_EQUATION_KEYS.md §8). The
+    deterministic. The
     module is NOT placed in ``sys.modules`` to avoid caching.
     """
     program_path = Path(program_path)

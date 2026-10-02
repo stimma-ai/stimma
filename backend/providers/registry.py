@@ -121,18 +121,20 @@ class ProviderRegistry:
                     provider_name = provider.provider_name
                     now = datetime.utcnow()
 
+                    result = await session.execute(
+                        select(CachedProviderTool).where(
+                            CachedProviderTool.provider_id == provider_id
+                        )
+                    )
+                    cached_by_id = {
+                        cached.full_tool_id: cached for cached in result.scalars()
+                    }
                     registered_ids = set()
 
                     for tool in tools:
                         full_tool_id = f"{provider_id}:{tool.id}"
                         registered_ids.add(full_tool_id)
-
-                        result = await session.execute(
-                            select(CachedProviderTool).where(
-                                CachedProviderTool.full_tool_id == full_tool_id
-                            )
-                        )
-                        cached = result.scalar_one_or_none()
+                        cached = cached_by_id.get(full_tool_id)
 
                         task_types_json = (
                             json.dumps(tool.task_types) if tool.task_types else None
@@ -161,7 +163,7 @@ class ProviderRegistry:
                             cached.last_registered_at = now
                             cached.deleted_at = None
                         else:
-                            session.add(CachedProviderTool(
+                            cached = CachedProviderTool(
                                 full_tool_id=full_tool_id,
                                 provider_id=provider_id,
                                 provider_name=provider_name,
@@ -187,18 +189,12 @@ class ProviderRegistry:
                                     else None
                                 ),
                                 last_registered_at=now,
-                            ))
+                            )
+                            session.add(cached)
+                            cached_by_id[full_tool_id] = cached
 
-                    result = await session.execute(
-                        select(CachedProviderTool).where(
-                            CachedProviderTool.provider_id == provider_id,
-                            CachedProviderTool.deleted_at.is_(None),
-                        )
-                    )
-                    all_cached = result.scalars().all()
-
-                    for cached in all_cached:
-                        if cached.full_tool_id not in registered_ids:
+                    for cached in cached_by_id.values():
+                        if cached.full_tool_id not in registered_ids and cached.deleted_at is None:
                             cached.deleted_at = now
 
                     await session.commit()

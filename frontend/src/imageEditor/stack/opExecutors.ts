@@ -14,6 +14,7 @@
  * filter, because the user-facing unit is a adjust session, not a slider.
  */
 
+import { cropPreviewSize } from '../ported/cropPreview.ts'
 import {
   applyColorIsolation,
   applyColorMatrix,
@@ -149,10 +150,11 @@ export function cropOutputSize(
   input: { width: number; height: number },
   params: CropParams
 ): { width: number; height: number } {
-  return {
-    width: Math.max(1, Math.round(input.width * (params.rect?.width ?? 1))),
-    height: Math.max(1, Math.round(input.height * (params.rect?.height ?? 1))),
-  }
+  return cropPreviewSize(
+    Math.max(1, Math.round(input.width * (params.rect?.width ?? 1))),
+    Math.max(1, Math.round(input.height * (params.rect?.height ?? 1))),
+    params.rotation90,
+  )
 }
 
 /**
@@ -193,8 +195,7 @@ export function applyCrop(
     ctx.scale(params.flipX ? -1 : 1, params.flipY ? -1 : 1)
   }
 
-  // A quarter turn swaps which axis the drawn image spans, while the frame
-  // stays as the crop sized it.
+  // Rotate the frame with the crop, preserving its source dimensions.
   let drawWidth = width
   let drawHeight = height
   if (params.rotation90 === 1 || params.rotation90 === 3) {

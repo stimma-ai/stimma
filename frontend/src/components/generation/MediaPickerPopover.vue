@@ -168,7 +168,7 @@ const projectId = computed<number | null>(() => {
   const raw = route.query.project_id
   if (raw == null) return null
   const parsed = parseInt(String(Array.isArray(raw) ? raw[0] : raw), 10)
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
 
 // Image slots accept videos too (a frame is grabbed on pick) — mirror the

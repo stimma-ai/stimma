@@ -1,0 +1,33 @@
+import { expect, test } from '@playwright/test';
+import { apiJSON, createProject, expectContext } from '../helpers/app';
+import { settleAnyViewport } from '../helpers/viewport';
+
+test('phone saved views follow the project in the drawer and Assets scope sheet', async ({ page }) => {
+  await page.goto('/browse?library=1');
+  await settleAnyViewport(page);
+  const project = await createProject(page, 'Phone view scope');
+  const create = (name: string, project_id: number | null) => apiJSON<any>(page, '/api/saved-views', { method: 'POST', data: { name, filters: {}, project_id } } as any);
+  const global = await create('Everything picks', null);
+  const scoped = await create('Project picks', project.id);
+  await page.goto(`/saved-view/${scoped.id}`);
+  await settleAnyViewport(page);
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  const drawer = page.locator('.navigation-sidebar');
+  await expectContext(page, project.name);
+  await expect(drawer.getByRole('button', { name: scoped.name, exact: true })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: global.name, exact: true })).toHaveCount(0);
+  await drawer.getByRole('button', { name: scoped.name, exact: true }).click();
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  await page.getByRole('button', { name: 'Assets scope', exact: true }).click();
+  const sheet = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Assets', exact: true }) });
+  await expect(sheet.getByRole('button', { name: scoped.name, exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: global.name, exact: true })).toHaveCount(0);
+  await sheet.getByRole('button', { name: scoped.name, exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await page.goto(`/saved-view/${global.id}`);
+  await settleAnyViewport(page);
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await expectContext(page, 'Everything');
+  await expect(drawer.getByRole('button', { name: global.name, exact: true })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: scoped.name, exact: true })).toHaveCount(0);
+});

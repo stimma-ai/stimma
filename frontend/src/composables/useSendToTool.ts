@@ -1,4 +1,5 @@
 import { useRouter } from 'vue-router'
+import { useWorkingContext } from './useWorkingContext'
 import axios from 'axios'
 import {
   analyzeToolMultiInputCapability,
@@ -71,6 +72,8 @@ export function useSendToTool() {
     instanceId?: string | null,
     opts?: { add?: boolean }
   ) {
+    // Capture before fetching inputs; a picker change cannot retarget this handoff.
+    projectId = projectId === undefined ? useWorkingContext().activeProjectId.value : projectId
     const add = opts?.add === true
     // Use the target task type if provided, otherwise fall back to tool's primary task type
     let effectiveTaskType = targetTaskType || tool.task_type
@@ -241,19 +244,8 @@ export function useSendToTool() {
       }
     }
 
-    // Infer project context from current route if not explicitly provided.
-    // An explicit instance target already pins the full (tool, project,
-    // instance) triple — its caller passed the tab's own projectId (possibly
-    // null for a global tab), which must NOT be overridden by route inference
-    // or the handoff key/route would address a different instance.
-    const route = router.currentRoute.value
-    const effectiveProjectId = instanceId != null
-      ? (projectId ?? null)
-      : projectId ?? (
-        route.params.id && String(route.name || '').startsWith('project-')
-          ? Number(route.params.id)
-          : null
-      )
+    // The destination was captured before any asynchronous input work.
+    const effectiveProjectId = projectId ?? null
 
     // Resolve the target INSTANCE: an explicit one (sidebar row drop, menu
     // instance pick) wins; otherwise the most-recently-active open instance

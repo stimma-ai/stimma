@@ -4,16 +4,16 @@ This is the Python surface the flow agent imports. Each primitive
 registers an equation in the graph and returns a NodeRef (a value
 reference). No DSL call performs its operation at build time.
 
-The design is grounded in docs/FLOWS_DSL.md. In particular:
+In particular:
 
 - Nodes are opaque: inspection, arithmetic, iteration, comparisons, and
   f-string interpolation at graph-build time all raise DSLError
   (``NodeUsageError``) with a message that teaches the fix. See the
   guards on ``flow_runtime.graph.NodeRef``.
 - Iteration keys are derived by the runtime from the source collection
-  (FLOWS_EQUATION_KEYS.md §6). foreach takes no ``key=`` / ``label=``.
+  foreach takes no ``key=`` / ``label=``.
 - Every callback body emits a wrapper + one nested equation per DSL call
-  (FLOWS_EQUATION_KEYS.md §3, "No single-call collapse").
+  (no single-call collapse).
 - Tool IDs are validated against the STP registry when available; the
   check is best-effort (tests and authoring may run without a registry).
 """

@@ -4,7 +4,6 @@ Lightroom-style sharpening with Amount, Radius, Detail, and edge-aware Masking.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 from ..utils.color import luminance_rec709, blend
 from ..utils.image import tensor_to_numpy_batch, numpy_batch_to_tensor
@@ -50,6 +49,7 @@ class SharpeningPro:
 
     def execute(self, image, amount=40.0, radius=1.0, detail=25.0,
                 masking=0.0, strength=1.0):
+        from scipy.ndimage import gaussian_filter
         if strength <= 0.0 or amount < 0.5:
             return (image,)
 

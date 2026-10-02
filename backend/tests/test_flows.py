@@ -1,6 +1,6 @@
 """Phase 1 tests for the Flows feature.
 
-Covers the Phase 1 exit gate from docs/FLOWS_DEV_PLAN.md §Phase 1:
+Covers:
 
 1. CRUD end-to-end.
 2. Fork produces an independent copy.

@@ -6,7 +6,7 @@
       @click="toggle"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
-      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors min-w-0"
+      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors min-w-0 coarse:min-h-11 coarse:min-w-11"
       :class="triggerDisabled
         ? 'text-content-muted opacity-60 cursor-not-allowed'
         : currentUnavailable
@@ -257,7 +257,7 @@ const recentModelSlugs = ref(loadRecentModelSlugs())
 const dropdownStyle = ref({})
 
 // The effective slug (what's actually being used)
-const effectiveSlug = computed(() => normalizeModelSlug(props.modelSlug || globalDefault.value))
+const effectiveSlug = computed(() => normalizeModelSlug(props.modelSlug || (props.projectId ? roleDefaults.value?.chat?.project : null) || globalDefault.value))
 
 const currentDisplayName = computed(() => {
   if (catalogReady.value && selectableModels.value.length === 0) return 'No models available'

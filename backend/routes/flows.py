@@ -1,6 +1,6 @@
 """Flow CRUD and fork routes.
 
-See docs/FLOWS_TECH.md §API. Execution, DSL, and HITL resolution live
+Execution, DSL, and HITL resolution live
 in their own route modules.
 """
 

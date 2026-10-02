@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 
 export default async function globalSetup(config: FullConfig) {
   const baseURL = String(config.projects[0].use.baseURL || 'http://localhost:19292');
-  const browser = await chromium.launch();
+  const browser = await launchSetupBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -21,11 +21,15 @@ export default async function globalSetup(config: FullConfig) {
     const prefix = bundleId ? `stimma_${bundleId}_${sandbox}` : 'stimma';
     localStorage.setItem(`${prefix}_global_onboarding_completed`, '1');
     localStorage.setItem(`${prefix}_${profileId}_last_route`, '/browse');
-    // The acceptance provider supplies deterministic generation without a
-    // user-configured provider, so keep the readiness reminder out of the
-    // browser state used for product-flow tests.
-    localStorage.setItem(`${prefix}_${profileId}_readiness_panel_dont_show`, '1');
   });
+  // The setup wizard persists its seen version in backend settings. Seed that
+  // through the same endpoint used by dismissal; the old localStorage flag no
+  // longer suppresses it and can leave a late overlay blocking product tests.
+  const setupProfileId = await page.evaluate(() => localStorage.getItem('profileId'));
+  const seen = await page.request.post(`${baseURL}/api/settings/setup-wizard-seen`, {
+    headers: { 'X-Profile-ID': setupProfileId! },
+  });
+  if (!seen.ok()) throw new Error(`Could not dismiss acceptance setup wizard: ${seen.status()}`);
   await page.goto(`${baseURL}/browse`);
   await page.waitForURL(/\/browse/, { timeout: 10000 });
 
@@ -55,4 +59,18 @@ async function waitFor(check: () => Promise<boolean>, timeoutMs: number) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('Timed out waiting for acceptance precondition');
+}
+
+// Some CI runners intermittently crash the headless shell before it opens a
+// page. Retry only that native startup failure; test and navigation failures
+// remain failures.
+async function launchSetupBrowser() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await chromium.launch(); }
+    catch (error) {
+      if (!process.env.CI || attempt === 2 || !String(error).includes('Received signal 11')) throw error;
+      console.warn('Chromium crashed before acceptance setup; retrying browser launch.');
+    }
+  }
+  throw new Error('Could not launch the acceptance setup browser');
 }

@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-// Atelier StatusDot — the one status-dot treatment (STANDARDS.md §1.9).
+// Atelier StatusDot — the one status-dot treatment (DESIGN.md §1.9).
 // Color always comes from statusColors.ts; never inline a status→color
 // switch alongside this component. `pulse` is for live/actionable states
 // (running, "your turn") and always uses the soft pulse pattern, never

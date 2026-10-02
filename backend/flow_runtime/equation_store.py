@@ -5,8 +5,7 @@ results) shared across flows when the computational identity matches.
 HITL results are NOT stored here — they live in each flow's state.db.
 
 The equation store is durable, not a cache (non-deterministic results
-cannot be faithfully recomputed). Schema matches FLOWS_TECH.md §"Equation
-Store".
+cannot be faithfully recomputed).
 
 Storage layout:
 
@@ -206,8 +205,7 @@ class EquationStore:
         """Return the entry dict for `store_key`, or None if absent.
 
         Returns the raw row; call `touch()` separately to update
-        last_accessed_at. FLOWS_TECH.md §"Store Lookup Flow" shows the
-        runtime does this in two steps.
+        last_accessed_at; the runtime does this in two steps.
         """
         self.initialize()
         conn = sqlite3.connect(str(self._db_path))

@@ -17,22 +17,9 @@
 
         <!-- Hero area — centered in space above content -->
         <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-12 compact:pb-12">
-          <!-- Soft ambient halo, centered behind the greeting + prompt -->
-          <div
-            class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2 compact:hidden"
-            style="background: radial-gradient(50% 60% at 45% 40%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(45% 55% at 58% 55%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
-          ></div>
-          <!-- Phones: the same halo pinned to the top of the app so it runs
-               under the compact header instead of being clipped at the
-               scroll edge right beneath it. -->
-          <div
-            class="pointer-events-none hidden compact:block fixed inset-x-0 top-0 h-[440px]"
-            style="background: radial-gradient(60% 55% at 45% 42%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(55% 50% at 58% 52%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
-          ></div>
-
-          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-9 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
-          <!-- Spacer where the greeting subtitle used to sit — keeps the hero rhythm -->
-          <div class="relative h-[20px] mb-10 compact:hidden" aria-hidden="true"></div>
+          <h1 class="relative font-brand text-[32px] compact:text-[26px] compact:leading-tight font-bold tracking-tight text-content mb-2 compact:mb-9 text-center">{{ projectId ? 'What shall we make?' : (greetingParts.pre + greetingParts.word + greetingParts.post) }}</h1>
+          <!-- Scope feedback stays with the Home content. -->
+          <p class="relative h-[20px] mb-10 text-sm text-content-muted compact:hidden">{{ projectId ? `In ${project.name || 'Untitled project'}` : '' }}</p>
 
           <div class="relative w-full max-w-[720px]">
             <!-- No chat model configured (deliberate opt-out): tools take the
@@ -44,8 +31,8 @@
               <StarterToolGrid v-if="heroToolPicks.length > 0" :picks="heroToolPicks" @open="openToolById" />
               <div class="flex justify-center" :class="heroToolPicks.length > 0 ? 'mt-4' : ''">
                 <router-link
-                  to="/tools"
-                  class="px-3.5 py-1.5 rounded-full border border-edge-subtle text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
+                  :to="contextRoute('all-tools', projectId)"
+                  class="px-3.5 py-1.5 rounded-full border border-edge-subtle coarse:inline-flex coarse:min-h-11 coarse:items-center text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
                 >
                   All tools →
                 </router-link>
@@ -70,11 +57,13 @@
                 @update:attachments="inputAttachments = $event"
                 @submit="submitMessage"
               >
-                <template v-if="newChatImageUnsupported" #context-header>
-                  <div class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
+                <template #context-header>
+                  <div class="px-4 pt-3 text-xs text-content-muted">{{ projectId ? `Working in ${project.name || 'Untitled project'}` : 'New chat · No project' }}</div>
+                  <div v-if="newChatImageUnsupported" class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
                 </template>
                 <template #model-picker>
                   <ChatModelPicker
+                    :project-id="projectId"
                     :model-slug="selectedNewChatModel"
                     @update:model-slug="selectedNewChatModel = $event"
                   />
@@ -96,11 +85,18 @@
                 <span class="text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
               </button>
               <router-link
-                to="/tools"
+                :to="contextRoute('all-tools', projectId)"
                 class="flex items-center px-3 py-1.5 compact:px-2.5 compact:py-1 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>
+            </div>
+          </div>
+
+          <div v-if="projectId == null && recentProjects.length" class="relative w-full max-w-[720px] mt-8">
+            <div class="mb-2 text-xs text-content-muted">Recent projects</div>
+            <div class="flex flex-wrap gap-2">
+              <router-link v-for="item in recentProjects" :key="item.id" :to="contextRoute('home', item.id)" class="rounded-md px-3 py-2 text-sm text-content-secondary coarse:inline-flex coarse:min-h-11 coarse:items-center hover:bg-overlay-subtle">{{ item.name || 'Untitled project' }}</router-link>
             </div>
           </div>
 
@@ -116,8 +112,8 @@
             <StarterToolGrid :picks="starterTools" @open="openToolById" />
             <div class="flex justify-center mt-4">
               <router-link
-                to="/tools"
-                class="px-3.5 py-1.5 rounded-full border border-edge-subtle text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
+                :to="contextRoute('all-tools', projectId)"
+                class="px-3.5 py-1.5 rounded-full border border-edge-subtle coarse:inline-flex coarse:min-h-11 coarse:items-center text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
               >
                 All tools →
               </router-link>
@@ -226,7 +222,7 @@
                 </div>
                 <!-- Body -->
                 <div class="px-3.5 py-3">
-                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}<span v-if="projectId == null && projects.length" class="font-normal text-content-muted"> · {{ projectLabel(item) }}</span></div>
                   <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
@@ -250,8 +246,8 @@
           <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-semibold text-content-secondary">Fresh from your library</h2>
-              <router-link to="/browse" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
+              <h2 class="text-xs font-semibold text-content-secondary">{{ projectId ? 'Fresh from this project' : 'Recent assets' }}</h2>
+              <router-link :to="contextRoute('browse', projectId)" class="text-xs text-content-muted hover:text-content-secondary transition-colors coarse:inline-flex coarse:min-h-11 coarse:min-w-11 coarse:items-center coarse:px-2">
                 View all
               </router-link>
             </div>
@@ -317,8 +313,15 @@ import { useAgentModelAvailability } from '../composables/useAgentModelAvailabil
 import { useAvailableModels } from '../composables/useAvailableModels'
 import { mediaIdOf } from '../utils/assetIdentity'
 import { useFaceFocalPoints } from '../composables/useFaceFocalPoints'
+import { useWorkingContext } from '../composables/useWorkingContext'
+import { contextRoute } from '../utils/workingContext'
+import { makeStorageKey } from '../utils/storageKeys'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
 
+const props = defineProps({ project: { type: Object, default: null } })
+const projectId = computed(() => props.project?.id ?? null)
+const { projects, orderedProjects } = useWorkingContext()
+const recentProjects = computed(() => orderedProjects.value.slice(0, 3))
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 // Face-aware framing for "Jump back in" cover art (see useFaceFocalPoints).
@@ -329,16 +332,22 @@ const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = 
 const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
 const { agentModelUnavailable, llmUnconfigured, checkAgentModels } = useAgentModelAvailability()
-const { globalDefault, getSelectableModel } = useAvailableModels()
+const { globalDefault, roleDefaults, getSelectableModel } = useAvailableModels()
 const { fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
-const inputText = ref('')
-const inputAttachments = ref([])
-const selectedNewChatModel = ref(null)
+const draftKey = makeStorageKey('home_draft', projectId.value == null ? 'library' : String(projectId.value))
+let restoredDraft = {}
+try { restoredDraft = JSON.parse(sessionStorage.getItem(draftKey) || '{}') } catch {}
+const inputText = ref(restoredDraft.text || '')
+const inputAttachments = ref(restoredDraft.attachments || [])
+const selectedNewChatModel = ref(restoredDraft.model || null)
+watch([inputText, inputAttachments, selectedNewChatModel], () => {
+  try { sessionStorage.setItem(draftKey, JSON.stringify({ text: inputText.value, attachments: inputAttachments.value, model: selectedNewChatModel.value })) } catch {}
+}, { deep: true })
 const selectedNewChatModelInfo = computed(() => {
-  const slug = selectedNewChatModel.value || globalDefault.value
+  const slug = selectedNewChatModel.value || roleDefaults.value?.chat?.project || globalDefault.value
   return getSelectableModel(slug)
 })
 const newChatImageUnsupported = computed(() => {
@@ -450,7 +459,7 @@ function providerLabel(tool) {
 }
 
 function openToolById(fullToolId) {
-  router.push({ name: 'tool', params: { fullToolId } })
+  router.push({ name: 'tool', params: { fullToolId }, query: { project_id: projectId.value == null ? '0' : String(projectId.value) } })
 }
 
 function openChatModelSettings() {
@@ -515,6 +524,11 @@ const jumpBackIn = computed(() => {
     .slice(0, isCompact.value ? 2 : 3)
 })
 
+function projectLabel(item) {
+  const id = (item.board || item.chat || item.flow)?.project_id
+  return id == null ? 'No project' : projects.value.find(p => p.id === id)?.name || 'Untitled project'
+}
+
 function jumpKindLabel(item) {
   return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
 }
@@ -562,7 +576,7 @@ function cleanupResizeObserver() {
 
 async function loadRecentChats() {
   try {
-    const response = await fetch('/api/chats/previews?page=1&page_size=6')
+    const response = await fetch(`/api/chats/previews?page=1&page_size=6${projectId.value == null ? '' : `&project_id=${projectId.value}`}`)
     if (!response.ok) return
     const data = await response.json()
     recentChats.value = data.items || []
@@ -574,7 +588,7 @@ async function loadRecentChats() {
 
 async function loadRecentFlows() {
   try {
-    const all = await listFlows()
+    const all = await listFlows(projectId.value == null ? {} : { project_id: projectId.value })
     recentFlows.value = [...all]
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
       .slice(0, 6)
@@ -604,7 +618,7 @@ function getFlowPreviewMediaIds(flowId) {
 
 async function loadRecentMedia() {
   try {
-    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16 })
+    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined })
     recentMedia.value = response.items || []
   } catch (err) {
     console.error('Failed to load recent media:', err)
@@ -646,7 +660,7 @@ async function submitMessage() {
     const response = await fetch('/api/chats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_slug: selectedNewChatModel.value })
+      body: JSON.stringify({ model_slug: selectedNewChatModel.value, project_id: projectId.value })
     })
     if (!response.ok) throw new Error('Failed to create chat')
     const newChat = await response.json()
@@ -680,7 +694,7 @@ function openChat(chat) {
 
 async function loadRecentBoards() {
   try {
-    const boards = await getBoards()
+    const boards = await getBoards(projectId.value)
     recentBoards.value = boards.slice(0, 6)
 
     const results = await Promise.allSettled(
@@ -951,7 +965,7 @@ function formatRelativeTime(dateStr) {
 // One-shot consumption from the store — see usePendingMedia for why this isn't
 // a URL query param.
 function checkPendingMedia() {
-  const ids = consumePendingMedia('home')
+  const ids = consumePendingMedia('home', null, projectId.value)
   if (!ids) return
   for (const id of ids) {
     if (!inputAttachments.value.some(a => a.media_id === id)) {
@@ -976,7 +990,7 @@ let unsubscribeFromProviderChanges = null
 onMounted(() => {
   setupResizeObserver()
   loadAll()
-  checkAgentModels()
+  checkAgentModels(projectId.value)
   checkPendingMedia()
   chatInputBoxRef.value?.focus()
   unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
@@ -993,7 +1007,7 @@ onUnmounted(() => {
 onActivated(() => {
   setupResizeObserver()
   loadAll()
-  checkAgentModels()
+  checkAgentModels(projectId.value)
   checkPendingMedia()
   chatInputBoxRef.value?.focus()
 })

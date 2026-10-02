@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * The editor's color picker, rebuilt to the Variant-A mock
- * (plans/COLOR_PICKER_MOCK.html): the color IS the header — well, opacity %,
+ * The editor's color picker: the color IS the header — well, opacity %,
  * eyedropper — over Grid/Spectrum/Manual tabs, a slim opacity row, and
  * exactly two swatch rows: "From this image" (the extracted palette) and
  * "Recent" (self-filling). The preset cartoon palettes are gone. The Manual

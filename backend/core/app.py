@@ -826,7 +826,6 @@ async def lifespan(app: FastAPI):
             # Initialize builtin provider (in-process tools like remove-background, detect-objects, etc.)
             from providers import get_lightweight_provider
             builtin_provider = get_lightweight_provider()
-            await builtin_provider.connect()
             await provider_registry.register(builtin_provider)
             # Register with backend_registry so scheduler can process jobs
             await backend_registry.register_backend(
@@ -838,7 +837,6 @@ async def lifespan(app: FastAPI):
             # Initialize user-tools provider (flows frozen into first-class tools)
             from providers import get_user_tools_provider
             user_tools_provider = get_user_tools_provider()
-            await user_tools_provider.connect()
             await provider_registry.register(user_tools_provider)
             await backend_registry.register_backend(
                 user_tools_provider.provider_id,
@@ -850,7 +848,6 @@ async def lifespan(app: FastAPI):
             if os.environ.get("STIMMA_TEST_PROVIDER"):
                 from providers.test_provider import get_test_provider
                 test_provider = get_test_provider()
-                await test_provider.connect()
                 await provider_registry.register(test_provider)
                 await backend_registry.register_backend(
                     test_provider.provider_id,

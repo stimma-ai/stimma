@@ -4,7 +4,7 @@
     :class="isTopLevelPhase ? 'pt-6 first:pt-0' : ''"
   >
     <!-- Header row. Always-expanded: no chevron, no click toggle. Structure =
-         indentation + a status rail, never a nested box (STANDARDS §3.1):
+         indentation + a status rail, never a nested box (DESIGN.md §3.1):
          mono phase index + title + StatusDot, mono rollup right. Top-level
          pr matches the step rows' px-2.5 so the duration/ref/re-run columns
          align between the phase header and its rail rows. -->
@@ -93,7 +93,7 @@
     </div>
 
     <!-- Contents — phases are always expanded. Steps sit on a rail: 2px
-         border indented under the phase header (STANDARDS §3.1), never a
+         border indented under the phase header (DESIGN.md §3.1), never a
          nested box. -->
     <div
       :class="isTopLevelPhase
@@ -296,7 +296,7 @@
             <!-- HITL row — flat, same chrome as an info row. The actionable
                  ("Your Turn") state doesn't raise the row itself; TaskCard
                  below is the one raised surface for the actual controls
-                 (STANDARDS §3.1: elevation = actionability, two containments
+                 (DESIGN.md §3.1: elevation = actionability, two containments
                  total in the tree). -->
             <div
               v-else
@@ -651,7 +651,7 @@ const phaseStatus = computed(() => {
   return { kind: 'empty', label: '' }
 })
 
-// StatusDot bucket for the phase header dot (STANDARDS §1.9).
+// StatusDot bucket for the phase header dot (DESIGN.md §1.9).
 const phaseStatusBucket = computed<StatusBucket>(() => {
   switch (phaseStatus.value.kind) {
     case 'error':   return 'failed'
@@ -935,7 +935,7 @@ function toggleInfoExpanded(eq: FlowEquation) {
 }
 // Shared row-column helpers: uppercase status label + color, and duration.
 // Info rows and HITL rows both render the same right-column set. Color comes
-// from statusColors.ts (STANDARDS §1.9) via mapEquationStatus — never an
+// from statusColors.ts (DESIGN.md §1.9) via mapEquationStatus — never an
 // inline status→color switch.
 function equationStatusLabel(eq: FlowEquation): string | null {
   switch (eq.status) {

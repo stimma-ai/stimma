@@ -55,6 +55,8 @@ test.describe('phone lane: drawer navigation', () => {
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.compact-track')!).transform === 'matrix(1, 0, 0, 1, 0, 0)');
     const chatRow = drawer.locator('nav button', { hasText: 'Nav stack chat' }).first();
     await expect(chatRow.locator('xpath=..').locator('button[title], button:has(svg)').filter({ hasNotText: 'Nav stack chat' })).toHaveCount(0);
+    // Projects and saved views sit above the working set; bring the row on screen.
+    await chatRow.scrollIntoViewIfNeeded();
     await longPress(page, chatRow);
     const rowSheet = page.locator('[data-sheet-menu]').last();
     await expect(rowSheet).toBeVisible({ timeout: 5000 });

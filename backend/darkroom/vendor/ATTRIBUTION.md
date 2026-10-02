@@ -73,7 +73,13 @@ the retained exact reference renderer while bounding query memory.
 2. `utils/image.py` — `tensor_to_numpy_batch` / `numpy_batch_to_tensor`
    reimplemented over numpy (an "IMAGE tensor" is a numpy (B, H, W, C)
    float32 array). Upstream versions convert ComfyUI torch tensors. All
-   other functions are unmodified; the `import torch` was removed.
+   image processing math is unchanged; the `import torch` was removed.
+
+3. SciPy imports in `utils/{image,raw,grain,grading}.py` and
+   `nodes/{clarity_texture_dehaze,noise_reduction,sharpening_pro}.py` are local
+   to the processing functions that use them. Building the tool catalog only
+   needs `INPUT_TYPES`, so it no longer imports numerical filtering and
+   interpolation libraries. Image processing algorithms are unchanged.
 
 (`utils/color.py` keeps its internal guarded `import torch` fast-path
 unmodified — it falls back to numpy when torch is absent, which is always
@@ -88,7 +94,7 @@ and here.)
 
 1. Clone upstream at the new tag; note the commit hash.
 2. Re-copy the file lists above over this directory.
-3. Re-apply the two patches (or re-verify they're still needed).
+3. Re-apply the patches (or re-verify they're still needed).
 4. Diff `nodes/` glue against `../ops.py` stage table for new/renamed
    parameters (schemas are generated from the nodes' own `INPUT_TYPES`, so
    most parameter changes flow through automatically).

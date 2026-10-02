@@ -11,7 +11,6 @@ upstream itself used before moving those ops to torch F.grid_sample.
 import math
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, map_coordinates
 
 from ..vendor.utils.color import (  # noqa: F401  (re-exports for node ports)
     blend,
@@ -24,6 +23,7 @@ from ..vendor.utils.raw import hsl_to_rgb, rgb_to_hsl  # noqa: F401
 
 def gaussian_blur_2d(arr_2d, sigma):
     """Gaussian blur a 2D (H, W) array. Mirrors torch_ops.gaussian_blur_2d."""
+    from scipy.ndimage import gaussian_filter
     if sigma < 0.5:
         return arr_2d
     return gaussian_filter(arr_2d, sigma=sigma, mode="reflect").astype(np.float32)
@@ -94,6 +94,7 @@ def grid_sample_channel(channel, grid, padding_mode="reflection"):
     Sample a single (H, W) channel at the grid's source pixel positions,
     bicubic (order=3, matching upstream's mode='bicubic').
     """
+    from scipy.ndimage import map_coordinates
     src_y, src_x = grid
     return map_coordinates(
         channel,

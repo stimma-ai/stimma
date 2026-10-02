@@ -102,7 +102,7 @@ def ensure_persisted_identity() -> tuple[str, str, str, str]:
     return device_id, name, cert_pem, key_pem
 
 
-async def register_now() -> Optional[list[dict]]:
+async def register_now(*, only_if_changed: bool = False) -> Optional[list[dict]]:
     """Publish current state to the registry and return the account roster.
 
     When serving is off this is an UNREGISTER: the registry drops our row.
@@ -126,6 +126,7 @@ async def register_now() -> Optional[list[dict]]:
         serving=serving,
         routes=routes,
         cert_fingerprint=cert_fingerprint(cert_pem) if serving else None,
+        only_if_changed=only_if_changed,
     )
 
 

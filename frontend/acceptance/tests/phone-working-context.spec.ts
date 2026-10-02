@@ -1,0 +1,33 @@
+import { expect, test } from '@playwright/test';
+import { settleAnyViewport, auditHorizontalOverflow, expectNoOverflow, auditHitTargets } from '../helpers/viewport';
+import { expectContext } from '../helpers/app';
+
+test('drawer creates a project inline on touch and drills into it', async ({ page }) => {
+  await page.goto('/browse');
+  await settleAnyViewport(page);
+  const drawer = page.locator('.navigation-sidebar');
+  const menu = page.getByRole('button', { name: 'Menu', exact: true });
+  await menu.click();
+  const projects = drawer.getByRole('region', { name: 'Projects' });
+  await projects.getByRole('button', { name: 'New project', exact: true }).first().click();
+  await projects.getByRole('textbox', { name: 'Project name' }).fill('Touch context');
+  expectNoOverflow(await auditHorizontalOverflow(page), 'sidebar project naming');
+  expect((await auditHitTargets(page, 44, '.navigation-sidebar')).small).toHaveLength(0);
+  await page.keyboard.press('Enter');
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  await expect(page).toHaveURL(/\/projects\/\d+\/overview/);
+  await menu.click();
+  await expectContext(page, 'Touch context');
+  expect((await auditHitTargets(page, 44, '.navigation-sidebar')).small).toHaveLength(0);
+  await drawer.getByRole('button', { name: 'Assets', exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/\d+\/assets/);
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.compact-header')).toContainText('Assets');
+  await expect(page.locator('.compact-header')).toContainText('Touch context');
+  await menu.click();
+  await drawer.getByRole('button', { name: 'Back to everything', exact: true }).click();
+  await expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  await menu.click();
+  await expectContext(page, 'Everything');
+  await expect(projects.getByRole('button', { name: 'Touch context', exact: true })).toBeVisible();
+});

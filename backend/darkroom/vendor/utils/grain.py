@@ -4,7 +4,6 @@ Multi-octave noise with luminance-dependent intensity.
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 try:
     from opensimplex import OpenSimplex
@@ -52,6 +51,7 @@ def _generate_simplex_grain(height, width, iso, seed):
 
 def _generate_fallback_grain(height, width, iso, seed):
     """Generate grain using numpy random + gaussian blur. Fast fallback."""
+    from scipy.ndimage import gaussian_filter
     rng = np.random.RandomState(seed)
 
     # Scale blur sigma relative to image size so grain looks consistent

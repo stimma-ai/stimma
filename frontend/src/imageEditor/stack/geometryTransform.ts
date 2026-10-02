@@ -10,6 +10,7 @@
  * its document anchor and master pixels never changed.
  */
 
+import { cropPreviewSize } from '../ported/cropPreview.ts'
 import type { CropParams } from './opExecutors'
 import type { StackDocument } from './types'
 import { pickedCandidate } from './types.ts'
@@ -67,15 +68,17 @@ export function cropAffine(
   inputHeight: number
 ): { matrix: Affine; width: number; height: number } {
   const rect = params.rect ?? { x: 0.5, y: 0.5, width: 1, height: 1 }
-  const width = Math.max(1, Math.round(inputWidth * rect.width))
-  const height = Math.max(1, Math.round(inputHeight * rect.height))
+  const { width, height } = cropPreviewSize(
+    Math.max(1, Math.round(inputWidth * rect.width)),
+    Math.max(1, Math.round(inputHeight * rect.height)),
+    params.rotation90,
+  )
 
   const rotation = (params.rotation ?? 0) + ((params.rotation90 ?? 0) * Math.PI) / 2
   const cos = Math.cos(rotation)
   const sin = Math.sin(rotation)
 
-  // A quarter turn swaps which axis the drawn image spans, while the frame
-  // stays as the crop sized it.
+  // Rotate the frame with the crop, preserving its source dimensions.
   let drawWidth = width
   let drawHeight = height
   if (params.rotation90 === 1 || params.rotation90 === 3) {

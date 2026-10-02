@@ -779,6 +779,7 @@ def _get_provider_model_config(
                 extra_system_prompt=model.extra_system_prompt.strip(),
                 extra_body=model.extra_body,
                 provider_kind=provider.kind,
+                detected_runtime=model.detected_runtime,
                 model_route_id=model.id,
                 reasoning_level=selected_level,
                 reasoning_default=reasoning.default,

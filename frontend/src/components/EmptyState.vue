@@ -1,7 +1,7 @@
 <template>
   <div class="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
     <!-- Icon container. 'error' tone tints the circle so error states stop
-         rendering identical to plain empty states (STANDARDS.md §3, "Empty
+         rendering identical to plain empty states (DESIGN.md §3, "Empty
          state" pattern). -->
     <div :class="['w-12 h-12 rounded-full flex items-center justify-center', tone === 'error' ? 'bg-red-500/10' : 'bg-overlay-subtle']">
       <!-- Slot for custom icon, or use built-in icons based on 'icon' prop -->
