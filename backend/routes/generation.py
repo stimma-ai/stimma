@@ -3230,6 +3230,8 @@ class PromptWarmPoolUpdateRequest(BaseModel):
     # that knows the forever-mode concurrency it's driving toward. 0 clears
     # the pool for this instance without waiting for unregister/TTL.
     concurrency: int = 0
+    # The tool's project, so the project's AI model override applies.
+    project_id: Optional[int] = None
 
 
 @router.post("/prompt-warm-pool/update")
@@ -3258,6 +3260,7 @@ async def update_prompt_warm_pool(request: PromptWarmPoolUpdateRequest):
         prompt_sources_signature=request.prompt_sources_signature,
         concurrency=request.concurrency,
         profile_id=get_current_profile(),
+        project_id=request.project_id,
     )
     return {"status": "ok"}
 

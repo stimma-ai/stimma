@@ -715,6 +715,38 @@ class TestPromptWarmPool:
             generation_queue._prompt_warm_tasks.get(client, ())
         ) == 2
 
+    async def test_project_id_reaches_enhancement_and_is_part_of_the_snapshot(
+        self, generation_queue, generation_client
+    ):
+        """Pre-enhancement uses the tool's project so its AI model override applies."""
+        _clear_warm_pool(generation_queue)
+        client = "warm-project"
+        improve = AsyncMock(return_value="improved in project")
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch("prompt_pipeline._improve_with_verbatim_protection", improve):
+            response = await generation_client.post(
+                "/api/generate/prompt-warm-pool/update",
+                json={
+                    "generator_instance_id": client,
+                    "tool_id": "test:text-to-image:test-model",
+                    "prompt": "a cat",
+                    "concurrency": 1,
+                    "project_id": 7,
+                },
+            )
+            assert response.status_code == 200
+            await _await_warm_tasks(generation_queue, client)
+            assert improve.await_args.kwargs["project_id"] == 7
+            assert len(generation_queue._prompt_warm_ready[client]) == 1
+
+            # Another project is a different enhancement: the pool starts over.
+            await self._update(generation_queue, client, concurrency=1, project_id=8)
+            assert generation_queue._prompt_warm_ready[client] == []
+            await _await_warm_tasks(generation_queue, client)
+            assert improve.await_args.kwargs["project_id"] == 8
+        _clear_warm_pool(generation_queue)
+
     async def test_consume_returns_none_when_pool_empty(self, generation_queue):
         _clear_warm_pool(generation_queue)
         assert generation_queue.consume_prompt_warm_pool("no-such-instance") is None

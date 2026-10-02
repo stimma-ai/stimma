@@ -538,6 +538,7 @@ class GenerationQueue:
     _PROMPT_WARM_INTENT_FIELDS = (
         'tool_id', 'prompt', 'instructions', 'model', 'is_video', 'is_audio',
         'input_image_count', 'audio_conditioned', 'prompt_sources_signature', 'profile_id',
+        'project_id',
     )
 
     def _prompt_warm_pool_stale(self, generator_instance_id: str) -> bool:
@@ -561,6 +562,7 @@ class GenerationQueue:
         prompt_sources_signature: str,
         concurrency: int,
         profile_id: str,
+        project_id: Optional[int] = None,
     ) -> None:
         """Set/refresh what should be kept warm for this generator instance.
 
@@ -583,6 +585,8 @@ class GenerationQueue:
             'audio_conditioned': audio_conditioned,
             'prompt_sources_signature': prompt_sources_signature,
             'profile_id': profile_id,
+            # The project's AI model override shapes the enhancement.
+            'project_id': project_id,
         }
         existing = self._prompt_warm_intent.get(generator_instance_id)
         existing_snapshot = (
@@ -654,7 +658,7 @@ class GenerationQueue:
                 h3_media_ids=None,
                 h3_reference_manifest=None,
                 h3_generate_audio=True,
-                project_id=None,
+                project_id=intent.get('project_id'),
             )
         except asyncio.CancelledError:
             raise
