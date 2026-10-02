@@ -21,7 +21,7 @@
     "test:sprites": "node --test src/utils/spritePlayback.test.js tests/spritePlayer.test.mjs",
     "test:project-world": "node --test --experimental-strip-types src/utils/workingContext.test.ts src/utils/initialMessage.test.ts src/utils/projectActivity.test.ts src/utils/searchScope.test.ts",
     "test:handoff": "node --test --experimental-strip-types src/utils/toolHandoff.test.ts",
-    "test:project-scope": "node --test --experimental-strip-types src/utils/projectScope.test.ts",
+    "test:project-scope": "node --test --experimental-strip-types src/utils/projectScope.test.ts src/utils/filterFacetState.test.js",
     "test:agent-unavailable": "node --test --experimental-strip-types src/utils/agentUnavailableState.test.ts",
     "test:settings-readiness": "node --test --experimental-strip-types src/utils/settingsReadiness.test.ts",
     "test:task-type-validation": "node --test --experimental-strip-types src/utils/taskTypeValidation.test.ts",

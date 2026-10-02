@@ -74,6 +74,7 @@
       v-model:selectedProjects="filters.selectedProjects"
       v-model:excludedProjects="filters.excludedProjects"
       v-model:projectMembership="filters.projectMembership"
+      v-model:includeProjects="filters.includeProjects"
       v-model:selectedTools="filters.selectedTools"
       v-model:excludedTools="filters.excludedTools"
       v-model:selectedMarkers="filters.selectedMarkers"
@@ -300,7 +301,7 @@ import { isSettingsLoaded } from '../appConfig'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
-import { PROJECT_ASSETS_CHANGED_EVENT, projectAssetsChangeEffect } from '../utils/projectScope'
+import { PROJECT_ASSETS_CHANGED_EVENT, assetBrowseScope, projectAssetsChangeEffect } from '../utils/projectScope'
 
 // Props
 const props = defineProps({
@@ -906,6 +907,10 @@ function buildFilterParams() {
       params.has_project = false
     }
   }
+  // The top-level browser shows unfiled assets unless project assets are
+  // included (filter option, or `include_projects=1` in the URL).
+  const scope = assetBrowseScope(filters, { projectId: props.projectId, isTrashMode: props.isTrashMode })
+  if (scope) params.scope = scope
   if (filters.selectedTools && filters.selectedTools.length > 0) {
     params.tool_ids = filters.selectedTools.join(',')
   }
@@ -1817,7 +1822,7 @@ const browseFilterQueryKeys = new Set([
   'mk', 'xmk',
   'f', 'xf',
   'tl', 'xtl',
-  'prj', 'xprj',
+  'prj', 'xprj', 'include_projects',
   'imp', 'unu',
   'sim', 'fsim',
   'st', 'rs'

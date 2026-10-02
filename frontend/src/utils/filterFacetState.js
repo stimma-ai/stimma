@@ -1,3 +1,5 @@
+import { assetBrowseScope } from './projectScope.ts'
+
 export function createLatestRequestGate() {
   let latestRequestId = 0
 
@@ -37,6 +39,7 @@ export function getFilterCountWatchValues(filters = {}, {
     filters.selectedProjects,
     filters.excludedProjects,
     filters.projectMembership,
+    filters.includeProjects,
     filters.selectedTools,
     filters.excludedTools,
     filters.selectedMarkers,
@@ -103,6 +106,10 @@ export function buildFilterCountParams(filters = {}, {
     if (filters.projectMembership === 'any') params.has_project = true
     else if (filters.projectMembership === 'none') params.has_project = false
   }
+  // Counts follow the browser's scope: unfiled assets at the top level unless
+  // project assets are included.
+  const scope = assetBrowseScope(filters, { projectId, isTrashMode })
+  if (scope) params.scope = scope
 
   if (filters.isImported !== null && filters.isImported !== undefined) {
     params.is_imported = filters.isImported
