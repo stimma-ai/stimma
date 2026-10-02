@@ -1932,10 +1932,14 @@ async def save_edited_image(
     base_revision_id: Optional[int] = Form(None),
     working_document_id: int = Form(...),
     stack_summary: Optional[str] = Form(None),
+    project_id: Optional[int] = Form(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
     Commit an edited image as a Revision, or as a new Asset for Save As New.
+
+    Save As New puts the new Asset in every live project of the source Asset,
+    plus ``project_id`` when given.
 
     ``autosave`` commits are made on leaving the editor so the Asset always
     shows its current edit state. Consecutive commits from the same base
@@ -1970,6 +1974,10 @@ async def save_edited_image(
     source_item = result.scalars().first()
     if not source_item:
         raise HTTPException(status_code=404, detail=f"Source asset {source_media_id} not found")
+
+    if project_id is not None:
+        from project_service import get_project_or_404
+        await get_project_or_404(session, project_id)
 
     selected_marker_ids: list[int] = []
     if marker_ids:
@@ -2143,6 +2151,11 @@ async def save_edited_image(
             committed_revision = await session.get(
                 AssetRevision, target_asset.current_revision_id
             )
+            from project_service import attach_media_to_projects, live_project_ids_for_asset
+            new_asset_project_ids = await live_project_ids_for_asset(session, source_asset.id)
+            if project_id is not None and project_id not in new_asset_project_ids:
+                new_asset_project_ids.append(project_id)
+            await attach_media_to_projects(session, new_asset_project_ids, db_media_item.id)
             if selected_marker_ids:
                 from asset_association_service import set_asset_marker
                 for marker_id in selected_marker_ids:
@@ -2272,6 +2285,15 @@ async def save_edited_image(
             "media_id": media_item.id,
         },
     )
+    if save_as_new:
+        from project_service import broadcast_project_assets_changed
+        for pid in new_asset_project_ids:
+            await broadcast_project_assets_changed(
+                pid,
+                asset_ids=[target_asset.id],
+                media_ids=[media_item.id],
+                action="added",
+            )
 
     return SaveEditResponse(
         media_id=media_item.id,

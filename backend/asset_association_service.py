@@ -17,6 +17,7 @@ from database import (
     MediaMarker,
     MediaTag,
     Marker,
+    Project,
     ProjectAsset,
     ProjectMedia,
     Tag,
@@ -401,6 +402,11 @@ async def _add_live(session, model, lookup: dict, values: dict):
 
 
 async def attach_asset_to_project(session: AsyncSession, project_id: int, asset_id: int):
+    # Work that outlives its project (queued jobs, flow runs) must not revive
+    # membership in, or retain output for, a deleted project.
+    project = await session.get(Project, project_id)
+    if project is None or project.deleted_at is not None:
+        return None
     row = await _add_live(
         session,
         ProjectAsset,

@@ -562,6 +562,8 @@ async def get_generation_folder(
 async def upload_reference_image(
     file: UploadFile = File(...),
     materialize_asset: bool = Form(True),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Upload a reference image for image-to-image tasks.
@@ -573,12 +575,16 @@ async def upload_reference_image(
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
         media_item, file_path = await upload_service.upload_file(
             content,
             file.filename or "upload.png",
+            project_id=project_id,
             materialize_asset=materialize_asset,
         )
 
@@ -744,7 +750,11 @@ async def get_reference_video_file(path: str):
 
 
 @router.post("/upload-reference-video")
-async def upload_reference_video(file: UploadFile = File(...)):
+async def upload_reference_video(
+    file: UploadFile = File(...),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Upload a reference video for video upscale tasks.
 
@@ -755,10 +765,15 @@ async def upload_reference_video(file: UploadFile = File(...)):
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
-        media_item, file_path = await upload_service.upload_file(content, file.filename or "upload.mp4")
+        media_item, file_path = await upload_service.upload_file(
+            content, file.filename or "upload.mp4", project_id=project_id
+        )
 
         return {
             "path": file_path,
@@ -829,7 +844,11 @@ async def get_reference_audio_file(path: str):
 
 
 @router.post("/upload-reference-audio")
-async def upload_reference_audio(file: UploadFile = File(...)):
+async def upload_reference_audio(
+    file: UploadFile = File(...),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Upload a reference audio file for audio-input tasks (lip-sync, avatar, etc.).
 
@@ -840,10 +859,15 @@ async def upload_reference_audio(file: UploadFile = File(...)):
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
-        media_item, file_path = await upload_service.upload_file(content, file.filename or "upload.mp3")
+        media_item, file_path = await upload_service.upload_file(
+            content, file.filename or "upload.mp3", project_id=project_id
+        )
 
         return {
             "path": file_path,
