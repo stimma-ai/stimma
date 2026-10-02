@@ -7,6 +7,8 @@ import { useContextSwitch, useWorkingContext, type WorkingProject } from '../com
 import { useMediaApi } from '../composables/useMediaApi'
 import { useContextMenuPosition } from '../composables/useContextMenuPosition'
 import { useDragStore } from '../stores/dragStore'
+import { useProjectDrop } from '../composables/useProjectDrop'
+import { useProjectActivity } from '../composables/useProjectActivity'
 import { addToast } from '../composables/useToasts'
 import ConfirmModal from './ConfirmModal.vue'
 import Button from './ui/Button.vue'
@@ -25,7 +27,12 @@ const router = useRouter()
 const { activeProjectId, projects, orderedProjects, loading, error, selectProject, refreshProjects, rememberProject } = useWorkingContext()
 const switchContext = useContextSwitch()
 const { createProject, updateProject, deleteProject } = useMediaApi()
-const { draggedMediaItems } = useDragStore()
+const { draggedMediaItems, draggedMediaInfo } = useDragStore()
+const { dropTarget, onDragOver, onDragLeave, onDrop } = useProjectDrop()
+const { isBusy } = useProjectActivity()
+// Opened by hovering a trigger mid-drag: rows take the drop, and the picker
+// closes itself when the drag ends.
+const forDrop = ref(false)
 const trigger = ref<HTMLElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
 const search = ref<HTMLInputElement | null>(null)
@@ -46,6 +53,7 @@ const filtered = computed(() => orderedProjects.value
 function close() {
   open.value = false
   editing.value = null
+  if (forDrop.value) { forDrop.value = false; return }
   trigger.value?.focus()
 }
 function anchorAt(anchor: HTMLElement | null | undefined) {
@@ -64,6 +72,20 @@ async function toggle(anchor?: HTMLElement | null) {
   await refreshProjects()
   await nextTick()
   ;(allowsAutofocus.value ? search.value ?? menu.value : menu.value)?.focus()
+}
+/** Opens mid-drag so the rows can receive dropped media. */
+async function openForDrop(anchor?: HTMLElement | null) {
+  if (open.value) return
+  anchorAt(anchor)
+  query.value = ''
+  editing.value = null
+  forDrop.value = true
+  open.value = true
+  await refreshProjects()
+}
+function dropOnRow(id: number, event: DragEvent) {
+  void onDrop(id, event)
+  close()
 }
 /** Opens straight into one project's rename/settings/delete view. */
 async function manage(project: WorkingProject, anchor?: HTMLElement | null) {
@@ -166,10 +188,20 @@ function keyboard(event: KeyboardEvent) {
     choose(filtered.value[0].id)
   }
 }
+function dragEnded() {
+  // Let a row's own drop handler run first.
+  setTimeout(() => { if (forDrop.value && open.value) close() })
+}
 watch(open, shown => {
-  if (shown) { document.addEventListener('click', outside); document.addEventListener('keydown', keyboard) }
-  else { document.removeEventListener('click', outside); document.removeEventListener('keydown', keyboard) }
+  if (shown) {
+    document.addEventListener('click', outside); document.addEventListener('keydown', keyboard)
+    document.addEventListener('dragend', dragEnded); document.addEventListener('drop', dragEnded)
+  } else {
+    document.removeEventListener('click', outside); document.removeEventListener('keydown', keyboard)
+    document.removeEventListener('dragend', dragEnded); document.removeEventListener('drop', dragEnded)
+  }
 })
+watch(draggedMediaInfo, info => { if (!info) dragEnded() })
 watch(() => route.query.projects, async value => {
   if (value !== '1') return
   await nextTick()
@@ -180,13 +212,16 @@ watch(() => route.query.projects, async value => {
   delete rest.q
   await router.replace({ query: rest })
 }, { immediate: true })
-onBeforeUnmount(() => { document.removeEventListener('click', outside); document.removeEventListener('keydown', keyboard) })
-defineExpose({ toggle, manage })
+onBeforeUnmount(() => {
+  document.removeEventListener('click', outside); document.removeEventListener('keydown', keyboard)
+  document.removeEventListener('dragend', dragEnded); document.removeEventListener('drop', dragEnded)
+})
+defineExpose({ toggle, manage, openForDrop })
 </script>
 
 <template>
   <div class="contents">
-    <slot :toggle="toggle" :open="open" />
+    <slot :toggle="toggle" :open="open" :open-for-drop="openForDrop" />
     <Teleport to="body">
       <Transition name="menu">
         <div v-if="open" ref="menu" :style="menuStyle" tabindex="-1" role="dialog" aria-label="Choose a project" class="fixed z-menu focus-visible:outline-none w-[288px] max-w-[calc(100vw-16px)] rounded-lg border border-edge-subtle bg-surface p-1.5 shadow-lg">
@@ -208,10 +243,21 @@ defineExpose({ toggle, manage })
               <input ref="search" v-model="query" aria-label="Find a project" placeholder="Find a project…" class="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-content placeholder:text-content-muted focus-visible:outline-none coarse:min-h-11" />
             </label>
             <div class="max-h-72 overflow-y-auto">
-              <div v-for="project in filtered" :key="project.id" class="group flex items-center rounded transition-colors" :class="activeProjectId === project.id ? 'bg-selection/15' : 'hover:bg-overlay-subtle'">
+              <div
+                v-for="project in filtered"
+                :key="project.id"
+                class="group flex items-center rounded transition-colors"
+                :class="dropTarget === project.id ? 'bg-accent/10 ring-1 ring-accent' : activeProjectId === project.id ? 'bg-selection/15' : 'hover:bg-overlay-subtle'"
+                @dragover="onDragOver(project.id, $event)"
+                @dragleave="onDragLeave(project.id)"
+                @drop="dropOnRow(project.id, $event)"
+              >
                 <button class="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-sm coarse:min-h-11" :class="activeProjectId === project.id ? 'text-selection' : 'text-content-secondary hover:text-content'" @click="choose(project.id)">
                   <span class="truncate" :class="project.name ? '' : 'italic'">{{ project.name || 'Untitled project' }}</span>
-                  <CheckIcon v-if="activeProjectId === project.id" class="ml-auto h-3.5 w-3.5 shrink-0" />
+                  <span v-if="isBusy(project.id) || activeProjectId === project.id" class="ml-auto flex shrink-0 items-center gap-1.5">
+                    <Spinner v-if="isBusy(project.id)" size="sm" hue="border-t-blue-500" title="Running" />
+                    <CheckIcon v-if="activeProjectId === project.id" class="h-3.5 w-3.5" />
+                  </span>
                 </button>
                 <button :aria-label="`Manage ${project.name || 'Untitled'}`" class="mr-1 flex h-6 w-6 items-center justify-center rounded text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content focus-visible:opacity-100 group-hover:opacity-100 coarse:h-11 coarse:w-11 coarse:opacity-100" @click="edit(project)"><EllipsisHorizontalIcon class="h-3.5 w-3.5" /></button>
               </div>
