@@ -174,6 +174,7 @@
       :first-selected-item="selectedItems[0] || null"
       :selected-items="selectedItems"
       :is-trash-view="isTrashMode"
+      :project-id="projectId ?? undefined"
       @clear="selectNone"
       @select-all="selectAll"
       @invert-selection="handleInvertSelection"
@@ -195,6 +196,7 @@
     <BoardPicker
       :visible="showBoardPicker"
       :asset-ids="selectedItemIds"
+      :project-id="projectId ?? undefined"
       @close="showBoardPicker = false"
       @saved="handleBoardsAdded"
     />

@@ -252,6 +252,12 @@ const props = defineProps({
     type: Number,
     default: null
   },
+  // The grid's project, when it shows one project's assets. The "more" menu
+  // acts in it (Remove from Project, new boards and chats).
+  projectId: {
+    type: Number,
+    default: undefined
+  },
   isTrashView: {
     type: Boolean,
     default: false
@@ -319,7 +325,9 @@ function showContextMenu() {
     assetIds,
     selectedItems: props.selectedItems,
     inBoard: props.inBoard,
-    boardSectionId: props.boardSectionId
+    boardSectionId: props.boardSectionId,
+    inProject: props.projectId != null,
+    projectId: props.projectId
   })
 }
 
