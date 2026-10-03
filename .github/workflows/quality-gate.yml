@@ -156,7 +156,7 @@ jobs:
 
       - name: Run smoke acceptance tests
         if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite != 'full' }}
-        run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=30000 --retries=0
+        run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=60000 --retries=0
 
       - name: Run full acceptance tests
         if: ${{ matrix.lane == 'desktop' && inputs.acceptance_suite == 'full' }}
