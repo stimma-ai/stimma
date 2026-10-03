@@ -346,6 +346,9 @@ that a desktop-sized window never trips.
   not toy-sized: no row padding beyond the tokens, no per-sheet sizes.
 - **Bottom edge.** One docked bar per screen (composer, run dock,
   selection bar), padded with `pb-safe`. Never two docked bars.
+  Safe-area tokens describe space still needed inside the web viewport.
+  The Android shell already insets its WebView, so its frontend tokens are
+  zero; browser and iOS viewports retain the CSS environment insets.
 - **Media grids.** 3 columns on compact, 2px gutters, on matte;
   `rounded-media` and the selection ring unchanged. Tap = open,
   long-press = select.

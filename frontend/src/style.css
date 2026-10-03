@@ -281,8 +281,7 @@ body {
   /* Atelier: media is never rounded like chrome — tiles/viewers only. */
   --radius-media: 2px;
 
-  /* Device safe areas (notch, home indicator). Zero everywhere except a
-     phone shell with viewport-fit=cover. Docked bars pad with these — see
+  /* Device safe areas (notch, home indicator). Docked bars pad with these — see
      DESIGN.md §1.11 and the pb-safe / pt-safe utilities below. */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -292,6 +291,16 @@ body {
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
+}
+
+/* Android's shell already pads the WebView for system bars, cutouts and
+   the keyboard. WebView can still report those in CSS env(), so applying
+   them again creates an empty band above the header and slideshow. */
+:root[data-mobile-platform="android"] {
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+  --safe-right: 0px;
 }
 
 [data-theme="dark"] {

@@ -20,6 +20,13 @@ export function mobilePlatform(): 'ios' | 'android' | undefined {
   return undefined
 }
 
+// Both the connection UI and the main app need the shell's inset contract
+// before their first paint. Android already insets the WebView itself.
+const platform = mobilePlatform()
+if (platform && typeof document !== 'undefined') {
+  document.documentElement.dataset.mobilePlatform = platform
+}
+
 export async function mobileNative<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
   const nativeWindow = window as NativeWindow
   const port = nativeWindow.stimmaAndroid
