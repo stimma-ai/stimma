@@ -2371,6 +2371,7 @@ async function downloadPackage(format) {
     await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
   } catch (error) {
     console.error('Failed to export package:', error)
+    addToast(`Could not download the package ${format.toUpperCase()}. Please try again.`, 'error')
   } finally {
     downloadingPackage.value = false
   }

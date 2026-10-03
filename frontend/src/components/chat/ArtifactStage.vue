@@ -178,6 +178,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
+import { addToast } from '../../composables/useToasts'
 import { useTauriDownload } from '../../composables/useTauriDownload'
 import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
@@ -320,6 +321,9 @@ async function downloadPackage(format: 'zip' | 'pdf') {
     const disposition = response.headers['content-disposition'] || ''
     const match = disposition.match(/filename="([^"]+)"/)
     await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
+  } catch (error) {
+    console.error('Failed to export package:', error)
+    addToast(`Could not download the package ${format.toUpperCase()}. Please try again.`, 'error')
   } finally {
     downloadingPackage.value = false
   }

@@ -1343,6 +1343,22 @@ async def _run_agentic_loop_inner(
     produced_visible_output = False
     empty_finish_nudged = False
 
+    async def report_incomplete_response():
+        pause_item = ChatItem(
+            chat_id=chat_id,
+            item_type="assistant_message",
+            message_text=(
+                "The model stopped responding before I could finish, so I've paused here. "
+                "Tell me to continue and I'll pick up from the work already done."
+            ),
+            item_metadata=json.dumps({"incomplete_response": True}),
+        )
+        session.add(pause_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id, "item": pause_item.to_dict(),
+        })
+
     # If resuming with pending tool calls, execute them first
     if pending_tool_calls:
         for index, tc_data in enumerate(pending_tool_calls):
@@ -1741,6 +1757,8 @@ async def _run_agentic_loop_inner(
                         "</system-reminder>"
                     )
                     continue
+                if not visible:
+                    await report_incomplete_response()
                 break
 
             # A tool ran: the model is working, so any text-only streak is
@@ -1805,6 +1823,8 @@ async def _run_agentic_loop_inner(
                     "</system-reminder>"
                 )
             continue
+        if empty_turn or truncated or malformed_tool or needs_continuation:
+            await report_incomplete_response()
         break
     else:
         # Every allowed turn ran without the model ending its own turn (no

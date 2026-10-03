@@ -98,6 +98,11 @@ rm -rf "$SITE_PACKAGES/pip" "$SITE_PACKAGES"/pip-*.dist-info
 rm -rf "$SITE_PACKAGES/setuptools" "$SITE_PACKAGES"/setuptools-*.dist-info
 rm -rf "$SITE_PACKAGES/wheel" "$SITE_PACKAGES"/wheel-*.dist-info
 
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "Bundling native PDF renderer libraries..."
+    "$PYTHON_BIN" "$SCRIPT_DIR/bundle-macos-pdf-libs.py" "$OUTPUT_DIR"
+fi
+
 echo "Copying backend source..."
 rsync -a \
     --exclude='.venv' \
@@ -143,6 +148,11 @@ unset PYTHONHOME
 export PYTHONUTF8=1
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="$DIR:$DIR/backend"
+if [ -d "$DIR/pdf-libs" ]; then
+    export DYLD_FALLBACK_LIBRARY_PATH="$DIR/pdf-libs${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+    export FONTCONFIG_PATH="$DIR/pdf-libs/fonts"
+    export FONTCONFIG_FILE="$DIR/pdf-libs/fonts/fonts.conf"
+fi
 export STIMMA_DISTRIBUTION="${STIMMA_DISTRIBUTION:-__STIMMA_DISTRIBUTION_BAKED__}"
 exec "$DIR/python/bin/python3" "$DIR/backend/main.py" "$@"
 LAUNCHER
@@ -191,6 +201,15 @@ if [ "$(uname -s)" = "Darwin" ] && [ -d "$OUTPUT_DIR" ] && [ "${STIMMA_CODESIGN_
 fi
 
 echo ""
+# Exercise the real native renderer after signing, before shipping, without resolving
+# anything from Homebrew's library directory.
+if [ "$(uname -s)" = "Darwin" ]; then
+    DYLD_FALLBACK_LIBRARY_PATH="$OUTPUT_DIR/pdf-libs" \
+        FONTCONFIG_PATH="$OUTPUT_DIR/pdf-libs/fonts" \
+        FONTCONFIG_FILE="$OUTPUT_DIR/pdf-libs/fonts/fonts.conf" \
+        "$PYTHON_BIN" "$SCRIPT_DIR/verify-macos-pdf-runtime.py" "$OUTPUT_DIR"
+fi
+
 echo "Portable backend build complete."
 echo "Output: $OUTPUT_DIR"
 du -sh "$OUTPUT_DIR"

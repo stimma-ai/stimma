@@ -822,10 +822,12 @@ async def llm_complete_text(
 ) -> str:
     """Make a completion call and return just the text content.
 
-    Thinking is OFF by default (prompt enhancement, captioning, etc.); pass
+    Thinking is requested OFF by default (prompt enhancement, captioning, etc.); pass
     enable_thinking=True for callers that want the model to reason first — slower,
     but can improve quality on weaker models. Strips tags either way. Uses the
     shared agent_llm_options so the thinking dialect matches the agent loop.
+    If reasoning exhausts the budget before an answer, retry once with a larger
+    budget. Reasoning is never returned as answer text.
     """
     from agent.v2.llm_options import agent_llm_options
     resp = await llm_completion(
@@ -834,6 +836,19 @@ async def llm_complete_text(
         temperature=temperature,
         **agent_llm_options(enable_thinking=enable_thinking),
     )
+    # Some models reason even when thinking is disabled. Output budgets include
+    # that trace, so a tiny formatting task can exhaust its budget before the
+    # answer starts. Retry once with room for reasoning; return only content.
+    if not resp.content and resp.finish_reason == FinishReason.LENGTH and resp.thinking:
+        retry_budget = min(8192, max(2048, max_tokens * 4))
+        if retry_budget > max_tokens:
+            resp = await llm_completion(
+                config, messages,
+                max_tokens=retry_budget,
+                temperature=temperature,
+                **agent_llm_options(enable_thinking=enable_thinking),
+            )
+            max_tokens = retry_budget
     if resp.content:
         return resp.content
 
