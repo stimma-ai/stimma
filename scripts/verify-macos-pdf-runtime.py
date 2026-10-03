@@ -25,7 +25,7 @@ with TemporaryDirectory() as directory:
 
 # Import success alone is insufficient: a build machine's Homebrew can mask a
 # missing library. Every vendored soname must resolve inside this runtime.
-native_dir = runtime / 'pdf-libs'
+native_dir = runtime / 'python' / 'lib'
 sonames = {library.name for library in native_dir.glob('*.dylib')}
 dyld = ctypes.CDLL(None)
 dyld._dyld_image_count.restype = ctypes.c_uint32

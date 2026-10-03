@@ -22,7 +22,9 @@ def dependencies(path):
 
 
 def bundle(output, prefix):
-    destination = output / 'pdf-libs'
+    # Hardened Python ignores DYLD_* overrides. Its native loader searches
+    # the interpreter's lib directory even after distribution signing.
+    destination = output / 'python' / 'lib'
     destination.mkdir(parents=True, exist_ok=True)
     pending = [prefix / 'lib' / name for name in ROOT_LIBS]
     copied = {}
@@ -78,13 +80,15 @@ def bundle(output, prefix):
         f'<cachedir>{prefix}/var/cache/fontconfig</cachedir>', ''
     ))
     # No dependency may retain a build-machine path after relocation.
-    for library in destination.glob('*.dylib'):
+    for name in copied:
+        library = destination / name
         if any(not dep.startswith(('@loader_path/', '/usr/lib/', '/System/Library/'))
                for dep in dependencies(library)):
             raise RuntimeError(f'Unrelocated PDF library: {library.name}')
     # Relocation invalidates bottle signatures. Ad-hoc sign even when the
     # enclosing build defers distribution signing to the desktop packager.
-    for library in destination.glob('*.dylib'):
+    for name in copied:
+        library = destination / name
         if not library.is_symlink():
             subprocess.run(['codesign', '--force', '--sign', '-', str(library)], check=True)
 
