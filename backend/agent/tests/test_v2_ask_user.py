@@ -287,7 +287,7 @@ async def test_auto_save_path_with_session_media_builds_sdk(monkeypatch, session
 
     captured = {}
 
-    async def fake_save(*, session, path, workspace_dir, save_tags, provenance):
+    async def fake_save(*, session, path, workspace_dir, save_tags, provenance, project_id):
         captured["provenance"] = provenance
         return json.dumps({"media_id": 77})
 
