@@ -24,7 +24,7 @@ export function mobilePlatform(): 'ios' | 'android' | undefined {
 // before their first paint. Android already insets the WebView itself.
 const platform = mobilePlatform()
 if (platform && typeof document !== 'undefined') {
-  document.documentElement.dataset.mobilePlatform = platform
+  document.documentElement.setAttribute('data-mobile-platform', platform)
 }
 
 export async function mobileNative<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
