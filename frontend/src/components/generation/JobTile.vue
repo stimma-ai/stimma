@@ -1,11 +1,11 @@
 <template>
-  <div class="group flex flex-col">
+  <div class="job-tile group flex flex-col">
     <!-- Artwork: natural aspect ratio at full rail width when dimensions are
          known (fit mode) — the image IS the tile, no matte letterbox. Falls
          back to the square matte until dims load / in cover mode. -->
     <div
       :class="[
-        'relative w-full rounded-media overflow-hidden cursor-pointer bg-matte',
+        'jobs-tile relative w-full rounded-media overflow-hidden cursor-pointer bg-matte',
         naturalAspect === null ? 'aspect-square' : ''
       ]"
       :style="naturalAspect !== null ? { aspectRatio: String(naturalAspect) } : {}"

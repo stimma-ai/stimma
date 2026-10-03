@@ -889,23 +889,44 @@ select option {
 [data-sheet-menu] .text-\[12px\] { font-size: var(--sheet-font-detail); }
 [data-sheet-menu] svg.w-4, [data-sheet-menu] svg.w-3\.5 { width: var(--sheet-icon); height: var(--sheet-icon); }
 
-/* Tool view queue on phones: one horizontal strip of small tiles under the
-   hero (the rail's grid/column modes are desktop compositions). */
+/* Tool view queue on phones: height is the constrained axis. Flatten the
+   desktop grouping wrappers so live and completed outputs share one row;
+   each artwork's aspect-ratio determines its width at the available height. */
 [data-viewport="compact"] .jobs-results {
   flex-direction: row !important;
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
   overflow-x: auto;
+  overflow-y: hidden;
   gap: 2px;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
 }
-[data-viewport="compact"] .jobs-results > * { width: 3.5rem; flex: none; }
-[data-viewport="compact"] .jobs-results { scrollbar-width: none; scrollbar-gutter: auto; }
 [data-viewport="compact"] .jobs-results::-webkit-scrollbar { display: none; }
 [data-viewport="compact"] .jobs-results .text-\[11px\] { display: none; }
-[data-viewport="compact"] .jobs-rail {
-  display: flex !important;
-  flex-direction: row !important;
-  gap: 2px;
+[data-viewport="compact"] .jobs-results .jobs-group,
+[data-viewport="compact"] .jobs-results .jobs-rail,
+[data-viewport="compact"] .jobs-results .job-tile { display: contents; }
+[data-viewport="compact"] .jobs-results .jobs-tile {
+  height: 100%;
+  width: auto;
+  min-width: 0;
+  flex: none;
 }
-[data-viewport="compact"] .jobs-rail > * { width: 3.5rem; flex: none; }
+[data-viewport="compact"] .jobs-results .jobs-batch-cell {
+  display: flex;
+  height: 100%;
+  flex: none;
+}
+/* Progress summaries and the pagination button have no artwork aspect. */
+[data-viewport="compact"] .jobs-results > button,
+[data-viewport="compact"] .jobs-results .jobs-group > .group:not(.jobs-tile) {
+  width: 10rem;
+  height: 100%;
+  min-height: 0;
+  flex: none;
+}
 
 /* The image editor's phone drawer: the desktop inspectors render inside it
    unchanged, so their controls are brought up to touch size here rather than

@@ -933,7 +933,7 @@
           :preview-tiles="!!tool?.preview_frames && (outputsVideo ? videoPreviews : imagePreviews)"
           :fallback-aspect="currentAspectRatio"
           :tool-display-name="tool?.name"
-          :compact-overlays="layoutMode === 'stage'"
+          :compact-overlays="isCompact || layoutMode === 'stage'"
           :thumbnail-size="queueThumbnailSize"
           :slot-count="uiState.generateForeverMode ? (uiState.generateForeverConcurrency ?? 1) : null"
           @job-click="handleQueueClick"

@@ -16,7 +16,7 @@
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
-      <div v-if="activeDisplayItems.length > 0 || waitingSlotCount > 0 || failedJobs.length > 0" class="flex flex-col gap-0.5">
+      <div v-if="activeDisplayItems.length > 0 || waitingSlotCount > 0 || failedJobs.length > 0" class="jobs-group flex flex-col gap-0.5">
         <!-- Slim group first: queued/enhancing jobs, batches, chains. A slim
              row must never sit between or below the image-sized live tiles. -->
         <template v-for="item in slimActiveItems" :key="item.key">
@@ -39,7 +39,7 @@
           />
           <!-- Active media-batch: standard progress strip, plus finished
                results appearing below as they complete. -->
-          <div v-else-if="item.type === 'media-batch-active'" class="flex flex-col gap-0.5">
+          <div v-else-if="item.type === 'media-batch-active'" class="jobs-group flex flex-col gap-0.5">
             <PipelineProgressBar
               v-bind="mediaBatchModel(item.batch)"
               :compact="compactOverlays"
@@ -138,9 +138,9 @@
 
         <!-- Completed batch output set - set tile -->
         <template v-if="item.type === 'completed-batch'">
-          <div class="grid grid-cols-1">
+          <div class="jobs-group grid grid-cols-1">
             <div
-              class="group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte"
+              class="jobs-tile group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte"
               @click="$emit('job-click', { status: 'completed', result_media_id: item.batch.output_set_id, is_set: true, set_data: item.batch.output_set_data })"
             >
               <MediaImage
@@ -233,7 +233,7 @@
 
         <!-- Completed individual job - image tile -->
         <template v-else-if="item.type === 'completed-job'">
-          <div class="grid grid-cols-1">
+          <div class="jobs-group grid grid-cols-1">
             <JobTile
               :job="item.job"
               :is-video="jobIsVideo(item.job)"
