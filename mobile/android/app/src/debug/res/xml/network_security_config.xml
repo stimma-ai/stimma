@@ -1,0 +1,4 @@
+<network-security-config>
+    <!-- Live frontends use HTTP/WebSocket on LAN or Tailscale IPs in debug builds. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
