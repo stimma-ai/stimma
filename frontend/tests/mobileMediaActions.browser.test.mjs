@@ -91,7 +91,7 @@ for (const source of ['slideshow', 'selection']) for (const projectId of [null, 
     assert.ok(route.query.instance)
   } else if (action.includes('chat')) {
     assert.equal(route.params.id, action === 'chat' ? '12' : '13')
-    assert.equal(requests.find(r => r.path === '/api/chats' && r.method === 'GET').query.project_id, projectId == null ? undefined : String(projectId))
+    assert.equal(requests.find(r => r.path === '/api/chats' && r.method === 'GET').query.project_id, projectId == null ? 'none' : String(projectId))
     if (action === 'new-chat') assert.equal(requests.find(r => r.path === '/api/chats' && r.method === 'POST').body.project_id, projectId)
   } else if (action === 'flow') {
     assert.equal(route.params.id, '15')
