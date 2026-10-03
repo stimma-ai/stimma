@@ -382,23 +382,49 @@ def _annotate_ask_sequence(
     return annotate(current_args, 1), updated_remaining
 
 
+async def _existing_media_ids(session: AsyncSession, media_ids: set[int]) -> set[int]:
+    if not media_ids:
+        return set()
+    from database import MediaItem
+    result = await session.execute(select(MediaItem.id).where(MediaItem.id.in_(media_ids)))
+    return set(result.scalars().all())
+
+
 async def _resolve_ask_option_media(
     options: Optional[list],
     workspace_dir: str | None,
     session: AsyncSession,
     chat_id: int,
     session_media_ids: Optional[list[int]],
+    project_workspace_dir: str | None = None,
 ) -> Optional[list]:
-    """Turn `path` on ask_user options into a library `media_id` so the UI can render a picture."""
+    """Give ask_user options a library `media_id` the UI can render.
+
+    `path` is saved to the library. A `media_id` that doesn't exist is dropped
+    (falling back to `path` when one is given) so the card never shows a blank tile.
+    """
     if not options:
         return options
     from .tools.show import _auto_save_path
 
+    claimed = {
+        opt["media_id"] for opt in options
+        if isinstance(opt, dict) and isinstance(opt.get("media_id"), int)
+    }
+    known = await _existing_media_ids(session, claimed)
+
     resolved = []
     for opt in options:
+        if isinstance(opt, dict) and opt.get("media_id") is not None and opt.get("media_id") not in known:
+            log.warning(
+                f"[ask_user] Option {opt.get('label')!r} references unknown media_id "
+                f"{opt.get('media_id')!r}" + ("; using its path instead" if opt.get("path") else "; dropping it")
+            )
+            opt = {k: v for k, v in opt.items() if k != "media_id"}
         if isinstance(opt, dict) and opt.get("path") and opt.get("media_id") is None:
             media_id = await _auto_save_path(
                 str(opt["path"]), workspace_dir, session, chat_id, session_media_ids,
+                project_workspace_dir=project_workspace_dir,
             )
             opt = {k: v for k, v in opt.items() if k != "path"}
             if media_id is not None:
@@ -417,6 +443,7 @@ async def _pause_for_ask_user(
     remaining_tool_calls: Optional[list] = None,
     workspace_dir: str | None = None,
     session_media_ids: Optional[list[int]] = None,
+    project_workspace_dir: str | None = None,
 ) -> None:
     """Pause execution and create a HITL request for ask_user."""
     from ..hitl import HumanActionRequest
@@ -424,12 +451,14 @@ async def _pause_for_ask_user(
     question = question_args.get("question", "")
     ask_options = await _resolve_ask_option_media(
         question_args.get("options"), workspace_dir, session, chat.id, session_media_ids,
+        project_workspace_dir,
     )
     ask_questions = question_args.get("questions")
     if ask_questions:
         ask_questions = [
             {**q, "options": await _resolve_ask_option_media(
                 q.get("options"), workspace_dir, session, chat.id, session_media_ids,
+                project_workspace_dir,
             )} if isinstance(q, dict) else q
             for q in ask_questions
         ]
@@ -1423,6 +1452,7 @@ async def _run_agentic_loop_inner(
                     remaining_tool_calls=updated_remaining,
                     workspace_dir=workspace_dir,
                     session_media_ids=session_media_ids,
+                    project_workspace_dir=str(project_workspace_dir) if project_workspace_dir else None,
                 )
                 return
 

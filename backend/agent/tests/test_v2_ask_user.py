@@ -214,28 +214,90 @@ async def test_interrupt_execution_broadcasts_denial_for_pending_v2_tool_permiss
     assert stopped_events[-1]["reason"] == "cancelled"
 
 
+async def _add_media(session) -> int:
+    from database import MediaItem
+
+    item = MediaItem(
+        file_path="/tmp/ask_user_option.png", file_hash="hash-ask-user", file_size=1,
+        file_format="png", width=1, height=1, megapixels=0.000001,
+    )
+    session.add(item)
+    await session.commit()
+    return item.id
+
+
 @pytest.mark.asyncio
-async def test_resolve_ask_option_media_saves_paths_to_media_ids(monkeypatch):
+async def test_resolve_ask_option_media_saves_paths_to_media_ids(monkeypatch, session):
     from agent.v2 import service
 
-    async def fake_auto_save(path, workspace_dir, session, chat_id, session_media_ids):
+    async def fake_auto_save(path, workspace_dir, session, chat_id, session_media_ids, project_workspace_dir=None):
         return {"a.png": 41, "b.png": 42}.get(path)
 
     monkeypatch.setattr("agent.v2.tools.show._auto_save_path", fake_auto_save)
+    existing_id = await _add_media(session)
 
     options = [
         {"label": "A", "description": "first", "path": "a.png"},
         {"label": "B", "description": "second", "path": "b.png", "media_id": None},
-        {"label": "C", "description": "already a media id", "media_id": 7, "path": "ignored.png"},
+        {"label": "C", "description": "already a media id", "media_id": existing_id, "path": "ignored.png"},
         {"label": "D", "description": "no picture"},
         {"label": "E", "description": "save failed", "path": "missing.png"},
     ]
 
-    resolved = await service._resolve_ask_option_media(options, "/tmp/ws", None, 1, None)
+    resolved = await service._resolve_ask_option_media(options, "/tmp/ws", session, 1, None)
 
     assert resolved[0] == {"label": "A", "description": "first", "media_id": 41}
     assert resolved[1] == {"label": "B", "description": "second", "media_id": 42}
-    assert resolved[2] == {"label": "C", "description": "already a media id", "media_id": 7, "path": "ignored.png"}
+    assert resolved[2] == {"label": "C", "description": "already a media id", "media_id": existing_id, "path": "ignored.png"}
     assert resolved[3] == {"label": "D", "description": "no picture"}
     assert resolved[4] == {"label": "E", "description": "save failed"}
     assert await service._resolve_ask_option_media(None, None, None, 1, None) is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_ask_option_media_drops_unknown_media_ids(monkeypatch, session):
+    from agent.v2 import service
+
+    async def fake_auto_save(path, workspace_dir, session, chat_id, session_media_ids, project_workspace_dir=None):
+        return {"fallback.png": 55}.get(path)
+
+    monkeypatch.setattr("agent.v2.tools.show._auto_save_path", fake_auto_save)
+    existing_id = await _add_media(session)
+
+    options = [
+        {"label": "Real", "media_id": existing_id},
+        {"label": "Invented", "media_id": 987654},
+        {"label": "Invented with path", "media_id": 987655, "path": "fallback.png"},
+    ]
+
+    resolved = await service._resolve_ask_option_media(options, "/tmp/ws", session, 1, None)
+
+    assert resolved == [
+        {"label": "Real", "media_id": existing_id},
+        {"label": "Invented"},
+        {"label": "Invented with path", "media_id": 55},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_auto_save_path_with_session_media_builds_sdk(monkeypatch, session, test_chat, tmp_path):
+    """Regression: StimmaSDK requires project_workspace_dir; auto-save used to throw and return None."""
+    from agent.v2.tools import library
+    from agent.v2.tools.show import _auto_save_path
+
+    captured = {}
+
+    async def fake_save(*, session, path, workspace_dir, save_tags, provenance):
+        captured["provenance"] = provenance
+        return json.dumps({"media_id": 77})
+
+    monkeypatch.setattr(library, "save_workspace_file", fake_save)
+    source_id = await _add_media(session)
+
+    media_id = await _auto_save_path(
+        "out.png", str(tmp_path), session, test_chat.id, [source_id],
+        project_workspace_dir=str(tmp_path / "project"),
+    )
+
+    assert media_id == 77
+    assert captured["provenance"]["source_media_ids"] == [source_id]

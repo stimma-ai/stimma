@@ -1,37 +1,14 @@
-// Bundle the Electron main process and preload script with esbuild.
-// Main is CJS (Electron entry), preload is CJS (sandboxed preload requirement).
+// Bundle the Electron main process, preload script and render worker with esbuild.
+// All CJS: main is the Electron entry, preload must be CJS when sandboxed.
 import { build, context } from 'esbuild'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
+import { shellTargets } from './targets.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const watch = process.argv.includes('--watch')
 
-const common = {
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  sourcemap: true,
-  // electron and electron-updater stay external: electron is provided by the
-  // runtime; electron-updater ships as a real dependency in node_modules.
-  external: ['electron', 'electron-updater'],
-  logLevel: 'info',
-  loader: { '.txt': 'text' },
-}
-
-const targets = [
-  {...common, entryPoints: [join(root, 'src', 'renderWorker.ts')], outfile: join(root, 'dist', 'render-worker.cjs')},
-  {
-    ...common,
-    entryPoints: [join(root, 'src', 'main.ts')],
-    outfile: join(root, 'dist', 'main.cjs'),
-  },
-  {
-    ...common,
-    entryPoints: [join(root, 'src', 'preload.ts')],
-    outfile: join(root, 'dist', 'preload.cjs'),
-  },
-]
+const targets = shellTargets(root)
 
 if (watch) {
   const contexts = await Promise.all(targets.map((t) => context(t)))
