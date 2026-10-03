@@ -34,6 +34,8 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     private val cache = UIPackageCache(File(application.cacheDir, "ui-packages"))
     var main: MobileTransport? = null
         private set
+    var devServerURL: String? = null
+        private set
     var devices = JSONArray()
         private set
     var selected: JSONObject? = null
@@ -64,6 +66,24 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     fun info() = JSONObject().put("authenticated", auth.user != null).put("user", auth.user ?: JSONObject.NULL)
         .put("devices", devices).put("selectedDeviceId", selected?.optString("deviceId") ?: JSONObject.NULL)
         .put("busy", busy).put("restoring", restoring).put("message", message ?: JSONObject.NULL)
+        .apply {
+            if (BuildConfig.DEBUG) {
+                put("devServerAvailable", true)
+                put("devServerAddress", preferences.getString("devServerAddress", ""))
+            }
+        }
+
+    fun connectDevServer(address: String) {
+        check(BuildConfig.DEBUG)
+        val url = DevServerAddress.parse(address)
+        cancelRestore()
+        main?.close(); main = null; activeHash = null
+        devServerURL = url
+        selected = JSONObject().put("deviceId", "dev:$url").put("name", "Dev server")
+        preferences.edit().putString("devServerAddress", url).apply()
+        connectionState = "ready"; message = null; showConnections = false
+        changed()
+    }
 
     fun start(debugPort: Int?) {
         if (started) return
@@ -140,6 +160,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         launchOperation(restore = true) { connect(device, false) }
     }
     fun reload() {
+        devServerURL?.let { connectDevServer(it); return }
         selected?.let { device -> launchOperation(restore = true) { connect(device, false) } } ?: refresh()
     }
 
@@ -174,7 +195,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     fun disconnect() {
         cancelRestore()
         preferences.edit().remove("selected").apply()
-        main?.close(); main = null; selected = null; activeHash = null
+        main?.close(); main = null; selected = null; activeHash = null; devServerURL = null
         connectionState = "unreachable"; message = null; changed()
     }
 
@@ -222,6 +243,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
             main!!.target = remote
             transportRevision += 1
         } else install(remote)
+        devServerURL = null
         selected = device
         preferences.edit().putString("selected", identity).apply()
         connectionState = "ready"; if (!recovering) showConnections = false; message = null; changed()

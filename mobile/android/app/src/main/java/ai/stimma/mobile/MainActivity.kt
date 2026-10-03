@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var setupView: WebView
     private var mainView: WebView? = null
     private var mainTransport: MobileTransport? = null
+    private var mainDevOrigin: String? = null
     private val ready = mutableSetOf<WebView>()
     private var coverEpoch = 0
     private var recreatingRenderer = false
@@ -188,12 +189,15 @@ class MainActivity : ComponentActivity() {
     }
     private fun render() {
         if (!::setupView.isInitialized) return
-        if (model.main !== mainTransport) {
+        if (model.main !== mainTransport || model.devServerURL != mainDevOrigin) {
             slideshowActive = false; keepAwake = false
             mainTransport?.let { CookieManager.getInstance().setCookie(it.origin, "${it.cookieName}=; Max-Age=0; Path=/", null) }
             mainView?.let { ready.remove(it); root.removeView(it); it.destroy() }
             mainTransport = model.main
-            mainView = model.main?.let { createWebView(it, "/").also { view -> root.addView(view, 0, fullSize()) } }
+            mainDevOrigin = model.devServerURL
+            mainView = if (mainDevOrigin != null) createWebView(model.setup, "/", mainDevOrigin)
+                else model.main?.let { createWebView(it, "/") }
+            mainView?.let { root.addView(it, 0, fullSize()) }
         }
         if (showingConnections != model.showConnections) {
             showingConnections = model.showConnections
@@ -214,8 +218,15 @@ class MainActivity : ComponentActivity() {
         setupView.evaluateJavascript("window.dispatchEvent(new Event('stimma:connection-info'))", null)
     }
 
-    private fun createWebView(transport: MobileTransport, path: String): WebView {
+    private fun createWebView(transport: MobileTransport, path: String, devOrigin: String? = null): WebView {
         check(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
+        check(devOrigin == null || BuildConfig.DEBUG)
+        val allowedOrigin = devOrigin ?: transport.origin
+        fun matchesOrigin(uri: Uri): Boolean {
+            val expected = Uri.parse(allowedOrigin)
+            fun port(value: Uri) = if (value.port != -1) value.port else if (value.scheme == "https") 443 else 80
+            return uri.scheme == expected.scheme && uri.host == expected.host && port(uri) == port(expected) && uri.userInfo == null
+        }
         val view = WebView(this)
         view.setBackgroundColor(BACKGROUND)
         view.settings.apply {
@@ -226,8 +237,8 @@ class MainActivity : ComponentActivity() {
             mediaPlaybackRequiresUserGesture = true
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, false)
-        WebViewCompat.addWebMessageListener(view, "stimmaAndroid", setOf(transport.origin)) { source, message, origin, mainFrame, reply ->
-            if (!mainFrame || origin.toString() != transport.origin || source !== view || !isAppDocument(source.url) || source.url?.let { Uri.parse(it).let { url -> "${url.scheme}://${url.encodedAuthority}" } } != transport.origin) return@addWebMessageListener
+        WebViewCompat.addWebMessageListener(view, "stimmaAndroid", setOf(allowedOrigin)) { source, message, origin, mainFrame, reply ->
+            if (!mainFrame || !matchesOrigin(origin) || source !== view || !isAppDocument(source.url) || source.url?.let { matchesOrigin(Uri.parse(it)) } != true) return@addWebMessageListener
             val request = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
             val id = request.optLong("id", -1)
             if (id < 0) return@addWebMessageListener
@@ -236,33 +247,33 @@ class MainActivity : ComponentActivity() {
                 try {
                     val result = command(view, request.getString("method"), request.optJSONObject("args") ?: JSONObject())
                     response.put("result", result ?: JSONObject.NULL)
-                } catch (_: Exception) { response.put("error", "The mobile request could not be completed. Please try again.") }
+                } catch (error: Exception) { response.put("error", if (error is IllegalArgumentException && error.message == DevServerAddress.HELP) error.message else "The mobile request could not be completed. Please try again.") }
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) reply.postMessage(response.toString())
             }
         }
-        if (transport !== model.setup) {
+        if (transport !== model.setup || devOrigin != null) {
             val preferences = LocalPreferences(this, model.auth.user?.getString("id") ?: "emulator", model.selected!!.getString("deviceId"))
-            var bootstrap = WebViewCompat.addDocumentStartJavaScript(view, preferences.script(transport.origin), setOf(transport.origin))
-            WebViewCompat.addWebMessageListener(view, "stimmaPreferences", setOf(transport.origin)) { source, message, origin, mainFrame, _ ->
-                if (mainFrame && source === view && isAppDocument(source.url) && origin.toString() == transport.origin &&
-                    source.url?.let { sameOrigin(Uri.parse(it), transport) } == true) {
+            var bootstrap = WebViewCompat.addDocumentStartJavaScript(view, preferences.script(allowedOrigin), setOf(allowedOrigin))
+            WebViewCompat.addWebMessageListener(view, "stimmaPreferences", setOf(allowedOrigin)) { source, message, origin, mainFrame, _ ->
+                if (mainFrame && source === view && isAppDocument(source.url) && matchesOrigin(origin) &&
+                    source.url?.let { matchesOrigin(Uri.parse(it)) } == true) {
                     runCatching {
                         preferences.save(JSONObject(message.data ?: "{}"))
                         bootstrap.remove()
-                        bootstrap = WebViewCompat.addDocumentStartJavaScript(view, preferences.script(transport.origin), setOf(transport.origin))
+                        bootstrap = WebViewCompat.addDocumentStartJavaScript(view, preferences.script(allowedOrigin), setOf(allowedOrigin))
                     }
                 }
             }
         }
         view.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                if (!request.isForMainFrame && (request.url.scheme == "blob" || sameOrigin(request.url, transport))) return false
-                if (request.isForMainFrame && sameOrigin(request.url, transport) && request.url.path.let { it == "/index.html" || it == "/mobile.html" || it == "/" || it?.startsWith("/api/") == false && !it.orEmpty().substringAfterLast('/').contains('.') }) return false
+                if (!request.isForMainFrame && (request.url.scheme == "blob" || matchesOrigin(request.url))) return false
+                if (request.isForMainFrame && matchesOrigin(request.url) && request.url.path.let { it == "/index.html" || it == "/mobile.html" || it == "/" || it?.startsWith("/api/") == false && !it.orEmpty().substringAfterLast('/').contains('.') }) return false
                 if (request.isForMainFrame && request.hasGesture() && request.url.scheme in setOf("http", "https")) openExternal(request.url.toString())
                 return true
             }
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                if (!sameOrigin(request.url, transport)) return blocked()
+                if (devOrigin == null && !matchesOrigin(request.url)) return blocked()
                 return null
             }
             override fun onReceivedSslError(view: WebView, handler: android.webkit.SslErrorHandler, error: android.net.http.SslError) { handler.cancel() }
@@ -280,7 +291,10 @@ class MainActivity : ComponentActivity() {
                 return try { filePicker.launch(params.createIntent()); true } catch (_: Exception) { picker = null; false }
             }
         }
-        CookieManager.getInstance().setCookie(transport.origin, transport.cookie) { accepted ->
+        if (devOrigin != null) {
+            view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            view.loadUrl(devOrigin + path)
+        } else CookieManager.getInstance().setCookie(transport.origin, transport.cookie) { accepted ->
             if (accepted) view.loadUrl(transport.origin + path)
         }
         return view
@@ -290,7 +304,6 @@ class MainActivity : ComponentActivity() {
         val path = url?.let { Uri.parse(it).path } ?: return false
         return !Regex("^/(api|ws|assets)(/|$)").containsMatchIn(path)
     }
-    private fun sameOrigin(uri: Uri, transport: MobileTransport) = uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port == transport.port && uri.userInfo == null
     private fun blocked() = WebResourceResponse("text/plain", "utf-8", 403, "Forbidden", emptyMap(), "Blocked".byteInputStream())
     private fun openExternal(value: String) {
         val uri = Uri.parse(value)
@@ -315,10 +328,14 @@ class MainActivity : ComponentActivity() {
         "cancelRestore" -> { model.cancelRestore(); model.info() }
         "signIn" -> { model.login(::openExternal); model.info() }
         "refreshDevices" -> model.refreshDevices()
+        "connectDevServer" -> {
+            require(BuildConfig.DEBUG && view === setupView && model.showConnections)
+            model.connectDevServer(args.getString("address")); null
+        }
         "selectServer" -> { model.select(args.getString("deviceId")); "connecting" }
         "showConnections" -> { model.showConnections = true; model.changed(); null }
         "closeConnections" -> { if (mainView != null) model.showConnections = false; model.changed(); null }
-        "reload" -> { model.reload(); null }
+        "reload" -> { if (model.devServerURL != null) mainView?.reload() else model.reload(); null }
         "logout" -> { model.logout(); null }
         "disconnect" -> { model.disconnect(); null }
         "getState" -> JSONObject().put("activeDeviceId", model.selected?.optString("deviceId") ?: "none")
