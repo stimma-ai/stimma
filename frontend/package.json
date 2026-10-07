@@ -9,6 +9,7 @@
     "url": "git+https://github.com/stimma-ai/stimma.git"
   },
   "scripts": {
+    "test:pin-lock": "node --test tests/pinLockPrivacy.browser.test.mjs tests/pinLockLayout.browser.test.mjs",
     "test:mobile-experience": "node --test tests/mobileAutofocus.browser.test.mjs tests/mobileMediaActions.browser.test.mjs tests/mobileSafeArea.browser.test.mjs tests/jobsStrip.browser.test.mjs",
     "test:chat-drafts": "node --test tests/chatDrafts.browser.test.mjs",
     "test:chat-performance": "node --test tests/chatPerformance.test.mjs tests/chatPerformance.browser.test.mjs",

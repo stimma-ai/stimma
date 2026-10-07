@@ -9,9 +9,10 @@
  * stays warm; a genuine quit leaves the registry intact.
  */
 
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow, app, powerMonitor } from 'electron'
 import path from 'node:path'
 import { log } from './log'
+import { installWindowPrivacyLifecycle } from './windowPrivacy'
 import { WindowRegistry, profileWindowLabel } from './registry'
 import { storedBoundsFor, trackWindowState } from './windowState'
 
@@ -90,8 +91,12 @@ export function createAppWindow(label: string): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       spellcheck: false,
+      // PIN expiry and the privacy cover must render in inactive windows too.
+      backgroundThrottling: false,
     },
   })
+
+  const publishActivity = installWindowPrivacyLifecycle(win, powerMonitor)
 
   ;(win as any).stimmaLabel = label
   if (stored?.maximized) win.maximize()
@@ -151,6 +156,7 @@ export function createAppWindow(label: string): BrowserWindow {
   })
   win.webContents.on('did-finish-load', () => {
     log.info('stimma', `Renderer finished loading ${win.webContents.getURL()}`)
+    publishActivity()
   })
 
   if (environment.devUrl) {

@@ -8,7 +8,7 @@ import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
 import { getApiBase, rewriteUrl, isTauri } from '../apiConfig'
 import { desktop } from '../desktop'
-import { getCachedPin } from './usePinLock'
+import { getCachedPin, syncPinTimeouts } from './usePinLock'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
@@ -155,6 +155,7 @@ export async function loadProfiles() {
     if (response.ok) {
       const data = await response.json()
       profiles.value = data.profiles || []
+      syncPinTimeouts(profiles.value)
 
       // If current profile ID is null or doesn't match any loaded profile,
       // set it to the first profile's ID

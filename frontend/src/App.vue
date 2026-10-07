@@ -6,7 +6,9 @@
   </div>
 
   <template v-else>
-    <!-- Toast notifications (global, always visible) -->
+    <!-- Profile-owned overlays must unmount too: teleports escape the shell. -->
+    <template v-if="!isLocked && !showConnectionScreen">
+    <!-- Toast notifications -->
     <ToastContainer />
     <div v-if="mobileRecoveryVisible && !showConnectionScreen" class="fixed inset-x-0 top-0 pt-safe z-toast flex justify-center pointer-events-none" role="status">
       <span class="rounded-md bg-surface-overlay px-3 py-2 text-xs text-content-secondary shadow-lg">Reconnecting…</span>
@@ -25,6 +27,7 @@
     <DirectoryPickerModal />
 
     <FeedbackRoot />
+    </template>
 
   <!-- Mobile retains this workspace through routine transport interruptions.
        Cold connections and device changes still go through the connection gate;
@@ -326,6 +329,7 @@ import {
   cachePin,
   clearCachedPin,
   startIdleTracking,
+  stopIdleTracking,
 } from './composables/usePinLock'
 import { getApiBase, isTauri } from './apiConfig'
 import { useSettingsApi } from './composables/useSettingsApi'
@@ -1357,6 +1361,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopIdleTracking()
   stopServerUpdater()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keydown', handleLockScreenKeydown, true)

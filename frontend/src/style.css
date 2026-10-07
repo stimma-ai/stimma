@@ -1163,3 +1163,19 @@ select option {
 .compact-drawer nav button.w-5.h-5 { width: 44px; height: 44px; margin: -12px 0; }
 .compact-drawer .h-8, .compact-drawer .w-8.h-8 > button, .compact-drawer button.h-8 { min-height: 44px; }
 .compact-drawer [data-tour="feedback"], .compact-drawer [data-tour="device-chip"], .compact-drawer button[aria-label="Settings"], .compact-drawer button.w-full.flex.items-center.gap-2\.5 { min-width: 44px; min-height: 44px; }
+
+/* Privacy is applied synchronously before Vue's lock patch and before an
+   inactive webview can retain a workspace snapshot. Hide every descendant,
+   including teleports with explicit visibility and stacking contexts. */
+html[data-pin-privacy] body * {
+  visibility: hidden !important;
+}
+html[data-pin-privacy] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--color-base-rgb));
+  visibility: visible !important;
+  pointer-events: auto;
+  @apply z-top;
+}
