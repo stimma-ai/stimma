@@ -18,6 +18,11 @@ test('system sleep/lock covers a still-focused window, and return respects its v
   })
   const publish = installWindowPrivacyLifecycle(win as BrowserWindow, power as PowerMonitor)
   publish()
+  state.focused = false
+  win.emit('blur')
+  assert.equal(signals.length, 1, 'losing focus must not cover a visible window')
+  publish()
+  state.focused = true
   power.emit('suspend')
   power.emit('resume')
   power.emit('lock-screen')
@@ -29,9 +34,27 @@ test('system sleep/lock covers a still-focused window, and return respects its v
   state.focused = true
   win.emit('focus')
   win.emit('hide')
-  assert.deepEqual(signals.map(s => s[1]), [true, false, true, false, false, false, true, false])
+  assert.deepEqual(signals.map(s => s[1]), [true, true, false, true, false, false, true, true, false])
   assert.ok(signals.every(s => s[0] === 'stimma:app-active'))
 
+  state.visible = false
+  publish()
+  state.visible = true
+  win.emit('show')
+  state.minimized = true
+  win.emit('minimize')
+  state.minimized = false
+  win.emit('restore')
+  assert.deepEqual(signals.slice(-4).map(s => s[1]), [false, true, false, true])
+
+  power.emit('lock-screen')
+  power.emit('suspend')
+  power.emit('resume')
+  win.emit('focus')
+  power.emit('unlock-screen')
+  assert.deepEqual(signals.slice(-5).map(s => s[1]), [false, false, false, false, true], 'focus and resume cannot reveal a screen-locked window')
+
+  const signalCount = signals.length
   state.destroyed = true
   win.emit('closed')
   for (const event of ['suspend', 'resume', 'lock-screen', 'unlock-screen']) {
@@ -39,5 +62,5 @@ test('system sleep/lock covers a still-focused window, and return respects its v
     power.emit(event)
   }
   publish()
-  assert.equal(signals.length, 8, 'no IPC to a destroyed renderer')
+  assert.equal(signals.length, signalCount, 'no IPC to a destroyed renderer')
 })

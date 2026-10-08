@@ -88,8 +88,12 @@ function coverPrivateContent() {
   document.documentElement.setAttribute('data-pin-privacy', '')
 }
 
+function contentVisible() {
+  return nativeActive && document.visibilityState !== 'hidden'
+}
+
 function interfaceActive() {
-  return nativeActive && document.visibilityState !== 'hidden' && document.hasFocus()
+  return contentVisible() && document.hasFocus()
 }
 
 async function revealPrivateContent() {
@@ -97,7 +101,7 @@ async function revealPrivateContent() {
   // Auto-lock listeners change Vue state synchronously; wait for their DOM
   // patch before removing the cover, including teleported media and dialogs.
   await nextTick()
-  if (epoch === privacyEpoch && interfaceActive()) {
+  if (epoch === privacyEpoch && contentVisible()) {
     document.documentElement.removeAttribute('data-pin-privacy')
   }
 }
@@ -181,6 +185,12 @@ function handleInactive() {
   checkLocalTimeouts()
 }
 
+function handleBlur() {
+  // A visible desktop window can lose focus without being backgrounded.
+  // Recheck expiry, but keep an unlocked workspace visible.
+  checkLocalTimeouts()
+}
+
 function handleResume() {
   checkLocalTimeouts()
   // Focus and visibility are lifecycle signals, not user activity.
@@ -203,14 +213,14 @@ function startIdleTracking() {
   if (typeof window === 'undefined' || tracking) return
   tracking = true
   for (const type of activityEvents) window.addEventListener(type, handleActivity, true)
-  window.addEventListener('blur', handleInactive)
+  window.addEventListener('blur', handleBlur)
   window.addEventListener('focus', handleResume)
   window.addEventListener('pagehide', handleInactive)
   window.addEventListener('pageshow', handleResume)
   window.addEventListener('stimma:app-active', handleNativeActivity)
   document.addEventListener('visibilitychange', handleVisibility)
   checkLocalTimeouts()
-  if (!interfaceActive()) handleInactive()
+  if (!contentVisible()) handleInactive()
   idleCheckInterval = setInterval(checkIdleTimeouts, IDLE_CHECK_INTERVAL_MS)
   void checkIdleTimeouts()
 }
@@ -219,7 +229,7 @@ function stopIdleTracking() {
   if (typeof window === 'undefined') return
   tracking = false
   for (const type of activityEvents) window.removeEventListener(type, handleActivity, true)
-  window.removeEventListener('blur', handleInactive)
+  window.removeEventListener('blur', handleBlur)
   window.removeEventListener('focus', handleResume)
   window.removeEventListener('pagehide', handleInactive)
   window.removeEventListener('pageshow', handleResume)
@@ -311,7 +321,7 @@ function cachePin(profileId, pin) {
   })
   persistPinCache()
   scheduleIdleDeadline()
-  if (profileId === getCurrentProfileId() && !interfaceActive()) coverPrivateContent()
+  if (profileId === getCurrentProfileId() && !contentVisible()) coverPrivateContent()
 }
 
 /**

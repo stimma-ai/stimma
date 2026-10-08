@@ -107,13 +107,39 @@ for (const event of ['focus', 'mousedown', 'keydown', 'mousemove', 'touchstart',
   })
 }
 
-test('background snapshot is covered before expiry; a short return keeps the original deadline', async t => {
+test('an unfocused visible window remains readable and keeps the original idle deadline', async t => {
   const page = await fixture(t)
   const original = await cache(page)
   await page.clock.runFor(30_000)
   await page.evaluate(() => { setFocused(false); window.dispatchEvent(new Event('blur')) })
+  assert.equal(await page.locator('#private').evaluate(el => getComputedStyle(el).visibility), 'visible')
+  assert.equal(await page.locator('#media').evaluate(el => getComputedStyle(el).visibility), 'visible')
+  await page.evaluate(() => window.dispatchEvent(new Event('mousemove')))
+  assert.deepEqual(await cache(page), original, 'unfocused activity must not extend the deadline')
+  await page.clock.runFor(30_000)
+  assert.equal(await page.locator('#lock').count(), 1)
+  assert.equal(await page.locator('#lock').evaluate(el => getComputedStyle(el).visibility), 'visible')
+  assert.equal(await page.locator('#media').count(), 0)
+})
+
+test('initializing an unlocked profile in an unfocused window leaves it visible', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => {
+    pin.stopIdleTracking()
+    setFocused(false)
+    pin.cachePin('protected', '1234')
+    pin.startIdleTracking()
+  })
+  assert.equal(await page.locator('#media').evaluate(el => getComputedStyle(el).visibility), 'visible')
+})
+
+test('background snapshot is covered before expiry; a short return keeps the original deadline', async t => {
+  const page = await fixture(t)
+  const original = await cache(page)
+  await page.clock.runFor(30_000)
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
   assert.equal(await page.locator('#media').evaluate(el => getComputedStyle(el).visibility), 'hidden')
-  await page.evaluate(() => { setFocused(true); window.dispatchEvent(new Event('focus')) })
+  await page.evaluate(() => { setFocused(false); window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })) })
   assert.equal(await page.locator('#media').evaluate(el => getComputedStyle(el).visibility), 'visible')
   assert.deepEqual(await cache(page), original, 'focus must not count as activity')
   await page.clock.runFor(30_000)
