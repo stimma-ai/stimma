@@ -72,7 +72,12 @@ for (const phone of [false, true]) test(`file refs stage and round trip (${phone
     { id: 2, item_type: 'file_display', item_metadata: { files } },
   ] }, files)
   const chip = name => page.getByRole('button').filter({ has: page.locator('span', { hasText: name }) }).filter({ hasNot: page.locator('button') }).first()
-  const close = () => page.getByRole('button', { name: 'Close stage', exact: true }).click()
+  const close = async () => {
+    // Compact chat uses the shell's Back action; its desktop control strip is hidden.
+    if (phone) await page.evaluate(() => window.fileRefsBack.compact())
+    else await page.getByRole('button', { name: 'Hide preview panel', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.fileRefsTest.artifactStage.stageOpen.value)).toBe(false)
+  }
   await chip('resize_batch.py').click()
   await expect.poll(() => page.evaluate(() => window.fileRefsBack.enabled())).toBe(true)
   await page.evaluate(() => window.fileRefsBack.compact())
