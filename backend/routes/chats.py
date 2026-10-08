@@ -12,7 +12,7 @@ from database import Chat, ChatItem, GenerationJob, LLMTrace, UserPreference, Me
 from core.dependencies import get_db_session
 from models.api_models import BaseModel
 from pydantic import BaseModel as PydanticBaseModel
-from project_service import get_project_or_404
+from project_service import PROJECT_NONE, get_project_or_404, parse_project_filter
 from utils.websocket import ws_manager
 from config import get_settings
 from llm_resolver import (
@@ -582,6 +582,14 @@ async def _run_agent_background(
         log.error(f"Agent execution error for chat {chat_id}: {e}", exc_info=True)
 
 
+def _apply_chat_project_filter(query, project_filter):
+    if project_filter == PROJECT_NONE:
+        return query.where(Chat.project_id.is_(None))
+    if project_filter is not None:
+        return query.where(Chat.project_id == project_filter)
+    return query
+
+
 @router.post("", response_model=ChatResponse)
 async def create_chat(
     request: ChatCreateRequest,
@@ -589,11 +597,17 @@ async def create_chat(
 ):
     """Create a new chat."""
     project = None
-    if request.project_id is not None:
-        project = await get_project_or_404(session, request.project_id)
+    project_id = request.project_id
+    if project_id is not None:
+        project = await get_project_or_404(session, project_id)
     if request.flow_id is not None:
         from flow_service import get_flow_or_404
-        await get_flow_or_404(session, request.flow_id)
+        flow = await get_flow_or_404(session, request.flow_id)
+        # Agent work while editing a flow belongs to the flow's project.
+        if project_id is None and flow.project_id is not None:
+            from project_service import is_live_project
+            if await is_live_project(session, flow.project_id):
+                project_id = flow.project_id
 
     # Use provided name or empty string (will be auto-named after first message)
     name = request.name or ""
@@ -615,7 +629,7 @@ async def create_chat(
     chat = Chat(
         name=name,
         original_chatitem_id=request.original_chatitem_id,
-        project_id=request.project_id,
+        project_id=project_id,
         flow_id=request.flow_id,
         throttle='off',
         generation_settings=json.dumps(default_settings),
@@ -650,19 +664,23 @@ async def list_chats(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     include_deleted: bool = Query(False),
-    project_id: Optional[int] = Query(None),
+    project_id: Optional[str] = Query(None),
     flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """List all chats, paginated and reverse chronological."""
+    """List all chats, paginated and reverse chronological.
+
+    ``project_id=none`` lists only chats with no project; omitting it lists
+    chats from every project.
+    """
+    project_filter = parse_project_filter(project_id)
     # Build query
     query = select(Chat)
     if not include_deleted:
         query = query.where(Chat.deleted_at.is_(None))
     if flow_id is None:
         query = query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        query = query.where(Chat.project_id == project_id)
+    query = _apply_chat_project_filter(query, project_filter)
     if flow_id is not None:
         query = query.where(Chat.flow_id == flow_id)
 
@@ -674,8 +692,7 @@ async def list_chats(
         count_query = count_query.where(Chat.deleted_at.is_(None))
     if flow_id is None:
         count_query = count_query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        count_query = count_query.where(Chat.project_id == project_id)
+    count_query = _apply_chat_project_filter(count_query, project_filter)
     if flow_id is not None:
         count_query = count_query.where(Chat.flow_id == flow_id)
     total_result = await session.execute(count_query)
@@ -698,20 +715,20 @@ async def list_chats(
 async def list_chat_previews(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    project_id: Optional[int] = Query(None),
+    project_id: Optional[str] = Query(None),
     flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List chats with message counts and recent generated media for the landing page."""
+    project_filter = parse_project_filter(project_id)
     # Get paginated chats
     query = select(Chat).where(Chat.deleted_at.is_(None))
     count_query = select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
     if flow_id is None:
         query = query.where(Chat.flow_id.is_(None))
         count_query = count_query.where(Chat.flow_id.is_(None))
-    if project_id is not None:
-        query = query.where(Chat.project_id == project_id)
-        count_query = count_query.where(Chat.project_id == project_id)
+    query = _apply_chat_project_filter(query, project_filter)
+    count_query = _apply_chat_project_filter(count_query, project_filter)
     if flow_id is not None:
         query = query.where(Chat.flow_id == flow_id)
         count_query = count_query.where(Chat.flow_id == flow_id)
@@ -909,6 +926,7 @@ async def get_chat_preview(
 
 
 @router.patch("/{chat_id}", response_model=ChatResponse)
+@router.put("/{chat_id}", response_model=ChatResponse)
 async def update_chat(
     chat_id: int,
     request: ChatUpdateRequest,
@@ -933,6 +951,11 @@ async def update_chat(
     # Check if settings (not just name) are being changed
     settings_changed = 'throttle' in update_data or 'generation_settings' in update_data
 
+    previous_project_id = chat.project_id
+    moving = "project_id" in update_data and update_data["project_id"] != previous_project_id
+    if moving:
+        await _check_chat_movable(session, chat, update_data["project_id"])
+
     for key, value in update_data.items():
         setattr(chat, key, value)
 
@@ -940,17 +963,58 @@ async def update_chat(
     # updated_at should only change when messages are added (in create_chat_item),
     # not when settings are changed. This keeps the sidebar sorted by message activity.
 
-    await session.commit()
+    if moving:
+        await _commit_with_workspace_moves(
+            session, [(chat.id, previous_project_id, chat.project_id)]
+        )
+    else:
+        await session.commit()
     await session.refresh(chat)
 
     # Broadcast chat update via WebSocket
     await ws_manager.broadcast("chat_updated", {
         "chat_id": chat_id,
+        "project_id": chat.project_id,
         "chat": chat.to_dict(),
         "settings_changed": settings_changed
     })
 
     return ChatResponse(**chat.to_dict())
+
+
+async def _check_chat_movable(session: AsyncSession, chat: Chat, project_id) -> None:
+    """A chat can move to a live project (or the top level) while idle."""
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+    from agent.v2.service import is_execution_active
+    if is_execution_active(chat.id):
+        raise HTTPException(status_code=409, detail="Chat is running")
+
+
+async def _commit_with_workspace_moves(session: AsyncSession, moves) -> None:
+    """Commit project moves and carry each chat's workspace folder along.
+
+    ``moves`` is a list of ``(chat_id, from_project_id, to_project_id)``. The
+    folders move first; if the commit then fails they move back.
+    """
+    from agent.v2.workspace import move_chat_workspace
+
+    moved = []
+    try:
+        for chat_id, from_project_id, to_project_id in moves:
+            if from_project_id == to_project_id:
+                continue
+            move_chat_workspace(chat_id, from_project_id, to_project_id)
+            moved.append((chat_id, from_project_id, to_project_id))
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        for chat_id, from_project_id, to_project_id in reversed(moved):
+            try:
+                move_chat_workspace(chat_id, to_project_id, from_project_id)
+            except Exception:  # noqa: BLE001 - best effort restore
+                log.warning(f"Restoring workspace for chat {chat_id} failed")
+        raise
 
 
 async def _cancel_chat_work(
@@ -1206,11 +1270,22 @@ async def clone_chat(
     existing_names = [row[0] for row in result]
     name = generate_clone_name(source_chat.name, existing_names)
 
-    # Create cloned chat with same settings
+    # Create cloned chat with same settings, in the same project and flow
+    # (like Branch), so the clone opens where its source lives.
+    from project_service import is_live_project
+    project_id = source_chat.project_id
+    if project_id is not None and not await is_live_project(session, project_id):
+        project_id = None
     cloned_chat = Chat(
         name=name,
+        project_id=project_id,
+        flow_id=source_chat.flow_id,
         generation_settings=source_chat.generation_settings,
-        throttle=source_chat.throttle
+        throttle=source_chat.throttle,
+        additional_instructions=source_chat.additional_instructions,
+        agent_tool_config=source_chat.agent_tool_config,
+        model_slug=source_chat.model_slug,
+        reasoning_effort=source_chat.reasoning_effort,
     )
 
     session.add(cloned_chat)

@@ -74,6 +74,7 @@
       v-model:selectedProjects="filters.selectedProjects"
       v-model:excludedProjects="filters.excludedProjects"
       v-model:projectMembership="filters.projectMembership"
+      v-model:includeProjects="filters.includeProjects"
       v-model:selectedTools="filters.selectedTools"
       v-model:excludedTools="filters.excludedTools"
       v-model:selectedMarkers="filters.selectedMarkers"
@@ -173,6 +174,7 @@
       :first-selected-item="selectedItems[0] || null"
       :selected-items="selectedItems"
       :is-trash-view="isTrashMode"
+      :project-id="projectId ?? undefined"
       @clear="selectNone"
       @select-all="selectAll"
       @invert-selection="handleInvertSelection"
@@ -194,6 +196,7 @@
     <BoardPicker
       :visible="showBoardPicker"
       :asset-ids="selectedItemIds"
+      :project-id="projectId ?? undefined"
       @close="showBoardPicker = false"
       @saved="handleBoardsAdded"
     />
@@ -300,6 +303,7 @@ import { isSettingsLoaded } from '../appConfig'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
+import { PROJECT_ASSETS_CHANGED_EVENT, assetBrowseScope, projectAssetsChangeEffect } from '../utils/projectScope'
 
 // Props
 const props = defineProps({
@@ -905,6 +909,10 @@ function buildFilterParams() {
       params.has_project = false
     }
   }
+  // The top-level browser shows unfiled assets unless project assets are
+  // included (filter option, or `include_projects=1` in the URL).
+  const scope = assetBrowseScope(filters, { projectId: props.projectId, isTrashMode: props.isTrashMode })
+  if (scope) params.scope = scope
   if (filters.selectedTools && filters.selectedTools.length > 0) {
     params.tool_ids = filters.selectedTools.join(',')
   }
@@ -1151,6 +1159,27 @@ async function reconcileRemoval(removedIds) {
   // it sees a scroll event, so explicitly rebuild + reload the visible region.
   await virtualGridRef.value?.refreshAfterRemoval?.()
   await loadImplicitMarkers()
+}
+
+// A project membership change, from the server broadcast or from this
+// window's own menus (which announce it before the broadcast arrives).
+async function handleProjectAssetsChanged(change) {
+  const effect = projectAssetsChangeEffect(
+    { projectId: props.projectId, isTrashMode: props.isTrashMode, filters },
+    change,
+  )
+  if (effect === 'ignore') return
+  const assetIds = (change?.asset_ids || []).map(id => parseInt(id)).filter(Number.isFinite)
+  if (effect === 'remove' && assetIds.length > 0) {
+    removeFromSelection(assetIds)
+    await reconcileRemoval(assetIds)
+  } else {
+    await softReloadMedia()
+  }
+}
+
+function handleLocalProjectAssetsChanged(event) {
+  void handleProjectAssetsChanged(event.detail)
 }
 
 // Soft reload - updates data without showing loading state or unmounting the grid
@@ -1644,6 +1673,10 @@ async function handleContextMenuAction({ action, item, targetIds, inSelection })
       // Permanent delete all targeted items
       confirmPermanentDeleteMultiple(targetIds)
       break
+    case 'refresh':
+      // The media menu changed something (trash, membership, explode, keep...).
+      await softReloadMedia()
+      break
     default:
       console.warn('Unknown context menu action:', action)
   }
@@ -1658,9 +1691,9 @@ function handleEmptySpaceAction({ action }) {
       selectAll()
       break
     case 'import':
-      // Emit to parent or trigger import dialog
-      // For now, log - actual import handling depends on parent
-      console.log('Import requested from context menu')
+      // Same destination as the upload button: the Upload page, carrying
+      // this grid's project so imports land in it.
+      goToUpload()
       break
     default:
       console.warn('Unknown empty space action:', action)
@@ -1791,7 +1824,7 @@ const browseFilterQueryKeys = new Set([
   'mk', 'xmk',
   'f', 'xf',
   'tl', 'xtl',
-  'prj', 'xprj',
+  'prj', 'xprj', 'include_projects',
   'imp', 'unu',
   'sim', 'fsim',
   'st', 'rs'
@@ -2009,6 +2042,12 @@ onMounted(async () => {
   console.log('[BrowseGridView] similarSearchSourceItems:', similarSearchSourceItems.value)
 
   // Setup WebSocket event listeners
+  wsUnsubscribers.push(wsOn('project_assets_changed', (data) => {
+    if (data?.profile_id && data.profile_id !== getCurrentProfileId()) return
+    void handleProjectAssetsChanged(data)
+  }))
+  window.addEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleLocalProjectAssetsChanged)
+
   wsUnsubscribers.push(wsOn('asset_created', async (data) => {
     void loadImplicitMarkers()
     const count = data.count || 1
@@ -2272,6 +2311,7 @@ onUnmounted(() => {
   })
 
   // Cleanup event listeners
+  window.removeEventListener(PROJECT_ASSETS_CHANGED_EVENT, handleLocalProjectAssetsChanged)
   window.removeEventListener('profile-changed', handleProfileChanged)
   window.removeEventListener('settings-loaded', handleSettingsLoaded)
   window.removeEventListener('markers-changed', handleMarkersChanged)

@@ -22,6 +22,37 @@ import java.util.concurrent.TimeUnit
 
 /** A downloaded interface fixture exercises the real native bridge and WebView. */
 class ReadinessTest {
+    @Test fun liveDevFrontendMenuBridgeResumeAndDisconnect() {
+        MockWebServer().use { server ->
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = MockResponse()
+                    .addHeader("Content-Type", "text/html").setBody(html)
+            }
+            server.start()
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val intent = Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+                eventually { evaluate(scenario, "Boolean(document.querySelector('[aria-label=\"Connection options\"]'))") == "true" }
+                evaluate(scenario, "document.querySelector('[aria-label=\"Connection options\"]').click()")
+                eventually { evaluate(scenario, "Array.from(document.querySelectorAll('[role=menuitem]')).some(e=>e.textContent==='Dev server')") == "true" }
+                evaluate(scenario, "Array.from(document.querySelectorAll('[role=menuitem]')).find(e=>e.textContent==='Dev server').click()")
+                eventually { evaluate(scenario, "Boolean(document.getElementById('dev-server-address'))") == "true" }
+                evaluate(scenario, "(()=>{const input=document.getElementById('dev-server-address');input.value='127.0.0.1:${server.port}';input.dispatchEvent(new Event('input',{bubbles:true}));})()")
+                evaluate(scenario, "document.getElementById('dev-server-panel').requestSubmit()")
+                eventually { evaluate(scenario, "typeof window.native") == "\"function\"" }
+                command(scenario, "getState")
+                assertEquals("\"http://127.0.0.1:${server.port}\"", evaluate(scenario, "location.origin"))
+                evaluate(scenario, "window.retainedDraft='kept'")
+                scenario.moveToState(Lifecycle.State.CREATED)
+                scenario.moveToState(Lifecycle.State.RESUMED)
+                assertEquals("\"kept\"", evaluate(scenario, "retainedDraft"))
+                evaluate(scenario, "native('disconnect')")
+                eventually { evaluate(scenario, "Boolean(document.querySelector('[aria-label=\"Connection options\"]'))") == "true" }
+            }
+        }
+    }
+
     private val html = """
         <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
         <body>Phone readiness fixture<audio></audio><iframe src="/api/provider-manage/test/"></iframe><script>

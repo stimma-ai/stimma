@@ -153,6 +153,7 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
@@ -163,6 +164,8 @@ import { makeStorageKey } from '../utils/storageKeys'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+
+const { allowsAutofocus } = useViewport()
 
 interface RemixTool {
   full_tool_id: string
@@ -280,7 +283,7 @@ watch(showMenu, async (visible) => {
   if (visible) {
     searchQuery.value = ''
     await nextTick()
-    searchInputRef.value?.focus()
+    if (allowsAutofocus.value) searchInputRef.value?.focus()
   }
 })
 

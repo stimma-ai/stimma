@@ -870,6 +870,8 @@ import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
 import Modal from '../ui/Modal.vue'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1006,6 +1008,8 @@ const emit = defineEmits<{
 }>()
 
 const API_BASE = '/api'
+// Uploaded references become assets in the tool tab's project.
+const uploadProjectId = useOwnerProject()
 
 // File accept strings by media type
 const FILE_ACCEPT = {
@@ -1673,6 +1677,7 @@ async function uploadFile(file: File, replaceIndex?: number) {
   try {
     const formData = new FormData()
     formData.append('file', file)
+    appendProjectId(formData, uploadProjectId.value)
 
     const endpoint = UPLOAD_ENDPOINTS[props.accept]
     const response = await axios.post(endpoint, formData, {
@@ -1715,16 +1720,17 @@ async function uploadFile(file: File, replaceIndex?: number) {
 
 async function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
-  const files = input.files
+  // Copy before clearing: Chromium empties the input's FileList in place.
+  const files = Array.from(input.files ?? [])
 
-  if (!files || files.length === 0) return
+  if (files.length === 0) return
 
   // Clear the input so the same file can be selected again
   input.value = ''
 
   // Upload files up to max
   const slotsAvailable = props.maxItems - items.value.length
-  const filesToUpload = Array.from(files).slice(0, slotsAvailable)
+  const filesToUpload = files.slice(0, slotsAvailable)
 
   for (const file of filesToUpload) {
     await uploadFile(file)

@@ -425,7 +425,7 @@ class TestExplodeSetOrGrid:
 # ── project context ─────────────────────────────────────────────────────
 
 class TestSetProjectContext:
-    """Sets created in a project land in it without owning member placement."""
+    """Sets created in a project land in it, and so do the members they promote."""
 
     async def _create_project(self, client, name):
         resp = await client.post("/api/projects", json={"name": name})
@@ -444,13 +444,38 @@ class TestSetProjectContext:
         )
 
         assert project_id in await get_media_project_ids(generation_db_session, set_id)
+        # Bare members the set had to promote are new assets made in this
+        # project, so they land in it too.
+        for mid in member_ids:
+            assert project_id in await get_media_project_ids(generation_db_session, mid)
 
-        # The set shows up when browsing the project; superseded members don't
         resp = await generation_client.get(f"/api/media?project_id={project_id}")
         returned_ids = {item["id"] for item in resp.json()["items"]}
         assert set_id in returned_ids
+
+    async def test_create_set_leaves_existing_member_assets_in_place(
+        self, generation_client, generation_db_session
+    ):
+        """Members that were already assets keep their own project placement."""
+        from asset_service import create_asset_from_media
+
+        project_id = await self._create_project(generation_client, "Existing members")
+        async with generation_db_session() as session:
+            members = [
+                await create_media_item(session, file_format="png") for _ in range(2)
+            ]
+            for member in members:
+                await create_asset_from_media(session, media_id=member.id)
+            await session.commit()
+        member_ids = [m.id for m in members]
+
+        set_id, _ = await create_set(
+            generation_client, generation_db_session,
+            title="Linked Set", project_id=project_id, member_ids=member_ids,
+        )
+        assert project_id in await get_media_project_ids(generation_db_session, set_id)
         for mid in member_ids:
-            assert mid not in returned_ids
+            assert project_id not in await get_media_project_ids(generation_db_session, mid)
 
     async def test_create_set_inherits_member_projects(
         self, generation_client, generation_db_session
@@ -491,23 +516,36 @@ class TestSetProjectContext:
             })
         assert resp.status_code == 404
 
-    async def test_explode_does_not_move_project_membership_to_members(
+    async def test_explode_puts_members_in_the_sets_projects(
         self, generation_client, generation_db_session
     ):
-        """Exploding does not infer project placement for independent members."""
-        project_id = await self._create_project(generation_client, "Explode Context")
+        """Breaking apart a project's set puts its members in that project."""
+        from asset_service import create_asset_from_media
 
-        set_id, member_ids = await create_set(
+        project_id = await self._create_project(generation_client, "Explode Context")
+        async with generation_db_session() as session:
+            members = [
+                await create_media_item(session, file_format="png") for _ in range(3)
+            ]
+            for member in members:
+                await create_asset_from_media(session, media_id=member.id)
+            await session.commit()
+        member_ids = [m.id for m in members]
+
+        set_id, _ = await create_set(
             generation_client, generation_db_session,
             title="Set To Explode In Project", project_id=project_id,
+            member_ids=member_ids,
         )
+        for mid in member_ids:
+            assert project_id not in await get_media_project_ids(generation_db_session, mid)
 
         with patch("routes.media.ws_manager", MockWebSocketManager()):
             resp = await generation_client.post(f"/api/media/{set_id}/explode")
         assert resp.status_code == 200
 
         for mid in member_ids:
-            assert project_id not in await get_media_project_ids(
+            assert project_id in await get_media_project_ids(
                 generation_db_session, mid
             )
 
@@ -516,11 +554,11 @@ class TestSetProjectContext:
             project_id
         }
 
-        # Trashing the only project member leaves the project view empty.
         resp = await generation_client.get(f"/api/media?project_id={project_id}")
         returned_ids = {item["id"] for item in resp.json()["items"]}
         for mid in member_ids:
-            assert mid not in returned_ids
+            assert mid in returned_ids
+        assert set_id not in returned_ids
 
     async def test_explode_outside_project_attaches_nothing(
         self, generation_client, generation_db_session

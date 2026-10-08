@@ -9,6 +9,12 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
+// Lifecycle events are DOM events, shared with the phone shells. They expose
+// no IPC methods or private native state to page scripts.
+ipcRenderer.on('stimma:app-active', (_event, active: boolean) => {
+  window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: active }))
+})
+
 // ---- WKWebView localStorage import (Tauri→Electron migration) --------------
 // Preload runs before any page script, so keys written here are visible to
 // module-init reads (profileId, stimma_bundle_id). Only absent keys are

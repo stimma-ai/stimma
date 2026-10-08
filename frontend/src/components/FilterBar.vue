@@ -166,6 +166,18 @@
 
         <!-- Project Badges (membership chip + specific projects) - hidden in trash and inside a project -->
         <template v-if="!isTrashMode && !inProjectScope">
+          <!-- Scope chip: the top level shows unfiled assets unless project assets are included -->
+          <div v-if="localIncludeProjects"
+               class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-accent/15 text-accent-hi"
+               data-testid="include-project-assets-chip">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">Project assets</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" aria-label="Hide project assets" @click.stop="setIncludeProjects(false)">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <!-- Membership existence chip: accent = in any project, red = not in any project -->
           <div v-if="projectMembership"
                :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-400' : 'bg-accent/15 text-accent-hi']"
@@ -509,12 +521,35 @@
           </div>
 
           <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
-          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
+          <div v-if="!isTrashMode && !inProjectScope && (projects.length > 0 || localIncludeProjects)" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0 compact:max-w-none">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
             <div class="flex flex-col gap-0.5">
+              <!-- Scope: the top level shows only assets in no project unless this is on.
+                   Picking a specific project or "Any Project" implies it. -->
+              <div
+                role="switch"
+                :aria-checked="localIncludeProjects ? 'true' : 'false'"
+                tabindex="0"
+                data-testid="include-project-assets"
+                @click="setIncludeProjects(!localIncludeProjects)"
+                @keydown.enter.prevent="setIncludeProjects(!localIncludeProjects)"
+                @keydown.space.prevent="setIncludeProjects(!localIncludeProjects)"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all',
+                         localIncludeProjects ? 'bg-accent/10' : 'hover:bg-overlay-subtle']"
+                title="Also show assets that belong to projects"
+              >
+                <span :class="['text-[13px]', localIncludeProjects ? 'text-accent-hi font-medium' : 'text-content-secondary']">
+                  Include project assets
+                </span>
+                <span :class="['w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center', localIncludeProjects ? 'bg-accent border-accent text-white' : 'border-edge']" aria-hidden="true">
+                  <svg v-if="localIncludeProjects" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </span>
+              </div>
               <!-- Membership existence chip: none → In a project (accent) → Not in a project (red) -->
               <div
-                v-if="showProjectMembershipChip"
+                v-if="localIncludeProjects && showProjectMembershipChip"
                 @click="cycleProjectMembership"
                 :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all',
                          projectMembership === 'any' ? 'bg-accent/10'
@@ -529,7 +564,7 @@
               </div>
               <!-- Specific projects (greyed out while "not in any project" is active) -->
               <div
-                v-for="project in visibleProjects"
+                v-for="project in (localIncludeProjects ? visibleProjects : [])"
                 :key="project.id"
                 @click="toggleProject(project.id)"
                 :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md transition-all',
@@ -540,7 +575,7 @@
                 <span :class="['text-[13px] truncate', isProjectSelected(project.id) ? 'text-accent-hi font-medium' : 'text-content-secondary']" :title="project.name">{{ project.name || 'Untitled' }}</span>
                 <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isProjectSelected(project.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.projects?.[project.id] || 0 }})</span>
               </div>
-              <a v-if="projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
+              <a v-if="localIncludeProjects && projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 {{ showAllProjects ? 'Show less' : 'View more (' + projects.length + ')' }}
               </a>
             </div>
@@ -733,6 +768,7 @@ import {
   createLatestRequestGate,
   getFilterCountWatchValues,
 } from '../utils/filterFacetState'
+import { assetBrowseScope, includesProjectAssets } from '../utils/projectScope'
 import { captioningEnabledRef } from '../appConfig'
 import { EDITED_MARKER, EDITED_MARKER_ID } from '../constants/implicitMarkers'
 import { useTelemetry } from '../composables/useTelemetry'
@@ -763,6 +799,7 @@ const props = defineProps({
   selectedProjects: Array,       // Project membership filter (project IDs to include)
   excludedProjects: Array,       // Project membership filter (project IDs to exclude)
   projectMembership: { type: String, default: null },  // null | 'any' | 'none' (in any / no project)
+  includeProjects: { type: Boolean, default: false },  // Top level: include assets that belong to projects
   selectedTools: Array,          // Tool lineage filter (full_tool_id strings)
   excludedTools: Array,          // Excluded tool lineage filter
   selectedMarkers: Array,         // New: selected markers (by ID)
@@ -808,6 +845,7 @@ const emit = defineEmits([
   'update:selectedProjects',   // Project membership filter (include)
   'update:excludedProjects',   // Project membership filter (exclude)
   'update:projectMembership',  // Project membership existence predicate
+  'update:includeProjects',    // Top-level scope: include project assets
   'update:selectedTools',      // Tool lineage filter
   'update:excludedTools',      // Excluded tool lineage filter
   'update:selectedMarkers',    // New: markers filter
@@ -855,6 +893,13 @@ const excludedTags = ref(props.excludedTags || [])        // New: excluded tags
 const selectedProjects = ref(props.selectedProjects || [])   // Project membership (include)
 const excludedProjects = ref(props.excludedProjects || [])   // Project membership (exclude)
 const projectMembership = ref(props.projectMembership || null)  // null | 'any' | 'none'
+const includeProjectsFlag = ref(!!props.includeProjects)    // explicit "Include project assets"
+// Effective inclusion: the explicit flag, or a project filter that implies it.
+const localIncludeProjects = computed(() => includesProjectAssets({
+  includeProjects: includeProjectsFlag.value,
+  selectedProjects: selectedProjects.value,
+  projectMembership: projectMembership.value,
+}))
 const projects = ref([])                                  // All available projects [{id, name}]
 const showAllProjects = ref(false)                        // Expand the project list beyond top 5
 const selectedTools = ref(props.selectedTools || [])      // Tool lineage filter
@@ -972,6 +1017,7 @@ const hasActiveFilters = computed(() => {
     (selectedProjects.value && selectedProjects.value.length > 0) ||
     (excludedProjects.value && excludedProjects.value.length > 0) ||
     !!projectMembership.value ||
+    (!props.isTrashMode && !props.inProjectScope && includeProjectsFlag.value) ||
     (selectedTools.value && selectedTools.value.length > 0) ||
     (excludedTools.value && excludedTools.value.length > 0) ||
     (selectedMarkers.value && selectedMarkers.value.length > 0) ||
@@ -1323,6 +1369,8 @@ const modalFilterParams = computed(() => {
     if (props.projectMembership === 'any') params.has_project = true
     else if (props.projectMembership === 'none') params.has_project = false
   }
+  const scope = assetBrowseScope(props, { projectId: props.projectId, isTrashMode: props.isTrashMode })
+  if (scope) params.scope = scope
   if (props.selectedTools && props.selectedTools.length > 0) {
     params.tool_ids = props.selectedTools.join(',')
   }
@@ -1376,6 +1424,7 @@ function emitUpdate() {
   emit('update:selectedProjects', selectedProjects.value)      // Project membership (include)
   emit('update:excludedProjects', excludedProjects.value)      // Project membership (exclude)
   emit('update:projectMembership', projectMembership.value)    // Project membership existence
+  emit('update:includeProjects', includeProjectsFlag.value)    // Top-level scope
   emit('update:selectedTools', selectedTools.value)            // Tool lineage filter
   emit('update:excludedTools', excludedTools.value)            // Excluded tool lineage filter
   emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
@@ -1600,6 +1649,7 @@ function clearAllFilters() {
   selectedProjects.value = []
   excludedProjects.value = []
   projectMembership.value = null
+  includeProjectsFlag.value = false
   localIsImported.value = null
   localIsUnused.value = null
   localShowExpiring.value = false
@@ -1707,6 +1757,18 @@ function cycleProjectMembership() {
     excludedProjects.value = []
   } else {
     projectMembership.value = null
+  }
+  emitUpdate()
+}
+
+// "Include project assets". Turning it off also drops the project filters
+// that imply it, since they would bring project assets straight back.
+function setIncludeProjects(include) {
+  includeProjectsFlag.value = !!include
+  if (!include) {
+    selectedProjects.value = []
+    excludedProjects.value = []
+    if (projectMembership.value === 'any') projectMembership.value = null
   }
   emitUpdate()
 }
@@ -2333,6 +2395,7 @@ async function loadUnfilteredCount() {
       page_size: 1,
       state: props.isTrashMode ? 'trashed' : 'active',
       project_id: props.projectId ?? undefined,
+      scope: assetBrowseScope({ includeProjects: localIncludeProjects.value }, { projectId: props.projectId, isTrashMode: props.isTrashMode }),
     }
     const response = await fetchAssets(params)
     unfilteredTotalCount.value = response.total
@@ -2407,6 +2470,8 @@ watch(() => props.excludedTags, (val) => syncArray(excludedTags, val))
 watch(() => props.selectedProjects, (val) => syncArray(selectedProjects, val))
 watch(() => props.excludedProjects, (val) => syncArray(excludedProjects, val))
 watch(() => props.projectMembership, (val) => projectMembership.value = val || null)
+watch(() => props.includeProjects, (val) => includeProjectsFlag.value = !!val)
+watch(localIncludeProjects, () => loadUnfilteredCount())
 watch(() => props.selectedTools, (val) => syncArray(selectedTools, val))
 watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
 watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))

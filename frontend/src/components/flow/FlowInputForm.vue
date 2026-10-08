@@ -449,6 +449,8 @@ import { fieldAcceptsDraggedType } from '../../utils/flowMediaInputs'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { recordMediaInputUse, type RecentInputKind } from '../../composables/useRecentMediaInputs'
 import { getMediaType } from '../../utils/mediaTypes'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 
 interface Props {
   schema: Record<string, any> | null | undefined
@@ -459,12 +461,17 @@ interface Props {
   // room so it stays at 8; the workflow inspect panel passes a smaller
   // value so a single-field form doesn't dominate the panel.
   defaultPromptLines?: number
+  // The flow's project. Uploaded inputs become assets in it; when omitted the
+  // active working project is used.
+  projectId?: number | null
 }
 const props = withDefaults(defineProps<Props>(), {
   initialValues: null,
   applying: false,
   defaultPromptLines: 8,
+  projectId: undefined,
 })
+const uploadProjectId = useOwnerProject(() => props.projectId)
 
 const emit = defineEmits<{
   (e: 'submit', values: Record<string, any>): void
@@ -971,6 +978,7 @@ async function uploadFileToField(name: string, file: File, multi: boolean) {
   try {
     const formData = new FormData()
     formData.append('file', file)
+    appendProjectId(formData, uploadProjectId.value)
     const res = await axios.post(endpoint, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })

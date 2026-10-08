@@ -1259,6 +1259,7 @@ async def find_media_index(
     project_ids: Optional[str] = Query(None, description="Comma-separated project IDs - item must be in at least one (OR logic)"),
     excluded_project_ids: Optional[str] = Query(None, description="Comma-separated project IDs to exclude - item must not be in any"),
     has_project: Optional[bool] = Query(None, description="True = in any project, False = in no project (library only)"),
+    scope: Optional[str] = Query(None, description="'unfiled' = only assets in no project (top-level browser default), 'all' = no constraint"),
     sort_by: str = Query("created_desc", pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|added_desc|added_asc|random|similarity)$"),
     random_seed: Optional[int] = Query(None, description="Seed for stable random ordering"),
     session: AsyncSession = Depends(get_db_session)
@@ -1300,6 +1301,12 @@ async def find_media_index(
     query = query.where(
         (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None))
     )
+
+    if scope not in (None, "all", "unfiled"):
+        raise HTTPException(status_code=422, detail="scope must be 'all' or 'unfiled'")
+    # Mirror the asset browser: scope=unfiled at the top level means "in no project".
+    if scope == "unfiled" and project_id is None and has_project is None:
+        has_project = False
 
     # Project membership: when sorting by added_at we need a join so the sort column is available
     if project_id is not None:
@@ -1745,10 +1752,21 @@ async def create_set_from_media(
     # this set. This is what enables genuine multiple membership.
     from asset_service import create_asset_from_media
     from container_service import create_container_asset_from_media
-    member_assets = [
-        asset or await create_asset_from_media(session, media_id=item.id)
-        for asset, item in zip(member_assets, ordered_items)
-    ]
+    promoted_member_ids = []
+    resolved_members = []
+    for asset, item in zip(member_assets, ordered_items):
+        if asset is None:
+            asset = await create_asset_from_media(session, media_id=item.id)
+            promoted_member_ids.append(asset.id)
+        resolved_members.append(asset)
+    member_assets = resolved_members
+    # Members this set had to promote are new here; they join its project.
+    member_attached = {}
+    if request.project_id is not None and promoted_member_ids:
+        from project_service import attach_assets_to_projects
+        member_attached = await attach_assets_to_projects(
+            session, [request.project_id], promoted_member_ids
+        )
     set_asset = await create_container_asset_from_media(
         session,
         media_id=set_media_item.id,
@@ -1782,6 +1800,9 @@ async def create_set_from_media(
         'media_id': set_media_item.id,
         'revision_id': set_asset.current_revision_id,
     })
+    if member_attached:
+        from project_service import broadcast_attached
+        await broadcast_attached(session, member_attached)
 
     log.info(f"Set Asset {set_asset.id} created with linked members: {source_ids}")
 
@@ -1932,10 +1953,14 @@ async def save_edited_image(
     base_revision_id: Optional[int] = Form(None),
     working_document_id: int = Form(...),
     stack_summary: Optional[str] = Form(None),
+    project_id: Optional[int] = Form(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
     Commit an edited image as a Revision, or as a new Asset for Save As New.
+
+    Save As New puts the new Asset in every live project of the source Asset,
+    plus ``project_id`` when given.
 
     ``autosave`` commits are made on leaving the editor so the Asset always
     shows its current edit state. Consecutive commits from the same base
@@ -1970,6 +1995,10 @@ async def save_edited_image(
     source_item = result.scalars().first()
     if not source_item:
         raise HTTPException(status_code=404, detail=f"Source asset {source_media_id} not found")
+
+    if project_id is not None:
+        from project_service import get_project_or_404
+        await get_project_or_404(session, project_id)
 
     selected_marker_ids: list[int] = []
     if marker_ids:
@@ -2143,6 +2172,11 @@ async def save_edited_image(
             committed_revision = await session.get(
                 AssetRevision, target_asset.current_revision_id
             )
+            from project_service import attach_media_to_projects, live_project_ids_for_asset
+            new_asset_project_ids = await live_project_ids_for_asset(session, source_asset.id)
+            if project_id is not None and project_id not in new_asset_project_ids:
+                new_asset_project_ids.append(project_id)
+            await attach_media_to_projects(session, new_asset_project_ids, db_media_item.id)
             if selected_marker_ids:
                 from asset_association_service import set_asset_marker
                 for marker_id in selected_marker_ids:
@@ -2272,6 +2306,15 @@ async def save_edited_image(
             "media_id": media_item.id,
         },
     )
+    if save_as_new:
+        from project_service import broadcast_project_assets_changed
+        for pid in new_asset_project_ids:
+            await broadcast_project_assets_changed(
+                pid,
+                asset_ids=[target_asset.id],
+                media_ids=[media_item.id],
+                action="added",
+            )
 
     return SaveEditResponse(
         media_id=media_item.id,
@@ -2305,11 +2348,21 @@ async def explode_set_or_grid(
             detail="Media is not uniquely mapped to a container Asset",
         )
     from container_service import explode_container
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    container_project_ids = await live_project_ids_for_asset(session, revision.asset_id)
     promoted_asset_ids = await explode_container(
         session, asset_id=revision.asset_id
     )
+    attached = await attach_assets_to_projects(
+        session, container_project_ids, promoted_asset_ids
+    )
     await session.commit()
+    await broadcast_attached(session, attached)
     await ws_manager.broadcast(
         "asset_trashed", {"asset_id": revision.asset_id}
     )

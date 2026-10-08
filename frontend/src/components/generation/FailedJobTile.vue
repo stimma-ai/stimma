@@ -7,7 +7,7 @@
        clicking the tile opens the failure details. -->
   <div
     :class="[
-      'group relative w-full rounded-media overflow-hidden bg-matte cursor-pointer',
+      'jobs-tile group relative w-full rounded-media overflow-hidden bg-matte cursor-pointer',
       'ring-1 ring-inset', ringClass('failed'),
     ]"
     :style="{ aspectRatio: aspect || '1 / 1' }"

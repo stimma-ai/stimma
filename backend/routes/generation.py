@@ -511,6 +511,19 @@ async def enhance_tool_prompt(
     )
 
 
+async def _reject_missing_project(session, request, generation_queue, provider_id) -> None:
+    """Submits into a missing or deleted project fail before anything queues."""
+    project_id = getattr(request, "project_id", None)
+    if project_id is None:
+        return
+    from project_service import is_live_project
+
+    if await is_live_project(session, project_id):
+        return
+    await _decline_unqueued_reserved_work(generation_queue, request, provider_id, False)
+    raise HTTPException(status_code=404, detail="Project not found")
+
+
 async def _decline_unqueued_reserved_work(
     generation_queue,
     request,
@@ -562,6 +575,8 @@ async def get_generation_folder(
 async def upload_reference_image(
     file: UploadFile = File(...),
     materialize_asset: bool = Form(True),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Upload a reference image for image-to-image tasks.
@@ -573,12 +588,16 @@ async def upload_reference_image(
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
         media_item, file_path = await upload_service.upload_file(
             content,
             file.filename or "upload.png",
+            project_id=project_id,
             materialize_asset=materialize_asset,
         )
 
@@ -744,7 +763,11 @@ async def get_reference_video_file(path: str):
 
 
 @router.post("/upload-reference-video")
-async def upload_reference_video(file: UploadFile = File(...)):
+async def upload_reference_video(
+    file: UploadFile = File(...),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Upload a reference video for video upscale tasks.
 
@@ -755,10 +778,15 @@ async def upload_reference_video(file: UploadFile = File(...)):
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
-        media_item, file_path = await upload_service.upload_file(content, file.filename or "upload.mp4")
+        media_item, file_path = await upload_service.upload_file(
+            content, file.filename or "upload.mp4", project_id=project_id
+        )
 
         return {
             "path": file_path,
@@ -829,7 +857,11 @@ async def get_reference_audio_file(path: str):
 
 
 @router.post("/upload-reference-audio")
-async def upload_reference_audio(file: UploadFile = File(...)):
+async def upload_reference_audio(
+    file: UploadFile = File(...),
+    project_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Upload a reference audio file for audio-input tasks (lip-sync, avatar, etc.).
 
@@ -840,10 +872,15 @@ async def upload_reference_audio(file: UploadFile = File(...)):
     """
     from upload_service import get_upload_service, UploadError
 
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+
     try:
         upload_service = get_upload_service()
         content = await file.read()
-        media_item, file_path = await upload_service.upload_file(content, file.filename or "upload.mp3")
+        media_item, file_path = await upload_service.upload_file(
+            content, file.filename or "upload.mp3", project_id=project_id
+        )
 
         return {
             "path": file_path,
@@ -1476,6 +1513,14 @@ async def upload_bulk(
     success = len([r for r in results if r["status"] == "success"])
     errors = total - success
 
+    if success > 0 and project_id is not None:
+        from project_service import broadcast_project_assets_changed
+        await broadcast_project_assets_changed(
+            project_id,
+            media_ids=[r["media_id"] for r in results if r["status"] == "success"],
+            action="added",
+        )
+
     if success > 0:
         from telemetry import get_telemetry_client
         get_telemetry_client().track("media_uploaded", {
@@ -1631,6 +1676,7 @@ async def submit_generation_job(
     generation_queue = get_generation_queue()
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(f"Received generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
@@ -1724,6 +1770,7 @@ async def submit_batch_jobs(
     generation_queue = get_generation_queue()
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(f"Received batch generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
@@ -2009,6 +2056,7 @@ async def submit_media_batch_jobs(
     media_ids = request.batch_input.media_ids
     provider_id = _provider_id_for_tool(request.tool_id)
     reservation_handed_to_queue = False
+    await _reject_missing_project(session, request, generation_queue, provider_id)
 
     log.info(
         f"Received media-batch request: tool_id={request.tool_id}, "
@@ -3190,6 +3238,8 @@ class PromptWarmPoolUpdateRequest(BaseModel):
     # that knows the forever-mode concurrency it's driving toward. 0 clears
     # the pool for this instance without waiting for unregister/TTL.
     concurrency: int = 0
+    # The tool's project, so the project's AI model override applies.
+    project_id: Optional[int] = None
 
 
 @router.post("/prompt-warm-pool/update")
@@ -3218,6 +3268,7 @@ async def update_prompt_warm_pool(request: PromptWarmPoolUpdateRequest):
         prompt_sources_signature=request.prompt_sources_signature,
         concurrency=request.concurrency,
         profile_id=get_current_profile(),
+        project_id=request.project_id,
     )
     return {"status": "ok"}
 

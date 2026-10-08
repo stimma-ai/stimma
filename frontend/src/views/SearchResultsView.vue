@@ -313,6 +313,7 @@
 </template>
 
 <script setup lang="ts">
+import { useEntityMove } from '../composables/useEntityMove'
 import { ref, computed, watch, h, defineComponent, onActivated, type PropType } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
@@ -732,25 +733,10 @@ function handleContextMenuRename(entityType: string, entityId: number) {
   else if (entityType === 'board') router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
 }
 
+const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType: string, entityId: number, projectId: number | null) {
-  try {
-    if (entityType === 'board') {
-      await updateBoard(entityId, { project_id: projectId })
-    } else if (entityType === 'flow') {
-      await updateFlow(entityId, { project_id: projectId })
-    } else if (entityType === 'chat') {
-      await fetch(`/api/chats/${entityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId }),
-      })
-    } else {
-      return
-    }
-    await runSearch()
-  } catch (err) {
-    console.error(`Failed to move ${entityType} to project:`, err)
-  }
+  if (entityType !== 'board' && entityType !== 'flow' && entityType !== 'chat') return
+  if (await moveEntityToProject(entityType, entityId, projectId)) await runSearch()
 }
 
 async function callEntityDelete(kind: ManagedKind, id: number) {

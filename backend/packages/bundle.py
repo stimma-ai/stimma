@@ -315,7 +315,11 @@ class PackageBuilder:
                 raise PackageError("Package is missing its editable cover source")
             self.cover_source = contained(COVER_SOURCE_NAME).read_text(encoding="utf-8")
         if manifest.get("cover_image"):
-            self.set_tile(contained(check_bundle_path(manifest["cover_image"])))
+            # The tile is an internal file, not a user-authored deliverable path.
+            # Its reserved _stimma segment deliberately fails check_bundle_path.
+            if manifest["cover_image"] != TILE_NAME:
+                raise PackageError("Package has an invalid cover image path")
+            self.set_tile(contained(TILE_NAME))
 
     async def replace_member(self, member_id: str, media_id: int) -> None:
         """Replace one source in place; dependent runs must be explicitly rerun."""

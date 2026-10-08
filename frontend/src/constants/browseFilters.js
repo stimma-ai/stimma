@@ -15,6 +15,7 @@ export const DEFAULT_BROWSE_FILTERS = {
   selectedProjects: [],
   excludedProjects: [],
   projectMembership: null,   // null = no constraint, 'any' = in any project, 'none' = in no project
+  includeProjects: false,    // top level only: false = unfiled assets, true = include project assets
   selectedTools: [],
   excludedTools: [],
   selectedMarkers: [],

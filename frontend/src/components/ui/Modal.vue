@@ -6,6 +6,9 @@
 // Transition markup.
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { isTauri } from '../../apiConfig'
+import { useViewport } from '../../composables/useViewport'
+
+const { allowsAutofocus } = useViewport()
 
 const props = withDefaults(defineProps<{
   show: boolean
@@ -86,7 +89,11 @@ watch(() => props.show, async (show) => {
     if (card && !card.contains(document.activeElement)) card.focus()
   } else {
     window.removeEventListener('keydown', onKeydown)
-    previouslyFocused?.focus?.()
+    // Restoring typing focus on touch reopens the keyboard after dismissal.
+    // Keep keyboard navigation's return focus, including non-input triggers.
+    if (allowsAutofocus.value || !previouslyFocused?.matches('input, textarea, [contenteditable]:not([contenteditable="false"])')) {
+      previouslyFocused?.focus?.()
+    }
     previouslyFocused = null
   }
 }, { immediate: true })

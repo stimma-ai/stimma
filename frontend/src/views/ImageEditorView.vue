@@ -89,6 +89,8 @@ import { useProvidersApi } from '../composables/useProvidersApi'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { useMarkers } from '../composables/useMarkers'
+import { useOwnerProject } from '../composables/useProjectScope'
+import { appendProjectId } from '../utils/projectScope'
 import {
   nameStepFromCrop,
   regionCropBase64,
@@ -8298,6 +8300,9 @@ const savedRevisionId = ref<number | null>(null)
  * put the answer somewhere other than the thing the user is watching.
  */
 const savingNote = ref<string | null>(null)
+// Save as new lands in the editor's active project; the backend also copies
+// the source asset's project memberships.
+const saveProjectId = useOwnerProject()
 
 async function save(asNew = false) {
   if (!composite.value || !stack.doc.value) return
@@ -8320,6 +8325,7 @@ async function save(asNew = false) {
     form.append('stack_summary', JSON.stringify(stack.executedStackSummary()))
     if (asNew) {
       form.append('save_as_new', 'true')
+      appendProjectId(form, saveProjectId.value)
       const availableMarkerIds = new Set(availableMarkers.value.map(marker => marker.id))
       const selectedMarkerIds = newAssetMarkerIds.value.filter(
         markerId => availableMarkerIds.has(markerId),

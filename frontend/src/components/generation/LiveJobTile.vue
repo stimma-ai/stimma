@@ -7,7 +7,7 @@
        raw <img> with no MediaImage drag/context machinery. -->
   <div
     :class="[
-      'group relative w-full rounded-media overflow-hidden bg-matte',
+      'jobs-tile group relative w-full rounded-media overflow-hidden bg-matte',
       clickable && previewUrl ? 'cursor-pointer' : 'cursor-default',
     ]"
     :style="{ aspectRatio: aspect || '1 / 1' }"

@@ -32,6 +32,8 @@ function go(to: string) {
   emit('close')
   router.push(to)
 }
+// Assets has one address per context: /browse, or a project's assets page.
+const assetsActive = computed(() => route.name === 'browse' || route.name === 'project-assets')
 function isActive(name: string, id?: string | number) {
   if (route.name !== name) return false
   return id === undefined || String(route.params.id) === String(id)
@@ -41,10 +43,10 @@ function isActive(name: string, id?: string | number) {
 <template>
   <Sheet :show="show" title="Assets" @close="emit('close')">
     <div class="pb-2">
-      <button type="button" class="sheet-row" :class="isActive('browse') && 'text-accent-hi'" @click="go('/browse')">
+      <button type="button" class="sheet-row" :class="assetsActive && 'text-accent-hi'" @click="go('/browse')">
         <Squares2X2Icon class="sheet-row-icon" />
         <span class="flex-1 truncate">Assets</span>
-        <CheckIcon v-if="isActive('browse')" class="w-5 h-5 text-accent-hi" />
+        <CheckIcon v-if="assetsActive" class="w-5 h-5 text-accent-hi" />
       </button>
 
 

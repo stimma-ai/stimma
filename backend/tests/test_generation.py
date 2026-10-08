@@ -42,11 +42,14 @@ class TestReferenceUploadDisposition:
             result = await generation_routes.upload_reference_image(
                 file=file,
                 materialize_asset=False,
+                project_id=None,
+                session=None,
             )
 
         upload.assert_awaited_once_with(
             b"png",
             "composite.png",
+            project_id=None,
             materialize_asset=False,
         )
         assert result["media_id"] == 17

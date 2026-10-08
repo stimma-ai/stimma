@@ -117,6 +117,7 @@ import ToolConfigRow from '../components/chat/ToolConfigRow.vue'
 import Button from '../components/ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
+import { useProjectDeletion } from '../composables/useProjectDeletion'
 
 const props = defineProps({
   project: {
@@ -126,7 +127,9 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const { updateProject, deleteProject } = useMediaApi()
+const { updateProject } = useMediaApi()
+const deleteProjectAndCleanUp = useProjectDeletion()
+const deleting = ref(false)
 const { listAllTools } = useProvidersApi()
 
 // General state
@@ -310,9 +313,14 @@ function cancelDeleteProject() {
 }
 
 async function confirmDeleteProject() {
-  await deleteProject(props.project.id)
-  showDeleteModal.value = false
-  router.push({ name: 'projects' })
+  if (deleting.value) return
+  deleting.value = true
+  try {
+    // Lands on Everything's Home when this was the working project.
+    if (await deleteProjectAndCleanUp(props.project.id)) showDeleteModal.value = false
+  } finally {
+    deleting.value = false
+  }
 }
 
 onMounted(() => {

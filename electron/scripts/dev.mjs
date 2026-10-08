@@ -1,11 +1,12 @@
-// Development runner: esbuild watch over main/preload + automatic Electron
-// restart when either rebuilds. Renderer changes never pass through here —
+// Development runner: esbuild watch over the shell bundles (main, preload,
+// render worker) + automatic Electron restart when any of them rebuilds. Renderer changes never pass through here —
 // Vite HMR owns those. The backend is external in dev (STIMMA_DEV=1).
 import { context } from 'esbuild'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
+import { shellTargets } from './targets.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const require = createRequire(import.meta.url)
@@ -42,7 +43,7 @@ function startElectron() {
 function scheduleRestart() {
   if (restartTimer) clearTimeout(restartTimer)
   restartTimer = setTimeout(() => {
-    console.log('[electron-dev] main/preload changed; restarting shell...')
+    console.log('[electron-dev] shell bundle changed; restarting shell...')
     const previous = child
     if (previous && previous.exitCode === null) {
       previous.removeAllListeners('exit')
@@ -58,18 +59,10 @@ function scheduleRestart() {
   }, 150)
 }
 
-const common = {
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  sourcemap: true,
-  external: ['electron', 'electron-updater'],
-  logLevel: 'warning',
-}
-
 // watch() performs one initial build per context; only rebuilds after that
-// should restart the shell. Launch waits for both initial builds.
-let initialBuildsRemaining = 2
+// should restart the shell. Launch waits for every initial build.
+const targets = shellTargets(root, { logLevel: 'warning' })
+let initialBuildsRemaining = targets.length
 let resolveInitialBuilds
 const initialBuilds = new Promise((resolve) => { resolveInitialBuilds = resolve })
 const notify = {
@@ -87,24 +80,13 @@ const notify = {
   },
 }
 
-const contexts = await Promise.all([
-  context({
-    ...common,
-    entryPoints: [join(root, 'src', 'main.ts')],
-    outfile: join(root, 'dist', 'main.cjs'),
-    plugins: [notify],
-  }),
-  context({
-    ...common,
-    entryPoints: [join(root, 'src', 'preload.ts')],
-    outfile: join(root, 'dist', 'preload.cjs'),
-    plugins: [notify],
-  }),
-])
+const contexts = await Promise.all(
+  targets.map((t) => context({ ...t, plugins: [notify] })),
+)
 
 await Promise.all(contexts.map((c) => c.watch()))
 await initialBuilds
-console.log('[electron-dev] shell built; launching Electron (watching main/preload)...')
+console.log('[electron-dev] shell built; launching Electron (watching shell bundles)...')
 startElectron()
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

@@ -283,7 +283,10 @@ export type SearchResultKind =
  *
  * `projectId` (scope chip): tools and presets open the PROJECT-SCOPED flavor
  * of the tool — its own instance with project presets/settings — by carrying
- * project_id on the route, same as the sidebar's project tool tabs.
+ * project_id on the route, same as the sidebar's project tool tabs. With no
+ * chip the results are unscoped, so tools and presets open at the top level
+ * (project_id=0) wherever the search started. Chats, boards, flows and
+ * projects carry their own context: the router follows them into it.
  */
 export function openSearchResult(
   router: Router,
@@ -292,7 +295,7 @@ export function openSearchResult(
   projectId?: number | null,
   opts?: { forceNewInstance?: boolean },
 ) {
-  const projectQuery = projectId != null ? { project_id: String(projectId) } : {}
+  const projectQuery = { project_id: projectId != null ? String(projectId) : '0' }
   switch (kind) {
     case 'tool': {
       const fullToolId = String(result.full_tool_id ?? result.id)

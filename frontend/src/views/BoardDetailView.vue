@@ -12,7 +12,7 @@
     <Sheet :show="moveProjectOpen" title="Move to project" @close="moveProjectOpen = false">
       <ProjectPickerSubmenu v-if="moveProjectOpen" mode="move" :current-project-id="board?.project_id" @select="moveBoardToProject" />
     </Sheet>
-    <AssetSelectionSheet :show="addAssetsSection !== null" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
+    <AssetSelectionSheet :show="addAssetsSection !== null" :project-id="board ? (board.project_id ?? null) : undefined" :saving="addingAssets" @close="addAssetsSection = null" @select="addSectionAssets" />
     <RenameSheet :show="renameOpen" :name="board?.name || ''" label="Rename board" @close="renameOpen = false" @save="renameBoard" />
 
     <div v-show="!isCompact && !slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3 compact:px-3 compact:py-2">
@@ -349,6 +349,7 @@ import { useViewport } from '../composables/useViewport'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
+import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
 import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
@@ -1934,11 +1935,12 @@ watch([() => route.query.rename, () => board.value?.id], ([flag, id]) => {
 const moveProjectOpen = ref(false)
 const addAssetsSection = ref(null)
 const addingAssets = ref(false)
+const moveEntityToProject = useEntityMove()
 async function moveBoardToProject(projectId) {
-  try {
-    board.value = await updateBoard(board.value.id, { project_id: projectId })
-    moveProjectOpen.value = false
-  } catch { addToast('Could not move the board', 'error') }
+  const updated = await moveEntityToProject('board', board.value.id, projectId)
+  if (!updated) return
+  board.value = updated
+  moveProjectOpen.value = false
 }
 async function addSectionAssets(assetIds) {
   if (addingAssets.value || addAssetsSection.value === null) return

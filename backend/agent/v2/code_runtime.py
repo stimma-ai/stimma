@@ -2632,6 +2632,7 @@ class StimmaSDK:
                 workspace_dir=self.workspace_dir,
                 save_tags=None,
                 provenance=provenance,
+                project_id=self.project_id,
             )
             if isinstance(raw, str) and not raw.startswith("Error:"):
                 data = json.loads(raw)

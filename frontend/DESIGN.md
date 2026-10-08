@@ -304,6 +304,11 @@ that a desktop-sized window never trips.
 - **Touch targets.** Interactive controls are ≥ 44×44 px on coarse pointers
   (`min-h-11 min-w-11` under `[data-pointer=coarse]`). Dense desktop rows
   keep their 28px icon buttons on fine pointers; the kit does the switch.
+- **Keyboard focus.** `useViewport().allowsAutofocus` gates passive text-field
+  focus on navigation, activation and opening browsing pickers. Compact or
+  coarse-pointer surfaces wait for a tap on the field, even on wide foldables.
+  Explicit text editing, PIN entry, dictation and keyboard shortcuts may focus
+  their inputs; non-input focus for accessibility is unaffected.
 - **Hover is an accelerator.** Anything revealed on hover (`group-hover:`
   controls, tooltips) is also reachable by tap, long-press or a menu. On
   coarse pointers hover-revealed controls render visible or move into the
@@ -341,6 +346,9 @@ that a desktop-sized window never trips.
   not toy-sized: no row padding beyond the tokens, no per-sheet sizes.
 - **Bottom edge.** One docked bar per screen (composer, run dock,
   selection bar), padded with `pb-safe`. Never two docked bars.
+  Safe-area tokens describe space still needed inside the web viewport.
+  The Android shell already insets its WebView, so its frontend tokens are
+  zero; browser and iOS viewports retain the CSS environment insets.
 - **Media grids.** 3 columns on compact, 2px gutters, on matte;
   `rounded-media` and the selection ring unchanged. Tap = open,
   long-press = select.

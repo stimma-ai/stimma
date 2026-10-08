@@ -27,7 +27,7 @@ test.describe('release acceptance', () => {
 
     await page.goto('/browse');
     await waitForShell(page);
-    await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid^="media-grid-item-"] img').first()).toBeVisible({ timeout: 30000 });
   });
 
   test('project-scoped tool generation creates project media', async ({ page }) => {
@@ -47,6 +47,6 @@ test.describe('release acceptance', () => {
     expect(projectMedia.length).toBeGreaterThan(0);
 
     await page.goto(`/projects/${project.id}/assets`);
-    await expect(page.locator('img').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid^="media-grid-item-"] img').first()).toBeVisible({ timeout: 30000 });
   });
 });

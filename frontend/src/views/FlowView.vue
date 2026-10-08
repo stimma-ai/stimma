@@ -518,6 +518,7 @@
                   <div class="py-1">
                     <FlowInputForm
                       ref="inputFormRef"
+                      :project-id="flow ? (flow.project_id ?? null) : undefined"
                       :schema="flow?.input_schema || null"
                       :initial-values="flow?.inputs || null"
                       :applying="submittingInputs"
@@ -771,6 +772,7 @@ import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
+import { useEntityMove } from '../composables/useEntityMove'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -2325,9 +2327,13 @@ watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
   else startEditName()
 }, { immediate: true })
 const moveProjectOpen = ref(false)
+const moveEntityToProject = useEntityMove()
 async function moveToProject(projectId: number | null) {
-  try { await state.updateMetadata({ project_id: projectId }); moveProjectOpen.value = false }
-  catch { addToast('Could not move the flow', 'error') }
+  if (!flow.value) return
+  const updated = await moveEntityToProject('flow', flow.value.id, projectId)
+  if (!updated) return
+  flow.value = updated
+  moveProjectOpen.value = false
 }
 function updateCompactHeader() {
   if (route.name !== 'flow' || String(route.params.id) !== String(flow.value?.id)) return

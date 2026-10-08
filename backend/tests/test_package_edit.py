@@ -229,3 +229,23 @@ async def test_resume_rejects_snapshot_symlinks_outside_bundle(db_session, tmp_p
         with pytest.raises(PackageError, match='Package file unavailable'):
             await sdk.packages.open(snapshot)
         pkg._builder.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_resume_package_with_internal_cover_tile(db_session, tmp_path):
+    from PIL import Image
+    from packages.manifest import TILE_NAME
+
+    async with db_session() as session:
+        sdk, mid = await initial(session, tmp_path)
+        tile = tmp_path / "tile.png"
+        Image.new("RGB", (32, 32), "teal").save(tile)
+        draft = await sdk.packages.open(mid)
+        draft.set_tile("tile.png")
+        snapshot = await draft.preview()
+        resumed = await sdk.packages.open(snapshot)
+        saved_id = await resumed.save()
+        saved = await sdk.packages.open(saved_id)
+        assert (await saved.manifest())["cover_image"] == TILE_NAME
+        saved_root = Path((await session.get(MediaItem, saved_id)).file_path)
+        assert (saved_root / TILE_NAME).read_bytes() == tile.read_bytes()

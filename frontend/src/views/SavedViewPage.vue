@@ -298,6 +298,9 @@ async function loadSavedView() {
 
     // Apply saved filters
     const savedFilters = normalizeBrowseFilters({
+      // Views saved before the top-level browser hid project assets keep
+      // showing them; views saved since store their own choice.
+      includeProjects: !('includeProjects' in (view.filters || {})),
       ...view.filters,
       sortBy: view.sort_by
     })

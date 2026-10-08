@@ -425,7 +425,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../../../apiConfig'
-import { cachePin } from '../../../composables/usePinLock'
+import { cachePin, syncPinTimeouts } from '../../../composables/usePinLock'
 import Modal from '../../ui/Modal.vue'
 import Button from '../../ui/Button.vue'
 
@@ -857,6 +857,7 @@ async function updateIdleTimeout() {
     if (response.ok) {
       // Update local profile state
       pinSettingsProfile.value = { ...pinSettingsProfile.value, pin_idle_timeout_minutes: pinIdleTimeout.value }
+      syncPinTimeouts([pinSettingsProfile.value])
     } else {
       console.error('[ProfilesSection] Failed to update idle timeout')
     }

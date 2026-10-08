@@ -66,6 +66,7 @@ test('filter-count params include every All Assets filter that changes availabil
     exclude_expiring: true,
     created_after: '2026-07-01T00:00:00Z',
     created_before: '2026-07-20T00:00:00Z',
+    scope: 'all',
   })
 })
 
@@ -92,6 +93,7 @@ test('project scope constrains facets and ignores stale library project filters'
   assert.equal('project_ids' in params, false)
   assert.equal('excluded_project_ids' in params, false)
   assert.equal('has_project' in params, false)
+  assert.equal('scope' in params, false)
 
   const watched = getFilterCountWatchValues({}, { projectId: 12 })
   assert.equal(watched.includes(12), true)
@@ -127,5 +129,16 @@ test('similarity inputs use the active search source without dropping text searc
     state: 'active',
     similar_to_text: 'landscape',
     similar_face_to: '8,9',
+    scope: 'unfiled',
   })
+})
+
+test('top-level counts follow the unfiled scope unless project assets are included', () => {
+  assert.equal(buildFilterCountParams({}).scope, 'unfiled')
+  assert.equal(buildFilterCountParams({ includeProjects: true }).scope, 'all')
+  assert.equal('scope' in buildFilterCountParams({}, { projectId: 12 }), false)
+  assert.equal('scope' in buildFilterCountParams({}, { isTrashMode: true }), false)
+
+  const values = getFilterCountWatchValues({ includeProjects: 'include-flag' })
+  assert.equal(values.includes('include-flag'), true)
 })

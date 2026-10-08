@@ -119,6 +119,12 @@ class WebSocketManager:
             log.debug(f"No active WebSocket connections to broadcast '{event}' to")
             return
 
+        # Work starting or finishing anywhere changes project activity. One
+        # hook here covers jobs, agent runs and flows, whoever broadcasts them.
+        from project_activity import ACTIVITY_TRIGGER_EVENTS, schedule_project_activity_broadcast
+        if event in ACTIVITY_TRIGGER_EVENTS:
+            schedule_project_activity_broadcast()
+
         # Automatically include profile_id for profile-specific events
         if include_profile and 'profile_id' not in data:
             try:

@@ -87,6 +87,7 @@
 </template>
 
 <script setup lang="ts">
+import { useEntityMove } from '../composables/useEntityMove'
 import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
@@ -131,6 +132,7 @@ async function load(quiet = false) {
   loading.value = quiet !== true
   loadError.value = null
   try {
+    // With no project_id the server lists only flows with no project.
     const params = props.projectId ? { project_id: props.projectId } : {}
     flows.value = await api.listFlows(params)
     loaded = true
@@ -198,17 +200,16 @@ async function renameFromSheet(name: string) {
   if (flow) await handleInlineRename(flow, name)
 }
 
+const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(_entityType: string, entityId: number, projectId: number | null) {
-  try {
-    const updated = await api.updateFlow(entityId, { project_id: projectId })
+  const updated = await moveEntityToProject('flow', entityId, projectId)
+  if (!updated) return
+  // Lists are strictly scoped: a flow moved to another context leaves this one.
+  if ((updated.project_id ?? null) !== (props.projectId ?? null)) {
+    flows.value = flows.value.filter(r => r.id !== entityId)
+  } else {
     const idx = flows.value.findIndex(r => r.id === entityId)
     if (idx >= 0) flows.value[idx] = updated
-    // If list is scoped to a project and flow moved out, drop it.
-    if (props.projectId && updated.project_id !== props.projectId) {
-      flows.value = flows.value.filter(r => r.id !== entityId)
-    }
-  } catch (err) {
-    console.error('Failed to move flow to project:', err)
   }
 }
 
@@ -255,8 +256,7 @@ async function performDelete(id: number) {
 }
 
 function matchesScope(flow: any): boolean {
-  if (!props.projectId) return true
-  return flow?.project_id === props.projectId
+  return (flow?.project_id ?? null) === (props.projectId || null)
 }
 
 async function createFlow() {

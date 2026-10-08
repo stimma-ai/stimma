@@ -209,6 +209,39 @@ def _asset_browser_base(state: str):
     return query
 
 
+ASSET_SCOPES = ("all", "unfiled")
+
+
+def _validate_scope(scope: str | None) -> str:
+    value = scope or "all"
+    if value not in ASSET_SCOPES:
+        raise HTTPException(status_code=422, detail="scope must be 'all' or 'unfiled'")
+    return value
+
+
+def _apply_asset_scope(query, scope: str | None, project_id: int | None):
+    """``scope=unfiled`` keeps only Assets in no live project.
+
+    Membership in a deleted project doesn't count. A ``project_id`` already
+    narrows the browse to that project, so scope is ignored with it.
+    """
+    if _validate_scope(scope) != "unfiled" or project_id is not None:
+        return query
+    in_live_project = (
+        select(1)
+        .select_from(ProjectAsset)
+        .join(Project, Project.id == ProjectAsset.project_id)
+        .where(
+            ProjectAsset.asset_id == Asset.id,
+            ProjectAsset.deleted_at.is_(None),
+            Project.deleted_at.is_(None),
+        )
+        .correlate(Asset)
+        .exists()
+    )
+    return query.where(~in_live_project)
+
+
 def _apply_asset_filters(query, **filters):
     return build_filtered_query(
         query,
@@ -361,9 +394,14 @@ async def browse_assets(
         pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|edited_desc|deleted_desc|deleted_asc|random|similarity)$",
     ),
     random_seed: int | None = None,
+    scope: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Asset browser projection; identity is Asset, payload fields are current Media."""
+    """Asset browser projection; identity is Asset, payload fields are current Media.
+
+    ``scope=unfiled`` (without ``project_id``) limits the browse to Assets in no
+    live project; the default ``all`` includes everything.
+    """
     effective_projects = project_ids
     if project_id is not None:
         effective_projects = ",".join(
@@ -403,6 +441,7 @@ async def browse_assets(
         max_mp=max_mp,
         state=state,
     )
+    query = _apply_asset_scope(query, scope, project_id)
     if folders:
         query = query.where(StorageObject.kind == "external")
 
@@ -578,6 +617,7 @@ async def search_asset_groups(
     per_group: int = Query(6, ge=1, le=50, description="Newest items returned per group"),
     max_groups: int = Query(3, ge=1, le=len(SEARCH_GROUP_ORDER), description="Groups returned, in display order"),
     project_id: int | None = None,
+    scope: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Text matches for the search box, grouped by media type.
@@ -594,6 +634,7 @@ async def search_asset_groups(
         project_ids=str(project_id) if project_id is not None else None,
         state="active",
     )
+    base = _apply_asset_scope(base, scope, project_id)
     format_counts = dict(
         (
             await session.execute(
@@ -668,6 +709,7 @@ async def browse_asset_ids(
     max_mp: float | None = None,
     sort_by: str = Query("created_desc"),
     random_seed: int | None = None,
+    scope: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Ordered Asset IDs for select-all; deliberately never returns Media IDs."""
@@ -717,6 +759,7 @@ async def browse_asset_ids(
             max_mp=max_mp,
             sort_by=sort_by,
             random_seed=random_seed,
+            scope=scope,
             session=session,
         )
         return {"ids": [item["asset_id"] for item in result["items"]]}
@@ -758,6 +801,7 @@ async def browse_asset_ids(
         max_mp=max_mp,
         state=state,
     )
+    query = _apply_asset_scope(query, scope, project_id)
     if folders:
         query = query.where(StorageObject.kind == "external")
     query = query.with_only_columns(Asset.id)
@@ -774,6 +818,7 @@ async def _similarity_media_ids_for_facets(
     similar_face_to: str | None,
     similar_to_text: str | None,
     similarity_threshold: float | None,
+    scope: str | None = None,
 ) -> list[int] | None:
     if not any(value is not None for value in (similar_to, similar_face_to, similar_to_text)):
         return None
@@ -788,6 +833,7 @@ async def _similarity_media_ids_for_facets(
         similarity_threshold=similarity_threshold,
         similarity_cutoff=None,
         sort_by="created_desc",
+        scope=scope,
         session=session,
     )
     return [item["media_id"] for item in result["items"]]
@@ -800,6 +846,7 @@ def _asset_facet_query(
     project_id: int | None = None,
     exclude_category: str | None = None,
     similarity_media_ids: list[int] | None = None,
+    scope: str | None = None,
 ):
     query = _apply_asset_filters(
         _asset_browser_base(state),
@@ -807,6 +854,7 @@ def _asset_facet_query(
         state=state,
         exclude_category=exclude_category,
     )
+    query = _apply_asset_scope(query, scope, project_id)
     if project_id is not None:
         project_asset_ids = (
             select(ProjectAsset.asset_id)
@@ -866,6 +914,7 @@ async def get_asset_top_keywords(
     similar_face_to: str | None = None,
     similar_to_text: str | None = None,
     similarity_threshold: float | None = None,
+    scope: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Keyword vocabulary/counts over current Asset revisions only."""
@@ -898,6 +947,7 @@ async def get_asset_top_keywords(
         similar_face_to=similar_face_to,
         similar_to_text=similar_to_text,
         similarity_threshold=similarity_threshold,
+        scope=scope,
     )
     query = _asset_facet_query(
         state=state,
@@ -905,6 +955,7 @@ async def get_asset_top_keywords(
         project_id=project_id,
         exclude_category="keywords",
         similarity_media_ids=similarity_ids,
+        scope=scope,
     ).join(MediaKeyword, MediaKeyword.media_id == MediaItem.id).join(
         Keyword, Keyword.id == MediaKeyword.keyword_id
     )
@@ -973,6 +1024,7 @@ async def get_asset_filter_counts(
     keyword_limit: int = Query(50, ge=1, le=200),
     tag_limit: int = Query(50, ge=1, le=200),
     tool_limit: int = Query(50, ge=1, le=200),
+    scope: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Facet preview counts over Asset identity and current Revision payloads."""
@@ -1012,6 +1064,7 @@ async def get_asset_filter_counts(
         similar_face_to=similar_face_to,
         similar_to_text=similar_to_text,
         similarity_threshold=similarity_threshold,
+        scope=scope,
     )
 
     def facet(category: str | None = None):
@@ -1021,6 +1074,7 @@ async def get_asset_filter_counts(
             project_id=project_id,
             exclude_category=category,
             similarity_media_ids=similarity_ids,
+            scope=scope,
         )
 
     type_formats = {
@@ -1537,9 +1591,36 @@ async def add_assets_to_project(
     await session.commit()
     if valid_ids:
         from asset_association_service import broadcast_assets_retained
+        from project_service import broadcast_project_assets_changed_for_assets
 
         await broadcast_assets_retained(session, valid_ids, ws_manager)
+        await broadcast_project_assets_changed_for_assets(
+            session, project_id, valid_ids, action="added"
+        )
     return {"status": "success", "added": len(valid_ids)}
+
+
+@router.post("/batch/projects/{project_id}/remove")
+async def remove_assets_from_project(
+    project_id: int,
+    request: AssetIdsRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    project = await session.get(Project, project_id)
+    if project is None or project.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    removed_ids = []
+    for asset_id in dict.fromkeys(request.asset_ids):
+        if await detach_asset_from_project(session, project_id, asset_id):
+            removed_ids.append(asset_id)
+    await session.commit()
+    if removed_ids:
+        from project_service import broadcast_project_assets_changed_for_assets
+
+        await broadcast_project_assets_changed_for_assets(
+            session, project_id, removed_ids, action="removed"
+        )
+    return {"status": "success", "removed": len(removed_ids)}
 
 
 @router.post("/batch/trash")
@@ -1684,6 +1765,11 @@ async def remove_asset_from_project(
     await session.commit()
     if not removed:
         raise HTTPException(status_code=404, detail="Asset not in project")
+    from project_service import broadcast_project_assets_changed_for_assets
+
+    await broadcast_project_assets_changed_for_assets(
+        session, project_id, [asset_id], action="removed"
+    )
     return {"status": "success"}
 
 
@@ -1804,18 +1890,27 @@ async def promote_container_members(
     session: AsyncSession = Depends(get_db_session),
 ):
     from container_service import save_container_members_as_assets
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    # Members kept from a project's set or grid stay in that project.
+    container_project_ids = await live_project_ids_for_asset(session, asset_id)
     try:
         promoted_ids = await save_container_members_as_assets(
             session, asset_id=asset_id
         )
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = await attach_assets_to_projects(session, container_project_ids, promoted_ids)
     await session.commit()
     await ws_manager.broadcast(
         "assets_created",
         {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
     )
+    await broadcast_attached(session, attached)
     return {"asset_ids": promoted_ids, "count": len(promoted_ids)}
 
 
@@ -1838,12 +1933,20 @@ async def explode_container_asset(
     session: AsyncSession = Depends(get_db_session),
 ):
     from container_service import explode_container, get_container_member_summary
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        live_project_ids_for_asset,
+    )
 
+    # Breaking apart a project's set or grid puts its members in that project.
+    container_project_ids = await live_project_ids_for_asset(session, asset_id)
     try:
         summary = await get_container_member_summary(session, asset_id=asset_id)
         promoted_ids = await explode_container(session, asset_id=asset_id)
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = await attach_assets_to_projects(session, container_project_ids, promoted_ids)
     await session.commit()
     await ws_manager.broadcast("asset_trashed", {"asset_id": asset_id})
     if promoted_ids:
@@ -1851,6 +1954,7 @@ async def explode_container_asset(
             "assets_created",
             {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
         )
+    await broadcast_attached(session, attached)
     return {
         "asset_id": asset_id,
         "asset_ids": promoted_ids,
@@ -1997,12 +2101,31 @@ async def list_contextual_media(
     }
 
 
+class ContextualPromoteRequest(BaseModel):
+    project_id: int | None = None
+
+
 @router.post("/contextual-media/{media_id}/promote")
 async def promote_contextual_media(
     media_id: int,
+    project_id: int | None = Query(None),
+    request: ContextualPromoteRequest | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Explicitly save a contextual/intermediate Media result as an Asset."""
+    """Explicitly save a contextual/intermediate Media result as an Asset.
+
+    ``project_id`` (query or JSON body) also puts the new Asset in that project.
+    """
+    from project_service import (
+        attach_assets_to_projects,
+        broadcast_attached,
+        get_project_or_404,
+    )
+
+    if project_id is None and request is not None:
+        project_id = request.project_id
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
     try:
         asset = await create_asset_from_media(
             session,
@@ -2012,9 +2135,13 @@ async def promote_contextual_media(
         )
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    attached = {}
+    if project_id is not None:
+        attached = await attach_assets_to_projects(session, [project_id], [asset.id])
     await session.commit()
     item = await get_asset_browser_item(asset.id, session=session)
     await ws_manager.broadcast("asset_created", {"asset": item})
+    await broadcast_attached(session, attached)
     return {"asset": item}
 
 

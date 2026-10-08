@@ -5,7 +5,7 @@
  * PINs are cached in sessionStorage to survive page reloads within the same browser session,
  * but are cleared when the browser tab is closed.
  */
-import { ref, readonly, computed, watch, onUnmounted } from 'vue'
+import { ref, readonly, nextTick } from 'vue'
 import { getCurrentProfileId } from './useProfile'
 import { getApiBase } from '../apiConfig'
 import { makeGlobalKey } from '../utils/storageKeys'
@@ -21,6 +21,8 @@ function getPinCacheStorageKey() {
 // server last reported for the profile; it lets hydration expire an entry
 // without a round trip.
 const pinCache = new Map()
+const pinTimeouts = new Map()
+const DEFAULT_TIMEOUT_MINUTES = 30
 
 // Hydrate PIN cache from sessionStorage on module load. The persisted
 // lastActivity is honored: the idle clock must survive a reload, because the
@@ -34,9 +36,10 @@ try {
     const now = Date.now()
     for (const [profileId, entry] of Object.entries(data)) {
       if (!entry?.pin) continue
-      const lastActivity = Number.isFinite(entry.lastActivity) ? entry.lastActivity : now
-      const timeoutMinutes = Number.isFinite(entry.timeoutMinutes) ? entry.timeoutMinutes : null
-      if (timeoutMinutes !== null && now - lastActivity >= timeoutMinutes * 60 * 1000) continue
+      // Old entries without a trustworthy deadline must require a fresh PIN.
+      if (!Number.isFinite(entry.lastActivity) || !Number.isFinite(entry.timeoutMinutes)) continue
+      const { lastActivity, timeoutMinutes } = entry
+      if (now - lastActivity >= timeoutMinutes * 60 * 1000) continue
       pinCache.set(profileId, { pin: entry.pin, lastActivity, timeoutMinutes })
     }
   }
@@ -69,118 +72,187 @@ const pinModalProfileId = ref(null)
 const pinModalError = ref('')
 const pinModalCallback = ref(null)
 
-// Idle tracking state
+// Expiry is local and synchronous. Network refreshes must never hold the
+// privacy boundary open, and a returning input must not revive an expired PIN.
 let idleCheckInterval = null
-const IDLE_CHECK_INTERVAL_MS = 10000 // Check every 10 seconds
-// Activity is persisted at most this often; the idle limit is minutes, so a
-// clock that lags by a few seconds across a reload is fine.
+let idleDeadlineTimer = null
+let tracking = false
+let nativeActive = true
+let privacyEpoch = 0
+const IDLE_CHECK_INTERVAL_MS = 10000
 const ACTIVITY_PERSIST_INTERVAL_MS = 5000
 let lastActivityPersistAt = 0
 
-/**
- * Update last activity timestamp for a profile.
- */
+function coverPrivateContent() {
+  privacyEpoch++
+  document.documentElement.setAttribute('data-pin-privacy', '')
+}
+
+function contentVisible() {
+  return nativeActive && document.visibilityState !== 'hidden'
+}
+
+function interfaceActive() {
+  return contentVisible() && document.hasFocus()
+}
+
+async function revealPrivateContent() {
+  const epoch = ++privacyEpoch
+  // Auto-lock listeners change Vue state synchronously; wait for their DOM
+  // patch before removing the cover, including teleported media and dialogs.
+  await nextTick()
+  if (epoch === privacyEpoch && contentVisible()) {
+    document.documentElement.removeAttribute('data-pin-privacy')
+  }
+}
+
+function expirePin(profileId, cached, now = Date.now()) {
+  if (now - cached.lastActivity < cached.timeoutMinutes * 60 * 1000) return false
+  pinCache.delete(profileId)
+  persistPinCache()
+  if (profileId === getCurrentProfileId()) {
+    coverPrivateContent()
+    window.dispatchEvent(new CustomEvent('pin-auto-locked', { detail: { profileId } }))
+    void revealPrivateContent()
+  }
+  return true
+}
+
+function checkLocalTimeouts() {
+  const now = Date.now()
+  for (const [profileId, cached] of pinCache) expirePin(profileId, cached, now)
+  scheduleIdleDeadline()
+}
+
+function scheduleIdleDeadline() {
+  clearTimeout(idleDeadlineTimer)
+  idleDeadlineTimer = null
+  if (!tracking || !pinCache.size) return
+  const deadline = Math.min(...[...pinCache.values()].map(c => c.lastActivity + c.timeoutMinutes * 60 * 1000))
+  idleDeadlineTimer = setTimeout(checkLocalTimeouts, Math.max(0, deadline - Date.now()))
+}
+
+// Called whenever profile metadata loads (including timeout edits). Cache the
+// policy even before a PIN is entered so unlock starts with the actual limit.
+function syncPinTimeouts(profiles) {
+  for (const profile of profiles) {
+    if (!profile.has_pin) {
+      pinTimeouts.delete(profile.id)
+      pinCache.delete(profile.id)
+      continue
+    }
+    const timeout = profile.pin_idle_timeout_minutes || DEFAULT_TIMEOUT_MINUTES
+    pinTimeouts.set(profile.id, timeout)
+    const cached = pinCache.get(profile.id)
+    if (cached) cached.timeoutMinutes = timeout
+  }
+  checkLocalTimeouts()
+  persistPinCache()
+}
+
 function updateActivity(profileId = null) {
   const id = profileId || getCurrentProfileId()
   const cached = pinCache.get(id)
-  if (cached) {
-    const now = Date.now()
-    cached.lastActivity = now
-    if (now - lastActivityPersistAt >= ACTIVITY_PERSIST_INTERVAL_MS) {
-      lastActivityPersistAt = now
-      persistPinCache()
-    }
+  if (!cached) return
+  const now = Date.now()
+  if (expirePin(id, cached, now)) {
+    scheduleIdleDeadline()
+    return
+  }
+  cached.lastActivity = now
+  scheduleIdleDeadline()
+  if (now - lastActivityPersistAt >= ACTIVITY_PERSIST_INTERVAL_MS) {
+    lastActivityPersistAt = now
+    persistPinCache()
   }
 }
 
-/**
- * Activity event handler - updates timestamp on user interaction.
- */
-function handleActivity() {
+function handleActivity(event) {
+  if (!interfaceActive()) return
+  const cached = pinCache.get(getCurrentProfileId())
+  if (cached && expirePin(getCurrentProfileId(), cached)) {
+    // Consume the waking gesture rather than deliver it to private controls.
+    event?.stopImmediatePropagation()
+    if (event?.cancelable) event.preventDefault()
+    scheduleIdleDeadline()
+    return
+  }
   updateActivity()
 }
 
-/**
- * Pointer motion only counts while the window is focused. An unfocused
- * window still receives mousemove when the cursor crosses it on the way to
- * another app, and that must not keep a locked-away profile open.
- */
-function handleFocusedActivity() {
-  if (typeof document !== 'undefined' && !document.hasFocus()) return
-  updateActivity()
+function handleInactive() {
+  if (pinCache.has(getCurrentProfileId())) coverPrivateContent()
+  checkLocalTimeouts()
 }
 
-/**
- * Start idle tracking by listening to user activity events.
- */
+function handleBlur() {
+  // A visible desktop window can lose focus without being backgrounded.
+  // Recheck expiry, but keep an unlocked workspace visible.
+  checkLocalTimeouts()
+}
+
+function handleResume() {
+  checkLocalTimeouts()
+  // Focus and visibility are lifecycle signals, not user activity.
+  void revealPrivateContent()
+}
+
+function handleVisibility() {
+  if (document.visibilityState === 'hidden') handleInactive()
+  else handleResume()
+}
+
+function handleNativeActivity(event) {
+  nativeActive = event.detail === true
+  if (nativeActive) handleResume()
+  else handleInactive()
+}
+
+const activityEvents = ['mousemove', 'scroll', 'mousedown', 'keydown', 'touchstart']
 function startIdleTracking() {
-  if (typeof window === 'undefined') return
-
-  // Listen for activity events
-  window.addEventListener('mousemove', handleFocusedActivity, { passive: true })
-  window.addEventListener('scroll', handleFocusedActivity, { passive: true })
-  window.addEventListener('mousedown', handleActivity, { passive: true })
-  window.addEventListener('keydown', handleActivity, { passive: true })
-  window.addEventListener('touchstart', handleActivity, { passive: true })
-  window.addEventListener('focus', handleActivity, { passive: true })
-
-  // Start periodic idle check. Run one immediately: a reload restores the
-  // clock from storage and may already be past the limit.
-  if (!idleCheckInterval) {
-    idleCheckInterval = setInterval(checkIdleTimeouts, IDLE_CHECK_INTERVAL_MS)
-    void checkIdleTimeouts()
-  }
+  if (typeof window === 'undefined' || tracking) return
+  tracking = true
+  for (const type of activityEvents) window.addEventListener(type, handleActivity, true)
+  window.addEventListener('blur', handleBlur)
+  window.addEventListener('focus', handleResume)
+  window.addEventListener('pagehide', handleInactive)
+  window.addEventListener('pageshow', handleResume)
+  window.addEventListener('stimma:app-active', handleNativeActivity)
+  document.addEventListener('visibilitychange', handleVisibility)
+  checkLocalTimeouts()
+  if (!contentVisible()) handleInactive()
+  idleCheckInterval = setInterval(checkIdleTimeouts, IDLE_CHECK_INTERVAL_MS)
+  void checkIdleTimeouts()
 }
 
-/**
- * Stop idle tracking and clean up event listeners.
- */
 function stopIdleTracking() {
   if (typeof window === 'undefined') return
-
-  window.removeEventListener('mousemove', handleFocusedActivity)
-  window.removeEventListener('scroll', handleFocusedActivity)
-  window.removeEventListener('mousedown', handleActivity)
-  window.removeEventListener('keydown', handleActivity)
-  window.removeEventListener('touchstart', handleActivity)
-  window.removeEventListener('focus', handleActivity)
-
-  if (idleCheckInterval) {
-    clearInterval(idleCheckInterval)
-    idleCheckInterval = null
-  }
+  tracking = false
+  for (const type of activityEvents) window.removeEventListener(type, handleActivity, true)
+  window.removeEventListener('blur', handleBlur)
+  window.removeEventListener('focus', handleResume)
+  window.removeEventListener('pagehide', handleInactive)
+  window.removeEventListener('pageshow', handleResume)
+  window.removeEventListener('stimma:app-active', handleNativeActivity)
+  document.removeEventListener('visibilitychange', handleVisibility)
+  clearInterval(idleCheckInterval)
+  clearTimeout(idleDeadlineTimer)
+  idleCheckInterval = idleDeadlineTimer = null
 }
 
-/**
- * Check all cached PINs for idle timeout expiration.
- *
- * The limit comes from the connected server. When it cannot be reached the
- * last value it reported is used, so a flaky remote link cannot postpone
- * expiry indefinitely.
- */
 async function checkIdleTimeouts() {
-  for (const [profileId, cached] of pinCache.entries()) {
+  checkLocalTimeouts()
+  for (const [profileId, cached] of pinCache) {
+    const requestedTimeout = cached.timeoutMinutes
     const reported = await getProfilePinTimeout(profileId)
-    if (reported !== null) {
+    // A late response must not mutate a replacement PIN or resurrect expiry.
+    if (pinCache.get(profileId) !== cached) continue
+    if (reported !== null && cached.timeoutMinutes === requestedTimeout) {
       cached.timeoutMinutes = reported
-    }
-    const timeout = cached.timeoutMinutes
-    if (timeout === null || timeout === undefined) continue // No PIN configured, or never learned
-
-    const timeoutMs = timeout * 60 * 1000
-    const elapsed = Date.now() - cached.lastActivity
-
-    if (elapsed >= timeoutMs) {
-      // PIN expired - remove from cache
-      pinCache.delete(profileId)
+      pinTimeouts.set(profileId, reported)
       persistPinCache()
-      console.log(`[PinLock] PIN cache expired for profile: ${profileId}`)
-
-      // If this is the current profile, notify the app to show lock screen
-      if (profileId === getCurrentProfileId()) {
-        window.dispatchEvent(new CustomEvent('pin-auto-locked', { detail: { profileId } }))
-      }
     }
+    checkLocalTimeouts()
   }
 }
 
@@ -190,7 +262,7 @@ async function checkIdleTimeouts() {
  */
 async function getProfilePinTimeout(profileId) {
   try {
-    const response = await fetch(`${getApiBase()}/profiles`)
+    const response = await fetch(`${getApiBase()}/profiles`, { signal: AbortSignal.timeout(5000) })
     if (!response.ok) return null
 
     const data = await response.json()
@@ -221,7 +293,7 @@ async function profileRequiresPin(profileId) {
  * Check if we have a valid cached PIN for a profile.
  */
 function hasCachedPin(profileId) {
-  return pinCache.has(profileId)
+  return getCachedPin(profileId) !== null
 }
 
 /**
@@ -229,7 +301,12 @@ function hasCachedPin(profileId) {
  */
 function getCachedPin(profileId) {
   const cached = pinCache.get(profileId)
-  return cached?.pin || null
+  if (!cached) return null
+  if (expirePin(profileId, cached)) {
+    scheduleIdleDeadline()
+    return null
+  }
+  return cached.pin
 }
 
 /**
@@ -240,9 +317,11 @@ function cachePin(profileId, pin) {
   pinCache.set(profileId, {
     pin,
     lastActivity: Date.now(),
-    timeoutMinutes: previous?.timeoutMinutes ?? null,
+    timeoutMinutes: pinTimeouts.get(profileId) ?? previous?.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
   })
   persistPinCache()
+  scheduleIdleDeadline()
+  if (profileId === getCurrentProfileId() && !contentVisible()) coverPrivateContent()
 }
 
 /**
@@ -251,6 +330,7 @@ function cachePin(profileId, pin) {
 function clearCachedPin(profileId) {
   pinCache.delete(profileId)
   persistPinCache()
+  scheduleIdleDeadline()
 }
 
 /**
@@ -259,6 +339,7 @@ function clearCachedPin(profileId) {
 function clearAllCachedPins() {
   pinCache.clear()
   persistPinCache()
+  scheduleIdleDeadline()
 }
 
 /**
@@ -394,6 +475,7 @@ export function usePinLock() {
 
 // Export individual functions for use outside composable
 export {
+  syncPinTimeouts,
   hasCachedPin,
   getCachedPin,
   cachePin,

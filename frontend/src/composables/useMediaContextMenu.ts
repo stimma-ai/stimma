@@ -1,4 +1,4 @@
-import { ref, readonly } from 'vue'
+import { ref, readonly, shallowRef, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount } from 'vue'
 
 export interface MediaContextMenuState {
   visible: boolean
@@ -14,7 +14,7 @@ export interface MediaContextMenuState {
   inBoard?: boolean       // Whether viewing a board section
   boardSectionId?: number // The current board section ID if viewing a board section
   inProject?: boolean     // Whether viewing a project
-  projectId?: number      // The current project ID if viewing a project
+  projectId?: number | null // The caller's project; null = explicit top level, omitted = active project
 }
 
 // Singleton state for the context menu
@@ -40,7 +40,7 @@ export function useMediaContextMenu() {
     inBoard?: boolean
     boardSectionId?: number
     inProject?: boolean
-    projectId?: number
+    projectId?: number | null
   }) {
     const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
 
@@ -96,7 +96,7 @@ export function useMediaContextMenu() {
     inBoard?: boolean
     boardSectionId?: number
     inProject?: boolean
-    projectId?: number
+    projectId?: number | null
   }) {
     const { x, y, bottomY, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
 
@@ -133,4 +133,36 @@ export function useMediaContextMenu() {
     hide,
     toggle
   }
+}
+
+// --- Hosts ------------------------------------------------------------------
+//
+// Several views mount <MediaContextMenu> (grids, tool views, slideshow, chat),
+// and kept-alive views keep theirs mounted. The menu state is a singleton, so
+// only one host may render it: the most recently mounted or activated one that
+// is still active. Every other host renders nothing, so menus can't stack up in
+// the document. Events from the menu (refresh, permanent-delete) go to every
+// host, so each parent view still hears about changes it may need to show.
+
+type HostEventName = 'refresh' | 'permanent-delete'
+
+const hostStack = ref<symbol[]>([])
+let hostEventSeq = 0
+const hostEvent = shallowRef<{ seq: number; name: HostEventName; args: unknown[] } | null>(null)
+
+export function useMediaContextMenuHost(onEvent: (name: HostEventName, ...args: unknown[]) => void) {
+  const id = Symbol('mediaContextMenuHost')
+  const claim = () => { hostStack.value = [...hostStack.value.filter(host => host !== id), id] }
+  const release = () => { hostStack.value = hostStack.value.filter(host => host !== id) }
+  onMounted(claim)
+  onActivated(claim)
+  onDeactivated(release)
+  onBeforeUnmount(release)
+  watch(hostEvent, (event) => { if (event) onEvent(event.name, ...event.args) })
+  const isRenderer = computed(() => hostStack.value[hostStack.value.length - 1] === id)
+  return { isRenderer }
+}
+
+export function broadcastMediaContextMenuEvent(name: HostEventName, ...args: unknown[]) {
+  hostEvent.value = { seq: ++hostEventSeq, name, args }
 }

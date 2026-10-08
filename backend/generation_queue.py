@@ -538,6 +538,7 @@ class GenerationQueue:
     _PROMPT_WARM_INTENT_FIELDS = (
         'tool_id', 'prompt', 'instructions', 'model', 'is_video', 'is_audio',
         'input_image_count', 'audio_conditioned', 'prompt_sources_signature', 'profile_id',
+        'project_id',
     )
 
     def _prompt_warm_pool_stale(self, generator_instance_id: str) -> bool:
@@ -561,6 +562,7 @@ class GenerationQueue:
         prompt_sources_signature: str,
         concurrency: int,
         profile_id: str,
+        project_id: Optional[int] = None,
     ) -> None:
         """Set/refresh what should be kept warm for this generator instance.
 
@@ -583,6 +585,8 @@ class GenerationQueue:
             'audio_conditioned': audio_conditioned,
             'prompt_sources_signature': prompt_sources_signature,
             'profile_id': profile_id,
+            # The project's AI model override shapes the enhancement.
+            'project_id': project_id,
         }
         existing = self._prompt_warm_intent.get(generator_instance_id)
         existing_snapshot = (
@@ -654,7 +658,7 @@ class GenerationQueue:
                 h3_media_ids=None,
                 h3_reference_manifest=None,
                 h3_generate_audio=True,
-                project_id=None,
+                project_id=intent.get('project_id'),
             )
         except asyncio.CancelledError:
             raise
@@ -1933,20 +1937,24 @@ class GenerationQueue:
             result = await session.execute(query)
             return int(result.scalar() or 0)
 
-    async def cancel_job(self, job_id: int) -> bool:
+    async def cancel_job(self, job_id: int, profile_id: Optional[str] = None, error: str = 'Cancelled by user') -> bool:
         """
         Cancel a job if it's still queued, assigned, or processing.
 
         If the job is currently processing, this will send an interrupt
-        signal to the provider to stop the generation.
+        signal to the provider to stop the generation. ``profile_id`` limits
+        the search to one profile (job ids are profile-local).
 
         Returns:
             True if cancelled, False if job not found or already completed
         """
         from providers import ProviderRegistry
 
+        only_profile = profile_id
         # Search all profile databases to find the job
         for profile_id, db in self._get_all_jobs_dbs():
+            if only_profile is not None and profile_id != only_profile:
+                continue
             async with db.async_session_maker() as session:
                 result = await session.execute(
                     select(GenerationJob).where(GenerationJob.id == job_id)
@@ -1966,7 +1974,7 @@ class GenerationQueue:
 
                 # Mark as cancelled
                 job.status = 'cancelled'
-                job.error = 'Cancelled by user'
+                job.error = error
                 job.completed_at = datetime.utcnow()
                 await session.commit()
 

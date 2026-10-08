@@ -43,7 +43,7 @@ async function loadProject() {
     if (String(route.name || '').startsWith('project-') && Number(route.params.id) === ownId) {
       addToast('This project is no longer available.', 'warning')
       selectProject(null)
-      await router.replace({ name: 'browse', query: { library: '1' } })
+      await router.replace({ name: 'home' })
     }
   }
 }

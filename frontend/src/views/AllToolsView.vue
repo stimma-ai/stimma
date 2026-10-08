@@ -370,7 +370,7 @@ const searchInputRef = ref(null)
 // Provider dropdown. On compact or coarse pointers it renders as the kit Sheet.
 const providerDropdownRef = ref(null)
 const providerDropdownOpen = ref(false)
-const { isCompact, isCoarsePointer } = useViewport()
+const { isCompact, isCoarsePointer, allowsAutofocus } = useViewport()
 const providerSheet = computed(() => isCompact.value || isCoarsePointer.value)
 
 // Compact search: collapsed to an icon until tapped; a live query keeps it open.
@@ -947,7 +947,7 @@ onMounted(() => {
   })
 
   // Focus search input on mount (wide only: on a phone that pops the keyboard)
-  if (!isCompact.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
 
   // Listen for '/' key to focus search
   document.addEventListener('keydown', handleKeydown)
@@ -958,7 +958,7 @@ onMounted(() => {
 
 onActivated(() => {
   // Focus search input when returning to the page (KeepAlive reactivation)
-  if (!isCompact.value) searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
 })
 
 onUnmounted(() => {

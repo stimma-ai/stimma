@@ -163,6 +163,7 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
 import { useWorkingContext } from '../composables/useWorkingContext'
@@ -178,6 +179,8 @@ import {
 } from '../utils/taskTypeIcons'
 import type { MediaType } from '../utils/mediaTypes'
 import { planToolHandoff } from '../utils/toolHandoff'
+
+const { allowsAutofocus } = useViewport()
 
 const RECENT_STORAGE_KEY = 'send-to-tool' as const
 const MAX_RECENT = 5
@@ -399,7 +402,7 @@ function reset() {
   const keys = taskTypeKeys.value
   selectedTaskType.value = keys.length === 1 ? keys[0] : null
   nextTick(() => {
-    searchInputRef.value?.focus()
+    if (allowsAutofocus.value) searchInputRef.value?.focus()
   })
 }
 

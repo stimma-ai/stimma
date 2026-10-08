@@ -1449,6 +1449,7 @@ import {
   shouldQueueLiveArrival
 } from '../utils/slideshowLiveQueue'
 import { nearbyPreloadIndices, shouldPreloadVideoBytes } from '../utils/slideshowPreload'
+import { announceProjectAssetsChanged } from '../utils/projectScope'
 
 useSlideshowPresence()
 
@@ -1670,7 +1671,7 @@ const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPl
 const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
-const { isCompact: slideshowCompact } = useViewport()
+const { isCompact: slideshowCompact, allowsAutofocus } = useViewport()
 // Phones always take the whole screen: inline embedding (chat, tool, flow) is a desktop layout.
 const fullscreen = computed(() => !props.inline || slideshowCompact.value)
 const compactMoreOpen = ref(false)
@@ -2370,6 +2371,7 @@ async function downloadPackage(format) {
     await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
   } catch (error) {
     console.error('Failed to export package:', error)
+    addToast(`Could not download the package ${format.toUpperCase()}. Please try again.`, 'error')
   } finally {
     downloadingPackage.value = false
   }
@@ -5364,7 +5366,7 @@ async function addToProject() {
     projectPickerLoading.value = false
   }
   await nextTick()
-  projectPickerSearch.value?.focus()
+  if (allowsAutofocus.value) projectPickerSearch.value?.focus()
 }
 
 async function toggleProjectMembership(projectId, checked) {
@@ -5380,6 +5382,12 @@ async function toggleProjectMembership(projectId, checked) {
       else await removeMediaFromProject(projectId, currentPayloadId.value)
       projectPickerMembership.value.delete(projectId)
     }
+    announceProjectAssetsChanged({
+      project_id: projectId,
+      asset_ids: currentAssetId.value ? [currentAssetId.value] : [],
+      media_ids: currentPayloadId.value ? [currentPayloadId.value] : [],
+      action: checked ? 'added' : 'removed',
+    })
     // Refresh the info panel list
     invalidateMetadataCache(itemIdentity(currentItem.value))
     mediaProjects.value = currentAssetId.value

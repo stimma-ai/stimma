@@ -1,6 +1,6 @@
 """Tests for llm._normalize_response provider-quirk handling."""
 
-from llm import FinishReason, _normalize_response
+from llm import FinishReason, LLMResponse, _normalize_response
 from llm_http import _Obj
 import pytest
 
@@ -177,3 +177,38 @@ def test_glm_parser_workaround_leaves_other_models_and_on_requests_unchanged():
     assert _glm_reasoning_parser_body("qwen3", off) is off
     on = {"chat_template_kwargs": {"enable_thinking": True}}
     assert _glm_reasoning_parser_body("glm-5.3-flash", on) is on
+
+
+@pytest.mark.parametrize('recovered', [True, False])
+async def test_text_completion_retries_reasoning_exhaustion_once(monkeypatch, recovered):
+    import llm
+    from config import LLMEndpointConfig
+
+    budgets = []
+
+    async def completion(*args, **kwargs):
+        budgets.append(kwargs['max_tokens'])
+        if len(budgets) == 2 and recovered:
+            return llm.LLMResponse(content='App Icon Package', thinking='Private trace')
+        return llm.LLMResponse(thinking='Private trace', finish_reason=llm.FinishReason.LENGTH)
+
+    monkeypatch.setattr(llm, 'llm_completion', completion)
+    text = await llm.llm_complete_text(LLMEndpointConfig(model='reasoner'), [], max_tokens=48)
+    assert budgets == [48, 2048]
+    assert text == ('App Icon Package' if recovered else '')
+
+
+@pytest.mark.parametrize('response', [
+    LLMResponse(content='App Icon Package'),
+    LLMResponse(thinking='Private trace'),
+    LLMResponse(finish_reason=FinishReason.LENGTH),
+])
+async def test_text_completion_does_not_retry_answers_or_unrelated_empty_replies(monkeypatch, response):
+    import llm
+    from config import LLMEndpointConfig
+    from unittest.mock import AsyncMock
+
+    completion = AsyncMock(return_value=response)
+    monkeypatch.setattr(llm, 'llm_completion', completion)
+    assert await llm.llm_complete_text(LLMEndpointConfig(model='test'), []) == response.content
+    assert completion.await_count == 1

@@ -102,6 +102,8 @@ export function useUrlState() {
     if (filters.excludedProjects?.length > 0) {
       params.set('xprj', filters.excludedProjects.join(','))
     }
+    // Top-level browser: include assets that belong to projects
+    if (filters.includeProjects) params.set('include_projects', '1')
 
     // Folders (use base64 to handle special chars in paths)
     if (filters.selectedFolders?.length > 0) {
@@ -204,6 +206,7 @@ export function useUrlState() {
     if (queryParams.xprj) {
       filters.excludedProjects = queryParams.xprj.split(',').map(Number).filter(Number.isFinite)
     }
+    filters.includeProjects = queryParams.include_projects === '1' || queryParams.include_projects === 'true'
 
     if (queryParams.xmt) {
       filters.excludedMediaTypes = queryParams.xmt.split(',').map(decodeMediaType)

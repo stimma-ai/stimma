@@ -89,17 +89,22 @@ import Button from './ui/Button.vue'
 import IconButton from './ui/IconButton.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+import { useOwnerProject } from '../composables/useProjectScope'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   mediaIds: { type: Array, default: () => [] },
-  assetIds: { type: Array, default: () => [] }
+  assetIds: { type: Array, default: () => [] },
+  // Boards listed and created here belong to this project. Defaults to the
+  // active working project; null means top-level boards.
+  projectId: { type: Number, default: undefined }
 })
 
 const emit = defineEmits(['close', 'saved'])
 const { addMediaToBoard, createBoard, getBoards } = useMediaApi()
 const { addToBoard: addAssetsToBoard } = useAssetApi()
 
+const boardProjectId = useOwnerProject(() => props.projectId)
 const boards = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -110,7 +115,7 @@ const newBoardName = ref('')
 async function loadBoards() {
   loading.value = true
   try {
-    boards.value = await getBoards()
+    boards.value = await getBoards(boardProjectId.value)
   } finally {
     loading.value = false
   }
@@ -121,7 +126,7 @@ async function createNewBoard() {
   if (!name) return
   creating.value = true
   try {
-    const board = await createBoard(name)
+    const board = await createBoard(name, boardProjectId.value)
     boards.value.unshift({ ...board, asset_count: board.asset_count || 0 })
     selectedBoardId.value = board.id
     newBoardName.value = ''

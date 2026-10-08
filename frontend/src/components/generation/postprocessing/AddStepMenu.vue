@@ -77,12 +77,15 @@
 </template>
 
 <script setup lang="ts">
+import { useViewport } from '../../../composables/useViewport'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ProviderTool } from '../../../composables/useProvidersApi'
 import type { ChainFilterDef } from '../../../utils/filterDefs'
 import ToolIcon from '../../tools/ToolIcon.vue'
 import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import { CHAIN_TOOL_TASK_TYPES } from '../../../utils/postProcessingChain'
+
+const { allowsAutofocus } = useViewport()
 
 const props = defineProps<{
   /** Candidate STP tool steps (already filtered to chain-compatible task types). */
@@ -179,7 +182,7 @@ function onClickOutside(ev: MouseEvent) {
 onMounted(() => {
   // Defer so the click that opened the menu doesn't immediately close it.
   setTimeout(() => document.addEventListener('mousedown', onClickOutside), 0)
-  searchInput.value?.focus()
+  if (allowsAutofocus.value) searchInput.value?.focus()
 })
 
 onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))

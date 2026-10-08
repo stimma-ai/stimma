@@ -182,6 +182,8 @@ import { belongsToContext } from '../utils/workingContext'
 import { useToasts } from '../composables/useToasts'
 import { useContextMenuPosition, useSubmenuPosition } from '../composables/useContextMenuPosition'
 import ProjectPickerSubmenu from './ProjectPickerSubmenu.vue'
+import { useEntityMove } from '../composables/useEntityMove'
+import { useProjectDeletion } from '../composables/useProjectDeletion'
 
 const contextMenu = useWorkspaceTabsContextMenu()
 const { allTabs, findNextTab, removeTab, pinTab, unpinTab, closeOthers, closeAllUnpinned } = useWorkspaceTabs()
@@ -191,6 +193,8 @@ const contextTabIds = computed(() => contextTabs.value.map(tab => tab.id))
 const { getLastProjectRoute } = useProjectRoute()
 const { deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 const { addToast } = useToasts()
+const moveEntityToProject = useEntityMove()
+const deleteProjectAndCleanUp = useProjectDeletion()
 
 // An editor's op stack lives on its Asset, so its entry is a shortcut: taking
 // it off the shelf removes nothing. "Close" would promise otherwise.
@@ -346,6 +350,13 @@ async function handleDelete() {
 
   if (!tabType || !entityId || !tabId) return
 
+  // A project's own cleanup removes its tabs and leaves it if it was the
+  // working project; routing to a next tab could land inside it.
+  if (tabType === 'project') {
+    if (await deleteProjectAndCleanUp(parseInt(entityId, 10))) emit('refresh')
+    return
+  }
+
   try {
     if (tabType === 'board') {
       await deleteBoard(parseInt(entityId, 10))
@@ -355,9 +366,6 @@ async function handleDelete() {
     } else if (tabType === 'flow') {
       const response = await fetch(`/api/flows/${entityId}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('flow delete failed')
-    } else if (tabType === 'project') {
-      const response = await fetch(`/api/projects/${entityId}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('project delete failed')
     }
     navigateAfterClose(new Set([tabId]))
     removeTab(tabId)
@@ -399,26 +407,8 @@ async function handleMoveToProject(projectId: number | null) {
   showProjectSubmenu.value = false
   if (!tabType || !entityId) return
 
-  try {
-    if (tabType === 'board') {
-      await updateBoard(parseInt(entityId, 10), { project_id: projectId })
-    } else if (tabType === 'chat') {
-      await fetch(`/api/chats/${entityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId })
-      })
-    } else if (tabType === 'flow') {
-      await fetch(`/api/flows/${entityId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId })
-      })
-    }
-    emit('refresh')
-  } catch (err) {
-    console.error(`Failed to move ${tabType} to project:`, err)
-  }
+  if (tabType !== 'board' && tabType !== 'chat' && tabType !== 'flow') return
+  if (await moveEntityToProject(tabType, entityId, projectId)) emit('refresh')
 }
 
 function openProjectSubmenu() {

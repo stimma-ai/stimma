@@ -5,7 +5,7 @@ import { listBlobKeys, getBlob, putBlob, deleteBlob } from '../utils/blobStorage
 import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
-import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
+import { recordEntityVisit, setRecentEntityProject, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
 
 export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
 
@@ -519,6 +519,61 @@ export function useWorkspaceTabs() {
   }
 
   /**
+   * The open instance of a tool in a project, most recently used first
+   * (named or not), or null. Unlike resolveToolInstance this never mints:
+   * switching context must not create instances as a side effect.
+   */
+  function findToolInstance(fullToolId: string, projectId: number | null): string | null {
+    const matching = tabs.value.filter(t =>
+      t.type === 'tool' && t.entityId === fullToolId && (t.projectId ?? null) === (projectId ?? null) && t.instanceId)
+    if (!matching.length) return null
+    return matching.reduce((a, b) => (b.lastActivatedAt ?? 0) > (a.lastActivatedAt ?? 0) ? b : a).instanceId!
+  }
+
+  /**
+   * A deleted project takes its tabs with it: its tool, chat, board and flow
+   * tabs and its project tab close (not into the reopen stack), editor and
+   * lineage tabs lose it as a context (closing when it was their only one),
+   * and its tool instances' saved working state is dropped. Returns the
+   * removed tab ids.
+   */
+  function removeProjectTabs(projectId: number): string[] {
+    const removed: WorkspaceTab[] = []
+    const kept: WorkspaceTab[] = []
+    for (const tab of tabs.value) {
+      if (tab.type === 'project') {
+        if (tab.entityId === String(projectId)) removed.push(tab)
+        else kept.push(tab)
+      } else if (tab.contextProjectIds) {
+        if (!tab.contextProjectIds.includes(projectId)) { kept.push(tab); continue }
+        const rest = tab.contextProjectIds.filter(id => id !== projectId)
+        if (rest.length) kept.push({ ...tab, contextProjectIds: rest, ...(tab.projectId === projectId ? { projectId: rest[0] } : {}) })
+        else removed.push(tab)
+      } else if ((tab.projectId ?? null) === projectId) {
+        removed.push(tab)
+      } else {
+        kept.push(tab)
+      }
+    }
+    if (!removed.length) return []
+    tabs.value = kept
+    const removedIds = new Set(removed.map(t => t.id))
+    for (let i = recentlyClosed.length - 1; i >= 0; i--) {
+      if ((recentlyClosed[i].projectId ?? null) === projectId) recentlyClosed.splice(i, 1)
+    }
+    // Instance-scoped keys embed `__project_<id>__i_<K>`; blobs are swept at
+    // the next boot once no tab references the instance.
+    try {
+      const marker = `__project_${projectId}__i_`
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key?.includes(marker)) localStorage.removeItem(key)
+      }
+    } catch { /* storage unavailable */ }
+    return [...removedIds]
+  }
+
+  /**
    * Find an open tool-instance tab.
    */
   function getToolInstanceTab(fullToolId: string, projectId: number | null | undefined, instanceId: string): WorkspaceTab | undefined {
@@ -928,7 +983,10 @@ export function useWorkspaceTabs() {
     if (shared && tab.contextProjectIds?.includes(projectId)) return
     if (!shared && tab.projectId === projectId) return
     if (shared) tab.contextProjectIds = [...new Set([...(tab.contextProjectIds ?? []), projectId])]
-    else tab.projectId = projectId
+    else {
+      tab.projectId = projectId
+      setRecentEntityProject(tab.type as RecentEntityType, tab.entityId, projectId)
+    }
     tabs.value = [...tabs.value]
   }
 
@@ -972,6 +1030,8 @@ export function useWorkspaceTabs() {
     updateEditorMedia,
     updateLineageFocus,
     resolveToolInstance,
+    findToolInstance,
+    removeProjectTabs,
     setTabContext,
     getToolInstanceTab,
     duplicateToolTab,

@@ -1,5 +1,6 @@
 <template>
-  <Teleport to="body">
+  <!-- Only one mounted menu renders at a time; see useMediaContextMenuHost. -->
+  <Teleport v-if="isRenderer" to="body">
     <!-- SVG gradient definition for Stimma Cloud branding (must be inside Teleport to be accessible) -->
     <svg class="absolute w-0 h-0" aria-hidden="true">
       <defs>
@@ -10,11 +11,14 @@
         </linearGradient>
       </defs>
     </svg>
+    <!-- Each submenu teleports separately so this scrolling menu cannot clip
+         its sheet or become its containing block during the reveal animation. -->
     <Transition name="menu">
     <div
       v-if="contextMenu.state.value.visible"
       ref="menuRef"
       data-context-menu
+      v-show="!isCoarsePointer || !activeSubmenu"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
       :style="menuPosition"
     >
@@ -155,13 +159,16 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'board'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'board')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'board'"
             ref="boardSubmenuRef"
@@ -171,6 +178,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted">
@@ -186,7 +194,7 @@
               </div>
             </div>
 
-            <div class="overflow-y-auto flex-1">
+            <div class="min-h-0 overflow-y-auto flex-1">
               <button
                 class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
                 :disabled="creatingBoardQuickAdd"
@@ -221,6 +229,7 @@
             </div>
 
           </div>
+          </Teleport>
         </div>
 
         <!-- Projects -->
@@ -243,13 +252,16 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'project'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'project')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'project'"
             ref="projectSubmenuRef"
@@ -259,18 +271,22 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <ProjectPickerSubmenu
               :media-ids="targetMediaIds"
               :asset-ids="targetAssetIds"
               mode="assign"
-              @added="handleProjectAdded"
+              :membership="projectMembership"
+              :pinned-project-id="currentProjectId"
+              @changed="handleProjectMembershipChanged"
               @close="contextMenu.hide(); activeSubmenu = null"
             />
           </div>
+          </Teleport>
         </div>
 
-        <!-- Remove from Project (only when viewing project assets) -->
-        <template v-if="inProject">
+        <!-- Remove from Project: whenever a target is in the menu's project -->
+        <template v-if="showRemoveFromProject">
           <button
             @click="handleRemoveFromProject"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
@@ -310,18 +326,6 @@
           <span>{{ creatingSet ? 'Creating...' : `Create Set (${targetCount} items)` }}</span>
         </button>
 
-        <!-- Package as… (atomic items only; a single item is a valid package) -->
-        <button
-          v-if="canPackageAs"
-          @click="handlePackageAs"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-          </svg>
-          <span>Package as…</span>
-        </button>
-
         <!-- Explode action - only for sets/grids -->
         <button
           v-if="!isMultiple && isSetOrGrid"
@@ -356,14 +360,17 @@
           </button>
 
           <!-- Invisible bridge to submenu - prevents mouseleave when traversing gap -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'generate'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'generate')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Generate submenu -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'generate'"
             ref="generateSubmenuRef"
@@ -373,6 +380,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <!-- Filter box -->
             <div class="px-2.5 py-2 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
@@ -389,7 +397,7 @@
               </div>
             </div>
 
-            <div class="overflow-y-auto flex-1">
+            <div class="min-h-0 overflow-y-auto flex-1">
               <!-- Original tool section (if exists) -->
               <template v-if="!generateSearchQuery.trim() && originalTool">
                 <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
@@ -494,6 +502,7 @@
               </template>
             </div>
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Tool - with submenu (hidden when grids are selected) -->
@@ -518,14 +527,17 @@
           </button>
 
           <!-- Invisible bridge to submenu -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'tool'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'tool')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Tool submenu (accordion with task type expand/collapse) -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'tool'"
             ref="toolSubmenuRef"
@@ -535,6 +547,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop="lockSubmenuOpen"
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <TaskTypeToolList
               ref="toolListRef"
               :tools="sendToTools"
@@ -548,6 +561,7 @@
               @select-instance="handleToolInstanceSelect"
             />
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Chat - with submenu -->
@@ -571,14 +585,17 @@
           </button>
 
           <!-- Invisible bridge to submenu -->
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'chat'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'chat')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
           <!-- Chat submenu -->
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'chat'"
             ref="chatSubmenuRef"
@@ -588,6 +605,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div v-if="loadingChats" class="px-3 py-2 text-xs text-content-tertiary">Loading chats...</div>
             <template v-else>
               <!-- New chat option -->
@@ -614,6 +632,7 @@
               </button>
             </template>
           </div>
+          </Teleport>
         </div>
 
         <!-- Send to Flow - flow submenu, then destination submenu -->
@@ -636,22 +655,27 @@
             </svg>
           </button>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'flow'"
+            v-if="!isCoarsePointer && (activeSubmenu === 'flow')"
             class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow'"
             ref="flowSubmenuRef"
+            v-show="!isCoarsePointer || !activeFlowDestination"
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[220px] max-w-[300px] max-h-[400px] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
             <div v-if="loadingFlows" class="px-3 py-2 text-xs text-content-tertiary">Loading flows...</div>
             <template v-else>
               <button
@@ -682,14 +706,18 @@
               </div>
             </template>
           </div>
+          </Teleport>
 
+          <Teleport to="body">
           <div
-            v-if="activeSubmenu === 'flow' && activeFlowDestination"
+            v-if="!isCoarsePointer && (activeSubmenu === 'flow' && activeFlowDestination)"
             class="fixed z-submenu"
             :style="flowDestinationBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
+          </Teleport>
 
+          <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow' && activeFlowDestination"
             ref="flowDestinationSubmenuRef"
@@ -699,6 +727,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="clearFlowDestination()"><span aria-hidden="true">‹</span> Back to flows</button>
             <button
               @click="sendToFlowChat(activeFlowDestination)"
               class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
@@ -720,6 +749,7 @@
               <span class="truncate">{{ field.label }}</span>
             </button>
           </div>
+          </Teleport>
         </div>
 
         <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
@@ -875,16 +905,6 @@
       @close="showExportModal = false"
     />
 
-    <!-- Package as… -->
-    <PackageAsModal
-      :show="showPackageAsModal"
-      :media-ids="packageMediaIds"
-      :media-items="packageMediaItems"
-      :project-id="packageProjectId"
-      @close="showPackageAsModal = false"
-      @created="emit('refresh')"
-    />
-
     <NativeShareDialog v-if="nativeShareMediaId" :media-id="nativeShareMediaId" @close="nativeShareMediaId = null" />
 
     <!-- Share Dialog -->
@@ -898,9 +918,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
+import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
-import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
+import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu, SHEET_MENU_STYLE } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
@@ -910,7 +930,6 @@ import { getCurrentProfileId } from '../../composables/useProfile'
 import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
-import PackageAsModal from '../PackageAsModal.vue'
 import ShareDialog from '../ShareDialog.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
 import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
@@ -927,6 +946,7 @@ import { planToolHandoff } from '../../utils/toolHandoff'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
 import { useWorkingContext } from '../../composables/useWorkingContext'
+import { announceProjectAssetsChanged, applyMembershipChange, canRemoveFromProject, countMemberships, projectListParam, resolveProjectId } from '../../utils/projectScope'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useViewport } from '../../composables/useViewport'
 import { openImageEditor } from '../../imageEditor/stack/openImageEditor'
@@ -967,9 +987,9 @@ const router = useRouter()
 const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs, resolveToolInstance } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
-const { isCoarsePointer } = useViewport()
+const { isCoarsePointer, allowsAutofocus } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
-const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
+const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject, getMediaProjects } = useMediaApi()
 const {
   getAssetBrowserItem,
   addMarker: addMarkerToAsset,
@@ -978,6 +998,7 @@ const {
   addToBoard: addAssetsToBoard,
   removeFromBoardSection,
   removeFromProject: removeAssetFromProject,
+  getProjects: getAssetProjects,
   trash: trashAsset,
   trashMany: trashAssets,
   restore: restoreAsset,
@@ -1137,10 +1158,6 @@ const tagPickerAnchor = ref<HTMLElement | null>(null)
 const showExportModal = ref(false)
 const exportMediaIds = ref<number[]>([])
 const exportMediaItems = ref<any[]>([])
-const showPackageAsModal = ref(false)
-const packageMediaIds = ref<number[]>([])
-const packageMediaItems = ref<any[]>([])
-const packageProjectId = ref<number | null>(null)
 const showShareDialog = ref(false)
 const showExplodeConfirm = ref(false)
 const explodingContainer = ref(false)
@@ -1148,10 +1165,18 @@ const explodeAssetId = ref<number | null>(null)
 const explodeSummary = ref<any>(null)
 const shareMediaItem = ref<any>(null)
 
-const emit = defineEmits<{
+const emitToParent = defineEmits<{
   (e: 'refresh'): void
   (e: 'permanent-delete', mediaId: number): void
 }>()
+// Menu events reach every mounted host, not just the one rendering the menu.
+const { isRenderer } = useMediaContextMenuHost((name, ...args) => {
+  if (name === 'refresh') emitToParent('refresh')
+  else if (name === 'permanent-delete') emitToParent('permanent-delete', args[0] as number)
+})
+function emit(name: 'refresh' | 'permanent-delete', ...args: unknown[]) {
+  broadcastMediaContextMenuEvent(name, ...args)
+}
 
 // Multi-selection computed properties
 const targetAssetIds = computed<number[]>(() => (
@@ -1197,9 +1222,42 @@ const isSetOrGrid = computed(() => isSet.value || isGrid.value)
 const inBoard = computed(() => contextMenu.state.value.inBoard || false)
 const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
-// Action-bar and slideshow launchers may omit projectId; retain the active
-// working destination for board/chat/flow pickers and newly created items.
-const currentProjectId = computed(() => contextMenu.state.value.projectId ?? workingProjectId.value)
+// The project this menu acts in: the caller's project when it names one
+// (null for an explicit top-level owner such as an unfiled chat), else the
+// active working project. Lists and creates in the board/chat/flow pickers,
+// the Projects submenu pin and Remove from Project all use it.
+const currentProjectId = computed(() => resolveProjectId(contextMenu.state.value.projectId, workingProjectId.value))
+
+// Project memberships of the targets, loaded when the menu opens. Null while
+// unknown (loading, or too many targets to look up one by one).
+const MEMBERSHIP_LOOKUP_LIMIT = 100
+const projectMembership = ref<Map<number, number> | null>(null)
+let membershipRequest = 0
+const showRemoveFromProject = computed(() => (
+  currentProjectId.value != null && (
+    canRemoveFromProject(projectMembership.value ?? new Map(), currentProjectId.value) ||
+    // A project grid knows its tiles are members before the lookup returns.
+    (inProject.value && (contextMenu.state.value.projectId ?? null) === currentProjectId.value && projectMembership.value == null)
+  )
+))
+
+async function loadProjectMemberships() {
+  const request = ++membershipRequest
+  projectMembership.value = null
+  const assetIds = targetAssetIds.value
+  const mediaIds = targetMediaIds.value
+  const ids = assetIds.length > 0 ? assetIds : mediaIds
+  if (ids.length === 0 || ids.length > MEMBERSHIP_LOOKUP_LIMIT) return
+  try {
+    const lists = await Promise.all(ids.map(id => (
+      (assetIds.length > 0 ? getAssetProjects(id) : getMediaProjects(id)).catch(() => [])
+    )))
+    if (request !== membershipRequest) return
+    projectMembership.value = countMemberships(lists)
+  } catch (err) {
+    if (request === membershipRequest) console.error('Failed to load project memberships:', err)
+  }
+}
 
 // Can create set: multiple atomic items selected (not sets or grids)
 const STRUCTURED_FORMATS = ['stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmapackage']
@@ -1209,19 +1267,6 @@ const canCreateSet = computed(() => {
   const items = selectedItems.value
   if (items.length === 0) {
     // Fallback to mediaItem if selectedItems not populated
-    if (mediaItem.value) {
-      return !STRUCTURED_FORMATS.includes(mediaItem.value.file_format?.toLowerCase())
-    }
-    return false
-  }
-  return items.every(item => !STRUCTURED_FORMATS.includes(item.file_format?.toLowerCase()))
-})
-
-// Package as…: same atomic-only guard as Create Set, but one item is enough —
-// a package of one deliverable is a normal thing to want.
-const canPackageAs = computed(() => {
-  const items = selectedItems.value
-  if (items.length === 0) {
     if (mediaItem.value) {
       return !STRUCTURED_FORMATS.includes(mediaItem.value.file_format?.toLowerCase())
     }
@@ -1406,6 +1451,13 @@ function getActiveSubmenuEl(): HTMLElement | null {
 let submenuAppliedCap: number | null = null
 
 function repositionSubmenu() {
+  if (isCoarsePointer.value) {
+    submenuPosition.value = { ...SHEET_MENU_STYLE }
+    submenuBridgeStyle.value = { display: 'none' }
+    submenuAppliedCap = null
+    getActiveSubmenuEl()?.setAttribute('data-sheet-menu', '')
+    return
+  }
   if (!submenuTriggerRect.value || !menuRef.value) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
@@ -1525,9 +1577,8 @@ async function loadChats() {
   lastChatsProjectId.value = currentProjectId.value
   loadingChats.value = true
   try {
-    const params = new URLSearchParams()
-    if (currentProjectId.value) params.set('project_id', String(currentProjectId.value))
-    const url = `/api/chats${params.toString() ? '?' + params.toString() : ''}`
+    const params = new URLSearchParams({ project_id: projectListParam(currentProjectId.value) })
+    const url = `/api/chats?${params.toString()}`
     const response = await fetch(url, {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
@@ -1668,7 +1719,7 @@ function cancelSubmenuClose() {
 
 // Close on click outside
 function handleClickOutside(event: MouseEvent) {
-  if (!contextMenu.state.value.visible) return
+  if (!isRenderer.value || !contextMenu.state.value.visible) return
   const target = event.target as Element
   if (menuRef.value?.contains(target)) return
   // Check all submenu refs (they live in Teleport, outside menuRef)
@@ -1687,6 +1738,7 @@ function handleClickOutside(event: MouseEvent) {
 
 // Close on escape
 function handleKeyDown(event: KeyboardEvent) {
+  if (!isRenderer.value) return
   if (event.key === 'Escape') {
     contextMenu.hide()
     activeSubmenu.value = null
@@ -1712,15 +1764,27 @@ watch(activeSubmenu, async (menu) => {
   if (menu !== 'flow') clearFlowDestination()
   if (menu === 'generate') {
     await nextTick()
-    generateSearchInputRef.value?.focus()
+    if (allowsAutofocus.value) generateSearchInputRef.value?.focus()
   } else if (menu === 'board') {
     await nextTick()
-    boardSearchInputRef.value?.focus()
+    if (allowsAutofocus.value) boardSearchInputRef.value?.focus()
   }
 })
 
 // Fetch media item and markers when menu becomes visible
-watch(() => contextMenu.state.value.visible, (visible) => {
+// Membership is looked up per opening and per target set (a second right-click
+// while the menu is open retargets it without closing).
+watch(
+  () => (contextMenu.state.value.visible && isRenderer.value
+    ? `${targetAssetIds.value.join(',')}|${targetMediaIds.value.join(',')}`
+    : null),
+  (key) => {
+    if (key != null) loadProjectMemberships()
+    else { membershipRequest++; projectMembership.value = null }
+  },
+)
+
+watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
   if (visible) {
     fetchMediaItem()
     fetchMediaFaces()
@@ -1810,20 +1874,6 @@ async function handleCreateSet() {
   }
 }
 
-// Package as… handler: the menu closes, the dialog owns the rest.
-function handlePackageAs() {
-  const ids = targetMediaIds.value
-  const items = selectedItems.value.length > 0
-    ? selectedItems.value.map(item => ({ ...item, id: mediaIdOf(item) }))
-    : (mediaItem.value ? [{ ...mediaItem.value, id: mediaIdOf(mediaItem.value) }] : [])
-  packageProjectId.value = currentProjectId.value || null
-  contextMenu.hide()
-  if (ids.length === 0) return
-  packageMediaIds.value = ids
-  packageMediaItems.value = items
-  showPackageAsModal.value = true
-}
-
 // Marker toggle handler
 async function handleToggleMarker(marker: Marker) {
   const ids = targetIds.value
@@ -1898,7 +1948,7 @@ async function handleCreateBoardQuickAdd() {
   if (creatingBoardQuickAdd.value) return
   creatingBoardQuickAdd.value = true
   try {
-    const board = await createBoard('', workingProjectId.value)
+    const board = await createBoard('', currentProjectId.value)
     if (targetAssetIds.value.length > 0) {
       await addAssetsToBoard(board.id, targetAssetIds.value)
     } else {
@@ -1994,7 +2044,7 @@ async function sendToNewChat() {
         'Content-Type': 'application/json',
         'X-Profile-ID': getCurrentProfileId()
       },
-      body: JSON.stringify({ name: null, project_id: workingProjectId.value })
+      body: JSON.stringify({ name: null, project_id: currentProjectId.value })
     })
 
     if (response.ok) {
@@ -2043,7 +2093,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
 
 async function sendToNewFlow() {
   const ids = [...targetMediaIds.value]
-  const projectId = workingProjectId.value
+  const projectId = currentProjectId.value
   contextMenu.hide()
   activeSubmenu.value = null
   clearFlowDestination()
@@ -2157,8 +2207,15 @@ async function confirmExplode() {
   if (!explodeAssetId.value) return
   explodingContainer.value = true
   try {
+    // Members inherit the container's projects on the backend; the working
+    // project rides along so they also land where the user is looking.
+    const projectId = currentProjectId.value
     const result = (
-      await axios.post(`/api/assets/item/${explodeAssetId.value}/explode`)
+      await axios.post(
+        `/api/assets/item/${explodeAssetId.value}/explode`,
+        projectId != null ? { project_id: projectId } : {},
+        { params: projectId != null ? { project_id: projectId } : undefined },
+      )
     ).data
     addToast(
       `Created ${result.created_count} ${result.created_count === 1 ? 'asset' : 'assets'}; container moved to Trash`,
@@ -2181,7 +2238,7 @@ async function handleKeepInAllAssets() {
   if (ids.length === 0) return
 
   try {
-    for (const id of ids) await promoteContextualMedia(id)
+    for (const id of ids) await promoteContextualMedia(id, currentProjectId.value)
     addToast(
       ids.length === 1 ? 'Kept in All Assets' : `Kept ${ids.length} in All Assets`,
       'success',
@@ -2308,27 +2365,45 @@ async function handleRemoveFromBoard() {
   }
 }
 
-function handleProjectAdded(projectId: number) {
-  contextMenu.hide()
-  activeSubmenu.value = null
+function handleProjectMembershipChanged(projectId: number, action: 'add' | 'remove') {
+  projectMembership.value = applyMembershipChange(
+    projectMembership.value ?? new Map(), targetIds.value.length, projectId, action,
+  )
+  emitProjectAssetsChanged(projectId, action, targetAssetIds.value, targetMediaIds.value)
   emit('refresh')
+}
+
+// Local announcement so open grids update at once, ahead of (and regardless
+// of) the server's project_assets_changed broadcast.
+function emitProjectAssetsChanged(projectId: number, action: 'add' | 'remove', assetIds: number[], mediaIds: number[]) {
+  announceProjectAssetsChanged({
+    project_id: projectId,
+    asset_ids: assetIds,
+    media_ids: mediaIds,
+    action: action === 'add' ? 'added' : 'removed',
+  })
 }
 
 async function handleRemoveFromProject() {
   const ids = targetIds.value
+  const assetIds = [...targetAssetIds.value]
+  const mediaIds = [...targetMediaIds.value]
   const projectId = currentProjectId.value
   contextMenu.hide()
   if (ids.length === 0 || !projectId) return
 
   try {
-    if (targetAssetIds.value.length > 0) {
-      await Promise.all(ids.map((id) => removeAssetFromProject(id, projectId)))
-    } else {
-      await Promise.all(ids.map((id) => removeMediaFromProject(projectId, id)))
-    }
+    const results = assetIds.length > 0
+      ? await Promise.allSettled(ids.map((id) => removeAssetFromProject(id, projectId)))
+      : await Promise.allSettled(ids.map((id) => removeMediaFromProject(projectId, id)))
+    // An item that wasn't in the project is not a failure.
+    const failed = results.filter((r: any) => r.status === 'rejected' && r.reason?.response?.status !== 404)
+    if (failed.length > 0 && failed.length === results.length) throw (failed[0] as PromiseRejectedResult).reason
+    emitProjectAssetsChanged(projectId, 'remove', assetIds, mediaIds)
     emit('refresh')
   } catch (err) {
     console.error('Failed to remove from project:', err)
+    addToast('Could not remove from project', 'error')
   }
 }
 </script>

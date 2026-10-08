@@ -94,6 +94,9 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
 
+      - name: Install native PDF build dependencies
+        run: brew install pango
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

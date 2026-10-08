@@ -977,7 +977,7 @@ function handleRightClick(item, event) {
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
         inProject: props.inProject,
-        projectId: props.projectId
+        projectId: props.projectId ?? undefined
       })
     } else {
       // Operating on single item (clicked item, regardless of selection)
@@ -991,7 +991,7 @@ function handleRightClick(item, event) {
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
         inProject: props.inProject,
-        projectId: props.projectId
+        projectId: props.projectId ?? undefined
       })
     }
   }
@@ -1283,7 +1283,7 @@ function showContextMenuForItem(itemId) {
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
         inProject: props.inProject,
-        projectId: props.projectId
+        projectId: props.projectId ?? undefined
       })
     } else {
       // Operating on single item
@@ -1299,7 +1299,7 @@ function showContextMenuForItem(itemId) {
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
         inProject: props.inProject,
-        projectId: props.projectId
+        projectId: props.projectId ?? undefined
       })
     }
   }

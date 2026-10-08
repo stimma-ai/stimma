@@ -240,6 +240,8 @@
 </template>
 
 <script setup>
+import { useEntityMove } from '../composables/useEntityMove'
+import { fetchScopedJson } from '../utils/scopedList'
 import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, nextTick, watch } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
@@ -268,7 +270,7 @@ const props = defineProps({
 const router = useRouter()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
-const { isCompact } = useViewport()
+const { isCompact, allowsAutofocus } = useViewport()
 const { addToast } = useToasts()
 
 const searchInputRef = ref(null)
@@ -428,17 +430,9 @@ async function renameFromSheet(name) {
   await saveChatName(chat)
 }
 
+const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
-  try {
-    await fetch(`/api/chats/${entityId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: projectId })
-    })
-    await loadChats()
-  } catch (err) {
-    console.error('Failed to move chat to project:', err)
-  }
+  if (await moveEntityToProject('chat', entityId, projectId)) await loadChats()
 }
 
 function handleDeleteSelected() {
@@ -559,11 +553,9 @@ async function loadChats() {
   loading.value = true
   loadError.value = false
   try {
+    // The top level lists only chats with no project.
     const params = new URLSearchParams({ page: '1', page_size: '100' })
-    if (props.projectId != null) params.set('project_id', String(props.projectId))
-    const response = await fetch(`/api/chats/previews?${params.toString()}`)
-    if (!response.ok) throw new Error('Failed to load chats')
-    const data = await response.json()
+    const data = await fetchScopedJson('/api/chats/previews', params, props.projectId)
     chats.value = data.items
   } catch (err) {
     console.error('Failed to load chats:', err)
@@ -668,12 +660,12 @@ on('chat_restored', () => loadChats())
 
 onMounted(() => {
   loadChats()
-  searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
 })
 
 onActivated(() => {
   loadChats()
-  searchInputRef.value?.focus()
+  if (allowsAutofocus.value) searchInputRef.value?.focus()
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleEmptyMenuClickOutside)
 })

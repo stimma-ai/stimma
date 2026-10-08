@@ -56,13 +56,17 @@
               type="button"
               aria-label="Back to everything"
               class="flex w-fit items-center gap-1.5 rounded px-3 py-0.5 text-content-muted transition-colors hover:text-content coarse:min-h-11"
+              :title="busyElsewhere ? 'Back to everything (work is running elsewhere)' : undefined"
               @click="leaveProject"
             >
               <ChevronLeftIcon class="h-3 w-3" />
               <span class="font-brand text-[11px] lowercase tracking-[0.12em]">stimma</span>
+              <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-0.5" />
             </button>
-            <WorkingContextPicker v-slot="{ toggle, open }" @selected="props.isMobile && emit('close')">
+            <WorkingContextPicker v-slot="{ toggle, open, openForDrop }" ref="projectPicker" @selected="props.isMobile && emit('close')">
+              <!-- Holding dragged media here opens the picker so its rows can take the drop. -->
               <button
+                ref="projectHeader"
                 type="button"
                 aria-label="Working context"
                 aria-haspopup="dialog"
@@ -70,6 +74,10 @@
                 class="mb-1.5 flex w-full items-start gap-2 rounded-md px-3 py-1.5 text-left transition-colors hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
                 :class="open ? 'bg-overlay-subtle' : ''"
                 @click="toggle($event.currentTarget)"
+                @dragenter="projectHeaderDrag.onDragEnter"
+                @dragover="projectHeaderDrag.onDragOver"
+                @dragleave="projectHeaderDrag.onDragLeave"
+                @drop="projectHeaderDrag.onDrop"
               ><span class="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1 h-3 w-3 shrink-0 text-content-muted" /></button>
             </WorkingContextPicker>
           </template>
@@ -1028,6 +1036,9 @@ import { useContextSwitch, useWorkingContext } from '../composables/useWorkingCo
 import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '../utils/workingContext'
 import WorkingContextPicker from './WorkingContextPicker.vue'
 import SidebarProjects from './sidebar/SidebarProjects.vue'
+import { useProjectActivity } from '../composables/useProjectActivity'
+import { handleProjectDeletedBroadcast } from '../composables/useProjectDeletion'
+import { useDragHoverOpen } from '../composables/useProjectDrop'
 import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
 import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
@@ -1074,6 +1085,11 @@ const route = useRoute()
 const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
 const switchContext = useContextSwitch()
 const { isCollapsed } = useSidebarSections()
+const { isBusyElsewhere } = useProjectActivity()
+const busyElsewhere = computed(() => activeProjectId.value != null && isBusyElsewhere(activeProjectId.value))
+const projectPicker = ref<InstanceType<typeof WorkingContextPicker> | null>(null)
+const projectHeader = ref<HTMLElement | null>(null)
+const projectHeaderDrag = useDragHoverOpen(() => projectPicker.value?.openForDrop(projectHeader.value))
 async function leaveProject() {
   if (await switchContext(null) && props.isMobile) emit('close')
 }
@@ -1411,10 +1427,17 @@ async function ensureProjectName(projectId: number | string | null | undefined) 
   } catch {}
 }
 
+// The open chat, board or flow moved to another project (here or in another
+// window): the working context follows what's on screen.
+function followOpenEntity(routeName: string, id: string, projectId: number | null) {
+  if (route.name === routeName && String(route.params.id) === id && activeProjectId.value !== projectId) selectProject(projectId)
+}
+
 function applyBoardUpdate(board: any) {
   if (!board?.id) return
   const boardId = String(board.id)
   setTabContext(`board:${boardId}`, board.project_id ?? null)
+  if ('project_id' in board) followOpenEntity('board-detail', boardId, board.project_id ?? null)
   boardMetadata.value.set(boardId, extractBoardMetadata(board))
   boardMetadata.value = new Map(boardMetadata.value)
   ensureProjectName(board?.project_id ?? null)
@@ -2461,8 +2484,21 @@ on('tool_unpinned', (data) => {
 
 // Chat events - update tab names, remove tabs on deletion
 on('chat_updated', (data) => {
-  if (data.chat?.name) {
-    updateTabName(`chat:${data.chat.id}`, data.chat.name)
+  const chat = data.chat
+  if (!chat?.id) return
+  if (chat.name) updateTabName(`chat:${chat.id}`, chat.name)
+  // Moved to another project: the row follows the chat to its new context.
+  if ('project_id' in chat) {
+    const key = String(chat.id)
+    const projectId = chat.project_id ?? null
+    const meta = chatMetadata.value.get(key)
+    if (meta && meta.project_id !== projectId) {
+      chatMetadata.value.set(key, { ...meta, project_id: projectId })
+      chatMetadata.value = new Map(chatMetadata.value)
+    }
+    setTabContext(`chat:${key}`, projectId)
+    ensureProjectName(projectId)
+    followOpenEntity('chat', key, projectId)
   }
 })
 
@@ -2481,8 +2517,16 @@ on('chat_deleted', (data) => {
 // Flow events - update tab names, remove tabs on deletion
 on('flow_updated', (data) => {
   const flow = data.flow
-  if (flow?.id && flow.name) {
-    updateTabName(`flow:${flow.id}`, flow.name)
+  if (!flow?.id) return
+  if (flow.name) updateTabName(`flow:${flow.id}`, flow.name)
+  if ('project_id' in flow) {
+    const projectId = flow.project_id ?? null
+    if (flowMetadata.value.get(String(flow.id)) !== projectId) {
+      flowMetadata.value.set(String(flow.id), projectId)
+      flowMetadata.value = new Map(flowMetadata.value)
+    }
+    setTabContext(`flow:${flow.id}`, projectId)
+    followOpenEntity('flow', String(flow.id), projectId)
   }
 })
 
@@ -2561,12 +2605,7 @@ on('agent_stopped', (data) => {
 on('project_created', () => refreshProjects())
 on('project_deleted', async (data) => {
   savedViews.value = savedViews.value.filter(v => v.project_id !== data.project_id)
-  if (activeProjectId.value === data.project_id) {
-    selectProject(null)
-    addToast('This project is no longer available.', 'warning')
-    await router.replace({ name: 'browse', query: { library: '1' } })
-  }
-  await refreshProjects()
+  await handleProjectDeletedBroadcast(data.project_id, router, route)
 })
 
 // ==================== Route watcher: auto-create tabs ====================

@@ -178,6 +178,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
+import { addToast } from '../../composables/useToasts'
 import { useTauriDownload } from '../../composables/useTauriDownload'
 import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
@@ -189,10 +190,14 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { getMediaType } from '../../utils/mediaTypes'
 import type { ArtifactRevision } from '../../composables/useArtifactStage'
+import { toProjectId } from '../../utils/projectScope'
 
 const props = defineProps<{
   workspaceFile?: WorkspaceFile | null
   chatId?: number | string
+  // The chat's project; the media menu acts in it. Looked up from the chat
+  // when the host doesn't pass it.
+  projectId?: number | null
   asset: { id: number; title: string | null; current_revision_id: number } | null
   revisions: ArtifactRevision[]
   viewedRevisionId: number | null
@@ -215,6 +220,19 @@ const emit = defineEmits<{
 const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
 // The <MediaContextMenu> itself is mounted once by ChatView.
 const contextMenu = useMediaContextMenu()
+
+// The menu's boards, chats and Remove from Project follow the chat's project,
+// not whichever project happens to be active. Undefined while unknown.
+const chatProjectId = ref<number | null | undefined>(undefined)
+watch(() => [props.projectId, props.chatId] as const, async ([explicit, chatId]) => {
+  if (explicit !== undefined) { chatProjectId.value = explicit; return }
+  chatProjectId.value = undefined
+  if (chatId == null || chatId === '') return
+  try {
+    const { data } = await axios.get(`${getApiBase()}/chats/${chatId}`)
+    if (props.chatId === chatId && props.projectId === undefined) chatProjectId.value = toProjectId(data?.project_id)
+  } catch { /* fall back to the active project */ }
+}, { immediate: true })
 
 const workspaceArchive = computed(() => !!props.workspaceFile && fileKind(props.workspaceFile.name, props.workspaceFile.mime) === 'zip')
 const fileControlsRef = ref<HTMLElement | null>(null)
@@ -263,6 +281,7 @@ function contextMenuTarget() {
     mediaIds: [mediaId],
     assetId: props.asset?.id,
     assetIds: props.asset?.id ? [props.asset.id] : [],
+    projectId: chatProjectId.value,
   }
 }
 
@@ -302,6 +321,9 @@ async function downloadPackage(format: 'zip' | 'pdf') {
     const disposition = response.headers['content-disposition'] || ''
     const match = disposition.match(/filename="([^"]+)"/)
     await downloadFromResponse(response.data, match ? match[1] : `package.${format}`)
+  } catch (error) {
+    console.error('Failed to export package:', error)
+    addToast(`Could not download the package ${format.toUpperCase()}. Please try again.`, 'error')
   } finally {
     downloadingPackage.value = false
   }

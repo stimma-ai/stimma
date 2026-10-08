@@ -71,6 +71,7 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { MediaImage } from '../media'
 import axios from 'axios'
+import { useOwnerProject } from '../../composables/useProjectScope'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
 
@@ -94,13 +95,15 @@ const description = ref('')
 const items = ref([])
 const savingMediaIds = ref(new Set())
 const { promoteContextualMedia } = useAssetApi()
+// Kept members land in the working project, like everything made inside it.
+const keepProjectId = useOwnerProject()
 
 async function keepItem(item) {
   const mediaId = mediaIdOf(item?.resolved)
   if (!mediaId || savingMediaIds.value.has(mediaId)) return
   savingMediaIds.value = new Set([...savingMediaIds.value, mediaId])
   try {
-    const result = await promoteContextualMedia(mediaId)
+    const result = await promoteContextualMedia(mediaId, keepProjectId.value)
     item.resolved.saved_asset_id = result.asset.asset_id
     addToast('Kept in All Assets', 'success')
   } catch (error) {

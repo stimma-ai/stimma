@@ -137,6 +137,8 @@ import ChatInputAttachments from './ChatInputAttachments.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import AgentUnavailableInput from './AgentUnavailableInput.vue'
 import { insertNewlineAtCaret } from '../../utils/textInput'
+import { useOwnerProject } from '../../composables/useProjectScope'
+import { appendProjectId } from '../../utils/projectScope'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -150,7 +152,10 @@ const props = defineProps({
   agentUnavailable: { type: Boolean, default: false },
   attachments: { type: Array, default: () => [] },
   // Telemetry surface for voice input: main_chat | flow_chat
-  voiceSurface: { type: String, default: 'main_chat' }
+  voiceSurface: { type: String, default: 'main_chat' },
+  // The chat's project. Uploaded attachments become assets in it. When the
+  // host doesn't pass one, the active working project is used.
+  projectId: { type: Number, default: undefined }
 })
 
 const emit = defineEmits([
@@ -167,6 +172,7 @@ const uploadInputRef = ref(null)
 const dragging = ref(false)
 const voiceBtn = ref(null)
 const inputText = computed(() => props.draft ? props.draft.text : props.modelValue)
+const uploadProjectId = useOwnerProject(() => props.projectId)
 let resizeFrame = null
 
 // Shift+Enter breaks the line (plain Enter submits).
@@ -268,6 +274,7 @@ async function uploadFileToAttachments(file) {
   try {
     const formData = new FormData()
     formData.append('file', file)
+    appendProjectId(formData, uploadProjectId.value)
     const response = await axios.post('/api/generate/upload-reference', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })

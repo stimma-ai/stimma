@@ -7,6 +7,7 @@ import { recordEntityVisit, recentEntities } from './useRecentEntities'
 import { contextSwitchRoute, projectIdFrom } from '../utils/workingContext'
 import { parseServerTime } from '../utils/timeFormat'
 import { addToast } from './useToasts'
+import { useWorkspaceTabs } from './useWorkspaceTabs'
 
 export interface WorkingProject {
   id: number
@@ -116,9 +117,10 @@ export function useWorkingContext() {
 export function useContextSwitch() {
   const router = useRouter()
   const route = useRoute()
+  const { findToolInstance } = useWorkspaceTabs()
   return async function switchContext(id: number | null): Promise<boolean> {
     if (activeProjectId.value === id) return true
-    const target = contextSwitchRoute(route, id)
+    const target = contextSwitchRoute(route, id, findToolInstance)
     const previous = activeProjectId.value
     selectProject(id)
     try {

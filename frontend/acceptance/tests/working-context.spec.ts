@@ -10,7 +10,7 @@ const sidebar = (page: any) => page.locator('.navigation-sidebar');
 const choose = chooseContext;
 
 test.describe('working context', () => {
-  test('no projects shows a labelled New project row, and legacy projects links open the picker', async ({ page }) => {
+  test('no projects shows the Projects header with a + only, and legacy projects links open the picker', async ({ page }) => {
     await page.route('**/api/projects', async route => {
       if (route.request().method() === 'GET') await route.fulfill({ json: [] });
       else await route.continue();
@@ -20,7 +20,9 @@ test.describe('working context', () => {
     await expectContext(page, 'Everything');
     const projects = sidebar(page).getByRole('region', { name: 'Projects' });
     await expect(projects.getByRole('button', { name: 'New project', exact: true })).toBeVisible();
-    await expect(projects.getByText('Keep the assets, chats and boards')).toBeVisible();
+    // The hint lives in the + tooltip now, not as a sentence in the sidebar.
+    await expect(projects.getByText('Keep the assets, chats and boards')).toHaveCount(0);
+    await expect(projects.getByRole('button', { name: 'New project', exact: true })).toHaveAttribute('title', /keep the assets, chats and boards/);
     await page.goto('/projects');
     const picker = page.getByRole('dialog', { name: 'Choose a project' });
     await expect(picker).toBeVisible();
@@ -105,7 +107,10 @@ test.describe('working context', () => {
     await promptInput(page).fill('Global tool draft');
     const globalInstance = new URL(page.url()).searchParams.get('instance');
     await choose(page, project.name);
-    await expect(page).toHaveURL(new RegExp(`project_id=${project.id}`));
+    // The project has no instance of this tool yet: switching lands on its
+    // overview instead of creating one.
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/overview`));
+    await openTool(page, project.id);
     await expect.poll(() => promptText(page)).toBe('');
     const scopedInstance = new URL(page.url()).searchParams.get('instance');
     expect(scopedInstance).not.toBe(globalInstance);
@@ -131,6 +136,7 @@ test.describe('working context', () => {
       const items = await listMedia(page, { prompt_query: prompt, project_id: project.id, page_size: 20 });
       return items.length ? items : null;
     }, 30000);
+    // Back in the project, its own instance of the open tool is reused.
     await choose(page, project.name);
     await expect.poll(() => promptText(page)).toBe(prompt);
     expect(new URL(page.url()).searchParams.get('instance')).toBe(scopedInstance);

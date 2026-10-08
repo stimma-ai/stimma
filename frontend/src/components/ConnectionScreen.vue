@@ -5,29 +5,18 @@
   <div class="fixed inset-0 z-top bg-surface-overlay">
     <!-- Minimal top bar: window controls region plus the chip, nothing else. -->
     <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
-    <div class="absolute top-4 right-4">
+    <div class="absolute top-4 right-4 z-10">
       <DeviceChip ref="chip" />
     </div>
 
-    <div class="absolute inset-0 flex items-center justify-center px-6">
-      <!-- The server is the subject: its name and one line of status, with the
-           launch screen's swinging logo so a restart reads as Stimma coming
-           back rather than an error. There is no retry button because the app
-           retries continuously for as long as this screen is up; the only
-           real choice is a different server, and that lives at the bottom. -->
-      <div class="flex flex-col items-center rounded-[14px] border border-edge bg-surface px-11 pt-[30px] pb-[26px] min-w-[280px]">
-        <img class="connection-logo" src="/logo.svg" alt="" />
-        <div class="mt-4 text-[15px] font-semibold text-content">{{ deviceName }}</div>
-        <div class="mt-1 text-[13px] text-content-secondary">{{ statusLine }}</div>
+    <div class="flex h-full items-center justify-center overflow-y-auto px-6 pt-safe pb-safe">
+      <div class="flex w-full max-w-sm flex-col items-center py-8 text-center">
+        <img class="connection-logo motion-reduce:animate-none" src="/logo.svg" alt="" />
+        <h1 class="mt-6 max-w-full break-words font-brand text-lg font-semibold text-content">{{ deviceName }}</h1>
+        <p class="mt-2 text-sm text-content-secondary" role="status">{{ statusLine }}</p>
+        <Button variant="link" class="mt-4 min-h-11 shrink-0" @click="chip?.openMenu()">Choose another server</Button>
       </div>
     </div>
-
-    <button
-      class="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11.5px] text-content-tertiary transition-colors cursor-pointer hover:text-content-secondary bg-transparent border-none"
-      @click="chip?.openMenu()"
-    >
-      Choose another server
-    </button>
   </div>
 </template>
 
@@ -35,6 +24,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useMultiDevice } from '../composables/useMultiDevice'
 import DeviceChip from './DeviceChip.vue'
+import Button from './ui/Button.vue'
 import { useServerUpdater } from '../composables/useServerUpdater'
 
 const { connectionState, activeDeviceName, retry, refresh } = useMultiDevice()
