@@ -1434,6 +1434,11 @@ async def _sync_chatgpt_provider(access_token: str) -> LLMProviderConfig:
     for entry in entries:
         model = chatgpt_model(provider.id, entry)
         prior = previous.get(model.id)
+        if prior is None:
+            retired = {"gpt-6.1-sol": ("gpt-5.6-sol", "gpt-5.6-terra"),
+                       "gpt-6-luna": ("gpt-5.6-luna",)}.get(model.model_id, ())
+            prior = next((previous[f"{provider.id}:{old}"] for old in retired
+                          if f"{provider.id}:{old}" in previous), None)
         if prior is not None:
             model.enabled = prior.enabled
             model.content_policy_enabled = prior.content_policy_enabled
