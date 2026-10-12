@@ -60,7 +60,7 @@ test.describe('Source folder import acceptance', () => {
       const response = await apiJSON<{
         total: number;
         items: Array<{ id: number; file_path?: string }>;
-      }>(page, '/api/assets/browse?sort_by=created_desc&page=1&page_size=200&state=active');
+      }>(page, '/api/assets/browse?scope=unfiled&sort_by=created_desc&page=1&page_size=200&state=active');
       const asset = response.items.find((item) => item.file_path === importedPath);
       return asset ? { asset, total: response.total } : null;
     }, 30000);
@@ -68,6 +68,8 @@ test.describe('Source folder import acceptance', () => {
     // The browser was already open before the Source was configured. Verify
     // its count and grid update without navigation or reload. Newest First
     // places the newly created Asset at the top, regardless of fixture age.
+    // The top-level browser excludes project assets, so its expected total
+    // must use the same unfiled scope even after earlier tests create projects.
     await expect(page.getByText(`${importedAssetResult.total} items`, { exact: true })).toBeVisible({
       timeout: 30000,
     });
