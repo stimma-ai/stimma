@@ -335,3 +335,31 @@ async def test_package_source_files_are_retained_without_library_assets(db_sessi
             MediaOwner.media_id == media.id, MediaOwner.deleted_at.is_(None))) is not None
         assert await session.scalar(select(AssetRevision).where(
             AssetRevision.primary_media_id == media.id)) is None
+
+
+@pytest.mark.asyncio
+async def test_package_resources_through_worker_boundary(db_session, tmp_path):
+    from agent.v2.tools.run_code import run_code
+
+    _icon(tmp_path / 'mark.png')
+    (tmp_path / 'brief.txt').write_text('brief')
+    async with db_session() as session:
+        chat = Chat(name='worker package')
+        session.add(chat)
+        await session.commit()
+        result = await run_code(
+            code="""
+pkg = stimma.packages.new('Worker icons')
+master = await pkg.add_member('mark.png', role='master')
+await pkg.run('tiles', {'master': master}, {'background': '#FFFFFF', 'platforms': ['web'], 'app_name': 'Worker'})
+pkg.add_file('brief.txt')
+pkg.set_cover('<h1>Icons</h1><stimma-media ref="m1"></stimma-media><stimma-files ref="r1"></stimma-files>')
+media_id = await pkg.save()
+opened = await stimma.packages.open(media_id)
+manifest = await opened.manifest()
+print(manifest['members'][0]['name'])
+print((await stimma.packages.status(media_id))['stale'])
+""",
+            session=session, chat_id=chat.id, workspace_dir=tmp_path,
+        )
+        assert result == 'mark.png\nFalse'

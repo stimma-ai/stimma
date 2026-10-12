@@ -14,6 +14,7 @@ import os
 import random
 import re
 import traceback
+import threading
 import base64 as _base64_mod
 import collections
 import colorsys
@@ -663,7 +664,8 @@ class ProgressTracker:
         self._previews: list[int] = []
         self._preview_slots: list[dict] | None = None
         self._preview_order: dict[int, tuple] = {}
-        self._pending_update: dict | None = None
+        self._pending_lock = threading.Lock()
+        self._pending_state: dict | None = None
         self._completed = False
         self._status = "in_progress"
 
@@ -744,10 +746,23 @@ class ProgressTracker:
             },
         }
 
+    @property
+    def _pending_update(self) -> dict | None:
+        with self._pending_lock:
+            return self._pending_state
+
+    @_pending_update.setter
+    def _pending_update(self, state: dict | None):
+        with self._pending_lock:
+            self._pending_state = state
+
     def _take_pending(self) -> dict | None:
-        pending = self._pending_update
-        self._pending_update = None
-        return pending
+        # Code updates from the worker while the application flushes progress.
+        # Taking an update must not erase a newer worker update.
+        with self._pending_lock:
+            pending = self._pending_state
+            self._pending_state = None
+            return pending
 
     def _mark_completed(self, status: str = "completed"):
         # Finalizing the whole script must not overwrite an earlier batch's
@@ -1428,6 +1443,7 @@ class StimmaSDK:
         self._effective_model_slug = effective_model_slug
         self.library = StimmaLibraryAPI(self)
         self.packages = StimmaPackagesAPI(self)
+        self._display_lock = threading.Lock()
         self._pending_display_calls: list[dict[str, Any]] = []
         self._display_receipts: list[str] = []
         self._tool_results: list[ToolResult] = []
@@ -2106,15 +2122,16 @@ class StimmaSDK:
                 return
             item = items if len(items) > 1 else items[0]
         norm_paths, norm_media_ids = self._normalize_show_inputs(item)
-        self._pending_display_calls.append({
-            "media_ids": norm_media_ids or None,
-            "paths": norm_paths or None,
-            "title": title,
-            "role": role,
-            "revision": {k: v for k, v in {"revises": revises, "artifact": artifact,
-                "revision_note": revision_note, "parent_revision": parent_revision}.items()
-                if v is not None and v is not False},
-        })
+        with self._display_lock:
+            self._pending_display_calls.append({
+                "media_ids": norm_media_ids or None,
+                "paths": norm_paths or None,
+                "title": title,
+                "role": role,
+                "revision": {k: v for k, v in {"revises": revises, "artifact": artifact,
+                    "revision_note": revision_note, "parent_revision": parent_revision}.items()
+                    if v is not None and v is not False},
+            })
 
     def show_grid(
         self,
@@ -2576,10 +2593,10 @@ class StimmaSDK:
         return response.media_id
 
     async def flush(self) -> None:
-        if not self._pending_display_calls:
-            return
-        pending = list(self._pending_display_calls)
-        self._pending_display_calls.clear()
+        # show() appends in the worker while this drain runs on the owner loop.
+        with self._display_lock:
+            pending = list(self._pending_display_calls)
+            self._pending_display_calls.clear()
         for payload in pending:
             # Auto-save workspace paths to library before displaying
             saved_media_ids = await self._auto_save_paths(payload.get("paths") or [])
@@ -2925,6 +2942,8 @@ async def run_code_in_sandbox(
     effective_model_slug: str | None = None,
 ) -> tuple[str, dict]:
     stdout = io.StringIO()
+    owner_task = asyncio.current_task()
+    initial_cancels = owner_task.cancelling()
 
     # Coerce to Path since callers may pass strings
     workspace_dir = Path(workspace_dir) if not isinstance(workspace_dir, Path) else workspace_dir
@@ -2943,6 +2962,11 @@ async def run_code_in_sandbox(
         project_id=project_id,
         effective_model_slug=effective_model_slug,
     )
+
+    from .code_execution import SDKBridge, CodeWorker
+    sdk_bridge = SDKBridge(asyncio.get_running_loop(),
+                           (StimmaSDK, *StimmaSDK.NAMESPACES.values(), PackageDraft))
+    worker_sdk = sdk_bridge.wrap(sdk_instance)
 
     # Create a tqdm class bound to this SDK instance so `from tqdm import tqdm` just works
     class _BoundTqdm(ProgressTracker):
@@ -2990,7 +3014,7 @@ async def run_code_in_sandbox(
         from providers.registry import ProviderRegistry
         from .tool_fs import build_manifest, build_tools_namespace
         _tool_manifest = build_manifest(ProviderRegistry.get_instance())
-        _tools_namespace = build_tools_namespace(sdk_instance, _tool_manifest)
+        _tools_namespace = build_tools_namespace(worker_sdk, _tool_manifest)
     except Exception as e:
         log.warning(f"run_code: failed to build stimma.tools namespace: {e}")
 
@@ -2999,7 +3023,7 @@ async def run_code_in_sandbox(
     _original_import = builtins["__import__"]
     def _import_with_extras(name, globals=None, locals=None, fromlist=(), level=0):
         if name == "stimma":
-            return sdk_instance
+            return worker_sdk
         if name in ("tqdm", "tqdm.auto"):
             return tqdm_module
         if name == "asyncio":
@@ -3012,7 +3036,7 @@ async def run_code_in_sandbox(
     globals_dict: dict[str, Any] = {
         "__builtins__": builtins,
         "__name__": "__stimma_run_code__",
-        "stimma": sdk_instance,
+        "stimma": worker_sdk,
         "ControlNetInput": ControlNetInput,
         "tqdm": _BoundTqdm,
         "asyncio": _patched_asyncio,
@@ -3058,51 +3082,58 @@ async def run_code_in_sandbox(
         exec(compile(tree, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
         return globals_dict["__stimma_run__"]
 
+    sdk = sdk_instance
     try:
         fn = await asyncio.to_thread(_exec_wrapper)
-        sdk: StimmaSDK = globals_dict["stimma"]
         async with _code_workspace(workspace_dir):
-            task = asyncio.create_task(fn())
-
-            while not task.done():
-                try:
-                    await asyncio.wait_for(asyncio.shield(task), timeout=0.5)
-                except asyncio.TimeoutError:
-                    pass  # just a polling interval
-                except asyncio.CancelledError:
-                    # Outer agent task was cancelled — kill the inner task too
-                    task.cancel()
+            worker = CodeWorker(fn)
+            task = worker.start()
+            interrupted = False
+            try:
+                while not task.done():
+                    done, _ = await asyncio.wait({task}, timeout=0.5)
+                    if done:
+                        break
+                    await sdk._flush_progress()
+                    if callable(interrupt_checker) and interrupt_checker():
+                        interrupted = True
+                        worker.stop()
+                        break
+                if interrupted:
                     try:
-                        await task
-                    except (asyncio.CancelledError, Exception):
-                        pass
-                    await sdk._finalize_progress("cancelled")
-                    raise  # re-raise so the agent loop sees the cancellation
-
-                # Flush queued progress updates to frontend
-                await sdk._flush_progress()
-
-                # Check interrupt flag — makes sandbox cancellable
-                if callable(interrupt_checker) and interrupt_checker():
-                    task.cancel()
-                    try:
-                        await task
-                    except (asyncio.CancelledError, Exception):
-                        pass
+                        await asyncio.shield(task)
+                    except asyncio.CancelledError:
+                        if owner_task.cancelling() > initial_cancels or not task.done():
+                            raise  # Owner cancellation, not worker completion.
                     await sdk._finalize_progress("cancelled")
                     msg = "Error: execution interrupted by user"
                     receipt = _format_run_code_receipt(sdk._tool_results, sdk._tool_failures, workspace_dir=sdk.workspace_dir)
                     if receipt:
                         msg = f"{msg}\n\n{receipt}"
-                    return msg, sdk_instance.get_llm_usage()
+                    return msg, sdk.get_llm_usage()
+                result = task.result()
 
-            result = task.result()
+            except BaseException:
+                worker.stop()
+                # Do not restore process cwd or let the caller close its session
+                # while worker code / an in-flight SDK call still uses them.
+                while not task.done():
+                    try:
+                        await asyncio.shield(task)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if task.done() and not task.cancelled():
+                    task.exception()
+                raise
+
         await sdk.flush()
         await sdk._finalize_progress("completed")
     except asyncio.CancelledError:
         # Propagate cancellation — the agent loop handles cleanup
         try:
-            sdk_ref = globals_dict.get("stimma")
+            sdk_ref = sdk_instance
             if sdk_ref is not None:
                 await sdk_ref._finalize_progress("cancelled")
         except Exception:
@@ -3111,7 +3142,7 @@ async def run_code_in_sandbox(
     except Exception as e:
         # Finalize any active progress trackers so they don't stay stuck
         try:
-            sdk_ref = globals_dict.get("stimma")
+            sdk_ref = sdk_instance
             if sdk_ref is not None:
                 await sdk_ref._finalize_progress("error")
         except Exception:
@@ -3154,7 +3185,7 @@ async def run_code_in_sandbox(
         # Extract usage even on error — LLM calls may have happened before the crash
         err_usage = {}
         try:
-            sdk_ref2 = globals_dict.get("stimma")
+            sdk_ref2 = sdk_instance
             if sdk_ref2 is not None:
                 err_usage = sdk_ref2.get_llm_usage()
                 receipt = _format_run_code_receipt(sdk_ref2._tool_results, sdk_ref2._tool_failures, workspace_dir=sdk_ref2.workspace_dir)
