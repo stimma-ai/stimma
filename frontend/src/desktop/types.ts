@@ -41,6 +41,24 @@ export interface DirectoryPickerOptions {
   defaultPath?: string
 }
 
+export interface SaveFilePickerOptions {
+  title?: string
+  /** Folder the panel opens in. */
+  directory?: string
+  /** Prefilled file name. */
+  filename?: string
+}
+
+/** A file location chosen in the native Save panel. */
+export interface PickedSaveFile {
+  path: string
+  /** The folder containing `path`. */
+  folder: string
+}
+
+/** Standard per-user folders an export can start in. */
+export type KnownFolder = 'pictures' | 'videos' | 'music' | 'documents' | 'downloads'
+
 export type ConnectionState = 'connecting' | 'ready' | 'unreachable'
 
 export interface DeviceRoute {
@@ -183,12 +201,39 @@ export interface DesktopBridge {
   /** Native directory picker. Resolves null when cancelled or unsupported. */
   pickDirectory(options?: DirectoryPickerOptions): Promise<string | null>
 
+  // ---- export destinations --------------------------------------------------
+  /**
+   * Native Save panel. Resolves the chosen location, or null when cancelled or
+   * unsupported. The shell grants write access to exactly that file.
+   */
+  pickSaveFile(options?: SaveFilePickerOptions): Promise<PickedSaveFile | null>
+  /**
+   * Native folder picker for export output. Resolves null when cancelled or
+   * unsupported. The shell grants write access inside the chosen folder.
+   */
+  pickExportFolder(options?: DirectoryPickerOptions): Promise<string | null>
+  /** Write bytes to a path returned by pickSaveFile, replacing any file there. */
+  writeExportFile(path: string, data: Uint8Array): Promise<void>
+  /**
+   * Write bytes to `relativePath` inside a folder from pickExportFolder (or a
+   * folder made by makeExportFolder). Missing parent folders are created and
+   * an existing file is never replaced: the name gets " (N)" instead.
+   * Resolves the written path.
+   */
+  writeExportFileIn(folder: string, relativePath: string, data: Uint8Array): Promise<string>
+  /** Create a new folder named `name` inside `parent`, uniquified with " (N)". Resolves its path. */
+  makeExportFolder(parent: string, name: string): Promise<string>
+  /** Path of a standard per-user folder, or null when unknown. */
+  knownFolder(kind: KnownFolder): Promise<string | null>
+
   // ---- downloads -----------------------------------------------------------
   /**
    * Write bytes into the user's Downloads folder, uniquifying the filename if
-   * it already exists. Resolves true on success.
+   * it already exists. Resolves the written path on desktop shells, true where
+   * the shell hands the file off without a path (phone share sheet, browser
+   * download), and false on failure.
    */
-  saveToDownloads(filename: string, data: Uint8Array): Promise<boolean>
+  saveToDownloads(filename: string, data: Uint8Array): Promise<string | boolean>
 
   // ---- print ---------------------------------------------------------------
   /** Native print dialog for the current webview. */

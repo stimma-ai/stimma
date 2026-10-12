@@ -240,7 +240,7 @@ license:
 ## Frontend (npm) packages
 
 <!-- BEGIN GENERATED: npm -->
-134 packages (production dependency closure bundled into the UI).
+135 packages (production dependency closure bundled into the UI).
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -327,6 +327,7 @@ license:
 | es-object-atoms | 1.1.2 | MIT | https://github.com/ljharb/es-object-atoms |
 | es-set-tostringtag | 2.1.0 | MIT | https://github.com/es-shims/es-set-tostringtag |
 | estree-walker | 2.0.2 | MIT | https://github.com/Rich-Harris/estree-walker |
+| fflate | 0.8.3 | MIT | https://github.com/101arrowz/fflate |
 | follow-redirects | 1.16.0 | MIT | https://github.com/follow-redirects/follow-redirects |
 | form-data | 4.0.6 | MIT | https://github.com/form-data/form-data |
 | fs-extra | 10.1.0 | MIT | https://github.com/jprichardson/node-fs-extra |

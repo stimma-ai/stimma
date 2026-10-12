@@ -11,10 +11,12 @@ import type {
   DesktopUpdate,
   LocalDeviceStatus,
   DirectoryPickerOptions,
+  KnownFolder,
   VoiceDownloadEvent,
   VoiceTranscriptEvent,
 } from './types'
 import { fetchLocalAuth } from './browserBridge.ts'
+import { exportPathSegments, uniqueNameCandidates } from './exportPaths.ts'
 
 export function isTauriShell(): boolean {
   return typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined
@@ -27,6 +29,18 @@ async function core() {
 async function currentWindow() {
   const { getCurrentWindow } = await import('@tauri-apps/api/window')
   return getCurrentWindow()
+}
+
+/** First name in `folder` that nothing exists at yet. */
+async function firstFreePath(folder: string, name: string, isFolder: boolean): Promise<string> {
+  const { join } = await import('@tauri-apps/api/path')
+  const { exists } = await import('@tauri-apps/plugin-fs')
+  let candidatePath = ''
+  for (const candidate of uniqueNameCandidates(name, isFolder)) {
+    candidatePath = await join(folder, candidate)
+    if (!(await exists(candidatePath))) return candidatePath
+  }
+  return candidatePath
 }
 
 // Downloads directory path, resolved once (mirrors useTauriDownload behavior).
@@ -229,6 +243,77 @@ export const tauriBridge: DesktopBridge = {
     return typeof selected === 'string' ? selected : null
   },
 
+  // ---- export destinations --------------------------------------------------
+  // The dialog plugin adds each picked file, and each picked folder
+  // recursively, to the fs scope for this session. Writes below rely on that
+  // grant; the capability file only opens Downloads permanently.
+  async pickSaveFile(options) {
+    const { save } = await import('@tauri-apps/plugin-dialog')
+    const { join, dirname } = await import('@tauri-apps/api/path')
+    let defaultPath = options?.filename
+    if (options?.directory) {
+      defaultPath = options.filename ? await join(options.directory, options.filename) : options.directory
+    }
+    const path = await save({ title: options?.title, defaultPath })
+    if (typeof path !== 'string' || !path) return null
+    return { path, folder: await dirname(path) }
+  },
+
+  async pickExportFolder(options) {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const selected = await open({
+      directory: true,
+      recursive: true,
+      multiple: false,
+      title: options?.title,
+      defaultPath: options?.defaultPath,
+    })
+    return typeof selected === 'string' ? selected : null
+  },
+
+  async writeExportFile(path, data) {
+    const { writeFile } = await import('@tauri-apps/plugin-fs')
+    await writeFile(path, data)
+  },
+
+  async writeExportFileIn(folder, relativePath, data) {
+    const segments = exportPathSegments(relativePath)
+    const { join } = await import('@tauri-apps/api/path')
+    const { mkdir, writeFile } = await import('@tauri-apps/plugin-fs')
+    let parent = folder
+    if (segments.length > 1) {
+      parent = await join(folder, ...segments.slice(0, -1))
+      await mkdir(parent, { recursive: true })
+    }
+    const target = await firstFreePath(parent, segments[segments.length - 1], false)
+    await writeFile(target, data)
+    return target
+  },
+
+  async makeExportFolder(parent, name) {
+    const [folderName] = exportPathSegments(name)
+    const { mkdir } = await import('@tauri-apps/plugin-fs')
+    const target = await firstFreePath(parent, folderName, true)
+    await mkdir(target)
+    return target
+  },
+
+  async knownFolder(kind: KnownFolder) {
+    try {
+      const paths = await import('@tauri-apps/api/path')
+      const resolvers = {
+        pictures: paths.pictureDir,
+        videos: paths.videoDir,
+        music: paths.audioDir,
+        documents: paths.documentDir,
+        downloads: paths.downloadDir,
+      }
+      return await resolvers[kind]()
+    } catch {
+      return null
+    }
+  },
+
   // ---- downloads -----------------------------------------------------------
   async saveToDownloads(filename, data) {
     const downloadDirectory = await getDownloadDir()
@@ -240,7 +325,8 @@ export const tauriBridge: DesktopBridge = {
       const { writeFile, BaseDirectory } = await import('@tauri-apps/plugin-fs')
       const uniqueFilename = await getUniqueDownloadFilename(filename)
       await writeFile(uniqueFilename, data, { baseDir: BaseDirectory.Download })
-      return true
+      const { join } = await import('@tauri-apps/api/path')
+      return await join(downloadDirectory, uniqueFilename)
     } catch (e) {
       console.error('[tauriBridge] Failed to save file:', e)
       return false

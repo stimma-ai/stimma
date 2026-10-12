@@ -9,7 +9,7 @@ export function checkMobileDownloadSize(size: number, kind: string): void {
 /** Check before allocating an ArrayBuffer or the native bridge's JSON array. */
 export async function saveDownloadBlob(blob: Blob, filename: string, bridge: {
   kind: string
-  saveToDownloads: (filename: string, bytes: Uint8Array) => Promise<boolean>
+  saveToDownloads: (filename: string, bytes: Uint8Array) => Promise<string | boolean>
 }): Promise<boolean> {
   checkMobileDownloadSize(blob.size, bridge.kind)
   const saved = await bridge.saveToDownloads(filename, new Uint8Array(await blob.arrayBuffer()))

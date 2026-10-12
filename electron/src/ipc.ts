@@ -45,6 +45,14 @@ import {
   removeEventListener,
 } from './helper'
 import { getLegacyStorageDump, markLegacyStorageImported } from './legacyStorage'
+import {
+  exportPathSegments,
+  firstFreePath,
+  grantFile,
+  grantFolder,
+  requireGrantedFile,
+  requireGrantedFolder,
+} from './exportDestinations'
 import { log } from './log'
 import {
   closeDeletedProfileWindow,
@@ -310,6 +318,73 @@ export function registerIpcHandlers(): void {
     return result.canceled ? null : result.filePaths[0] ?? null
   })
 
+  // ---- export destinations --------------------------------------------------
+  handle('stimma:pick-save-file', async (event, options: unknown) => {
+    const opts = (options ?? {}) as { title?: unknown; directory?: unknown; filename?: unknown }
+    const directory = typeof opts.directory === 'string' ? opts.directory : undefined
+    const filename = typeof opts.filename === 'string' ? path.basename(opts.filename) : undefined
+    const defaultPath = directory && filename ? path.join(directory, filename) : (filename ?? directory)
+    const result = await dialog.showSaveDialog(senderWindow(event), {
+      title: typeof opts.title === 'string' ? opts.title : undefined,
+      defaultPath,
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    })
+    if (result.canceled || !result.filePath) return null
+    grantFile(result.filePath)
+    return { path: result.filePath, folder: path.dirname(result.filePath) }
+  })
+
+  handle('stimma:pick-export-folder', async (event, options: unknown) => {
+    const opts = (options ?? {}) as { title?: unknown; defaultPath?: unknown }
+    const result = await dialog.showOpenDialog(senderWindow(event), {
+      properties: ['openDirectory', 'createDirectory'],
+      title: typeof opts.title === 'string' ? opts.title : undefined,
+      defaultPath: typeof opts.defaultPath === 'string' ? opts.defaultPath : undefined,
+    })
+    const folder = result.canceled ? null : result.filePaths[0] ?? null
+    if (folder) grantFolder(folder)
+    return folder
+  })
+
+  handle('stimma:write-export-file', async (_event, target: unknown, data: unknown) => {
+    if (!(data instanceof Uint8Array)) throw new Error('Invalid file data')
+    const resolved = requireGrantedFile(requireString(target, 'path'))
+    await fs.promises.writeFile(resolved, data)
+    log.info('stimma', `Exported: ${resolved}`)
+  })
+
+  handle('stimma:write-export-file-in', async (_event, folder: unknown, relativePath: unknown, data: unknown) => {
+    if (!(data instanceof Uint8Array)) throw new Error('Invalid file data')
+    const base = requireGrantedFolder(requireString(folder, 'folder'))
+    const segments = exportPathSegments(requireString(relativePath, 'relativePath'))
+    const parent = path.join(base, ...segments.slice(0, -1))
+    requireGrantedFolder(parent)
+    await fs.promises.mkdir(parent, { recursive: true })
+    const target = await firstFreePath(parent, segments[segments.length - 1], false)
+    await fs.promises.writeFile(target, data)
+    log.info('stimma', `Exported: ${target}`)
+    return target
+  })
+
+  handle('stimma:make-export-folder', async (_event, parent: unknown, name: unknown) => {
+    const base = requireGrantedFolder(requireString(parent, 'parent'))
+    const [folderName] = exportPathSegments(requireString(name, 'name'))
+    const target = await firstFreePath(base, folderName, true)
+    await fs.promises.mkdir(target)
+    return target
+  })
+
+  handle('stimma:known-folder', (_event, kind: unknown) => {
+    const names = { pictures: 'pictures', videos: 'videos', music: 'music', documents: 'documents', downloads: 'downloads' } as const
+    const name = names[requireString(kind, 'kind') as keyof typeof names]
+    if (!name) return null
+    try {
+      return app.getPath(name)
+    } catch {
+      return null
+    }
+  })
+
   // ---- downloads -----------------------------------------------------------
   handle('stimma:save-to-downloads', async (_event, filename: unknown, data: unknown) => {
     const name = requireString(filename, 'filename')
@@ -317,7 +392,7 @@ export function registerIpcHandlers(): void {
     const target = await uniqueDownloadPath(name)
     await fs.promises.writeFile(target, data)
     log.info('stimma', `Saved download: ${target}`)
-    return true
+    return target
   })
 
   // ---- print ---------------------------------------------------------------

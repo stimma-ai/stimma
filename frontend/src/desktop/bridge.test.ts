@@ -45,6 +45,13 @@ const CONTRACT_METHODS = [
   'writeClipboardText',
   // dialogs
   'pickDirectory',
+  // export destinations
+  'pickSaveFile',
+  'pickExportFolder',
+  'writeExportFile',
+  'writeExportFileIn',
+  'makeExportFolder',
+  'knownFolder',
   // downloads
   'saveToDownloads',
   // print
@@ -134,6 +141,9 @@ test('browser bridge inert operations resolve to safe defaults', async () => {
   assert.equal(await browserBridge.getWindowProfile(), null)
   assert.equal(await browserBridge.closeDeletedProfileWindow(), false)
   assert.equal(await browserBridge.pickDirectory(), null)
+  assert.equal(await browserBridge.pickSaveFile(), null)
+  assert.equal(await browserBridge.pickExportFolder(), null)
+  assert.equal(await browserBridge.knownFolder('pictures'), null)
   assert.equal(await browserBridge.embedMetadata({}), null)
   assert.equal(await browserBridge.isShiftKeyDown(), false)
   assert.equal(await browserBridge.voiceModelStatus(), false)
@@ -151,6 +161,9 @@ test('browser bridge desktop-only operations reject rather than pretend', async 
   await assert.rejects(browserBridge.openProfileWindow('p'))
   await assert.rejects(browserBridge.openPath('/tmp/x'))
   await assert.rejects(browserBridge.revealItemInDir('/tmp/x'))
+  await assert.rejects(browserBridge.writeExportFile('/tmp/x', new Uint8Array()))
+  await assert.rejects(browserBridge.writeExportFileIn('/tmp', 'x', new Uint8Array()))
+  await assert.rejects(browserBridge.makeExportFolder('/tmp', 'x'))
   await assert.rejects(browserBridge.startNativeDrag(['/tmp/x']))
   await assert.rejects(browserBridge.voiceStart(() => {}))
   await assert.rejects(browserBridge.voiceDownloadModel(() => {}))

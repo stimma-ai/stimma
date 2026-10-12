@@ -123,9 +123,22 @@ const stimmaDesktop = {
   pickDirectory: (options?: { title?: string; defaultPath?: string }) =>
     invoke<string | null>('stimma:pick-directory', options ?? {}),
 
+  // ---- export destinations --------------------------------------------------
+  pickSaveFile: (options?: { title?: string; directory?: string; filename?: string }) =>
+    invoke<{ path: string; folder: string } | null>('stimma:pick-save-file', options ?? {}),
+  pickExportFolder: (options?: { title?: string; defaultPath?: string }) =>
+    invoke<string | null>('stimma:pick-export-folder', options ?? {}),
+  writeExportFile: (path: string, data: Uint8Array) =>
+    invoke<void>('stimma:write-export-file', path, data),
+  writeExportFileIn: (folder: string, relativePath: string, data: Uint8Array) =>
+    invoke<string>('stimma:write-export-file-in', folder, relativePath, data),
+  makeExportFolder: (parent: string, name: string) =>
+    invoke<string>('stimma:make-export-folder', parent, name),
+  knownFolder: (kind: string) => invoke<string | null>('stimma:known-folder', kind),
+
   // ---- downloads -----------------------------------------------------------
   saveToDownloads: (filename: string, data: Uint8Array) =>
-    invoke<boolean>('stimma:save-to-downloads', filename, data),
+    invoke<string>('stimma:save-to-downloads', filename, data),
 
   // ---- print ---------------------------------------------------------------
   print: () => invoke<void>('stimma:print'),

@@ -152,6 +152,26 @@ export const browserBridge: DesktopBridge = {
     return null
   },
 
+  // ---- export destinations --------------------------------------------------
+  async pickSaveFile() {
+    return null
+  },
+  async pickExportFolder() {
+    return null
+  },
+  async writeExportFile() {
+    throw new Error('Saving to a chosen folder is only available in the desktop app')
+  },
+  async writeExportFileIn() {
+    throw new Error('Saving to a chosen folder is only available in the desktop app')
+  },
+  async makeExportFolder() {
+    throw new Error('Saving to a chosen folder is only available in the desktop app')
+  },
+  async knownFolder() {
+    return null
+  },
+
   // ---- downloads -----------------------------------------------------------
   async saveToDownloads(filename, data) {
     const blob = new Blob([data as unknown as BlobPart])

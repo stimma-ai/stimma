@@ -29,6 +29,7 @@
         { "path": "$DOWNLOAD/**" }
       ]
     },
+    "fs:allow-mkdir",
     {
       "identifier": "fs:allow-exists",
       "allow": [

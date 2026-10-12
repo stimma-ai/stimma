@@ -1,9 +1,30 @@
 <template>
-  <Modal :show="show" size="custom" custom-class="max-w-[420px] w-full" @close="$emit('close')">
+  <Modal :show="show" size="custom" :custom-class="mediaCategory === 'sprite' ? 'max-w-[520px] w-full' : 'max-w-[440px] w-full'" @close="$emit('close')">
     <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-content">Export</h3>
-        <IconButton @click="$emit('close')">
+      <div class="flex items-center gap-3">
+        <div v-if="thumbnailIds.length > 1" class="relative h-11 w-[52px] shrink-0" aria-hidden="true">
+          <img
+            v-for="(id, index) in thumbnailIds"
+            :key="id"
+            :src="getThumbnailUrl(Number(id))"
+            alt=""
+            class="absolute h-9 w-9 rounded-md border-2 border-surface bg-overlay-faint object-cover"
+            :style="{ left: `${index * 7}px`, top: `${(thumbnailIds.length - 1 - index) * 3}px`, transform: `rotate(${(index - 1) * 4}deg)` }"
+            @error="($event.target).style.display = 'none'"
+          >
+        </div>
+        <img
+          v-else-if="thumbnailIds.length === 1"
+          :src="getThumbnailUrl(Number(thumbnailIds[0]))"
+          alt=""
+          class="h-11 w-11 shrink-0 rounded-md bg-overlay-faint object-cover"
+          @error="($event.target).style.display = 'none'"
+        >
+        <div class="min-w-0 flex-1">
+          <h3 class="text-base font-semibold text-content">{{ dialogTitle }}</h3>
+          <p v-if="dialogSubtitle" class="truncate text-xs text-content-tertiary">{{ dialogSubtitle }}</p>
+        </div>
+        <IconButton class="self-start" aria-label="Close" @click="$emit('close')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
@@ -11,497 +32,254 @@
       </div>
     </template>
 
-          <div class="px-6 py-5 space-y-5">
+    <div v-if="hasOptions" class="px-6 py-5 space-y-4">
 
-            <!-- Sprite targets: grouped Engines / Generic / Preview, same radio grammar. -->
-            <template v-if="mediaCategory === 'sprite'">
-              <div v-for="group in SPRITE_FORMAT_GROUPS" :key="group.label" class="space-y-2">
-                <p class="text-xs font-semibold text-content-secondary">{{ group.label }}</p>
-                <div class="grid grid-cols-3 gap-1.5" role="radiogroup" :aria-label="`${group.label} export format`">
-                  <label v-for="fmt in group.formats" :key="fmt.value" class="cursor-pointer">
-                    <input v-model="format" type="radio" name="export-format" :value="fmt.value" class="peer sr-only">
-                    <span
-                      :class="[
-                        'flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60',
-                        format === fmt.value
-                          ? 'bg-accent/15 text-accent'
-                          : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
-                      ]"
-                    >
-                      {{ fmt.label }}
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <p v-if="spriteFormatHint" class="text-xs text-content-tertiary">{{ spriteFormatHint }}</p>
-
-              <div v-if="spriteUsesGeometry" class="border-t border-edge-subtle" />
-
-              <div v-if="spriteUsesGeometry" class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Scale</label>
-                <div class="flex gap-1">
-                  <button
-                    v-for="n in [1, 2, 3, 4]"
-                    :key="n"
-                    type="button"
-                    @click="spriteScale = n"
-                    :class="[
-                      'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                      spriteScale === n
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                    ]"
-                  >
-                    {{ n }}x
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="spriteUsesGeometry" class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Trim to content</label>
-                <input v-model="spriteTrim" type="checkbox" class="accent-accent">
-              </div>
-
-              <div v-if="spriteUsesSheetOptions" class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Edge bleed</label>
-                <div class="flex items-center gap-1.5">
-                  <input
-                    v-model.number="spriteExtrude"
-                    type="number"
-                    min="0"
-                    max="8"
-                    step="1"
-                    class="w-16 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary">px</span>
-                </div>
-              </div>
-
-              <div v-if="format === 'frames'" class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Image format</label>
-                <div class="flex gap-1">
-                  <button
-                    v-for="opt in ['png', 'webp', 'jpg']"
-                    :key="opt"
-                    type="button"
-                    @click="spriteImageFormat = opt"
-                    :class="[
-                      'px-2.5 py-1 rounded text-xs font-medium uppercase transition-colors',
-                      spriteImageFormat === opt
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                    ]"
-                  >
-                    {{ opt }}
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="spriteUsesBackground" class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Background</label>
-                <input v-model="spriteBackground" type="color" class="h-7 w-10 bg-transparent border border-surface-raised rounded cursor-pointer">
-              </div>
-
-              <p v-if="spriteError" class="text-xs text-red-400">{{ spriteError }}</p>
-            </template>
-
-            <!-- Package targets: one row each — every choice carries a qualifier
-                 that a three-up grid would clip. Same radio grammar. -->
-            <template v-if="mediaCategory === 'package'">
-              <div class="space-y-2">
-                <p class="text-xs font-semibold text-content-secondary">Format</p>
-                <div class="space-y-1.5" role="radiogroup" aria-label="Package export format">
-                  <label
-                    v-for="fmt in PACKAGE_EXPORT_FORMATS"
-                    :key="fmt.value"
-                    :class="fmt.disabled ? 'block cursor-not-allowed' : 'block cursor-pointer'"
-                  >
-                    <input
-                      v-model="format"
-                      type="radio"
-                      name="export-format"
-                      :value="fmt.value"
-                      :disabled="fmt.disabled"
-                      class="peer sr-only"
-                    >
-                    <span
-                      :class="[
-                        'flex min-h-9 items-center gap-1 rounded-md px-3 py-2 text-xs transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60',
-                        fmt.disabled
-                          ? 'bg-overlay-faint text-content-muted'
-                          : format === fmt.value
-                            ? 'bg-accent/15 text-accent'
-                            : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
-                      ]"
-                    >
-                      <span class="font-medium">{{ fmt.label }}</span>
-                      <span class="text-content-tertiary">— {{ fmt.hint }}</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </template>
-
-            <!-- Formats are a grid so every choice stays legible at modal width. -->
-            <div v-if="mediaCategory !== 'sprite' && mediaCategory !== 'package'" class="space-y-2">
-              <p class="text-xs font-semibold text-content-secondary">Format</p>
-              <div
-                class="grid grid-cols-3 gap-1.5"
-                role="radiogroup"
-                aria-label="Export format"
-              >
-                <label
-                  v-for="fmt in availableFormats"
-                  :key="fmt.value"
-                  class="cursor-pointer"
-                >
-                  <input
-                    v-model="format"
-                    type="radio"
-                    name="export-format"
-                    :value="fmt.value"
-                    class="peer sr-only"
-                  >
-                  <span
-                    :class="[
-                      'flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-center text-xs font-medium transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60',
-                      format === fmt.value
-                        ? 'bg-accent/15 text-accent'
-                        : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
-                    ]"
-                  >
-                    {{ fmt.label }}
-                  </span>
+      <!-- Sprite targets: grouped Engines / Generic / Preview, same radio grammar. -->
+      <template v-if="mediaCategory === 'sprite'">
+        <div :class="ROW">
+          <span :class="LABEL">Format</span>
+          <div class="min-w-0">
+            <div v-for="group in SPRITE_FORMAT_GROUPS" :key="group.label" class="mb-2.5 last:mb-0">
+              <p class="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-content-tertiary">{{ group.label }}</p>
+              <div class="grid grid-cols-3 gap-1.5" role="radiogroup" :aria-label="`${group.label} export format`">
+                <label v-for="fmt in group.formats" :key="fmt.value" class="cursor-pointer">
+                  <input v-model="format" type="radio" name="export-format" :value="fmt.value" class="peer sr-only">
+                  <span :class="[TILE, format === fmt.value ? TILE_ON : TILE_OFF]">{{ fmt.label }}</span>
                 </label>
               </div>
             </div>
-
-            <div v-if="showQuality" class="flex items-center gap-3">
-              <label class="text-xs font-semibold text-content-secondary w-16 shrink-0">Quality</label>
-              <input
-                v-model.number="quality"
-                type="range"
-                min="1"
-                max="100"
-                step="1"
-                class="flex-1 h-1 bg-surface-raised rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
-              >
-              <span class="text-xs text-content-secondary tabular-nums w-6 text-right">{{ quality }}</span>
-            </div>
-
-            <!-- Layout PNG size section -->
-            <template v-if="mediaCategory === 'layout' && format === 'png'">
-              <div class="border-t border-edge-subtle" />
-
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Size</label>
-                <div class="flex gap-1">
-                  <button
-                    v-for="opt in layoutScaleOptions"
-                    :key="opt.value"
-                    @click="selectLayoutScale(opt.value)"
-                    :class="[
-                      'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                      layoutScaleMode === opt.value
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                    ]"
-                  >
-                    {{ opt.label }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Dimensions preview / custom width -->
-              <div class="h-8 flex items-center">
-                <template v-if="layoutScaleMode === 'custom'">
-                  <input
-                    v-model.number="layoutCustomWidth"
-                    type="number"
-                    min="100"
-                    max="16384"
-                    step="1"
-                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary mx-1.5">&times;</span>
-                  <span class="text-xs text-content-secondary tabular-nums">{{ layoutDerivedHeight }}</span>
-                  <span class="text-xs text-content-tertiary ml-1.5">px</span>
-                </template>
-                <template v-else>
-                  <span class="text-xs text-content-secondary tabular-nums">{{ layoutOutputWidth }} &times; {{ layoutOutputHeight }}</span>
-                  <span class="text-xs text-content-tertiary ml-1.5">px</span>
-                </template>
-              </div>
-            </template>
-
-            <!-- Vector (SVG) sections -->
-            <template v-if="mediaCategory === 'vector'">
-              <template v-if="format === 'png'">
-                <div class="border-t border-edge-subtle" />
-
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-semibold text-content-secondary">Size</label>
-                  <div class="flex gap-1">
-                    <button
-                      v-for="opt in layoutScaleOptions"
-                      :key="opt.value"
-                      @click="selectLayoutScale(opt.value)"
-                      :class="[
-                        'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                        layoutScaleMode === opt.value
-                          ? 'bg-accent text-white'
-                          : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                      ]"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div class="h-8 flex items-center">
-                  <template v-if="layoutScaleMode === 'custom'">
-                    <input
-                      v-model.number="layoutCustomWidth"
-                      type="number"
-                      min="16"
-                      max="4096"
-                      step="1"
-                      class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                    >
-                    <span class="text-xs text-content-tertiary mx-1.5">&times;</span>
-                    <span class="text-xs text-content-secondary tabular-nums">{{ layoutDerivedHeight }}</span>
-                    <span class="text-xs text-content-tertiary ml-1.5">px</span>
-                  </template>
-                  <template v-else>
-                    <span class="text-xs text-content-secondary tabular-nums">{{ layoutOutputWidth }} &times; {{ layoutOutputHeight }}</span>
-                    <span class="text-xs text-content-tertiary ml-1.5">px</span>
-                  </template>
-                </div>
-              </template>
-
-              <template v-else-if="format === 'png-set'">
-                <div class="border-t border-edge-subtle" />
-
-                <div class="flex items-start justify-between gap-3">
-                  <label class="text-xs font-semibold text-content-secondary pt-1">Sizes</label>
-                  <div class="flex flex-wrap gap-1 justify-end">
-                    <button
-                      v-for="size in PNG_SET_SIZES"
-                      :key="size"
-                      @click="togglePngSetSize(size)"
-                      :class="[
-                        'px-2 py-1 rounded text-xs font-medium tabular-nums transition-colors',
-                        pngSetSizes.includes(size)
-                          ? 'bg-accent text-white'
-                          : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                      ]"
-                    >
-                      {{ size }}
-                    </button>
-                  </div>
-                </div>
-              </template>
-
-              <template v-else-if="format === 'html'">
-                <div class="space-y-3">
-                  <div class="flex items-center justify-between">
-                    <p class="text-xs font-semibold text-content-secondary">Form</p>
-                    <div class="flex gap-1">
-                      <button
-                        v-for="opt in CODE_VARIANTS"
-                        :key="opt.value"
-                        type="button"
-                        :aria-pressed="codeVariant === opt.value"
-                        @click="codeVariant = opt.value"
-                        :class="[
-                          'rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-150',
-                          codeVariant === opt.value
-                            ? 'bg-accent/15 text-accent'
-                            : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
-                        ]"
-                      >
-                        {{ opt.label }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="relative h-32 overflow-hidden rounded-md bg-overlay-faint">
-                    <pre
-                      v-if="codePreview"
-                      class="h-full overflow-auto whitespace-pre p-3 pr-11 font-mono text-[11px] leading-relaxed text-content-secondary custom-scrollbar select-text"
-                    >{{ codePreview }}</pre>
-                    <div
-                      v-else
-                      class="flex h-full items-center justify-center px-4 text-center text-xs text-content-muted"
-                    >
-                      {{ codePreviewError || 'Generating preview…' }}
-                    </div>
-
-                    <div class="absolute right-1.5 top-1.5">
-                      <Tooltip :text="copied ? 'Copied' : 'Copy code'">
-                        <IconButton
-                          class="bg-surface/90 backdrop-blur"
-                          :disabled="codePreviewLoading || !codePreview"
-                          :aria-label="copied ? 'Copied' : 'Copy code'"
-                          @click="copyCodePreview"
-                        >
-                          <CheckIcon v-if="copied" class="h-4 w-4 text-green-500" />
-                          <ClipboardDocumentIcon v-else class="h-4 w-4" />
-                        </IconButton>
-                      </Tooltip>
-                    </div>
-                  </div>
-
-                </div>
-              </template>
-
-              <template v-else-if="format === 'icon'">
-                <div class="border-t border-edge-subtle" />
-
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-semibold text-content-secondary">Platform</label>
-                  <div class="flex flex-wrap gap-1 justify-end">
-                    <button
-                      v-for="opt in ICON_PLATFORMS"
-                      :key="opt.value"
-                      @click="iconPlatform = opt.value"
-                      :class="[
-                        'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                        iconPlatform === opt.value
-                          ? 'bg-accent text-white'
-                          : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                      ]"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <p class="text-xs text-content-tertiary">{{ iconPlatformHint }}</p>
-              </template>
-
-            </template>
-
-            <!-- Resize section (images) -->
-            <template v-if="mediaCategory === 'image'">
-              <div class="border-t border-edge-subtle" />
-
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Resize</label>
-                <div class="flex gap-1">
-                  <button
-                    v-for="opt in resizeOptions"
-                    :key="opt.value"
-                    @click="resizeMode = opt.value"
-                    :class="[
-                      'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                      resizeMode === opt.value
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                    ]"
-                  >
-                    {{ opt.label }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Resize detail — fixed-height slot so the modal doesn't jump -->
-              <div class="h-8 flex items-center">
-                <template v-if="resizeMode === 'max_dimension'">
-                  <input
-                    v-model.number="maxDimension"
-                    type="number"
-                    min="64"
-                    max="16384"
-                    step="64"
-                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary ml-2">px longest side</span>
-                </template>
-                <template v-else-if="resizeMode === 'exact'">
-                  <input
-                    v-model.number="exactWidth"
-                    type="number"
-                    min="1"
-                    max="16384"
-                    step="1"
-                    placeholder="W"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary mx-1.5">&times;</span>
-                  <input
-                    v-model.number="exactHeight"
-                    type="number"
-                    min="1"
-                    max="16384"
-                    step="1"
-                    placeholder="H"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary ml-1.5">px</span>
-                </template>
-                <template v-else-if="resizeMode === 'scale'">
-                  <input
-                    v-model.number="scalePercent"
-                    type="number"
-                    min="1"
-                    max="1000"
-                    step="1"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
-                  >
-                  <span class="text-xs text-content-tertiary ml-2">%</span>
-                </template>
-              </div>
-            </template>
-
-            <!-- Video resolution (video only, when converting) -->
-            <template v-if="mediaCategory === 'video' && format !== 'original'">
-              <div class="border-t border-edge-subtle" />
-
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-semibold text-content-secondary">Resolution</label>
-                <div class="flex gap-1">
-                  <button
-                    v-for="res in videoResolutions"
-                    :key="res.value"
-                    @click="videoResolution = res.value"
-                    :class="[
-                      'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                      videoResolution === res.value
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
-                    ]"
-                  >
-                    {{ res.label }}
-                  </button>
-                </div>
-              </div>
-            </template>
-
-            <!-- Options -->
-            <template v-if="mediaCategory === 'image'">
-              <div class="border-t border-edge-subtle" />
-
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  v-model="stripMetadata"
-                  type="checkbox"
-                  class="w-3.5 h-3.5 rounded border-surface-raised bg-surface-overlay accent-accent"
-                >
-                <span class="text-xs text-content-secondary">Strip metadata</span>
-              </label>
-            </template>
-
+            <p v-if="spriteFormatHint" class="mt-2 text-xs text-content-tertiary">{{ spriteFormatHint }}</p>
           </div>
+        </div>
 
-    <p v-if="exportError" role="alert" class="mt-3 text-sm text-red-500">{{ exportError }}</p>
+        <div v-if="spriteUsesGeometry" :class="ROW">
+          <span :class="LABEL">Scale</span>
+          <SegmentedControl v-model="spriteScale" :options="SPRITE_SCALES" aria-label="Scale" />
+        </div>
+
+        <div v-if="spriteUsesSheetOptions" :class="ROW">
+          <span :class="LABEL">Edge bleed</span>
+          <div class="flex items-center gap-1.5">
+            <input v-model.number="spriteExtrude" type="number" min="0" max="8" step="1" aria-label="Edge bleed" :class="[NUMBER, 'w-16']">
+            <span class="text-xs text-content-tertiary">px</span>
+          </div>
+        </div>
+
+        <div v-if="spriteUsesGeometry" :class="ROW">
+          <span :class="LABEL">Trim</span>
+          <label :class="SWITCH_ROW">
+            <span class="relative inline-flex shrink-0 items-center">
+              <input v-model="spriteTrim" type="checkbox" role="switch" class="peer sr-only">
+              <span :class="SWITCH" />
+            </span>
+            Trim to content
+          </label>
+        </div>
+
+        <div v-if="format === 'frames'" :class="ROW">
+          <span :class="LABEL">Image format</span>
+          <SegmentedControl v-model="spriteImageFormat" :options="SPRITE_IMAGE_FORMATS" aria-label="Image format" />
+        </div>
+
+        <div v-if="spriteUsesBackground" :class="ROW">
+          <span :class="LABEL">Background</span>
+          <input v-model="spriteBackground" type="color" aria-label="Background" class="h-7 w-10 bg-transparent border border-edge rounded cursor-pointer">
+        </div>
+
+        <p v-if="spriteError" class="text-xs text-red-400">{{ spriteError }}</p>
+      </template>
+
+      <!-- Package targets: one row each, since every choice carries a qualifier. -->
+      <div v-else-if="mediaCategory === 'package'" :class="ROW">
+        <span :class="LABEL">Format</span>
+        <div class="space-y-1.5" role="radiogroup" aria-label="Package export format">
+          <label v-for="fmt in PACKAGE_EXPORT_FORMATS" :key="fmt.value" class="block cursor-pointer">
+            <input v-model="format" type="radio" name="export-format" :value="fmt.value" class="peer sr-only">
+            <span :class="[TILE, '!justify-start gap-1', format === fmt.value ? TILE_ON : TILE_OFF]">
+              <span class="font-medium">{{ fmt.label }}</span>
+              <span class="font-normal text-content-tertiary">— {{ fmt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div v-else-if="availableFormats.length > 1" :class="ROW">
+        <span :class="LABEL">Format</span>
+        <div :class="['grid gap-1.5', availableFormats.length === 4 ? 'grid-cols-4' : 'grid-cols-3']" role="radiogroup" aria-label="Export format">
+          <label v-for="fmt in availableFormats" :key="fmt.value" class="cursor-pointer">
+            <input v-model="format" type="radio" name="export-format" :value="fmt.value" class="peer sr-only">
+            <span :class="[TILE, format === fmt.value ? TILE_ON : TILE_OFF]">{{ fmt.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div v-if="showQuality" :class="ROW">
+        <span :class="LABEL">Quality</span>
+        <div class="flex items-center gap-3 pt-1">
+          <input
+            v-model.number="quality"
+            type="range"
+            min="1"
+            max="100"
+            step="1"
+            aria-label="Quality"
+            class="flex-1 h-1 bg-surface-raised rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+          >
+          <span class="text-xs text-content-secondary tabular-nums w-6 text-right">{{ quality }}</span>
+        </div>
+      </div>
+
+      <!-- Layout and vector PNG size -->
+      <div v-if="(mediaCategory === 'layout' || mediaCategory === 'vector') && format === 'png'" :class="ROW">
+        <span :class="LABEL">Size</span>
+        <div>
+          <SegmentedControl v-model="layoutScaleMode" :options="layoutScaleOptions" aria-label="Size" />
+          <div class="mt-2 flex h-7 items-center text-xs">
+            <template v-if="layoutScaleMode === 'custom'">
+              <input v-model.number="layoutCustomWidth" type="number" :min="mediaCategory === 'vector' ? 16 : 100" :max="mediaCategory === 'vector' ? 4096 : 16384" step="1" aria-label="Width" :class="[NUMBER, 'w-24']">
+              <span class="mx-1.5 text-content-tertiary">&times;</span>
+              <span class="text-content-secondary tabular-nums">{{ layoutDerivedHeight }}</span>
+              <span class="ml-1.5 text-content-tertiary">px</span>
+            </template>
+            <template v-else>
+              <span class="text-content-secondary tabular-nums">{{ layoutOutputWidth }} &times; {{ layoutOutputHeight }}</span>
+              <span class="ml-1.5 text-content-tertiary">px</span>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="mediaCategory === 'vector' && format === 'png-set'" :class="ROW">
+        <span :class="LABEL">Sizes</span>
+        <div class="flex flex-wrap gap-1">
+          <button
+            v-for="size in PNG_SET_SIZES"
+            :key="size"
+            type="button"
+            :aria-pressed="pngSetSizes.includes(size)"
+            :class="[
+              'rounded px-2 py-1 text-xs font-medium tabular-nums transition-colors',
+              pngSetSizes.includes(size) ? 'bg-accent/15 text-accent' : 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
+            ]"
+            @click="togglePngSetSize(size)"
+          >
+            {{ size }}
+          </button>
+        </div>
+      </div>
+
+      <template v-if="mediaCategory === 'vector' && format === 'html'">
+        <div :class="ROW">
+          <span :class="LABEL">Form</span>
+          <SegmentedControl v-model="codeVariant" :options="CODE_VARIANTS" aria-label="Code form" />
+        </div>
+        <div class="relative h-32 overflow-hidden rounded-md bg-overlay-faint">
+          <pre
+            v-if="codePreview"
+            class="h-full overflow-auto whitespace-pre p-3 pr-11 font-mono text-[11px] leading-relaxed text-content-secondary custom-scrollbar select-text"
+          >{{ codePreview }}</pre>
+          <div v-else class="flex h-full items-center justify-center px-4 text-center text-xs text-content-muted">
+            {{ codePreviewError || 'Generating preview…' }}
+          </div>
+          <div class="absolute right-1.5 top-1.5">
+            <Tooltip :text="copied ? 'Copied' : 'Copy code'">
+              <IconButton
+                class="bg-surface/90 backdrop-blur"
+                :disabled="codePreviewLoading || !codePreview"
+                :aria-label="copied ? 'Copied' : 'Copy code'"
+                @click="copyCodePreview"
+              >
+                <CheckIcon v-if="copied" class="h-4 w-4 text-green-500" />
+                <ClipboardDocumentIcon v-else class="h-4 w-4" />
+              </IconButton>
+            </Tooltip>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="mediaCategory === 'image'" :class="ROW">
+        <span :class="LABEL">Size</span>
+        <div>
+          <SegmentedControl v-model="resizeMode" :options="resizeOptions" aria-label="Size" />
+          <div v-if="resizeMode !== 'none'" class="mt-2 flex h-7 items-center gap-1.5 text-xs text-content-tertiary">
+            <template v-if="resizeMode === 'max_dimension'">
+              <input v-model.number="maxDimension" type="number" min="64" max="16384" step="64" aria-label="Longest side" :class="[NUMBER, 'w-24']">
+              <span>px longest side</span>
+            </template>
+            <template v-else-if="resizeMode === 'exact'">
+              <input v-model.number="exactWidth" type="number" min="1" max="16384" step="1" placeholder="W" aria-label="Width" :class="[NUMBER, 'w-20']">
+              <span>&times;</span>
+              <input v-model.number="exactHeight" type="number" min="1" max="16384" step="1" placeholder="H" aria-label="Height" :class="[NUMBER, 'w-20']">
+              <span>px</span>
+            </template>
+            <template v-else-if="resizeMode === 'scale'">
+              <input v-model.number="scalePercent" type="number" min="1" max="1000" step="1" aria-label="Scale" :class="[NUMBER, 'w-20']">
+              <span>%</span>
+            </template>
+            <span v-if="imageOutputSize && resizeMode !== 'exact'" class="ml-auto tabular-nums text-content-secondary">
+              {{ imageOutputSize }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="mediaCategory === 'video' && format !== 'original'" :class="ROW">
+        <span :class="LABEL">Resolution</span>
+        <SegmentedControl v-model="videoResolution" :options="videoResolutions" aria-label="Resolution" />
+      </div>
+
+      <div v-if="mediaCategory === 'image'" :class="ROW">
+        <span :class="LABEL">Metadata</span>
+        <label :class="SWITCH_ROW">
+          <span class="relative inline-flex shrink-0 items-center">
+            <input v-model="includeMetadata" type="checkbox" role="switch" class="peer sr-only">
+            <span :class="SWITCH" />
+          </span>
+          Include metadata
+        </label>
+      </div>
+
+      <div v-if="showBundleChoice" :class="ROW">
+        <span :class="LABEL">Save as</span>
+        <SegmentedControl v-model="bundleAs" :options="BUNDLE_CHOICES" aria-label="Save as" />
+      </div>
+
+      <div v-if="showCombineChoice" :class="ROW">
+        <span :class="LABEL">Files</span>
+        <label :class="SWITCH_ROW">
+          <span class="relative inline-flex shrink-0 items-center">
+            <input v-model="combineZip" type="checkbox" role="switch" class="peer sr-only">
+            <span :class="SWITCH" />
+          </span>
+          Combine into one zip
+        </label>
+      </div>
+    </div>
+
+    <p v-if="exportError" role="alert" class="px-6 pb-4 text-sm text-red-500" :class="hasOptions ? '' : 'pt-5'">{{ exportError }}</p>
 
     <template #footer>
+      <Button
+        v-if="canChooseLocation && !isClipboardExport"
+        variant="ghost"
+        class="mr-auto"
+        :disabled="exporting"
+        :loading="exportingTo === 'downloads'"
+        @click="handleExport('downloads')"
+      >
+        Save to Downloads
+      </Button>
       <Button variant="secondary" @click="$emit('close')">
         {{ isClipboardExport ? 'Close' : 'Cancel' }}
       </Button>
-      <Button v-if="!isClipboardExport" variant="primary" :loading="exporting" @click="handleExport">
-        {{ exporting ? 'Exporting...' : exportButtonLabel }}
+      <Button
+        v-if="!isClipboardExport"
+        variant="primary"
+        :disabled="exporting"
+        :loading="exportingTo === 'choose'"
+        @click="handleExport('choose')"
+      >
+        {{ primaryLabel }}
       </Button>
     </template>
   </Modal>
@@ -513,9 +291,17 @@ import Modal from './ui/Modal.vue'
 import IconButton from './ui/IconButton.vue'
 import Button from './ui/Button.vue'
 import Tooltip from './ui/Tooltip.vue'
+import SegmentedControl from './ui/SegmentedControl.vue'
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../composables/useMediaApi'
-import { useTauriDownload } from '../composables/useTauriDownload'
+import {
+  canChooseExportLocation,
+  exportToChosenFile,
+  exportToChosenFolder,
+  exportToDownloads,
+  isZipExport,
+} from '../composables/useExportDestination'
+import { desktop } from '../desktop'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
@@ -528,8 +314,8 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  // Optional: pass media items so we can detect types
-  // Each item should have at least { id, file_format }
+  // Media items for type detection and the header. Each needs at least
+  // { id, file_format }; width/height/file_path/title/duration fill the header.
   mediaItems: {
     type: Array,
     default: () => []
@@ -538,10 +324,21 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'exported'])
 
-const { downloadMedia } = useMediaApi()
-const { downloadFromResponse } = useTauriDownload()
+const { getThumbnailUrl } = useMediaApi()
 
-// --- State ---
+// --- Shared classes -----------------------------------------------------------
+
+const ROW = 'grid grid-cols-[84px_minmax(0,1fr)] items-start gap-3'
+const LABEL = 'pt-1.5 text-xs font-semibold text-content-secondary'
+const TILE = 'flex min-h-8 items-center justify-center rounded-md px-3 py-1.5 text-center text-xs font-medium transition-colors duration-150 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60'
+const TILE_ON = 'bg-accent/15 text-accent'
+const TILE_OFF = 'bg-overlay-faint text-content-secondary hover:bg-overlay-subtle hover:text-content'
+const NUMBER = 'px-2.5 py-1 bg-surface-overlay border border-edge rounded text-content-secondary text-xs tabular-nums focus:outline-none focus:border-accent'
+const SWITCH_ROW = 'flex cursor-pointer select-none items-center gap-2 pt-1 text-xs text-content-secondary'
+const SWITCH = "h-4 w-7 rounded-full bg-surface-hover after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60"
+
+// --- State --------------------------------------------------------------------
+
 const format = ref('original')
 const quality = ref(85)
 const resizeMode = ref('none')
@@ -549,11 +346,20 @@ const maxDimension = ref(2048)
 const exactWidth = ref(1920)
 const exactHeight = ref(1080)
 const scalePercent = ref(50)
-const stripMetadata = ref(false)
+const includeMetadata = ref(true)
 const videoResolution = ref('original')
-const exporting = ref(false)
+const exportingTo = ref(null)
+const exporting = computed(() => exportingTo.value !== null)
 const exportError = ref('')
 const copied = ref(false)
+
+// Destination choices persist across exports.
+const COMBINE_KEY = 'stimma:export-combine-zip'
+const BUNDLE_KEY = 'stimma:export-bundle-as'
+const combineZip = ref(localStorage.getItem(COMBINE_KEY) === 'true')
+const bundleAs = ref(localStorage.getItem(BUNDLE_KEY) === 'zip' ? 'zip' : 'folder')
+watch(combineZip, value => localStorage.setItem(COMBINE_KEY, String(value)))
+watch(bundleAs, value => localStorage.setItem(BUNDLE_KEY, value))
 
 // Layout-specific state
 const layoutScaleMode = ref('2x')
@@ -567,7 +373,6 @@ const codeVariant = ref('inline')
 const codePreview = ref('')
 const codePreviewLoading = ref(false)
 const codePreviewError = ref('')
-const iconPlatform = ref('icon-macos')
 const pngSetSizes = ref([16, 32, 64, 128, 256, 512, 1024])
 let codePreviewRequestId = 0
 let copiedTimer = null
@@ -580,47 +385,90 @@ const CODE_VARIANTS = [
   { label: 'Sprite', value: 'symbol' },
 ]
 
-// Hosted links are not built yet; the row stays so the shape of the feature is
-// visible rather than appearing later out of nowhere.
 const PACKAGE_EXPORT_FORMATS = [
   { value: 'zip', label: 'Zip', hint: 'full package' },
   { value: 'pdf', label: 'PDF', hint: 'presentation, not production files' },
   { value: 'html', label: 'Single HTML file', hint: 'cover with previews, read-only' },
-  { value: 'link', label: 'Hosted link', hint: 'coming soon', disabled: true },
 ]
 
-const ICON_PLATFORMS = [
-  { label: 'macOS', value: 'icon-macos' },
-  { label: 'Windows', value: 'icon-windows' },
-  { label: 'iOS', value: 'icon-ios' },
-  { label: 'Android', value: 'icon-android' },
-  { label: 'Web', value: 'icon-web' },
+const BUNDLE_CHOICES = [
+  { label: 'Folder', value: 'folder' },
+  { label: 'Zip', value: 'zip' },
 ]
 
-// --- Computed ---
+// --- Media ----------------------------------------------------------------------
 
 const IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'heic', 'heif']
 const VIDEO_FORMATS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']
 const AUDIO_FORMATS = ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg']
 
+function categoryOf(item) {
+  const fmt = (item.file_format || '').toLowerCase()
+  if (fmt === 'stimmalayout') return 'layout'
+  if (fmt === 'stimmasprite.json') return 'sprite'
+  if (fmt === 'stimmapackage') return 'package'
+  if (fmt === 'svg') return 'vector'
+  if (IMAGE_FORMATS.includes(fmt)) return 'image'
+  if (VIDEO_FORMATS.includes(fmt)) return 'video'
+  if (AUDIO_FORMATS.includes(fmt)) return 'audio'
+  return 'other'
+}
+
 const mediaCategory = computed(() => {
   if (props.mediaItems.length === 0) return 'mixed'
-
-  const categories = new Set()
-  for (const item of props.mediaItems) {
-    const fmt = (item.file_format || '').toLowerCase()
-    if (fmt === 'stimmalayout') categories.add('layout')
-    else if (fmt === 'stimmasprite.json') categories.add('sprite')
-    else if (fmt === 'stimmapackage') categories.add('package')
-    else if (fmt === 'svg') categories.add('vector')
-    else if (IMAGE_FORMATS.includes(fmt)) categories.add('image')
-    else if (VIDEO_FORMATS.includes(fmt)) categories.add('video')
-    else if (AUDIO_FORMATS.includes(fmt)) categories.add('audio')
-    else categories.add('other')
-  }
-
+  const categories = new Set(props.mediaItems.map(categoryOf))
   if (categories.size === 1) return [...categories][0]
   return 'mixed'
+})
+
+const itemCount = computed(() => props.mediaIds.length)
+const isMulti = computed(() => itemCount.value > 1)
+const firstItem = computed(() => props.mediaItems[0] || null)
+const canChooseLocation = canChooseExportLocation()
+
+function itemName(item) {
+  if (!item) return ''
+  if (item.title) return item.title
+  const path = item.file_path || ''
+  return path.split(/[\\/]/).filter(Boolean).pop() || ''
+}
+
+function formatDuration(seconds) {
+  const total = Math.round(seconds)
+  const minutes = Math.floor(total / 60)
+  return `${minutes}:${String(total % 60).padStart(2, '0')}`
+}
+
+const thumbnailIds = computed(() => props.mediaIds.slice(0, 3))
+
+const dialogTitle = computed(() => {
+  if (!isMulti.value) return 'Export'
+  const noun = {
+    image: 'images',
+    video: 'videos',
+    audio: 'audio files',
+  }[mediaCategory.value] || 'items'
+  return `Export ${itemCount.value} ${noun}`
+})
+
+const dialogSubtitle = computed(() => {
+  if (isMulti.value) {
+    const names = props.mediaItems.slice(0, 2).map(itemName).filter(Boolean)
+    const rest = itemCount.value - names.length
+    if (names.length === 0) return ''
+    return rest > 0 ? `${names.join(', ')}, and ${rest} more` : names.join(', ')
+  }
+  const item = firstItem.value
+  if (!item) return ''
+  const parts = [itemName(item)]
+  const category = mediaCategory.value
+  if (item.width && item.height && category !== 'audio' && category !== 'package') {
+    parts.push(`${item.width} × ${item.height}`)
+  }
+  if ((category === 'video' || category === 'audio') && item.duration) {
+    parts.push(formatDuration(item.duration))
+  }
+  return parts.filter(Boolean).join(' · ')
 })
 
 // Layout dimensions — prefer fetched from HTML, fall back to DB, then defaults
@@ -630,8 +478,7 @@ const layoutNativeWidth = computed(() => {
     return props.mediaItems[0].width || 512
   }
   if (mediaCategory.value !== 'layout' || props.mediaItems.length === 0) return 800
-  const item = props.mediaItems[0]
-  return item.width || 800
+  return props.mediaItems[0].width || 800
 })
 
 const layoutNativeHeight = computed(() => {
@@ -640,8 +487,7 @@ const layoutNativeHeight = computed(() => {
     return props.mediaItems[0].height || 512
   }
   if (mediaCategory.value !== 'layout' || props.mediaItems.length === 0) return 600
-  const item = props.mediaItems[0]
-  return item.height || 600
+  return props.mediaItems[0].height || 600
 })
 
 async function fetchLayoutDimensions() {
@@ -665,15 +511,11 @@ async function fetchLayoutDimensions() {
 const layoutAspect = computed(() => layoutNativeHeight.value / layoutNativeWidth.value)
 
 const layoutScaleOptions = [
-  { label: '1x', value: '1x' },
-  { label: '2x', value: '2x' },
-  { label: '3x', value: '3x' },
+  { label: '1×', value: '1x' },
+  { label: '2×', value: '2x' },
+  { label: '3×', value: '3x' },
   { label: 'Custom', value: 'custom' },
 ]
-
-function selectLayoutScale(value) {
-  layoutScaleMode.value = value
-}
 
 const layoutScaleNumber = computed(() => {
   if (layoutScaleMode.value === '1x') return 1
@@ -726,6 +568,10 @@ const SPRITE_FORMAT_GROUPS = [
   ] },
 ]
 
+// backend/sprite_export.py _SINGLE_FILE_OK: these can come back as one file;
+// the rest always come back as several files in an archive.
+const SPRITE_SINGLE_FILE_TARGETS = ['rpgmaker', 'gif', 'webp', 'apng', 'mp4', 'gamemaker', 'strips', 'stills']
+
 const SPRITE_FORMAT_HINTS = {
   'atlas-hash': 'Sheet PNG + TexturePacker JSON hash. Phaser, PixiJS, Cocos Creator.',
   'atlas-array': 'Sheet PNG + TexturePacker JSON array.',
@@ -737,7 +583,7 @@ const SPRITE_FORMAT_HINTS = {
   defold: '.atlas text plus per-frame PNGs with fps and playback mode.',
   libgdx: 'Sheet PNG + libGDX .atlas pack file.',
   cocos2d: 'Sheet PNG + .plist in the TexturePacker cocos2d format.',
-  frames: 'Zip of per-frame images with alpha, one folder per animation.',
+  frames: 'Per-frame images with alpha, one folder per animation.',
   'grid-sheet': 'One uniform-cell sheet per animation plus a sidecar JSON.',
   strips: 'One horizontal strip PNG per animation.',
   stills: 'The base cut-out and portrait as PNGs.',
@@ -746,6 +592,9 @@ const SPRITE_FORMAT_HINTS = {
   apng: 'Animated PNG per animation, alpha preserved.',
   mp4: 'Preview clip per animation on a background colour. Needs FFmpeg.',
 }
+
+const SPRITE_SCALES = [1, 2, 3, 4].map(n => ({ label: `${n}×`, value: n }))
+const SPRITE_IMAGE_FORMATS = ['png', 'webp', 'jpg'].map(value => ({ label: value.toUpperCase(), value }))
 
 const spriteScale = ref(1)
 const spriteTrim = ref(false)
@@ -764,22 +613,13 @@ const spriteUsesSheetOptions = computed(() => (
 const spriteUsesGeometry = computed(() => !['stills'].includes(format.value))
 
 const availableFormats = computed(() => {
-  if (mediaCategory.value === 'sprite') {
-    return SPRITE_FORMAT_GROUPS.flatMap(group => group.formats)
-  }
-
-  if (mediaCategory.value === 'package') {
-    return PACKAGE_EXPORT_FORMATS
-  }
-
   if (mediaCategory.value === 'vector') {
     return [
       { label: 'SVG', value: 'svg' },
       { label: 'PNG', value: 'png' },
       { label: 'PDF', value: 'pdf' },
-      { label: 'Multi-size PNGs', value: 'png-set' },
-      { label: 'App icon', value: 'icon' },
-      { label: 'SVG code', value: 'html' },
+      { label: 'PNG sizes', value: 'png-set' },
+      { label: 'Code', value: 'html' },
     ]
   }
 
@@ -802,22 +642,42 @@ const availableFormats = computed(() => {
   if (mediaCategory.value === 'audio') {
     return [original, { label: 'MP3', value: 'mp3' }, { label: 'WAV', value: 'wav' }, { label: 'FLAC', value: 'flac' }]
   }
-  // Mixed - only original
+  // Mixed and other files export as they are.
   return [original]
 })
 
 const showQuality = computed(() => {
   if (format.value === 'original') return false
-  // Quality applies to lossy formats
+  if (!['image', 'video', 'audio'].includes(mediaCategory.value)) return false
   return ['jpeg', 'webp', 'mp4', 'webm', 'mp3'].includes(format.value)
 })
 
 const resizeOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Max dimension', value: 'max_dimension' },
+  { label: 'Original', value: 'none' },
+  { label: 'Longest side', value: 'max_dimension' },
   { label: 'Exact', value: 'exact' },
   { label: 'Scale', value: 'scale' },
 ]
+
+// Mirrors the backend's resize (Pillow thumbnail only ever shrinks).
+const imageOutputSize = computed(() => {
+  const item = firstItem.value
+  if (isMulti.value || !item?.width || !item?.height) return ''
+  const { width, height } = item
+  let w = width
+  let h = height
+  if (resizeMode.value === 'max_dimension' && maxDimension.value > 0) {
+    const factor = Math.min(1, maxDimension.value / Math.max(width, height))
+    w = Math.max(1, Math.round(width * factor))
+    h = Math.max(1, Math.round(height * factor))
+  } else if (resizeMode.value === 'scale' && scalePercent.value > 0) {
+    w = Math.max(1, Math.floor(width * scalePercent.value / 100))
+    h = Math.max(1, Math.floor(height * scalePercent.value / 100))
+  } else if (resizeMode.value === 'exact') {
+    return ''
+  }
+  return `${w} × ${h} px`
+})
 
 const videoResolutions = [
   { label: 'Original', value: 'original' },
@@ -826,31 +686,38 @@ const videoResolutions = [
   { label: '720p', value: '720' },
 ]
 
-const iconPlatformHint = computed(() => ({
-  'icon-macos': 'One .icns file, 32 through 1024px.',
-  'icon-windows': 'One .ico file, 16 through 256px.',
-  'icon-ios': 'AppIcon.appiconset with Contents.json. Flattened — iOS rejects alpha.',
-  'icon-android': 'mipmap densities plus adaptive-icon layers and the Play Store icon.',
-  'icon-web': 'favicon.ico, PNGs, site.webmanifest, and the <link> block.',
-}[iconPlatform.value]))
-
 // Code goes to the clipboard: downloading a snippet you are about to paste is
 // the wrong shape.
 const isClipboardExport = computed(() => mediaCategory.value === 'vector' && format.value === 'html')
 
 const isOriginalExport = computed(() => {
-  if (mediaCategory.value === 'layout' || mediaCategory.value === 'vector' || mediaCategory.value === 'sprite' || mediaCategory.value === 'package') return false
+  if (!['image', 'video', 'audio', 'mixed', 'other'].includes(mediaCategory.value)) return false
   return format.value === 'original'
     && resizeMode.value === 'none'
-    && !stripMetadata.value
+    && includeMetadata.value
     && videoResolution.value === 'original'
 })
 
-const exportButtonLabel = computed(() => {
-  if (isClipboardExport.value) return copied.value ? 'Copied' : 'Copy'
-  const count = props.mediaIds.length
-  if (count <= 1) return 'Export'
-  return `Export ${count}`
+// Formats that come back as several files. Several items always do.
+const producesBundle = computed(() => {
+  if (mediaCategory.value === 'sprite') return !SPRITE_SINGLE_FILE_TARGETS.includes(format.value)
+  if (mediaCategory.value === 'vector') return format.value === 'png-set'
+  return false
+})
+
+const showBundleChoice = computed(() => canChooseLocation && !isMulti.value && producesBundle.value)
+const showCombineChoice = computed(() => canChooseLocation && isMulti.value)
+
+const hasOptions = computed(() => (
+  !['mixed', 'other'].includes(mediaCategory.value) || showCombineChoice.value
+))
+
+const primaryLabel = computed(() => {
+  if (exportingTo.value === 'choose') return 'Exporting…'
+  const count = itemCount.value
+  if (canChooseLocation) return count > 1 ? `Export ${count}…` : 'Export…'
+  if (desktop.kind === 'ios' || desktop.kind === 'android') return 'Share…'
+  return count > 1 ? `Download ${count}` : 'Download'
 })
 
 function togglePngSetSize(size) {
@@ -915,6 +782,7 @@ watch(() => props.show, (newVal) => {
     layoutFetchedWidth.value = 0
     layoutFetchedHeight.value = 0
     copied.value = false
+    exportError.value = ''
     if (mediaCategory.value === 'sprite') {
       format.value = 'atlas-hash'
       spriteScale.value = 1
@@ -927,7 +795,6 @@ watch(() => props.show, (newVal) => {
     } else if (mediaCategory.value === 'vector') {
       format.value = 'svg'
       codeVariant.value = 'inline'
-      iconPlatform.value = 'icon-macos'
       pngSetSizes.value = [16, 32, 64, 128, 256, 512, 1024]
       layoutScaleMode.value = '1x'
       layoutCustomWidth.value = layoutNativeWidth.value
@@ -946,7 +813,7 @@ watch(() => props.show, (newVal) => {
     exactWidth.value = 1920
     exactHeight.value = 1080
     scalePercent.value = 50
-    stripMetadata.value = false
+    includeMetadata.value = true
     videoResolution.value = 'original'
   }
 })
@@ -966,118 +833,85 @@ onBeforeUnmount(() => {
   if (copiedTimer) clearTimeout(copiedTimer)
 })
 
-// --- Export handler ---
+// --- Export -------------------------------------------------------------------
 
-async function handleExport() {
-  if (exporting.value) return
-  exportError.value = ''
-  exporting.value = true
-
-  try {
-    if (mediaCategory.value === 'sprite') {
-      await handleSpriteExport()
-    } else if (mediaCategory.value === 'package') {
-      await handlePackageExport()
-    } else if (mediaCategory.value === 'vector') {
-      await handleVectorExport()
-    } else if (mediaCategory.value === 'layout') {
-      await handleLayoutExport()
-    } else if (isOriginalExport.value) {
-      // No conversion needed - use existing download path
-      await downloadMedia(props.mediaIds)
-    } else {
-      // Build export options and use the new export endpoint
-      const options = {}
-
-      if (format.value !== 'original') {
-        options.format = format.value
-      }
-
-      if (showQuality.value) {
-        options.quality = quality.value
-      }
-
-      if (mediaCategory.value === 'image' && resizeMode.value !== 'none') {
-        options.resize = { mode: resizeMode.value }
-        if (resizeMode.value === 'max_dimension') {
-          options.resize.max_dimension = maxDimension.value
-        } else if (resizeMode.value === 'exact') {
-          options.resize.width = exactWidth.value
-          options.resize.height = exactHeight.value
-        } else if (resizeMode.value === 'scale') {
-          options.resize.scale = scalePercent.value / 100
-        }
-      }
-
-      if (mediaCategory.value === 'video' && videoResolution.value !== 'original') {
-        options.video_resolution = videoResolution.value
-      }
-
-      if (stripMetadata.value) {
-        options.strip_metadata = true
-      }
-
-      const response = await axios.post(
-        `${getApiBase()}/media/export`,
-        {
-          media_ids: props.mediaIds.map(id => parseInt(id)),
-          options
-        },
-        { responseType: 'blob' }
-      )
-
-      const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-      let filename = 'export'
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="([^"]+)"/)
-        if (match) filename = match[1]
-      }
-
-      await downloadFromResponse(response.data, filename)
-    }
-
-    emit('exported')
-    if (!isClipboardExport.value) emit('close')
-  } catch (error) {
-    console.error('[ExportModal] Export failed:', error)
-    exportError.value = error instanceof Error ? error.message : 'Export failed. Please try again.'
-  } finally {
-    exporting.value = false
-  }
-}
-
-async function handlePackageExport() {
-  const mediaId = props.mediaIds[0]
-  let response
-  try {
-    response = await axios.post(
-      `${getApiBase()}/media/${mediaId}/package-export`,
-      { format: format.value },
-      { responseType: 'blob' }
-    )
-  } catch (error) {
-    // Blob error bodies hide the backend's explanation until read back as text.
-    const blob = error?.response?.data
-    let detail = ''
-    if (blob && typeof blob.text === 'function') {
-      try { detail = JSON.parse(await blob.text())?.detail || '' } catch { /* not JSON */ }
-    }
-    throw new Error(detail || 'Export failed. Please try again.')
-  }
-
+function filenameFrom(response, fallback) {
   const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-  let filename = `package.${format.value}`
   if (contentDisposition) {
     const match = contentDisposition.match(/filename="([^"]+)"/)
-    if (match) filename = match[1]
+    if (match) return match[1]
   }
-
-  await downloadFromResponse(response.data, filename)
+  return fallback
 }
 
-async function handleVectorExport() {
+// Blob error bodies hide the backend's explanation until read back as text.
+async function errorDetail(error) {
+  const blob = error?.response?.data
+  if (blob && typeof blob.text === 'function') {
+    try { return JSON.parse(await blob.text())?.detail || '' } catch { /* not JSON */ }
+  }
+  return ''
+}
+
+async function postForFile(url, body, fallbackName) {
+  const response = await axios.post(url, body, { responseType: 'blob' })
+  return { blob: response.data, filename: filenameFrom(response, fallbackName) }
+}
+
+/**
+ * Build the export on the backend. Resolves { blob, filename }, or null when
+ * the export went to the clipboard instead.
+ */
+async function produceExport() {
+  const ids = props.mediaIds.map(id => parseInt(id))
+  const category = mediaCategory.value
+
+  if (category === 'sprite') return produceSpriteExport()
+  if (category === 'package') return producePackageExport()
+  if (category === 'vector') return produceVectorExport()
+  if (category === 'layout') return produceLayoutExport()
+
+  if (isOriginalExport.value) {
+    return postForFile(`${getApiBase()}/media/download`, { media_ids: ids }, 'download')
+  }
+
+  const options = {}
+  if (format.value !== 'original') options.format = format.value
+  if (showQuality.value) options.quality = quality.value
+  if (category === 'image' && resizeMode.value !== 'none') {
+    options.resize = { mode: resizeMode.value }
+    if (resizeMode.value === 'max_dimension') {
+      options.resize.max_dimension = maxDimension.value
+    } else if (resizeMode.value === 'exact') {
+      options.resize.width = exactWidth.value
+      options.resize.height = exactHeight.value
+    } else if (resizeMode.value === 'scale') {
+      options.resize.scale = scalePercent.value / 100
+    }
+  }
+  if (category === 'video' && videoResolution.value !== 'original') {
+    options.video_resolution = videoResolution.value
+  }
+  if (!includeMetadata.value) options.strip_metadata = true
+
+  return postForFile(`${getApiBase()}/media/export`, { media_ids: ids, options }, 'export')
+}
+
+async function producePackageExport() {
+  try {
+    return await postForFile(
+      `${getApiBase()}/media/${props.mediaIds[0]}/package-export`,
+      { format: format.value },
+      `package.${format.value}`,
+    )
+  } catch (error) {
+    throw new Error((await errorDetail(error)) || 'Export failed. Please try again.')
+  }
+}
+
+async function produceVectorExport() {
   const mediaId = props.mediaIds[0]
-  const body = { format: format.value === 'icon' ? iconPlatform.value : format.value }
+  const body = { format: format.value }
 
   if (format.value === 'png') {
     if (layoutScaleMode.value === 'custom') body.width = layoutCustomWidth.value
@@ -1094,27 +928,13 @@ async function handleVectorExport() {
     await navigator.clipboard.writeText(response.data)
     copied.value = true
     setTimeout(() => { copied.value = false }, 1500)
-    return
+    return null
   }
 
-  const response = await axios.post(
-    `${getApiBase()}/media/${mediaId}/svg-export`,
-    body,
-    { responseType: 'blob' }
-  )
-
-  const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-  let filename = 'svg-export'
-  if (contentDisposition) {
-    const match = contentDisposition.match(/filename="([^"]+)"/)
-    if (match) filename = match[1]
-  }
-
-  await downloadFromResponse(response.data, filename)
+  return postForFile(`${getApiBase()}/media/${mediaId}/svg-export`, body, 'svg-export')
 }
 
-async function handleSpriteExport() {
-  const mediaId = props.mediaIds[0]
+async function produceSpriteExport() {
   spriteError.value = ''
   const body = {
     format: format.value,
@@ -1125,59 +945,66 @@ async function handleSpriteExport() {
   }
   if (spriteUsesBackground.value) body.background = spriteBackground.value
 
-  let response
   try {
-    response = await axios.post(
-      `${getApiBase()}/media/${mediaId}/sprite-export`,
-      body,
-      { responseType: 'blob' }
-    )
+    return await postForFile(`${getApiBase()}/media/${props.mediaIds[0]}/sprite-export`, body, 'sprite-export')
   } catch (error) {
     // The writer explains what the sprite is missing (e.g. RPG Maker directions).
-    const blob = error?.response?.data
-    let detail = ''
-    if (blob && typeof blob.text === 'function') {
-      try { detail = JSON.parse(await blob.text())?.detail || '' } catch { /* not JSON */ }
-    }
-    spriteError.value = detail || 'Export failed.'
+    spriteError.value = (await errorDetail(error)) || 'Export failed.'
     throw error
   }
-
-  const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-  let filename = 'sprite-export'
-  if (contentDisposition) {
-    const match = contentDisposition.match(/filename="([^"]+)"/)
-    if (match) filename = match[1]
-  }
-
-  await downloadFromResponse(response.data, filename)
 }
 
-async function handleLayoutExport() {
-  const mediaId = props.mediaIds[0]
+async function produceLayoutExport() {
   const body = { format: format.value }
-
   if (format.value === 'png') {
-    if (layoutScaleMode.value === 'custom') {
-      body.width = layoutCustomWidth.value
-    } else {
-      body.scale = layoutScaleNumber.value
+    if (layoutScaleMode.value === 'custom') body.width = layoutCustomWidth.value
+    else body.scale = layoutScaleNumber.value
+  }
+  return postForFile(`${getApiBase()}/media/${props.mediaIds[0]}/layout-export`, body, 'layout-export')
+}
+
+/**
+ * Write a finished export where the user wants it. Resolves false when they
+ * cancelled a picker, which keeps the dialog open.
+ */
+async function deliver(file, destination) {
+  if (destination === 'downloads' || !canChooseLocation) {
+    await exportToDownloads(file)
+    return true
+  }
+  const category = mediaCategory.value
+  if (isZipExport(file) && category !== 'package') {
+    if (isMulti.value) {
+      return combineZip.value
+        ? exportToChosenFile(file, category)
+        : exportToChosenFolder(file, category, { ownFolder: false })
     }
+    return bundleAs.value === 'zip'
+      ? exportToChosenFile(file, category)
+      : exportToChosenFolder(file, category, { ownFolder: true })
   }
+  return exportToChosenFile(file, category)
+}
 
-  const response = await axios.post(
-    `${getApiBase()}/media/${mediaId}/layout-export`,
-    body,
-    { responseType: 'blob' }
-  )
+async function handleExport(destination) {
+  if (exporting.value) return
+  exportError.value = ''
+  exportingTo.value = destination
 
-  const contentDisposition = response.headers['content-disposition'] || response.headers.get?.('content-disposition')
-  let filename = 'layout-export'
-  if (contentDisposition) {
-    const match = contentDisposition.match(/filename="([^"]+)"/)
-    if (match) filename = match[1]
+  try {
+    const file = await produceExport()
+    if (!file) {
+      emit('exported')
+      return
+    }
+    if (!(await deliver(file, destination))) return
+    emit('exported')
+    emit('close')
+  } catch (error) {
+    console.error('[ExportModal] Export failed:', error)
+    exportError.value = error instanceof Error ? error.message : 'Export failed. Please try again.'
+  } finally {
+    exportingTo.value = null
   }
-
-  await downloadFromResponse(response.data, filename)
 }
 </script>
