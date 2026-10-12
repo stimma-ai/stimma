@@ -111,7 +111,7 @@ SPECIALTY_MODELS: frozenset[str] = frozenset({
 # llm_provider_catalog.py — those two files decide what a user can actually pick.
 CURATED_TIERS: dict[str, str] = {
     # Anthropic
-    "claude-opus-5": DEEP,
+    "claude-opus-5-5": DEEP,
     "claude-fable-5": DEEP,
     "claude-fable-5-1": DEEP,
     "claude-fable-5.1": DEEP,
@@ -119,9 +119,9 @@ CURATED_TIERS: dict[str, str] = {
     "claude-haiku-4.5": FAST,
     "claude-haiku-4-5-20251001": FAST,
     # OpenAI
-    "gpt-5.6-sol": DEEP,
-    "gpt-5.6-terra": BALANCED,
-    "gpt-5.6-luna": FAST,
+    "gpt-6-astra": DEEP,
+    "gpt-6.1-sol": BALANCED,
+    "gpt-6-luna": FAST,
     # Google
     "gemini-3.1-pro-preview": DEEP,
     "gemini-3.5-flash": BALANCED,

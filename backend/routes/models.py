@@ -635,8 +635,33 @@ async def _test_local_provider_model(
     return results
 
 
+_chatgpt_catalog_refreshed: set[str] = set()
+
+
+async def _refresh_stale_chatgpt_catalog():
+    """Refresh older saved plan lists against the signed-in account once."""
+    import chatgpt_auth
+    for provider in _active_providers():
+        if provider.kind != "chatgpt" or not provider.enabled:
+            continue
+        ids = {model.model_id for model in provider.models}
+        if provider.id in _chatgpt_catalog_refreshed or (
+            {"gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"}.issubset(ids)
+            and not any(model.startswith("gpt-5.") for model in ids)
+        ):
+            continue
+        if not chatgpt_auth.is_signed_in():
+            continue
+        try:
+            await _sync_chatgpt_provider(await chatgpt_auth.get_access_token())
+            _chatgpt_catalog_refreshed.add(provider.id)
+        except Exception as exc:
+            log.warning("Could not refresh saved ChatGPT model catalog", error=str(exc))
+
+
 @router.get("/providers")
 async def list_llm_providers():
+    await _refresh_stale_chatgpt_catalog()
     return {"providers": [_provider_response(provider) for provider in _active_providers()]}
 
 
@@ -938,6 +963,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     Merges Stimma Cloud catalog with locally configured endpoints.
     Optionally includes project-level default when project_id is provided.
     """
+    await _refresh_stale_chatgpt_catalog()
     models = []
     settings = get_settings()
     lockdown = is_privacy_lockdown_enabled()

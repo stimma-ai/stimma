@@ -47,12 +47,12 @@ TOOLS = [{
 
 def test_openai_responses_request_uses_responses_reasoning_and_flat_tools():
     body = _to_responses_request(
-        "gpt-5.6-terra",
+        "gpt-6.1-sol",
         [{"role": "system", "content": "Be concise."}, {"role": "user", "content": "Weather?"}],
         {"tools": TOOLS, "max_tokens": 128, "extra_body": {"reasoning_effort": "high"}},
     )
 
-    assert body["model"] == "gpt-5.6-terra"
+    assert body["model"] == "gpt-6.1-sol"
     assert body["instructions"] == "Be concise."
     assert body["reasoning"] == {"effort": "high"}
     assert body["max_output_tokens"] == 128
@@ -66,7 +66,7 @@ def test_openai_responses_tool_id_preserves_stateful_continuation():
     assert _decode_responses_tool_call_id(encoded) == ("resp_123", "call_456")
 
     body = _to_responses_request(
-        "gpt-5.6-terra",
+        "gpt-6.1-sol",
         [
             {"role": "user", "content": "Weather?"},
             {"role": "assistant", "content": None, "tool_calls": [{
@@ -105,7 +105,7 @@ def test_openai_responses_tool_id_preserves_stateful_continuation():
 def test_openai_response_normalizes_tool_calls_usage_and_reasoning():
     raw = _responses_to_chat({
         "id": "resp_123",
-        "model": "gpt-5.6-terra",
+        "model": "gpt-6.1-sol",
         "status": "completed",
         "output": [
             {"type": "reasoning", "summary": [{"type": "summary_text", "text": "Need weather."}]},
@@ -115,7 +115,7 @@ def test_openai_response_normalizes_tool_calls_usage_and_reasoning():
             "input_tokens": 10, "output_tokens": 7, "total_tokens": 17,
             "output_tokens_details": {"reasoning_tokens": 3},
         },
-    }, "gpt-5.6-terra")
+    }, "gpt-6.1-sol")
     normalized = _normalize_response(raw)
 
     assert normalized.thinking == "Need weather."
@@ -130,7 +130,7 @@ def test_anthropic_native_request_replays_exact_signed_blocks():
         {"type": "tool_use", "id": "toolu_1", "name": "lookup_weather", "input": {"city": "Boston"}},
     ]
     body = _to_anthropic_request(
-        "claude-opus-5",
+        "claude-opus-5-5",
         [
             {"role": "system", "content": "Be concise."},
             {"role": "user", "content": "Weather?"},
@@ -263,9 +263,9 @@ def test_anthropic_response_keeps_native_state_for_persistence():
         {"type": "tool_use", "id": "toolu_1", "name": "lookup_weather", "input": {"city": "Boston"}},
     ]
     normalized = _normalize_response(_anthropic_to_chat({
-        "id": "msg_1", "model": "claude-opus-5", "content": blocks,
+        "id": "msg_1", "model": "claude-opus-5-5", "content": blocks,
         "stop_reason": "tool_use", "usage": {"input_tokens": 12, "output_tokens": 8},
-    }, "claude-opus-5"))
+    }, "claude-opus-5-5"))
 
     assert normalized.thinking == "Need weather."
     assert normalized.provider_state == {"kind": "anthropic_message", "content": blocks}

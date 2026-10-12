@@ -55,11 +55,11 @@ def _reasoning(
 
 OPENAI_REASONING = _reasoning(
     "optional",
-    ["off", "low", "medium", "high", "xhigh"],
+    ["off", "low", "medium", "high", "xhigh", "max"],
     "medium",
     "off",
     "openai_effort",
-    {"off": "none", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh"},
+    {"off": "none", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
 )
 
 ASTRA_REASONING = _reasoning(
@@ -85,9 +85,8 @@ GEMINI_REASONING = _reasoning(
 BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
     "openai": [
         {"model_id": "gpt-6-astra", "name": "GPT-6 Astra", "context": 1_050_000, "reasoning": ASTRA_REASONING},
-        {"model_id": "gpt-5.6-sol", "name": "GPT-5.6 Sol", "context": 1_050_000, "reasoning": OPENAI_REASONING},
-        {"model_id": "gpt-5.6-terra", "name": "GPT-5.6 Terra", "context": 1_050_000, "reasoning": OPENAI_REASONING},
-        {"model_id": "gpt-5.6-luna", "name": "GPT-5.6 Luna", "context": 1_050_000, "reasoning": OPENAI_REASONING},
+        {"model_id": "gpt-6.1-sol", "name": "GPT-6.1 Sol", "context": 1_050_000, "reasoning": ASTRA_REASONING},
+        {"model_id": "gpt-6-luna", "name": "GPT-6 Luna", "context": 1_050_000, "reasoning": OPENAI_REASONING},
     ],
     "anthropic": [
         {
@@ -99,11 +98,11 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
             ),
         },
         {
-            "model_id": "claude-opus-5", "name": "Claude Opus 5", "context": 1_000_000,
+            "model_id": "claude-opus-5-5", "name": "Claude Opus 5.5", "context": 1_000_000,
             "reasoning": _reasoning(
-                "optional", ["off", "low", "medium", "high", "xhigh", "max"],
-                "high", "off", "anthropic_adaptive_default",
-                {"off": "off", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
+                "required", ["low", "medium", "high", "xhigh", "max"],
+                "medium", "low", "anthropic_adaptive_required",
+                {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"},
             ),
         },
         {
@@ -155,26 +154,16 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
 }
 
 
-# Only Astra and the gpt-5.6 family are offered on the ChatGPT-plan route. A plan may also
+# Only Astra, Sol, and Luna are offered on the ChatGPT-plan route. A plan may also
 # list older families (5.5, 5.4, 5.4-mini) and the Codex-only 5.3 Spark, but
 # each additional family is another effort ladder to keep verified against an
 # undocumented surface, and they are superseded for every role Stimma uses.
 # Restricting the route keeps one ladder true instead of four drifting ones.
-CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-5.6")
+CHATGPT_SUPPORTED_PREFIXES = ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna")
 
-# Efforts for supported models, used when the live catalog does not report
-# them. The 5.6 family was verified against api.openai.com on 2026-08-30 by
-# sending a valid-but-unsupported effort and reading the rejection. Astra's
-# ladder and context are documented by OpenAI:
-#
-#   gpt-5.6-sol/terra/luna   none, low, medium, high, xhigh, max
-#   gpt-6-astra              low, medium, high, xhigh, max
-#
-# 'minimal' is not offered. Astra also rejects 'none', so its contract is
-# required-reasoning and quick tasks use its cheapest supported rung, 'low'.
-#
-# Anything added to CHATGPT_SUPPORTED_PREFIXES must have its ladder re-verified;
-# offering a rung a model rejects is an HTTP 400 on send.
+# Supported effort ladders from the official model contracts. The plan catalog
+# may narrow these per account. Astra and Sol require thinking; Luna permits off.
+# Keep these aligned with the API contracts above.
 CHATGPT_REASONING_LEVELS = ["off", "low", "medium", "high", "xhigh", "max"]
 CHATGPT_REASONING_WIRE = {
     "off": "none",
@@ -187,7 +176,8 @@ CHATGPT_REASONING_WIRE = {
 CHATGPT_ASTRA_REASONING_LEVELS = ["low", "medium", "high", "xhigh", "max"]
 CHATGPT_MODEL_DEFAULTS: tuple[tuple[str, list[str], int], ...] = (
     ("gpt-6-astra", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
-    ("gpt-5.6", CHATGPT_REASONING_LEVELS, 1_050_000),
+    ("gpt-6.1-sol", CHATGPT_ASTRA_REASONING_LEVELS, 1_050_000),
+    ("gpt-6-luna", CHATGPT_REASONING_LEVELS, 1_050_000),
 )
 # Wire value -> Stimma level, for reading a reported default back.
 _CHATGPT_WIRE_TO_LEVEL = {wire: level for level, wire in CHATGPT_REASONING_WIRE.items()}

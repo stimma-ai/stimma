@@ -15,7 +15,11 @@ from cloud_runtime import env_cloud_base_url
 LEGACY_LLM_MODEL_SLUGS = {
     "agent-max": "stimma:minimax-m3",
     "default": "stimma:minimax-m3",
-    "stimma:claude-opus-4.8": "stimma:claude-opus-5",
+    "stimma:claude-opus-4.8": "stimma:claude-opus-5-5",
+    "stimma:claude-opus-5": "stimma:claude-opus-5-5",
+    "stimma:gpt-5.6-sol": "stimma:gpt-6.1-sol",
+    "stimma:gpt-5.6-terra": "stimma:gpt-6.1-sol",
+    "stimma:gpt-5.6-luna": "stimma:gpt-6-luna",
     "stimma:claude-fable-5": "stimma:claude-fable-5.1",
 }
 
@@ -23,7 +27,9 @@ LEGACY_LLM_MODEL_SLUGS = {
 # per-slug reasoning selection off a retired alias.
 LEGACY_LLM_REASONING_LEVELS = {
     "stimma:minimax-m3": {"off", "high"},
-    "stimma:claude-opus-5": {"off", "low", "medium", "high", "xhigh", "max"},
+    "stimma:claude-opus-5-5": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:gpt-6.1-sol": {"low", "medium", "high", "xhigh", "max"},
+    "stimma:gpt-6-luna": {"off", "low", "medium", "high", "xhigh", "max"},
     # Fable 5.1 inherits Fable 5's ladder exactly, so every saved level carries.
     "stimma:claude-fable-5.1": {"low", "medium", "high", "xhigh", "max"},
 }
@@ -342,6 +348,28 @@ class LLMProviderConfig(BaseModel):
     # must not continue to appear connected on that basis.
     credentials_validated_at: Optional[str] = None
     deleted_at: Optional[str] = None
+
+    @model_validator(mode="after")
+    def refresh_branded_catalog(self):
+        # Saved provider lists must follow the shipped catalog on upgrade.
+        if self.kind not in {"openai", "anthropic"} or self.deleted_at:
+            return self
+        from llm_provider_catalog import branded_models
+        previous = {model.model_id: model for model in self.models}
+        replacements = {"gpt-6.1-sol": ("gpt-5.6-sol", "gpt-5.6-terra"),
+                        "gpt-6-luna": ("gpt-5.6-luna",),
+                        "claude-opus-5-5": ("claude-opus-5", "claude-opus-4.8")}
+        refreshed = branded_models(self.kind, self.id)
+        for model in refreshed:
+            prior = previous.get(model.model_id)
+            if prior is None:
+                prior = next((previous[old] for old in replacements.get(model.model_id, ()) if old in previous), None)
+            if prior is not None:
+                model.enabled = prior.enabled
+                model.content_policy_enabled = prior.content_policy_enabled
+                model.extra_system_prompt = prior.extra_system_prompt
+        self.models = refreshed
+        return self
 
 
 # Type alias for LLM configs passed to llm_http
@@ -841,7 +869,7 @@ def _migrate_legacy_llm_model_slugs(config_file: Path) -> bool:
                 continue
             legacy_level = reasoning_levels.pop(legacy_slug)
             # Carry the selection over only if the replacement model exposes
-            # that level (MiniMax is off/high; Opus 5 has Opus 4.8's full set),
+            # that level (required-thinking successors cannot inherit off),
             # and never let an obsolete alias overwrite an explicit new choice.
             carryable = LEGACY_LLM_REASONING_LEVELS.get(replacement, {"off", "high"})
             if replacement not in reasoning_levels and legacy_level in carryable:

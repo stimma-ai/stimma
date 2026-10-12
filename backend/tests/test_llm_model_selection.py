@@ -40,7 +40,7 @@ def test_retired_model_aliases_normalize_to_minimax(monkeypatch):
 
     assert llm_resolver.normalize_model_slug("agent-max") == "stimma:minimax-m3"
     assert llm_resolver.normalize_model_slug("default") == "stimma:minimax-m3"
-    assert llm_resolver.normalize_model_slug("stimma:gpt-5.6-sol") == "stimma:gpt-5.6-sol"
+    assert llm_resolver.normalize_model_slug("stimma:gpt-6.1-sol") == "stimma:gpt-6.1-sol"
     assert (
         llm_resolver.resolve_chat_model_slug("agent-max", None, "auto")
         == "stimma:minimax-m3"
@@ -107,7 +107,7 @@ def test_retired_global_model_keys_are_dropped_not_migrated(tmp_path):
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "default_model: stimma:claude-opus-5\n"
+        "default_model: stimma:claude-opus-5-5\n"
         "quick_task_model: stimma:claude-haiku-4.5\n"
         "profiles:\n"
         "  - id: default\n"
@@ -214,11 +214,11 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: _stub_settings())
     monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
     llm_resolver.set_catalog_cache([
-        {"slug": "stimma:claude-opus-5", "name": "Claude Opus 5", "model_vendor": "anthropic"},
+        {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5", "model_vendor": "anthropic"},
         {"slug": "stimma:claude-sonnet-5", "name": "Claude Sonnet 5", "model_vendor": "anthropic"},
         {"slug": "stimma:claude-haiku-4.5", "name": "Claude Haiku 4.5", "model_vendor": "anthropic"},
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3", "model_vendor": "minimax"},
-        {"slug": "stimma:gpt-5.6-sol", "name": "GPT-5.6 Sol", "model_vendor": "openai"},
+        {"slug": "stimma:gpt-6.1-sol", "name": "GPT-6.1 Sol", "model_vendor": "openai"},
     ])
     try:
         candidates = llm_resolver.auto_candidates(cloud_available=True)
@@ -228,7 +228,7 @@ async def test_auto_draws_the_whole_lineup_from_one_family(monkeypatch):
     finally:
         llm_resolver.set_catalog_cache([])
 
-    assert chosen["chat"] == "stimma:claude-opus-5"
+    assert chosen["chat"] == "stimma:claude-opus-5-5"
     assert chosen["tool_assistant"] == "stimma:claude-sonnet-5"
     assert chosen["flow"] == "stimma:claude-sonnet-5"
     assert chosen["quick_task"] == "stimma:claude-haiku-4.5"
@@ -654,7 +654,7 @@ async def test_unreachable_saved_slug_resolves_to_an_available_model(monkeypatch
     monkeypatch.setattr(
         llm_resolver, "get_settings",
         lambda: _stub_settings(
-            role_models={"chat": "stimma:claude-opus-5"},
+            role_models={"chat": "stimma:claude-opus-5-5"},
             llm_providers=[_local_provider()],
         ),
     )
@@ -676,7 +676,7 @@ async def test_saved_slug_survives_when_there_is_nothing_to_switch_to(monkeypatc
 
     monkeypatch.setattr(
         llm_resolver, "get_settings",
-        lambda: _stub_settings(role_models={"chat": "stimma:claude-opus-5"}),
+        lambda: _stub_settings(role_models={"chat": "stimma:claude-opus-5-5"}),
     )
     monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
 
@@ -685,7 +685,7 @@ async def test_saved_slug_survives_when_there_is_nothing_to_switch_to(monkeypatc
 
     monkeypatch.setattr(llm_resolver, "_cloud_is_available", no_cloud)
 
-    assert await llm_resolver.resolve_role_model_slug("chat") == "stimma:claude-opus-5"
+    assert await llm_resolver.resolve_role_model_slug("chat") == "stimma:claude-opus-5-5"
 
 
 @pytest.mark.asyncio
@@ -701,7 +701,7 @@ async def test_privacy_lockdown_keeps_auto_off_the_cloud(monkeypatch):
     monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: True)
 
     llm_resolver.set_catalog_cache([
-        {"slug": "stimma:claude-opus-5", "name": "Claude Opus 5",
+        {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5",
          "model_vendor": "anthropic"},
     ])
     try:
@@ -724,8 +724,8 @@ async def test_remote_providers_are_dropped_in_lockdown(monkeypatch):
         id="openai-1", kind="openai", name="OpenAI",
         base_url="https://api.openai.com/v1",
         models=[LLMProviderModelConfig(
-            id="openai-1:gpt-5.6-sol", model_id="gpt-5.6-sol",
-            name="GPT-5.6 Sol", model_vendor="openai",
+            id="openai-1:gpt-6.1-sol", model_id="gpt-6.1-sol",
+            name="GPT-6.1 Sol", model_vendor="openai",
         )],
     )
     monkeypatch.setattr(
@@ -789,7 +789,7 @@ async def test_cold_catalog_does_not_downgrade_a_saved_cloud_model(monkeypatch):
     monkeypatch.setattr(
         llm_resolver, "get_settings",
         lambda: _stub_settings(
-            role_models={"chat": "stimma:claude-opus-5"},
+            role_models={"chat": "stimma:claude-opus-5-5"},
             llm_providers=[_local_provider()],
         ),
     )
@@ -801,7 +801,7 @@ async def test_cold_catalog_does_not_downgrade_a_saved_cloud_model(monkeypatch):
     monkeypatch.setattr(llm_resolver, "_cloud_is_available", cloud_up)
     llm_resolver.set_catalog_cache([])  # cold
 
-    assert await llm_resolver.resolve_role_model_slug("chat") == "stimma:claude-opus-5"
+    assert await llm_resolver.resolve_role_model_slug("chat") == "stimma:claude-opus-5-5"
 
     # Once the catalog IS known and the model genuinely isn't in it, the
     # downgrade is correct again.
@@ -809,7 +809,7 @@ async def test_cold_catalog_does_not_downgrade_a_saved_cloud_model(monkeypatch):
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3", "model_vendor": "minimax"},
     ])
     try:
-        assert await llm_resolver.resolve_role_model_slug("chat") != "stimma:claude-opus-5"
+        assert await llm_resolver.resolve_role_model_slug("chat") != "stimma:claude-opus-5-5"
     finally:
         llm_resolver.set_catalog_cache([])
 
@@ -973,7 +973,7 @@ async def test_auto_row_names_the_model_the_resolver_picks(monkeypatch):
     """The picker's `auto` row must agree with Settings and with the call that
     actually goes out. It used to be hardcoded to MiniMax M3 whenever cloud was
     reachable, so a profile on `auto` showed MiniMax in chat while Settings and
-    the resolver both said Opus 5."""
+    the resolver both said Opus 5.5."""
     from routes import models as models_route
     import firebase_auth
     import llm_resolver
@@ -981,8 +981,8 @@ async def test_auto_row_names_the_model_the_resolver_picks(monkeypatch):
     catalog = [
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3",
          "model_vendor": "minimax", "canonical_model_id": "minimax-m3"},
-        {"slug": "stimma:claude-opus-5", "name": "Claude Opus 5",
-         "model_vendor": "anthropic", "canonical_model_id": "claude-opus-5"},
+        {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5",
+         "model_vendor": "anthropic", "canonical_model_id": "claude-opus-5-5"},
         {"slug": "stimma:claude-haiku-4.5", "name": "Claude Haiku 4.5",
          "model_vendor": "anthropic", "canonical_model_id": "claude-haiku-4-5"},
     ]
@@ -1030,10 +1030,10 @@ async def test_auto_row_names_the_model_the_resolver_picks(monkeypatch):
 
     auto_model = payload["models"][0]
     assert auto_model["slug"] == "auto"
-    assert auto_model["resolved_slug"] == "stimma:claude-opus-5"
-    assert auto_model["name"] == "Auto: Claude Opus 5"
+    assert auto_model["resolved_slug"] == "stimma:claude-opus-5-5"
+    assert auto_model["name"] == "Auto: Claude Opus 5.5"
     # The row the picker shows and the row Settings shows are the same model.
-    assert payload["role_defaults"]["chat"]["resolved"]["model"] == "stimma:claude-opus-5"
+    assert payload["role_defaults"]["chat"]["resolved"]["model"] == "stimma:claude-opus-5-5"
 
 
 @pytest.mark.asyncio
@@ -1048,7 +1048,7 @@ async def test_auto_warms_the_catalog_before_choosing(monkeypatch):
     )
     catalog = [
         {"slug": "stimma:minimax-m3", "name": "MiniMax M3", "model_vendor": "minimax"},
-        {"slug": "stimma:claude-opus-5", "name": "Claude Opus 5",
+        {"slug": "stimma:claude-opus-5-5", "name": "Claude Opus 5.5",
          "model_vendor": "anthropic"},
     ]
 
@@ -1085,7 +1085,7 @@ async def test_auto_warms_the_catalog_before_choosing(monkeypatch):
 
     llm_resolver.set_catalog_cache([])  # cold
     try:
-        assert await llm_resolver.resolve_auto_slug("chat") == "stimma:claude-opus-5"
+        assert await llm_resolver.resolve_auto_slug("chat") == "stimma:claude-opus-5-5"
     finally:
         llm_resolver.set_catalog_cache([])
 
@@ -1221,3 +1221,13 @@ async def test_models_available_reports_llm_configured(monkeypatch):
     )
     payload = await models_route.get_available_models()
     assert payload["llm_configured"] is True
+
+
+def test_retired_api_key_selection_uses_same_provider(monkeypatch):
+    import llm_resolver
+    from types import SimpleNamespace
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: SimpleNamespace(
+        llm_providers=[SimpleNamespace(id="key", kind="openai")]))
+    assert llm_resolver.normalize_model_slug("key:gpt-5.6-sol") == "key:gpt-6.1-sol"
+    assert llm_resolver.normalize_model_slug("key:gpt-5.6-terra") == "key:gpt-6.1-sol"
+    assert llm_resolver.normalize_model_slug("key:gpt-5.6-luna") == "key:gpt-6-luna"

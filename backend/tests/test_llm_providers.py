@@ -171,9 +171,8 @@ def test_branded_provider_contracts_match_current_model_series():
     openai = branded_models("openai", "openai-test")
     assert [model.model_id for model in openai] == [
         "gpt-6-astra",
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
+        "gpt-6.1-sol",
+        "gpt-6-luna",
     ]
     assert openai[0].reasoning.levels == ["low", "medium", "high", "xhigh", "max"]
     assert openai[0].reasoning.quick_task == "low"
@@ -183,7 +182,7 @@ def test_branded_provider_contracts_match_current_model_series():
     anthropic = branded_models("anthropic", "anthropic-test")
     assert [model.model_id for model in anthropic] == [
         "claude-sonnet-5",
-        "claude-opus-5",
+        "claude-opus-5-5",
         "claude-fable-5-1",
         "claude-haiku-4-5-20251001",
     ]
@@ -766,8 +765,8 @@ async def test_profile_retries_provider_advertised_effort_when_high_is_unsupport
 @pytest.mark.parametrize(
     ("kind", "model_id", "expected"),
     [
-        ("openai", "gpt-5.6-sol", "openai:gpt-5.6-sol"),
-        ("openrouter", "openai/gpt-5.6-sol", "openai:gpt-5.6-sol"),
+        ("openai", "gpt-6.1-sol", "openai:gpt-6.1-sol"),
+        ("openrouter", "openai/gpt-6.1-sol", "openai:gpt-6.1-sol"),
         ("openrouter", "x-ai/grok-4.5", "xai:grok-4.5"),
         ("openrouter", "minimax/minimax-m3", "minimax:minimax-m3"),
         ("openrouter", "qwen/qwen3.7-plus", "qwen:qwen-3.7-plus"),
@@ -844,7 +843,7 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     monkeypatch.setattr(models_route, "_save_providers", lambda providers: saved.extend(providers))
 
     async def discover(_provider):
-        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")]
+        return [{"id": model_id} for model_id in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna")]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
     response = await models_route.create_llm_provider(
@@ -854,9 +853,8 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
     assert response["api_key_set"] is True
     assert [model["model_id"] for model in response["models"]] == [
         "gpt-6-astra",
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-        "gpt-5.6-luna",
+        "gpt-6.1-sol",
+        "gpt-6-luna",
     ]
     assert len(saved) == 1
 
@@ -1259,7 +1257,7 @@ async def test_branded_add_fails_if_provider_removed_a_model(monkeypatch):
     monkeypatch.setattr(models_route, "get_settings", lambda: SimpleNamespace(llm_providers=[]))
 
     async def discover(_provider):
-        return [{"id": "gpt-5.6-luna"}]
+        return [{"id": "gpt-6-luna"}]
 
     monkeypatch.setattr(models_route, "_discover_provider_models", discover)
     with pytest.raises(Exception) as caught:
@@ -1296,3 +1294,37 @@ async def test_profile_classifies_the_verified_off_method(monkeypatch, effort_of
     )
     assert detected.reasoning_method == "reasoning_effort"
     assert detected.reasoning_mode == ("toggleable" if effort_off == "answer" else "always")
+
+
+def test_saved_openai_provider_gains_astra_and_migrates_retired_models():
+    provider = LLMProviderConfig.model_validate({
+        "id": "saved", "kind": "openai", "name": "OpenAI",
+        "base_url": "https://api.openai.com/v1", "api_key": "test",
+        "models": [{"id": "saved:gpt-5.6-sol", "model_id": "gpt-5.6-sol",
+                    "name": "Old Sol", "enabled": False,
+                    "extra_system_prompt": "Keep this instruction"}],
+    })
+    assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]
+    assert provider.models[0].reasoning.mode == "required"
+    assert provider.models[1].enabled is False
+    assert provider.models[1].extra_system_prompt == "Keep this instruction"
+
+
+@pytest.mark.asyncio
+async def test_stale_chatgpt_catalog_refreshes_from_account(monkeypatch):
+    provider = LLMProviderConfig(id="plan", kind="chatgpt", name="ChatGPT",
+        base_url="https://chatgpt.com/backend-api/codex",
+        models=[LLMProviderModelConfig(id="plan:gpt-5.6-sol", model_id="gpt-5.6-sol", name="Old Sol")])
+    monkeypatch.setattr(models_route, "get_settings", lambda: SimpleNamespace(llm_providers=[provider]))
+    import chatgpt_auth
+    monkeypatch.setattr(chatgpt_auth, "is_signed_in", lambda: True)
+    async def token():
+        return "test-token"
+    calls = []
+    async def sync(access_token):
+        calls.append(access_token)
+    monkeypatch.setattr(chatgpt_auth, "get_access_token", token)
+    monkeypatch.setattr(models_route, "_sync_chatgpt_provider", sync)
+    monkeypatch.setattr(models_route, "_chatgpt_catalog_refreshed", set())
+    await models_route._refresh_stale_chatgpt_catalog()
+    assert calls == ["test-token"]

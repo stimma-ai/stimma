@@ -72,15 +72,15 @@ class TestLiveFlow:
     ):
         async def fake_slug(flow_id, project_id):
             patched_resolvers["slug_args"] = (flow_id, project_id)
-            return "stimma:claude-opus-5"
+            return "stimma:claude-opus-5-5"
 
         monkeypatch.setattr(pe, "_resolve_flow_chat_model_slug", fake_slug)
 
         resolve = pe.make_flow_llm_resolve_config(flow_id=7, project_id=3)
         cfg = await resolve("agent")
 
-        assert cfg == {"model": "chat-stimma:claude-opus-5"}
-        assert patched_resolvers["chat"] == ("stimma:claude-opus-5", "chat")
+        assert cfg == {"model": "chat-stimma:claude-opus-5-5"}
+        assert patched_resolvers["chat"] == ("stimma:claude-opus-5-5", "chat")
         # The flow's own id/project drive the chat lookup.
         assert patched_resolvers["slug_args"] == (7, 3)
 
@@ -95,7 +95,7 @@ class TestFrozenFlow:
 
     @pytest.mark.asyncio
     async def test_concrete_slug_beats_the_captured_one(self, patched_resolvers):
-        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5")
+        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5-5")
 
         cfg = await resolve("stimma:claude-haiku-4.5")
 
@@ -105,15 +105,15 @@ class TestFrozenFlow:
     async def test_unnamed_and_legacy_agent_use_the_captured_model(
         self, patched_resolvers
     ):
-        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5")
+        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5-5")
 
-        assert await resolve(None) == {"model": "chat-stimma:claude-opus-5"}
-        assert await resolve("agent") == {"model": "chat-stimma:claude-opus-5"}
-        assert patched_resolvers["chat"] == ("stimma:claude-opus-5", "flow")
+        assert await resolve(None) == {"model": "chat-stimma:claude-opus-5-5"}
+        assert await resolve("agent") == {"model": "chat-stimma:claude-opus-5-5"}
+        assert patched_resolvers["chat"] == ("stimma:claude-opus-5-5", "flow")
 
     @pytest.mark.asyncio
     async def test_legacy_agent_fast_uses_quick_task_setting(self, patched_resolvers):
-        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5")
+        resolve = pe.make_frozen_flow_llm_resolve_config("stimma:claude-opus-5-5")
 
         assert await resolve("agent-fast") == {"model": "eff-quick_task"}
         assert patched_resolvers["effective"] == ("quick_task", None)

@@ -54,7 +54,17 @@ LLMEffectiveConfig = LLMEndpointConfig
 
 def normalize_model_slug(model_slug: Optional[str]) -> Optional[str]:
     """Return the current catalog slug for a retired saved alias."""
-    return LEGACY_LLM_MODEL_SLUGS.get(model_slug, model_slug)
+    normalized = LEGACY_LLM_MODEL_SLUGS.get(model_slug, model_slug)
+    if not normalized or ":" not in normalized:
+        return normalized
+    provider_id, model_id = normalized.split(":", 1)
+    provider = next((p for p in getattr(get_settings(), "llm_providers", [])
+                     if p.id == provider_id and p.kind in {"openai", "anthropic", "chatgpt"}), None)
+    if provider is not None:
+        replacement = LEGACY_LLM_MODEL_SLUGS.get(f"stimma:{model_id}")
+        if replacement:
+            return f"{provider_id}:{replacement.split(':', 1)[1]}"
+    return normalized
 
 
 def _acceptance_llm_config(role: str) -> Optional[LLMEndpointConfig]:

@@ -49,8 +49,8 @@ def chatgpt_provider(monkeypatch):
         base_url=chatgpt_auth.BACKEND_BASE_URL,
         api_key=None,  # deliberately keyless
         models=[chatgpt_model("chatgpt-test", {
-            "id": "gpt-5.6-terra",
-            "name": "GPT-5.6 Terra",
+            "id": "gpt-6-luna",
+            "name": "GPT-6 Luna",
             "context_length": 272_000,
         })],
         last_test_passed=True,
@@ -83,21 +83,21 @@ def _async_raise(exc):
 class TestModelConfig:
     def test_catalog_entry_becomes_a_selectable_model(self, chatgpt_provider):
         model = chatgpt_provider.models[0]
-        assert model.id == "chatgpt-test:gpt-5.6-terra"
-        assert model.model_id == "gpt-5.6-terra"
+        assert model.id == "chatgpt-test:gpt-6-luna"
+        assert model.model_id == "gpt-6-luna"
         assert model.reasoning.levels == CHATGPT_REASONING_LEVELS
         assert model.reasoning.default == "medium"
 
-    def test_only_astra_and_the_5_6_family_are_exposed(self):
+    def test_only_astra_and_sol_and_luna_are_exposed(self):
         """Older families are on the plan but deliberately not offered."""
-        for slug in ("gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
+        for slug in ("gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"):
             assert is_supported_chatgpt_model(slug), slug
         for slug in ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"):
             assert not is_supported_chatgpt_model(slug), slug
 
     def test_ladder_includes_the_max_rung(self):
         """Verified live: the 5.6 family accepts 'max'."""
-        model = chatgpt_model("p", {"id": "gpt-5.6-terra"})
+        model = chatgpt_model("p", {"id": "gpt-6-luna"})
         assert model.reasoning.levels == [
             "off", "low", "medium", "high", "xhigh", "max",
         ]
@@ -111,10 +111,10 @@ class TestModelConfig:
 
     def test_minimal_is_never_offered(self):
         """In the API's global list, but rejected by every model."""
-        assert "minimal" not in chatgpt_model("p", {"id": "gpt-5.6-terra"}).reasoning.levels
+        assert "minimal" not in chatgpt_model("p", {"id": "gpt-6-luna"}).reasoning.levels
 
     def test_wire_values_are_what_openai_accepts(self):
-        model = chatgpt_model("p", {"id": "gpt-5.6-terra"})
+        model = chatgpt_model("p", {"id": "gpt-6-luna"})
         assert model.reasoning.control == "openai_effort"
         # "off" is Stimma's name for the rung; OpenAI calls it "none".
         assert model.reasoning.wire_levels["off"] == "none"
@@ -139,7 +139,7 @@ class TestModelConfig:
         assert model.reasoning.mode == "required"  # no off rung reported
 
     def test_unknown_reported_efforts_fall_back_to_the_hardcoded_ladder(self):
-        model = chatgpt_model("p", {"id": "gpt-5.6-terra", "reasoning_efforts": ["bogus"]})
+        model = chatgpt_model("p", {"id": "gpt-6-luna", "reasoning_efforts": ["bogus"]})
         assert model.reasoning.levels == CHATGPT_REASONING_LEVELS
 
     def test_default_outside_the_ladder_is_corrected(self):
@@ -153,7 +153,7 @@ class TestModelConfig:
 class TestResolution:
     @pytest.mark.asyncio
     async def test_route_resolves_with_a_minted_token(self, chatgpt_provider):
-        config = await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-5.6-terra")
+        config = await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-6-luna")
 
         assert config.provider_kind == "chatgpt"
         assert config.get_api_base() == chatgpt_auth.BACKEND_BASE_URL
@@ -169,7 +169,7 @@ class TestResolution:
     async def test_all_roles_can_resolve_the_route(self, chatgpt_provider):
         for role in ("agent", "quick_task", "tool_assistant"):
             config = await llm_resolver.get_chat_llm_config(
-                "chatgpt-test:gpt-5.6-terra", role=role
+                "chatgpt-test:gpt-6-luna", role=role
             )
             assert config.provider_kind == "chatgpt"
 
@@ -186,7 +186,7 @@ class TestResolution:
             )),
         )
         with pytest.raises(llm_resolver.LLMUnavailableError) as exc:
-            await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-5.6-terra")
+            await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-6-luna")
         assert exc.value.code == "chatgpt_rate_limited"
 
     @pytest.mark.asyncio
@@ -201,7 +201,7 @@ class TestResolution:
             )),
         )
         with pytest.raises(llm_resolver.LLMUnavailableError) as exc:
-            await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-5.6-terra")
+            await llm_resolver.get_chat_llm_config("chatgpt-test:gpt-6-luna")
         assert exc.value.code == "chatgpt_not_signed_in"
 
 
@@ -265,7 +265,7 @@ class TestRequestShape:
         token = _access_token(account_id="acct_42")
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hello"}],
             api_key=token,
             api_base=chatgpt_auth.BACKEND_BASE_URL,
@@ -294,7 +294,7 @@ class TestRequestShape:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "go"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -314,7 +314,7 @@ class TestRequestShape:
         )])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -332,7 +332,7 @@ class TestRequestShape:
 
         with pytest.raises(llm_http.LLMStreamError):
             await llm_http.acompletion(
-                model="gpt-5.6-terra",
+                model="gpt-6-luna",
                 messages=[{"role": "user", "content": "hi"}],
                 api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
                 provider_kind="chatgpt",
@@ -346,7 +346,7 @@ class TestRequestShape:
 
         with pytest.raises(llm_http.LLMStreamError, match="model overloaded"):
             await llm_http.acompletion(
-                model="gpt-5.6-terra",
+                model="gpt-6-luna",
                 messages=[{"role": "user", "content": "hi"}],
                 api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
                 provider_kind="chatgpt",
@@ -361,7 +361,7 @@ class TestRequestShape:
 
         with pytest.raises(llm_http.LLMStreamError, match="content policy"):
             await llm_http.acompletion(
-                model="gpt-5.6-terra",
+                model="gpt-6-luna",
                 messages=[{"role": "user", "content": "hi"}],
                 api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
                 provider_kind="chatgpt",
@@ -378,7 +378,7 @@ class TestRequestShape:
         _stream_patch(monkeypatch, body=body)
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -404,7 +404,7 @@ class TestRequestShape:
             },
         ]
         await llm_http.acompletion(
-            model="gpt-5.6-terra", messages=messages,
+            model="gpt-6-luna", messages=messages,
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
         )
@@ -430,7 +430,7 @@ class TestRequestShape:
         monkeypatch.setattr(chatgpt_auth, "get_access_token", _async_return(fresh))
 
         await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(account_id="acct_stale"),
             api_base=chatgpt_auth.BACKEND_BASE_URL,
@@ -453,7 +453,7 @@ class TestRequestShape:
 
         with pytest.raises(httpx.HTTPStatusError):
             await llm_http.acompletion(
-                model="gpt-5.6-terra",
+                model="gpt-6-luna",
                 messages=[{"role": "user", "content": "hi"}],
                 api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
                 provider_kind="chatgpt",
@@ -465,7 +465,7 @@ class TestRequestShape:
         seen = {}
         _stream_patch(monkeypatch, capture=seen)
         await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -491,7 +491,7 @@ class TestApiKeyPathUnaffected:
 
         monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
         await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-test", api_base="https://api.openai.com/v1",
             provider_kind="openai",
@@ -563,7 +563,7 @@ class TestUnsupportedParams:
         _stream_patch(monkeypatch, capture=seen)
 
         await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -586,7 +586,7 @@ class TestUnsupportedParams:
 
         monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
         await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-test", api_base="https://api.openai.com/v1",
             provider_kind="openai",
@@ -616,7 +616,7 @@ class TestStreamReassembly:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -635,7 +635,7 @@ class TestStreamReassembly:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "go"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -658,7 +658,7 @@ class TestStreamReassembly:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -675,7 +675,7 @@ class TestStreamReassembly:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -696,7 +696,7 @@ class TestStreamReassembly:
         ])
 
         result = await llm_http.acompletion(
-            model="gpt-5.6-terra",
+            model="gpt-6-luna",
             messages=[{"role": "user", "content": "hi"}],
             api_key=_access_token(), api_base=chatgpt_auth.BACKEND_BASE_URL,
             provider_kind="chatgpt",
@@ -715,8 +715,8 @@ class TestCatalogFiltering:
 
         live_catalog = [
             {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
-            {"id": "gpt-5.6-terra", "name": "GPT-5.6-Terra"},
-            {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol"},
+            {"id": "gpt-6-luna", "name": "GPT-6 Luna"},
+            {"id": "gpt-6.1-sol", "name": "GPT-6.1 Sol"},
             {"id": "gpt-5.5", "name": "GPT-5.5"},
             {"id": "gpt-5.4-mini", "name": "GPT-5.4-Mini"},
             {"id": "gpt-5.3-codex-spark", "name": "GPT-5.3-Codex-Spark"},
@@ -734,7 +734,7 @@ class TestCatalogFiltering:
 
         provider = await models_route._sync_chatgpt_provider(_access_token())
 
-        assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-sol"]
+        assert [m.model_id for m in provider.models] == ["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"]
         assert saved["providers"] == [provider]
 
     @pytest.mark.asyncio

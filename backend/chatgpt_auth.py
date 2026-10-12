@@ -703,11 +703,8 @@ def request_headers(access_token: str) -> dict[str, str]:
 # a stale hardcoded list surfaces models that 400 on selection.
 FALLBACK_MODELS: list[dict[str, Any]] = [
     {"id": "gpt-6-astra", "name": "GPT-6 Astra"},
-    {"id": "gpt-5.6-terra", "name": "GPT-5.6 Terra"},
-    {"id": "gpt-5.6-sol", "name": "GPT-5.6 Sol"},
-    {"id": "gpt-5.6-luna", "name": "GPT-5.6 Luna"},
-    {"id": "gpt-5.5", "name": "GPT-5.5"},
-    {"id": "gpt-5.3-codex", "name": "GPT-5.3 Codex"},
+    {"id": "gpt-6.1-sol", "name": "GPT-6.1 Sol"},
+    {"id": "gpt-6-luna", "name": "GPT-6 Luna"},
 ]
 
 
