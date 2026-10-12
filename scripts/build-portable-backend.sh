@@ -203,7 +203,8 @@ echo ""
 # Exercise the real native renderer after signing, before shipping, without resolving
 # anything from Homebrew's library directory.
 if [ "$(uname -s)" = "Darwin" ]; then
-    FONTCONFIG_PATH="$OUTPUT_DIR/python/lib/fonts" \
+    PYTHONNOUSERSITE=1 \
+        FONTCONFIG_PATH="$OUTPUT_DIR/python/lib/fonts" \
         FONTCONFIG_FILE="$OUTPUT_DIR/python/lib/fonts/fonts.conf" \
         "$PYTHON_BIN" "$SCRIPT_DIR/verify-macos-pdf-runtime.py" "$OUTPUT_DIR"
 fi
