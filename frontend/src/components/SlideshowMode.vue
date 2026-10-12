@@ -114,14 +114,14 @@
 
     <div
       v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[currentPayloadId]"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
     >{{ itemLabels[currentPayloadId] }}</div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
     <div
       v-if="isViewingGrid && currentGridView"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome flex flex-col items-center"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome flex flex-col items-center"
       :style="{ left: (showSidebar && !focusMode && !slideshowCompact) ? 'calc(50% - 192px)' : '50%' }"
     >
       <!-- Compact pill indicator with editable title -->
@@ -168,7 +168,7 @@
     <div
       v-if="!focusMode && isViewingSet && currentSetView"
       ref="setTitleContainer"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !currentSetView.title ? 'cursor-text' : (isEditingSetTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -208,7 +208,7 @@
     <div
       v-if="!focusMode && isSet && !isViewingSet"
       ref="setOverviewTitleContainer"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !setOverviewData?.title ? 'cursor-text' : (isEditingSetOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -248,7 +248,7 @@
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
       ref="gridOverviewTitleContainer"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !gridOverviewData?.title ? 'cursor-text' : (isEditingGridOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -287,7 +287,7 @@
     <!-- Compare button (when viewing grid overview) -->
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
-      class="absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] h-12 z-chrome flex items-center"
+      class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] h-12 z-chrome flex items-center"
       :style="{ right: (showSidebar && !focusMode && !slideshowCompact) ? '468px' : '84px' }"
     >
       <!-- Initial compare button (not in compare mode) -->

@@ -1,7 +1,7 @@
 <template>
   <div
     data-testid="media-info-panel"
-    class="overflow-y-auto overflow-x-visible flex flex-col relative sidebar-scroll"
+    class="app-no-drag overflow-y-auto overflow-x-visible flex flex-col relative sidebar-scroll"
     :class="contentOnly
       ? 'flex-1 min-h-0 w-full bg-transparent'
       : [

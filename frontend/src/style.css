@@ -778,6 +778,20 @@ select option {
 [data-tauri-drag-region] * {
   -webkit-app-region: no-drag;
 }
+/* The native shell builds its drag map from every drag rect minus later
+   no-drag rects, ignoring z-order. A control that merely floats above a drag
+   strip is still dragged unless it opts out, so interactive elements always
+   do, and .app-no-drag covers clickable surfaces that aren't controls. */
+button,
+a[href],
+input,
+select,
+textarea,
+[role='button'],
+[contenteditable='true'],
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
 
 /* Safe-area padding for docked chrome (tab bar, composer, run dock,
    selection bar). Never stack two docked bars on one screen. */
