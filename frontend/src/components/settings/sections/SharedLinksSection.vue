@@ -28,9 +28,7 @@
       </div>
 
       <!-- Privacy Lockdown -->
-      <SettingRow v-else-if="reasonCode === 'privacy_lockdown'" label="Sharing is off in Privacy Lockdown" description="This install doesn’t contact Stimma services, so links can’t be listed or created." :divider="false">
-        <Button variant="secondary" size="sm" class="coarse:min-h-11" @click="emit('navigate', 'privacy')">Privacy settings</Button>
-      </SettingRow>
+      <SettingRow v-else-if="reasonCode === 'privacy_lockdown'" label="Sharing is off in Privacy Lockdown" description="This install doesn’t contact Stimma services, so links can’t be listed or created." :divider="false" />
 
       <SettingRow v-else-if="reasonCode === 'unavailable' || (list.error.value && !list.items.value.length)" :label="list.error.value || 'Couldn’t reach Stimma'" description="Check your connection and try again." :divider="false">
         <Button variant="secondary" size="sm" class="coarse:min-h-11" @click="list.load()">Try again</Button>
@@ -157,7 +155,6 @@ function thumbSrc(path: string): string {
 }
 const failedThumbs = reactive(new Set<string>())
 
-const emit = defineEmits<{ navigate: [section: string] }>()
 
 const list = createSharedLinksList()
 const { signInWithBrowser } = useAuth()

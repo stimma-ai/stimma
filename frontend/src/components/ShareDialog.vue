@@ -42,9 +42,6 @@
               <Spinner v-if="signingIn" size="sm" hue="border-t-white" />
               {{ signingIn ? 'Finish signing in in your browser…' : blockedCopy.actionLabel }}
             </button>
-            <Button v-else-if="blockedCopy.action === 'privacy'" variant="secondary" class="coarse:min-h-11" @click="openSettingsSection('privacy')">
-              Open Privacy settings
-            </Button>
             <Button v-else-if="blockedCopy.action === 'retry'" variant="secondary" class="coarse:min-h-11" @click="session.recheck()">
               Try again
             </Button>
@@ -486,7 +483,7 @@ const blockedCopy = computed(() => {
     case 'auth_expired':
       return { icon: LinkIcon, title: 'Your sign-in expired', body: 'Sign in again to publish links from your Stimma account.', action: 'sign-in', actionLabel: 'Sign in again' }
     case 'privacy_lockdown':
-      return { icon: ShieldCheckIcon, title: 'Sharing is off in Privacy Lockdown', body: 'Privacy Lockdown keeps this install from contacting Stimma services, so links can’t be published.', action: 'privacy', actionLabel: '' }
+      return { icon: ShieldCheckIcon, title: 'Sharing is off in Privacy Lockdown', body: 'Privacy Lockdown keeps this install from contacting Stimma services, so links can’t be published.', action: null, actionLabel: '' }
     case 'banned':
       return { icon: NoSymbolIcon, title: 'Sharing is suspended for this account', body: session.status.value?.reason && !/suspended/i.test(session.status.value.reason) ? session.status.value.reason : 'Links can’t be created from this account. Your existing links are listed in Settings.', action: null, actionLabel: '' }
     default:
@@ -628,11 +625,6 @@ async function signIn() {
   } finally {
     signingIn.value = false
   }
-}
-
-function openSettingsSection(section: string) {
-  dialog.close()
-  window.dispatchEvent(new CustomEvent('open-settings', { detail: section }))
 }
 
 onBeforeUnmount(() => {
