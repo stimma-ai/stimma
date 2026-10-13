@@ -2,7 +2,7 @@
  * API Configuration for Stimma
  *
  * In development: Uses relative /api paths (Vite proxy handles it)
- * In Tauri production: Uses dynamic port from sidecar
+ * In the native shell: Uses dynamic port from sidecar
  */
 import axios from 'axios'
 import { waitForMobileTransport } from './composables/useMobileRecovery.js'
@@ -11,7 +11,7 @@ import { getStartupWaitMessage, waitForBackendHealth } from './utils/backendStar
 
 let apiBaseUrl = '/api'
 let wsBaseUrl = '/ws'
-let backendOrigin = '' // Empty for dev (relative URLs), 'http://127.0.0.1:PORT' for Tauri
+let backendOrigin = '' // Empty for dev (relative URLs), 'http://127.0.0.1:PORT' for the native shell
 let initialized = false
 let initPromise = null
 let updateStartupStatus = null
@@ -121,17 +121,11 @@ export function setStartupStatusCallback(callback) {
   updateStartupStatus = callback
 }
 
-/**
- * Check if running inside the native desktop shell.
- * (Historically named for Tauri; delegates to the shell-neutral bridge.)
- */
-export function isTauri() {
-  return isDesktop()
-}
+export { isDesktop }
 
 /**
  * Initialize the API configuration.
- * Must be called before any API requests in Tauri mode.
+ * Must be called before any API requests in the native shell.
  */
 export async function initApiConfig() {
   if (initialized) return

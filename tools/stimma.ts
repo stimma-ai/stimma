@@ -593,17 +593,16 @@ Flags:
 Commands:
   dev frontend    Run LAN-accessible Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
-  dev app         Run desktop app in dev mode (Electron; --shell=tauri for the
-                      legacy shell during the migration)
+  dev app         Run Electron with shell and frontend hot reload
   dev all         Run backend + frontend + app together with merged logs
                       Open Vite's Network URL on a phone on the same network
   dev ios         Build, sign, install, and launch on the connected iPhone
   dev killall     Kill all running dev sessions in this workspace with SIGKILL
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
-  run app         Run Tauri app (release, no watching)
+  run app         Build and run Electron without file watching
   tail backend    Tail backend logs
-  tail app        Tail Tauri app logs
+  tail app        Tail Electron app logs
   app build       Build packaged app with portable backend
   app build --release  Build with polished DMG (macOS)
   app run         Run built app
@@ -1058,13 +1057,13 @@ async function dirSize(root: string): Promise<{ files: number; bytes: number }> 
 }
 
 async function buildWatchdog(target: string): Promise<void> {
-  const watchdogDir = join(repoRoot, "src-tauri", "watchdog");
+  const watchdogDir = join(repoRoot, "native", "watchdog");
   const targetDir = nativeTargetDir(watchdogDir);
   await run("cargo", ["build", "--locked", "--release", "--target-dir", targetDir], { cwd: watchdogDir });
 
   const ext = Deno.build.os === "windows" ? ".exe" : "";
   const src = join(targetDir, "release", `stimma-watchdog${ext}`);
-  const destDir = join(repoRoot, "src-tauri", "binaries");
+  const destDir = join(repoRoot, "build-desktop", "binaries");
   await Deno.mkdir(destDir, { recursive: true });
   await Deno.copyFile(src, join(destDir, `stimma-watchdog-${target}${ext}`));
 }
@@ -1076,7 +1075,7 @@ const DRAWTHINGS_SIDECAR_VERSION = "0.5.2";
 
 async function ensureDrawThingsSidecar(target: string): Promise<string | null> {
   if (Deno.build.os !== "darwin") return null;
-  const destDir = join(repoRoot, "src-tauri", "binaries");
+  const destDir = join(repoRoot, "build-desktop", "binaries");
   await Deno.mkdir(destDir, { recursive: true });
   const dest = join(destDir, `stimma-drawthings-${target}`);
   const override = Deno.env.get("STIMMA_DRAWTHINGS_BIN");
@@ -1203,7 +1202,7 @@ async function verifyPortableRuntimeSurface(outputDir: string): Promise<void> {
 async function buildWindowsPortableBackend(target: string): Promise<void> {
   const backendSrc = join(repoRoot, "backend");
   const pythonStandalone = join(repoRoot, "python-standalone");
-  const outputDir = join(repoRoot, "src-tauri", "binaries", `stimma-backend-${target}`);
+  const outputDir = join(repoRoot, "build-desktop", "binaries", `stimma-backend-${target}`);
   const buildRoot = join(repoRoot, "build-experimental", `portable-backend-${target}`);
   const stagingDir = join(buildRoot, "staging");
 
@@ -1362,7 +1361,7 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   console.log("Creating launchers...");
   // Build distribution baked into the launchers: 'dev' (default) or
   // 'official' (set only by release CI). Runtime env still wins so the
-  // Tauri shell's compile-time value can override.
+  // packaged shell can override.
   const distribution = Deno.env.get("STIMMA_DISTRIBUTION") === "official" ? "official" : "dev";
   console.log(`Baking STIMMA_DISTRIBUTION=${distribution} into launchers...`);
   const windowsPython = `%~dp0python`;
@@ -1394,7 +1393,7 @@ type ElectronBackendResources = {
 };
 
 async function prepareElectronBackendResources(target: string): Promise<ElectronBackendResources> {
-  const portableBackend = join(repoRoot, "src-tauri", "binaries", `stimma-backend-${target}`);
+  const portableBackend = join(repoRoot, "build-desktop", "binaries", `stimma-backend-${target}`);
   if (Deno.build.os !== "windows") return { backendDir: portableBackend };
 
   const stagingRoot = join(repoRoot, "build-experimental", `electron-backend-${target}`);
@@ -1435,122 +1434,27 @@ async function prepareElectronBackendResources(target: string): Promise<Electron
   return { backendDir, pythonRuntimeArchive: archives[0] };
 }
 
-async function ensurePlatformResourceMapping(target: string): Promise<void> {
-  if (Deno.build.os !== "windows" && Deno.build.os !== "linux") return;
-  const tauriPath = join(repoRoot, "src-tauri", "tauri.conf.json");
-  const raw = await Deno.readTextFile(tauriPath);
-  const cfg = JSON.parse(raw);
-  cfg.bundle.resources = {
-    [`binaries/stimma-backend-${target}`]: "stimma-backend",
-  };
-  await Deno.writeTextFile(tauriPath, JSON.stringify(cfg, null, 2) + "\n");
-}
-
-async function getTauriProductName(): Promise<string> {
-  const tauriPath = join(repoRoot, "src-tauri", "tauri.conf.json");
-  const raw = await Deno.readTextFile(tauriPath);
-  const cfg = JSON.parse(raw);
-  return typeof cfg.productName === "string" && cfg.productName.trim() ? cfg.productName : "Stimma";
-}
-
-async function macosAppBundlePath(): Promise<string> {
-  return join(
-    repoRoot,
-    "src-tauri",
-    "target",
-    "release",
-    "bundle",
-    "macos",
-    `${await getTauriProductName()}.app`,
-  );
-}
-
-async function linuxPythonVendoredLibPath(target: string): Promise<string | undefined> {
-  if (Deno.build.os !== "linux") return undefined;
-
-  const sitePackages = join(
-    repoRoot,
-    "src-tauri",
-    "binaries",
-    `stimma-backend-${target}`,
-    "python",
-    "lib",
-    "python3.11",
-    "site-packages",
-  );
-  if (!await pathExists(sitePackages)) return undefined;
-
-  const dirs: string[] = [];
-  for await (const entry of Deno.readDir(sitePackages)) {
-    if (entry.isDirectory && entry.name.endsWith(".libs")) {
-      dirs.push(join(sitePackages, entry.name));
-    }
+async function builtDesktopAppPath(): Promise<string> {
+  const outDir = join(repoRoot, "electron", "out");
+  const configPath = join(repoRoot, "electron", ".generated-builder.json");
+  if (!await pathExists(configPath)) {
+    throw new Error("No packaged app found. Run 'stimma app build' first.");
   }
-  dirs.sort();
-  return dirs.length > 0 ? dirs.join(":") : undefined;
-}
-
-// Channels that get a coloured banner on the icon, so separately-installable
-// builds are distinguishable at a glance in the Dock.
-const BADGED_CHANNELS = new Set(["debug", "canary", "beta"]);
-
-/**
- * Generate badged icons for a channel and return a Tauri config fragment
- * pointing at them.
- *
- * The icons committed under src-tauri/icons stay at the unbadged production
- * mark — they are what a plain `cargo tauri build` uses from a fresh clone — so
- * badged variants are written to an ignored directory and injected per build
- * rather than overwriting tracked files.
- *
- * Returns null for channels with no badge, or if generation fails.
- */
-async function channelIconConfig(channel: string): Promise<Record<string, unknown> | null> {
-  if (!BADGED_CHANNELS.has(channel)) return null;
-
-  // Release workflows run generate-icons.py for the real channel and build via
-  // `tools/stimma app build` with no --channel, which would otherwise default to
-  // debug here and overwrite the channel icons CI just produced.
-  if (Deno.env.get("GITHUB_ACTIONS")) return null;
-
-  const relDir = `icons/.generated/${channel}`;
-  const outDir = join(repoRoot, "src-tauri", "icons", ".generated", channel);
-  const code = await run(
-    "uv",
-    ["run", "python", join(repoRoot, "scripts", "generate-icons.py"), "--channel", channel, "--out", outDir],
-    { cwd: join(repoRoot, "backend"), check: false },
-  );
-  if (code !== 0) {
-    console.warn(`Warning: could not generate ${channel} icons; using the committed production icon.`);
-    return null;
+  const cfg = JSON.parse(await Deno.readTextFile(configPath));
+  if (Deno.build.os === "darwin") {
+    return join(outDir, "mac-arm64", `${cfg.productName}.app`);
   }
-
-  // bundle.resources is replaced wholesale by --config, not merged key by key,
-  // so carry the existing entries over alongside the redirected Assets.car.
-  const cfg = JSON.parse(await Deno.readTextFile(join(repoRoot, "src-tauri", "tauri.conf.json")));
-  const resources: Record<string, string> = { ...(cfg.bundle?.resources ?? {}) };
-  if ("icons/Assets.car" in resources) {
-    delete resources["icons/Assets.car"];
-    resources[`${relDir}/Assets.car`] = "Assets.car";
+  if (Deno.build.os === "windows") return join(outDir, "win-unpacked", "stimma.exe");
+  const appImages: string[] = [];
+  for await (const entry of Deno.readDir(outDir)) {
+    if (entry.isFile && entry.name.endsWith(".AppImage")) appImages.push(join(outDir, entry.name));
   }
-
-  return {
-    bundle: {
-      icon: [
-        `${relDir}/32x32.png`,
-        `${relDir}/128x128.png`,
-        `${relDir}/128x128@2x.png`,
-        `${relDir}/icon.icns`,
-        `${relDir}/icon.ico`,
-      ],
-      resources,
-    },
-  };
+  if (appImages.length !== 1) throw new Error("Expected one packaged AppImage. Run 'stimma app build' first.");
+  return appImages[0];
 }
 
 function channelAppIdentity(channel: string): { bundleId: string; productName: string } {
-  // Mirrors the release-workflow identity mapping; local debug builds keep
-  // the plain "Stimma" name (matches the historical local Tauri build).
+  // Mirrors the release-workflow identity mapping for local packaged builds.
   switch (channel) {
     case "production":
       return { bundleId: "ai.stimma.stimma", productName: "Stimma" };
@@ -1580,7 +1484,7 @@ async function buildStimmaNative(target: string): Promise<string> {
   const ext = Deno.build.os === "windows" ? ".exe" : "";
   // Package from the checkout, not a private compiler-cache directory. Linux
   // updater fixtures can run as a different unprivileged user than the builder.
-  const staged = join(repoRoot, "src-tauri", "binaries", `stimma-native-${target}${ext}`);
+  const staged = join(repoRoot, "build-desktop", "binaries", `stimma-native-${target}${ext}`);
   await Deno.copyFile(join(targetDir, "release", `stimma-native${ext}`), staged);
   return staged;
 }
@@ -1605,8 +1509,8 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   await run("npm", ["run", "build"], { cwd: electronDir });
 
   const { bundleId, productName } = channelAppIdentity(channel);
-  const tauriCfg = JSON.parse(await Deno.readTextFile(join(repoRoot, "src-tauri", "tauri.conf.json")));
-  const version = Deno.env.get("STIMMA_APP_VERSION") || tauriCfg.version || "0.1.0";
+  const shellPackage = JSON.parse(await Deno.readTextFile(join(repoRoot, "electron", "package.json")));
+  const version = Deno.env.get("STIMMA_APP_VERSION") || shellPackage.version;
 
   const macTargets = polishedInstaller
     ? [{ target: "dmg", arch: ["arm64"] }, { target: "zip", arch: ["arm64"] }]
@@ -1669,23 +1573,23 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
           to: backendResources.pythonRuntimeArchive.split(/[\\/]/).pop(),
         }]
         : []),
-      { from: `../src-tauri/binaries/stimma-watchdog-${target}${ext}`, to: `stimma-watchdog${ext}` },
+      { from: `../build-desktop/binaries/stimma-watchdog-${target}${ext}`, to: `stimma-watchdog${ext}` },
       { from: nativeHelper, to: `stimma-native${ext}` },
       // Windows/Linux system-tray icon (macOS has no tray; harmless there).
-      { from: "../src-tauri/icons/32x32.png", to: "tray-icon.png" },
+      { from: "../packaging/desktop/icons/32x32.png", to: "tray-icon.png" },
     ],
     mac: {
       target: macTargets,
-      icon: "../src-tauri/icons/icon.icns",
+      icon: "../packaging/desktop/icons/icon.icns",
       minimumSystemVersion: "15.0",
       hardenedRuntime: true,
       entitlements: "build/entitlements.mac.plist",
       entitlementsInherit: "build/entitlements.mac.plist",
       extraResources: [
         // macOS 26+ Liquid Glass icon; older macOS falls back to icon.icns.
-        { from: "../src-tauri/icons/Assets.car", to: "Assets.car" },
+        { from: "../packaging/desktop/icons/Assets.car", to: "Assets.car" },
         // Bundled Draw Things engine; the backend launches it from Resources.
-        ...(drawThingsSidecar ? [{ from: `../src-tauri/binaries/stimma-drawthings-${target}`, to: "stimma-drawthings" }] : []),
+        ...(drawThingsSidecar ? [{ from: `../build-desktop/binaries/stimma-drawthings-${target}`, to: "stimma-drawthings" }] : []),
       ],
       extendInfo: {
         NSMicrophoneUsageDescription: "Stimma uses the microphone for voice input in chat.",
@@ -1698,13 +1602,13 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       // Do not let electron-builder fall back to mac.icon: Linux CI's icon
       // generator cannot run iconutil, so its .icns compatibility output is
       // PNG data. The real PNG is the canonical AppImage icon.
-      icon: "../src-tauri/icons/icon.png",
+      icon: "../packaging/desktop/icons/icon.png",
       category: "Graphics",
       syncDesktopName: true,
     },
     win: {
       target: ["nsis"],
-      icon: "../src-tauri/icons/icon.ico",
+      icon: "../packaging/desktop/icons/icon.ico",
       // Match the executable installed by Tauri. The handoff installer can
       // therefore replace the fielded app in place instead of leaving two
       // different Stimma executables behind.
@@ -1744,87 +1648,13 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
 }
 
 async function appBuild(args: string[], channel: string): Promise<void> {
-  let polishedDmg = false;
-  let shell: DesktopShell = "electron";
-
   for (const arg of args) {
-    if (arg === "--release") polishedDmg = true;
-    else if (arg === "--shell=tauri") shell = "tauri";
-    else if (arg === "--shell=electron") shell = "electron";
-    else {
+    if (arg !== "--release") {
       console.error(`Unknown flag for app build: ${arg}`);
       Deno.exit(1);
     }
   }
-
-  if (shell === "electron") {
-    await appBuildElectron(polishedDmg, channel);
-    return;
-  }
-
-  const target = await detectTargetTriple();
-
-  console.log("Building portable backend");
-  await buildPortableBackend(target);
-
-  await buildWatchdog(target);
-  await ensureDrawThingsSidecar(target);
-  await ensurePlatformResourceMapping(target);
-
-  const env: Record<string, string> = {};
-  if (Deno.build.os === "darwin" && !polishedDmg) {
-    env.CI = "true";
-  }
-  const linuxVendoredLibPath = await linuxPythonVendoredLibPath(target);
-  if (linuxVendoredLibPath) {
-    const inherited = Deno.env.get("LD_LIBRARY_PATH");
-    env.LD_LIBRARY_PATH = inherited ? `${linuxVendoredLibPath}:${inherited}` : linuxVendoredLibPath;
-  }
-
-  const tauriCli = join(
-    repoRoot,
-    "frontend",
-    "node_modules",
-    ".bin",
-    Deno.build.os === "windows" ? "tauri.cmd" : "tauri",
-  );
-  let tauriCommand = tauriCli;
-  let tauriBuildArgs = ["build"];
-  let tauriCwd = join(repoRoot, "src-tauri");
-  const configOverride: Record<string, unknown> = {};
-  if (!await pathExists(tauriCli)) {
-    tauriCommand = "cargo";
-    tauriBuildArgs = ["tauri", "build"];
-  } else {
-    configOverride.build = {
-      beforeBuildCommand: `npm --prefix ${join(repoRoot, "frontend")} run build`,
-      frontendDist: "../frontend/dist",
-    };
-  }
-
-  const iconConfig = await channelIconConfig(channel);
-  if (iconConfig) Object.assign(configOverride, iconConfig);
-
-  if (Object.keys(configOverride).length > 0) {
-    tauriBuildArgs.push("--config", JSON.stringify(configOverride));
-  }
-  if (Deno.build.os === "darwin" && Deno.env.get("APPLE_SIGNING_IDENTITY") && Deno.env.get("SKIP_NOTARIZE_WAIT") === "1") {
-    tauriBuildArgs.push("--skip-stapling");
-  }
-  await run(tauriCommand, tauriBuildArgs, { cwd: tauriCwd, env });
-
-  if (Deno.build.os === "darwin") {
-    const appBundle = await macosAppBundlePath();
-    if (await pathExists(appBundle)) {
-      const verifyCode = await run("codesign", ["--verify", "--deep", "--strict", appBundle], {
-        check: false,
-      });
-      if (verifyCode !== 0) {
-        await run("codesign", ["--force", "--deep", "--sign", "-", appBundle]);
-        await run("codesign", ["--verify", "--deep", "--strict", appBundle]);
-      }
-    }
-  }
+  await appBuildElectron(args.includes("--release"), channel);
 }
 
 async function killPort(port: string): Promise<void> {
@@ -2198,25 +2028,10 @@ function officialBanner(bundleId: string): void {
   );
 }
 
-function tauriTargetDir(sandbox: string): string | undefined {
-  if (sandbox === "default") return undefined;
-  return join(repoRoot, "target-tauri", sandboxSafeSegment(sandbox));
-}
-
-// Which desktop shell `dev app` / `dev all` launch. Electron is the default;
-// `--shell=tauri` remains available for comparison during the migration and
-// is removed with the Tauri code once the port ships.
-type DesktopShell = "electron" | "tauri";
-
-function parseShellFlag(rest: string[]): { shell: DesktopShell; rest: string[] } {
-  let shell: DesktopShell = "electron";
-  const remaining: string[] = [];
-  for (const arg of rest) {
-    if (arg === "--shell=tauri") shell = "tauri";
-    else if (arg === "--shell=electron") shell = "electron";
-    else remaining.push(arg);
+function rejectShellFlag(args: string[]): void {
+  if (args.some((arg) => arg === "--shell" || arg.startsWith("--shell="))) {
+    throw new Error("Desktop commands use Electron. Remove the obsolete --shell option.");
   }
-  return { shell, rest: remaining };
 }
 
 async function ensureElectronDeps(): Promise<void> {
@@ -2235,9 +2050,8 @@ async function ensureElectronDevDeps(): Promise<void> {
   await ensureElectronDeps();
 
   // The Electron shell uses the standalone native helper for legacy
-  // localStorage import and desktop-native operations. Tauri built its Rust
-  // code as part of `tauri dev`; preserve that first-run behavior instead of
-  // allowing Electron dev to boot without migration support.
+  // localStorage import and desktop-native operations. Build it on first run
+  // so development boots with the same migration support as packaged installs.
   console.log("[electron] Building native helper (incremental)...");
   const code = await run("cargo", ["build"], {
     cwd: join(repoRoot, "native", "stimma-native"),
@@ -2261,54 +2075,7 @@ function electronDevEnv(bundleId: string, ports: { server: number; frontend: num
   };
 }
 
-function tauriDevEnv(bundleId: string, ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
-  const targetDir = tauriTargetDir(sandbox);
-  const env: Record<string, string> = {
-    ...runtimeEnv,
-    STIMMA_DEV: "1",
-    STIMMA_BACKEND_PORT: String(ports.server),
-    STIMMA_FRONTEND_PORT: String(ports.frontend),
-    STIMMA_SANDBOX: sandbox,
-    STIMMA_DATA_DIR: getDataDir(bundleId, sandbox),
-    STIMMA_CACHE_DIR: getCacheDir(bundleId, sandbox),
-  };
-  if (targetDir) env.CARGO_TARGET_DIR = targetDir;
-  return env;
-}
-
-function tauriDevConfig(
-  bundleId: string,
-  sandbox: string,
-  ports: { frontend: number },
-  iconConfig: Record<string, unknown> | null = null,
-): string {
-  const config: Record<string, unknown> = {
-    identifier: sandboxIdentifier(bundleId, sandbox),
-    build: {
-      devUrl: `http://${DEV_HOST}:${ports.frontend}`,
-    },
-    ...(iconConfig ?? {}),
-  };
-
-  // Drop the bundled resources for dev runs off macOS.
-  //
-  // The tracked tauri.conf.json carries the macOS resource mapping (the
-  // portable backend for darwin plus Assets.car); packaged builds on the other
-  // platforms rewrite it via ensurePlatformResourceMapping(). Dev never bundles
-  // a backend at all — it runs from source next to the app — but tauri-build
-  // still validates every resource path at compile time and fails the build
-  // when the darwin payload is absent. An empty list replaces the map outright;
-  // an empty object would deep-merge and keep the stale keys.
-  if (Deno.build.os !== "darwin") {
-    const bundle = { ...(config.bundle as Record<string, unknown> | undefined ?? {}) };
-    bundle.resources = [];
-    config.bundle = bundle;
-  }
-
-  return JSON.stringify(config);
-}
-
-async function commandDevAll(bundleId: string, sandbox: string, channel: string, runtimeEnv: Record<string, string>, shell: DesktopShell = "electron"): Promise<void> {
+async function commandDevAll(bundleId: string, sandbox: string, runtimeEnv: Record<string, string>): Promise<void> {
   const ports = await getSandboxPorts(bundleId, sandbox);
   const backendDir = join(repoRoot, "backend");
   const frontendDir = join(repoRoot, "frontend");
@@ -2320,7 +2087,6 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
     STIMMA_BACKEND_PORT: String(ports.server),
     STIMMA_FRONTEND_PORT: String(ports.frontend),
   };
-  const tauriConfig = tauriDevConfig(bundleId, sandbox, ports, await channelIconConfig(channel));
   const processes: DevProcess[] = [];
   let shuttingDown = false;
   let shutdownPromise: Promise<void> | null = null;
@@ -2381,20 +2147,12 @@ async function commandDevAll(bundleId: string, sandbox: string, channel: string,
       waitForTcpPort(ports.frontend, "frontend", 60000, [DEV_HOST]),
     ]).then(() => undefined));
 
-    if (shell === "electron") {
-      console.log("[dev all] Backend and frontend are ready; launching Electron app.");
-      await ensureElectronDevDeps();
-      processes.push(spawnDevProcess("app", "node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
-        cwd: join(repoRoot, "electron"),
-        env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
-      }));
-    } else {
-      console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
-      processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
-        cwd: repoRoot,
-        env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
-      }));
-    }
+    console.log("[dev all] Backend and frontend are ready; launching Electron app.");
+    await ensureElectronDevDeps();
+    processes.push(spawnDevProcess("app", "node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
+      cwd: join(repoRoot, "electron"),
+      env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
+    }));
     console.log("[dev all] App process started. Press Ctrl-C to stop the full stack.");
 
     const firstExit = await Promise.race(processes.map(async (proc) => ({ proc, status: await proc.status })));
@@ -2540,27 +2298,19 @@ async function main(): Promise<void> {
           await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir, env: runtimeEnv });
         }
       } else if (sub === "app") {
+        rejectShellFlag(rest);
         const ports = await getSandboxPorts(bundleId, sandbox);
         if (official) {
           console.log(`Note: 'dev app' uses the externally running backend on :${ports.server} — start it with 'stimma dev backend --official' for backend surfaces.`);
         }
-        const { shell } = parseShellFlag(rest);
-        if (shell === "electron") {
-          await ensureElectronDevDeps();
-          await run("node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
-            cwd: join(repoRoot, "electron"),
-            env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
-          });
-        } else {
-          const devIcons = await channelIconConfig(channel);
-          await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports, devIcons)], {
-            cwd: repoRoot,
-            env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
-          });
-        }
+        await ensureElectronDevDeps();
+        await run("node", [join(repoRoot, "electron", "scripts", "dev.mjs")], {
+          cwd: join(repoRoot, "electron"),
+          env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
+        });
       } else if (sub === "all") {
-        const { shell } = parseShellFlag(rest);
-        await commandDevAll(bundleId, sandbox, channel, runtimeEnv, shell);
+        rejectShellFlag(rest);
+        await commandDevAll(bundleId, sandbox, runtimeEnv);
       } else {
         printUsage();
       }
@@ -2570,13 +2320,7 @@ async function main(): Promise<void> {
     case "tail": {
       const dataDir = getDataDir(bundleId, sandbox);
       const backendLog = join(dataDir, "Logs", "Stimma_log.00.txt");
-      // Electron shell log lives with the sandbox; fall back to the Tauri
-      // plugin-log location while the legacy shell is still around.
-      const electronLog = join(dataDir, "Logs", "Stimma-shell.log");
-      const legacyTauriLog = Deno.build.os === "darwin"
-        ? join(Deno.env.get("HOME") || "", "Library", "Logs", "com.stimma.app", "Stimma.log")
-        : join(dataDir, "Logs", "Stimma.log");
-      const tauriLog = (await pathExists(electronLog)) ? electronLog : legacyTauriLog;
+      const appLog = join(dataDir, "Logs", "Stimma-shell.log");
 
       if (sub === "backend") {
         if (Deno.build.os === "windows") {
@@ -2586,9 +2330,9 @@ async function main(): Promise<void> {
         }
       } else if (sub === "app") {
         if (Deno.build.os === "windows") {
-          await run("powershell", ["-NoProfile", "-Command", `Get-Content -Path '${tauriLog}' -Wait -Tail 1000`]);
+          await run("powershell", ["-NoProfile", "-Command", `Get-Content -Path '${appLog}' -Wait -Tail 1000`]);
         } else {
-          await run("tail", ["-f", "-n", "1000", tauriLog]);
+          await run("tail", ["-f", "-n", "1000", appLog]);
         }
       } else {
         printUsage();
@@ -2600,26 +2344,21 @@ async function main(): Promise<void> {
       if (sub === "build") {
         await appBuild(rest, channel);
       } else if (sub === "run") {
-        if (Deno.build.os === "darwin") {
-          await run("open", [await macosAppBundlePath()]);
-        } else if (Deno.build.os === "windows") {
-          const exe = join(repoRoot, "src-tauri", "target", "release", "stimma.exe");
-          await run(exe, []);
-        } else {
-          console.error("app run is not implemented for this OS");
-          Deno.exit(1);
-        }
+        const appPath = await builtDesktopAppPath();
+        if (!await pathExists(appPath)) throw new Error("Packaged app missing. Run 'stimma app build' first.");
+        if (Deno.build.os === "darwin") await run("open", [appPath]);
+        else await run(appPath);
       } else if (sub === "install") {
         if (Deno.build.os !== "darwin") {
           console.error("app install currently supports macOS only.");
           Deno.exit(1);
         }
-        const appBundle = await macosAppBundlePath();
+        const appBundle = await builtDesktopAppPath();
         if (!(await pathExists(appBundle))) {
           console.error("Error: App not built. Run 'stimma app build' first.");
           Deno.exit(1);
         }
-        const installedBundle = join("/Applications", `${await getTauriProductName()}.app`);
+        const installedBundle = join("/Applications", appBundle.split("/").pop()!);
         await run("rm", ["-rf", installedBundle]);
         await run("cp", ["-R", appBundle, installedBundle]);
       } else {
@@ -2638,10 +2377,17 @@ async function main(): Promise<void> {
         await run("npm", ["run", "build"], { cwd: frontendDir, env: runtimeEnv });
         await run("npm", ["run", "preview"], { cwd: frontendDir, env: runtimeEnv });
       } else if (sub === "app") {
+        rejectShellFlag(rest);
+        const ports = await getSandboxPorts(bundleId, sandbox);
         if (official) {
-          console.log("Note: 'run app' uses the externally running backend on :9191 — start it with 'stimma run backend --official' for backend surfaces.");
+          console.log(`Note: 'run app' uses the externally running backend on :${ports.server} — start it with 'stimma run backend --official' for backend surfaces.`);
         }
-        await run("cargo", ["run", "--release"], { cwd: repoRoot, env: { ...runtimeEnv, STIMMA_DEV: "1" } });
+        await ensureElectronDevDeps();
+        await run("npm", ["run", "build"], { cwd: join(repoRoot, "electron") });
+        await run("node", [join(repoRoot, "electron", "scripts", "run.mjs")], {
+          cwd: join(repoRoot, "electron"),
+          env: electronDevEnv(bundleId, ports, sandbox, runtimeEnv),
+        });
       } else {
         printUsage();
       }
@@ -2702,6 +2448,10 @@ async function main(): Promise<void> {
         if (rest.length > 1 || (rest.length === 1 && rest[0] !== "--unit")) {
           console.error("Usage: stimma test desktop [--unit]");
           Deno.exit(1);
+        }
+        if (rest[0] !== "--unit") {
+          await ensureElectronDevDeps();
+          await run("npm", ["run", "build"], { cwd: join(repoRoot, "frontend") });
         }
         await run("npm", ["run", rest[0] === "--unit" ? "test:unit" : "test"], { cwd: join(repoRoot, "electron") });
       } else if (sub === "acceptance") {

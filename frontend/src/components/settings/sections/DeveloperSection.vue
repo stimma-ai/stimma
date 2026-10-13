@@ -99,7 +99,7 @@
           <Button variant="ghost" size="sm" @click="replayTour">Replay Tour</Button>
         </SettingRow>
 
-        <SettingRow v-if="isTauri()" label="Set Window Size to 1440×900" description="Resize the window to a logical 1440×900">
+        <SettingRow v-if="isDesktop()" label="Set Window Size to 1440×900" description="Resize the window to a logical 1440×900">
           <Button variant="ghost" size="sm" @click="setWindowSize1440x900">Set 1440×900</Button>
         </SettingRow>
 
@@ -256,7 +256,7 @@ import { useReleaseNotes } from '../../../composables/useReleaseNotes'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { clearTermsAcceptance } from '../../../utils/terms'
 import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
-import { isTauri } from '../../../apiConfig'
+import { isDesktop } from '../../../apiConfig'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 import SettingRow from '../SettingRow.vue'
 import Button from '../../ui/Button.vue'

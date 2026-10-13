@@ -4,7 +4,6 @@ import test from 'node:test'
 import { browserBridge } from './browserBridge.ts'
 import { mobileBridge, isMobileShell, revealMobileInterface, setMobileSlideshowActive } from './mobileBridge.ts'
 import { mobileNative } from './mobileNative.ts'
-import { tauriBridge } from './tauriBridge.ts'
 
 // The full bridge contract. Every implementation must expose exactly these
 // methods — a shell that silently lacks one turns into a runtime crash in
@@ -76,7 +75,6 @@ const CONTRACT_METHODS = [
 
 const IMPLEMENTATIONS = [
   ['browser', browserBridge],
-  ['tauri', tauriBridge],
   ['ios', mobileBridge],
 ] as const
 
@@ -127,7 +125,7 @@ test('non-electron bridges report multi-device as absent, not broken', async () 
   // The chip hides itself when there are no devices, so a shell without
   // multi-device support must report an empty list on a ready local device
   // rather than an error state.
-  for (const bridge of [browserBridge, tauriBridge]) {
+  for (const bridge of [browserBridge]) {
     const state = await bridge.mdGetState()
     assert.equal(state.connectionState, 'ready')
     assert.equal(state.activeDeviceId, state.localDeviceId)

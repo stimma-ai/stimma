@@ -265,69 +265,6 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "windows_version=$windowsVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Set app version in build manifests
-        shell: powershell
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          @'
-          import json
-          import re
-          from pathlib import Path
-
-          version = r"""${{ steps.version.outputs.windows_version }}"""
-
-          tauri = Path("src-tauri/tauri.conf.json")
-          cfg = json.loads(tauri.read_text(encoding="utf-8"))
-          cfg["version"] = version
-          channel = r"""${{ env.STIMMA_RELEASE_CHANNEL }}"""
-          bundle_ids = {"production": "ai.stimma.stimma", "beta": "ai.stimma.stimma.beta", "canary": "ai.stimma.stimma.canary"}
-          product_names = {"production": "Stimma", "beta": "Stimma Beta", "canary": "Stimma Canary"}
-          cfg["identifier"] = bundle_ids.get(channel, "ai.stimma.stimma.debug")
-          cfg["productName"] = product_names.get(channel, "Stimma Debug")
-          for window in cfg.get("app", {}).get("windows", []):
-              window["title"] = cfg["productName"]
-          cfg.setdefault("bundle", {})["targets"] = "nsis"
-          cfg.setdefault("bundle", {})["createUpdaterArtifacts"] = "v1Compatible"
-          cfg.setdefault("bundle", {}).setdefault("windows", {}).setdefault("nsis", {})["installMode"] = "currentUser"
-          cfg.setdefault("bundle", {}).setdefault("resources", {})["binaries/stimma-backend-x86_64-pc-windows-msvc"] = "stimma-backend"
-          # macOS 26 Liquid Glass icon; nothing on Windows reads it.
-          cfg["bundle"]["resources"].pop("icons/Assets.car", None)
-          tauri.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-
-          cargo = Path("src-tauri/Cargo.toml")
-          text = cargo.read_text(encoding="utf-8")
-          text = re.sub(r'^version\s*=\s*"[^"]+"', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
-          cargo.write_text(text, encoding="utf-8")
-          '@ | uv run --python 3.11 python -
-
-      - name: Configure updater endpoint in tauri config
-        shell: powershell
-        env:
-          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
-          UPDATER_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:UPDATER_PUBKEY)) {
-            Write-Error "TAURI_SIGNING_PUBLIC_KEY is required for updater-enabled builds."
-          }
-
-          @'
-          import json
-          from pathlib import Path
-
-          path = Path("src-tauri/tauri.conf.json")
-          cfg = json.loads(path.read_text(encoding="utf-8"))
-          cfg.setdefault("plugins", {}).setdefault("updater", {})["active"] = True
-          cfg["plugins"]["updater"].setdefault("windows", {})["installMode"] = "passive"
-          cfg["plugins"]["updater"]["windows"].pop("installerArgs", None)
-          cfg.setdefault("bundle", {}).setdefault("resources", {})["binaries/stimma-backend-x86_64-pc-windows-msvc"] = "stimma-backend"
-          # macOS 26 Liquid Glass icon; nothing on Windows reads it.
-          cfg["bundle"]["resources"].pop("icons/Assets.car", None)
-          cfg["plugins"]["updater"]["endpoints"] = [r"""${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/windows-x86_64/latest.json"""]
-          cfg["plugins"]["updater"]["pubkey"] = r"""${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}"""
-          path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-          '@ | uv run --python 3.11 python -
-
       - name: Generate channel icons
         env:
           CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
@@ -344,13 +281,13 @@ jobs:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/windows-x86_64/latest.json
           STIMMA_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: powershell -ExecutionPolicy Bypass -File tools/stimma.ps1 --channel=${{ env.STIMMA_RELEASE_CHANNEL }} app build --release --shell=electron
+        run: powershell -ExecutionPolicy Bypass -File tools/stimma.ps1 --channel=${{ env.STIMMA_RELEASE_CHANNEL }} app build --release
 
       - name: Print portable backend payload stats
         if: always()
         shell: powershell
         run: |
-          $root = "src-tauri/binaries/stimma-backend-x86_64-pc-windows-msvc"
+          $root = "build-desktop/binaries/stimma-backend-x86_64-pc-windows-msvc"
           if (Test-Path $root) {
             $files = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue
             $count = ($files | Measure-Object).Count

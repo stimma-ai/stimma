@@ -555,7 +555,7 @@ import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
 import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
-import { isTauri } from '../../apiConfig'
+import { isDesktop } from '../../apiConfig'
 import Spinner from '../ui/Spinner.vue'
 
 const { allowsAutofocus } = useViewport()
@@ -801,7 +801,7 @@ const showDebug = ref(false)
 
 const cloudConnecting = ref(false)
 async function openCloudUrl(url: string) {
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../../desktop')
     await desktop.openExternal(url)
   } else {

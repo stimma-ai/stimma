@@ -6,7 +6,7 @@
  */
 import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
-import { getApiBase, rewriteUrl, isTauri } from '../apiConfig'
+import { getApiBase, rewriteUrl, isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCachedPin, syncPinTimeouts } from './usePinLock'
 
@@ -26,7 +26,7 @@ let windowProfileInitPromise = null
 export function initWindowProfile() {
   if (!windowProfileInitPromise) {
     windowProfileInitPromise = (async () => {
-      if (!isTauri()) return null
+      if (!isDesktop()) return null
       try {
         const profileId = await desktop.getWindowProfile()
         if (profileId) {
@@ -47,7 +47,7 @@ export function initWindowProfile() {
  * restore it on relaunch and focus it on profile switches.
  */
 export async function reportWindowProfile(profileId) {
-  if (!isTauri() || !profileId) return
+  if (!isDesktop() || !profileId) return
   try {
     await desktop.reportWindowProfile(profileId)
   } catch (error) {
@@ -61,7 +61,7 @@ export async function reportWindowProfile(profileId) {
  * to the legacy in-place switch.
  */
 export async function openProfileWindow(profileId) {
-  if (!isTauri() || !profileId) return false
+  if (!isDesktop() || !profileId) return false
   try {
     await desktop.openProfileWindow(profileId)
     return true
@@ -136,7 +136,7 @@ export async function apiFetch(url, options = {}) {
  * caller then falls back to another profile in place.
  */
 async function closeWindowForDeletedProfile() {
-  if (!isTauri()) return false
+  if (!isDesktop()) return false
   try {
     return await desktop.closeDeletedProfileWindow()
   } catch (error) {

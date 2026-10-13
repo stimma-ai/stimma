@@ -14,7 +14,7 @@ async function fixture(t, bridgeOverrides = {}) {
   let stops = 0
   const window = new EventTarget()
   const document = new EventTarget()
-  const create = new Function('ref', 'computed', 'onMounted', 'onUnmounted', 'checkIsTauri', 'initApiConfig', 'desktop', 'useTelemetry', 'isPrivacyLockdownActive', 'addToast', 'localStorage', 'window', 'document', `${source}; return useVoiceInput`)
+  const create = new Function('ref', 'computed', 'onMounted', 'onUnmounted', 'checkIsDesktop', 'initApiConfig', 'desktop', 'useTelemetry', 'isPrivacyLockdownActive', 'addToast', 'localStorage', 'window', 'document', `${source}; return useVoiceInput`)
   const useVoiceInput = create(ref, computed, fn => fn(), () => {}, () => true, async () => {}, {
     voiceModelStatus: async () => true,
     voiceStart: async () => { starts++ },

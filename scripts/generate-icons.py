@@ -8,10 +8,9 @@ Usage:
     python scripts/generate-icons.py --channel beta     # Blue "BETA" badge
     python scripts/generate-icons.py --channel debug    # Red "DEBUG" badge
 
-Writes into src-tauri/icons/ by default, which is committed and must stay at the
-production icon so a plain `cargo tauri build` works from a fresh clone. Local
-badged builds pass --out to write into an ignored directory instead; see the
-`stimma` CLI, which generates and points Tauri at them via a --config override.
+Writes into packaging/desktop/icons/ by default. Release workflows generate the
+channel icons there before packaging. Pass --out to generate icons in a separate
+directory without modifying the committed production mark.
 """
 import argparse
 import json
@@ -26,7 +25,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
-ICONS_DIR = REPO_ROOT / "src-tauri" / "icons"
+ICONS_DIR = REPO_ROOT / "packaging" / "desktop" / "icons"
 BASE_ICON = ICONS_DIR / "icon-base.png"
 MACOS_BASE_ICON = ICONS_DIR / "icon-macos-base.png"  # HIG-compliant 1024x1024 with squircle + padding
 
@@ -45,7 +44,7 @@ CHANNEL_BADGES = {
     "debug":  {"color": (220, 38, 38),   "label": "DEBUG"},   # Red
 }
 
-# All output sizes needed by Tauri
+# Desktop packaging and system-tray icon sizes
 PNG_OUTPUTS = {
     "icon.png": None,           # Same as source
     "32x32.png": (32, 32),
@@ -267,7 +266,7 @@ def main():
     parser.add_argument("--channel", default="production",
                         help="Release channel: production (no badge), canary, beta, debug")
     parser.add_argument("--out", type=Path, default=ICONS_DIR,
-                        help="Directory to write generated icons into (default: src-tauri/icons)")
+                        help="Directory to write generated icons into (default: packaging/desktop/icons)")
     args = parser.parse_args()
 
     out_dir = args.out.resolve()
@@ -299,7 +298,7 @@ def main():
         win_icon = base
         print("No badge (production)")
 
-    # Generate PNG outputs (used by Tauri for various platforms)
+    # Generate PNG outputs for desktop platforms.
     for filename, size in PNG_OUTPUTS.items():
         output = out_dir / filename
         # Use raw base for Windows Store logos, HIG base for general PNGs

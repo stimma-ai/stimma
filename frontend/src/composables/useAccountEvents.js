@@ -15,7 +15,7 @@ import { useWebSocket } from './useWebSocket'
 import { applyCloudAccount } from './useCloudAccount'
 import { refreshAvailableModels } from './useAvailableModels'
 import { useReadiness } from './useReadiness'
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 
 const celebration = ref(null) // { credits } | null
 
@@ -42,7 +42,7 @@ export function initAccountEvents() {
 }
 
 async function foregroundAppWindow() {
-  if (!isTauri()) return
+  if (!isDesktop()) return
   try {
     const { desktop } = await import('../desktop')
     await desktop.focusCurrentWindow()

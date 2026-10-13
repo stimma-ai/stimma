@@ -21,7 +21,7 @@
  * With no pen involved, `tabletPressureFor` returns null and callers treat
  * the input as a mouse.
  */
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import {
   claimTabletWheelGesture,
@@ -118,7 +118,7 @@ function handleMiddlePan(
 function ensureListening(): void {
   if (started) return
   started = true
-  if (!isTauri()) return
+  if (!isDesktop()) return
   const generation = ++listeningGeneration
   desktop.onTabletInput((rawPayload) => {
     const payload = rawPayload as TabletInputPayload

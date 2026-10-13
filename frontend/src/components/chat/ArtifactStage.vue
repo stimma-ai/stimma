@@ -179,7 +179,7 @@ import {
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
 import { addToast } from '../../composables/useToasts'
-import { useTauriDownload } from '../../composables/useTauriDownload'
+import { useDesktopDownload } from '../../composables/useDesktopDownload'
 import { MediaImage } from '../media'
 import IconButton from '../ui/IconButton.vue'
 import LayoutViewer from '../viewers/LayoutViewer.vue'
@@ -305,7 +305,7 @@ function onOverflowClick(event?: MouseEvent) {
   })
 }
 
-const { downloadFromResponse } = useTauriDownload()
+const { downloadFromResponse } = useDesktopDownload()
 const downloadingPackage = ref(false)
 
 async function downloadPackage(format: 'zip' | 'pdf') {

@@ -5,7 +5,7 @@
 // builds on this rather than re-pasting Teleport/backdrop/
 // Transition markup.
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { isTauri } from '../../apiConfig'
+import { isDesktop } from '../../apiConfig'
 import { useViewport } from '../../composables/useViewport'
 
 const { allowsAutofocus } = useViewport()
@@ -48,10 +48,10 @@ const cardSizeClass = computed(() => props.size === 'custom' ? props.customClass
 const zClass = computed(() => props.submenu ? 'z-submenu' : props.nested ? 'z-confirm' : 'z-modal')
 
 // The backdrop covers the whole window, including the title-bar strip the
-// TopBar/sidebar mark as a Tauri drag region, so window dragging dies while a
+// TopBar/sidebar mark as a window drag region, so window dragging dies while a
 // modal is open. Re-declare the strip on the backdrop itself; the card sits
 // above it so a tall modal's own top edge stays clickable.
-const inTauri = isTauri()
+const inDesktop = isDesktop()
 
 function close() {
   emit('close')
@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
         :class="zClass"
         @click.self="onBackdropClick"
       >
-        <div v-if="inTauri" class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
+        <div v-if="inDesktop" class="absolute top-0 left-0 right-0 h-14" data-window-drag-region />
         <div
           ref="cardRef"
           tabindex="-1"

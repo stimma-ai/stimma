@@ -1,7 +1,7 @@
 <template>
   <!-- Keep the native startup screen in place until startup routing is resolved. -->
   <div v-if="startupPending" class="startup-screen">
-    <div class="startup-drag-region" data-tauri-drag-region />
+    <div class="startup-drag-region" data-window-drag-region />
     <img class="startup-logo" src="/logo.svg" alt="Stimma" />
   </div>
 
@@ -39,7 +39,7 @@
     <!-- Draggable title bar region. The centered content panel below is
          z-[1] and spans the whole screen, so anything that must stay
          clickable up here has to sit above it. -->
-    <div class="absolute top-0 left-0 right-0 h-14 z-[1]" data-tauri-drag-region />
+    <div class="absolute top-0 left-0 right-0 h-14 z-[1]" data-window-drag-region />
     <!-- Profile switcher in top-right corner -->
     <div class="absolute top-4 right-4 z-[2]">
       <div class="relative lock-screen-profile-dropdown">
@@ -166,7 +166,7 @@
   <!-- No-chrome mode for standalone pages like LLM trace viewer -->
   <div v-else-if="noChrome" class="w-full h-screen overflow-auto bg-base">
     <!-- Draggable title bar region -->
-    <div class="sticky top-0 left-0 right-0 h-8 z-50" data-tauri-drag-region />
+    <div class="sticky top-0 left-0 right-0 h-8 z-50" data-window-drag-region />
     <router-view />
   </div>
 
@@ -331,7 +331,7 @@ import {
   startIdleTracking,
   stopIdleTracking,
 } from './composables/usePinLock'
-import { getApiBase, isTauri } from './apiConfig'
+import { getApiBase, isDesktop } from './apiConfig'
 import { useSettingsApi } from './composables/useSettingsApi'
 import {
   devModeRef,
@@ -811,7 +811,7 @@ function handleKeydown(e) {
   }
 
   // Cmd/Ctrl+R to refresh in Tauri (browser handles this natively)
-  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'r' && isTauri()) {
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'r' && isDesktop()) {
     e.preventDefault()
     window.location.reload()
   }
@@ -839,7 +839,7 @@ function handleKeydown(e) {
   // Fires the same CloseRequested event the X does; the Rust handler closes
   // this window if others are open, or hides the last one to keep the
   // backend warm rather than quitting (to the tray on Windows/Linux).
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'w' || e.key === 'W') && isTauri()) {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'w' || e.key === 'W') && isDesktop()) {
     e.preventDefault()
     void import('./desktop').then(({ desktop }) => {
       void desktop.closeCurrentWindow()
@@ -1043,7 +1043,7 @@ async function loadAppSettings() {
  * connection state to wait on, so that counts as ready.
  */
 async function multiDeviceReady() {
-  if (!isTauri()) return true
+  if (!isDesktop()) return true
   try {
     const { desktop } = await import('./desktop')
     return (await desktop.mdGetState()).connectionState === 'ready'
@@ -1160,7 +1160,7 @@ watch(currentProfileId, (profileId, previousProfileId) => {
 // Window title carries the profile name so windows are tellable apart in
 // Mission Control / the Window menu / alt-tab.
 watch([currentProfileId, profiles], async ([profileId]) => {
-  if (!isTauri()) return
+  if (!isDesktop()) return
   const name = profiles.value.find(p => p.id === profileId)?.name
   if (!name) return
   try {

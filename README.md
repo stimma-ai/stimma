@@ -29,13 +29,13 @@ No account is required. Source builds send no telemetry and do not check for upd
 
 ## Running from source
 
-You need **Node.js 20+**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), **Rust** (for the desktop shell), and **FFmpeg** on `PATH`. Windows additionally needs Visual Studio Build Tools with the C++ workload; the PowerShell launcher imports its MSVC environment automatically, so a normal Windows Terminal tab is sufficient. Everything goes through the dev CLI (it self-installs Deno on first run; run it with no args for full help):
+You need **Node.js 20+**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), **Rust** (for native helpers), and **FFmpeg** on `PATH`. Windows additionally needs Visual Studio Build Tools with the C++ workload; the PowerShell launcher imports its MSVC environment automatically, so a normal Windows Terminal tab is sufficient. Everything goes through the dev CLI (it self-installs Deno on first run; run it with no args for full help):
 
 ```bash
 tools/stimma dev all        # backend + frontend + Electron shell, merged logs
 ```
 
-On Windows, use `tools\stimma.cmd dev all` (or `tools\stimma.ps1 dev all` from PowerShell). The Electron shell is the default on every platform; pass `--shell=tauri` only for migration comparisons.
+On Windows, use `tools\stimma.cmd dev all` (or `tools\stimma.ps1 dev all` from PowerShell). The desktop shell is Electron on every platform.
 
 On Debian/Ubuntu, install the Chromium runtime libraries the shell needs (add `xvfb` only if you are running headless, for example over SSH or in CI):
 

@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { initApiConfig, isTauri, setStartupStatusCallback, startedWithUnreachableDevice } from './apiConfig'
+import { initApiConfig, isDesktop, setStartupStatusCallback, startedWithUnreachableDevice } from './apiConfig'
 import { initConsoleBridge, installVueConsoleHandlers } from './consoleBridge'
 // Import useProfile early to set up the global fetch interceptor before any API calls
 import './composables/useProfile'
@@ -26,7 +26,7 @@ function showLoadingScreen() {
 
   const dragRegion = document.createElement('div')
   dragRegion.className = 'startup-drag-region'
-  dragRegion.setAttribute('data-tauri-drag-region', '')
+  dragRegion.setAttribute('data-window-drag-region', '')
 
   const logo = document.createElement('img')
   logo.className = 'startup-logo'
@@ -102,7 +102,7 @@ function showError(message) {
 }
 
 // Show loading screen in Tauri mode
-if (isTauri()) {
+if (isDesktop()) {
   showLoadingScreen()
   setStartupStatusCallback(updateLoadingStatus)
 }

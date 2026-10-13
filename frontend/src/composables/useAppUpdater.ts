@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { computed, ref, shallowRef, watch } from 'vue'
-import { isTauri, getApiBase } from '../apiConfig'
+import { isDesktop, getApiBase } from '../apiConfig'
 import { desktop } from '../desktop'
 import type { DesktopUpdate } from '../desktop'
 import { triggerServerUpdateCheck } from '../utils/serverUpdateCheck'
@@ -158,7 +158,7 @@ async function setPreference(key: string, value: Record<string, any>): Promise<v
 }
 
 async function loadPreferences(): Promise<void> {
-  if (!isTauri() || loadedPrefs.value) return
+  if (!isDesktop() || loadedPrefs.value) return
   try {
     currentVersion.value = await desktop.getAppVersion()
   } catch {
@@ -217,7 +217,7 @@ async function saveLastCheckedAt(): Promise<void> {
 }
 
 async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<void> {
-  if (!isTauri() || isPrivacyLockdownActive()) return
+  if (!isDesktop() || isPrivacyLockdownActive()) return
   // Non-owner window: run the check in the owner window, which holds the
   // update resources and broadcasts the outcome back. Running it locally
   // would duplicate the resource and, in automatic mode, the download.
@@ -421,7 +421,7 @@ async function relaunchApp(): Promise<void> {
 
 const channel = computed(() => (import.meta.env.VITE_STIMMA_RELEASE_CHANNEL || 'sandbox').toLowerCase())
 const updateEndpoint = computed(() => import.meta.env.VITE_STIMMA_UPDATE_ENDPOINT || '')
-const updatesEnabled = computed(() => isTauri() && Boolean(updateEndpoint.value))
+const updatesEnabled = computed(() => isDesktop() && Boolean(updateEndpoint.value))
 // Privacy Lockdown is the user-facing reason update activity is disabled even
 // when this build also lacks an update endpoint (for example, development
 // builds). Keep this independent of updatesEnabled so the UI can affirm the

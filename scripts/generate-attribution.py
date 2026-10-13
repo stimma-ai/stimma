@@ -2,7 +2,7 @@
 """Regenerate the dependency tables in ATTRIBUTION.md.
 
 Reads the real dependency graphs (backend uv venv, frontend node_modules,
-src-tauri cargo metadata) and rewrites the generated sections of
+native-helper and watchdog cargo metadata) and rewrites the generated sections of
 ATTRIBUTION.md between the BEGIN/END GENERATED markers. Hand-written prose
 outside the markers is left untouched.
 
@@ -14,7 +14,7 @@ Run from the repo root on a machine with the dev environment set up
 The tables list every third-party package that ships in the packaged app:
   - Python: full `uv export --no-dev` set (the whole venv is bundled)
   - npm: production dependency closure (what Vite bundles into the webview)
-  - Rust: crates reachable from src-tauri + watchdog via normal/build edges,
+  - Rust: crates reachable from native helper + watchdog via normal/build edges,
     with build-time-only crates marked (they run during compilation and are
     not linked into shipped binaries, but are listed for completeness)
 """
@@ -72,17 +72,7 @@ PY_OVERRIDES = {
 
 # npm packages missing license metadata, verified against upstream:
 # (license, repository URL).
-NPM_OVERRIDES = {
-    # No license field in the published package or its source manifest; the
-    # publish source repo dual-licenses it via root LICENSE_MIT +
-    # LICENSE_APACHE-2.0 (LICENSE.spdx declares both; © CrabNebula Ltd.).
-    # Same repo publishes the Rust tauri-plugin-drag crate under the same
-    # dual grant.
-    "@crabnebula/tauri-plugin-drag": (
-        "MIT OR Apache-2.0",
-        "https://github.com/crabnebula-dev/drag-rs",
-    ),
-}
+NPM_OVERRIDES = {}
 
 CLASSIFIER_MAP = {
     "License :: OSI Approved :: MIT License": "MIT",
@@ -350,10 +340,9 @@ def main() -> None:
         "the UI).\n\n"
         + table(npm, ("Package", "Version", "License", "Source")))
 
-    rust_main = cargo_rows(REPO_ROOT / "src-tauri")
-    rust_wd = cargo_rows(REPO_ROOT / "src-tauri" / "watchdog")
+    rust_wd = cargo_rows(REPO_ROOT / "native" / "watchdog")
     rust_native = cargo_rows(REPO_ROOT / "native" / "stimma-native")
-    merged: dict[str, tuple[str, ...]] = {r[0]: r for r in rust_main}
+    merged: dict[str, tuple[str, ...]] = {}
     for r in rust_wd + rust_native:
         if r[0] not in merged:
             merged[r[0]] = r

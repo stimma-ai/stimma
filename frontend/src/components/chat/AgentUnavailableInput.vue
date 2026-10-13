@@ -34,7 +34,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { isTauri } from '../../apiConfig'
+import { isDesktop } from '../../apiConfig'
 import { useAuth } from '../../composables/useAuth'
 import { useAvailableModels } from '../../composables/useAvailableModels'
 import { useCloudAccount } from '../../composables/useCloudAccount'
@@ -63,7 +63,7 @@ function openSettings(section) {
 }
 
 async function openUrl(url) {
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../../desktop')
     await desktop.openExternal(url)
   } else {

@@ -22,7 +22,7 @@ function trayIconPath(): string | null {
     ? [path.join(process.resourcesPath, 'tray-icon.png')]
     : [
         // Dev: the committed (unbadged) icon from the repo.
-        path.join(__dirname, '..', '..', 'src-tauri', 'icons', '32x32.png'),
+        path.join(__dirname, '..', '..', 'packaging', 'desktop', 'icons', '32x32.png'),
       ]
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
 }

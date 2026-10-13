@@ -4,13 +4,13 @@
  * Used in plain web dev, acceptance tests, and any environment without a
  * native shell. Web-capable operations get real browser fallbacks; native-only
  * operations are inert (resolve to a harmless default) so feature code can
- * call the bridge unconditionally where it already had no Tauri gate.
+ * call the bridge unconditionally in browser mode.
  */
 
 import type { DesktopBridge, LocalAuthResponse, LocalDeviceStatus } from './types'
 
 /**
- * Shared by the browser and Tauri bridges: one backend, so "this install"
+ * For a browser connected to one backend: one backend, so "this install"
  * and "the active device" are the same server. Mirrors the shape Electron
  * main returns so useAuth reads one contract.
  */

@@ -9,7 +9,7 @@
   >
     <!-- Draggable region for moving the window (below the floating chrome buttons) -->
     <div
-      data-tauri-drag-region
+      data-window-drag-region
       class="absolute top-0 left-0 right-0 h-14 z-chrome"
       style="-webkit-app-region: drag"
     />
@@ -1163,7 +1163,7 @@
              Dragging it out to export the file is an undocumented easter egg.
              @mousedown.stop keeps this from starting a control-bar reposition. -->
         <button
-          v-if="isTauri && currentItem"
+          v-if="isDesktop && currentItem"
           draggable="true"
           @mousedown.stop
           @click="revealInFinder"
@@ -1387,7 +1387,7 @@ import { addToast } from '../composables/useToasts'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useWebSocket } from '../composables/useWebSocket'
-import { useTauriDrag } from '../composables/useTauriDrag'
+import { useDesktopDrag } from '../composables/useDesktopDrag'
 import { createDragPreview, preloadDragPreview, handleDragEnd } from '../composables/useDragPreview'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useBrowseFilters } from '../composables/useBrowseFilters'
@@ -1435,7 +1435,7 @@ import { dirtyEditorAssets } from '../imageEditor/stack/editorDirtyState'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
-import { useTauriDownload } from '../composables/useTauriDownload'
+import { useDesktopDownload } from '../composables/useDesktopDownload'
 import { assetIdOf, mediaIdOf, hasAssetIdentity } from '../utils/assetIdentity'
 import {
   assetHeadSignature,
@@ -1547,7 +1547,7 @@ const {
 } = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
-const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot, revealMediaFile } = useTauriDrag()
+const { isDesktop, handleDragStart: desktopDragStart, prewarmDragSnapshot, revealMediaFile } = useDesktopDrag()
 
 // Tooltip nudge for the (otherwise invisible) ⌥ drag-out modifier. Plain drag
 // is an in-app transfer everywhere; the file-export modifier only applies in
@@ -2354,7 +2354,7 @@ const packageTitle = computed(() => {
 
 // Package exports (ZIP of the bundle, or the PDF) — the same
 // endpoint the artifact viewer uses, so both surfaces stay in step.
-const { downloadFromResponse } = useTauriDownload()
+const { downloadFromResponse } = useDesktopDownload()
 const downloadingPackage = ref(false)
 async function downloadPackage(format) {
   const mediaId = currentPayloadId.value
@@ -2539,9 +2539,9 @@ const hasRawMetadata = computed(() => {
 // the control-strip "drag out" handle (and ⌥-drag) can start the native drag
 // synchronously from cache. Embedding inline during dragstart awaits a
 // round-trip that outlives the mouse gesture and crashes the macOS drag plugin.
-watch([currentItem, isTauri], ([newItem]) => {
+watch([currentItem, isDesktop], ([newItem]) => {
   const mediaId = itemPayloadId(newItem)
-  if (isTauri.value && mediaId != null && newItem.file_path) {
+  if (isDesktop.value && mediaId != null && newItem.file_path) {
     prewarmDragSnapshot(mediaId)
   }
 }, { immediate: true })
@@ -4735,7 +4735,7 @@ function handleCloseClick() {
 async function openInSystemViewer() {
   if (!currentItem.value?.file_path) return
 
-  if (isTauri.value) {
+  if (isDesktop.value) {
     try {
       const { desktop } = await import('../desktop')
       console.log('[Slideshow] Opening in system viewer:', currentItem.value.file_path)
@@ -4751,7 +4751,7 @@ async function openInSystemViewer() {
 async function revealInFinder() {
   if (!currentItem.value?.file_path) return
 
-  if (isTauri.value) {
+  if (isDesktop.value) {
     try {
       await revealMediaFile(currentPayloadId.value, currentItem.value.file_path)
     } catch (e) {
@@ -5583,8 +5583,8 @@ function handleStripDragStart(event, item) {
 async function handleDragStart(event) {
   if (!currentItem.value) return
 
-  if (isTauri.value && event.altKey && currentItem.value.file_path) {
-    await tauriDragStart(event, currentPayloadId.value, currentItem.value.file_path)
+  if (isDesktop.value && event.altKey && currentItem.value.file_path) {
+    await desktopDragStart(event, currentPayloadId.value, currentItem.value.file_path)
     return
   }
 
@@ -5611,7 +5611,7 @@ async function handleDragStart(event) {
 // drag) — that's the whole point of the handle.
 async function handleExportDragStart(event) {
   if (!currentItem.value || !currentItem.value.file_path) return
-  await tauriDragStart(event, currentPayloadId.value, currentItem.value.file_path)
+  await desktopDragStart(event, currentPayloadId.value, currentItem.value.file_path)
 }
 
 // === Auto-advance engine (generate-forever) ================================
