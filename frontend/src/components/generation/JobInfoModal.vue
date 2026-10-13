@@ -17,12 +17,26 @@
     :error-details="errorDetails"
     :raw-json="rawJson"
     @close="$emit('close')"
-  />
+  >
+    <!-- A finished job's media carries its full provenance: show the same
+         account the media details and the Info panel give for that image. -->
+    <template v-if="provenance" #details>
+      <div>
+        <div class="text-xs font-semibold text-content-secondary mb-3">How it was made</div>
+        <ProvenanceSteps :steps="provenance.steps" @navigate="openMedia" />
+      </div>
+    </template>
+  </GenerationDetailsModal>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useProvidersApi } from '../../composables/useProvidersApi'
+import { useMediaApi } from '../../composables/useMediaApi'
+import { useMediaDetailsModal } from '../../composables/useMediaDetailsModal'
+import { useProvenanceBuilder } from '../../composables/useMediaProvenance'
+import { formatLoraName, formatParamLabel, formatParamValue, type MediaLike } from '../../utils/mediaProvenance'
+import ProvenanceSteps from '../media/ProvenanceSteps.vue'
 import {
   DEFAULT_TASK_TYPE_GRADIENT_CLASS,
   DEFAULT_TASK_TYPE_ICON_PATH,
@@ -60,6 +74,38 @@ defineEmits<{
 }>()
 
 const { cachedTools, cachedProviders, fetchProvidersAndTools } = useProvidersApi()
+const { getMediaItem } = useMediaApi()
+const { build } = useProvenanceBuilder()
+const mediaDetails = useMediaDetailsModal()
+
+// The result's own media (when the job produced one), for its provenance.
+const resultMedia = ref<MediaLike | null>(null)
+let resultLoadToken = 0
+watch(
+  () => [props.show, props.job?.status, props.job?.result_media_id] as const,
+  async ([visible, status, mediaId]) => {
+    const token = ++resultLoadToken
+    resultMedia.value = null
+    if (!visible || status !== 'completed' || !mediaId) return
+    try {
+      const item = await getMediaItem(mediaId, { includeTrashed: true })
+      if (token === resultLoadToken) resultMedia.value = item
+    } catch {
+      // No media to describe; the job's inputs stand in.
+    }
+  },
+  { immediate: true },
+)
+
+const provenance = computed(() => {
+  if (!resultMedia.value?.generation_metadata) return null
+  const built = build(resultMedia.value, { fileFacts: false })
+  return built.steps.length ? built : null
+})
+
+function openMedia(mediaId: number) {
+  mediaDetails.open(mediaId)
+}
 
 watch(
   () => [props.show, props.job?.tool_id] as const,
@@ -164,10 +210,10 @@ const allInputEntries = computed<InputEntry[]>(() => {
     if (raw === null || raw === undefined || raw === '') continue
     if (Array.isArray(raw) && raw.length === 0) continue
     if (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0) continue
-    const value = formatValue(raw)
+    const value = formatParamValue(key, raw)
     entries.push({
       key,
-      label: formatLabel(key),
+      label: formatParamLabel(key),
       value,
       fullWidth: LONG_VALUE_KEYS.has(key) || value.length > 60 || value.includes('\n'),
     })
@@ -177,7 +223,7 @@ const allInputEntries = computed<InputEntry[]>(() => {
   if (Array.isArray(loras) && loras.length) {
     const formatted = loras
       .map((lora) => {
-        const name = getLoraDisplayName(lora)
+        const name = formatLoraName(lora)
         const weight = lora?.weight
         return weight !== undefined && weight !== null ? `${name} (${weight})` : name
       })
@@ -232,37 +278,6 @@ function formatSeconds(seconds: number): string {
 function formatMs(ms: number): string {
   if (ms < 1000) return `${ms} ms`
   return formatSeconds(ms / 1000)
-}
-
-function formatLabel(key: string): string {
-  const overrides: Record<string, string> = {
-    cfg: 'CFG',
-    fps: 'FPS',
-    negative_prompt: 'Negative prompt',
-    n: 'Count',
-  }
-  if (overrides[key]) return overrides[key]
-  return key
-    .split('_')
-    .map((part) => part ? part[0].toUpperCase() + part.slice(1) : part)
-    .join(' ')
-}
-
-function formatValue(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2)
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
-
-function getLoraDisplayName(lora: Record<string, any>): string {
-  const raw = (lora?.lora || lora?.path || lora?.name || '') as string
-  const filename = String(raw).split('/').pop() || raw
-  return String(filename).replace(/\.safetensors$/i, '') || 'Unknown LoRA'
 }
 
 function statusTextFor(status?: string | null): string {

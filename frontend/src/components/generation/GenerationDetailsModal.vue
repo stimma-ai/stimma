@@ -33,58 +33,35 @@
               </div>
               <div
                 v-if="stepCount > 1"
-                class="mt-3 inline-flex items-center gap-1 rounded-full border border-edge-subtle bg-overlay-subtle px-1.5 py-1"
+                class="mt-3 inline-flex items-center gap-1 rounded-md bg-overlay-subtle px-1 py-0.5"
               >
-                <button
-                  type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary transition-colors hover:bg-overlay-hover hover:text-content disabled:cursor-default disabled:opacity-35"
-                  :disabled="stepIndex <= 0"
-                  title="Previous step"
-                  @click="$emit('prev-step')"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m15 19-7-7 7-7" />
-                  </svg>
-                </button>
+                <Tooltip text="Previous step">
+                  <IconButton aria-label="Previous step" :disabled="stepIndex <= 0" @click="$emit('prev-step')">
+                    <ChevronLeftIcon class="h-4 w-4" />
+                  </IconButton>
+                </Tooltip>
                 <span class="min-w-[84px] text-center text-[11px] font-medium text-content-secondary">
-                  Step {{ stepIndex + 1 }} / {{ stepCount }}
+                  Step <span class="font-mono tabular-nums">{{ stepIndex + 1 }} / {{ stepCount }}</span>
                 </span>
-                <button
-                  type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary transition-colors hover:bg-overlay-hover hover:text-content disabled:cursor-default disabled:opacity-35"
-                  :disabled="stepIndex >= stepCount - 1"
-                  title="Next step"
-                  @click="$emit('next-step')"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
-                  </svg>
-                </button>
+                <Tooltip text="Next step">
+                  <IconButton aria-label="Next step" :disabled="stepIndex >= stepCount - 1" @click="$emit('next-step')">
+                    <ChevronRightIcon class="h-4 w-4" />
+                  </IconButton>
+                </Tooltip>
               </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <button
-                v-if="canRerun"
-                type="button"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-edge-subtle bg-overlay-subtle text-content-secondary transition-colors hover:bg-overlay-hover hover:text-content"
-                title="Re-run"
-                @click="$emit('rerun')"
-              >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="rounded-lg p-2 text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content"
-                title="Close"
-                @click="$emit('close')"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                </svg>
-              </button>
+            <div class="flex items-center gap-1">
+              <Tooltip v-if="canRerun" text="Re-run">
+                <IconButton aria-label="Re-run" @click="$emit('rerun')">
+                  <ArrowPathIcon class="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip text="Close">
+                <IconButton aria-label="Close" @click="$emit('close')">
+                  <XMarkIcon class="h-5 w-5" />
+                </IconButton>
+              </Tooltip>
             </div>
       </div>
     </template>
@@ -143,6 +120,9 @@
                   <KeyValueList :rows="summaryRows" />
                 </div>
 
+                <!-- Hosts with a finished result show its provenance here (the same
+                     account the media details give); otherwise the call's inputs. -->
+                <slot name="details">
                 <div>
                   <div class="text-xs font-semibold text-content-secondary mb-1">Inputs</div>
                   <div v-if="loadingInputs" class="text-[12px] italic text-content-muted py-1.5">Loading inputs…</div>
@@ -161,16 +141,11 @@
                     >
                       <div class="flex items-center justify-between mb-1">
                         <span class="text-xs text-content-tertiary">{{ entry.label }}</span>
-                        <button
-                          @click="copyValue(entry.value)"
-                          class="bg-transparent border-none text-content-tertiary cursor-pointer p-0.5 rounded hover:bg-overlay-subtle hover:text-content"
-                          title="Copy to clipboard"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                            <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                            <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
-                          </svg>
-                        </button>
+                        <Tooltip text="Copy">
+                          <IconButton aria-label="Copy" class="!w-6 !h-6" @click="copyValue(entry.value)">
+                            <ClipboardDocumentIcon class="w-3.5 h-3.5" />
+                          </IconButton>
+                        </Tooltip>
                       </div>
                       <p class="m-0 whitespace-pre-wrap break-words text-content-secondary text-xs leading-relaxed select-text">{{ entry.value }}</p>
                     </div>
@@ -178,41 +153,28 @@
                     <KeyValueList v-if="(compactInputs?.length ?? 0) > 0" :rows="compactInputRows" />
                   </template>
                 </div>
+                </slot>
 
                 <div
                   v-if="parsedError"
-                  class="rounded-lg border border-red-500/30 bg-red-500/5"
+                  class="rounded-md bg-red-500/5"
                 >
-                  <div class="border-b border-red-500/20 px-4 py-3">
+                  <div class="px-4 pt-3">
                     <div class="text-[13px] font-semibold text-red-400">{{ parsedError.title }}</div>
                     <p class="mt-1 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-content-secondary">
                       {{ parsedError.message }}
                     </p>
                   </div>
                   <div class="px-4 py-3 flex flex-wrap items-center gap-2">
-                    <button
-                      v-if="canFixWithAgent"
-                      type="button"
-                      class="text-[12px] px-2.5 py-1 rounded-md bg-accent hover:bg-accent/90 text-white"
-                      @click="$emit('fix-with-agent')"
-                    >Ask the agent for help</button>
-                    <button
-                      v-if="canRerun"
-                      type="button"
-                      class="text-[12px] px-2.5 py-1 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
-                      @click="$emit('rerun')"
-                    >Retry</button>
-                    <button
-                      type="button"
-                      class="text-[12px] px-2.5 py-1 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
-                      @click="copyValue(parsedError.raw)"
-                    >Copy error</button>
+                    <Button v-if="canFixWithAgent" size="sm" @click="$emit('fix-with-agent')">Ask the agent for help</Button>
+                    <Button v-if="canRerun" size="sm" variant="secondary" @click="$emit('rerun')">Retry</Button>
+                    <Button size="sm" variant="ghost" @click="copyValue(parsedError.raw)">Copy error</Button>
                   </div>
                 </div>
 
                 <div
                   v-if="devModeRef && errorDetails"
-                  class="rounded-lg border border-amber-500/40 bg-overlay-light"
+                  class="rounded-lg border border-amber-500/40"
                 >
                   <div class="flex items-center gap-2 border-b border-amber-500/30 px-4 py-2.5">
                     <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
@@ -225,7 +187,7 @@
 
                 <div
                   v-if="devModeRef && rawJson"
-                  class="rounded-lg border border-edge-subtle bg-base"
+                  class="rounded-lg border border-edge-subtle"
                 >
                   <div class="flex items-center justify-between border-b border-edge-subtle px-4 py-3">
                     <button
@@ -246,19 +208,10 @@
                       </svg>
                       <span>Raw JSON</span>
                     </button>
-                    <button
-                      v-if="rawJsonExpanded"
-                      type="button"
-                      @click.stop="copyValue(rawJson)"
-                      class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content"
-                      title="Copy JSON"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                        <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                        <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
-                      </svg>
+                    <Button v-if="rawJsonExpanded" size="sm" variant="ghost" @click.stop="copyValue(rawJson)">
+                      <template #icon><ClipboardDocumentIcon class="w-3.5 h-3.5" /></template>
                       {{ rawJsonCopied ? 'Copied' : 'Copy' }}
-                    </button>
+                    </Button>
                   </div>
                   <div v-if="rawJsonExpanded" class="px-4 py-3">
                     <pre class="max-h-72 overflow-auto whitespace-pre rounded-lg bg-overlay-subtle px-3 py-2 font-mono text-[11px] text-content-secondary custom-scrollbar select-text">{{ rawJson }}</pre>
@@ -279,6 +232,10 @@ import { parseFlowError } from '../../utils/flowErrors'
 import MediaImage from '../media/MediaImage.vue'
 import KeyValueList, { type KeyValueRow } from '../ui/KeyValueList.vue'
 import Modal from '../ui/Modal.vue'
+import Button from '../ui/Button.vue'
+import IconButton from '../ui/IconButton.vue'
+import Tooltip from '../ui/Tooltip.vue'
+import { ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardDocumentIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
 export interface InputEntry {
   key: string

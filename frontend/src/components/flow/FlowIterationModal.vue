@@ -27,16 +27,17 @@
     @fix-with-agent="onFixWithAgent"
   >
     <template #preview>
-      <div class="overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint">
+      <!-- Media on matte, radius-media, no chrome border (§3.3 hero rules) -->
+      <div class="overflow-hidden rounded-media bg-matte">
         <div
           v-if="previewMediaIds.length"
-          class="grid gap-2 p-3"
+          class="grid gap-0.5 p-2"
           :class="previewMediaIds.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
         >
           <div
             v-for="mid in previewMediaIds"
             :key="mid"
-            class="overflow-hidden rounded-media bg-matte"
+            class="overflow-hidden rounded-media"
           >
             <FlowMediaTile
               :media-id="mid"
@@ -45,7 +46,7 @@
               :thumbnail="true"
               :thumbnail-size="512"
               :contain="true"
-              container-class="aspect-square w-full bg-overlay-subtle"
+              container-class="aspect-square w-full"
             />
           </div>
         </div>
@@ -90,6 +91,13 @@ import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import GenerationDetailsModal, { type InputEntry } from '../generation/GenerationDetailsModal.vue'
 import FlowMediaTile from './FlowMediaTile.vue'
+import {
+  formatParamLabel,
+  formatParamValue,
+  normalizeLoras,
+  parseGenerationMetadata,
+  stepParameters,
+} from '../../utils/mediaProvenance'
 import { mapEquationStatus, textClass, dotClass, rowBgClass } from '../../utils/statusColors'
 
 interface Props {
@@ -243,10 +251,10 @@ const inputEntries = computed<InputEntry[]>(() => {
         !Array.isArray(raw) &&
         Object.keys(raw).length === 0
       ) continue
-      const formatted = formatValue(raw)
+      const formatted = formatParamValue(key, raw)
       entries.push({
         key,
-        label: formatLabel(key),
+        label: formatParamLabel(key),
         value: formatted,
         fullWidth: longFields.has(key) || formatted.length > 60 || formatted.includes('\n'),
       })
@@ -264,10 +272,10 @@ const inputEntries = computed<InputEntry[]>(() => {
     addObjectEntries(t.inputs || null)
   } else if (t?.equation_type === 'llm_call') {
     if (t.prompt) {
-      entries.push({ key: 'prompt', label: 'Prompt', value: formatValue(t.prompt), fullWidth: true })
+      entries.push({ key: 'prompt', label: 'Prompt', value: formatParamValue('prompt', t.prompt), fullWidth: true })
     }
     if (t.system) {
-      entries.push({ key: 'system', label: 'System', value: formatValue(t.system), fullWidth: true })
+      entries.push({ key: 'system', label: 'System', value: formatParamValue('system', t.system), fullWidth: true })
     }
   } else if (t?.definition && typeof t.definition === 'object') {
     addObjectEntries(t.definition.params || t.definition.inputs || t.definition)
@@ -404,25 +412,15 @@ async function hydrateToolInputsFromResultMedia(mediaIds: number[]) {
 }
 
 function extractToolInputsFromMediaItem(mediaItem: any): Record<string, any> | null {
-  if (!mediaItem?.generation_metadata) return null
-  try {
-    const raw = mediaItem.generation_metadata
-    const meta = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (!meta || typeof meta !== 'object') return null
-    const params = { ...((meta && meta.parameters) || {}) }
-    if (params.seed === undefined && meta.seed !== undefined && meta.seed !== null) params.seed = meta.seed
-    if (params.prompt === undefined && meta.prompt) params.prompt = meta.prompt
-    if (params.negative_prompt === undefined && meta.negative_prompt) params.negative_prompt = meta.negative_prompt
-    if ((params.loras === undefined && params.selected_loras === undefined) && Array.isArray(meta.loras) && meta.loras.length > 0) {
-      params.loras = meta.loras.map((lora: any) => ({
-        lora: lora?.name ?? lora?.lora ?? null,
-        weight: lora?.weight ?? null,
-      }))
-    }
-    return Object.keys(params).length ? params : null
-  } catch {
-    return null
+  const meta = parseGenerationMetadata(mediaItem?.generation_metadata)
+  if (!meta) return null
+  const params: Record<string, any> = stepParameters(meta)
+  if (params.prompt === undefined && meta.prompt) params.prompt = meta.prompt
+  if (params.negative_prompt === undefined && meta.negative_prompt) params.negative_prompt = meta.negative_prompt
+  if ((params.loras === undefined && params.selected_loras === undefined) && Array.isArray(meta.loras) && meta.loras.length > 0) {
+    params.loras = normalizeLoras(meta.loras).map(lora => ({ lora: lora.name, weight: lora.weight }))
   }
+  return Object.keys(params).length ? params : null
 }
 
 function invalidate() {
@@ -456,30 +454,6 @@ function formatDuration(eq: FlowEquation | null): string | null {
     }
   }
   return null
-}
-
-function formatLabel(key: string): string {
-  const overrides: Record<string, string> = {
-    cfg: 'CFG',
-    n: 'Count',
-    negative_prompt: 'Negative prompt',
-  }
-  if (overrides[key]) return overrides[key]
-  return key
-    .split('_')
-    .map((part) => part ? part[0].toUpperCase() + part.slice(1) : part)
-    .join(' ')
-}
-
-function formatValue(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2)
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
 }
 
 function statusTextFor(status?: string | null): string {
