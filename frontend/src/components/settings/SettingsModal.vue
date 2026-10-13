@@ -142,7 +142,7 @@
               </template>
 
               <template v-else-if="activeSection === 'shared-links'">
-                <SharedLinksSection @navigate="activeSection = $event" />
+                <SharedLinksSection />
               </template>
 
               <!-- Stimma Server Section -->
