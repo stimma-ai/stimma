@@ -30,7 +30,7 @@
     "test:server-update-check": "node --test --experimental-strip-types src/utils/serverUpdateCheck.test.ts",
     "test:editor-shelf": "node --test --experimental-strip-types src/utils/editorShelf.test.ts",
     "test:database-cleanup": "node --test tests/databaseCleanupState.test.mjs",
-    "test:storage-migration": "node --test --experimental-strip-types src/utils/debugPrefixMigration.test.ts",
+    "test:storage-migration": "node --test tests/storageMigration.browser.test.mjs",
     "test:crop-rotation": "node --test tests/cropRotation.browser.test.mjs",
     "test:crop-input": "node --test --experimental-strip-types tests/cropInput.test.mjs",
     "test:image-stack": "node --test --experimental-strip-types src/imageEditor/stack/*.test.ts",
