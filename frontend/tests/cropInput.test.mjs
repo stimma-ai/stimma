@@ -1,16 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
-import { stripTypeScriptTypes } from 'node:module'
 import test from 'node:test'
-import { computed, ref } from 'vue'
-
-// Exercise the editor's actual render queue without mounting its unrelated
-// panels or contacting the backend. Only canvas replay and UI sinks are faked.
-const view = await readFile(new URL('../src/views/ImageEditorView.vue', import.meta.url), 'utf8')
-const queue = view.slice(view.indexOf('type RenderOptions ='), view.indexOf('/** Fit the composite into the viewport'))
-const input = view.slice(view.indexOf('async function renderCropInput('), view.indexOf('/** The crop rectangle the overlay draws'))
-const code = stripTypeScriptTypes(`${queue}\n${input}`)
-const createQueue = new Function('deps', `with (deps) { ${code}; return { render }; }`)
+import { ref } from 'vue'
+import { createEditorRenderer } from '../src/imageEditor/stack/editorRenderer.ts'
 
 function harness() {
   const step = (id, kind = 'adjust') => ({ id, enabled: true, class: 'parametric', exec: { kind }, params: {} })
@@ -30,16 +21,30 @@ function harness() {
     async render(doc) { return { edits: doc.edits } },
   }
   const noop = () => {}
-  const deps = { stack, family, cropOpId, cropInput, compositor, computed,
+  const deps = { stack, family, cropOpId, cropInput, compositor,
     baseInfo: ref({}), composite: ref(null), annotationOverlayActive: ref(false),
     visibleAnnotateOps: ref([]), stepPreviews: ref({}), rendering: ref(false),
     maskDebtByOp: ref({}), error: ref(null), looksOpen: ref(false), props: { assetId: '1' },
     publishEditorLivePreview: noop, scheduleHeadCache: noop, syncSelectionGeometry: noop,
     paint: noop, samplePalette: noop, renderLookThumbs: noop,
-    bufferedStepPreviews: null, emitPreviews: true,
     requestAnimationFrame: cb => setTimeout(cb, 0), cancelAnimationFrame: clearTimeout,
   }
-  const queue = createQueue(deps)
+  const queue = createEditorRenderer({
+    ...deps,
+    document: stack.doc,
+    baseReady: () => !!deps.baseInfo.value,
+    family: () => family.value,
+    cropOpId: () => cropOpId.value,
+    setCropInput: canvas => { cropInput.value = canvas },
+    publishLivePreview: noop,
+    looksOpen: () => deps.looksOpen.value,
+    renderLookThumbs: async () => {},
+    reportError: message => { deps.error.value = message },
+    scheduler: {
+      requestFrame: cb => setTimeout(cb, 0), cancelFrame: clearTimeout,
+      setTimer: setTimeout, clearTimer: clearTimeout,
+    },
+  })
   return { ...deps, ...queue, calls, block() {
     let release
     gate = new Promise(resolve => { release = resolve })
