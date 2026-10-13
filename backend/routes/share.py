@@ -1,52 +1,115 @@
 """
-Share routes for uploading media to Stimma Cloud.
+Share routes: public links for library items, via the signed-in Stimma account.
+
+What gets uploaded is built in ``share_payloads`` (one builder per media type)
+and the optional "how it was made" sidecar in ``share_provenance``. Nothing
+published carries local paths, library ids or raw generation metadata.
 """
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from typing import Optional
 import json
+import re
+import time
 from pathlib import Path
+from typing import Any, Optional
 
 import httpx
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import get_settings
-from core.logging import get_logger
 from cloud_runtime import with_cloud_access_headers
+from config import get_settings
 from core.dependencies import get_db_session
+from core.logging import get_logger
 from database import MediaItem
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
+from share_payloads import (
+    CLOUD_LIMITS,
+    MAX_UPLOAD_BYTES,
+    ShareBuildError,
+    build_payload,
+    cloud_limit_problem,
+    composite_member_path,
+    estimate_upload_bytes,
+    form_bytes,
+    share_media_type,
+    too_large_message,
+)
+from share_provenance import ProvenanceError, build_public_sidecar, parse_provenance
 
 router = APIRouter(prefix="/api/share", tags=["share"])
 log = get_logger(__name__)
 
 VIDEO_FORMATS = {"mp4", "webm", "mov", "avi", "mkv"}
 
-# Max dimensions for OG thumbnail (optimized for social sharing)
-OG_THUMB_MAX_WIDTH = 1200
-OG_THUMB_MAX_HEIGHT = 630
-OG_THUMB_QUALITY = 80
+GUIDELINES_MESSAGE = "This content cannot be shared because it violates community guidelines."
+SIGNED_OUT_MESSAGE = "Sign in to your Stimma account to share links."
+EXPIRED_MESSAGE = "Your Stimma sign-in has expired. Sign in again to continue."
+BANNED_MESSAGE = "Your sharing privileges have been suspended."
+UNREACHABLE_MESSAGE = "Couldn't reach your Stimma account. Check your connection and try again."
+LIMIT_MESSAGE = "You've reached today's share limit. Try again tomorrow."
+UNAVAILABLE_MESSAGE = "Sharing is temporarily unavailable. Try again in a moment."
 
-CONTENT_TYPES = {
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "png": "image/png",
-    "gif": "image/gif",
-    "webp": "image/webp",
-    "bmp": "image/bmp",
-    "tiff": "image/tiff",
-    "tif": "image/tiff",
-    "mp4": "video/mp4",
-    "webm": "video/webm",
-    "mov": "video/quicktime",
-    "avi": "video/x-msvideo",
-    "mkv": "video/x-matroska",
-    "html": "text/html",
-}
+_SHORTCODE_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
-HISTORY_THUMB_SIZE = 128
-HISTORY_THUMB_QUALITY = 75
+def _cloud_client(timeout: float) -> httpx.AsyncClient:
+    """Client for Stimma Cloud calls (a seam for tests)."""
+    return httpx.AsyncClient(timeout=timeout)
+
+
+def _cloud_headers(token: str, *, json_body: bool = False) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    if json_body:
+        headers["Content-Type"] = "application/json"
+    return with_cloud_access_headers(headers)
+
+
+async def _token() -> Optional[str]:
+    from firebase_auth import get_valid_id_token
+
+    try:
+        return await get_valid_id_token()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _cloud_error_detail(response: httpx.Response) -> str:
+    """The cloud's error text plus its machine code (``{error, code}``), for matching only."""
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            return " ".join(str(body.get(k)) for k in ("code", "error", "message") if body.get(k))
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+def _friendly_cloud_error(status: int, detail: str, *, action: str = "share") -> str:
+    """User-facing text for a cloud error. Raw cloud strings are never shown."""
+    lowered = (detail or "").lower()
+    if status == 401:
+        return EXPIRED_MESSAGE
+    if status == 403:
+        if "identity" in lowered or "profile" in lowered:
+            return "Set up your profile before sharing."
+        if "suspend" in lowered or "ban" in lowered:
+            return BANNED_MESSAGE
+        return "Your account can't do that right now."
+    if status == 404:
+        return "That link no longer exists."
+    if status == 413:
+        return f"This is too large to share as a link. Links can hold up to {MAX_UPLOAD_BYTES // 1_000_000} MB."
+    if status == 429:
+        return LIMIT_MESSAGE
+    if status == 400:
+        if "characters or less" in lowered:
+            return "Titles can be up to 100 characters and descriptions up to 500."
+        if "unsupported" in lowered:
+            return "This kind of file can't be shared as a link yet."
+        if action == "share":
+            return "This item couldn't be shared. Try again, or share the file instead."
+        return "That change couldn't be saved."
+    return UNAVAILABLE_MESSAGE
 
 
 class ShareRequest(BaseModel):
@@ -54,6 +117,8 @@ class ShareRequest(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     nsfw_override: bool = False
+    # Public "how it was made" (sidecar v2 request shape), or null to omit it.
+    provenance: Optional[Any] = None
 
 
 class ShareResponse(BaseModel):
@@ -61,7 +126,11 @@ class ShareResponse(BaseModel):
     shortcode: Optional[str] = None
     url: Optional[str] = None
     status: Optional[str] = None  # 'approved', 'quarantined', etc.
+    media_type: Optional[str] = None
     error: Optional[str] = None
+    # Machine-readable failure: signed_out | auth_expired | privacy_lockdown |
+    # too_large | blocked | unsupported | invalid_provenance | cloud | not_found
+    error_code: Optional[str] = None
 
 
 class PreCheckRequest(BaseModel):
@@ -75,187 +144,127 @@ class PreCheckResponse(BaseModel):
     decision: Optional[str] = None  # 'approved', 'quarantined', 'rejected'
     nsfw: bool = False
     reason: Optional[str] = None
+    size_bytes: Optional[int] = None
+    too_large: bool = False
+    media_type: Optional[str] = None
+    unsupported_reason: Optional[str] = None
+
+
+class ShareAccount(BaseModel):
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class ShareStatusResponse(BaseModel):
     can_share: bool
+    # signed_out | auth_expired | privacy_lockdown | banned | None
+    reason_code: Optional[str] = None
     reason: Optional[str] = None
-    username: Optional[str] = None
     identity_required: bool = False
+    account: Optional[ShareAccount] = None
+    # Kept for older clients; same as account.username.
+    username: Optional[str] = None
 
 
 def _get_media_type(file_format: str) -> str:
-    """Determine the share media type from the file format."""
-    fmt = file_format.lower()
-    if fmt == "stimmaset.json":
-        return "set"
-    elif fmt == "stimmagrid.json":
-        return "grid"
-    elif fmt == "stimmasprite.json":
-        return "sprite"
-    elif fmt == "stimmapackage":
-        return "package"
-    elif fmt == "stimmalayout":
-        return "layout"
-    elif fmt in VIDEO_FORMATS:
-        return "video"
-    else:
-        return "image"
+    """Share media type, with unknown formats treated as images (title suggestion)."""
+    return share_media_type(file_format) or "image"
 
 
-def _content_type_for(filename: str) -> str:
-    """Get MIME content type for a filename."""
-    ext = Path(filename).suffix.lstrip(".").lower()
-    return CONTENT_TYPES.get(ext, "application/octet-stream")
+# Status ───────────────────────────────────────────────────────────────────────
+
+# Account lookups are cached briefly per token so opening the dialog is fast.
+_ACCOUNT_CACHE_TTL_S = 60.0
+_account_cache: dict[str, tuple[float, dict]] = {}
 
 
-def _build_metadata(media_item: MediaItem, media_type: str, title: Optional[str], description: Optional[str], extra: Optional[dict] = None, nsfw_override: bool = False) -> dict:
-    """Build the metadata dict for the cloud API."""
-    metadata = {
-        "mediaType": media_type,
-        "title": title or "",
-        "description": description or "",
-        "width": media_item.width,
-        "height": media_item.height,
-        "duration": media_item.duration,
-        "toolId": media_item.tool_id,
-        "extractedPrompt": media_item.extracted_prompt,
-        "vlmCaption": media_item.vlm_caption,
-    }
-    if nsfw_override:
-        metadata["nsfwOverride"] = True
-    if extra:
-        metadata.update(extra)
-    return metadata
+async def _cached_account(token: str) -> dict:
+    from cloud_api import fetch_user_account
+
+    now = time.monotonic()
+    hit = _account_cache.get(token)
+    if hit and now - hit[0] < _ACCOUNT_CACHE_TTL_S:
+        return hit[1]
+    account = dict(await fetch_user_account(token))
+    _account_cache.clear()
+    _account_cache[token] = (now, account)
+    return account
 
 
-@router.post("", response_model=ShareResponse)
-async def share_media(request: ShareRequest, session: AsyncSession = Depends(get_db_session)):
-    """Share a media item to Stimma Cloud."""
-    from firebase_auth import get_valid_id_token
-    from utils.keyword_blocklist import check_blocklist, gather_texts_for_blocklist
+def _local_profile() -> dict:
+    """Display name / photo from the stored sign-in, when the cloud has none."""
+    try:
+        from auth_storage import load_auth_state
+
+        return dict((load_auth_state() or {}).get("user") or {})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+@router.get("/status", response_model=ShareStatusResponse)
+async def get_share_status():
+    """Whether this machine can publish links, and the account that will publish them."""
+    from firebase_auth import AuthSessionExpiredError, get_valid_id_token
 
     if is_privacy_lockdown_enabled():
-        return ShareResponse(success=False, error=disabled_message("Stimma sharing"))
-
-    # Load media item
-    media_item = await session.get(MediaItem, request.media_id)
-    if not media_item:
-        return ShareResponse(success=False, error="Media item not found")
-
-    media_type = _get_media_type(media_item.file_format)
-    if media_type == "sprite":
-        return ShareResponse(success=False, error="Sharing sprites is not supported yet")
-    if media_type == "package":
-        return ShareResponse(success=False, error="Hosted package links are not available yet; export a zip or single file instead")
-
-    # Keyword blocklist safety net — check all text including composite members
-    if media_type in ("set", "grid"):
-        texts, _ = await _gather_composite_moderation_data(
-            session, media_item, media_type, request.title, request.description,
+        return ShareStatusResponse(
+            can_share=False, reason_code="privacy_lockdown", reason=disabled_message("Stimma sharing"),
         )
-    elif media_type == "layout":
-        texts, _ = await _gather_layout_moderation_data(
-            media_item, request.title, request.description,
-        )
-    else:
-        texts = gather_texts_for_blocklist(media_item, request.title, request.description)
 
-    blocklist_result = check_blocklist(texts)
-    if blocklist_result.blocked:
-        log.warning("share blocked by keyword blocklist", media_id=request.media_id, pattern=blocklist_result.matched_pattern)
-        return ShareResponse(success=False, error="This content cannot be shared because it violates community guidelines.")
-
-    # Get auth token
     try:
-        token = await get_valid_id_token()
-    except Exception:
-        token = None
+        token = await get_valid_id_token(raise_on_failure=True)
+    except AuthSessionExpiredError:
+        return ShareStatusResponse(can_share=False, reason_code="auth_expired", reason=EXPIRED_MESSAGE)
+    except Exception:  # noqa: BLE001
+        return ShareStatusResponse(can_share=False, reason=UNREACHABLE_MESSAGE)
 
     if not token:
-        return ShareResponse(success=False, error="Not signed in to your Stimma account")
-    file_path = Path(media_item.file_path)
-    settings = get_settings()
-    cloud_base_url = settings.cloud.base_url
+        # The share surface's sign-in gate moment (conversion-funnel start).
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("gate_encountered", {
+            "gate": "signin_required",
+            "surface": "share",
+        }, category="account")
+        return ShareStatusResponse(can_share=False, reason_code="signed_out", reason=SIGNED_OUT_MESSAGE)
 
     try:
-        files = []
-        data = {}
+        account = await _cached_account(token)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            return ShareStatusResponse(can_share=False, reason_code="auth_expired", reason=EXPIRED_MESSAGE)
+        return ShareStatusResponse(can_share=False, reason=UNREACHABLE_MESSAGE)
+    except Exception as e:  # noqa: BLE001
+        log.warning("share status check failed", error=type(e).__name__)
+        return ShareStatusResponse(can_share=False, reason=UNREACHABLE_MESSAGE)
 
-        if media_type in ("set", "grid"):
-            files, data = await _build_composite_upload(session, media_item, media_type, request.title, request.description, request.nsfw_override)
-        elif media_type == "layout":
-            files, data = _build_layout_upload(media_item, file_path, request.title, request.description, request.nsfw_override)
-        else:
-            # Atomic media (image/video)
-            if not file_path.exists():
-                return ShareResponse(success=False, error="Media file not found on disk")
-
-            file_bytes = file_path.read_bytes()
-            content_type = _content_type_for(file_path.name)
-            files.append(("file", (file_path.name, file_bytes, content_type)))
-            data["metadata"] = json.dumps(_build_metadata(media_item, media_type, request.title, request.description, nsfw_override=request.nsfw_override))
-
-            # Generate OG thumbnail for social sharing previews
-            thumb_bytes = _generate_og_thumbnail(file_path, media_type)
-            if thumb_bytes:
-                files.append(("thumbnail", ("thumb.webp", thumb_bytes, "image/webp")))
-
-        # Build history sidecar (generation metadata + source input thumbnails)
-        try:
-            history_sidecar = await _build_history_sidecar(session, media_item)
-            if history_sidecar:
-                data["historySidecar"] = history_sidecar
-        except Exception as e:
-            log.warning("history sidecar generation failed, sharing without it", media_id=request.media_id, error=str(e))
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{cloud_base_url}/api/shares",
-                headers=with_cloud_access_headers({"Authorization": f"Bearer {token}"}),
-                files=files,
-                data=data,
-                timeout=120.0,
-            )
-
-        if response.status_code >= 400:
-            error_detail = response.text
-            try:
-                error_json = response.json()
-                error_detail = error_json.get("error", error_json.get("message", error_detail))
-            except Exception:
-                pass
-            log.warning("cloud share failed", status=response.status_code, error=error_detail)
-            return ShareResponse(success=False, error=f"Cloud API error: {error_detail}")
-
-        result = response.json()
-        share_url = result.get("url") or f"{cloud_base_url}/s/{result.get('shortcode', '')}"
-
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track(
-            "media_shared_to_cloud", {"count": 1}, category="share"
+    profile = _local_profile()
+    username = account.get("username")
+    info = ShareAccount(
+        username=username,
+        display_name=account.get("displayName") or profile.get("displayName") or username,
+        avatar_url=account.get("avatarUrl") or profile.get("photoURL"),
+    )
+    if account.get("sharingBanned"):
+        return ShareStatusResponse(
+            can_share=False, reason_code="banned", reason=BANNED_MESSAGE, account=info, username=username,
         )
-
-        return ShareResponse(
-            success=True,
-            shortcode=result.get("shortcode"),
-            url=share_url,
-            status=result.get("status"),
+    if not username:
+        return ShareStatusResponse(
+            can_share=False,
+            reason="Choose a username before sharing links.",
+            identity_required=True,
+            account=info,
         )
+    return ShareStatusResponse(can_share=True, account=info, username=username)
 
-    except httpx.TimeoutException:
-        log.error("cloud share timed out", media_id=request.media_id)
-        return ShareResponse(success=False, error="Upload timed out - the file may be too large")
-    except Exception as e:
-        log.error("cloud share failed", media_id=request.media_id, error=str(e))
-        return ShareResponse(success=False, error=str(e))
 
+# Moderation inputs ────────────────────────────────────────────────────────────
 
 def _image_to_base64_payload(img) -> dict:
     """Convert a PIL Image to a base64 payload dict for cloud moderation."""
     import base64
     import io
-    from PIL import Image
 
     if img.mode in ("RGBA", "LA", "PA", "P"):
         img = img.convert("RGB")
@@ -268,15 +277,11 @@ def _image_to_base64_payload(img) -> dict:
 
 
 def _rasterize_composite_for_moderation(member_paths: list[Path], max_size: int = 1024) -> Optional[dict]:
-    """Rasterize composite member images into a single grid image for moderation.
-
-    Creates a simple contact-sheet style grid so all member images are visible
-    in a single moderation API call.
-    """
+    """Contact sheet of composite member images, so one moderation call sees them all."""
     import math
     from PIL import Image
 
-    valid_paths = [p for p in member_paths if p.exists() and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}]
+    valid_paths = [p for p in member_paths if p.exists() and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"}]
     if not valid_paths:
         return None
 
@@ -297,7 +302,6 @@ def _rasterize_composite_for_moderation(member_paths: list[Path], max_size: int 
                     img = img.convert("RGB")
                 col = i % cols
                 row = i // cols
-                # Center the image in its cell
                 x_offset = col * cell_size + (cell_size - img.width) // 2
                 y_offset = row * cell_size + (cell_size - img.height) // 2
                 canvas.paste(img, (x_offset, y_offset))
@@ -320,64 +324,36 @@ async def _gather_composite_moderation_data(
     title: Optional[str] = None,
     description: Optional[str] = None,
 ) -> tuple[list[str], list[Path]]:
-    """Gather all text and member image paths from a composite media item.
-
-    Returns (texts_for_blocklist, member_image_paths).
-    """
-    from structured_media import read_composite_content, resolve_set_references, resolve_grid_references
+    """All text and member image paths of a set or grid: (texts, member_paths)."""
+    from share_payloads import _composite_content
 
     texts = [title, description, media_item.extracted_prompt, media_item.vlm_caption]
-    member_paths = []
-
-    content = await read_composite_content(session, media_item)
-    if not content:
+    member_paths: list[Path] = []
+    try:
+        content = await _composite_content(session, media_item, media_type)
+    except ShareBuildError:
         return texts, member_paths
 
-    file_path = Path(media_item.file_path)
-    parent_dir = file_path.parent
-
-    # Resolve members to get their MediaItem data (prompts, captions)
-    if media_type == "set":
-        resolved = await resolve_set_references(session, content, file_path)
-        members = resolved.get("items", [])
-    elif media_type == "grid":
-        resolved = await resolve_grid_references(session, content, file_path)
-        members = resolved.get("cells", [])
-        # Include grid headers
-        for header in content.get("row_headers", []):
-            texts.append(header)
-        for header in content.get("col_headers", []):
-            texts.append(header)
-    else:
-        members = []
-
-    for member in members:
-        # Collect member image path
-        member_path_str = member.get("path")
-        if member_path_str:
-            member_path = parent_dir / member_path_str
-            member_paths.append(member_path)
-
-        # Collect member text from resolved MediaItem data
-        resolved_data = member.get("resolved")
-        if resolved_data:
-            if resolved_data.get("vlm_caption"):
-                texts.append(resolved_data["vlm_caption"])
-            # Extract prompts from member's generation_metadata
-            gen_meta = resolved_data.get("generation_metadata")
-            if gen_meta:
-                try:
-                    meta = json.loads(gen_meta) if isinstance(gen_meta, str) else gen_meta
-                    if meta.get("prompt"):
-                        texts.append(meta["prompt"])
-                    if meta.get("negative_prompt"):
-                        texts.append(meta["negative_prompt"])
-                    params = meta.get("parameters", {})
-                    if params.get("prompt"):
-                        texts.append(params["prompt"])
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
+    base = Path(media_item.file_path)
+    if media_type == "grid":
+        texts.extend(str(h) for h in content.get("row_headers") or [])
+        texts.extend(str(h) for h in content.get("col_headers") or [])
+    for entry in content.get("items" if media_type == "set" else "cells") or []:
+        if not isinstance(entry, dict):
+            continue
+        path = composite_member_path(entry, base)
+        if path is not None:
+            member_paths.append(path)
+        texts.extend([entry.get("title"), entry.get("caption")])
+        resolved = entry.get("resolved") or {}
+        texts.append(resolved.get("vlm_caption"))
+        gen_meta = resolved.get("generation_metadata")
+        if gen_meta:
+            try:
+                meta = json.loads(gen_meta) if isinstance(gen_meta, str) else gen_meta
+                texts.extend([meta.get("prompt"), meta.get("negative_prompt"), (meta.get("parameters") or {}).get("prompt")])
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
     return texts, member_paths
 
 
@@ -400,90 +376,101 @@ async def _gather_layout_moderation_data(
     return texts, member_paths
 
 
+def _markdown_text(media_item: MediaItem) -> Optional[str]:
+    from structured_media import read_markdown_file
+
+    parsed = read_markdown_file(Path(media_item.file_path))
+    return (parsed or {}).get("content", "")[:4000] or None
+
+
+async def _moderation_texts(
+    session: AsyncSession, media_item: MediaItem, media_type: str, title: Optional[str], description: Optional[str],
+) -> tuple[list[str], list[Path]]:
+    from utils.keyword_blocklist import gather_texts_for_blocklist
+
+    if media_type in ("set", "grid"):
+        return await _gather_composite_moderation_data(session, media_item, media_type, title, description)
+    if media_type == "layout":
+        return await _gather_layout_moderation_data(media_item, title, description)
+    texts = gather_texts_for_blocklist(media_item, title, description)
+    if media_type == "text":
+        texts.append(_markdown_text(media_item))
+    return texts, []
+
+
+def _provenance_texts(provenance) -> list[str]:
+    texts: list[str] = []
+    for step in provenance.steps if provenance is not None else []:
+        texts.extend([step.prompt, step.negativePrompt, step.originalPrompt])
+    return texts
+
+
+# Pre-check ────────────────────────────────────────────────────────────────────
+
 @router.post("/pre-check", response_model=PreCheckResponse)
 async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depends(get_db_session)):
-    """Run moderation checks without creating a share.
+    """Size, type support and moderation, without creating a share.
 
-    Runs the keyword blocklist locally (instant), then calls the cloud
-    moderation API for image + text analysis. For composites (sets/grids/layouts),
-    rasterizes all member images into a single grid and aggregates all member text.
+    The keyword blocklist runs locally; the cloud moderation API then sees the
+    text plus an image (for composites, a contact sheet of every member).
     """
     if is_privacy_lockdown_enabled():
         return PreCheckResponse(blocked=False)
 
-    from firebase_auth import get_valid_id_token
-    from utils.keyword_blocklist import check_blocklist, gather_texts_for_blocklist
+    from utils.keyword_blocklist import check_blocklist
 
     media_item = await session.get(MediaItem, request.media_id)
-    if not media_item:
-        return PreCheckResponse(blocked=False, reason="Media item not found")
+    if not media_item or media_item.deleted_at is not None:
+        return PreCheckResponse(blocked=False, reason="Media item not found", unsupported_reason="Media item not found")
 
-    media_type = _get_media_type(media_item.file_format)
+    media_type = share_media_type(media_item.file_format)
+    if media_type is None:
+        msg = "This kind of file can't be shared as a link yet."
+        return PreCheckResponse(blocked=True, reason=msg, unsupported_reason=msg)
+
     file_path = Path(media_item.file_path)
-    if media_type == "sprite":
-        return PreCheckResponse(blocked=True, reason="Sharing sprites is not supported yet")
-    if media_type == "package":
-        return PreCheckResponse(blocked=True, reason="Hosted package links are not available yet; export a zip or single file instead")
+    if not file_path.exists():
+        msg = "The file for this item is missing from disk."
+        return PreCheckResponse(blocked=True, reason=msg, media_type=media_type, unsupported_reason=msg)
+
+    try:
+        size_bytes = await estimate_upload_bytes(session, media_item)
+    except Exception as e:  # noqa: BLE001
+        log.debug("share size estimate failed", error=type(e).__name__)
+        size_bytes = None
+    if size_bytes is not None and size_bytes > MAX_UPLOAD_BYTES:
+        return PreCheckResponse(
+            blocked=False,
+            reason=too_large_message(size_bytes),
+            size_bytes=size_bytes,
+            too_large=True,
+            media_type=media_type,
+        )
+    base = {"size_bytes": size_bytes, "media_type": media_type}
 
     # 1. Gather text + image data based on media type
-    if media_type in ("set", "grid"):
-        texts, member_paths = await _gather_composite_moderation_data(
-            session, media_item, media_type, request.title, request.description,
-        )
-    elif media_type == "layout":
-        texts, member_paths = await _gather_layout_moderation_data(
-            media_item, request.title, request.description,
-        )
-    else:
-        texts = gather_texts_for_blocklist(media_item, request.title, request.description)
-        member_paths = []
-
-    # Include lineage_trace prompts in moderation text
-    if media_item.generation_metadata:
-        try:
-            gen_meta = json.loads(media_item.generation_metadata) if isinstance(media_item.generation_metadata, str) else media_item.generation_metadata
-            for ancestor in (gen_meta.get("lineage_trace") or []):
-                if not ancestor:
-                    continue
-                if ancestor.get("prompt"):
-                    texts.append(ancestor["prompt"])
-                if ancestor.get("negative_prompt"):
-                    texts.append(ancestor["negative_prompt"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+    texts, member_paths = await _moderation_texts(
+        session, media_item, media_type, request.title, request.description,
+    )
 
     # 2. Keyword blocklist (instant, local)
     blocklist_result = check_blocklist(texts)
     if blocklist_result.blocked:
         log.info("pre-check blocked by keyword blocklist", media_id=request.media_id, pattern=blocklist_result.matched_pattern)
-        return PreCheckResponse(
-            blocked=True,
-            decision="rejected",
-            reason="This content cannot be shared because it violates community guidelines.",
-        )
+        return PreCheckResponse(blocked=True, decision="rejected", reason=GUIDELINES_MESSAGE, **base)
 
-    # 3. Cloud moderation (OpenAI omni-moderation via cloud API)
-    try:
-        token = await get_valid_id_token()
-    except Exception:
-        token = None
-
+    # 3. Cloud moderation
+    token = await _token()
     if not token:
-        return PreCheckResponse(blocked=False)
+        return PreCheckResponse(blocked=False, **base)
 
-    settings = get_settings()
-    cloud_base_url = settings.cloud.base_url
-
-    # Build moderation text
     mod_text_parts = [t for t in texts if t]
     mod_text = "\n".join(mod_text_parts) if mod_text_parts else None
 
-    # Prepare image for moderation
     image_payload = None
     if media_type in ("set", "grid", "layout") and member_paths:
-        # Rasterize all members into a single composite image
         image_payload = _rasterize_composite_for_moderation(member_paths)
-    elif media_type == "image" and file_path.exists():
+    elif media_type == "image":
         try:
             from utils.image_ops import open_oriented
             img = open_oriented(file_path)
@@ -494,23 +481,16 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
             log.debug("pre-check image preparation failed", error=str(e))
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with _cloud_client(30.0) as client:
             response = await client.post(
-                f"{cloud_base_url}/api/shares/pre-check",
-                headers=with_cloud_access_headers({
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                }),
-                json={
-                    "text": mod_text,
-                    "imageBase64": image_payload,
-                },
-                timeout=30.0,
+                f"{get_settings().cloud.base_url}/api/shares/pre-check",
+                headers=_cloud_headers(token, json_body=True),
+                json={"text": mod_text, "imageBase64": image_payload},
             )
 
         if response.status_code >= 400:
             log.warning("cloud pre-check failed", status=response.status_code)
-            return PreCheckResponse(blocked=False)
+            return PreCheckResponse(blocked=False, **base)
 
         result = response.json()
         decision = result.get("decision", "approved")
@@ -518,318 +498,331 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
 
         reason = None
         if decision == "rejected":
-            reason = "This content cannot be shared because it violates community guidelines."
+            reason = GUIDELINES_MESSAGE
         elif decision == "quarantined":
             reason = "This content may require review before becoming publicly visible."
 
         return PreCheckResponse(
-            blocked=(decision == "rejected"),
-            decision=decision,
-            nsfw=nsfw,
-            reason=reason,
+            blocked=(decision == "rejected"), decision=decision, nsfw=nsfw, reason=reason, **base,
         )
 
     except httpx.TimeoutException:
         log.warning("cloud pre-check timed out", media_id=request.media_id)
-        return PreCheckResponse(blocked=False)
+        return PreCheckResponse(blocked=False, **base)
     except Exception as e:
         log.warning("cloud pre-check failed", media_id=request.media_id, error=str(e))
-        return PreCheckResponse(blocked=False)
+        return PreCheckResponse(blocked=False, **base)
 
 
-async def _build_composite_upload(
-    session: AsyncSession,
-    media_item: MediaItem,
-    media_type: str,
-    title: Optional[str],
-    description: Optional[str],
-    nsfw_override: bool = False,
-) -> tuple[list, dict]:
-    """Build multipart upload data for a set or grid.
+# Create ───────────────────────────────────────────────────────────────────────
 
-    Rasterizes all member images into a single composite thumbnail for moderation,
-    and aggregates member prompts/captions so the cloud moderates all content.
-    """
-    from structured_media import read_composite_content
+@router.post("", response_model=ShareResponse)
+async def share_media(request: ShareRequest, session: AsyncSession = Depends(get_db_session)):
+    """Publish a library item as a public link."""
+    from utils.keyword_blocklist import check_blocklist
 
-    content = await read_composite_content(session, media_item)
-    if not content:
-        raise ValueError(f"Could not read {media_type} content")
+    if is_privacy_lockdown_enabled():
+        return ShareResponse(success=False, error=disabled_message("Stimma sharing"), error_code="privacy_lockdown")
 
-    file_path = Path(media_item.file_path)
-    parent_dir = file_path.parent
+    media_item = await session.get(MediaItem, request.media_id)
+    if not media_item or media_item.deleted_at is not None:
+        return ShareResponse(success=False, error="Media item not found", error_code="not_found")
 
-    files = []
-    data = {}
-
-    # Add structured content JSON
-    data["structuredContent"] = json.dumps(content)
-
-    # Resolve member paths and add member files
-    members = []
-    if media_type == "set":
-        members = content.get("items", [])
-    elif media_type == "grid":
-        members = content.get("cells", [])
-
-    member_image_paths = []
-    for member in members:
-        member_path_str = member.get("path")
-        if not member_path_str:
-            continue
-
-        member_path = parent_dir / member_path_str
-        if not member_path.exists():
-            log.warning("composite member file missing", path=str(member_path))
-            continue
-
-        member_bytes = member_path.read_bytes()
-        content_type = _content_type_for(member_path.name)
-        files.append(("members", (member_path.name, member_bytes, content_type)))
-        member_image_paths.append(member_path)
-
-    # Generate composite thumbnail: rasterize all members into a single image
-    composite_thumb = _rasterize_composite_for_moderation(member_image_paths)
-    if composite_thumb:
-        import base64
-        thumb_bytes = base64.b64decode(composite_thumb["data"])
-        files.append(("thumbnail", ("thumb.jpg", thumb_bytes, "image/jpeg")))
-    elif member_image_paths:
-        # Fallback: use first member as thumbnail
-        first_path = member_image_paths[0]
-        files.append(("thumbnail", (first_path.name, first_path.read_bytes(), _content_type_for(first_path.name))))
-
-    # Gather member text for moderation (prompts, captions from resolved members)
-    member_texts = await _gather_composite_moderation_data(
-        session, media_item, media_type, title, description,
-    )
-    member_text_parts = [t for t in member_texts[0] if t]
-
-    # Build metadata, include grid headers and aggregated member text
-    extra = {}
-    if media_type == "grid":
-        if content.get("row_headers"):
-            extra["rowHeaders"] = content["row_headers"]
-        if content.get("col_headers"):
-            extra["colHeaders"] = content["col_headers"]
-
-    # Include aggregated member prompts as extractedPrompt so cloud moderation
-    # checks all text, not just the parent item's prompt
-    if member_text_parts:
-        extra["extractedPrompt"] = "\n".join(member_text_parts)
-
-    data["metadata"] = json.dumps(_build_metadata(media_item, media_type, title, description, extra, nsfw_override=nsfw_override))
-
-    return files, data
-
-
-def _build_layout_upload(
-    media_item: MediaItem,
-    layout_dir: Path,
-    title: Optional[str],
-    description: Optional[str],
-    nsfw_override: bool = False,
-) -> tuple[list, dict]:
-    """Build multipart upload data for a .stimmalayout bundle."""
-    files = []
-    data = {}
-
-    index_html = layout_dir / "index.html"
-    if not index_html.exists():
-        raise ValueError("Layout bundle missing index.html")
-
-    # Add index.html as the primary file
-    files.append(("file", ("index.html", index_html.read_bytes(), "text/html")))
-
-    # Add any images in the layout directory as members
-    image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
-    thumbnail_added = False
-    for child in layout_dir.iterdir():
-        if child.suffix.lower() in image_extensions and child.is_file():
-            content_type = _content_type_for(child.name)
-            member_bytes = child.read_bytes()
-            files.append(("members", (child.name, member_bytes, content_type)))
-
-            # Use first image as OG thumbnail
-            if not thumbnail_added and child.suffix.lower() != ".svg":
-                thumb_bytes = _generate_og_thumbnail(child, "image")
-                if thumb_bytes:
-                    files.append(("thumbnail", ("thumb.webp", thumb_bytes, "image/webp")))
-                    thumbnail_added = True
-
-    data["metadata"] = json.dumps(_build_metadata(media_item, "layout", title, description, nsfw_override=nsfw_override))
-
-    return files, data
-
-
-def _generate_og_thumbnail(file_path: Path, media_type: str) -> Optional[bytes]:
-    """Generate an OG-optimized thumbnail for social sharing previews.
-
-    Returns WebP bytes sized for social cards, or None on failure.
-    """
-    import io
-    from PIL import Image
-
-    try:
-        if media_type == "video":
-            import ffmpeg
-            out, _ = (
-                ffmpeg
-                .input(str(file_path), ss=0)
-                .output('pipe:', vframes=1, format='image2', vcodec='mjpeg')
-                .run(capture_stdout=True, capture_stderr=True, quiet=True)
-            )
-            img = Image.open(io.BytesIO(out))
-        else:
-            from utils.image_ops import open_oriented
-            img = open_oriented(file_path)
-
-        # Convert to RGB (strip alpha)
-        if img.mode in ("RGBA", "LA", "PA", "P"):
-            img = img.convert("RGB")
-
-        # Resize to fit within OG dimensions, preserving aspect ratio
-        img.thumbnail((OG_THUMB_MAX_WIDTH, OG_THUMB_MAX_HEIGHT), Image.LANCZOS)
-
-        buf = io.BytesIO()
-        img.save(buf, format="WEBP", quality=OG_THUMB_QUALITY)
-        img.close()
-
-        return buf.getvalue()
-    except Exception as e:
-        log.debug("OG thumbnail generation failed", error=str(e), path=str(file_path))
-        return None
-
-
-async def _build_history_sidecar(session: AsyncSession, media_item: MediaItem) -> Optional[str]:
-    """Build a JSON sidecar with generation history + base64 thumbnails for source inputs.
-
-    Returns a JSON string containing:
-    - generationMetadata: the full generation_metadata from the media item
-    - thumbnails: dict mapping media_id (str) → data URI for source input thumbnails
-
-    Returns None if the media has no generation history.
-    """
-    import base64
-    import io
-    from PIL import Image
-
-    # Parse generation metadata
-    if not media_item.generation_metadata:
-        return None
-    try:
-        gen_meta = json.loads(media_item.generation_metadata) if isinstance(media_item.generation_metadata, str) else media_item.generation_metadata
-    except (json.JSONDecodeError, TypeError):
-        return None
-
-    if not gen_meta:
-        return None
-
-    # Collect all source_input media_ids from current step + lineage_trace
-    media_ids_needed = set()
-    file_paths_needed = set()
-
-    def _collect_source_refs(step):
-        for source in (step.get("source_inputs") or []):
-            if source.get("media_id"):
-                media_ids_needed.add(source["media_id"])
-            elif source.get("file_path"):
-                file_paths_needed.add(source["file_path"])
-
-    _collect_source_refs(gen_meta)
-    for ancestor in (gen_meta.get("lineage_trace") or []):
-        if ancestor:
-            _collect_source_refs(ancestor)
-
-    # Generate thumbnails for referenced media
-    thumbnails = {}
-
-    # Thumbnails for media_id references
-    if media_ids_needed:
-        from sqlalchemy import select
-        result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(list(media_ids_needed)))
+    media_type = share_media_type(media_item.file_format)
+    if media_type is None:
+        return ShareResponse(
+            success=False, error="This kind of file can't be shared as a link yet.", error_code="unsupported",
         )
-        ref_items = {item.id: item for item in result.scalars().all()}
-
-        for mid in media_ids_needed:
-            ref = ref_items.get(mid)
-            if not ref:
-                continue
-            thumb_data = _generate_source_thumbnail(ref)
-            if thumb_data:
-                thumbnails[str(mid)] = thumb_data
-
-    # Thumbnails for file_path references (external/non-library files)
-    for fp in file_paths_needed:
-        p = Path(fp)
-        if not p.exists():
-            continue
-        try:
-            from utils.image_ops import open_oriented
-            img = open_oriented(p)
-            img.thumbnail((HISTORY_THUMB_SIZE, HISTORY_THUMB_SIZE), Image.LANCZOS)
-            if img.mode in ("RGBA", "LA", "PA", "P"):
-                img = img.convert("RGB")
-            buf = io.BytesIO()
-            img.save(buf, format="WEBP", quality=HISTORY_THUMB_QUALITY)
-            img.close()
-            thumbnails[fp] = f"data:image/webp;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
-        except Exception:
-            continue
-
-    sidecar = {
-        "generationMetadata": gen_meta,
-        "thumbnails": thumbnails,
-    }
-
-    result_json = json.dumps(sidecar)
-    # Cap at 2MB to prevent oversized uploads
-    if len(result_json) > 2 * 1024 * 1024:
-        # Strip thumbnails if too large
-        sidecar["thumbnails"] = {}
-        result_json = json.dumps(sidecar)
-
-    return result_json
-
-
-def _generate_source_thumbnail(media_item: MediaItem) -> Optional[str]:
-    """Generate a base64 data URI thumbnail for a source input media item."""
-    import base64
-    import io
-    from PIL import Image
-
-    file_path = Path(media_item.file_path)
-    if not file_path.exists():
-        return None
-
-    fmt = media_item.file_format.lower() if media_item.file_format else ""
 
     try:
-        if fmt in VIDEO_FORMATS:
-            import ffmpeg
-            out, _ = (
-                ffmpeg
-                .input(str(file_path), ss=0)
-                .output('pipe:', vframes=1, format='image2', vcodec='mjpeg')
-                .run(capture_stdout=True, capture_stderr=True, quiet=True)
+        provenance = parse_provenance(request.provenance)
+    except ProvenanceError as e:
+        return ShareResponse(success=False, media_type=media_type, error=str(e), error_code="invalid_provenance")
+
+    # Keyword blocklist safety net — all text including composite members and
+    # the "how it was made" prompts that would be published.
+    texts, _ = await _moderation_texts(session, media_item, media_type, request.title, request.description)
+    texts.extend(_provenance_texts(provenance))
+    blocklist_result = check_blocklist(texts)
+    if blocklist_result.blocked:
+        log.warning("share blocked by keyword blocklist", media_id=request.media_id, pattern=blocklist_result.matched_pattern)
+        return ShareResponse(success=False, media_type=media_type, error=GUIDELINES_MESSAGE, error_code="blocked")
+
+    token = await _token()
+    if not token:
+        return ShareResponse(success=False, media_type=media_type, error=SIGNED_OUT_MESSAGE, error_code="signed_out")
+
+    try:
+        payload = await build_payload(session, media_item)
+    except ShareBuildError as e:
+        return ShareResponse(success=False, media_type=media_type, error=str(e), error_code="unsupported")
+    except Exception as e:  # noqa: BLE001
+        log.error("share payload build failed", media_id=request.media_id, error_type=type(e).__name__)
+        return ShareResponse(
+            success=False, media_type=media_type, error="This item couldn't be prepared for sharing.", error_code="unsupported",
+        )
+
+    sidecar = None
+    if provenance is not None:
+        try:
+            sidecar = await build_public_sidecar(session, provenance)
+        except Exception as e:  # noqa: BLE001
+            log.warning("share provenance build failed, sharing without it", error_type=type(e).__name__)
+
+    data = _share_form_fields(media_item, payload, request, sidecar)
+    if "historySidecar" in data and len(data["historySidecar"].encode("utf-8")) > CLOUD_LIMITS["historySidecar"]:
+        log.info("share provenance sidecar over the cloud limit, sharing without it")
+        data.pop("historySidecar")
+    problem = cloud_limit_problem(payload, data)
+    if problem:
+        return ShareResponse(success=False, media_type=media_type, error=problem, error_code="too_large")
+    total = form_bytes(payload, data)
+    if total > MAX_UPLOAD_BYTES:
+        return ShareResponse(success=False, media_type=media_type, error=too_large_message(total), error_code="too_large")
+
+    cloud_base_url = get_settings().cloud.base_url
+    try:
+        async with _cloud_client(300.0) as client:
+            response = await client.post(
+                f"{cloud_base_url}/api/shares",
+                headers=_cloud_headers(token),
+                files=payload.files(),
+                data=data,
             )
-            img = Image.open(io.BytesIO(out))
-        else:
-            from utils.image_ops import open_oriented
-            img = open_oriented(file_path)
+    except httpx.TimeoutException:
+        log.error("cloud share timed out", media_id=request.media_id)
+        return ShareResponse(
+            success=False, media_type=media_type,
+            error="The upload timed out. Check your connection and try again.", error_code="cloud",
+        )
+    except Exception as e:  # noqa: BLE001
+        log.error("cloud share failed", media_id=request.media_id, error_type=type(e).__name__)
+        return ShareResponse(success=False, media_type=media_type, error=UNAVAILABLE_MESSAGE, error_code="cloud")
 
-        img.thumbnail((HISTORY_THUMB_SIZE, HISTORY_THUMB_SIZE), Image.LANCZOS)
-        if img.mode in ("RGBA", "LA", "PA", "P"):
-            img = img.convert("RGB")
-        buf = io.BytesIO()
-        img.save(buf, format="WEBP", quality=HISTORY_THUMB_QUALITY)
-        img.close()
-        return f"data:image/webp;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
-    except Exception as e:
-        log.debug("source thumbnail generation failed", media_id=media_item.id, error=str(e))
+    if response.status_code >= 400:
+        detail = _cloud_error_detail(response)
+        log.warning("cloud share failed", status=response.status_code, error=detail[:200])
+        code = {401: "auth_expired", 413: "too_large"}.get(response.status_code, "cloud")
+        return ShareResponse(
+            success=False, media_type=media_type,
+            error=_friendly_cloud_error(response.status_code, detail), error_code=code,
+        )
+
+    result = response.json()
+    shortcode = result.get("shortcode")
+    share_url = result.get("url") or f"{cloud_base_url}/s/{shortcode or ''}"
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("media_shared_to_cloud", {"count": 1}, category="share")
+
+    return ShareResponse(
+        success=True,
+        shortcode=shortcode,
+        url=share_url,
+        status=result.get("status"),
+        media_type=media_type,
+    )
+
+
+def _share_form_fields(media_item: MediaItem, payload, request: ShareRequest, sidecar: Optional[dict]) -> dict[str, str]:
+    """Text fields of the cloud multipart form."""
+    metadata = dict(payload.metadata)
+    metadata["title"] = request.title or ""
+    metadata["description"] = request.description or ""
+    if request.nsfw_override:
+        metadata["nsfwOverride"] = True
+    # Moderation inputs (the cloud moderates these; they are not published).
+    moderation_prompt = "\n".join(t for t in [media_item.extracted_prompt, payload.moderation_text] if t)
+    if moderation_prompt:
+        metadata["extractedPrompt"] = moderation_prompt
+    if media_item.vlm_caption:
+        metadata["vlmCaption"] = media_item.vlm_caption
+    data = {"metadata": json.dumps(metadata)}
+    if payload.structured_content is not None:
+        data["structuredContent"] = json.dumps(payload.structured_content)
+    if sidecar is not None:
+        data["historySidecar"] = json.dumps(sidecar)
+    return data
+
+
+# Links ────────────────────────────────────────────────────────────────────────
+
+class ShareLink(BaseModel):
+    shortcode: str
+    url: str
+    title: Optional[str] = None
+    status: Optional[str] = None
+    media_type: Optional[str] = None
+    view_count: int = 0
+    created_at: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+
+class ShareLinksResponse(BaseModel):
+    links: list[ShareLink] = []
+    total: int = 0
+    limit: int = 25
+    offset: int = 0
+    error: Optional[str] = None
+
+
+class UpdateLinkRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+class UpdatedLink(BaseModel):
+    shortcode: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+class UpdateLinkResponse(BaseModel):
+    success: bool
+    link: Optional[UpdatedLink] = None
+    error: Optional[str] = None
+
+
+class DeleteLinkResponse(BaseModel):
+    success: bool
+    shortcode: Optional[str] = None
+    error: Optional[str] = None
+
+
+def _normalize_link(row: dict, cloud_base_url: str) -> Optional[ShareLink]:
+    shortcode = row.get("shortcode")
+    if not isinstance(shortcode, str) or not shortcode:
         return None
+    created = row.get("createdAt")
+    return ShareLink(
+        shortcode=shortcode,
+        url=row.get("url") or f"{cloud_base_url}/s/{shortcode}",
+        title=row.get("title"),
+        status=row.get("status"),
+        media_type=row.get("mediaType"),
+        view_count=int(row.get("viewCount") or 0),
+        created_at=str(created) if created is not None else None,
+        thumbnail_url=row.get("thumbnailUrl"),
+    )
 
+
+@router.get("/links", response_model=ShareLinksResponse)
+async def list_links(
+    media_id: Optional[int] = None,
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """This account's links: all of them, or only those of one library item."""
+    empty = ShareLinksResponse(limit=limit, offset=offset)
+    if is_privacy_lockdown_enabled():
+        empty.error = disabled_message("Stimma sharing")
+        return empty
+
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if media_id is not None:
+        media_item = await session.get(MediaItem, media_id)
+        if media_item is None or not media_item.file_hash:
+            return empty
+        params["sourceHash"] = media_item.file_hash
+
+    token = await _token()
+    if not token:
+        empty.error = SIGNED_OUT_MESSAGE
+        return empty
+
+    cloud_base_url = get_settings().cloud.base_url
+    try:
+        async with _cloud_client(15.0) as client:
+            response = await client.get(
+                f"{cloud_base_url}/api/shares", params=params, headers=_cloud_headers(token),
+            )
+    except Exception as e:  # noqa: BLE001
+        log.warning("list share links failed", error_type=type(e).__name__)
+        empty.error = UNAVAILABLE_MESSAGE
+        return empty
+    if response.status_code >= 400:
+        empty.error = _friendly_cloud_error(response.status_code, _cloud_error_detail(response), action="list")
+        return empty
+
+    body = response.json() if response.content else {}
+    rows = body.get("shares") or []
+    links = [link for link in (_normalize_link(r, cloud_base_url) for r in rows if isinstance(r, dict)) if link]
+    return ShareLinksResponse(
+        links=links,
+        total=int(body.get("total") or len(links)),
+        limit=int(body.get("limit") or limit),
+        offset=int(body.get("offset") or offset),
+    )
+
+
+@router.patch("/links/{shortcode}", response_model=UpdateLinkResponse)
+async def update_link(shortcode: str, request: UpdateLinkRequest):
+    """Edit a link's title and/or description (only the fields sent)."""
+    if is_privacy_lockdown_enabled():
+        return UpdateLinkResponse(success=False, error=disabled_message("Stimma sharing"))
+    if not _SHORTCODE_RE.match(shortcode):
+        return UpdateLinkResponse(success=False, error="That link no longer exists.")
+    body = {k: getattr(request, k) for k in ("title", "description") if k in request.model_fields_set}
+    if not body:
+        return UpdateLinkResponse(success=False, error="Nothing to change.")
+
+    token = await _token()
+    if not token:
+        return UpdateLinkResponse(success=False, error=SIGNED_OUT_MESSAGE)
+    try:
+        async with _cloud_client(15.0) as client:
+            response = await client.patch(
+                f"{get_settings().cloud.base_url}/api/shares/{shortcode}",
+                json=body,
+                headers=_cloud_headers(token, json_body=True),
+            )
+    except Exception as e:  # noqa: BLE001
+        log.warning("update share link failed", error_type=type(e).__name__)
+        return UpdateLinkResponse(success=False, error=UNAVAILABLE_MESSAGE)
+    if response.status_code >= 400:
+        return UpdateLinkResponse(
+            success=False,
+            error=_friendly_cloud_error(response.status_code, _cloud_error_detail(response), action="update"),
+        )
+    result = response.json()
+    return UpdateLinkResponse(
+        success=True,
+        link=UpdatedLink(
+            shortcode=result.get("shortcode") or shortcode,
+            title=result.get("title"),
+            description=result.get("description"),
+        ),
+    )
+
+
+@router.delete("/links/{shortcode}", response_model=DeleteLinkResponse)
+async def delete_link(shortcode: str):
+    """Take a link down."""
+    if is_privacy_lockdown_enabled():
+        return DeleteLinkResponse(success=False, error=disabled_message("Stimma sharing"))
+    if not _SHORTCODE_RE.match(shortcode):
+        return DeleteLinkResponse(success=False, error="That link no longer exists.")
+    token = await _token()
+    if not token:
+        return DeleteLinkResponse(success=False, error=SIGNED_OUT_MESSAGE)
+    try:
+        async with _cloud_client(15.0) as client:
+            response = await client.delete(
+                f"{get_settings().cloud.base_url}/api/shares/{shortcode}", headers=_cloud_headers(token),
+            )
+    except Exception as e:  # noqa: BLE001
+        log.warning("delete share link failed", error_type=type(e).__name__)
+        return DeleteLinkResponse(success=False, error=UNAVAILABLE_MESSAGE)
+    if response.status_code >= 400:
+        return DeleteLinkResponse(
+            success=False,
+            error=_friendly_cloud_error(response.status_code, _cloud_error_detail(response), action="delete"),
+        )
+    return DeleteLinkResponse(success=True, shortcode=shortcode)
+
+
+# Title suggestion ─────────────────────────────────────────────────────────────
 
 class SuggestTitleRequest(BaseModel):
     media_id: int
@@ -1093,50 +1086,6 @@ async def _llm_generate_title(context_parts: list[str]) -> SuggestTitleResponse:
     return SuggestTitleResponse()
 
 
-@router.get("/status", response_model=ShareStatusResponse)
-async def get_share_status():
-    """Check if the current user can share to Stimma Cloud."""
-    from firebase_auth import get_valid_id_token
-    from cloud_api import fetch_user_account
-
-    if is_privacy_lockdown_enabled():
-        return ShareStatusResponse(can_share=False, reason=disabled_message("Stimma sharing"))
-
-    try:
-        token = await get_valid_id_token()
-    except Exception:
-        token = None
-
-    if not token:
-        # The share surface's sign-in gate moment (conversion-funnel start).
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("gate_encountered", {
-            "gate": "signin_required",
-            "surface": "share",
-        }, category="account")
-        return ShareStatusResponse(can_share=False, reason="Not signed in to your Stimma account")
-
-    try:
-        account = await fetch_user_account(token)
-        username = account.get("username")
-        sharing_banned = account.get("sharingBanned", False)
-
-        if sharing_banned:
-            return ShareStatusResponse(can_share=False, reason="Your sharing privileges have been suspended", username=username)
-
-        if not username:
-            return ShareStatusResponse(can_share=False, reason="You need to set up your profile before sharing", identity_required=True)
-
-        return ShareStatusResponse(can_share=True, username=username)
-
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 401:
-            return ShareStatusResponse(can_share=False, reason="Authentication expired - please sign in again")
-        return ShareStatusResponse(can_share=False, reason="Unable to verify account status")
-    except Exception as e:
-        log.warning("share status check failed", error=str(e))
-        return ShareStatusResponse(can_share=False, reason="Unable to check share status")
-
 
 class CheckUsernameResponse(BaseModel):
     available: bool
@@ -1238,6 +1187,8 @@ async def setup_identity(request: SetupIdentityRequest):
                 error=data.get("error", "Failed to set up identity"),
             )
 
+        # The cached account predates the new username.
+        _account_cache.clear()
         return SetupIdentityResponse(
             success=True,
             username=data.get("username"),
