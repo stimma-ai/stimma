@@ -138,6 +138,7 @@ build-desktop/
 src-tauri/target/
 src-tauri/binaries/
 src-tauri/gen/
+src-tauri/icons/.generated/
 target-tauri/
 
 # Packaged desktop outputs
