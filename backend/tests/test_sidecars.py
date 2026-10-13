@@ -26,6 +26,34 @@ def test_resolve_prefers_explicit_override(tmp_path, monkeypatch):
     assert sidecars.available_sidecars() == ["drawthings"]
 
 
+def test_source_checkout_resolves_staged_desktop_sidecar(tmp_path, monkeypatch):
+    repo = tmp_path / "checkout"
+    staged = repo / "build-desktop" / "binaries"
+    staged.mkdir(parents=True)
+    fake = _fake_sidecar(staged, "exit 0\n")
+    fake = fake.rename(staged / "stimma-drawthings-aarch64-apple-darwin")
+    monkeypatch.setattr(sidecars, "__file__", str(repo / "backend" / "providers" / "sidecars.py"))
+    monkeypatch.setattr(sidecars.sys, "platform", "darwin")
+    monkeypatch.delenv("STIMMA_SIDECAR_STIMMA_DRAWTHINGS", raising=False)
+    monkeypatch.setattr(sidecars.shutil, "which", lambda _: None)
+    assert sidecars.resolve_sidecar("drawthings") == fake
+
+
+def test_packaged_sidecar_precedes_checkout_staging(tmp_path, monkeypatch):
+    resources = tmp_path / "Resources"
+    resources.mkdir()
+    packaged = _fake_sidecar(resources, "exit 0\n")
+    backend_root = resources / "stimma-backend"
+    staged = backend_root / "build-desktop" / "binaries"
+    staged.mkdir(parents=True)
+    _fake_sidecar(staged, "exit 0\n").rename(staged / "stimma-drawthings-aarch64-apple-darwin")
+    monkeypatch.setattr(sidecars, "__file__", str(backend_root / "backend" / "providers" / "sidecars.py"))
+    monkeypatch.setattr(sidecars.sys, "platform", "darwin")
+    monkeypatch.delenv("STIMMA_SIDECAR_STIMMA_DRAWTHINGS", raising=False)
+    monkeypatch.setattr(sidecars.shutil, "which", lambda _: None)
+    assert sidecars.resolve_sidecar("drawthings") == packaged
+
+
 def test_resolve_is_macos_only(tmp_path, monkeypatch):
     fake = _fake_sidecar(tmp_path, "exit 0\n")
     monkeypatch.setenv("STIMMA_SIDECAR_STIMMA_DRAWTHINGS", str(fake))

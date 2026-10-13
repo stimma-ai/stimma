@@ -41,9 +41,9 @@ def _candidates(executable: str) -> list[Path]:
     # Packaged: <Resources>/stimma-backend/backend/providers/sidecars.py and
     # the sidecar sits next to the backend folder at <Resources>/<executable>.
     packaged = here.parents[3] / executable if len(here.parents) > 3 else None
-    # Source checkout: the app build stages binaries under src-tauri/binaries.
+    # Source checkout: the app build stages binaries under build-desktop/binaries.
     repo = here.parents[2]
-    staged = sorted(repo.glob(f"src-tauri/binaries/{executable}-*"))
+    staged = sorted(repo.glob(f"build-desktop/binaries/{executable}-*"))
     found = shutil.which(executable)
     out: list[Path] = []
     if override:
