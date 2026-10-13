@@ -114,6 +114,7 @@
 <script setup>
 import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
+import { LinkIcon } from '@heroicons/vue/24/outline'
 // Monochrome Stimma pinwheel (logo.svg as a currentColor mask), matching the
 // treatment on the Generation Tools and Chat Models screens.
 const AccountIcon = () => h('span', {
@@ -285,6 +286,7 @@ const globalSectionGroups = [
     label: 'Settings',
     sections: [
       { id: 'account', label: 'Stimma Account', icon: AccountIcon },
+      { id: 'shared-links', label: 'Shared links', icon: LinkIcon },
       { id: 'server', label: 'Stimma Server', icon: ServerIcon },
       { id: 'tools', label: 'Generation Tools', icon: WrenchIcon },
       { id: 'ai-services', label: 'Chat Models', icon: CogIcon },

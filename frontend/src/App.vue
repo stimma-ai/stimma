@@ -16,6 +16,8 @@
 
     <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
     <MediaDetailsModal />
+    <!-- Share link dialog (global, opened via useShareDialog) -->
+    <ShareDialog />
 
     <ReadinessPanel />
 
@@ -305,6 +307,7 @@ import { belongsToContext, contextRoute, contextSection, projectIdFrom } from '.
 import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
+import ShareDialog from './components/ShareDialog.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
 import ConnectionScreen from './components/ConnectionScreen.vue'

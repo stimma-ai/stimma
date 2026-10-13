@@ -17,6 +17,8 @@ const props = withDefaults(defineProps<{
   busy?: boolean
   closeOnBackdrop?: boolean
   nested?: boolean
+  /** Launched from a kit Sheet (z-menu): paint above it. */
+  overSheet?: boolean
 }>(), {
   title: 'Confirm',
   message: '',
@@ -26,6 +28,7 @@ const props = withDefaults(defineProps<{
   busy: false,
   closeOnBackdrop: true,
   nested: false,
+  overSheet: false,
 })
 
 const emit = defineEmits<{
@@ -50,6 +53,7 @@ function confirm() {
     :close-on-backdrop="closeOnBackdrop && !busy"
     :close-on-esc="!busy"
     :nested="nested"
+    :submenu="overSheet"
     @close="cancel"
   >
     <div class="px-6 py-5 text-center">

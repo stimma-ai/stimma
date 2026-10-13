@@ -48,7 +48,7 @@ import StatusDot from '../components/ui/StatusDot.vue'
 import ImageCompareSlider from '../components/ImageCompareSlider.vue'
 import SlideshowInfoPanel from '../components/SlideshowInfoPanel.vue'
 import ExportModal from '../components/ExportModal.vue'
-import ShareDialog from '../components/ShareDialog.vue'
+import { useShareDialog } from '../composables/useShareDialog'
 import { MediaContextMenu } from '../components/media'
 import { AutoMarkPicker } from '../components/generation'
 import BaseRow from '../imageEditor/components/BaseRow.vue'
@@ -633,7 +633,7 @@ const infoInspiredDescendants = ref<any[]>([])
 const infoChat = ref<any>(null)
 const infoMarkerUpdateTrigger = ref(0)
 const infoExportOpen = ref(false)
-const infoShareOpen = ref(false)
+const shareDialog = useShareDialog()
 let infoLoadToken = 0
 const initialToolPrefs = readToolPrefs()
 const newAssetMarkerIds = ref<number[]>(
@@ -9725,7 +9725,7 @@ watch(
             :chat-info="infoChat"
             :chat-info-loading="infoLoading"
             @download="infoExportOpen = true"
-            @share-to-cloud="infoShareOpen = true"
+            @share-to-cloud="infoItem?.id && shareDialog.open(infoItem)"
             @toggle-marker="toggleInfoMarker"
             @tags-updated="updateInfoTags"
             @navigate-to-project="navigateInfoProject"
@@ -10445,10 +10445,6 @@ watch(
       :media-ids="infoItem?.id ? [infoItem.id] : []"
       :media-items="infoItem ? [infoItem] : []"
       @close="infoExportOpen = false"
-    />
-    <ShareDialog
-      v-model="infoShareOpen"
-      :media-item="infoItem"
     />
     <MediaContextMenu />
   </div>

@@ -36,6 +36,7 @@
     "test:image-stack": "node --test --experimental-strip-types src/imageEditor/stack/*.test.ts",
     "test:desktop-bridge": "node --test --experimental-strip-types src/desktop/bridge.test.ts src/desktop/exportPaths.test.ts",
     "test:media-provenance": "node --test --experimental-strip-types src/utils/mediaProvenance.test.ts",
+    "test:share": "node --test --experimental-strip-types src/composables/useShare.test.ts src/utils/nativeShare.test.ts",
     "test:terms": "node --test --experimental-strip-types src/utils/terms.test.ts",
     "test:directory-picker": "node --test --experimental-strip-types src/utils/directoryPicker.test.ts",
     "test:file-refs": "node --test tests/fileRefs.browser.test.mjs",

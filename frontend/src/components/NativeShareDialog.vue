@@ -1,11 +1,16 @@
 <script setup lang="ts">
+// "Share file…": hands the item's file to the OS share sheet. The file is
+// downloaded first, then the person taps Share — Web Share must run inside a
+// tap with no await in between (user activation), so the tap can't also
+// fetch. The phone size limit is checked from the library's recorded size
+// before any download starts.
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import axios from 'axios'
 import Modal from './ui/Modal.vue'
 import Button from './ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { desktop } from '../desktop'
-import { shareFile } from '../utils/nativeShare'
+import { PHONE_SHARE_TOO_LARGE, phoneShareTooLarge, shareFile } from '../utils/nativeShare'
 
 const props = defineProps<{ mediaId: number }>()
 const emit = defineEmits<{ close: [] }>()
@@ -21,6 +26,10 @@ onMounted(async () => {
   try {
     const item = await getMediaItem(props.mediaId)
     if (controller.signal.aborted) return
+    if (phoneShareTooLarge(desktop.kind, Number(item?.file_size) || null)) {
+      error.value = PHONE_SHARE_TOO_LARGE
+      return
+    }
     const response = await axios.get(getMediaFileUrl(props.mediaId), {
       responseType: 'blob', signal: controller.signal,
     })
@@ -56,12 +65,12 @@ async function share() {
     <div class="px-6 py-5 space-y-3">
       <h2 class="text-lg font-semibold text-content">Share file</h2>
       <p v-if="loading" role="status" class="text-sm text-content-secondary">Preparing file…</p>
-      <p v-else-if="file" class="text-sm text-content-secondary break-all">{{ file.name }}</p>
+      <p v-else-if="file" class="text-sm font-mono text-content-secondary break-all">{{ file.name }}</p>
       <p v-if="error" role="alert" class="text-sm text-red-400">{{ error }}</p>
     </div>
     <template #footer>
-      <Button variant="secondary" :disabled="sharing" @click="emit('close')">Cancel</Button>
-      <Button :disabled="!file" :loading="loading || sharing" @click="share">Share…</Button>
+      <Button variant="secondary" class="coarse:min-h-11" :disabled="sharing" @click="emit('close')">{{ file ? 'Cancel' : 'Close' }}</Button>
+      <Button v-if="!error || file" class="coarse:min-h-11" :disabled="!file" :loading="loading || sharing" @click="share">Share</Button>
     </template>
   </Modal>
 </template>

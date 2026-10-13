@@ -1,506 +1,638 @@
 <template>
-  <Modal :show="modelValue" size="custom" custom-class="max-w-md w-full" @close="close">
-    <template #header>
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-base font-semibold text-content">Share</h2>
-          <p class="text-xs text-content-muted mt-0.5">Create a public link anyone can view</p>
-        </div>
-        <IconButton @click="close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+  <component
+    :is="isCompact ? Sheet : Modal"
+    :show="visible"
+    v-bind="shellProps"
+    @close="requestClose"
+  >
+    <template v-if="!isCompact" #header>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-base font-semibold text-content">{{ heading }}</h2>
+        <IconButton aria-label="Close" class="coarse:min-h-11 coarse:min-w-11 -mr-1.5" :disabled="busy" @click="requestClose">
+          <XMarkIcon class="w-5 h-5" :stroke-width="1.75" />
         </IconButton>
       </div>
     </template>
 
-        <!-- Loading status check -->
-        <div v-if="isCheckingStatus" class="px-5 pb-5 pt-3 min-h-[280px] flex items-center justify-center">
-          <div class="flex items-center justify-center gap-2">
-            <Spinner hue="border-t-content-muted" />
-            <span class="text-sm text-content-muted">Loading...</span>
+    <div data-share-dialog :data-share-phase="session.phase.value" class="flex flex-col">
+      <!-- Loading ------------------------------------------------------------ -->
+      <div v-if="session.phase.value === 'loading' || session.phase.value === 'idle'" class="flex min-h-[240px] items-center justify-center gap-2 px-6 py-5" role="status">
+        <Spinner hue="border-t-content-muted" />
+        <span class="text-sm text-content-tertiary">Checking your account…</span>
+      </div>
+
+      <!-- Can't share -------------------------------------------------------- -->
+      <template v-else-if="session.phase.value === 'cant-share'">
+        <div class="flex min-h-[220px] flex-col items-center justify-center px-6 py-6 text-center compact:px-4">
+          <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-overlay-subtle text-content-secondary">
+            <component :is="blockedCopy.icon" class="h-5 w-5" :stroke-width="1.75" />
+          </div>
+          <p class="text-sm font-medium text-content">{{ blockedCopy.title }}</p>
+          <p class="mt-1 max-w-[340px] text-xs leading-relaxed text-content-tertiary">{{ blockedCopy.body }}</p>
+          <p v-if="signInError" role="alert" class="mt-2 text-xs" :class="textClass('failed')">{{ signInError }}</p>
+          <div class="mt-5">
+            <button
+              v-if="blockedCopy.action === 'sign-in'"
+              type="button"
+              data-testid="share-sign-in"
+              class="inline-flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 coarse:min-h-11"
+              :disabled="signingIn"
+              @click="signIn"
+            >
+              <Spinner v-if="signingIn" size="sm" hue="border-t-white" />
+              {{ signingIn ? 'Finish signing in in your browser…' : blockedCopy.actionLabel }}
+            </button>
+            <Button v-else-if="blockedCopy.action === 'privacy'" variant="secondary" class="coarse:min-h-11" @click="openSettingsSection('privacy')">
+              Open Privacy settings
+            </Button>
+            <Button v-else-if="blockedCopy.action === 'retry'" variant="secondary" class="coarse:min-h-11" @click="session.recheck()">
+              Try again
+            </Button>
           </div>
         </div>
+        <div :class="FOOTER">
+          <span />
+          <Button variant="secondary" :class="COARSE" @click="requestClose">Close</Button>
+        </div>
+      </template>
 
-        <!-- Identity setup roadbump -->
-        <div v-else-if="identityRequired" class="px-5 pb-5 pt-3 min-h-[280px]">
-          <div class="flex flex-col items-center gap-3 py-2">
-            <div class="w-10 h-10 rounded-full bg-violet-500/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-              </svg>
-            </div>
+      <!-- Username setup ----------------------------------------------------- -->
+      <template v-else-if="session.phase.value === 'username'">
+        <form class="px-6 py-5 compact:px-4" @submit.prevent="session.submitUsername()">
+          <p class="text-sm font-medium text-content">Choose a username</p>
+          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">It appears on every link you share.</p>
+          <label class="mt-4 block">
+            <span class="sr-only">Username</span>
+            <span class="relative flex items-center">
+              <span class="pointer-events-none absolute left-3 font-mono text-sm text-content-muted">@</span>
+              <input
+                :value="session.usernameInput.value"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                maxlength="24"
+                placeholder="username"
+                data-testid="share-username"
+                :disabled="session.usernameSubmitting.value"
+                :class="[INPUT, 'pl-7 pr-9 font-mono']"
+                @input="session.setUsername(($event.target as HTMLInputElement).value)"
+              />
+              <span v-if="session.usernameChecking.value" class="absolute right-3"><Spinner size="sm" hue="border-t-content-muted" /></span>
+            </span>
+          </label>
+          <p class="mt-2 flex min-h-[18px] items-center gap-1.5 text-xs" aria-live="polite">
+            <template v-if="session.usernameError.value">
+              <StatusDot bucket="failed" />
+              <span :class="textClass('failed')">{{ session.usernameError.value }}</span>
+            </template>
+            <template v-else-if="session.usernameAvailable.value === true">
+              <StatusDot bucket="done" />
+              <span class="text-content-secondary">Available</span>
+            </template>
+            <template v-else>
+              <span class="text-content-tertiary">3–24 characters: lowercase letters, numbers, - and _</span>
+            </template>
+          </p>
+          <button type="submit" class="hidden" />
+        </form>
+        <div :class="FOOTER">
+          <span />
+          <div class="flex items-center gap-2">
+            <Button variant="ghost" :class="COARSE" :disabled="session.usernameSubmitting.value" @click="requestClose">Cancel</Button>
+            <Button
+              :class="COARSE"
+              data-testid="share-username-continue"
+              :disabled="!session.canSubmitUsername.value"
+              :loading="session.usernameSubmitting.value"
+              @click="session.submitUsername()"
+            >Continue</Button>
+          </div>
+        </div>
+      </template>
 
-            <div class="text-center">
-              <p class="text-sm font-medium text-content">Set up your profile</p>
-              <p class="text-xs text-content-muted mt-1">Choose a username to start sharing on Stimma</p>
-            </div>
+      <!-- Existing links for this item --------------------------------------- -->
+      <template v-else-if="session.phase.value === 'links'">
+        <div class="px-6 pt-4 pb-2 compact:px-4">
+          <p class="text-xs font-semibold text-content-secondary">
+            {{ session.links.value.length === 1 ? 'This item already has a link' : `This item has ${session.links.value.length} links` }}
+          </p>
+          <ul class="mt-1 divide-y divide-edge-subtle" data-testid="share-existing-links">
+            <li v-for="link in session.links.value" :key="link.shortcode" class="flex items-center gap-3 py-2.5">
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[13px] text-content">{{ link.title || 'Untitled' }}</p>
+                <p class="mt-0.5 flex items-center gap-1.5 font-mono text-xs tabular-nums text-content-tertiary">
+                  <template v-if="isInReview(link.status)">
+                    <StatusDot bucket="warning" />
+                    <span class="font-sans">In review</span>
+                    <span aria-hidden="true">·</span>
+                  </template>
+                  <span>{{ viewsLabel(link.view_count) }}</span>
+                  <template v-if="link.created_at"><span aria-hidden="true">·</span><span>{{ formatDate(link.created_at) }}</span></template>
+                </p>
+              </div>
+              <div class="flex items-center gap-0.5">
+                <Tooltip :text="copiedCode === link.shortcode ? 'Copied' : 'Copy link'">
+                  <IconButton :class="COARSE_ICON" :aria-label="`Copy link ${link.title || ''}`" @click="copyLink(link.url, link.shortcode)">
+                    <CheckIcon v-if="copiedCode === link.shortcode" class="h-4 w-4" :stroke-width="1.75" />
+                    <ClipboardDocumentIcon v-else class="h-4 w-4" :stroke-width="1.75" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip text="Open">
+                  <IconButton :class="COARSE_ICON" aria-label="Open link" @click="openUrl(link.url)">
+                    <ArrowTopRightOnSquareIcon class="h-4 w-4" :stroke-width="1.75" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip text="Delete link">
+                  <IconButton variant="danger" :class="COARSE_ICON" aria-label="Delete link" @click="pendingDelete = link">
+                    <TrashIcon class="h-4 w-4" :stroke-width="1.75" />
+                  </IconButton>
+                </Tooltip>
+              </div>
+            </li>
+          </ul>
+          <p v-if="deleteError" role="alert" class="pt-1 text-xs" :class="textClass('failed')">{{ deleteError }}</p>
+        </div>
+        <div :class="FOOTER">
+          <PublishingAccount :account="session.account.value" />
+          <div class="flex items-center gap-2">
+            <Button variant="ghost" :class="COARSE" @click="requestClose">Close</Button>
+            <Button :class="COARSE" data-testid="share-create-another" @click="session.createAnother()">Create another link</Button>
+          </div>
+        </div>
+      </template>
 
-            <div class="w-full mt-1">
-              <div class="relative">
-                <input
-                  v-model="usernameInput"
-                  type="text"
-                  placeholder="username"
-                  maxlength="24"
-                  class="w-full bg-overlay-subtle border border-edge-subtle rounded-lg px-3 py-2 text-sm text-content placeholder-content-muted focus:outline-none focus:border-violet-500/50"
-                  :class="{ 'pr-8': isCheckingUsername }"
-                  :disabled="isSettingUpIdentity"
-                  @input="handleUsernameInput"
-                  @keydown.enter="handleSetupIdentity"
-                />
-                <div v-if="isCheckingUsername" class="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Spinner hue="border-t-content-muted" />
+      <!-- Form + uploading --------------------------------------------------- -->
+      <template v-else-if="session.phase.value === 'form' || session.phase.value === 'uploading'">
+        <div class="px-6 pt-5 pb-3 compact:px-4 compact:pt-2">
+          <div class="flex h-44 items-center justify-center overflow-hidden rounded-media bg-matte compact:h-36" data-testid="share-preview">
+            <MediaImage
+              v-if="media"
+              :media-id="media.id"
+              :file-hash="(media.file_hash as string | undefined) || undefined"
+              :file-format="String(media.file_format || '')"
+              :is-video="!!media.is_video"
+              :is-audio="mediaType === 'audio'"
+              :has-alpha="(media.has_alpha as boolean | null | undefined) ?? null"
+              :thumbnail-size="512"
+              thumbnail-mode="fit"
+              contain
+              :draggable="false"
+              :enable-context-menu="false"
+              background-class="bg-matte"
+              container-class="h-full w-full"
+              loading="eager"
+            />
+          </div>
+          <p class="mt-2 font-mono text-xs tabular-nums text-content-tertiary" data-testid="share-type-fact">{{ typeFact }}</p>
+
+          <div class="mt-4 space-y-2">
+            <label class="relative block">
+              <span class="sr-only">Title</span>
+              <input
+                :value="session.title.value"
+                type="text"
+                maxlength="100"
+                data-testid="share-title"
+                :placeholder="session.suggesting.value ? 'Suggesting a title…' : 'Title'"
+                :disabled="uploading"
+                :class="[INPUT, session.suggesting.value ? 'pr-9' : '']"
+                @input="session.setTitle(($event.target as HTMLInputElement).value)"
+              />
+              <span v-if="session.suggesting.value" class="absolute right-3 top-1/2 -translate-y-1/2" aria-label="Suggesting a title">
+                <Spinner size="sm" hue="border-t-content-muted" />
+              </span>
+            </label>
+            <label class="block">
+              <span class="sr-only">Description</span>
+              <textarea
+                v-model="session.description.value"
+                maxlength="500"
+                rows="2"
+                placeholder="Description (optional)"
+                data-testid="share-description"
+                :disabled="uploading"
+                :class="[INPUT, 'resize-none']"
+              />
+            </label>
+          </div>
+
+          <div class="mt-3 divide-y divide-edge-subtle">
+            <div v-if="stepCount > 0">
+              <SettingRow label="Include how it was made" :divider="false">
+                <template #description>
+                  <span>{{ stepCount === 1 ? 'Publishes 1 step' : `Publishes ${stepCount} steps` }}: tools, prompts and settings.</span>
+                  <button
+                    type="button"
+                    class="ml-1 inline-flex items-center gap-0.5 text-content-secondary underline-offset-2 hover:text-content hover:underline focus-visible:outline-none focus-visible:ring-2 ring-accent/60 rounded-md coarse:min-h-11"
+                    :aria-expanded="provenanceOpen"
+                    data-testid="share-provenance-toggle"
+                    @click="provenanceOpen = !provenanceOpen"
+                  >
+                    {{ provenanceOpen ? 'Hide' : 'Show what’s published' }}
+                    <ChevronDownIcon class="h-3 w-3 transition-transform duration-150" :class="provenanceOpen ? 'rotate-180' : ''" :stroke-width="1.75" />
+                  </button>
+                </template>
+                <Toggle v-model="session.includeProvenance.value" label="Include how it was made" :disabled="uploading" />
+              </SettingRow>
+              <div
+                v-if="provenanceOpen"
+                class="mb-2.5 max-h-56 space-y-3 overflow-y-auto rounded-md bg-overlay-faint px-3 py-2.5 custom-scrollbar"
+                :class="session.includeProvenance.value ? '' : 'opacity-50'"
+                data-testid="share-provenance-preview"
+              >
+                <div v-for="(step, i) in publishedSteps" :key="i" class="min-w-0">
+                  <p class="flex items-baseline justify-between gap-2 text-xs">
+                    <span class="truncate font-medium text-content">{{ step.tool }}</span>
+                    <span v-if="step.model && step.model !== step.tool" class="truncate font-mono text-[11px] text-content-tertiary">{{ step.model }}</span>
+                  </p>
+                  <p v-if="step.prompt" class="mt-0.5 line-clamp-2 text-xs text-content-secondary">{{ step.prompt }}</p>
+                  <p v-if="step.facts.length" class="mt-0.5 font-mono text-[11px] tabular-nums text-content-tertiary">{{ step.facts.join(' · ') }}</p>
+                  <p v-if="step.extras.length" class="mt-0.5 text-[11px] text-content-tertiary">{{ step.extras.join(' · ') }}</p>
                 </div>
               </div>
-              <p class="text-[11px] text-content-muted mt-1.5 px-0.5">3&ndash;24 characters, lowercase letters, numbers, hyphens, and underscores</p>
-              <p v-if="usernameError" class="text-xs text-red-500 mt-1 px-0.5">{{ usernameError }}</p>
             </div>
-
-            <div class="w-full flex items-center justify-end gap-2.5 mt-2">
-              <button
-                class="px-4 py-2 text-sm text-content-muted hover:text-content transition-colors"
-                :disabled="isSettingUpIdentity"
-                @click="close"
-              >
-                Cancel
-              </button>
-              <button
-                class="px-5 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-sm font-medium !text-white transition-all disabled:opacity-50 flex items-center gap-2"
-                :disabled="isSettingUpIdentity || isCheckingUsername || !!usernameError || usernameInput.trim().length < 3"
-                @click="handleSetupIdentity"
-              >
-                <Spinner v-if="isSettingUpIdentity" hue="border-t-white" />
-                {{ isSettingUpIdentity ? 'Setting up...' : 'Continue' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Success state -->
-        <div v-else-if="shareResult" class="px-5 pb-5 pt-3 min-h-[280px]">
-          <div class="flex flex-col items-center gap-3 py-2">
-            <div class="w-10 h-10 rounded-full bg-green-500/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-
-            <p class="text-sm text-content font-medium">
-              {{ linkCopied ? 'Link copied to clipboard' : 'Link created' }}
-            </p>
-
-            <p
-              v-if="shareResult.status === 'quarantined'"
-              class="text-xs text-amber-500 text-center"
-            >
-              Your share is being reviewed and will be available shortly.
-            </p>
-
-            <div class="w-full flex items-center gap-2 bg-overlay-subtle rounded-lg px-3 py-2">
-              <span class="text-sm text-content-secondary truncate flex-1">{{ shareResult.url }}</span>
-              <button
-                class="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md bg-overlay-light hover:bg-overlay-medium text-content transition-colors"
-                @click="doCopy"
-              >
-                {{ linkCopied ? 'Copied!' : 'Copy' }}
-              </button>
-            </div>
-
-            <div class="w-full flex gap-2">
-              <button
-                class="flex-1 px-4 py-2.5 rounded-lg bg-overlay-light hover:bg-overlay-medium text-sm font-medium text-content transition-colors flex items-center justify-center gap-2"
-                @click="openInBrowser"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                  <path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" clip-rule="evenodd" />
-                  <path fill-rule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clip-rule="evenodd" />
-                </svg>
-                Open in Browser
-              </button>
-              <button
-                class="flex-1 px-4 py-2.5 rounded-lg bg-overlay-light hover:bg-overlay-medium text-sm font-medium text-content transition-colors"
-                @click="close"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Form state -->
-        <div v-else class="px-5 pb-5 pt-3 min-h-[280px]">
-          <!-- Thumbnail preview -->
-          <div v-if="thumbnailUrl" class="mb-4 rounded-lg overflow-hidden bg-overlay-faint flex items-center justify-center">
-            <AppImage
-              :src="thumbnailUrl"
-              class="max-h-48 w-auto object-contain"
-              alt="Media preview"
-            />
-          </div>
-
-          <!-- Title input -->
-          <div class="mb-3 relative">
-            <input
-              v-model="title"
-              type="text"
-              placeholder="Add a title..."
-              maxlength="100"
-              :disabled="isSharing"
-              class="w-full bg-overlay-subtle border border-edge-subtle rounded-lg px-3 py-2 text-sm text-content placeholder-content-muted focus:outline-none focus:border-edge-strong disabled:opacity-50"
-              :class="{ 'pr-8': suggestingTitle }"
-              @input="handleTitleInput"
-            />
-            <div v-if="suggestingTitle" class="absolute right-3 top-1/2 -translate-y-1/2">
-              <Spinner hue="border-t-content-muted" />
-            </div>
-          </div>
-
-          <!-- Description textarea -->
-          <div class="mb-4">
-            <textarea
-              v-model="description"
-              placeholder="Add a description..."
-              maxlength="500"
-              rows="3"
-              :disabled="isSharing"
-              class="w-full bg-overlay-subtle border border-edge-subtle rounded-lg px-3 py-2 text-sm text-content placeholder-content-muted focus:outline-none focus:border-edge-strong resize-none disabled:opacity-50"
-            />
-          </div>
-
-          <!-- Moderation feedback — fixed-height slot to prevent layout shift -->
-          <div class="mb-4 min-h-[36px]">
-            <div v-if="isPreChecking" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-overlay-subtle">
-              <Spinner hue="border-t-content-muted" />
-              <span class="text-xs text-content-muted">Checking content...</span>
-            </div>
-
-            <!-- Blocked / rejected -->
-            <div
-              v-else-if="isBlocked"
-              class="px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20"
-            >
-              <p class="text-xs text-red-500">{{ preCheckResult.reason }}</p>
-            </div>
-
-            <!-- Quarantined warning -->
-            <div
-              v-else-if="preCheckResult?.decision === 'quarantined'"
-              class="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20"
-            >
-              <p class="text-xs text-amber-500">{{ preCheckResult.reason }}</p>
-            </div>
-          </div>
-
-          <!-- NSFW detected badge -->
-          <div
-            v-if="preCheckResult?.nsfw && !isBlocked"
-            class="mb-4 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20"
-          >
-            <p class="text-xs text-violet-400">Content detected as mature &mdash; viewers will see a content warning.</p>
-          </div>
-
-          <!-- Creator identity + NSFW toggle row -->
-          <div class="mb-4 flex items-center justify-between px-1">
-            <div v-if="user" class="flex items-center gap-2">
-              <img
-                v-if="user.photoURL"
-                :src="user.photoURL"
-                class="w-5 h-5 rounded-full"
-                alt=""
+            <SettingRow label="Mark as mature" :divider="false">
+              <template #description>
+                {{ session.matureLocked.value ? 'Detected automatically. Viewers see a content warning first.' : 'Viewers see a content warning first.' }}
+              </template>
+              <Toggle
+                :model-value="session.mature.value"
+                label="Mark as mature"
+                :disabled="session.matureLocked.value || uploading"
+                data-testid="share-mature"
+                @update:model-value="session.matureManual.value = $event"
               />
-              <div
-                v-else
-                class="w-5 h-5 rounded-full bg-overlay-light flex items-center justify-center text-[10px] text-content-muted"
-              >
-                {{ (user.displayName || user.email || '?').charAt(0).toUpperCase() }}
-              </div>
-              <span class="text-xs text-content-muted">
-                {{ user.displayName || user.email }}
-              </span>
-            </div>
-
-            <button
-              v-if="!isBlocked && !isPreChecking"
-              type="button"
-              class="flex items-center gap-1.5 text-xs transition-colors"
-              :class="[
-                nsfwOverride ? 'text-violet-400' : 'text-content-muted hover:text-content-secondary',
-                preCheckResult?.nsfw ? 'cursor-not-allowed' : 'cursor-pointer'
-              ]"
-              :disabled="preCheckResult?.nsfw"
-              @click="toggleNsfw"
-            >
-              <span>{{ preCheckResult?.nsfw ? 'Mature (auto)' : 'Mature' }}</span>
-              <span
-                class="relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200"
-                :class="nsfwOverride ? 'bg-violet-500' : 'bg-overlay-medium'"
-              >
-                <span
-                  class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-0.5"
-                  :class="nsfwOverride ? 'translate-x-3.5 ml-px' : 'translate-x-0.5'"
-                />
-              </span>
-            </button>
+            </SettingRow>
           </div>
 
-          <!-- Error state -->
-          <div v-if="shareError" class="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-            <p class="text-xs text-red-500">{{ shareError }}</p>
-          </div>
-
-          <!-- Action buttons -->
-          <div class="flex items-center justify-end gap-2.5">
-            <button
-              class="px-4 py-2 text-sm text-content-muted hover:text-content transition-colors"
-              :disabled="isSharing"
-              @click="close"
-            >
-              Cancel
-            </button>
-
-            <button
-              class="px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-sm font-medium !text-white transition-all disabled:opacity-50 flex items-center gap-2"
-              :disabled="isSharing || isBlocked"
-              @click="handleShare"
-            >
-              <Spinner v-if="isSharing" hue="border-t-white" />
-              <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
-                <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
-              </svg>
-              {{ isSharing ? 'Creating link...' : isBlocked ? 'Cannot Share' : 'Create Link' }}
-            </button>
+          <p class="mt-2 flex min-h-[20px] items-start gap-2 text-xs" aria-live="polite" data-testid="share-status-slot" :data-slot="session.statusSlot.value || ''">
+            <template v-if="session.statusSlot.value === 'checking'">
+              <Spinner size="sm" hue="border-t-content-muted" class="mt-0.5" />
+              <span class="text-content-tertiary">Checking content…</span>
+            </template>
+            <template v-else-if="session.statusSlot.value">
+              <StatusDot :bucket="slotCopy.bucket" class="mt-1.5" />
+              <span :class="slotCopy.bucket === 'failed' ? textClass('failed') : 'text-content-secondary'">{{ slotCopy.text }}</span>
+            </template>
+          </p>
+        </div>
+        <div :class="FOOTER">
+          <PublishingAccount :account="session.account.value" />
+          <div class="flex items-center gap-2">
+            <Button variant="ghost" :class="COARSE" :disabled="uploading" @click="requestClose">Cancel</Button>
+            <Button
+              :class="COARSE"
+              data-testid="share-create"
+              :disabled="!session.canCreate.value && !uploading"
+              :loading="uploading"
+              @click="session.create()"
+            >{{ uploading ? uploadingLabel : 'Create link' }}</Button>
           </div>
         </div>
-  </Modal>
+      </template>
+
+      <!-- Created ------------------------------------------------------------ -->
+      <template v-else-if="session.phase.value === 'created' && session.result.value">
+        <div class="px-6 py-5 compact:px-4">
+          <p class="flex items-center gap-2 text-sm font-medium text-content">
+            <StatusDot :bucket="createdInReview ? 'warning' : 'done'" />
+            {{ createdInReview ? 'Link created, in review' : 'Link created' }}
+          </p>
+          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
+            <template v-if="createdInReview">It will be visible to others once the review finishes. You can copy the link now.</template>
+            <template v-else>Anyone with the link can view it.</template>
+          </p>
+          <input
+            :value="session.result.value.url"
+            readonly
+            data-testid="share-link-url"
+            aria-label="Link"
+            :class="[INPUT, 'mt-4 font-mono text-xs select-all']"
+            @focus="($event.target as HTMLInputElement).select()"
+          />
+          <div class="mt-2 flex items-center gap-2">
+            <Button variant="secondary" size="sm" :class="COARSE" data-testid="share-copy" @click="copyLink(session.result.value.url, session.result.value.shortcode)">
+              <template #icon>
+                <CheckIcon v-if="copiedCode === session.result.value.shortcode" class="h-4 w-4" :stroke-width="1.75" />
+                <ClipboardDocumentIcon v-else class="h-4 w-4" :stroke-width="1.75" />
+              </template>
+              {{ copiedCode === session.result.value.shortcode ? 'Copied' : 'Copy' }}
+            </Button>
+            <Button variant="secondary" size="sm" :class="COARSE" @click="openUrl(session.result.value.url)">
+              <template #icon><ArrowTopRightOnSquareIcon class="h-4 w-4" :stroke-width="1.75" /></template>
+              Open
+            </Button>
+          </div>
+        </div>
+        <div :class="FOOTER">
+          <PublishingAccount :account="session.account.value" />
+          <Button :class="COARSE" @click="requestClose">Done</Button>
+        </div>
+      </template>
+
+      <!-- Error -------------------------------------------------------------- -->
+      <template v-else-if="session.phase.value === 'error'">
+        <div class="flex min-h-[200px] flex-col items-center justify-center px-6 py-6 text-center compact:px-4">
+          <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full" :class="bgClass('failed')">
+            <ExclamationTriangleIcon class="h-5 w-5" :class="textClass('failed')" :stroke-width="1.75" />
+          </div>
+          <p class="text-sm font-medium text-content">Couldn’t create the link</p>
+          <p class="mt-1 max-w-[340px] text-xs leading-relaxed text-content-tertiary" data-testid="share-error">{{ session.error.value }}</p>
+        </div>
+        <div :class="FOOTER">
+          <Button variant="ghost" :class="COARSE" @click="session.backToForm()">Back</Button>
+          <div class="flex items-center gap-2">
+            <Button variant="ghost" :class="COARSE" @click="requestClose">Cancel</Button>
+            <Button :class="COARSE" data-testid="share-retry" @click="session.create()">Try again</Button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </component>
+
+  <ConfirmDialog
+    :show="!!pendingDelete"
+    title="Delete this link?"
+    confirm-label="Delete link"
+    danger
+    nested
+    :over-sheet="isCompact"
+    :busy="deleting"
+    @confirm="confirmDelete"
+    @cancel="pendingDelete = null"
+  >
+    Anyone who has it will no longer be able to open it. This can’t be undone.
+  </ConfirmDialog>
 </template>
 
-<script setup>
-import { ref, computed, watch } from 'vue'
+<script setup lang="ts">
+import { computed, defineComponent, h, onBeforeUnmount, ref, shallowRef, watch, type PropType } from 'vue'
+import {
+  ArrowTopRightOnSquareIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ClipboardDocumentIcon,
+  ExclamationTriangleIcon,
+  LinkIcon,
+  NoSymbolIcon,
+  ShieldCheckIcon,
+  TrashIcon,
+  WifiIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline'
 import Modal from './ui/Modal.vue'
+import Sheet from './ui/Sheet.vue'
+import Button from './ui/Button.vue'
 import IconButton from './ui/IconButton.vue'
 import Spinner from './ui/Spinner.vue'
-import { useShare } from '../composables/useShare'
+import StatusDot from './ui/StatusDot.vue'
+import Tooltip from './ui/Tooltip.vue'
+import Toggle from './ui/Toggle.vue'
+import ConfirmDialog from './ui/ConfirmDialog.vue'
+import SettingRow from './settings/SettingRow.vue'
+import MediaImage from './media/MediaImage.vue'
+import AppImage from './media/AppImage.vue'
+import { useViewport } from '../composables/useViewport'
+import { useShareDialog } from '../composables/useShareDialog'
+import { useShare, isInReview, formatBytes, publishedStepsPreview, shareTypeFact, type ShareAccount, type ShareLink, type ShareMedia } from '../composables/useShare'
+import { useProvenanceBuilder } from '../composables/useMediaProvenance'
+import { publicStepCount, toPublicProvenance, type MediaLike, type PublicProvenance } from '../utils/mediaProvenance'
+import { useMediaApi } from '../composables/useMediaApi'
 import { useAuth } from '../composables/useAuth'
 import { copyToClipboard } from '../utils/clipboard'
-import AppImage from './media/AppImage.vue'
+import { getMediaType } from '../utils/mediaTypes'
+import { bgClass, textClass, type StatusBucket } from '../utils/statusColors'
 
-const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
+const INPUT = 'w-full rounded-md border border-transparent bg-overlay-subtle px-3 py-2 text-sm text-content placeholder:text-content-muted outline-none transition-colors duration-150 focus:border-accent focus-visible:ring-2 ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50 compact:text-[15px]'
+const FOOTER = 'flex items-center justify-between gap-3 border-t border-edge px-6 py-4 compact:px-4 compact:py-3'
+const COARSE = 'coarse:min-h-11'
+const COARSE_ICON = 'coarse:min-h-11 coarse:min-w-11'
+
+// The account that will publish: the serving machine's, from /api/share/status.
+const PublishingAccount = defineComponent({
+  props: { account: { type: Object as PropType<ShareAccount | null>, default: null } },
+  setup(props) {
+    return () => {
+      const a = props.account
+      if (!a?.username) return h('span')
+      const initial = (a.display_name || a.username || '?').charAt(0).toUpperCase()
+      return h('div', { class: 'flex min-w-0 items-center gap-2', 'data-testid': 'share-account', title: a.display_name || undefined }, [
+        a.avatar_url
+          ? h(AppImage, { src: a.avatar_url, alt: '', class: 'h-5 w-5 shrink-0 overflow-hidden rounded-full', containerClass: 'h-5 w-5 rounded-full', imgClass: 'h-5 w-5 rounded-full object-cover', draggable: false })
+          : h('span', { class: 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-overlay-light text-[10px] font-medium text-content-secondary', 'aria-hidden': 'true' }, initial),
+        h('span', { class: 'truncate font-mono text-xs text-content-secondary' }, `@${a.username}`),
+      ])
+    }
   },
-  mediaItem: {
-    type: Object,
-    default: null,
-  },
 })
 
-const emit = defineEmits(['update:modelValue'])
+const { isCompact } = useViewport()
+const dialog = useShareDialog()
+const { getMediaItem } = useMediaApi()
+const { signInWithBrowser } = useAuth()
 
-const { user } = useAuth()
-const {
-  isSharing,
-  shareResult,
-  shareError,
-  isPreChecking,
-  preCheckResult,
-  identityRequired,
-  isSettingUpIdentity,
-  nsfwOverride,
-  shareMedia,
-  preCheckMedia,
-  checkShareStatus,
-  checkUsername,
-  setupIdentity,
-  resetShare,
-} = useShare()
+const { build: buildProvenance } = useProvenanceBuilder()
+const session = useShare({ buildPublicProvenance: (item) => toPublicProvenance(buildProvenance(item as MediaLike)) })
+const media = shallowRef<ShareMedia | null>(null)
+const animationCount = ref<number | null>(null)
+const provenanceOpen = ref(false)
+const copiedCode = ref<string | null>(null)
+const pendingDelete = ref<ShareLink | null>(null)
+const deleting = ref(false)
+const deleteError = ref('')
+const signingIn = ref(false)
+const signInError = ref('')
+let copiedTimer: ReturnType<typeof setTimeout> | null = null
+let autoCopied = false
+let loadToken = 0
 
-const title = ref('')
-const description = ref('')
-const linkCopied = ref(false)
-const suggestingTitle = ref(false)
-const userHasTypedTitle = ref(false)
-const isCheckingStatus = ref(false)
-const usernameInput = ref('')
-const usernameError = ref('')
-const isCheckingUsername = ref(false)
-let suggestAbortController = null
-let preCheckAbortController = null
-let usernameCheckTimeout = null
+const visible = computed(() => dialog.state.value.visible)
+const uploading = computed(() => session.phase.value === 'uploading')
+const busy = computed(() => uploading.value || deleting.value)
 
-const thumbnailUrl = computed(() => {
-  if (!props.mediaItem?.file_hash) return null
-  return `/api/thumbnail/${props.mediaItem.file_hash}`
-})
+const shellProps = computed(() => isCompact.value
+  ? { title: heading.value, closeOnBackdrop: !busy.value }
+  : { size: 'md', closeOnBackdrop: !busy.value, closeOnEsc: !busy.value })
 
-const isBlocked = computed(() => {
-  return preCheckResult.value?.blocked || preCheckResult.value?.decision === 'rejected'
-})
-
-function handleTitleInput() {
-  userHasTypedTitle.value = true
-  // Cancel any in-flight suggestion
-  if (suggestAbortController) {
-    suggestAbortController.abort()
-    suggestAbortController = null
-    suggestingTitle.value = false
+const heading = computed(() => {
+  switch (session.phase.value) {
+    case 'username': return 'Set up sharing'
+    case 'created': return 'Link ready'
+    default: return 'Share link'
   }
+})
+
+const mediaType = computed(() => media.value ? getMediaType({ file_format: String(media.value.file_format || '') }) : 'image')
+const typeFact = computed(() => shareTypeFact(media.value as any, { animationCount: animationCount.value, sizeBytes: session.preCheck.value?.size_bytes ?? null }))
+const stepCount = computed(() => publicStepCount(session.provenance.value as PublicProvenance | null))
+const publishedSteps = computed(() => publishedStepsPreview(session.provenance.value))
+const uploadingLabel = computed(() => {
+  const size = formatBytes(session.sizeBytes.value)
+  return size ? `Uploading ${size}…` : 'Uploading…'
+})
+const createdInReview = computed(() => isInReview(session.result.value?.status))
+
+const blockedCopy = computed(() => {
+  const code = session.reasonCode.value
+  switch (code) {
+    case 'signed_out':
+      return { icon: LinkIcon, title: 'Sign in to share links', body: 'Links are published from your Stimma account. Anyone with a link can view the item.', action: 'sign-in', actionLabel: 'Sign in' }
+    case 'auth_expired':
+      return { icon: LinkIcon, title: 'Your sign-in expired', body: 'Sign in again to publish links from your Stimma account.', action: 'sign-in', actionLabel: 'Sign in again' }
+    case 'privacy_lockdown':
+      return { icon: ShieldCheckIcon, title: 'Sharing is off in Privacy Lockdown', body: 'Privacy Lockdown keeps this install from contacting Stimma services, so links can’t be published.', action: 'privacy', actionLabel: '' }
+    case 'banned':
+      return { icon: NoSymbolIcon, title: 'Sharing is suspended for this account', body: session.status.value?.reason && !/suspended/i.test(session.status.value.reason) ? session.status.value.reason : 'Links can’t be created from this account. Your existing links are listed in Settings.', action: null, actionLabel: '' }
+    default:
+      return { icon: WifiIcon, title: 'Couldn’t check your account', body: 'Stimma didn’t answer. Check your connection and try again.', action: 'retry', actionLabel: '' }
+  }
+})
+
+const slotCopy = computed<{ bucket: StatusBucket; text: string }>(() => {
+  const p = session.preCheck.value
+  switch (session.statusSlot.value) {
+    case 'review':
+      return { bucket: 'warning', text: p?.reason || 'This may be held for review before others can see it.' }
+    case 'blocked':
+      return { bucket: 'failed', text: p?.reason || 'This can’t be shared under the content policy.' }
+    case 'too-large': {
+      const size = formatBytes(p?.size_bytes)
+      return { bucket: 'failed', text: p?.reason || (size ? `Too large to share as a link (${size}; the limit is 95 MB).` : 'Too large to share as a link (the limit is 95 MB).') }
+    }
+    case 'unsupported':
+      return { bucket: 'failed', text: p?.unsupported_reason || 'This kind of item can’t be shared as a link yet.' }
+    default:
+      return { bucket: 'queued', text: '' }
+  }
+})
+
+function viewsLabel(n: number) {
+  return `${n.toLocaleString()} ${n === 1 ? 'view' : 'views'}`
 }
 
-function toggleNsfw() {
-  // Cannot turn off if cloud detected NSFW
-  if (preCheckResult.value?.nsfw) return
-  nsfwOverride.value = !nsfwOverride.value
+function formatDate(value: string) {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-async function suggestTitle(mediaId) {
-  // Cancel previous request if any
-  if (suggestAbortController) {
-    suggestAbortController.abort()
-  }
-  suggestAbortController = new AbortController()
-  suggestingTitle.value = true
-
+async function loadMedia(mediaId: number, seed: ShareMedia | null) {
+  const token = ++loadToken
+  media.value = seed
+  animationCount.value = null
+  provenanceOpen.value = false
+  autoCopied = false
+  copiedCode.value = null
+  deleteError.value = ''
+  signInError.value = ''
+  let item: ShareMedia | null = seed
   try {
-    const response = await fetch('/api/share/suggest-title', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ media_id: mediaId }),
-      signal: suggestAbortController.signal,
-    })
-
-    if (!response.ok) return
-
-    const data = await response.json()
-
-    // Only apply if user hasn't started typing
-    if (!userHasTypedTitle.value && data.title) {
-      title.value = data.title
-    }
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      console.warn('Title suggestion failed:', err)
-    }
-  } finally {
-    suggestingTitle.value = false
-    suggestAbortController = null
-  }
-}
-
-// Reset state when dialog opens
-watch(() => props.modelValue, async (open) => {
-  if (open && props.mediaItem) {
-    title.value = ''
-    description.value = ''
-    linkCopied.value = false
-    userHasTypedTitle.value = false
-    usernameInput.value = ''
-    usernameError.value = ''
-    resetShare()
-
-    // Check share status first (determines if identity setup is needed)
-    isCheckingStatus.value = true
-    await checkShareStatus()
-    isCheckingStatus.value = false
-
-    // Only proceed with share flow if identity is set up
-    if (!identityRequired.value) {
-      suggestTitle(props.mediaItem.id)
-      preCheckMedia(props.mediaItem.id)
-    }
-  } else if (!open) {
-    // Cancel on close
-    if (suggestAbortController) {
-      suggestAbortController.abort()
-      suggestAbortController = null
-      suggestingTitle.value = false
-    }
-    if (usernameCheckTimeout) {
-      clearTimeout(usernameCheckTimeout)
-      usernameCheckTimeout = null
-    }
-  }
-})
-
-function handleUsernameInput() {
-  usernameError.value = ''
-  if (usernameCheckTimeout) clearTimeout(usernameCheckTimeout)
-
-  const val = usernameInput.value.toLowerCase().trim()
-  if (!val || val.length < 3) return
-
-  usernameCheckTimeout = setTimeout(async () => {
-    isCheckingUsername.value = true
-    const result = await checkUsername(val)
-    isCheckingUsername.value = false
-    if (result.error) {
-      usernameError.value = result.error
-    } else if (!result.available) {
-      usernameError.value = 'Username is already taken'
-    }
-  }, 400)
-}
-
-async function handleSetupIdentity() {
-  const username = usernameInput.value.toLowerCase().trim()
-  if (!username || username.length < 3) {
-    usernameError.value = 'Username must be at least 3 characters'
-    return
-  }
-
-  usernameError.value = ''
-  const result = await setupIdentity(username)
-
-  if (!result.success) {
-    usernameError.value = result.error || 'Failed to set up profile'
-    return
-  }
-
-  // Identity set up — proceed to share flow
-  if (props.mediaItem) {
-    suggestTitle(props.mediaItem.id)
-    preCheckMedia(props.mediaItem.id)
-  }
-}
-
-function close() {
-  emit('update:modelValue', false)
-}
-
-async function handleShare() {
-  if (!props.mediaItem) return
-
-  try {
-    await shareMedia(props.mediaItem.id, {
-      title: title.value,
-      description: description.value,
-    })
-    // Auto-copy link to clipboard on success
-    await doCopy()
+    item = await getMediaItem(mediaId)
   } catch {
-    // Error is already captured in shareError
+    // Keep the caller's copy; the session still works from the id.
   }
+  if (token !== loadToken) return
+  const full = item ?? { id: mediaId }
+  media.value = full
+  void session.start(full)
+  if (getMediaType({ file_format: String(full.file_format || '') }) === 'sprite') void loadSpriteFacts(full.id, token)
 }
 
-async function doCopy() {
-  if (!shareResult.value?.url) return
-  const ok = await copyToClipboard(shareResult.value.url)
-  if (ok) {
-    linkCopied.value = true
-    setTimeout(() => { linkCopied.value = false }, 5000)
-  }
+async function loadSpriteFacts(id: number, token: number) {
+  try {
+    const response = await fetch(`/api/media/${id}/content`)
+    if (!response.ok) return
+    const data = await response.json()
+    if (token !== loadToken) return
+    const names = new Set((data?.animations || []).map((a: { name?: string }) => a?.name).filter(Boolean))
+    animationCount.value = names.size || null
+  } catch { /* the fact just stays "Sprite" */ }
 }
 
-async function openInBrowser() {
-  if (!shareResult.value?.url) return
+watch(() => dialog.state.value.openCount, () => {
+  const s = dialog.state.value
+  if (s.visible && s.mediaId) void loadMedia(s.mediaId, (s.media as ShareMedia | null) ?? { id: s.mediaId })
+})
+
+watch(visible, (open) => {
+  if (!open) {
+    loadToken++
+    session.dispose()
+    pendingDelete.value = null
+  }
+})
+
+// Created: copy once, automatically.
+watch(() => session.phase.value, (phase) => {
+  if (phase === 'created' && session.result.value && !autoCopied) {
+    autoCopied = true
+    void copyLink(session.result.value.url, session.result.value.shortcode)
+  }
+})
+
+function requestClose() {
+  if (busy.value) return
+  dialog.close()
+}
+
+async function copyLink(url: string, code: string) {
+  if (!url) return
+  const ok = await copyToClipboard(url)
+  if (!ok) return
+  copiedCode.value = code
+  if (copiedTimer) clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => { copiedCode.value = null }, 2500)
+}
+
+async function openUrl(url: string) {
+  if (!url) return
   try {
     const { desktop } = await import('../desktop')
-    await desktop.openExternal(shareResult.value.url)
+    await desktop.openExternal(url)
   } catch {
-    // Fallback for non-Tauri environments
-    window.open(shareResult.value.url, '_blank')
+    window.open(url, '_blank', 'noopener')
   }
 }
+
+async function confirmDelete() {
+  const link = pendingDelete.value
+  if (!link) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await session.deleteLink(link.shortcode)
+    pendingDelete.value = null
+  } catch (err) {
+    deleteError.value = (err as Error)?.message || 'Couldn’t delete that link'
+    pendingDelete.value = null
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function signIn() {
+  signingIn.value = true
+  signInError.value = ''
+  try {
+    await signInWithBrowser('sign-in')
+    if (visible.value) await session.recheck()
+  } catch (err) {
+    signInError.value = (err as Error)?.message || 'Sign-in didn’t finish. Try again.'
+  } finally {
+    signingIn.value = false
+  }
+}
+
+function openSettingsSection(section: string) {
+  dialog.close()
+  window.dispatchEvent(new CustomEvent('open-settings', { detail: section }))
+}
+
+onBeforeUnmount(() => {
+  if (copiedTimer) clearTimeout(copiedTimer)
+  session.dispose()
+})
 </script>

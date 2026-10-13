@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { shareFile, supportsNativeShare } from './nativeShare.ts'
+import { PHONE_SHARE_MAX_BYTES, phoneShareTooLarge, shareFile, supportsNativeShare } from './nativeShare.ts'
 
 const file = new File(['image'], 'art.png', { type: 'image/png' })
 const browser = { kind: 'browser', saveToDownloads: async () => { throw new Error('Unexpected download') } }
@@ -45,4 +45,19 @@ test('browser cancellation remains distinguishable from a sharing failure', asyn
     canShare: () => true,
     share: () => Promise.reject(cancelled),
   }), err => err === cancelled)
+})
+
+test('the phone size limit is decided from the recorded size, before any download', () => {
+  assert.equal(phoneShareTooLarge('android', PHONE_SHARE_MAX_BYTES + 1), true)
+  assert.equal(phoneShareTooLarge('ios', 300 * 1024 * 1024), true)
+  assert.equal(phoneShareTooLarge('ios', PHONE_SHARE_MAX_BYTES), false)
+  // Unknown size: let the download decide; browsers have no such limit.
+  assert.equal(phoneShareTooLarge('android', null), false)
+  assert.equal(phoneShareTooLarge('browser', 300 * 1024 * 1024), false)
+})
+
+test('an oversized file never reaches the phone bridge', async () => {
+  const big = { size: PHONE_SHARE_MAX_BYTES + 1, name: 'big.mp4', arrayBuffer: async () => { throw new Error('Unexpected read') } } as unknown as File
+  const bridge = { kind: 'android', saveToDownloads: async () => { throw new Error('Unexpected bridge call') } }
+  await assert.rejects(shareFile(big, bridge, {} as Navigator), /64 MB maximum/)
 })

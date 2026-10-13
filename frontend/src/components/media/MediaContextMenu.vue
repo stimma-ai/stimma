@@ -808,25 +808,26 @@
 
         <div class="border-t border-edge-subtle my-1"></div>
 
+        <!-- Share link (public link, every media type; single item only) -->
         <button
-          v-if="!isMultiple && nativeShareSupported"
+          v-if="!isMultiple"
+          data-testid="menu-share-link"
+          @click="handleShareLink"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <LinkIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Share link…</span>
+        </button>
+
+        <!-- Share file (OS share sheet; single-file items where the platform supports it) -->
+        <button
+          v-if="!isMultiple && nativeShareSupported && !isMultiFileItem"
+          data-testid="menu-share-file"
           @click="handleNativeShare"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
-          <ArrowUpTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" />
-          <span>Share…</span>
-        </button>
-
-        <!-- Share (single item only) -->
-        <button
-          v-if="!isMultiple"
-          @click="handleShareToCloud"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M13 4.5a2.5 2.5 0 1 1 .702 1.737L6.97 9.604a2.518 2.518 0 0 1 0 .792l6.733 3.367a2.5 2.5 0 1 1-.671 1.341l-6.733-3.367a2.5 2.5 0 1 1 0-3.475l6.733-3.366A2.52 2.52 0 0 1 13 4.5Z" />
-          </svg>
-          <span>Share to Stimma Cloud</span>
+          <ArrowUpTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span>Share file…</span>
         </button>
 
         <!-- Print -->
@@ -906,12 +907,6 @@
     />
 
     <NativeShareDialog v-if="nativeShareMediaId" :media-id="nativeShareMediaId" @close="nativeShareMediaId = null" />
-
-    <!-- Share Dialog -->
-    <ShareDialog
-      v-model="showShareDialog"
-      :media-item="shareMediaItem"
-    />
   </Teleport>
 </template>
 
@@ -930,9 +925,9 @@ import { getCurrentProfileId } from '../../composables/useProfile'
 import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
-import ShareDialog from '../ShareDialog.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
-import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
+import { ArrowUpTrayIcon, LinkIcon } from '@heroicons/vue/24/outline'
+import { useShareDialog } from '../../composables/useShareDialog'
 import { desktop } from '../../desktop'
 import { supportsNativeShare } from '../../utils/nativeShare'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
@@ -1158,12 +1153,10 @@ const tagPickerAnchor = ref<HTMLElement | null>(null)
 const showExportModal = ref(false)
 const exportMediaIds = ref<number[]>([])
 const exportMediaItems = ref<any[]>([])
-const showShareDialog = ref(false)
 const showExplodeConfirm = ref(false)
 const explodingContainer = ref(false)
 const explodeAssetId = ref<number | null>(null)
 const explodeSummary = ref<any>(null)
-const shareMediaItem = ref<any>(null)
 
 const emitToParent = defineEmits<{
   (e: 'refresh'): void
@@ -1219,6 +1212,8 @@ const isGrid = computed(() => mediaItem.value?.file_format === 'stimmagrid.json'
 const isSprite = computed(() => mediaItem.value?.file_format === 'stimmasprite.json')
 const isPackage = computed(() => mediaItem.value?.file_format === 'stimmapackage')
 const isSetOrGrid = computed(() => isSet.value || isGrid.value)
+// No single file to hand to the OS share sheet.
+const isMultiFileItem = computed(() => isSetOrGrid.value || isSprite.value || isPackage.value || mediaItem.value?.file_format === 'stimmalayout')
 const inBoard = computed(() => contextMenu.state.value.inBoard || false)
 const boardSectionId = computed(() => contextMenu.state.value.boardSectionId)
 const inProject = computed(() => contextMenu.state.value.inProject || false)
@@ -2163,18 +2158,12 @@ function handleNativeShare() {
   contextMenu.hide()
 }
 
-async function handleShareToCloud() {
+const shareDialog = useShareDialog()
+
+function handleShareLink() {
   const id = targetMediaIds.value[0]
   contextMenu.hide()
-  if (!id) return
-
-  try {
-    const item = await getMediaItem(id)
-    shareMediaItem.value = item
-    showShareDialog.value = true
-  } catch (err) {
-    console.error('Failed to load media for sharing:', err)
-  }
+  if (id) shareDialog.open(mediaItem.value?.id === id ? mediaItem.value : id)
 }
 
 async function handleExplode() {

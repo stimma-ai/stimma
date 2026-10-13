@@ -141,6 +141,10 @@
                 />
               </template>
 
+              <template v-else-if="activeSection === 'shared-links'">
+                <SharedLinksSection @navigate="activeSection = $event" />
+              </template>
+
               <!-- Stimma Server Section -->
               <template v-else-if="activeSection === 'server'">
                 <ServerSection @navigate="activeSection = $event" />
@@ -232,6 +236,7 @@ import ToolProvidersSection from './sections/ToolProvidersSection.vue'
 import BackgroundWorkSection from './sections/BackgroundWorkSection.vue'
 import UpdatesSection from './sections/UpdatesSection.vue'
 import AccountSection from './sections/AccountSection.vue'
+import SharedLinksSection from './sections/SharedLinksSection.vue'
 import ServerSection from './sections/ServerSection.vue'
 import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
@@ -288,7 +293,7 @@ const { isCompact } = useViewport()
 const compactList = ref(true)
 watch(() => props.show, (open) => { if (open) compactList.value = props.startAtList })
 const SECTION_LABELS = {
-  folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account',
+  folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account', 'shared-links': 'Shared links',
   server: 'Stimma server', tools: 'Generation tools', 'ai-services': 'Chat models', 'model-preferences': 'Preferences',
   profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer', stimpacks: 'Stimpacks',
 }

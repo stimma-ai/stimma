@@ -55,7 +55,7 @@
       @edit-image="handleEditImage"
       @download-version="downloadVersion"
       @view-lineage="handleViewLineage"
-      @share-to-cloud="showShareDialog = true"
+      @share-to-cloud="openShareLink"
     />
     </component>
 
@@ -1188,7 +1188,8 @@
     <!-- Compact: the rest of the bar as a sheet -->
     <Sheet v-if="slideshowCompact" :show="compactMoreOpen" @close="compactMoreOpen = false">
       <div class="pb-2">
-        <button v-if="nativeShareSupported && currentPayloadId" type="button" class="sheet-row" @click="nativeShareMediaId = currentPayloadId; compactMoreOpen = false"><ArrowUpTrayIcon class="sheet-row-icon" /><span class="flex-1">Share…</span></button>
+        <button v-if="currentPayloadId" type="button" class="sheet-row" @click="compactMoreOpen = false; openShareLink()"><LinkIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share link…</span></button>
+        <button v-if="nativeShareSupported && currentPayloadId && !isSprite && !isPackage && !isSet && !isGrid && !isLayout" type="button" class="sheet-row" @click="nativeShareMediaId = currentPayloadId; compactMoreOpen = false"><ArrowUpTrayIcon class="sheet-row-icon" :stroke-width="1.75" /><span class="flex-1">Share file…</span></button>
         <button type="button" class="sheet-row" @click="toggleRandomize"><ArrowsRightLeftIcon class="sheet-row-icon" /><span class="flex-1">Shuffle</span><span class="sheet-row-detail" :class="isRandomized ? '!text-live' : ''">{{ isRandomized ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-base leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
@@ -1344,12 +1345,6 @@
 
     <NativeShareDialog v-if="nativeShareMediaId" :media-id="nativeShareMediaId" @close="nativeShareMediaId = null" />
 
-    <!-- Share Dialog -->
-    <ShareDialog
-      v-model="showShareDialog"
-      :media-item="currentPayloadItem"
-    />
-
     <!-- Context Menu (teleports to body) -->
     <MediaContextMenu />
   </div>
@@ -1396,11 +1391,11 @@ import {
 import BoardPicker from './BoardPicker.vue'
 import Modal from './ui/Modal.vue'
 import ExportModal from './ExportModal.vue'
-import ShareDialog from './ShareDialog.vue'
 import NativeShareDialog from './NativeShareDialog.vue'
 import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
-import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
+import { ArrowUpTrayIcon, LinkIcon } from '@heroicons/vue/24/outline'
+import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
 import { captioningEnabledRef } from '../appConfig'
@@ -1761,7 +1756,10 @@ const showBoardPicker = ref(false)
 const showExportModal = ref(false)
 const nativeShareSupported = supportsNativeShare(desktop.kind)
 const nativeShareMediaId = ref(null)
-const showShareDialog = ref(false)
+const shareDialog = useShareDialog()
+function openShareLink() {
+  if (currentPayloadItem.value) shareDialog.open(currentPayloadItem.value)
+}
 const generationJob = ref(null)
 
 // Chat source state (for "Jump to Chat" feature)
