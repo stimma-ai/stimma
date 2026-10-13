@@ -1,4 +1,4 @@
-"""Public provenance ("how it was made") for share links: sidecar v2.
+"""Public provenance ("how it was made") for share links: sidecar v3.
 
 The frontend builds a display-ready provenance object and sends it with the
 share request. This module is the desktop-side gate before anything leaves the
@@ -7,9 +7,12 @@ machine:
 - validates it with pydantic (types strict, unknown fields ignored, strings and
   lists capped to the published contract);
 - drops any string that looks like an absolute filesystem path;
-- resolves each input ``ref`` (media id first, then hash) to a small WebP
-  thumbnail and replaces the ref with an opaque key (``t0``, ``t1``...), so no
-  ids or hashes are published.
+- resolves each ``ref`` (input ``ref`` and ``previewRef``, edit-step ``ref``;
+  media id first, then hash) to a small WebP thumbnail and replaces it with an
+  opaque key (``t0``, ``t1``...), so no ids or hashes are published.
+
+Requests may be version 2 (older frontends) or 3; v2 is a subset of v3. The
+published sidecar is always version 3.
 
 The result is the ``historySidecar`` form field the cloud stores and serves at
 ``/api/s/:code/history``.
@@ -35,7 +38,8 @@ from database import MediaItem
 
 log = get_logger(__name__)
 
-SIDECAR_VERSION = 2
+SIDECAR_VERSION = 3
+ACCEPTED_REQUEST_VERSIONS = (2, 3)
 
 # Caps from the published contract.
 MAX_STEPS = 32
@@ -49,6 +53,15 @@ MAX_LABEL = 60
 MAX_NAME = 120
 MAX_DATE = 40
 MAX_HASH = 128
+MAX_BADGES = 6
+MAX_BADGE = 24
+MAX_PREPROCESSOR = 60
+MAX_EDIT_STEPS = 24
+MAX_FILE_FACTS = 12
+MAX_FILE_LABEL = 40
+MAX_FILE_VALUE = 80
+
+_ICON_RE = re.compile(r"^[a-z0-9-]{1,40}$")
 
 THUMB_SIZE = 128
 THUMB_QUALITY = 75
@@ -103,6 +116,14 @@ class ProvenanceRef(_Lenient):
 class ProvenanceInput(_Lenient):
     role: Optional[str] = None
     ref: Optional[ProvenanceRef] = None
+    badges: list[str] = Field(default_factory=list)
+    preprocessor: Optional[str] = None
+    previewRef: Optional[ProvenanceRef] = None
+
+
+class ProvenanceEditStep(_Lenient):
+    label: str
+    ref: Optional[ProvenanceRef] = None
 
 
 class ProvenanceFact(_Lenient):
@@ -124,6 +145,7 @@ class ProvenanceLora(_Lenient):
 
 class ProvenanceStep(_Lenient):
     tool: str
+    icon: Optional[str] = None
     model: Optional[str] = None
     date: Optional[str] = None
     prompt: Optional[str] = None
@@ -133,17 +155,19 @@ class ProvenanceStep(_Lenient):
     loras: list[ProvenanceLora] = Field(default_factory=list)
     inputs: list[ProvenanceInput] = Field(default_factory=list)
     edits: list[str] = Field(default_factory=list)
+    editSteps: list[ProvenanceEditStep] = Field(default_factory=list)
 
 
 class ProvenanceRequest(_Lenient):
     version: int = SIDECAR_VERSION
+    file: list[ProvenanceFact] = Field(default_factory=list)
     steps: list[ProvenanceStep] = Field(default_factory=list)
 
     @field_validator("version")
     @classmethod
-    def _v2(cls, v: int) -> int:
-        if v != SIDECAR_VERSION:
-            raise ValueError("provenance version must be 2")
+    def _known_version(cls, v: int) -> int:
+        if v not in ACCEPTED_REQUEST_VERSIONS:
+            raise ValueError("provenance version must be 2 or 3")
         return v
 
 
@@ -279,16 +303,34 @@ async def _cached_library_thumbnail(session: AsyncSession, media: MediaItem) -> 
 async def build_public_sidecar(
     session: AsyncSession, provenance: ProvenanceRequest
 ) -> Optional[dict[str, Any]]:
-    """The published v2 sidecar, or None when nothing publishable remains."""
+    """The published v3 sidecar, or None when nothing publishable remains."""
     thumbnails: dict[str, str] = {}
     key_by_media: dict[int, Optional[str]] = {}
     steps_out: list[dict[str, Any]] = []
+
+    async def thumb_key(ref: Optional[ProvenanceRef]) -> Optional[str]:
+        """Opaque thumbnail key for a ref (deduplicated per media item), or None."""
+        if ref is None:
+            return None
+        media = await _media_for_ref(session, ref)
+        if media is None:
+            return None
+        if media.id not in key_by_media:
+            uri = await input_thumbnail_data_uri(session, media)
+            key = None
+            if uri:
+                key = f"t{len(thumbnails)}"
+                thumbnails[key] = uri
+            key_by_media[media.id] = key
+        return key_by_media[media.id]
 
     for step in provenance.steps[:MAX_STEPS]:
         tool = _clean_text(step.tool, MAX_NAME)
         if not tool:
             continue
         out: dict[str, Any] = {"tool": tool}
+        if isinstance(step.icon, str) and _ICON_RE.match(step.icon):
+            out["icon"] = step.icon
         for field, cap in (
             ("model", MAX_NAME),
             ("date", MAX_DATE),
@@ -334,18 +376,18 @@ async def build_public_sidecar(
             role = _clean_text(item.role, MAX_LABEL)
             if role:
                 entry["role"] = role
-            if item.ref is not None:
-                media = await _media_for_ref(session, item.ref)
-                if media is not None:
-                    if media.id not in key_by_media:
-                        uri = await input_thumbnail_data_uri(session, media)
-                        key = None
-                        if uri:
-                            key = f"t{len(thumbnails)}"
-                            thumbnails[key] = uri
-                        key_by_media[media.id] = key
-                    if key_by_media[media.id]:
-                        entry["thumb"] = key_by_media[media.id]
+            thumb = await thumb_key(item.ref)
+            if thumb:
+                entry["thumb"] = thumb
+            badges = [b for b in (_clean_text(x, MAX_BADGE) for x in item.badges) if b][:MAX_BADGES]
+            if badges:
+                entry["badges"] = badges
+            preprocessor = _clean_text(item.preprocessor, MAX_PREPROCESSOR)
+            if preprocessor:
+                entry["preprocessor"] = preprocessor
+            preview = await thumb_key(item.previewRef)
+            if preview:
+                entry["preview"] = preview
             if entry:
                 inputs.append(entry)
         if inputs:
@@ -355,18 +397,52 @@ async def build_public_sidecar(
         if edits:
             out["edits"] = edits
 
+        edit_steps = []
+        for edit in step.editSteps:
+            if len(edit_steps) >= MAX_EDIT_STEPS:
+                break
+            label = _clean_text(edit.label, MAX_LABEL)
+            if not label:
+                continue
+            entry = {"label": label}
+            thumb = await thumb_key(edit.ref)
+            if thumb:
+                entry["thumb"] = thumb
+            edit_steps.append(entry)
+        if edit_steps:
+            out["editSteps"] = edit_steps
+
         steps_out.append(out)
+
+    file_facts = []
+    for fact in provenance.file:
+        label = _clean_text(fact.label, MAX_FILE_LABEL)
+        value = fact.value
+        if isinstance(value, bool):
+            value = "Yes" if value else "No"
+        value = _clean_text(value, MAX_FILE_VALUE)
+        if label and value:
+            file_facts.append({"label": label, "value": value})
+        if len(file_facts) >= MAX_FILE_FACTS:
+            break
 
     if not steps_out:
         return None
-    sidecar = {"version": SIDECAR_VERSION, "steps": steps_out, "thumbnails": thumbnails}
+    sidecar: dict[str, Any] = {"version": SIDECAR_VERSION}
+    if file_facts:
+        sidecar["file"] = file_facts
+    sidecar["steps"] = steps_out
+    sidecar["thumbnails"] = thumbnails
     if len(json.dumps(sidecar)) > MAX_SIDECAR_BYTES:
         log.info("share provenance sidecar too large, dropping thumbnails")
         for step in steps_out:
             for entry in step.get("inputs") or []:
                 entry.pop("thumb", None)
+                entry.pop("preview", None)
             step["inputs"] = [e for e in step.get("inputs") or [] if e]
             if not step["inputs"]:
                 step.pop("inputs")
+            for entry in step.get("editSteps") or []:
+                entry.pop("thumb", None)
         sidecar["thumbnails"] = {}
     return sidecar

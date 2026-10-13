@@ -653,8 +653,9 @@ async def test_layout_payload(db_session, root):
 
 def test_provenance_rejects_bad_shapes():
     assert parse_provenance(None) is None
-    for bad in ["text", {"version": 1, "steps": []}, {"version": 2, "steps": [{"model": "x"}]},
-                {"version": 2, "steps": "nope"}]:
+    for bad in ["text", {"version": 1, "steps": []}, {"version": 4, "steps": []},
+                {"version": 2, "steps": [{"model": "x"}]}, {"version": 2, "steps": "nope"},
+                {"version": 3, "steps": [{"tool": "x", "editSteps": [{"ref": {"mediaId": 1}}]}]}]:
         with pytest.raises(ProvenanceError):
             parse_provenance(bad)
 
@@ -695,7 +696,7 @@ async def test_provenance_sidecar_is_capped_and_anonymous(db_session, root):
         }
         sidecar = await build_public_sidecar(session, parse_provenance(raw))
 
-    assert sidecar["version"] == 2 and len(sidecar["steps"]) == 1
+    assert sidecar["version"] == 3 and len(sidecar["steps"]) == 1
     step = sidecar["steps"][0]
     assert len(step["prompt"]) == 8000
     assert "negativePrompt" not in step
@@ -708,6 +709,61 @@ async def test_provenance_sidecar_is_capped_and_anonymous(db_session, root):
     text = json.dumps(sidecar)
     assert str(ref.id) not in json.dumps(step["inputs"]) and ref.file_hash not in text
     assert_private({k: v for k, v in sidecar.items() if k != "thumbnails"}, [str(root)], "sidecar")
+
+
+async def test_provenance_v3_fields_are_capped_and_anonymous(db_session, root):
+    ref_img = root / "prov3" / "ref.png"
+    _png_with_secrets(ref_img, str(root), size=(300, 200))
+    depth_img = root / "prov3" / "depth.png"
+    _png_with_secrets(depth_img, str(root), size=(64, 64))
+    async with db_session() as session:
+        ref = await _media(session, ref_img, width=300, height=200)
+        depth = await _media(session, depth_img, width=64, height=64)
+        raw = {
+            "version": 3,
+            "file": [{"label": "Format", "value": "WebP"}, {"label": "Dimensions", "value": "1024 × 768"},
+                     {"label": "Name", "value": f"{root}/secret.webp"}, {"label": "L" * 50, "value": "v" * 100}]
+                    + [{"label": f"F{i}", "value": i} for i in range(20)],
+            "steps": [{
+                "tool": "Flux.2 Klein 9B",
+                "icon": "image-to-image",
+                "inputs": [
+                    {"role": "Reference", "ref": {"mediaId": ref.id}, "badges": ["Crop", "Painted", "b" * 30,
+                     "/Users/x/y/z", "4", "5", "6", "7"], "preprocessor": "Depth",
+                     "previewRef": {"hash": depth.file_hash}},
+                    {"role": "Control", "previewRef": {"mediaId": ref.id}, "preprocessor": "p" * 80},
+                ],
+                "editSteps": [{"label": "Exposure", "ref": {"mediaId": depth.id}}, {"label": "Crop"},
+                              {"label": "/home/x/y/z"}]
+                             + [{"label": f"E{i}"} for i in range(30)],
+                "edits": ["Exposure"],
+            }, {"tool": "Upscale", "icon": "Bad Icon!"}],
+        }
+        sidecar = await build_public_sidecar(session, parse_provenance(raw))
+
+    assert sidecar["version"] == 3
+    assert sidecar["file"][:3] == [{"label": "Format", "value": "WebP"}, {"label": "Dimensions", "value": "1024 × 768"},
+                                   {"label": "L" * 40, "value": "v" * 80}]
+    assert len(sidecar["file"]) == 12
+    first, second = sidecar["steps"]
+    assert first["icon"] == "image-to-image" and "icon" not in second
+    reference, control = first["inputs"]
+    assert reference == {"role": "Reference", "thumb": "t0", "badges": ["Crop", "Painted", "b" * 24, "4", "5", "6"],
+                         "preprocessor": "Depth", "preview": "t1"}
+    assert control == {"role": "Control", "preprocessor": "p" * 60, "preview": "t0"}
+    assert first["editSteps"][:2] == [{"label": "Exposure", "thumb": "t1"}, {"label": "Crop"}]
+    assert len(first["editSteps"]) == 24 and first["edits"] == ["Exposure"]
+    assert sorted(sidecar["thumbnails"]) == ["t0", "t1"]
+    text = json.dumps({k: v for k, v in sidecar.items() if k != "thumbnails"})
+    assert ref.file_hash not in text and depth.file_hash not in text and "mediaId" not in text
+    assert_private({k: v for k, v in sidecar.items() if k != "thumbnails"}, [str(root)], "sidecar")
+
+
+async def test_provenance_v2_request_publishes_v3(db_session, root):
+    async with db_session() as session:
+        sidecar = await build_public_sidecar(session, parse_provenance(
+            {"version": 2, "steps": [{"tool": "Flux 2 Pro", "edits": ["Crop"]}]}))
+    assert sidecar == {"version": 3, "steps": [{"tool": "Flux 2 Pro", "edits": ["Crop"]}], "thumbnails": {}}
 
 
 # Create (end to end through the route) ────────────────────────────────────────
@@ -734,7 +790,7 @@ async def test_share_sends_sidecar_and_source_hash(client, db_session, root, mon
     meta = json.loads(fields["metadata"])
     assert meta["sourceHash"] == media.file_hash and meta["title"] == "Red box"
     sidecar = json.loads(fields["historySidecar"])
-    assert sidecar["version"] == 2 and sidecar["steps"][0]["inputs"] == [{"role": "Reference", "thumb": "t0"}]
+    assert sidecar["version"] == 3 and sidecar["steps"][0]["inputs"] == [{"role": "Reference", "thumb": "t0"}]
     assert [(f[0], f[1]) for f in files] == [("file", "original.png"), ("thumbnail", "thumb.webp")]
     raw = cloud.requests[0].content.decode("latin-1")
     for needle in [str(root), "file_path", "generationMetadata", "safetensors"]:

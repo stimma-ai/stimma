@@ -117,7 +117,7 @@ class ShareRequest(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     nsfw_override: bool = False
-    # Public "how it was made" (sidecar v2 request shape), or null to omit it.
+    # Public "how it was made" (sidecar v2 or v3 request shape), or null to omit it.
     provenance: Optional[Any] = None
 
 
