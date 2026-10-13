@@ -240,7 +240,7 @@ license:
 ## Frontend (npm) packages
 
 <!-- BEGIN GENERATED: npm -->
-135 packages (production dependency closure bundled into the UI).
+125 packages (production dependency closure bundled into the UI).
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -262,7 +262,6 @@ license:
 | @codemirror/search | 6.7.0 | MIT | https://code.haverbeke.berlin/codemirror/search |
 | @codemirror/state | 6.6.0 | MIT | https://github.com/codemirror/state |
 | @codemirror/view | 6.43.0 | MIT | https://code.haverbeke.berlin/codemirror/view |
-| @crabnebula/tauri-plugin-drag | 2.1.0 | MIT OR Apache-2.0 | https://github.com/crabnebula-dev/drag-rs |
 | @dagrejs/dagre | 3.0.0 | MIT | https://github.com/dagrejs/dagre |
 | @dagrejs/graphlib | 4.0.1 | MIT | https://github.com/dagrejs/graphlib |
 | @electron-internal/extract-zip | 1.0.5 | BSD-2-Clause | https://github.com/electron/extract-zip |
@@ -290,7 +289,6 @@ license:
 | @tauri-apps/plugin-shell | 2.3.4 | MIT OR Apache-2.0 | https://github.com/tauri-apps/plugins-workspace |
 | @tauri-apps/plugin-updater | 2.10.0 | MIT OR Apache-2.0 | https://github.com/tauri-apps/plugins-workspace |
 | @types/node | 24.13.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
-| @types/web-bluetooth | 0.0.20 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @vue/compiler-core | 3.5.24 | MIT | https://github.com/vuejs/core |
 | @vue/compiler-dom | 3.5.24 | MIT | https://github.com/vuejs/core |
 | @vue/compiler-sfc | 3.5.24 | MIT | https://github.com/vuejs/core |
@@ -301,9 +299,6 @@ license:
 | @vue/runtime-dom | 3.5.24 | MIT | https://github.com/vuejs/core |
 | @vue/server-renderer | 3.5.24 | MIT | https://github.com/vuejs/core |
 | @vue/shared | 3.5.24 | MIT | https://github.com/vuejs/core |
-| @vueuse/core | 10.11.1 | MIT | https://github.com/vueuse/vueuse |
-| @vueuse/metadata | 10.11.1 | MIT | https://github.com/vueuse/vueuse |
-| @vueuse/shared | 10.11.1 | MIT | https://github.com/vueuse/vueuse |
 | agent-base | 6.0.2 | MIT | https://github.com/TooTallNate/node-agent-base |
 | argparse | 2.0.1 | Python-2.0 | https://github.com/nodeca/argparse |
 | asynckit | 0.4.0 | MIT | https://github.com/alexindigo/asynckit |
@@ -359,24 +354,19 @@ license:
 | postcss-selector-parser | 6.0.10 | MIT | https://github.com/postcss/postcss-selector-parser |
 | progress | 2.0.3 | MIT | https://github.com/visionmedia/node-progress |
 | proxy-from-env | 2.1.0 | MIT | https://github.com/Rob--W/proxy-from-env |
-| ramda | 0.32.0 | MIT | https://github.com/ramda/ramda |
-| rxjs | 7.8.2 | Apache-2.0 | https://github.com/reactivex/rxjs |
 | sax | 1.6.1 | BlueOak-1.0.0 | https://github.com/isaacs/sax-js |
 | semver | 7.8.5 | ISC | https://github.com/npm/node-semver |
 | source-map-js | 1.2.1 | BSD-3-Clause | https://github.com/7rulnik/source-map-js |
 | style-mod | 4.1.3 | MIT | https://github.com/marijnh/style-mod |
 | sumchecker | 3.0.1 | Apache-2.0 | https://github.com/malept/sumchecker |
 | tiny-typed-emitter | 2.1.0 | MIT | https://github.com/binier/tiny-typed-emitter |
-| tslib | 2.8.1 | 0BSD | https://github.com/Microsoft/tslib |
 | undici-types | 7.18.2 | MIT | https://github.com/nodejs/undici |
 | universalify | 2.0.1 | MIT | https://github.com/RyanZim/universalify |
 | util-deprecate | 1.0.2 | MIT | https://github.com/TooTallNate/util-deprecate |
 | vue | 3.5.24 | MIT | https://github.com/vuejs/core |
-| vue-demi | 0.14.10 | MIT | https://github.com/antfu/vue-demi |
 | vue-observe-visibility | 2.0.0-alpha.1 | MIT | https://github.com/Akryum/vue-observe-visibility |
 | vue-resize | 2.0.0-alpha.1 | MIT | https://github.com/Akryum/vue-resize |
 | vue-router | 4.6.3 | MIT | https://github.com/vuejs/router |
-| vue-virtual-scroll-grid | 1.11.0 | MIT | https://github.com/rocwang/vue-virtual-scroll-grid |
 | vue-virtual-scroller | 2.0.0-beta.8 | MIT | https://github.com/Akryum/vue-virtual-scroller |
 | w3c-keyname | 2.2.8 | MIT | https://github.com/marijnh/w3c-keyname |
 <!-- END GENERATED: npm -->

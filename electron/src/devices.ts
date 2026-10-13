@@ -485,7 +485,7 @@ async function* reachableRoutes(device: DeviceRecord): AsyncGenerator<DeviceRout
   const preferred = state.preferredRoutes[device.deviceId]
   const ready: DeviceRoute[] = []
   let remaining = device.routes.length
-  let wake: (() => void) | null = null
+  const waiting: { wake: (() => void) | null } = { wake: null }
 
   for (const route of device.routes) {
     const delay = route.kind === 'tailscale' && !sameRoute(preferred, route) ? 250 : 0
@@ -493,14 +493,14 @@ async function* reachableRoutes(device: DeviceRecord): AsyncGenerator<DeviceRout
       if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
       if (await probe(route, device.deviceId, device.certFingerprint!)) ready.push(route)
       remaining--
-      wake?.()
-      wake = null
+      waiting.wake?.()
+      waiting.wake = null
     })()
   }
 
   while (remaining > 0 || ready.length > 0) {
     while (ready.length > 0) yield ready.shift()!
-    if (remaining > 0) await new Promise<void>((resolve) => (wake = resolve))
+    if (remaining > 0) await new Promise<void>((resolve) => (waiting.wake = resolve))
   }
 }
 

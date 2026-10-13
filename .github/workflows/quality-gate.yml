@@ -37,6 +37,30 @@ permissions:
   contents: read
 
 jobs:
+  desktop-tests:
+    name: Electron type check and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          cache-dependency-path: electron/package-lock.json
+      - name: Install shell dependencies
+        run: npm ci --prefix electron
+      - name: Type-check shell
+        run: tools/stimma lint desktop
+      - name: Build shell
+        run: npm run build --prefix electron
+      - name: Run shell unit tests
+        run: tools/stimma test desktop --unit
+
   backend-tests:
     name: Backend tests (${{ matrix.shard }}/4)
     strategy:
@@ -199,11 +223,12 @@ jobs:
   passed:
     name: Quality gate passed
     if: always()
-    needs: [backend-tests, acceptance-tests]
+    needs: [backend-tests, acceptance-tests, desktop-tests]
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-latest"') }}
     steps:
       - name: Require every test shard
         env:
           BACKEND: ${{ needs.backend-tests.result }}
           ACCEPTANCE: ${{ needs.acceptance-tests.result }}
-        run: test "$BACKEND" = success && test "$ACCEPTANCE" = success
+          DESKTOP: ${{ needs.desktop-tests.result }}
+        run: test "$BACKEND" = success && test "$ACCEPTANCE" = success && test "$DESKTOP" = success

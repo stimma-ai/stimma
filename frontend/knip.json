@@ -19,8 +19,6 @@
     "*.config.{js,ts}"
   ],
   "ignoreDependencies": [
-    "@crabnebula/tauri-plugin-drag",
-    "@tauri-apps/cli",
-    "vue-virtual-scroll-grid"
+    "@tauri-apps/cli"
   ]
 }

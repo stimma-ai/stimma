@@ -140,6 +140,8 @@ Commands:
                   Run Knip's conservative unused frontend file check
   test backend    Run backend pytest tests
   test frontend   Run all frontend unit and browser regression tests (Node 22+)
+  lint desktop    Type-check the Electron shell
+  test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)

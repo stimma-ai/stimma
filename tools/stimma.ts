@@ -616,12 +616,14 @@ Commands:
                       (skills, environments, lib modules; non-zero exit on errors)
   backup          Create timestamped local snapshot (source backend must be stopped)
   lint backend    Run ruff over the backend (undefined names, syntax errors)
+  lint desktop    Type-check the Electron shell
   lint frontend   Small-screen ratchet (scripts/lint-mobile.sh; DESIGN.md §1.11)
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
   render-test [--docker IMAGE | --executable FILE]  Validate real browser captures
   test backend    Run backend pytest tests
   test frontend   Run all frontend unit and browser regression tests
+  test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
@@ -2679,6 +2681,9 @@ async function main(): Promise<void> {
         await run("uv", ["run", "ruff", "check", ".", ...rest], { cwd: join(repoRoot, "backend") });
       } else if (sub === "frontend") {
         await run("bash", ["scripts/lint-mobile.sh", ...rest], { cwd: join(repoRoot, "frontend") });
+      } else if (sub === "desktop") {
+        await ensureElectronDeps();
+        await run("npm", ["run", "typecheck"], { cwd: join(repoRoot, "electron") });
       } else if (sub === "frontend-dead-code") {
         await run("npm", ["run", "lint:dead-code", "--", ...rest], { cwd: join(repoRoot, "frontend") });
       } else {
@@ -2692,6 +2697,13 @@ async function main(): Promise<void> {
         await run("uv", ["run", "pytest", ...rest], { cwd: join(repoRoot, "backend") });
       } else if (sub === "frontend") {
         await run("npm", ["test", "--", ...rest], { cwd: join(repoRoot, "frontend") });
+      } else if (sub === "desktop") {
+        await ensureElectronDeps();
+        if (rest.length > 1 || (rest.length === 1 && rest[0] !== "--unit")) {
+          console.error("Usage: stimma test desktop [--unit]");
+          Deno.exit(1);
+        }
+        await run("npm", ["run", rest[0] === "--unit" ? "test:unit" : "test"], { cwd: join(repoRoot, "electron") });
       } else if (sub === "acceptance") {
         await testAcceptance(rest);
       } else if (sub === "cv2-parity") {
