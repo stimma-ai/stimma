@@ -1641,7 +1641,21 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
   // Scrub ELECTRON_RUN_AS_NODE (agent/editor shells export it; it turns any
   // Electron the builder spawns into plain Node).
   Deno.env.delete("ELECTRON_RUN_AS_NODE");
-  await run(builderBin, ["--config", configPath, "--publish", "never"], { cwd: electronDir });
+  const builderArgs = ["--config", configPath, "--publish", "never"];
+  let builderExitCode = await run(builderBin, builderArgs, { cwd: electronDir, check: false });
+
+  // Windows endpoint protection can briefly hold the just-created NSIS
+  // installer, causing makensis to report only "Can't open output file".
+  // The portable backend and shell are already built at this point, so one
+  // clean retry is inexpensive and avoids treating that transient lock as a
+  // release failure. A second failure still surfaces normally.
+  if (builderExitCode !== 0 && Deno.build.os === "windows") {
+    console.warn("Electron Builder failed; clearing Windows artifacts and retrying once.");
+    await Deno.remove(join(electronDir, "out"), { recursive: true }).catch(() => {});
+    await sleep(5_000);
+    builderExitCode = await run(builderBin, builderArgs, { cwd: electronDir, check: false });
+  }
+  if (builderExitCode !== 0) Deno.exit(builderExitCode);
 
   console.log("");
   console.log(`Electron build complete: ${join(electronDir, "out")}`);
