@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -12,37 +12,30 @@ import { chromium } from '@playwright/test'
 // at a time, chosen by the reader, defaulting to the system. It is pure CSS,
 // so it must behave identically with scripts off.
 
-function renderAuthoredCover() {
+function renderAuthoredCover(t) {
   const dir = mkdtempSync(join(tmpdir(), 'stimma-appearance-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
   const script = `
-import asyncio, sys
 from pathlib import Path
-from PIL import Image, ImageDraw
-sys.path.insert(0, '.')
-from packages.recipes import get_recipe, run_recipe, ResolvedInput, describe_file
+from PIL import Image
 from packages.manifest import new_manifest, write_manifest, sha256_file
 from packages.cover import render_cover_document
 
 out = Path(${JSON.stringify('%DIR%')})
-(out / 'members').mkdir(parents=True)
-img = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
-ImageDraw.Draw(img).ellipse((80, 80, 944, 944), fill=(20, 120, 200, 255))
-src = out / 'members' / 'mark.png'
-img.save(src)
-ri = ResolvedInput(role='master', path=src, hash=sha256_file(src), **describe_file(src))
-
-async def main():
-    r = await run_recipe(get_recipe('app-icons'), {'master': ri},
-                         {'platforms': ['ios'], 'background': '#FFFFFF', 'app_name': 'Dot'},
-                         out / 'app-icons', slug='dot')
-    m = new_manifest(title='Dot')
-    m['members'] = [{'id': 'm1', 'role': 'master', 'name': 'mark.png', 'path': 'members/mark.png',
-                     'hash': ri.hash, 'size': src.stat().st_size, 'width': 1024, 'height': 1024}]
-    m['runs'] = [{'id': 'r1', 'recipe': {'id': 'app-icons', 'version': 2, 'display_name': 'App icon set'},
-                  'inputs': {'master': 'm1'}, 'params': r.params, 'root': 'app-icons/',
-                  'files': [{'path': 'app-icons/' + f.path, 'hash': f.hash, 'size': f.size} for f in r.files]}]
-    # The agent's cover: the home screen in one appearance at a time.
-    cover = '''<div class="sp-page"><h1 class="sp-title">Dot</h1>
+previews = out / 'app-icons' / 'previews'
+previews.mkdir(parents=True)
+# Appearance switching only needs real image files; a marketplace recipe must
+# not make this cover-component regression depend on a developer's profile.
+for surface in ('home', 'settings'):
+    for appearance, color in (('light', '#F5F5F5'), ('dark', '#151515')):
+        Image.new('RGB', (360, 720), color).save(previews / f'{surface}-{appearance}.png')
+m = new_manifest(title='Dot')
+m['runs'] = [{'id': 'r1', 'recipe': {'id': 'fixture', 'version': 1, 'display_name': 'Appearance previews'},
+              'inputs': {}, 'params': {}, 'root': 'app-icons/',
+              'files': [{'path': 'app-icons/' + str(p.relative_to(out / 'app-icons')),
+                         'hash': sha256_file(p), 'size': p.stat().st_size}
+                        for p in sorted(previews.glob('*.png'))]}]
+cover = '''<div class="sp-page"><h1 class="sp-title">Dot</h1>
 <stimma-section><stimma-appearance label="On a home screen">
   <div when="light"><stimma-media ref="app-icons/previews/home-light.png" style="width:360px"></stimma-media></div>
   <div when="dark"><stimma-media ref="app-icons/previews/home-dark.png" style="width:360px"></stimma-media></div>
@@ -53,11 +46,10 @@ async def main():
   <div when="dark"><stimma-media ref="app-icons/previews/settings-dark.png"></stimma-media></div>
 </stimma-appearance></stimma-section>
 <stimma-files ref="r1"></stimma-files></div>'''
-    html, problems = render_cover_document(m, authored_html=cover, bundle_dir=out)
-    assert not problems, problems
-    (out / 'index.html').write_text(html)
-    write_manifest(out, m)
-asyncio.run(main())
+html, problems = render_cover_document(m, authored_html=cover, bundle_dir=out)
+assert not problems, problems
+(out / 'index.html').write_text(html)
+write_manifest(out, m)
 `.replace('%DIR%', dir)
   execFileSync('uv', ['run', 'python', '-c', script], {
     cwd: new URL('../../backend', import.meta.url).pathname,
@@ -70,8 +62,8 @@ const visible = (page, sel) => page.evaluate(s =>
   Array.from(document.querySelectorAll(s)).filter(el => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden').length, sel)
 
 for (const javaScriptEnabled of [true, false]) {
-  test(`one appearance at a time, chosen by the reader (scripts ${javaScriptEnabled ? 'on' : 'off'})`, async () => {
-    const url = renderAuthoredCover()
+  test(`one appearance at a time, chosen by the reader (scripts ${javaScriptEnabled ? 'on' : 'off'})`, async t => {
+    const url = renderAuthoredCover(t)
     const browser = await chromium.launch({ headless: true })
     try {
       for (const scheme of ['light', 'dark']) {
