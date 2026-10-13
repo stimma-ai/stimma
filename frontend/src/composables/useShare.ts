@@ -218,7 +218,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 /** The one mono fact under the preview: "Sprite · 4 animations", "Audio · 0:32". */
 export function shareTypeFact(
-  item: { file_format?: unknown; width?: unknown; height?: unknown; duration?: unknown; file_size?: unknown } | null | undefined,
+  item: { file_format?: unknown; width?: unknown; height?: unknown; duration?: unknown; file_size?: unknown; raw_metadata?: unknown } | null | undefined,
   extra: { animationCount?: number | null; sizeBytes?: number | null } = {},
 ): string {
   if (!item) return ''
@@ -232,8 +232,24 @@ export function shareTypeFact(
   if (type === 'audio' || type === 'video') detail = duration || dims
   else if (type === 'sprite') detail = extra.animationCount ? `${extra.animationCount} ${extra.animationCount === 1 ? 'animation' : 'animations'}` : ''
   else if (type === 'package' || type === 'text') detail = size
+  else if (type === 'set' || type === 'grid') detail = compositeShape(type, item.raw_metadata) || size
   else detail = dims || size
   return detail ? `${label} · ${detail}` : label
+}
+
+/** "4 items" for a set, "2 × 3" for a grid, from the manifest the scanner keeps. */
+function compositeShape(type: 'set' | 'grid', raw: unknown): string {
+  let doc: any = raw
+  if (typeof raw === 'string') {
+    try { doc = JSON.parse(raw) } catch { return '' }
+  }
+  if (!doc || typeof doc !== 'object') return ''
+  if (type === 'grid') {
+    const rows = Number(doc.rows), cols = Number(doc.cols)
+    return rows > 0 && cols > 0 ? `${rows} × ${cols}` : ''
+  }
+  const n = Array.isArray(doc.items) ? doc.items.length : 0
+  return n ? `${n} ${n === 1 ? 'item' : 'items'}` : ''
 }
 
 // --- "How it was made" preview --------------------------------------------------

@@ -385,6 +385,8 @@ test('useShareDialog is a singleton: open by id or object, reopen restarts', () 
 test('type facts and sizes read as one mono fact', () => {
   assert.equal(shareTypeFact({ file_format: 'stimmasprite.json' }, { animationCount: 4 }), 'Sprite · 4 animations')
   assert.equal(shareTypeFact({ file_format: 'mp3', duration: 32 }), 'Audio · 0:32')
+  assert.equal(shareTypeFact({ file_format: 'stimmaset.json', raw_metadata: '{"items":[{},{},{},{}]}' }), 'Set · 4 items')
+  assert.equal(shareTypeFact({ file_format: 'stimmagrid.json', raw_metadata: { rows: 2, cols: 3 } }), 'Grid · 2 × 3')
   assert.equal(shareTypeFact({ file_format: 'stimmapackage' }, { sizeBytes: 12_400_000 }), 'Package · 12.4 MB')
   assert.equal(shareTypeFact({ file_format: 'png', width: 1024, height: 768 }), 'Image · 1024 × 768')
   assert.equal(shareTypeFact({ file_format: 'md', file_size: 820_000 }), 'Markdown · 820 KB')

@@ -414,13 +414,16 @@ const COARSE_ICON = 'coarse:min-h-11 coarse:min-w-11'
 const PublishingAccount = defineComponent({
   props: { account: { type: Object as PropType<ShareAccount | null>, default: null } },
   setup(props) {
+    // An account can point at an avatar that no longer exists; fall back to
+    // the initial rather than a broken-image glyph.
+    const failedAvatar = ref<string | null>(null)
     return () => {
       const a = props.account
       if (!a?.username) return h('span')
       const initial = (a.display_name || a.username || '?').charAt(0).toUpperCase()
       return h('div', { class: 'flex min-w-0 items-center gap-2', 'data-testid': 'share-account', title: a.display_name || undefined }, [
-        a.avatar_url
-          ? h(AppImage, { src: a.avatar_url, alt: '', class: 'h-5 w-5 shrink-0 overflow-hidden rounded-full', containerClass: 'h-5 w-5 rounded-full', imgClass: 'h-5 w-5 rounded-full object-cover', draggable: false })
+        a.avatar_url && failedAvatar.value !== a.avatar_url
+          ? h(AppImage, { src: a.avatar_url, alt: '', class: 'h-5 w-5 shrink-0 overflow-hidden rounded-full', containerClass: 'h-5 w-5 rounded-full', imgClass: 'h-5 w-5 rounded-full object-cover', draggable: false, onError: () => { failedAvatar.value = a.avatar_url } })
           : h('span', { class: 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-overlay-light text-[10px] font-medium text-content-secondary', 'aria-hidden': 'true' }, initial),
         h('span', { class: 'truncate font-mono text-xs text-content-secondary' }, `@${a.username}`),
       ])
