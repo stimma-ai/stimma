@@ -1,7 +1,7 @@
 <template>
   <div class="pv-root" :data-theme="theme" data-testid="provenance-view">
     <section v-if="view.steps.length">
-      <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">{{ title }}</h4>
+      <h4 v-if="title" class="m-0 mb-3 text-xs font-semibold text-content-secondary">{{ title }}</h4>
       <ProvenanceSteps :steps="view.steps" />
     </section>
     <ProvenanceFileFacts :class="view.steps.length ? 'mt-6' : ''" :rows="view.file" />

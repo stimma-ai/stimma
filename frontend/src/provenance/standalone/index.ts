@@ -16,7 +16,7 @@ import './provenance-view.css'
 export interface MountOptions {
   sidecar: unknown
   theme?: 'dark' | 'light'
-  /** Section heading above the steps. */
+  /** Section heading above the steps; an empty string omits it (the host draws its own). */
   title?: string
 }
 
@@ -27,7 +27,7 @@ export function mount(el: Element, options: MountOptions): { unmount(): void } {
   const app = createApp(PublicRoot, {
     sidecar: options.sidecar,
     theme: options.theme === 'light' ? 'light' : 'dark',
-    ...(options.title ? { title: options.title } : {}),
+    ...(typeof options.title === 'string' ? { title: options.title } : {}),
   })
   app.mount(wrapper)
   return {

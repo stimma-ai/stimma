@@ -30,6 +30,13 @@
             </div>
           </button>
         </Tip>
+        <!-- Where a host offers no actions (the public page), the role is the
+             caption; in the app it lives in the tooltip above View | Compare. -->
+        <div
+          v-if="!actionsFor(input).length && input.role"
+          class="mt-1 truncate text-[10px] text-content-tertiary"
+          :class="size === 'sm' ? 'max-w-20' : 'max-w-24'"
+        >{{ input.role }}</div>
         <!-- Actions under the thumbnail: open what it was made from, compare. -->
         <div v-if="actionsFor(input).length" class="flex justify-center gap-2 mt-1.5 text-[10px]">
           <template v-for="(action, i) in actionsFor(input)" :key="action.label">
