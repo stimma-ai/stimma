@@ -100,12 +100,20 @@ def _total_size(manifest: dict[str, Any]) -> int:
     for run in manifest.get("runs") or []:
         total += sum(int(e.get("size") or 0) for e in run.get("files") or [])
     total += sum(int(e.get("size") or 0) for e in manifest.get("extras") or [])
+    if not total and not _produced_files(manifest):
+        # Same fallback as the file count: a package of nothing but inputs
+        # delivers those inputs, so their bytes are what the recipient gets.
+        total = sum(int(e.get("size") or 0) for e in manifest.get("members") or [])
     return total
 
 
-def _total_files(manifest: dict[str, Any]) -> int:
+def _produced_files(manifest: dict[str, Any]) -> int:
     produced = sum(len(run.get("files") or []) for run in manifest.get("runs") or [])
-    produced += len(manifest.get("extras") or [])
+    return produced + len(manifest.get("extras") or [])
+
+
+def _total_files(manifest: dict[str, Any]) -> int:
+    produced = _produced_files(manifest)
     # A package with nothing but inputs is still a package of those files.
     return produced or len(manifest.get("members") or [])
 

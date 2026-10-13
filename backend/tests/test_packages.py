@@ -414,3 +414,15 @@ async def test_package_rejects_loose_library_manifests(db_session, tmp_path, fmt
             assert not builder.members and not builder.extras
             assert builder.add_extra(ordinary) == "extras/source.json"
             assert builder.add_extra(archive) == "extras/source.zip"
+
+
+def test_auto_cover_counts_input_bytes_when_nothing_was_produced():
+    from packages.cover import _total_files, _total_size
+
+    manifest = {"members": [{"size": 1000}, {"size": 2500}], "runs": [], "extras": []}
+    assert _total_files(manifest) == 2
+    assert _total_size(manifest) == 3500
+
+    manifest["extras"] = [{"size": 10}]
+    assert _total_files(manifest) == 1
+    assert _total_size(manifest) == 10
