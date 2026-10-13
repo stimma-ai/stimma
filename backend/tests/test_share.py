@@ -915,3 +915,38 @@ def test_own_title_reads_markdown_sprite_and_package(tmp_path):
 
     assert _own_title(SimpleNamespace(file_path=str(tmp_path / "missing.md")), "text") is None
     assert _own_title(SimpleNamespace(file_path=str(md)), "image") is None
+
+
+async def test_provenance_inputs_without_a_raster_use_the_library_thumbnail(db_session, root, monkeypatch):
+    """A markdown or SVG input still gets a picture: rendered, or the cached tile."""
+    import share_payloads
+    from database import MediaThumbnailCache
+
+    async def no_renderer(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(share_payloads, "rasterize_svg", no_renderer)
+    doc = root / "inputs" / "notes.md"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("# Notes\n")
+    vector = root / "inputs" / "mark.svg"
+    vector.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>')
+    tile = root / "cache" / "tile.png"
+    tile.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (10, 200, 180)).save(tile)
+    async with db_session() as session:
+        md = await _media(session, doc, "md")
+        svg = await _media(session, vector, "svg")
+        session.add(MediaThumbnailCache(media_id=md.id, cache_path=str(tile)))
+        session.add(MediaThumbnailCache(media_id=svg.id, cache_path=str(tile)))
+        await session.commit()
+        sidecar = await build_public_sidecar(session, parse_provenance({
+            "version": 2,
+            "steps": [{"tool": "Package", "inputs": [
+                {"role": "Member", "ref": {"mediaId": md.id}},
+                {"role": "Member", "ref": {"mediaId": svg.id}},
+            ]}],
+        }))
+    inputs = sidecar["steps"][0]["inputs"]
+    assert inputs == [{"role": "Member", "thumb": "t0"}, {"role": "Member", "thumb": "t1"}]
+    assert all(v.startswith("data:image/webp;base64,") for v in sidecar["thumbnails"].values())

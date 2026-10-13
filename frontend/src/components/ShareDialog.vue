@@ -130,6 +130,7 @@
                   </template>
                   <span>{{ viewsLabel(link.view_count) }}</span>
                   <template v-if="link.created_at"><span aria-hidden="true">·</span><span>{{ formatDate(link.created_at) }}</span></template>
+                  <span aria-hidden="true">·</span><span class="truncate">{{ link.shortcode }}</span>
                 </p>
               </div>
               <div class="flex items-center gap-0.5">

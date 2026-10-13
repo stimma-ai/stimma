@@ -17,6 +17,7 @@ The result is the ``historySidecar`` form field the cloud stores and serves at
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import json
@@ -211,16 +212,66 @@ def thumbnail_data_uri(media: MediaItem, size: int = THUMB_SIZE) -> Optional[str
             from utils.image_ops import open_oriented
 
             img = open_oriented(path)
-        img.thumbnail((size, size), Image.LANCZOS)
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGBA" if "A" in img.mode or img.mode == "P" else "RGB")
-        buf = io.BytesIO()
-        img.save(buf, format="WEBP", quality=THUMB_QUALITY)
-        img.close()
-        return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        return _encode_thumb(img, size)
     except Exception as exc:  # noqa: BLE001
         log.debug("provenance thumbnail failed", media_id=media.id, error=type(exc).__name__)
         return None
+
+
+def _encode_thumb(img, size: int = THUMB_SIZE) -> str:
+    from PIL import Image
+
+    img.thumbnail((size, size), Image.LANCZOS)
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGBA" if "A" in img.mode or img.mode == "P" else "RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="WEBP", quality=THUMB_QUALITY)
+    img.close()
+    return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+async def input_thumbnail_data_uri(session: AsyncSession, media: MediaItem) -> Optional[str]:
+    """Thumbnail for a provenance input of any type.
+
+    Rasters and videos are read directly. Vectors go through the same local
+    renderer the library uses; anything else (documents, containers) reuses a
+    thumbnail the library has already cached for it.
+    """
+    fmt = (media.file_format or "").lower()
+    if fmt == "svg":
+        from share_payloads import rasterize_svg
+
+        img = await rasterize_svg(Path(media.file_path), long_side=THUMB_SIZE * 2)
+        if img is not None:
+            try:
+                return await asyncio.to_thread(_encode_thumb, img)
+            except Exception:  # noqa: BLE001
+                pass
+    else:
+        uri = await asyncio.to_thread(thumbnail_data_uri, media)
+        if uri:
+            return uri
+    return await _cached_library_thumbnail(session, media)
+
+
+async def _cached_library_thumbnail(session: AsyncSession, media: MediaItem) -> Optional[str]:
+    from PIL import Image
+    from sqlalchemy import select
+
+    from database import MediaThumbnailCache
+
+    rows = await session.execute(
+        select(MediaThumbnailCache.cache_path).where(MediaThumbnailCache.media_id == media.id)
+    )
+    for cache_path in rows.scalars():
+        path = Path(cache_path)
+        if not path.is_file():
+            continue
+        try:
+            return await asyncio.to_thread(lambda: _encode_thumb(Image.open(path)))
+        except Exception:  # noqa: BLE001
+            continue
+    return None
 
 
 # Published shape (desktop backend -> cloud) ───────────────────────────────────
@@ -287,7 +338,7 @@ async def build_public_sidecar(
                 media = await _media_for_ref(session, item.ref)
                 if media is not None:
                     if media.id not in key_by_media:
-                        uri = thumbnail_data_uri(media)
+                        uri = await input_thumbnail_data_uri(session, media)
                         key = None
                         if uri:
                             key = f"t{len(thumbnails)}"
