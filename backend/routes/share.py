@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -702,7 +702,9 @@ def _normalize_link(row: dict, cloud_base_url: str) -> Optional[ShareLink]:
         media_type=row.get("mediaType"),
         view_count=int(row.get("viewCount") or 0),
         created_at=str(created) if created is not None else None,
-        thumbnail_url=row.get("thumbnailUrl"),
+        # Served through this backend: it holds the cloud access headers, and
+        # the client never has to reach the cloud directly.
+        thumbnail_url=f"/api/share/links/{shortcode}/thumbnail" if row.get("thumbnailUrl") else None,
     )
 
 
@@ -796,6 +798,35 @@ async def update_link(shortcode: str, request: UpdateLinkRequest):
     )
 
 
+_THUMB_CACHE: dict[str, tuple[bytes, str]] = {}
+_THUMB_CACHE_MAX = 256
+
+
+@router.get("/links/{shortcode}/thumbnail")
+async def link_thumbnail(shortcode: str):
+    """A link's preview tile, fetched from the public share and cached in memory."""
+    if is_privacy_lockdown_enabled() or not _SHORTCODE_RE.match(shortcode):
+        return Response(status_code=404)
+    cached = _THUMB_CACHE.get(shortcode)
+    if cached is None:
+        try:
+            async with _cloud_client(15.0) as client:
+                response = await client.get(
+                    f"{get_settings().cloud.base_url}/api/s/{shortcode}/media/thumb.webp",
+                    headers=with_cloud_access_headers({}),
+                )
+        except Exception as e:  # noqa: BLE001
+            log.debug("share link thumbnail fetch failed", error_type=type(e).__name__)
+            return Response(status_code=502)
+        content_type = response.headers.get("content-type", "").split(";")[0].strip()
+        if response.status_code != 200 or not content_type.startswith("image/"):
+            return Response(status_code=404)
+        if len(_THUMB_CACHE) >= _THUMB_CACHE_MAX:
+            _THUMB_CACHE.pop(next(iter(_THUMB_CACHE)))
+        cached = _THUMB_CACHE[shortcode] = (response.content, content_type)
+    return Response(content=cached[0], media_type=cached[1], headers={"Cache-Control": "private, max-age=86400"})
+
+
 @router.delete("/links/{shortcode}", response_model=DeleteLinkResponse)
 async def delete_link(shortcode: str):
     """Take a link down."""
@@ -819,6 +850,7 @@ async def delete_link(shortcode: str):
             success=False,
             error=_friendly_cloud_error(response.status_code, _cloud_error_detail(response), action="delete"),
         )
+    _THUMB_CACHE.pop(shortcode, None)
     return DeleteLinkResponse(success=True, shortcode=shortcode)
 
 

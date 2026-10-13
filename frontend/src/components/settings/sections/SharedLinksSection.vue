@@ -53,18 +53,19 @@
           <li v-for="link in list.items.value" :key="link.shortcode" class="flex items-center gap-3 py-2.5">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-media bg-matte">
               <AppImage
-                v-if="link.thumbnail_url"
-                :src="link.thumbnail_url"
+                v-if="link.thumbnail_url && !failedThumbs.has(link.shortcode)"
+                :src="thumbSrc(link.thumbnail_url)"
                 alt=""
                 container-class="h-10 w-10"
                 img-class="h-10 w-10 object-cover"
                 :draggable="false"
+                @error="failedThumbs.add(link.shortcode)"
               />
               <component :is="typeIcon(link.media_type)" v-else class="h-4 w-4 text-content-muted" :stroke-width="1.75" />
             </div>
             <div class="min-w-0 flex-1">
               <p class="truncate text-[13px] text-content">{{ link.title || 'Untitled' }}</p>
-              <p class="mt-0.5 flex items-center gap-1.5 truncate font-mono text-xs tabular-nums text-content-tertiary">
+              <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-xs tabular-nums text-content-tertiary">
                 <template v-if="isInReview(link.status)">
                   <StatusDot bucket="warning" />
                   <span class="font-sans">In review</span>
@@ -119,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   ArrowTopRightOnSquareIcon,
   CheckIcon,
@@ -141,10 +142,20 @@ import StatusDot from '../../ui/StatusDot.vue'
 import Tooltip from '../../ui/Tooltip.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import AppImage from '../../media/AppImage.vue'
+import { getApiBase } from '../../../apiConfig'
+import { getCurrentProfileId } from '../../../composables/useProfile'
 import { createSharedLinksList, isInReview, type ShareLink } from '../../../composables/useShare'
 import { useAuth } from '../../../composables/useAuth'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { textClass } from '../../../utils/statusColors'
+
+// Tiles come through the local backend (/api/share/links/<code>/thumbnail):
+// it holds the cloud credentials, so the client never reaches the cloud.
+function thumbSrc(path: string): string {
+  if (!path.startsWith('/api/')) return path
+  return `${getApiBase()}${path.slice(4)}?profile=${encodeURIComponent(getCurrentProfileId())}`
+}
+const failedThumbs = reactive(new Set<string>())
 
 const emit = defineEmits<{ navigate: [section: string] }>()
 

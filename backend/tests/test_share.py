@@ -836,7 +836,7 @@ async def test_links_for_one_item_filter_by_source_hash(client, db_session, root
     assert body["links"] == [{
         "shortcode": "abc123", "url": "https://share.example/abc123", "title": "Red box", "status": "approved",
         "media_type": "image", "view_count": 7, "created_at": "2026-10-12T10:00:00.000Z",
-        "thumbnail_url": "https://share.example/media/shares/abc123/thumb.webp",
+        "thumbnail_url": "/api/share/links/abc123/thumbnail",
     }]
 
 
@@ -950,3 +950,19 @@ async def test_provenance_inputs_without_a_raster_use_the_library_thumbnail(db_s
     inputs = sidecar["steps"][0]["inputs"]
     assert inputs == [{"role": "Member", "thumb": "t0"}, {"role": "Member", "thumb": "t1"}]
     assert all(v.startswith("data:image/webp;base64,") for v in sidecar["thumbnails"].values())
+
+
+async def test_link_thumbnail_is_proxied_and_cached(client, monkeypatch):
+    share_route._THUMB_CACHE.clear()
+    cloud = Cloud(monkeypatch, lambda req: httpx.Response(200, content=b"RIFFwebp", headers={"content-type": "image/webp"}))
+    first = await client.get("/api/share/links/abc123/thumbnail")
+    second = await client.get("/api/share/links/abc123/thumbnail")
+    assert first.status_code == 200 and first.content == b"RIFFwebp"
+    assert first.headers["content-type"] == "image/webp" and second.content == b"RIFFwebp"
+    assert len(cloud.requests) == 1
+    assert cloud.requests[0].url.path == "/api/s/abc123/media/thumb.webp"
+    assert "authorization" not in {k.lower() for k in cloud.requests[0].headers}
+
+    Cloud(monkeypatch, lambda req: httpx.Response(404, json={"error": "nope"}))
+    assert (await client.get("/api/share/links/zzz999/thumbnail")).status_code == 404
+    assert (await client.get("/api/share/links/bad..code/thumbnail")).status_code == 404
