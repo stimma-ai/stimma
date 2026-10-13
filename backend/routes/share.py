@@ -897,7 +897,7 @@ async def suggest_share_title(request: SuggestTitleRequest, session: AsyncSessio
 
 
 def _own_title(media_item, media_type: str) -> Optional[str]:
-    """The title a markdown, sprite or package already gives itself, if any."""
+    """The title a markdown, set, grid, sprite or package already gives itself, if any."""
     try:
         path = Path(media_item.file_path)
         if media_type == "text":
@@ -908,6 +908,8 @@ def _own_title(media_item, media_type: str) -> Optional[str]:
             if not title:
                 heading = re.search(r"^#\s+(.+?)\s*#*\s*$", doc.get("content") or "", re.MULTILINE)
                 title = heading.group(1).strip() if heading else ""
+        elif media_type in ("set", "grid"):
+            title = str(json.loads(path.read_text(encoding="utf-8")).get("title") or "").strip()
         elif media_type == "sprite":
             from sprite_document import load_sprite_document
 

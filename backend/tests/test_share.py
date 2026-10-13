@@ -909,5 +909,9 @@ def test_own_title_reads_markdown_sprite_and_package(tmp_path):
     (pkg / "stimma-package.json").write_text('{"title": "Harbor delivery"}')
     assert _own_title(SimpleNamespace(file_path=str(pkg)), "package") == "Harbor delivery"
 
+    grid = tmp_path / "g.stimmagrid.json"
+    grid.write_text('{"version": 1, "title": "Palette x bloom", "rows": 1, "cols": 1, "cells": []}')
+    assert _own_title(SimpleNamespace(file_path=str(grid)), "grid") == "Palette x bloom"
+
     assert _own_title(SimpleNamespace(file_path=str(tmp_path / "missing.md")), "text") is None
     assert _own_title(SimpleNamespace(file_path=str(md)), "image") is None
