@@ -885,3 +885,29 @@ async def test_delete_link_rejects_odd_shortcodes(client, monkeypatch):
     cloud = Cloud(monkeypatch)
     body = (await client.delete("/api/share/links/a.b")).json()
     assert body["success"] is False and cloud.requests == []
+
+
+def test_own_title_reads_markdown_sprite_and_package(tmp_path):
+    from types import SimpleNamespace
+
+    from routes.share import _own_title
+
+    md = tmp_path / "notes.md"
+    md.write_text("---\ntitle: Field notes\n---\n\n# Ignored heading\n")
+    assert _own_title(SimpleNamespace(file_path=str(md)), "text") == "Field notes"
+    md.write_text("Intro line\n\n# Harbor log\n\nBody")
+    assert _own_title(SimpleNamespace(file_path=str(md)), "text") == "Harbor log"
+
+    sprite = tmp_path / "c.stimmasprite.json"
+    sprite.write_text('{"type": "sprite", "version": 1, "title": "Courier"}')
+    assert _own_title(SimpleNamespace(file_path=str(sprite)), "sprite") == "Courier"
+
+    pkg = tmp_path / "p.stimmapackage"
+    pkg.mkdir()
+    (pkg / "stimma-package.json").write_text('{"title": "Package"}')
+    assert _own_title(SimpleNamespace(file_path=str(pkg)), "package") is None
+    (pkg / "stimma-package.json").write_text('{"title": "Harbor delivery"}')
+    assert _own_title(SimpleNamespace(file_path=str(pkg)), "package") == "Harbor delivery"
+
+    assert _own_title(SimpleNamespace(file_path=str(tmp_path / "missing.md")), "text") is None
+    assert _own_title(SimpleNamespace(file_path=str(md)), "image") is None

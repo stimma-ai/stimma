@@ -862,6 +862,11 @@ async def suggest_share_title(request: SuggestTitleRequest, session: AsyncSessio
         if existing_title and existing_title != "Untitled":
             return SuggestTitleResponse(title=existing_title, source="existing")
 
+    # --- Documents that carry their own title: use it as written ---
+    own_title = _own_title(media_item, media_type)
+    if own_title:
+        return SuggestTitleResponse(title=own_title, source="existing")
+
     # --- Per-type context gathering ---
     context_parts = []
 
@@ -889,6 +894,32 @@ async def suggest_share_title(request: SuggestTitleRequest, session: AsyncSessio
     if filename and len(filename) > 2:
         return SuggestTitleResponse(title=_clean_filename_title(filename), source="filename")
     return SuggestTitleResponse()
+
+
+def _own_title(media_item, media_type: str) -> Optional[str]:
+    """The title a markdown, sprite or package already gives itself, if any."""
+    try:
+        path = Path(media_item.file_path)
+        if media_type == "text":
+            from structured_media import read_markdown_file
+
+            doc = read_markdown_file(path) or {}
+            title = str((doc.get("frontmatter") or {}).get("title") or "").strip()
+            if not title:
+                heading = re.search(r"^#\s+(.+?)\s*#*\s*$", doc.get("content") or "", re.MULTILINE)
+                title = heading.group(1).strip() if heading else ""
+        elif media_type == "sprite":
+            from sprite_document import load_sprite_document
+
+            title = str((load_sprite_document(path) or {}).get("title") or "").strip()
+        elif media_type == "package":
+            manifest = json.loads((path / "stimma-package.json").read_text(encoding="utf-8"))
+            title = str(manifest.get("title") or "").strip()
+        else:
+            return None
+    except (OSError, ValueError, TypeError):
+        return None
+    return title[:100] if title and title.lower() not in {"untitled", "package", "sprite"} else None
 
 
 def _gather_layout_context(media_item) -> list[str]:
