@@ -50,10 +50,10 @@ def get_arch() -> str:
     return machine or "unknown"
 
 
-def _read_tauri_conf() -> dict:
-    """Read tauri.conf.json (available in source checkouts only)."""
+def _read_shell_package() -> dict:
+    """Read Electron package metadata (available in source checkouts only)."""
     try:
-        conf_path = Path(__file__).parent.parent / "src-tauri" / "tauri.conf.json"
+        conf_path = Path(__file__).parent.parent / "electron" / "package.json"
         if conf_path.exists():
             return json.loads(conf_path.read_text())
     except Exception:
@@ -64,9 +64,9 @@ def _read_tauri_conf() -> dict:
 def get_app_version() -> str:
     """Best-effort app version string.
 
-    Resolution order: ``STIMMA_APP_VERSION`` env (set by the Tauri shell
-    from its bundled version), tauri.conf.json (source checkouts), git
-    short SHA for dev checkouts, else ``0.0.0``.
+    Resolution order: ``STIMMA_APP_VERSION`` env (set by the desktop shell
+    from its bundled version), git short SHA for dev checkouts, Electron
+    package metadata for source fallbacks, else ``0.0.0``.
     """
     global _app_version
     if _app_version:
@@ -77,7 +77,7 @@ def get_app_version() -> str:
         _app_version = env_version
         return _app_version
 
-    conf_version = _read_tauri_conf().get("version")
+    package_version = _read_shell_package().get("version")
     from app_context import get_bundle_id, BUNDLE_ID_STABLE
     if get_bundle_id() != BUNDLE_ID_STABLE:
         try:
@@ -92,7 +92,7 @@ def get_app_version() -> str:
         except Exception:
             pass
 
-    _app_version = conf_version or "0.0.0"
+    _app_version = package_version or "0.0.0"
     return _app_version
 
 

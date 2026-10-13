@@ -36,12 +36,12 @@ import { computed } from 'vue'
 import AppImage from './AppImage.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
-import { useTauriDrag } from '../../composables/useTauriDrag'
+import { useDesktopDrag } from '../../composables/useDesktopDrag'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { editorLivePreview } from '../../imageEditor/liveEditorPreview'
 
 const contextMenu = useMediaContextMenu()
-const { isTauri, handleDragStart: tauriHandleDragStart } = useTauriDrag()
+const { isDesktop, handleDragStart: desktopHandleDragStart } = useDesktopDrag()
 
 interface Props {
   /** Media ID from database (use this OR fileHash) */
@@ -156,8 +156,8 @@ async function handleDragStart(event: DragEvent) {
   // can read via application/x-media-id. The two are mutually exclusive on
   // WKWebView, so the modifier picks the lane up front instead of trying to
   // do both on one gesture.
-  if (isTauri.value && event.altKey && props.mediaId && props.filePath) {
-    await tauriHandleDragStart(event, props.mediaId, props.filePath)
+  if (isDesktop.value && event.altKey && props.mediaId && props.filePath) {
+    await desktopHandleDragStart(event, props.mediaId, props.filePath)
     emit('dragstart', event)
     return
   }

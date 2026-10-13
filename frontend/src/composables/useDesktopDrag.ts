@@ -1,51 +1,50 @@
 /**
- * Composable for handling file drag-out in Tauri.
+ * Composable for handling native file drag-out through the desktop bridge.
  *
- * In Tauri, native file drag-out requires using the drag plugin
- * with actual file system paths.
+ * Native file drag-out requires actual file system paths.
  */
 
 import { useMultiDevice } from './useMultiDevice'
 import { addToast } from './useToasts'
 import { ref } from 'vue'
 import { useMediaApi } from './useMediaApi'
-import { getApiBase, isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
+import { getApiBase, isDesktop as checkIsDesktop, initApiConfig } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCurrentDbGuid } from './useProfile'
 
 const { isRemote, activeDeviceId } = useMultiDevice()
 
 // Module-level state
-const isTauri = ref(false)
+const isDesktop = ref(false)
 let initPromise: Promise<void> | null = null
 let initComplete = false
 
 /**
- * Initialize Tauri detection and load drag plugin.
+ * Initialize desktop detection after API configuration.
  * Uses the same detection method as apiConfig.js for reliability.
  */
-async function initTauri(): Promise<void> {
+async function initDesktop(): Promise<void> {
   if (initComplete) return
   if (initPromise) return initPromise
 
   initPromise = (async () => {
     try {
-      // Wait for API config to be ready first (this ensures Tauri IPC is available)
+      // Wait for API configuration before resolving local file paths
       await initApiConfig()
 
       // Use the reliable sync check from apiConfig
-      if (!checkIsTauri()) {
-        console.log('[useTauriDrag] Not in desktop environment')
-        isTauri.value = false
+      if (!checkIsDesktop()) {
+        console.log('[useDesktopDrag] Not in desktop environment')
+        isDesktop.value = false
         initComplete = true
         return
       }
 
-      isTauri.value = true
-      console.log('[useTauriDrag] Desktop drag initialized successfully')
+      isDesktop.value = true
+      console.log('[useDesktopDrag] Desktop drag initialized successfully')
     } catch (e) {
-      console.log('[useTauriDrag] Desktop drag init failed:', e)
-      isTauri.value = false
+      console.log('[useDesktopDrag] Desktop drag init failed:', e)
+      isDesktop.value = false
     } finally {
       initComplete = true
     }
@@ -69,7 +68,7 @@ async function getThumbnailPath(mediaId: number): Promise<string | null> {
     const data = await response.json()
     return data.path || null
   } catch (e) {
-    console.error('[useTauriDrag] Failed to get thumbnail path:', e)
+    console.error('[useDesktopDrag] Failed to get thumbnail path:', e)
     return null
   }
 }
@@ -78,16 +77,16 @@ async function getThumbnailPath(mediaId: number): Promise<string | null> {
  * Start a native drag operation with file paths
  */
 async function startNativeDrag(items: string[], previewPath?: string): Promise<void> {
-  if (!isTauri.value) {
+  if (!isDesktop.value) {
     throw new Error('Desktop bridge not initialized')
   }
 
-  console.log('[useTauriDrag] Starting drag with items:', items, 'preview:', previewPath)
+  console.log('[useDesktopDrag] Starting drag with items:', items, 'preview:', previewPath)
   await desktop.startNativeDrag(items, previewPath)
 }
 
 // Initialize on module load (non-blocking)
-initTauri()
+initDesktop()
 
 // Cache for media file paths (mediaId -> file_path)
 const filePathCache = new Map<number, string>()
@@ -141,7 +140,7 @@ async function getExportableSnapshotPath(mediaId: number): Promise<string | null
 }
 
 async function resolveExportableSnapshotPath(mediaId: number, key: string): Promise<string | null> {
-  if (!isTauri.value) return null
+  if (!isDesktop.value) return null
   const expires = Date.now() + SNAPSHOT_PATH_TTL_MS
   try {
     const dbGuid = getCurrentDbGuid()
@@ -174,12 +173,12 @@ async function resolveExportableSnapshotPath(mediaId: number, key: string): Prom
       return path
     }
   } catch (e) {
-    console.error('[useTauriDrag] Failed to resolve exportable snapshot:', e)
+    console.error('[useDesktopDrag] Failed to resolve exportable snapshot:', e)
   }
   return null
 }
 
-export function useTauriDrag() {
+export function useDesktopDrag() {
   const { getMediaItem } = useMediaApi()
 
   /**
@@ -198,14 +197,14 @@ export function useTauriDrag() {
         return media.file_path
       }
     } catch (e) {
-      console.error('[useTauriDrag] Failed to get media item:', e)
+      console.error('[useDesktopDrag] Failed to get media item:', e)
     }
     return null
   }
 
   /**
    * Handle drag start for a media item.
-   * In Tauri, this will initiate a native file drag.
+   * In the desktop shell, this will initiate a native file drag.
    * In browser, it falls back to setting data transfer.
    *
    * @param event - The drag event
@@ -220,14 +219,14 @@ export function useTauriDrag() {
     // Ensure Tauri is initialized before checking
     if (!initComplete) {
       event.preventDefault()
-      void initTauri()
+      void initDesktop()
       return
     }
 
-    // If in Tauri with file path available, use native file drag exclusively
+    // If in the desktop shell with file path available, use native file drag exclusively
     // This must happen synchronously before any await to properly prevent browser drag
-    console.log('[useTauriDrag] handleDragStart called:', { isTauri: isTauri.value, filePath })
-    if (isTauri.value && filePath) {
+    console.log('[useDesktopDrag] handleDragStart called:', { isDesktop: isDesktop.value, filePath })
+    if (isDesktop.value && filePath) {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
@@ -257,7 +256,7 @@ export function useTauriDrag() {
       const dragPath = cachedSnapshot || filePath
 
       startNativeDrag([dragPath], cachedPreview).catch((e) => {
-        console.error('[useTauriDrag] Native drag failed:', e)
+        console.error('[useDesktopDrag] Native drag failed:', e)
       })
 
       // Warm the embedded snapshot + tidy small-thumbnail preview in the
@@ -273,10 +272,10 @@ export function useTauriDrag() {
       }
       return
     }
-    console.log('[useTauriDrag] Falling back to browser drag')
+    console.log('[useDesktopDrag] Falling back to browser drag')
 
-    // If in Tauri but no file path, try to get it (async - browser drag may start)
-    if (isTauri.value && !filePath) {
+    // If in the desktop shell but no file path, try to get it (async - browser drag may start)
+    if (isDesktop.value && !filePath) {
       // Set internal data for in-app drag-drop as fallback
       event.dataTransfer?.setData('application/x-media-id', String(mediaId))
       if (event.dataTransfer) {
@@ -288,10 +287,10 @@ export function useTauriDrag() {
         if (path) {
           // Can't preventDefault after async - native drag won't work perfectly
           // but at least in-app drag works via dataTransfer
-          console.log('[useTauriDrag] File path retrieved async, native drag may not work')
+          console.log('[useDesktopDrag] File path retrieved async, native drag may not work')
         }
       } catch (e) {
-        console.error('[useTauriDrag] Failed to get file path:', e)
+        console.error('[useDesktopDrag] Failed to get file path:', e)
       }
       return
     }
@@ -314,12 +313,12 @@ export function useTauriDrag() {
     // Ensure Tauri is initialized before checking
     if (!initComplete) {
       event.preventDefault()
-      void initTauri()
+      void initDesktop()
       return
     }
 
-    // If in Tauri with file paths available, use native file drag exclusively
-    if (isTauri.value && filePaths && filePaths.length > 0) {
+    // If in the desktop shell with file paths available, use native file drag exclusively
+    if (isDesktop.value && filePaths && filePaths.length > 0) {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
@@ -339,7 +338,7 @@ export function useTauriDrag() {
       const cachedPreview = isRemote.value ? undefined : thumbnailPathCache.get(mediaIds[0])
 
       startNativeDrag(resolvedPaths, cachedPreview).catch((e) => {
-        console.error('[useTauriDrag] Multi-file native drag failed:', e)
+        console.error('[useDesktopDrag] Multi-file native drag failed:', e)
       })
 
       // Warm embedded snapshots + preview in the background for next time.
@@ -354,23 +353,23 @@ export function useTauriDrag() {
       return
     }
 
-    // Browser mode or Tauri without pre-fetched paths - use dataTransfer
+    // Browser mode or the desktop shell without pre-fetched paths - use dataTransfer
     event.dataTransfer?.setData('application/x-media-ids', JSON.stringify(mediaIds))
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'copyMove'
     }
 
-    // In Tauri without paths, try to get them async (browser drag already started)
-    if (isTauri.value && !filePaths) {
+    // In the desktop shell without paths, try to get them async (browser drag already started)
+    if (isDesktop.value && !filePaths) {
       try {
         const pathPromises = mediaIds.map(id => getFilePath(id))
         const results = await Promise.all(pathPromises)
         const paths = results.filter((p): p is string => p !== null)
         if (paths.length > 0) {
-          console.log('[useTauriDrag] Paths retrieved async, native drag may not work')
+          console.log('[useDesktopDrag] Paths retrieved async, native drag may not work')
         }
       } catch (e) {
-        console.error('[useTauriDrag] Failed to get file paths:', e)
+        console.error('[useDesktopDrag] Failed to get file paths:', e)
       }
     }
   }
@@ -388,11 +387,11 @@ export function useTauriDrag() {
    * synchronously from cache without awaiting a round-trip (which crashes the
    * macOS drag plugin — see handleDragStart). Call this when an item becomes
    * the likely drag target, e.g. when shown in the slideshow. No-op outside
-   * Tauri and safe to call repeatedly (cached after the first resolve).
+   * the desktop shell and safe to call repeatedly (cached after the first resolve).
    */
   async function prewarmDragSnapshot(mediaId: number): Promise<void> {
-    await initTauri()
-    if (!isTauri.value) return
+    await initDesktop()
+    if (!isDesktop.value) return
     if (!cachedSnapshotPath(mediaId)) {
       getExportableSnapshotPath(mediaId).catch(() => {})
     }
@@ -404,7 +403,7 @@ export function useTauriDrag() {
   }
 
   return {
-    isTauri,
+    isDesktop,
     handleDragStart,
     handleMultiDragStart,
     cacheFilePath,

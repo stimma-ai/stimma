@@ -1,6 +1,6 @@
 # Release Channels & Updates
 
-How desktop builds are produced, which channel they land on, and how the Tauri
+How desktop builds are produced, which channel they land on, and how the desktop
 updater keeps installed apps current.
 
 ## Channels
@@ -189,16 +189,21 @@ native reuse; never reuse an old installer merely because it exists.
 
 ## What CI patches per channel
 
-On each build the reusable workflow rewrites the Tauri config in `src-tauri/`
-(`tauri.conf.json`, plus `Cargo.toml` for the version):
+The build CLI selects Electron's channel identity and embeds version and updater
+metadata in the packaged `package.json`. CI supplies `STIMMA_APP_VERSION`, the
+channel flag, and `STIMMA_UPDATE_BASE_URL`; it does not rewrite a second shell's
+configuration.
 
 | Field | Set to |
 |-------|--------|
 | `version` | resolved version (e.g. `0.1.39`) |
-| `identifier` | channel bundle ID (`ai.stimma.stimma[.beta/.canary/.debug]`) |
+| `stimmaBundleId` | channel bundle ID (`ai.stimma.stimma[.beta/.canary/.debug]`) |
 | `productName` | `Stimma` / `Stimma Beta` / `Stimma Canary` / `Stimma Debug` |
-| `plugins.updater.endpoints[0]` | `${BASE}/stimma/{channel}/{target}/latest.json` |
-| `plugins.updater.pubkey` | `TAURI_SIGNING_PUBLIC_KEY` |
+| `stimmaUpdateUrl` | `${BASE}/stimma/{channel}/{target}` |
+
+Electron's updater reads the platform YAML feed in that directory. The Tauri CLI
+remains a build-time signer for older updater clients and headless manifest
+compatibility; no Tauri shell or frontend runtime is built.
 
 `${BASE}` is the `STIMMA_UPDATE_BASE_URL` repo variable, defaulting to
 `https://updates.stimma.ai`.
@@ -207,7 +212,7 @@ On each build the reusable workflow rewrites the Tauri config in `src-tauri/`
 
 Updates are served from Cloudflare R2 under `https://updates.stimma.ai`. Each
 published target writes a versioned artifact directory plus a channel-level
-`latest.json` that the Tauri updater polls:
+`latest.json` for legacy updater clients, alongside Electron updater feeds:
 
 ```
 stimma/{channel}/{target}/latest.json          ← updater feed (per channel+target)
@@ -253,7 +258,7 @@ pre-release number).
 
 - The updater archive is signed with `TAURI_SIGNING_PRIVATE_KEY` (minisign); the
   `.sig` value is embedded in `latest.json` and verified client-side against the
-  `pubkey` baked into the Tauri config.
+  public key embedded in the previously installed updater client.
 - macOS builds additionally Apple-code-sign + notarize when
   `vars.ENABLE_APPLE_SIGNING == 'true'` (Developer ID cert + Apple ID secrets).
 
@@ -322,5 +327,6 @@ a hand-rolled build to R2.
 | `.github/workflows/release-macos.yml` | macOS build/sign/publish reusable |
 | `.github/workflows/release-windows.yml` | Windows build/sign/publish reusable |
 | `.github/workflows/linux-appimage.yml` | Linux AppImage build/sign/publish reusable (x64 + arm64) |
-| `src-tauri/tauri.conf.json` | Base Tauri config (version / identity / updater patched by CI) |
-| `src-tauri/Cargo.toml` | Crate version (patched by CI) |
+| `electron/package.json` | Local version fallback; packaged metadata is stamped by the build CLI |
+| `native/watchdog/` | Backend supervisor shared by desktop packaging |
+| `packaging/desktop/icons/` | Shared desktop icons and channel badge inputs |

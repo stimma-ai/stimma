@@ -3,7 +3,7 @@
  *
  * - Real pen pointer events (Chromium/WebView2 on Windows): pressure arrives
  *   on the PointerEvent itself, recognizable by `pointerType === 'pen'`.
- * - The native `tablet-input` stream (macOS, src-tauri/src/tablet.rs):
+ * - The native `tablet-input` stream (macOS, native/stimma-native/src/tablet.rs):
  *   WKWebView reports tablet input as a plain mouse pointer with no usable
  *   pressure, so an NSEvent monitor forwards it and it is matched to DOM
  *   pointer events here.
@@ -21,7 +21,7 @@
  * With no pen involved, `tabletPressureFor` returns null and callers treat
  * the input as a mouse.
  */
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import {
   claimTabletWheelGesture,
@@ -118,7 +118,7 @@ function handleMiddlePan(
 function ensureListening(): void {
   if (started) return
   started = true
-  if (!isTauri()) return
+  if (!isDesktop()) return
   const generation = ++listeningGeneration
   desktop.onTabletInput((rawPayload) => {
     const payload = rawPayload as TabletInputPayload

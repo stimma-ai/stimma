@@ -12,7 +12,7 @@ import { desktop } from '../desktop'
 import type { KnownFolder } from '../desktop/types'
 import { getCurrentProfileId } from './useProfile'
 import { addToast } from './useToasts'
-import { useTauriDownload } from './useTauriDownload'
+import { useDesktopDownload } from './useDesktopDownload'
 
 export type ExportMediaCategory =
   'image' | 'video' | 'audio' | 'layout' | 'vector' | 'sprite' | 'package' | 'mixed' | 'other'
@@ -24,7 +24,7 @@ export interface ExportFile {
 
 /** Desktop shells can open native pickers and write anywhere the user picks. */
 export function canChooseExportLocation(): boolean {
-  return desktop.kind === 'tauri' || desktop.kind === 'electron'
+  return desktop.kind === 'electron'
 }
 
 export function isZipExport(file: ExportFile): boolean {
@@ -141,7 +141,7 @@ export async function exportToChosenFolder(
 /** Write straight to Downloads (desktop), or hand off to the share sheet / browser. */
 export async function exportToDownloads(file: ExportFile): Promise<void> {
   if (!canChooseExportLocation()) {
-    await useTauriDownload().downloadFromResponse(file.blob, file.filename)
+    await useDesktopDownload().downloadFromResponse(file.blob, file.filename)
     return
   }
   const saved = await desktop.saveToDownloads(file.filename, await bytesOf(file.blob))

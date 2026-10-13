@@ -24,13 +24,13 @@
         :inert="isMobile && !isOpen ? true : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
-        <div v-if="isTauriMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
-          <div class="absolute top-0 left-0 right-0 h-7 bg-surface" data-tauri-drag-region style="pointer-events: auto;" />
+        <div v-if="isDesktopMac" class="absolute top-0 left-0 right-3 h-9 z-10 pointer-events-none">
+          <div class="absolute top-0 left-0 right-0 h-7 bg-surface" data-window-drag-region style="pointer-events: auto;" />
           <div class="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-b from-surface to-transparent" />
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="isTauriMac ? 'pt-10' : 'pt-3'">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="isDesktopMac ? 'pt-10' : 'pt-3'">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -1048,7 +1048,7 @@ import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField
 import FlowStatusPill from './flow/FlowStatusPill.vue'
 import { useDragStore } from '../stores/dragStore'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
@@ -1077,7 +1077,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat', 'open-account'])
 
 // Platform detection
-const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
+const isDesktopMac = isDesktop() && navigator.platform.toLowerCase().includes('mac')
 
 // Navigation
 const router = useRouter()
@@ -1698,34 +1698,13 @@ function handleDragOver(e: DragEvent) {
   }
 }
 
-// WKWebView does not populate modifier keys on DOM drag events (click events
-// are fine — that's why shift-click in menus works). In the Tauri shell, poll
-// the OS shift state through the bridge during drag-over; browser builds (and
-// Chromium-based shells) use the drag event's own shiftKey.
-const IS_TAURI = desktop.kind === 'tauri'
-let lastShiftPoll = 0
-function pollNativeShift() {
-  const now = performance.now()
-  if (now - lastShiftPoll < 100) return
-  lastShiftPoll = now
-  desktop.isShiftKeyDown()
-    .then((down) => { dragAddModifier.value = down })
-    .catch(() => {})
-}
-
 // Tool tabs get intent-aware cursor feedback: a naked pointer for the default
 // replace ('move'), the OS copy badge (green +) only while shift = add.
-// dragover fires continuously, so pressing/releasing shift mid-hover updates
-// the cursor, ring color, and hint bar live (via the poll above in Tauri —
-// the dropEffect set here uses the last polled value, ≤100ms stale).
+// dragover updates the cursor, ring color, and hint when Shift changes.
 function handleTabDragOver(tab: WorkspaceTab, e: DragEvent) {
   if (e.dataTransfer?.types.includes('application/x-media-id')) {
     e.preventDefault()
-    if (IS_TAURI) {
-      pollNativeShift()
-    } else {
-      dragAddModifier.value = e.shiftKey
-    }
+    dragAddModifier.value = e.shiftKey
     e.dataTransfer.dropEffect = tab.type === 'tool' && !dragAddModifier.value ? 'move' : 'copy'
   }
 }

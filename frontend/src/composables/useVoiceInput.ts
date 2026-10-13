@@ -10,7 +10,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
+import { isDesktop as checkIsDesktop, initApiConfig } from '../apiConfig'
 import { desktop } from '../desktop'
 import { useTelemetry } from './useTelemetry'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
@@ -34,7 +34,7 @@ async function initTauri(): Promise<void> {
   initPromise = (async () => {
     try {
       await initApiConfig()
-      supported.value = checkIsTauri()
+      supported.value = checkIsDesktop()
     } catch (e) {
       console.warn('[useVoiceInput] Desktop init failed:', e)
       supported.value = false

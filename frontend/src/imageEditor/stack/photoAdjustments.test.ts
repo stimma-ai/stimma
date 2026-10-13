@@ -17,7 +17,8 @@ function pixel(r: number, g: number, b: number) {
 test('new tonal and color controls participate in adjustment identity', () => {
   assert.equal(hasPhotographicAdjustments({}), false)
   assert.equal(hasPhotographicAdjustments({ highlights: 1 }), true)
-  assert.equal(hasPhotographicAdjustments({ hue: 1 }), true)
+  assert.equal(hasPhotographicAdjustments({ colorizeAmount: 1 }), true)
+  assert.equal(hasPhotographicAdjustments({ colorizeHue: 120 }), false)
   assert.equal(hasPhotographicAdjustments({ vibrance: 1 }), true)
   assert.equal(
     hasPhotographicAdjustments({
@@ -41,9 +42,11 @@ test('highlight adjustment is weighted toward bright pixels', () => {
   assert.ok(bright.data[0] - 220 > dark.data[0] - 40)
 })
 
-test('hue adjustment rotates color while retaining saturation', () => {
+test('point color rotates a selected red while retaining saturation', () => {
   const red = pixel(255, 0, 0)
-  applyPhotographicAdjustments(red, { hue: 120 })
+  applyPhotographicAdjustments(red, {
+    pointHue: 0, pointSat: 100, pointLum: 50, pointHueShift: 120,
+  })
   assert.ok(red.data[1] > 240)
   assert.ok(red.data[0] < 15)
   assert.ok(red.data[2] < 15)

@@ -5,7 +5,7 @@ import { build } from 'vite'
 // Exercise the real composable with only its shell/network dependencies replaced.
 const result = await build({
   configFile: false, logLevel: 'silent',
-  build: { write: false, minify: false, lib: { entry: 'src/composables/useTauriDrag.ts', formats: ['es'] } },
+  build: { write: false, minify: false, lib: { entry: 'src/composables/useDesktopDrag.ts', formats: ['es'] } },
   plugins: [{ name: 'fixture', enforce: 'pre',
     resolveId(id) {
       if (/^(vue|\.\/useMediaApi|\.\.\/apiConfig|\.\.\/desktop|\.\/useProfile|\.\/useMultiDevice|\.\/useToasts)$/.test(id)) return '\0fixture'
@@ -15,7 +15,7 @@ const result = await build({
       export const ref = value => ({value});
       export const useMediaApi = () => ({getMediaItem: async () => null});
       export const getApiBase = () => '/api';
-      export const isTauri = () => true;
+      export const isDesktop = () => true;
       export const initApiConfig = async () => {};
       export const desktop = s.desktop;
       export const getCurrentDbGuid = () => s.profile;
@@ -42,9 +42,9 @@ test('remote reveal and drag use local copies, isolate devices, and never wait i
     return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-disposition': "inline; filename*=UTF-8''picture.png" } })
   }
   try {
-    const { useTauriDrag } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+    const { useDesktopDrag } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
     await new Promise(resolve => setTimeout(resolve, 0))
-    const drag = useTauriDrag()
+    const drag = useDesktopDrag()
     await drag.revealMediaFile(7, '/server/picture.png')
     assert.deepEqual(requests, ['/api/db/profile-a/media/7/file'])
     assert.deepEqual(calls, [['reveal', '/tmp/copy-1.png']])

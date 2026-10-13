@@ -8,14 +8,14 @@ Stimma uses a two-level directory scheme: **bundle identifier** selects the app 
 
 ## Bundle Identifiers (Release Channels)
 
-Each release channel has its own bundle identifier, set in `tauri.conf.json` and patched by CI at build time:
+Each release channel has its own bundle identifier, embedded in Electron package metadata by the build CLI:
 
 | Channel | Bundle ID | When Used |
 |---------|-----------|-----------|
 | **Production** | `ai.stimma.stimma` | Production release |
 | **Beta** | `ai.stimma.stimma.beta` | Beta testing |
 | **Canary** | `ai.stimma.stimma.canary` | Canary builds (auto-built on every push to `main`) |
-| **Debug** | `ai.stimma.stimma.debug` | Local development (default in `tauri.conf.json` and CLI) |
+| **Debug** | `ai.stimma.stimma.debug` | Local development (default in the CLI) |
 
 Channels are fully isolated — each has its own database, settings, and cache. You can run production and canary side-by-side without conflicts. See `docs/RELEASE_CHANNELS.md` for how each channel is built and updated.
 
@@ -60,7 +60,9 @@ Fork ports are stored in `<sandbox>/.fork.json` and loaded automatically by the 
 
 ## Browser Profiles
 
-The Tauri WebView profile follows the same sandbox lifecycle. On Windows and
+Electron stores its Chromium profile at `<data-dir>/browser/`, isolated by sandbox.
+
+Legacy Tauri WebView profiles are imported during upgrade. On Windows and
 Linux its files live at `<data-dir>/browser/`. macOS does not allow WKWebView
 apps to select the physical website-data directory, so Stimma stores a random
 WebKit data-store identifier at `<data-dir>/browser/data-store-id` and uses it
@@ -83,7 +85,7 @@ Example:
 ~/Library/Caches/ai.stimma.stimma.debug/default/
 ```
 
-The bundle ID is used directly as the folder name. The Tauri app sets `STIMMA_DATA_DIR` and `STIMMA_CACHE_DIR` environment variables before launching the backend.
+The bundle ID is used directly as the folder name. The Electron app sets `STIMMA_DATA_DIR` and `STIMMA_CACHE_DIR` environment variables before launching the backend.
 
 ### Windows
 
@@ -135,7 +137,7 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
     ├── server.jsonl      # Current server log (JSON lines)
     ├── server.01.jsonl   # Previous session
     ├── ...               # Up to server.20.jsonl
-    ├── app.jsonl          # Current Tauri app log
+    ├── app.jsonl          # Legacy app log
     ├── app.01.jsonl
     └── ...               # Up to app.20.jsonl
 ```
@@ -174,16 +176,16 @@ Environment variables take highest precedence, overriding all path derivation:
 | `STIMMA_PORT` | Override server port |
 | `STIMMA_LOG_LEVEL` | `debug`, `info`, `warn`, `error` |
 
-The Tauri app only derives paths from the bundle identifier when `STIMMA_DATA_DIR` is **not** set. The CLI always computes paths from the bundle ID and sandbox name, then passes them as env vars to the server.
+The Electron app only derives paths from the bundle identifier when `STIMMA_DATA_DIR` is **not** set. The CLI always computes paths from the bundle ID and sandbox name, then passes them as env vars to the server.
 
 ## How It Fits Together
 
 ```
 ┌──────────────────┐     ┌──────────────────────────────────────┐
-│  CLI               │     │  Tauri App                            │
+│  CLI               │     │  Electron App                         │
 │  (stimma dev)      │     │  (desktop / mobile)                   │
 │                    │     │                                       │
-│  --channel=debug   │     │  identifier from tauri.conf.json      │
+│  --channel=debug   │     │  bundle ID from package metadata      │
 │  --sandbox=NAME    │     │  (patched by CI per channel)          │
 │                    │     │                                       │
 │  Derives bundleId  │     │  Uses bundle ID directly as folder    │

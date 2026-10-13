@@ -4,7 +4,7 @@
        stale chrome behind this. Modeled on the PIN lock screen. -->
   <div class="fixed inset-0 z-top bg-surface-overlay">
     <!-- Minimal top bar: window controls region plus the chip, nothing else. -->
-    <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
+    <div class="absolute top-0 left-0 right-0 h-14" data-window-drag-region />
     <div class="absolute top-4 right-4 z-10">
       <DeviceChip ref="chip" />
     </div>

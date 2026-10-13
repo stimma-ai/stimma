@@ -8,7 +8,7 @@ test('Windows kills backend and grandchild when watchdog is forcibly terminated'
   skip: process.platform !== 'win32', timeout: 15000,
 }, async () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-  const binary = path.join(root, 'src-tauri/watchdog/target/release/stimma-watchdog.exe')
+  const binary = path.join(root, 'native/watchdog/target/release/stimma-watchdog.exe')
   const backend = `const {spawn}=require('node:child_process'); const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'}); console.log(JSON.stringify([process.pid,c.pid])); setInterval(()=>{},1000)`
   const watchdog = spawn(binary, ['--parent-pid', String(process.pid), process.execPath, '-e', backend], { windowsHide: true })
   let descendants = []

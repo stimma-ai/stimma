@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { computed, ref } from 'vue'
 import { desktop } from '../desktop'
-import { isTauri, getApiBase } from '../apiConfig'
+import { isDesktop, getApiBase } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
 
 // What's New: after the app first launches on a new version, fetch that
@@ -67,7 +67,7 @@ async function initReleaseNotes(privacyLockdownActive: boolean): Promise<void> {
   if (initStarted) return
   initStarted = true
 
-  if (!isTauri() || privacyLockdownActive || !notesBase.value) return
+  if (!isDesktop() || privacyLockdownActive || !notesBase.value) return
 
   try {
     const version = coreVersion(await desktop.getAppVersion())

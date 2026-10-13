@@ -72,8 +72,8 @@ import SelectIsland from '../imageEditor/components/SelectIsland.vue'
 import StackCropCanvas from '../imageEditor/components/StackCropCanvas.vue'
 import ToolPicker from '../imageEditor/components/ToolPicker.vue'
 import { useStackDocument, newOpId } from '../imageEditor/stack/useStackDocument'
-import type { StackDocument } from '../imageEditor/stack/types'
 import { useStackCandidates } from '../imageEditor/stack/useStackCandidates'
+import { createEditorRenderer, RENDER_BURST_SETTLE_MS } from '../imageEditor/stack/editorRenderer'
 import { StackCompositor, stackHashes, canvasToBlob } from '../imageEditor/stack/useStackCompositor'
 import {
   LiveAdjustPreview,
@@ -1386,17 +1386,7 @@ async function loadStackBase() {
 const compositor = new StackCompositor({
   loadPayload: loadStackPayload,
   loadBase: loadStackBase,
-  onStepPreview: (opId, preview) => {
-    // Only a render of the WHOLE document describes the steps truthfully; a
-    // stage render with the annotate overlay's shapes held out would file
-    // previews that are missing them.
-    if (!emitPreviews) return
-    if (bufferedStepPreviews) {
-      bufferedStepPreviews[opId] = preview
-      return
-    }
-    stepPreviews.value = { ...stepPreviews.value, [opId]: preview }
-  },
+  onStepPreview: (opId, preview) => editorRenderer.onStepPreview(opId, preview),
 })
 
 /** Small, throwaway composites used only while a Retouch property is dragged. */
@@ -1537,215 +1527,29 @@ function scheduleHeadCache(documentSnapshot: any, canvas: HTMLCanvasElement) {
   }, 1500)
 }
 
-/** Set only while rendering the full document — see onStepPreview. */
-let emitPreviews = true
-/** One reactive update per replay, not one per recomputed stack stage. */
-let bufferedStepPreviews: Record<string, string> | null = null
-
-type RenderOptions = {
-  /**
-   * Debounce destructive bursts while the rows update optimistically. Normal
-   * renders use the next animation frame.
-   */
-  settleMs?: number
-}
-
-const RENDER_BURST_SETTLE_MS = 140
-let renderRequested = false
-let renderRunning = false
-let renderRequestRevision = 0
-let renderFrame: number | null = null
-let renderTimer: ReturnType<typeof setTimeout> | null = null
-let renderCycle: Promise<void> | null = null
-let resolveRenderCycle: (() => void) | null = null
-
-function ensureRenderCycle(): Promise<void> {
-  if (!renderCycle) {
-    renderCycle = new Promise(resolve => {
-      resolveRenderCycle = resolve
-    })
-  }
-  return renderCycle
-}
-
-function clearRenderSchedule() {
-  if (renderFrame !== null) {
-    cancelAnimationFrame(renderFrame)
-    renderFrame = null
-  }
-  if (renderTimer) {
-    clearTimeout(renderTimer)
-    renderTimer = null
-  }
-}
-
-function abandonScheduledRender() {
-  clearRenderSchedule()
-  renderRequested = false
-  if (renderRunning) return
-  const resolve = resolveRenderCycle
-  resolveRenderCycle = null
-  renderCycle = null
-  resolve?.()
-}
-
-function scheduleRenderDrain(settleMs: number) {
-  if (renderRunning) return
-
-  if (settleMs > 0) {
-    // An already scheduled animation-frame render is more urgent; do not turn
-    // it into a delayed one. Repeated settled requests reset only each other.
-    if (renderFrame !== null) return
-    if (renderTimer) clearTimeout(renderTimer)
-    renderTimer = setTimeout(() => {
-      renderTimer = null
-      void drainRenderQueue()
-    }, settleMs)
-    return
-  }
-
-  if (renderTimer) {
-    clearTimeout(renderTimer)
-    renderTimer = null
-  }
-  if (renderFrame !== null) return
-  renderFrame = requestAnimationFrame(() => {
-    renderFrame = null
-    void drainRenderQueue()
-  })
-}
-
-/**
- * The one doorway into full document rendering.
- *
- * Requests are coalesced, compositor work is serialized, and a render that
- * became stale while awaiting payloads may warm caches but cannot repaint the
- * UI over a newer document. Callers awaiting render wait until the queue has
- * reached the latest requested state.
- */
-function render(options: RenderOptions = {}): Promise<void> {
-  renderRequested = true
-  renderRequestRevision++
-  const cycle = ensureRenderCycle()
-  scheduleRenderDrain(options.settleMs ?? 0)
-  return cycle
-}
-
-/**
- * What the STAGE composites: the document, minus whatever a live overlay is
- * already drawing.
- *
- * While the annotation overlay is mounted, its canvas draws the enabled
- * annotations itself so they can be dragged, selected and restyled. This
- * includes the workspace's idle object-select state. Compositing them as
- * well drew every annotation twice — invisible for an opaque stroke, but a
- * neon glow compounds, so what you saw while editing was stronger than what
- * Save would write. The tool owns the layer it is editing; the stack renders
- * everything else. Save always flattens the real document (see save()).
- */
-const displayDoc = computed(() => {
-  const doc = stack.doc.value
-  if (!doc || !annotationOverlayActive.value) return doc
-  const drawnByOverlay = new Set(visibleAnnotateOps.value.map(op => op.id))
-  if (!drawnByOverlay.size) return doc
-  return { ...doc, edits: doc.edits.filter(op => !drawnByOverlay.has(op.id)) }
+const editorRenderer = createEditorRenderer({
+  document: stack.doc,
+  baseReady: () => !!baseInfo.value,
+  annotationOverlayActive,
+  visibleAnnotateOps,
+  family: () => family.value,
+  cropOpId: () => cropOpId.value,
+  setCropInput: canvas => { cropInput.value = canvas },
+  compositor,
+  composite,
+  stepPreviews,
+  rendering,
+  maskDebtByOp,
+  publishLivePreview: canvas => publishEditorLivePreview(props.assetId, canvas),
+  scheduleHeadCache,
+  syncSelectionGeometry,
+  paint,
+  samplePalette,
+  looksOpen: () => looksOpen.value,
+  renderLookThumbs,
+  reportError: message => { error.value = message },
 })
-
-/** Drop previews for steps that no longer exist, so removals don't accumulate. */
-function prunePreviews() {
-  const live = new Set((stack.doc.value?.edits || []).map(op => op.id))
-  const kept: Record<string, string> = {}
-  for (const [opId, preview] of Object.entries(stepPreviews.value)) {
-    if (live.has(opId)) kept[opId] = preview
-  }
-  stepPreviews.value = kept
-}
-
-async function renderSnapshot(requestRevision: number) {
-  // Mutations can request a render before open() has assigned the base. The
-  // later open path requests again once both halves are ready.
-  if (!stack.doc.value || !baseInfo.value) return
-  const liveDoc = displayDoc.value!
-  const whole = liveDoc === stack.doc.value
-  // The compositor awaits payloads. Snapshot the plain composition so a mutation
-  // arriving during that await cannot change the array underneath its loop.
-  const doc = JSON.parse(JSON.stringify(liveDoc))
-  const cropSession = family.value === 'crop'
-  const cropId = cropOpId.value
-  // Crop owns the uncropped input, including annotations below its step.
-  // Use the authoritative document even when another overlay trims displayDoc.
-  const cropDoc = cropSession
-    ? (whole ? doc : JSON.parse(JSON.stringify(stack.doc.value)))
-    : null
-  bufferedStepPreviews = whole ? {} : null
-  try {
-    emitPreviews = whole
-    // Keep this replay in the same queue as the head. Independent entry-time
-    // renders left Crop stale on sidebar edits and could finish out of order.
-    const cropSource = cropDoc ? await renderCropInput(cropDoc, cropId) : null
-    if (requestRevision !== renderRequestRevision) return
-    const rendered = await compositor.render(doc)
-    if (requestRevision !== renderRequestRevision) return
-    if (cropSession && family.value === 'crop' && cropId === cropOpId.value) {
-      cropInput.value = cropSource
-    }
-    composite.value = rendered
-    if (whole) publishEditorLivePreview(props.assetId, rendered)
-    if (whole && bufferedStepPreviews) {
-      stepPreviews.value = { ...stepPreviews.value, ...bufferedStepPreviews }
-    }
-    if (whole) prunePreviews()
-    if (
-      whole
-      && doc.edits.some((op: any) => op.enabled)
-      && !compositor.failedOpIds.size
-    ) {
-      scheduleHeadCache(doc, rendered)
-    }
-    // Coverage debt is measured while the compositor recomputes generative
-    // ops; publish the fresh readings for the rows' amber advisories.
-    maskDebtByOp.value = Object.fromEntries(compositor.maskDebt)
-    // The selection lives at the head, so whatever this render did to the
-    // geometry under it (crop edits, toggles, an expand's new frame) is
-    // carried into it here — the one funnel every such change passes through.
-    syncSelectionGeometry()
-    paint()
-    samplePalette()
-    if (family.value === 'levels' && looksOpen.value) void renderLookThumbs()
-  } catch (err: any) {
-    error.value = err?.message || 'Could not render the composite.'
-  } finally {
-    bufferedStepPreviews = null
-    emitPreviews = true
-  }
-}
-
-async function drainRenderQueue() {
-  if (renderRunning) return
-  clearRenderSchedule()
-  renderRunning = true
-  rendering.value = true
-  try {
-    while (renderRequested) {
-      renderRequested = false
-      const requestRevision = renderRequestRevision
-      await renderSnapshot(requestRevision)
-    }
-  } finally {
-    renderRunning = false
-    rendering.value = false
-    const resolve = resolveRenderCycle
-    resolveRenderCycle = null
-    renderCycle = null
-    resolve?.()
-    // A request cannot normally interleave with the synchronous cleanup above,
-    // but keep the invariant explicit for future awaited teardown work.
-    if (renderRequested) {
-      ensureRenderCycle()
-      scheduleRenderDrain(0)
-    }
-  }
-}
+const { render, displayDoc } = editorRenderer
 
 /** Fit the composite into the viewport; the mask overlay uses the same box. */
 /**
@@ -4194,13 +3998,6 @@ let liveCropBefore: any = null
  * widening the crop later reveal real pixels.
  */
 const cropInput = ref<HTMLCanvasElement | null>(null)
-
-async function renderCropInput(doc: StackDocument, opId: string | null) {
-  const index = opId
-    ? doc.edits.findIndex(op => op.id === opId)
-    : doc.edits.length
-  return compositor.renderUpTo(doc, index < 0 ? doc.edits.length : index)
-}
 
 /** The crop rectangle the overlay draws, defaulting to the whole frame. */
 const cropRect = computed<CropRect>(() => {
@@ -8939,7 +8736,7 @@ onBeforeUnmount(() => {
   if (savedNoteTimer) clearTimeout(savedNoteTimer)
   if (headCacheTimer) clearTimeout(headCacheTimer)
   if (annotationPreviewTimer) clearTimeout(annotationPreviewTimer)
-  abandonScheduledRender()
+  editorRenderer.dispose()
   if (paintPrefsTimer) persistPaintSettings()
   if (retouchPreviewFrame !== null) cancelAnimationFrame(retouchPreviewFrame)
   cancelLiveAdjustPreview()

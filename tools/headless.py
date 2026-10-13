@@ -29,7 +29,7 @@ def package(version, branch):
         env=dict(os.environ, STIMMA_DISTRIBUTION='official', STIMMA_MOBILE_SHELL='0'))
     run('python3', 'tools/build_ui_package.py', 'frontend/dist', 'backend/mobile-ui')
     run('bash', 'scripts/build-portable-backend.sh', env=dict(os.environ, STIMMA_DISTRIBUTION='official'))
-    source = ROOT / 'src-tauri/binaries' / f'stimma-backend-{target}'
+    source = ROOT / 'build-desktop/binaries' / f'stimma-backend-{target}'
     import shutil
     for name in ('config.default.yaml', 'ATTRIBUTION.md', 'LICENSE'):
         if (ROOT / name).exists():

@@ -426,7 +426,7 @@
         <KeyValueList :rows="fileInfoRows">
           <template #actions="{ row }">
             <template v-if="row.key === 'name'">
-              <Tooltip v-if="isTauriMode" text="Show in Finder">
+              <Tooltip v-if="isDesktopMode" text="Show in Finder">
                 <IconButton aria-label="Show in Finder" @click="revealFileInFinder">
                   <FolderOpenIcon class="w-3.5 h-3.5" />
                 </IconButton>
@@ -530,7 +530,7 @@ import Spinner from './ui/Spinner.vue'
 import IconButton from './ui/IconButton.vue'
 import Tooltip from './ui/Tooltip.vue'
 import { captioningEnabledRef } from '../appConfig'
-import { getApiBase, isTauri } from '../apiConfig'
+import { getApiBase, isDesktop } from '../apiConfig'
 import { formatRelativeTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { useExpirationClock } from '../composables/useExpirationClock'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
@@ -545,7 +545,7 @@ import { useAssetApi } from '../composables/useAssetApi'
 import { hasAssetIdentity, mediaIdOf } from '../utils/assetIdentity'
 
 const { formatRemainingTime } = useExpirationClock()
-const isTauriMode = isTauri()
+const isDesktopMode = isDesktop()
 
 const props = defineProps({
   currentItem: {
@@ -932,7 +932,7 @@ async function copyFilePath() {
 }
 
 async function revealFileInFinder() {
-  if (!props.currentItem?.file_path || !isTauriMode) return
+  if (!props.currentItem?.file_path || !isDesktopMode) return
   try {
     const { desktop } = await import('../desktop')
     await desktop.revealItemInDir(props.currentItem.file_path)

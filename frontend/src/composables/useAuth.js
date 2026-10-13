@@ -14,7 +14,7 @@
  * the one backend there is, which is what the API base pointed at anyway.
  */
 import { ref, readonly } from 'vue'
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { isPrivacyLockdownActive, setPrivacyLockdownActive } from './usePrivacyLockdown'
 import { useReadiness } from './useReadiness'
@@ -109,7 +109,7 @@ export async function signInWithBrowser(mode) {
     }
 
     // 2. Open system browser to login page
-    if (isTauri()) {
+    if (isDesktop()) {
       // The hardened native path bypasses the AppImage-bundled xdg-open on
       // Linux; its desktop-file parser can turn a Snap browser's --class
       // argument into an unwanted second URL.

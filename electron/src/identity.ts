@@ -1,7 +1,7 @@
 /**
  * Channel + sandbox identity, resolved before app.ready.
  *
- * Mirrors src-tauri's get_app_dirs(): explicit STIMMA_DATA_DIR/STIMMA_CACHE_DIR
+ * Shares the backend's app_dirs identity: explicit STIMMA_DATA_DIR/STIMMA_CACHE_DIR
  * override; otherwise the bundle id names the folder and the sandbox nests
  * inside it. Everything identity-derived (userData, single-instance scope,
  * backend dirs, logs) flows from this one module.

@@ -13,7 +13,7 @@
 // deep-link ({cloud}/link/redeem lands with the code field open + focused).
 // The app reacts to the resulting balance_added push, so redeeming in the
 // browser still lights up the app.
-import { isTauri } from '../apiConfig'
+import { isDesktop } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
@@ -21,7 +21,7 @@ const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 async function openRedeem() {
   await ensureCloudBaseUrl()
   const url = `${cloudBaseUrl.value}/link/redeem`
-  if (isTauri()) {
+  if (isDesktop()) {
     try {
       const { desktop } = await import('../desktop')
       await desktop.openExternal(url)

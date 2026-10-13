@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { getApiBase } from '../apiConfig'
-import { useTauriDownload } from './useTauriDownload'
+import { useDesktopDownload } from './useDesktopDownload'
 import { useTheme } from './useTheme'
 import { addToast } from './useToasts'
 
@@ -529,7 +529,7 @@ export function useMediaApi() {
       return
     }
 
-    const { downloadFromResponse } = useTauriDownload()
+    const { downloadFromResponse } = useDesktopDownload()
 
     try {
       // Use axios to get the file as a blob

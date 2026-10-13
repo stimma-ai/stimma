@@ -87,7 +87,7 @@ See the docs/ folder. In particular:
 ### Media Display Components
 
 **NEVER use raw `<img>` tags for displaying library media.** Always use the standard media components which provide:
-- Drag-drop support (in-app transfers + native file drag in Tauri)
+- Drag-drop support (in-app transfers + native file drag in Electron)
 - Context menu integration (right-click actions)
 - Proper URL computation from mediaId/fileHash
 - Correct impleementation of checkerboard backgrounds, thumbnails, etc.
@@ -116,14 +116,13 @@ Flags:
 Commands:
   dev frontend    Run Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
-  dev backend2    Run Rust backend (default port 9191)
-  dev app         Run Tauri in dev mode
-  dev all         Run backend + frontend + Tauri together with merged logs
+  dev app         Run Electron in dev mode
+  dev all         Run backend + frontend + Electron together with merged logs
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
-  run app         Run Tauri app (release, no watching)
+  run app         Build and run Electron without file watching
   tail backend    Tail backend logs
-  tail app        Tail Tauri app logs
+  tail app        Tail Electron app logs
   app build       Build packaged app with portable backend
   app build --release  Build with polished DMG (macOS)
   app run         Run built app
@@ -139,6 +138,9 @@ Commands:
   lint frontend-dead-code
                   Run Knip's conservative unused frontend file check
   test backend    Run backend pytest tests
+  test frontend   Run all frontend unit and browser regression tests (Node 22+)
+  lint desktop    Type-check the Electron shell
+  test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)

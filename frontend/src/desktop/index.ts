@@ -2,15 +2,14 @@
  * Desktop bridge selection.
  *
  * `desktop` is the app-wide bridge instance, chosen once at module load:
- * Electron preload bridge if exposed, Tauri if its IPC globals are present,
- * otherwise the browser fallback. `isDesktop()` replaces ad-hoc
- * `__TAURI_INTERNALS__` checks as the single shell feature-detection point.
+ * Electron preload bridge if exposed, then the native mobile bridge,
+ * otherwise the browser fallback. `isDesktop()` is the single native-shell
+ * feature-detection point.
  */
 
 import type { DesktopBridge, DesktopKind } from './types'
 import { browserBridge } from './browserBridge'
 import { isMobileShell, mobileBridge } from './mobileBridge'
-import { isTauriShell, tauriBridge } from './tauriBridge'
 
 export type { DesktopBridge, DesktopKind, DesktopUpdate } from './types'
 export type { VoiceDownloadEvent, VoiceTranscriptEvent } from './types'
@@ -22,16 +21,13 @@ function detectBridge(): DesktopBridge {
     return (window as any).stimmaDesktop as DesktopBridge
   }
   if (isMobileShell()) return mobileBridge
-  if (isTauriShell()) {
-    return tauriBridge
-  }
   return browserBridge
 }
 
 /** The active desktop bridge for this window. */
 export const desktop: DesktopBridge = detectBridge()
 
-/** True when running inside a native shell (iOS, Tauri, or Electron). */
+/** True when running inside a native shell (iOS, Android, or Electron). */
 export function isDesktop(): boolean {
   return desktop.kind !== 'browser'
 }

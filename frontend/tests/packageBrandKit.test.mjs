@@ -15,7 +15,7 @@ from packages.cover import render_cover_document
 from packages.export import export_single_html
 from packages.manifest import new_manifest, write_manifest
 out = Path(${JSON.stringify(dir)})
-font = Path('packages/mockups/assets/fonts/NotoSans-Regular.ttf')
+font = Path('render_fonts/LiberationSans-Regular.ttf')
 (out / 'font.ttf').write_bytes(font.read_bytes())
 m = new_manifest(title='Identity exploration')
 m['members'] = [{'id':'font','name':'font.ttf','path':'font.ttf'}]
@@ -26,7 +26,7 @@ body = '''<div class="sp-page"><h1 class="sp-title">Identity exploration</h1>
 <stimma-swatch value="#172334" label="Ink" usage="Text on Paper"></stimma-swatch>
 <stimma-swatch value="#F5F7FA" label="Paper" usage="Application background"></stimma-swatch>
 </stimma-grid><stimma-section label="Typography">
-<stimma-type ref="font" label="Body · Noto Sans Regular">Make something together.</stimma-type>
+    <stimma-type ref="font" label="Body · Liberation Sans Regular">Make something together.</stimma-type>
 </stimma-section><stimma-grid columns="2" id="mixed">
 <div>First content group</div><div>Second content group</div>
 </stimma-grid></div>'''

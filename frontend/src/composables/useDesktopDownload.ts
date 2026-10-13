@@ -7,22 +7,22 @@
  */
 
 import { ref } from 'vue'
-import { isDesktop, desktop } from '../desktop'
+import { isDesktop as isNativeShell, desktop } from '../desktop'
 import { checkMobileDownloadSize, saveDownloadBlob } from '../utils/mobileDownload'
 
 // Kept as a ref for existing template consumers; resolved synchronously now
 // that shell detection no longer needs an IPC probe.
-const isTauri = ref(isDesktop())
+const isDesktop = ref(isNativeShell())
 
 async function ensureInitialized(): Promise<void> {
-  isTauri.value = isDesktop()
+  isDesktop.value = isNativeShell()
 }
 
 /**
  * Save binary data to the Downloads folder (desktop app only)
  */
 async function saveToDownloads(data: Uint8Array, filename: string): Promise<boolean> {
-  if (!isDesktop()) {
+  if (!isNativeShell()) {
     throw new Error('File saving is unavailable outside the app.')
   }
 
@@ -54,7 +54,7 @@ async function downloadFromResponse(
   responseData: Blob,
   filename: string
 ): Promise<boolean> {
-  if (isDesktop()) return await saveDownloadBlob(responseData, filename, desktop)
+  if (isNativeShell()) return await saveDownloadBlob(responseData, filename, desktop)
   triggerBrowserDownload(responseData, filename)
   return true
 }
@@ -62,16 +62,16 @@ async function downloadFromResponse(
 /**
  * Check if we're running in the desktop app
  */
-async function checkIsTauri(): Promise<boolean> {
-  return isDesktop()
+async function checkIsDesktop(): Promise<boolean> {
+  return isNativeShell()
 }
 
-export function useTauriDownload() {
+export function useDesktopDownload() {
   return {
-    isTauri,
+    isDesktop,
     downloadFromResponse,
     saveToDownloads,
-    checkIsTauri,
+    checkIsDesktop,
     ensureInitialized
   }
 }

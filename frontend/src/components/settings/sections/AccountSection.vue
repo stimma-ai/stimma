@@ -165,7 +165,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
-import { isTauri } from '../../../apiConfig'
+import { isDesktop } from '../../../apiConfig'
 import RedeemCodeLink from '../../RedeemCodeLink.vue'
 
 defineProps({
@@ -233,7 +233,7 @@ async function handleConnect() {
 
 async function openDashboard() {
   const dashboardUrl = cloudBaseUrl.value + '/link/dashboard'
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../../../desktop')
     await desktop.openExternal(dashboardUrl)
   } else {
@@ -244,7 +244,7 @@ async function openDashboard() {
 async function addBalance() {
   const addBalanceUrl = cloudBaseUrl.value + '/link/addcredits'
 
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../../../desktop')
     await desktop.openExternal(addBalanceUrl)
   } else {

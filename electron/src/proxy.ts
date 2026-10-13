@@ -94,9 +94,11 @@ function reuseIdleSocket(socket: stream.Duplex): void {
 
 class IdleTtlAgent extends http.Agent {
   override keepSocketAlive(socket: stream.Duplex): boolean {
-    const keep = super.keepSocketAlive(socket)
-    if (keep) keepSocketAliveForIdleTtl(socket)
-    return keep
+    // Node returns a boolean here; @types/node currently declares void.
+    // Narrow the actual result so Node can still reject an unsafe idle socket.
+    const keep: unknown = super.keepSocketAlive(socket)
+    if (keep === true) keepSocketAliveForIdleTtl(socket)
+    return keep === true
   }
 
   override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {
@@ -208,9 +210,9 @@ class PinnedAgent extends https.Agent {
   }
 
   override keepSocketAlive(socket: stream.Duplex): boolean {
-    const keep = super.keepSocketAlive(socket)
-    if (keep) keepSocketAliveForIdleTtl(socket)
-    return keep
+    const keep: unknown = super.keepSocketAlive(socket)
+    if (keep === true) keepSocketAliveForIdleTtl(socket)
+    return keep === true
   }
 
   override reuseSocket(socket: stream.Duplex, req: http.ClientRequest): void {

@@ -28,6 +28,6 @@ if (archives.length !== 1) throw new Error('Expected exactly one staged Python r
 config.extraMetadata.stimmaPythonRuntimeArchive = archives[0].to
 config.directories.output = process.argv[3] || 'out-real-canary-test'
 config.extraResources = config.extraResources.map((resource) => resource.to === 'stimma-watchdog.exe'
-  ? { ...resource, from: '../src-tauri/watchdog/target/release/stimma-watchdog.exe' }
+  ? { ...resource, from: '../native/watchdog/target/release/stimma-watchdog.exe' }
   : resource)
 await build({ projectDir: root, targets: Platform.WINDOWS.createTarget('nsis'), config })

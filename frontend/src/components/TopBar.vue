@@ -1,5 +1,5 @@
 <template>
-  <div class="relative grid grid-cols-[minmax(max-content,1fr)_minmax(0,420px)_minmax(max-content,1fr)] items-center gap-3 px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-tauri-drag-region>
+  <div class="relative grid grid-cols-[minmax(max-content,1fr)_minmax(0,420px)_minmax(max-content,1fr)] items-center gap-3 px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-window-drag-region>
     <!-- Left side: navigation buttons -->
     <div class="flex items-center gap-0.5">
       <button

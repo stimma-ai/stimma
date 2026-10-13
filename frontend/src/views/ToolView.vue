@@ -1247,7 +1247,7 @@ import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
 import JobsGrid from '../components/generation/JobsGrid.vue'
 import SettingsDropdown from '../components/ui/SettingsDropdown.vue'
-import { getApiBase, isTauri } from '../apiConfig'
+import { getApiBase, isDesktop } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { useAuth } from '../composables/useAuth'
@@ -1898,7 +1898,7 @@ function classifySubmissionError(err: any): string {
 
 const submissionCloudConnecting = ref(false)
 async function openCloudAccountUrl(url: string) {
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../desktop')
     await desktop.openExternal(url)
   } else {
@@ -1982,7 +1982,7 @@ const toolAttribution = computed(() => {
 async function openAttributionUrl() {
   if (!toolAttribution.value) return
   const url = toolAttribution.value.url
-  if (isTauri()) {
+  if (isDesktop()) {
     try {
       const { desktop } = await import('../desktop')
       await desktop.openExternal(url)

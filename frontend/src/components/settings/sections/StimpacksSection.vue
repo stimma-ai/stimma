@@ -379,7 +379,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useStimpacksApi, type Stimpack, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
-import { getApiBase, isTauri } from '../../../apiConfig'
+import { getApiBase, isDesktop } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
@@ -415,7 +415,7 @@ const { privacyLockdownActive } = usePrivacyLockdown()
 // --- Local development affordances -----------------------------------------
 
 // Opening a Finder/Explorer window needs the Tauri shell; hide in plain browsers.
-const canOpenFolder = isTauri()
+const canOpenFolder = isDesktop()
 
 async function openStimpacksFolder() {
   try {

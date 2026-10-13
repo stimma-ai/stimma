@@ -2,13 +2,12 @@
  * Shell-neutral desktop bridge.
  *
  * Everything the frontend needs from the native desktop shell goes through
- * this interface. Implementations: tauriBridge (current shell), browserBridge
- * (plain web dev + tests), and later an Electron preload-backed bridge.
- * Application code must not import `@tauri-apps/*` or touch
- * `__TAURI_INTERNALS__` directly — only bridge implementations may.
+ * this interface. Electron implements it in its preload bridge; native mobile
+ * shells and the plain browser have their own adapters.
+ * Application code uses this interface rather than native IPC globals.
  */
 
-export type DesktopKind = 'tauri' | 'electron' | 'ios' | 'android' | 'browser'
+export type DesktopKind = 'electron' | 'ios' | 'android' | 'browser'
 
 /** Progress events streamed while the voice model downloads. */
 export type VoiceDownloadEvent =

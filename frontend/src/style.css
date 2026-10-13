@@ -767,15 +767,12 @@ select option {
   transform: scale(0.96);
 }
 
-/* Window drag regions. The Tauri shell implements data-tauri-drag-region in
-   native code (mousedown on the exact element only); Chromium-based shells
-   honor -webkit-app-region instead. Children are explicitly no-drag to mirror
-   Tauri's element-only semantics, so controls inside a drag bar stay
-   interactive while blank bar space moves the window. */
-[data-tauri-drag-region] {
+/* Electron window drag regions use -webkit-app-region. Children are no-drag
+   so controls remain interactive while blank bar space moves the window. */
+[data-window-drag-region] {
   -webkit-app-region: drag;
 }
-[data-tauri-drag-region] * {
+[data-window-drag-region] * {
   -webkit-app-region: no-drag;
 }
 /* The native shell builds its drag map from every drag rect minus later

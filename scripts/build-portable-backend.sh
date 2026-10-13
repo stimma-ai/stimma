@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BACKEND_SRC="$PROJECT_ROOT/backend"
 PYTHON_STANDALONE="$PROJECT_ROOT/python-standalone"
-OUTPUT_DIR="$PROJECT_ROOT/src-tauri/binaries/stimma-backend-$TARGET"
+OUTPUT_DIR="$PROJECT_ROOT/build-desktop/binaries/stimma-backend-$TARGET"
 BUILD_ROOT="$PROJECT_ROOT/build-experimental/portable-backend-$TARGET"
 STAGING_DIR="$BUILD_ROOT/staging"
 PYTHON_STANDALONE_RELEASE="20260414"
@@ -132,7 +132,7 @@ echo "Precompiling the backend startup import graph..."
 "$PYTHON_BIN" "$SCRIPT_DIR/precompile_python_startup.py" "$OUTPUT_DIR"
 
 # Build distribution baked into the launchers: 'dev' (default) or 'official'
-# (set only by release CI). Runtime env still wins so the Tauri shell's
+# (set only by release CI). Runtime env still wins so the desktop shell's
 # compile-time value can override.
 STIMMA_DISTRIBUTION_BAKED="${STIMMA_DISTRIBUTION:-dev}"
 if [ "$STIMMA_DISTRIBUTION_BAKED" != "official" ]; then
@@ -188,7 +188,7 @@ if [ "$(uname -s)" = "Darwin" ] && [ -d "$OUTPUT_DIR" ] && [ "${STIMMA_CODESIGN_
         if security find-identity -v -p codesigning | grep -Fq "$APPLE_SIGNING_IDENTITY"; then
             SIGN_ARGS=(--force --sign "$APPLE_SIGNING_IDENTITY" --options runtime --timestamp)
         else
-            echo "Apple signing identity is not available before Tauri signing; using ad-hoc signatures for backend native artifacts."
+            echo "Apple signing identity is not available before app signing; using ad-hoc signatures for backend native artifacts."
         fi
     fi
 

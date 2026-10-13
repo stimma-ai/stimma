@@ -1440,7 +1440,7 @@ import { useChatDraft } from '../composables/useChatDraft'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useMediaDetailsModal } from '../composables/useMediaDetailsModal'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
-import { getApiBase, isTauri } from '../apiConfig'
+import { getApiBase, isDesktop } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../composables/usePrivacyLockdown'
 import { getCachedPin } from '../composables/usePinLock'
@@ -4652,7 +4652,7 @@ function toggleSettingsPanel() {
 
 async function openCloudDashboard() {
   const url = cloudBaseUrl.value + '/link/dashboard'
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../desktop')
     await desktop.openExternal(url)
   } else {
@@ -4683,7 +4683,7 @@ watch(isAuthenticated, async (authed) => {
 
 async function openAddBalance() {
   const url = cloudBaseUrl.value + '/link/addcredits'
-  if (isTauri()) {
+  if (isDesktop()) {
     const { desktop } = await import('../desktop')
     await desktop.openExternal(url)
   } else {
@@ -5448,7 +5448,7 @@ function handleLinkClick(e) {
   const href = anchor.getAttribute('href')
   if (!href || href.startsWith('#') || href.startsWith('/')) return
   e.preventDefault()
-  if (isTauri()) {
+  if (isDesktop()) {
     import('../desktop').then(({ desktop }) => desktop.openExternal(href))
   } else {
     window.open(href, '_blank')
