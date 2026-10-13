@@ -593,7 +593,6 @@ Flags:
 Commands:
   dev frontend    Run LAN-accessible Vite dev server with HMR (default port 9192)
   dev backend     Run Python backend with nodemon (default port 9191)
-  dev backend2    Run Rust backend (default port 9191)
   dev app         Run desktop app in dev mode (Electron; --shell=tauri for the
                       legacy shell during the migration)
   dev all         Run backend + frontend + app together with merged logs
@@ -622,6 +621,7 @@ Commands:
                   Run Knip's conservative unused frontend file check
   render-test [--docker IMAGE | --executable FILE]  Validate real browser captures
   test backend    Run backend pytest tests
+  test frontend   Run all frontend unit and browser regression tests
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
@@ -2537,10 +2537,6 @@ async function main(): Promise<void> {
         } else {
           await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir, env: runtimeEnv });
         }
-      } else if (sub === "backend2") {
-        const ports = await getSandboxPorts(bundleId, sandbox);
-        const args2 = ["run", "--", "--bundle-id", bundleId, "--sandbox", sandbox, "--port", String(ports.server), "--console"];
-        await run("cargo", args2, { cwd: join(repoRoot, "backend2"), env: runtimeEnv });
       } else if (sub === "app") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         if (official) {
@@ -2694,6 +2690,8 @@ async function main(): Promise<void> {
     case "test": {
       if (sub === "backend") {
         await run("uv", ["run", "pytest", ...rest], { cwd: join(repoRoot, "backend") });
+      } else if (sub === "frontend") {
+        await run("npm", ["test", "--", ...rest], { cwd: join(repoRoot, "frontend") });
       } else if (sub === "acceptance") {
         await testAcceptance(rest);
       } else if (sub === "cv2-parity") {

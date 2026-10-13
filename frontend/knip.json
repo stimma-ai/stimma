@@ -1,14 +1,13 @@
 {
   "$schema": "./node_modules/knip/schema.json",
   "entry": [
-    "src/main.js",
-    "vite.config.js",
-    "postcss.config.js",
-    "tailwind.config.js",
+    "src/mobile/main.ts",
+    "src/components/feedback/{Official,Source}*.vue",
     "e2e/docs-shots/playwright.config.ts",
     "e2e/docs-shots/setup.ts",
     "e2e/docs-shots/shots/**/*.ts",
     "acceptance/playwright.config.ts",
+    "acceptance/playwright.electron.config.ts",
     "acceptance/helpers/global-setup.ts",
     "acceptance/helpers/viewport.ts",
     "acceptance/tests/**/*.ts"
@@ -18,17 +17,6 @@
     "e2e/docs-shots/**/*.ts",
     "acceptance/**/*.ts",
     "*.config.{js,ts}"
-  ],
-  "ignore": [
-    "dist/**",
-    "node_modules/**",
-    "playwright-report/**",
-    "test-results/**",
-    "e2e/docs-shots/.auth/**",
-    "e2e/docs-shots/.artifacts/**",
-    "e2e/docs-shots/out/**",
-    "acceptance/.auth/**",
-    "acceptance/playwright-report/**"
   ],
   "ignoreDependencies": [
     "@crabnebula/tauri-plugin-drag",

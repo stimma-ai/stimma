@@ -102,7 +102,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: frontend/package-lock.json
 
@@ -143,10 +143,13 @@ jobs:
             npx playwright install --with-deps chromium
           fi
 
-      - name: Check touch focus and actions sheets
+      - name: Run frontend regression tests
         if: matrix.lane == 'desktop'
-        working-directory: frontend
-        run: npm run test:mobile-experience
+        run: tools/stimma test frontend
+
+      - name: Check unused frontend files
+        if: matrix.lane == 'desktop'
+        run: tools/stimma lint frontend-dead-code
 
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend
