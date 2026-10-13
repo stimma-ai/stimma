@@ -229,3 +229,12 @@ test('public strings are capped', () => {
   assert.equal(pub?.steps[0].prompt?.length, 8000)
   assert.equal(pub?.steps[0].facts?.[0].value.length, 200)
 })
+
+test('editor and agent-edit steps offer no "use these settings"', () => {
+  const p = buildProvenance(generated(), { tools })
+  assert.ok(p.steps[0].settings)
+  assert.equal(p.steps[1].settings, null)
+  const agent = buildProvenance({ id: 2, generation_metadata: { task_type: 'agent_edit', tool_id: 'a:b' } })
+  assert.equal(agent.steps[0].tool, 'Edited by agent')
+  assert.equal(agent.steps[0].settings, null)
+})

@@ -28,7 +28,6 @@
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
       :available-markers="availableMarkers"
-      :is-video="isVideo"
       :focus-mode="focusMode"
       :marker-update-trigger="markerUpdateTrigger"
       :media-projects="mediaProjects"
@@ -38,29 +37,19 @@
       :faces="faces"
       :chat-info="chatInfo"
       :chat-info-loading="chatInfoLoading"
-      :generation-history="generationHistory"
-      @delete="handleDeleteCurrentItem"
       @restore="handleRestoreCurrentItem"
       @permanent-delete="handlePermanentDeleteCurrentItem"
-      @find-similar="findSimilar"
       @download="downloadMedia"
-      @download-original="downloadMediaOriginal"
-      @print="handlePrint"
-      @add-to-board="addToBoard"
-      @add-to-project="addToProject"
-      @remove-from-project="removeFromProject"
-      @remove-from-board="removeFromBoard"
-      @manage-tags="manageTags"
       @filter-by-tag="filterByTag"
       @filter-by-keyword="filterByKeyword"
       @navigate-to-board="navigateToBoard"
       @navigate-to-project="navigateToProject"
       @navigate-to-source-media="navigateToSourceMedia"
       @view-in-tool="viewInTool"
+      @open-flow="openFlowFromInfo"
       @jump-to-chat="jumpToChat"
       @package-rebuilt="handlePackageRebuilt"
       @toggle-marker="toggleMarker"
-      @tags-saved="handleTagsSaved"
       @tags-updated="handleTagsUpdated"
       @compare-with-source="handleCompareWithSource"
       @edit-image="handleEditImage"
@@ -2413,115 +2402,6 @@ const keywordsArray = computed(() => {
   if (Array.isArray(currentItem.value.keywords)) return currentItem.value.keywords
   // If it's a comma-separated string, split it
   return currentItem.value.keywords.split(',').map(k => k.trim()).filter(k => k)
-})
-
-const generationMetadata = computed(() => {
-  if (!currentItem.value || !currentItem.value.generation_metadata) return null
-  try {
-    return JSON.parse(currentItem.value.generation_metadata)
-  } catch (e) {
-    console.error('Failed to parse generation metadata:', e)
-    return null
-  }
-})
-
-function getStepParameters(stepLike) {
-  const params = { ...((stepLike && stepLike.parameters) || {}) }
-  if (params.seed === undefined && stepLike?.seed !== undefined && stepLike?.seed !== null) {
-    params.seed = stepLike.seed
-  }
-  return params
-}
-
-// Build full generation history: current step + all ancestors from lineage_trace
-// Each step has the same structure for uniform display
-const generationHistory = computed(() => {
-  if (!currentItem.value) return []
-
-  // For imported items with no generation_metadata, show a single "imported" entry
-  if (!generationMetadata.value) {
-    return [{
-      media_id: currentPayloadId.value,
-      task_type: null,  // Will display as "imported" via fallback
-      is_imported: true,
-      model: null,
-      generator: null,
-      prompt: currentItem.value.extracted_prompt || null,
-      negative_prompt: null,
-      parameters: {
-        width: currentItem.value.width,
-        height: currentItem.value.height
-      },
-      generated_at: currentItem.value.indexed_date,
-      source_inputs: [],
-      tool_id: null,
-      raw_metadata: currentItem.value.raw_metadata || null
-    }]
-  }
-
-  try {
-    const history = []
-    const meta = generationMetadata.value
-    const stepParameters = getStepParameters(meta)
-
-    // Build step from generation metadata
-    const step = {
-      media_id: currentPayloadId.value,
-      task_type: meta.task_type,
-      model: meta.model,
-      generator: meta.generator,
-      prompt: meta.prompt,
-      negative_prompt: meta.negative_prompt || stepParameters.negative_prompt,
-      parameters: stepParameters,
-      generated_at: meta.generated_at,
-      source_inputs: Array.isArray(meta.source_inputs) ? meta.source_inputs : [],
-      tool_id: meta.tool_id || null
-    }
-
-    // External imports: preserve imported UI treatment + raw metadata link
-    if (meta.source === 'external') {
-      step.is_imported = true
-      step.raw_metadata = currentItem.value.raw_metadata || null
-      // Add LoRAs into parameters for display
-      if (Array.isArray(meta.loras) && meta.loras.length > 0) {
-        step.parameters.loras = meta.loras.map(l => ({
-          lora: l?.name,
-          weight: l?.weight
-        }))
-      }
-    }
-
-    history.push(step)
-
-    // Add ancestor steps from lineage_trace (already in order: oldest first, so we reverse)
-    // Lineage trace now contains full metadata for complete history display
-    if (Array.isArray(meta.lineage_trace) && meta.lineage_trace.length > 0) {
-      // lineage_trace is oldest-first, so reverse to show most recent first after current
-      const ancestors = [...meta.lineage_trace].reverse()
-      for (const ancestor of ancestors) {
-        if (!ancestor) continue
-        const ancestorParameters = getStepParameters(ancestor)
-        history.push({
-          media_id: ancestor.media_id,
-          task_type: ancestor.task_type,
-          model: ancestor.model,
-          generator: ancestor.generator,
-          // Use full prompt if available, fall back to prompt_preview for older data
-          prompt: ancestor.prompt || ancestor.prompt_preview || null,
-          negative_prompt: ancestor.negative_prompt || ancestorParameters.negative_prompt || null,
-          parameters: ancestorParameters,
-          generated_at: ancestor.generated_at,
-          source_inputs: Array.isArray(ancestor.source_inputs) ? ancestor.source_inputs : [],
-          tool_id: ancestor.tool_id || null
-        })
-      }
-    }
-
-    return history
-  } catch (err) {
-    console.error('Failed to build generation history:', err)
-    return []
-  }
 })
 
 const canSendToGenerate = computed(() => {
@@ -5296,31 +5176,27 @@ function findSimilar() {
   }
 }
 
-// Navigate to a tool with generation parameters from a history step
-function viewInTool(step) {
-  if (!step.tool_id) return
+// "Use these settings": open the step's tool with exactly what it ran with.
+// `settings` is a ProvenanceSettings from utils/mediaProvenance.
+function viewInTool(settings) {
+  if (!settings?.toolId) return
 
-  const toolId = step.tool_id
-  const params = step.parameters || {}
+  const toolId = settings.toolId
+  const params = settings.parameters || {}
 
-  // Build a flat generation config matching the API format expected by parseGenerationConfig
-  // This flattens step.parameters to top-level keys (cfg, steps, sampler, etc.)
+  // A flat generation config in the /config-from-media shape that
+  // parseGenerationConfig (ToolView's pending-generation handoff) reads.
   const config = {
-    // Prompt
-    prompt: step.prompt || '',
-    negative_prompt: step.negative_prompt || params.negative_prompt || '',
-    // Model info
-    generator_name: step.generator,
-    model_name: step.model,
-    // Flatten all parameters to top level (matching API /config-from-media format)
     ...params,
-    // Source inputs for image-to-image or other tasks with inputs
-    source_inputs: step.source_inputs || [],
-    // Media ID for reference
-    input_media_id: step.media_id,
-    // Signal that seed should be preserved since this is exact reproduction
+    prompt: settings.prompt || '',
+    negative_prompt: settings.negativePrompt || params.negative_prompt || '',
+    generator_name: settings.generator,
+    model_name: settings.model,
+    source_inputs: settings.sourceInputs || [],
+    input_media_id: settings.mediaId,
+    // Exact reproduction: ToolView applies the recorded seed and locks it.
     preserve_seed: true,
-    source_tool_id: step.tool_id,
+    source_tool_id: toolId,
   }
 
   // Target the most-recent open instance of the tool (or a fresh one) in the
@@ -5331,11 +5207,16 @@ function viewInTool(step) {
   const { resolveToolInstance } = useWorkspaceTabs()
   const { instanceId } = resolveToolInstance(toolId, projectId)
   const storageKey = makeToolDbKey(toolInstanceScopedId(toolId, projectId, instanceId), 'pending_generation')
-  // Store flat config directly (not nested under 'config' key) to match parseGenerationConfig expectations
   sessionStorage.setItem(storageKey, JSON.stringify(config))
 
   // Navigate to the tool (use timestamp to force route change detection for KeepAlive'd components)
   router.push(toolInstanceRoute(toolId, projectId, instanceId, { loadGeneration: Date.now().toString() }))
+}
+
+// The flow run this media came out of.
+function openFlowFromInfo(flowId) {
+  if (flowId == null) return
+  router.push({ name: 'flow', params: { id: String(flowId) } })
 }
 
 // Project picker state

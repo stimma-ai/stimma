@@ -4514,6 +4514,15 @@ async function loadPendingGeneration() {
 
     applyAdaptedConfig(update)
 
+    // "Use these settings" from a lineage step is exact reproduction: the
+    // recorded seed comes along and is locked, so Run makes the same image.
+    // (Hops and "more like this" leave seed handling to the remix banner.)
+    const preservedSeed = data.preserve_seed && data.seed != null && data.seed !== '' ? Number(data.seed) : NaN
+    if (Number.isFinite(preservedSeed)) {
+      modelParams.value.seed = preservedSeed
+      modelParams.value.randomizeSeed = false
+    }
+
     // Restore source inputs (reference images) from the hop. The input watcher
     // re-resolves the size and announces it, naming the source tool.
     const sourceInputs: any[] = data.source_inputs || []

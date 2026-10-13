@@ -602,6 +602,9 @@ interface StepSource {
   loras?: GenerationMetadata['loras']
 }
 
+/** Steps that weren't a tool run you can reopen with settings (the editor). */
+const NOT_REPLAYABLE_TOOLS = new Set(['builtin:stimma:image-editor'])
+
 function stepToolName(
   source: StepSource,
   imported: boolean,
@@ -654,7 +657,7 @@ function buildStep(
   const postProcessing = chainNames(params.post_processing_chain, ctx.toolName, ctx.filterLabel)
 
   const toolId = str(source.tool_id)
-  const settings: ProvenanceSettings | null = toolId
+  const settings: ProvenanceSettings | null = toolId && !NOT_REPLAYABLE_TOOLS.has(toolId) && source.task_type !== 'agent_edit'
     ? {
         toolId,
         mediaId: ctx.mediaId,
@@ -894,4 +897,61 @@ export function toPublicProvenance(provenance: MediaProvenance | null | undefine
 /** How many steps a share would publish (0 when none). */
 export function publicStepCount(provenance: PublicProvenance | null | undefined): number {
   return provenance?.steps?.length ?? 0
+}
+
+// ---------------------------------------------------------------------------
+// Display rows
+// ---------------------------------------------------------------------------
+
+/** Facts whose values are names or words, not numbers: plain text, not mono. */
+const PROSE_FACTS = new Set(['model', 'channels', 'method', 'filter_id', 'filter', 'post_processing'])
+
+export interface FactRow {
+  key: string
+  label: string
+  value: string
+  mono: boolean
+  truncate: boolean
+  valueClass?: string
+}
+
+/** Facts as KeyValueList rows. */
+export function factRows(facts: ProvenanceFact[]): FactRow[] {
+  return facts.map(fact => ({
+    key: fact.key,
+    label: fact.label,
+    value: fact.value,
+    mono: !PROSE_FACTS.has(fact.key),
+    truncate: !!fact.long,
+  }))
+}
+
+/**
+ * Everything a step shows as single-line facts, in one list so the hairline
+ * between groups exists: params, then the post-processing chain, then LoRAs
+ * (weight reads accent when it isn't the 1.0 default, the §3.4 signal).
+ */
+export function stepFactRows(step: ProvenanceStep): FactRow[] {
+  const rows = factRows(step.facts)
+  if (step.postProcessing.length) {
+    rows.push({
+      key: 'post_processing',
+      label: 'Post-processing',
+      value: step.postProcessing.join(' → '),
+      mono: false,
+      truncate: true,
+    })
+  }
+  step.loras.forEach((lora, i) => {
+    const weight = formatLoraWeight(lora.weight)
+    rows.push({
+      key: `lora-${i}`,
+      label: 'LoRA',
+      value: weight ? `${lora.name} · ${weight}` : lora.name,
+      mono: true,
+      truncate: true,
+      valueClass: lora.weight != null && lora.weight !== 1 ? 'text-accent-hi' : undefined,
+    })
+  })
+  return rows
 }

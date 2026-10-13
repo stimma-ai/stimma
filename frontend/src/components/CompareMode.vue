@@ -10,24 +10,17 @@
       <SlideshowInfoPanel
         v-if="showInfoPanel && leftItem"
         :current-item="leftItem"
-        title="Left Image"
         class="!order-none w-[320px] max-w-[25vw] !border-l-0 border-r border-edge-subtle"
-        @delete="handleAction('delete', leftItem)"
         @restore="handleAction('restore', leftItem)"
         @permanent-delete="handleAction('permanent-delete', leftItem)"
-        @find-similar="handleAction('find-similar', leftItem)"
-        @download="handleAction('download', leftItem)"
-        @download-original="handleAction('download-original', leftItem)"
-        @add-to-board="handleAction('add-to-board', leftItem)"
+        v-on="hostHandlesActions ? { download: () => handleAction('download', leftItem) } : {}"
         @filter-by-tag="(tagId) => handleAction('filter-by-tag', leftItem, tagId)"
         @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', leftItem, keyword)"
         @navigate-to-board="(boardId) => handleAction('navigate-to-board', leftItem, boardId)"
         @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', leftItem, mediaId)"
         @compare-with-source="(sourceId) => handleAction('compare-with-source', leftItem, sourceId)"
-        @view-in-tool="(step) => handleAction('view-in-tool', leftItem, step)"
         @jump-to-chat="(chatId) => handleAction('jump-to-chat', leftItem, chatId)"
         @toggle-marker="(markerId) => handleAction('toggle-marker', leftItem, markerId)"
-        @tags-saved="handleAction('tags-saved', leftItem)"
         @menu-sent="close"
       />
 
@@ -153,24 +146,17 @@
       <SlideshowInfoPanel
         v-if="showInfoPanel && rightItem"
         :current-item="rightItem"
-        title="Right Image"
         class="w-[320px] max-w-[25vw]"
-        @delete="handleAction('delete', rightItem)"
         @restore="handleAction('restore', rightItem)"
         @permanent-delete="handleAction('permanent-delete', rightItem)"
-        @find-similar="handleAction('find-similar', rightItem)"
-        @download="handleAction('download', rightItem)"
-        @download-original="handleAction('download-original', rightItem)"
-        @add-to-board="handleAction('add-to-board', rightItem)"
+        v-on="hostHandlesActions ? { download: () => handleAction('download', rightItem) } : {}"
         @filter-by-tag="(tagId) => handleAction('filter-by-tag', rightItem, tagId)"
         @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', rightItem, keyword)"
         @navigate-to-board="(boardId) => handleAction('navigate-to-board', rightItem, boardId)"
         @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', rightItem, mediaId)"
         @compare-with-source="(sourceId) => handleAction('compare-with-source', rightItem, sourceId)"
-        @view-in-tool="(step) => handleAction('view-in-tool', rightItem, step)"
         @jump-to-chat="(chatId) => handleAction('jump-to-chat', rightItem, chatId)"
         @toggle-marker="(markerId) => handleAction('toggle-marker', rightItem, markerId)"
-        @tags-saved="handleAction('tags-saved', rightItem)"
         @menu-sent="close"
       />
     </div>
@@ -178,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, getCurrentInstance } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
 
@@ -211,6 +197,10 @@ const emit = defineEmits([
   'update:slider-position',
   'action'  // Emit actions with { action, item, payload }
 ])
+
+// Export from the info panels only does something where the host handles
+// compare actions (Browse); elsewhere the panels omit the button.
+const hostHandlesActions = !!getCurrentInstance()?.vnode.props?.onAction
 
 const { getMediaFileUrl } = useMediaApi()
 
