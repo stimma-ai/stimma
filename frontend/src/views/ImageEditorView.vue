@@ -1549,7 +1549,7 @@ const editorRenderer = createEditorRenderer({
   renderLookThumbs,
   reportError: message => { error.value = message },
 })
-const { render, displayDoc, abandonScheduledRender } = editorRenderer
+const { render, displayDoc } = editorRenderer
 
 /** Fit the composite into the viewport; the mask overlay uses the same box. */
 /**
@@ -8736,7 +8736,7 @@ onBeforeUnmount(() => {
   if (savedNoteTimer) clearTimeout(savedNoteTimer)
   if (headCacheTimer) clearTimeout(headCacheTimer)
   if (annotationPreviewTimer) clearTimeout(annotationPreviewTimer)
-  abandonScheduledRender()
+  editorRenderer.dispose()
   if (paintPrefsTimer) persistPaintSettings()
   if (retouchPreviewFrame !== null) cancelAnimationFrame(retouchPreviewFrame)
   cancelLiveAdjustPreview()

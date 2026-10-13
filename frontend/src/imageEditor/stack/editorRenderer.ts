@@ -67,6 +67,7 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
   /** One reactive update per replay, not one per recomputed stack stage. */
   let bufferedStepPreviews: Record<string, string> | null = null
 
+  let disposed = false
   let renderRequested = false
   let renderRunning = false
   let renderRequestRevision = 0
@@ -96,6 +97,9 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
   }
 
   function abandonScheduledRender() {
+    // In-flight payload decoding may finish, but its result no longer belongs
+    // to a live request and must not recreate previews or cache writes.
+    renderRequestRevision++
     clearRenderSchedule()
     renderRequested = false
     if (renderRunning) return
@@ -103,6 +107,11 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
     resolveRenderCycle = null
     renderCycle = null
     resolve?.()
+  }
+
+  function dispose() {
+    disposed = true
+    abandonScheduledRender()
   }
 
   function scheduleRenderDrain(settleMs: number) {
@@ -140,6 +149,7 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
    * reached the latest requested state.
    */
   function render(options: RenderOptions = {}): Promise<void> {
+    if (disposed) return Promise.resolve()
     renderRequested = true
     renderRequestRevision++
     const cycle = ensureRenderCycle()
@@ -229,6 +239,7 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
       options.samplePalette()
       if (options.family() === 'levels' && options.looksOpen()) void options.renderLookThumbs()
     } catch (err) {
+      if (requestRevision !== renderRequestRevision) return
       options.reportError((err as { message?: string } | null)?.message || 'Could not render the composite.')
     } finally {
       bufferedStepPreviews = null
@@ -272,12 +283,12 @@ export function createEditorRenderer<D extends RenderableDocument, C>(options: E
 
   function onStepPreview(opId: string, preview: string) {
     // Overlay-only renders do not describe the authoritative stack's steps.
-    if (!emitPreviews) return
+    if (disposed || !emitPreviews) return
     if (bufferedStepPreviews) {
       bufferedStepPreviews[opId] = preview
       return
     }
     options.stepPreviews.value = { ...options.stepPreviews.value, [opId]: preview }
   }
-  return { render, displayDoc, abandonScheduledRender, onStepPreview }
+  return { render, displayDoc, abandonScheduledRender, dispose, onStepPreview }
 }
