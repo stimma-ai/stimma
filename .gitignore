@@ -215,3 +215,4 @@ mobile/ios/StimmaMobile.xcodeproj/
 # Built server UI packages and shell-only frontend
 backend/mobile-ui/
 frontend/dist-mobile/
+frontend/dist-provenance/

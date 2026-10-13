@@ -49,13 +49,13 @@ function generated(overrides: Record<string, unknown> = {}) {
         post_processing_chain: [{ kind: 'filter', filter_id: 'sepia' }, { kind: 'tool', tool_id: 'acme:upscale-x' }],
       },
       source_inputs: [
-        { media_id: 7, file_path: '/home/someone/library/in.png', role: 'reference', preprocessor: 'canny', preprocessor_params: { low: 100, high: 200 } },
+        { media_id: 7, file_path: '/home/someone/library/in.png', role: 'reference', preprocessor: 'canny', preprocessor_params: { low: 100, high: 200 }, paint_layer: 'layer.png', flip: { horizontal: true } },
         { file_path: 'C:\\Users\\someone\\pic.png', role: 'start_image' },
       ],
       generated_at: '2026-10-01T12:00:00',
       lineage_trace: [
         { media_id: 1, task_type: 'text-to-image', tool_id: 'acme:flux-pro', prompt: 'oldest', generated_at: '2026-09-01T00:00:00Z' },
-        { media_id: 7, task_type: 'image-to-image', tool_id: 'builtin:stimma:image-editor', parameters: { stack: [{ class: 'crop', label: 'Crop', exec: { kind: 'crop' } }] }, generated_at: '2026-09-15T00:00:00Z' },
+        { media_id: 7, task_type: 'image-to-image', tool_id: 'builtin:stimma:image-editor', parameters: { stack: [{ class: 'crop', label: 'Crop', exec: { kind: 'crop' } }, { class: 'patch', label: 'Repaint', exec: { kind: 'tool', tool_id: 'acme:flux-pro', task_type: 'inpaint-image' }, operation: 'repaint', reference_images: [{ media_id: 3, file_hash: 'abc123', filename: 'gen_ref.png' }] }] }, generated_at: '2026-09-15T00:00:00Z' },
       ],
       flow_id: 9,
     }),
@@ -82,7 +82,10 @@ test('steps are newest first: own step, then lineage_trace reversed', () => {
   assert.deepEqual(p.steps.map(s => s.mediaId), [42, 7, 1])
   assert.equal(p.steps[0].tool, 'Flux 2 Pro')
   assert.equal(p.steps[1].tool, 'Image Editor')
-  assert.deepEqual(p.steps[1].edits, ['Crop'])
+  assert.deepEqual(p.steps[1].edits, ['Repaint', 'Crop'])
+  assert.equal(p.steps[1].editSteps[0].note, '')
+  assert.deepEqual(p.steps[1].editSteps[0].ref, { mediaId: 3, hash: 'abc123' })
+  assert.equal(p.steps[1].editSteps[1].ref, null)
   assert.equal(p.steps[2].prompt, 'oldest')
   assert.equal(p.steps[0].date, '2026-10-01T12:00:00.000Z')
 })
@@ -101,6 +104,8 @@ test('own step: facts, loras, inputs, original prompt, chain and settings', () =
   assert.deepEqual(step.loras, [{ name: 'film-grain', weight: 0.8 }])
   assert.equal(step.inputs[0].roleLabel, 'Reference')
   assert.equal(step.inputs[0].preprocessorLabel, 'Canny (100-200)')
+  assert.deepEqual(step.inputs[0].marks, ['Painted', 'Flip H'])
+  assert.equal(step.icon, 'image-to-image')
   assert.equal(step.inputs[1].roleLabel, 'Start frame')
   assert.equal(step.originalPrompt, 'a {lighthouse|windmill} at dusk')
   assert.deepEqual(step.postProcessing, ['SEPIA', 'Upscale X'])
@@ -172,27 +177,59 @@ test('file facts name sets and use the shared duration format', () => {
   assert.equal(facts.Size, '3.0 MB')
 })
 
-test('public provenance matches the v2 request contract', () => {
+test('public provenance matches the v3 request contract', () => {
   const pub = toPublicProvenance(buildProvenance(generated(), { tools }))
   assert.ok(pub)
-  assert.equal(pub.version, 2)
+  assert.equal(pub.version, 3)
   assert.equal(publicStepCount(pub), 3)
   const [own] = pub.steps
   assert.equal(own.tool, 'Flux 2 Pro')
+  assert.equal(own.icon, 'image-to-image')
   assert.equal(own.model, 'flux-2-pro')
   assert.equal(own.prompt, 'a lighthouse at dusk')
   assert.equal(own.negativePrompt, 'blurry')
   assert.equal(own.originalPrompt, 'a {lighthouse|windmill} at dusk')
   assert.deepEqual(own.loras, [{ name: 'film-grain', weight: 0.8 }])
-  // Only inputs that resolve to library media are referenced; no paths.
-  assert.deepEqual(own.inputs, [{ role: 'Reference', ref: { mediaId: 7, hash: null } }])
+  // Only inputs that resolve to library media are referenced; no paths. The
+  // preprocessor and prep marks travel as labels.
+  assert.deepEqual(own.inputs, [{
+    role: 'Reference',
+    ref: { mediaId: 7, hash: null },
+    badges: ['Painted', 'Flip H'],
+    preprocessor: 'Canny (100-200)',
+  }])
   assert.ok(own.facts?.some(f => f.label === 'Seed' && f.value === '1234'))
   assert.ok(own.facts?.some(f => f.label === 'Post-processing'))
   assert.ok(!own.facts?.some(f => f.label === 'Model'), 'model is its own field')
-  assert.deepEqual(pub.steps[1].edits, ['Crop'])
-  const allowed = new Set(['tool', 'model', 'date', 'prompt', 'negativePrompt', 'originalPrompt', 'facts', 'loras', 'inputs', 'edits'])
+  // The editor step: edit steps with the reference image's ref, plus v2 names.
+  assert.deepEqual(pub.steps[1].editSteps, [
+    { label: 'Repaint', ref: { mediaId: 3, hash: 'abc123' } },
+    { label: 'Crop' },
+  ])
+  assert.deepEqual(pub.steps[1].edits, ['Repaint', 'Crop'])
+  assert.equal(pub.steps[2].icon, 'text-to-image')
+  // File facts say what the file is, never its name.
+  assert.deepEqual(pub.file, [
+    { label: 'Format', value: 'PNG' },
+    { label: 'Size', value: '2.0 KB' },
+    { label: 'Resolution', value: '1024 × 768' },
+  ])
+  const allowedStep = new Set(['tool', 'icon', 'model', 'date', 'prompt', 'negativePrompt', 'originalPrompt', 'facts', 'loras', 'inputs', 'editSteps', 'edits'])
+  const allowedInput = new Set(['role', 'ref', 'badges', 'preprocessor', 'previewRef'])
   for (const step of pub.steps) {
-    for (const key of Object.keys(step)) assert.ok(allowed.has(key), `unexpected field ${key}`)
+    for (const key of Object.keys(step)) assert.ok(allowedStep.has(key), `unexpected field ${key}`)
+    for (const input of step.inputs || []) {
+      for (const key of Object.keys(input)) assert.ok(allowedInput.has(key), `unexpected input field ${key}`)
+    }
+  }
+  assert.deepEqual(Object.keys(pub).sort(), ['file', 'steps', 'version'])
+})
+
+test('ids and hashes appear only inside refs', () => {
+  const pub = toPublicProvenance(buildProvenance(generated(), { tools }))
+  const outsideRefs = JSON.stringify(pub, (key, value) => (key === 'ref' || key === 'previewRef' ? undefined : value))
+  for (const needle of ['abc123', 'mediaId', 'hash', 'out.png', 'gen_']) {
+    assert.ok(!outsideRefs.includes(needle), `leaked ${needle}: ${outsideRefs}`)
   }
 })
 

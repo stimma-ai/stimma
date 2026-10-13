@@ -23,7 +23,9 @@
     <template v-if="provenance" #details>
       <div>
         <div class="text-xs font-semibold text-content-secondary mb-3">How it was made</div>
-        <ProvenanceSteps :steps="provenance.steps" @navigate="openMedia" />
+        <ProvenanceAppHost @navigate="openMedia">
+          <ProvenanceSteps :steps="provenance.steps" />
+        </ProvenanceAppHost>
       </div>
     </template>
   </GenerationDetailsModal>
@@ -36,7 +38,9 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaDetailsModal } from '../../composables/useMediaDetailsModal'
 import { useProvenanceBuilder } from '../../composables/useMediaProvenance'
 import { formatLoraName, formatParamLabel, formatParamValue, type MediaLike } from '../../utils/mediaProvenance'
-import ProvenanceSteps from '../media/ProvenanceSteps.vue'
+import ProvenanceAppHost from '../media/ProvenanceAppHost.vue'
+import ProvenanceSteps from '../../provenance/ProvenanceSteps.vue'
+import { viewFromProvenance } from '../../provenance/fromProvenance'
 import {
   DEFAULT_TASK_TYPE_GRADIENT_CLASS,
   DEFAULT_TASK_TYPE_ICON_PATH,
@@ -100,7 +104,7 @@ watch(
 const provenance = computed(() => {
   if (!resultMedia.value?.generation_metadata) return null
   const built = build(resultMedia.value, { fileFacts: false })
-  return built.steps.length ? built : null
+  return built.steps.length ? viewFromProvenance(built) : null
 })
 
 function openMedia(mediaId: number) {

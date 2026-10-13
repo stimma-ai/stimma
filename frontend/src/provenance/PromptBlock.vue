@@ -2,11 +2,11 @@
   <div v-if="text">
     <div v-if="label" class="flex items-center justify-between gap-2 mb-1">
       <span class="text-xs text-content-tertiary">{{ label }}</span>
-      <Tooltip v-if="copyButton" text="Copy">
+      <Tip v-if="copyButton && host.copy" text="Copy">
         <IconButton aria-label="Copy" class="!w-6 !h-6" @click="copy">
           <ClipboardDocumentIcon class="w-3.5 h-3.5" />
         </IconButton>
-      </Tooltip>
+      </Tip>
     </div>
     <!-- Read-only prose is typeset, never boxed. A plain click copies it; a
          click that ends a text selection is a selection, not a copy request. -->
@@ -20,10 +20,9 @@
 
 <script setup lang="ts">
 import { ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
-import IconButton from '../ui/IconButton.vue'
-import Tooltip from '../ui/Tooltip.vue'
-import { copyToClipboard } from '../../utils/clipboard'
-import { addToast } from '../../composables/useToasts'
+import IconButton from '../components/ui/IconButton.vue'
+import Tip from './Tip.vue'
+import { useProvenanceHost } from './host.ts'
 
 const props = withDefaults(defineProps<{
   text: string | null | undefined
@@ -37,15 +36,15 @@ const props = withDefaults(defineProps<{
   muted: false,
 })
 
-async function copy() {
-  if (!props.text) return
-  if (await copyToClipboard(props.text)) addToast('Copied to clipboard', 'success')
-  else addToast('Could not copy to clipboard', 'error')
+const host = useProvenanceHost()
+
+function copy() {
+  if (props.text && host.copy) void host.copy(props.text)
 }
 
 function copyOnClick() {
   const selection = window.getSelection()
   if (selection && !selection.isCollapsed) return
-  void copy()
+  copy()
 }
 </script>

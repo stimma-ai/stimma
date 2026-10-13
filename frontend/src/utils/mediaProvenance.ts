@@ -10,7 +10,10 @@
  *
  *   parseGenerationMetadata(raw)    the stored JSON (string or object) → object
  *   buildProvenance(media, opts)    → MediaProvenance, steps newest first
- *   toPublicProvenance(provenance)  → the share request's `provenance` (v2)
+ *   toPublicProvenance(provenance)  → the share request's `provenance` (v3)
+ *
+ * Components render it through `provenance/` (`viewFromProvenance`), the same
+ * components the public share page renders a published sidecar with.
  *
  * Pure and framework-free so it runs under `node --test`. Anything that needs
  * app state (the tools cache for display names, the filter catalogue) comes in
@@ -20,13 +23,24 @@
 
 import { toolDisplayName, type ToolLikeRecord } from './toolDisplay.ts'
 import { formatDuration } from './mediaTypes.ts'
-import { parseServerTime } from './timeFormat.js'
 import { summarizeStack } from '../imageEditor/stack/stackSummary.ts'
+import {
+  factRow,
+  formatDateTime,
+  formatLoraWeight,
+  iconKey,
+  loraRow,
+  normalizeDate,
+} from '../provenance/format.ts'
+import type { ViewFact } from '../provenance/types.ts'
 import type {
   GenerationMetadata,
   GenerationSourceInput,
   LineageTraceEntry,
 } from '../types/generationMetadata.ts'
+
+// Formatting shared with the share page's adapter; re-exported for callers here.
+export { formatDateTime, formatLoraWeight, normalizeDate }
 
 // ---------------------------------------------------------------------------
 // Model
@@ -66,6 +80,16 @@ export interface ProvenanceInput {
   deleted: boolean
 }
 
+/** One image-editor edit, as the Edits list names it. */
+export interface ProvenanceEditStep {
+  key: string
+  name: string
+  detail: string
+  note: string
+  /** First reference image the edit was given, when it was library media. */
+  ref: { mediaId: number | null; hash: string | null } | null
+}
+
 /** The settings a step ran with, in the shape the tool handoff consumes. */
 export interface ProvenanceSettings {
   toolId: string
@@ -84,6 +108,8 @@ export interface ProvenanceStep {
   mediaId: number | null
   toolId: string | null
   taskType: string | null
+  /** Task-type icon key (`provenance/format` iconKey), or null. */
+  icon: string | null
   /** Display name of whatever made this step. Always set. */
   tool: string
   model: string | null
@@ -101,8 +127,8 @@ export interface ProvenanceStep {
   inputs: ProvenanceInput[]
   /** One label per image-editor edit, newest first. */
   edits: string[]
-  /** The raw recorded edit stack, for EditStackSummary. */
-  editStack: unknown
+  /** The image-editor edits, newest first (the Edits list's order). */
+  editSteps: ProvenanceEditStep[]
   /** Post-processing chain that ran after the tool, in order. */
   postProcessing: string[]
   /** External metadata blob carried by imports, for the raw-metadata view. */
@@ -393,13 +419,6 @@ function stripLoraPath(raw: string): string {
   return filename.replace(/\.(safetensors|ckpt|pt|bin)$/i, '') || 'Unknown LoRA'
 }
 
-/** 0.8 → "0.8", 1 → "1.0", 0.75 → "0.75"; missing → "" (never throws). */
-export function formatLoraWeight(weight: unknown): string {
-  const n = typeof weight === 'number' ? weight : typeof weight === 'string' && weight.trim() !== '' ? Number(weight) : NaN
-  if (!Number.isFinite(n)) return ''
-  return n.toFixed(2).replace(/(\.\d)0$/, '$1')
-}
-
 /** Normalises every LoRA list shape (loras, selected_loras, imports' loras). */
 export function normalizeLoras(list: unknown): ProvenanceLora[] {
   if (!Array.isArray(list)) return []
@@ -488,22 +507,6 @@ export function formatBitrate(bps: number | null | undefined): string {
   return `${bps} bps`
 }
 
-/** Server timestamp (naive UTC or zoned) → ISO-8601 UTC, or null. */
-export function normalizeDate(value: unknown): string | null {
-  if (typeof value !== 'string' || !value) return null
-  const ms = parseServerTime(value)
-  return ms ? new Date(ms).toISOString() : null
-}
-
-/** Exact local timestamp for tooltips and fact rows. */
-export function formatDateTime(value: string | null | undefined): string {
-  const iso = normalizeDate(value ?? null)
-  if (!iso) return ''
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
-}
-
 /** Last path segment, either separator. */
 export function fileBasename(path: string | null | undefined): string {
   if (!path) return ''
@@ -585,6 +588,29 @@ function chainNames(
     .filter(Boolean)
 }
 
+/**
+ * The recorded edit stack as Edits-list rows, newest first. Each row keeps the
+ * first reference image its step was given, so it can show a thumbnail.
+ */
+function buildEditSteps(stack: unknown, toolName: (id: string) => string): ProvenanceEditStep[] {
+  if (!Array.isArray(stack) || !stack.length) return []
+  const summary = summarizeStack(stack, id => toolName(String(id || '')))
+  // summarizeStack keeps one row per recorded step, reversed.
+  return summary.steps.map((step, i) => {
+    const recorded = stack[stack.length - 1 - i] as { reference_images?: unknown } | null
+    const first = Array.isArray(recorded?.reference_images) ? recorded.reference_images[0] as Record<string, unknown> | undefined : undefined
+    const mediaId = num(first?.media_id)
+    const hash = str(first?.file_hash)
+    return {
+      key: step.key,
+      name: step.name,
+      detail: step.detail,
+      note: step.note,
+      ref: mediaId != null || hash ? { mediaId, hash } : null,
+    }
+  })
+}
+
 interface StepSource {
   media_id?: number | null
   task_type?: string | null
@@ -650,10 +676,8 @@ function buildStep(
 
   const loras = normalizeLoras(params.loras ?? params.selected_loras ?? (ctx.imported ? source.loras : null))
   const inputs = buildInputs(source.source_inputs)
-  const editStack = params.stack ?? null
-  const edits = editStack
-    ? summarizeStack(editStack, id => ctx.toolName(String(id || ''))).steps.map(step => step.name).filter(Boolean)
-    : []
+  const editSteps = buildEditSteps(params.stack, ctx.toolName)
+  const edits = editSteps.map(step => step.name).filter(Boolean)
   const postProcessing = chainNames(params.post_processing_chain, ctx.toolName, ctx.filterLabel)
 
   const toolId = str(source.tool_id)
@@ -675,6 +699,7 @@ function buildStep(
     mediaId: ctx.mediaId,
     toolId,
     taskType: str(source.task_type),
+    icon: iconKey(source.task_type),
     tool,
     model,
     date: normalizeDate(source.generated_at),
@@ -686,7 +711,7 @@ function buildStep(
     loras,
     inputs,
     edits,
-    editStack,
+    editSteps,
     postProcessing,
     rawMetadata: ctx.rawMetadata,
     settings,
@@ -776,10 +801,20 @@ export function buildProvenance(media: MediaLike | null | undefined, opts: Prove
 
 export interface PublicProvenanceFact { label: string; value: string }
 export interface PublicProvenanceLora { name: string; weight: number | null }
-export interface PublicProvenanceInput { role: string; ref: { mediaId: number | null; hash: string | null } }
+export interface PublicProvenanceRef { mediaId: number | null; hash: string | null }
+export interface PublicProvenanceInput {
+  role: string
+  ref: PublicProvenanceRef
+  badges?: string[]
+  preprocessor?: string
+  /** Library media holding the preprocessed preview; never set today (previews are cached files). */
+  previewRef?: PublicProvenanceRef
+}
+export interface PublicProvenanceEditStep { label: string; ref?: PublicProvenanceRef }
 
 export interface PublicProvenanceStep {
   tool: string
+  icon?: string
   model?: string | null
   date?: string | null
   prompt?: string | null
@@ -788,11 +823,15 @@ export interface PublicProvenanceStep {
   facts?: PublicProvenanceFact[]
   loras?: PublicProvenanceLora[]
   inputs?: PublicProvenanceInput[]
+  editSteps?: PublicProvenanceEditStep[]
+  /** Edit names, kept for v2 readers. */
   edits?: string[]
 }
 
 export interface PublicProvenance {
-  version: 2
+  version: 3
+  /** File facts: format, resolution, duration, size, sample rate. Never a name or path. */
+  file?: PublicProvenanceFact[]
   steps: PublicProvenanceStep[]
 }
 
@@ -804,7 +843,17 @@ export const PUBLIC_PROVENANCE_LIMITS = {
   loras: 20,
   inputs: 16,
   steps: 32,
+  badges: 6,
+  badge: 24,
+  preprocessor: 60,
+  editSteps: 24,
+  fileFacts: 12,
+  fileLabel: 40,
+  fileValue: 80,
 } as const
+
+/** File facts that say what the file is, never what it is called or where it lives. */
+const PUBLIC_FILE_FACTS = new Set(['format', 'resolution', 'duration', 'size', 'fps', 'sample_rate'])
 
 /** Strings that look like local filesystem locations never leave the machine. */
 const ABSOLUTE_PATH = /(^|[\s"'(=:,])(\/Users\/|\/home\/|\/root\/|\/private\/|\/var\/folders\/|\/tmp\/|\/mnt\/|\/Volumes\/|[A-Za-z]:[\\/]|\\\\[^\\\s]+\\|file:\/\/|~\/)/
@@ -820,6 +869,27 @@ function cap(value: string | null | undefined, max: number): string | null {
   const text = String(value).trim()
   if (!text || looksLikeAbsolutePath(text)) return null
   return text.length > max ? text.slice(0, max) : text
+}
+
+function publicRef(mediaId: number | null, hash: string | null): PublicProvenanceRef | null {
+  return mediaId != null || hash ? { mediaId, hash } : null
+}
+
+function publicInput(input: ProvenanceInput): PublicProvenanceInput | null {
+  const L = PUBLIC_PROVENANCE_LIMITS
+  if (input.deleted) return null
+  const ref = publicRef(input.mediaId, input.hash)
+  // Only inputs the backend can draw from the library; a bare local file has no public form.
+  if (!ref) return null
+  const out: PublicProvenanceInput = { role: cap(input.roleLabel, L.label) || 'Input', ref }
+  const badges = input.marks
+    .map(mark => cap(mark, L.badge))
+    .filter((mark): mark is string => !!mark)
+    .slice(0, L.badges)
+  if (badges.length) out.badges = badges
+  const preprocessor = cap(input.preprocessorLabel, L.preprocessor)
+  if (preprocessor) out.preprocessor = preprocessor
+  return out
 }
 
 function publicStep(step: ProvenanceStep): PublicProvenanceStep | null {
@@ -842,17 +912,24 @@ function publicStep(step: ProvenanceStep): PublicProvenanceStep | null {
     .filter((lora): lora is PublicProvenanceLora => !!lora.name)
     .slice(0, L.loras)
   const inputs = step.inputs
-    .filter(input => !input.deleted && (input.mediaId != null || input.hash))
-    .map(input => ({
-      role: cap(input.roleLabel, L.label) || 'Input',
-      ref: { mediaId: input.mediaId, hash: input.hash },
-    }))
+    .map(publicInput)
+    .filter((input): input is PublicProvenanceInput => !!input)
     .slice(0, L.inputs)
+  const editSteps: PublicProvenanceEditStep[] = []
+  for (const edit of step.editSteps) {
+    const label = cap(edit.name, L.label)
+    if (!label) continue
+    const entry: PublicProvenanceEditStep = { label }
+    if (edit.ref) entry.ref = edit.ref
+    editSteps.push(entry)
+    if (editSteps.length >= L.editSteps) break
+  }
   const edits = step.edits
     .map(edit => cap(edit, L.label))
     .filter((edit): edit is string => !!edit)
 
   const out: PublicProvenanceStep = { tool }
+  if (step.icon) out.icon = step.icon
   const model = cap(step.model, L.label)
   if (model) out.model = model
   if (step.date) out.date = step.date
@@ -865,7 +942,21 @@ function publicStep(step: ProvenanceStep): PublicProvenanceStep | null {
   if (facts.length) out.facts = facts.slice(0, L.facts)
   if (loras.length) out.loras = loras
   if (inputs.length) out.inputs = inputs
+  if (editSteps.length) out.editSteps = editSteps
   if (edits.length) out.edits = edits
+  return out
+}
+
+function publicFileFacts(facts: ProvenanceFact[]): PublicProvenanceFact[] {
+  const L = PUBLIC_PROVENANCE_LIMITS
+  const out: PublicProvenanceFact[] = []
+  for (const fact of facts) {
+    if (!PUBLIC_FILE_FACTS.has(fact.key)) continue
+    const label = cap(fact.label, L.fileLabel)
+    const value = cap(fact.value, L.fileValue)
+    if (label && value) out.push({ label, value })
+    if (out.length >= L.fileFacts) break
+  }
   return out
 }
 
@@ -878,10 +969,11 @@ function isMeaningful(step: PublicProvenanceStep, source: ProvenanceStep): boole
 }
 
 /**
- * Exactly what the share request publishes as `provenance` (version 2,
+ * Exactly what the share request publishes as `provenance` (version 3,
  * newest-first steps), or null when there is nothing worth publishing.
- * Carries no file paths, raw params, provider internals or raw metadata; input
- * references (`ref`) are resolved to opaque thumbnails by the desktop backend.
+ * Carries no file names, paths, raw params, provider internals or raw
+ * metadata; ids and hashes appear only inside `ref`s, which the desktop
+ * backend resolves to opaque thumbnails before anything leaves the machine.
  */
 export function toPublicProvenance(provenance: MediaProvenance | null | undefined): PublicProvenance | null {
   if (!provenance?.steps?.length) return null
@@ -891,7 +983,10 @@ export function toPublicProvenance(provenance: MediaProvenance | null | undefine
     if (step) steps.push(step)
   }
   if (!steps.some((step, i) => isMeaningful(step, provenance.steps[i]))) return null
-  return { version: 2, steps }
+  const out: PublicProvenance = { version: 3, steps }
+  const file = publicFileFacts(provenance.fileFacts || [])
+  if (file.length) out.file = file
+  return out
 }
 
 /** How many steps a share would publish (0 when none). */
@@ -903,27 +998,9 @@ export function publicStepCount(provenance: PublicProvenance | null | undefined)
 // Display rows
 // ---------------------------------------------------------------------------
 
-/** Facts whose values are names or words, not numbers: plain text, not mono. */
-const PROSE_FACTS = new Set(['model', 'channels', 'method', 'filter_id', 'filter', 'post_processing'])
-
-export interface FactRow {
-  key: string
-  label: string
-  value: string
-  mono: boolean
-  truncate: boolean
-  valueClass?: string
-}
-
 /** Facts as KeyValueList rows. */
-export function factRows(facts: ProvenanceFact[]): FactRow[] {
-  return facts.map(fact => ({
-    key: fact.key,
-    label: fact.label,
-    value: fact.value,
-    mono: !PROSE_FACTS.has(fact.key),
-    truncate: !!fact.long,
-  }))
+export function factRows(facts: ProvenanceFact[]): ViewFact[] {
+  return facts.map(fact => factRow(fact.key, fact.label, fact.value, !!fact.long))
 }
 
 /**
@@ -931,27 +1008,11 @@ export function factRows(facts: ProvenanceFact[]): FactRow[] {
  * between groups exists: params, then the post-processing chain, then LoRAs
  * (weight reads accent when it isn't the 1.0 default, the §3.4 signal).
  */
-export function stepFactRows(step: ProvenanceStep): FactRow[] {
+export function stepFactRows(step: ProvenanceStep): ViewFact[] {
   const rows = factRows(step.facts)
   if (step.postProcessing.length) {
-    rows.push({
-      key: 'post_processing',
-      label: 'Post-processing',
-      value: step.postProcessing.join(' → '),
-      mono: false,
-      truncate: true,
-    })
+    rows.push(factRow('post_processing', 'Post-processing', step.postProcessing.join(' → '), true))
   }
-  step.loras.forEach((lora, i) => {
-    const weight = formatLoraWeight(lora.weight)
-    rows.push({
-      key: `lora-${i}`,
-      label: 'LoRA',
-      value: weight ? `${lora.name} · ${weight}` : lora.name,
-      mono: true,
-      truncate: true,
-      valueClass: lora.weight != null && lora.weight !== 1 ? 'text-accent-hi' : undefined,
-    })
-  })
+  step.loras.forEach((lora, i) => rows.push(loraRow(`lora-${i}`, lora.name, lora.weight)))
   return rows
 }

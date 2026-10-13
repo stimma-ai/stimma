@@ -2,6 +2,9 @@
   "$schema": "./node_modules/knip/schema.json",
   "entry": [
     "src/mobile/main.ts",
+    "src/provenance/standalone/index.ts",
+    "vite.provenance.config.js",
+    "tailwind.provenance.config.js",
     "src/components/feedback/{Official,Source}*.vue",
     "e2e/docs-shots/playwright.config.ts",
     "e2e/docs-shots/setup.ts",

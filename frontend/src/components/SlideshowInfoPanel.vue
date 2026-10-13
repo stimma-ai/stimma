@@ -235,25 +235,26 @@
             View graph
           </button>
         </div>
-        <ProvenanceSteps
-          :steps="provenance.steps"
+        <ProvenanceAppHost
           :allow-compare="handles('compare-with-source')"
           @navigate="$emit('navigate-to-source-media', $event)"
           @compare="$emit('compare-with-source', $event)"
         >
-          <template #actions="{ step }">
-            <Tooltip v-if="step.settings && handles('view-in-tool')" :text="`Use these settings in ${step.tool}`">
-              <IconButton :aria-label="`Use these settings in ${step.tool}`" data-testid="use-step-settings" @click="$emit('view-in-tool', step.settings)">
-                <AdjustmentsHorizontalIcon class="w-4 h-4" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip v-if="step.mediaId" text="More actions">
-              <IconButton aria-label="More actions" @click.stop="openStepMenu($event, step)">
-                <EllipsisHorizontalIcon class="w-4 h-4" />
-              </IconButton>
-            </Tooltip>
-          </template>
-        </ProvenanceSteps>
+          <ProvenanceSteps :steps="provenanceView.steps">
+            <template #actions="{ step: { origin: step } }">
+              <Tooltip v-if="step.settings && handles('view-in-tool')" :text="`Use these settings in ${step.tool}`">
+                <IconButton :aria-label="`Use these settings in ${step.tool}`" data-testid="use-step-settings" @click="$emit('view-in-tool', step.settings)">
+                  <AdjustmentsHorizontalIcon class="w-4 h-4" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip v-if="step.mediaId" text="More actions">
+                <IconButton aria-label="More actions" @click.stop="openStepMenu($event, step)">
+                  <EllipsisHorizontalIcon class="w-4 h-4" />
+                </IconButton>
+              </Tooltip>
+            </template>
+          </ProvenanceSteps>
+        </ProvenanceAppHost>
         <!-- Flow origin: the run this came out of -->
         <button
           v-if="provenance.flow && handles('open-flow')"
@@ -421,25 +422,22 @@
       </div>
 
       <!-- File -->
-      <div class="mb-6">
-        <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">File</h4>
-        <KeyValueList :rows="fileInfoRows">
-          <template #actions="{ row }">
-            <template v-if="row.key === 'name'">
-              <Tooltip v-if="isDesktopMode" text="Show in Finder">
-                <IconButton aria-label="Show in Finder" @click="revealFileInFinder">
-                  <FolderOpenIcon class="w-3.5 h-3.5" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip text="Copy path">
-                <IconButton aria-label="Copy path" @click="copyFilePath">
-                  <ClipboardDocumentIcon class="w-3.5 h-3.5" />
-                </IconButton>
-              </Tooltip>
-            </template>
+      <ProvenanceFileFacts class="mb-6" :rows="fileInfoRows">
+        <template #actions="{ row }">
+          <template v-if="row.key === 'name'">
+            <Tooltip v-if="isDesktopMode" text="Show in Finder">
+              <IconButton aria-label="Show in Finder" @click="revealFileInFinder">
+                <FolderOpenIcon class="w-3.5 h-3.5" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip text="Copy path">
+              <IconButton aria-label="Copy path" @click="copyFilePath">
+                <ClipboardDocumentIcon class="w-3.5 h-3.5" />
+              </IconButton>
+            </Tooltip>
           </template>
-        </KeyValueList>
-      </div>
+        </template>
+      </ProvenanceFileFacts>
 
       <!-- Processing status: a File fact row once everything completed (see
            fileInfoRows); this per-stage section appears only while something
@@ -523,7 +521,10 @@ import InlineTagEditor from './InlineTagEditor.vue'
 import SendToToolMenu from './SendToToolMenu.vue'
 import InspireMenu from './InspireMenu.vue'
 import { MediaImage } from './media'
-import ProvenanceSteps from './media/ProvenanceSteps.vue'
+import ProvenanceAppHost from './media/ProvenanceAppHost.vue'
+import ProvenanceSteps from '../provenance/ProvenanceSteps.vue'
+import ProvenanceFileFacts from '../provenance/ProvenanceFileFacts.vue'
+import { viewFromProvenance } from '../provenance/fromProvenance'
 import KeyValueList from './ui/KeyValueList.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Spinner from './ui/Spinner.vue'
@@ -945,6 +946,7 @@ async function revealFileInFinder() {
 // How this was made (steps newest-first, relations, file facts) — the one
 // shared reading of generation_metadata (utils/mediaProvenance).
 const provenance = computed(() => provenanceBuilder.build(props.currentItem))
+const provenanceView = computed(() => viewFromProvenance(provenance.value))
 
 // Typeset file facts; the name row carries reveal/copy actions.
 const fileInfoRows = computed(() => {

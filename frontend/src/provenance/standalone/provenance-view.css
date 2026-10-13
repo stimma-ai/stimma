@@ -1,0 +1,44 @@
+/*
+ * The share page bundle's stylesheet. Every rule ends up under `.stimma-pv`
+ * (vite.provenance.config.js prefixes whatever Tailwind emits), and the theme
+ * tokens are copied from src/style.css at build time, so this file holds only
+ * what preflight would have given the app.
+ */
+@stimma-provenance-tokens;
+@tailwind base;
+@tailwind utilities;
+
+.stimma-pv *,
+.stimma-pv ::before,
+.stimma-pv ::after {
+  box-sizing: border-box;
+  border: 0 solid;
+  margin: 0;
+  padding: 0;
+}
+
+.stimma-pv .pv-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  -webkit-text-size-adjust: 100%;
+  text-align: left;
+}
+
+.stimma-pv button {
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  background: transparent;
+  -webkit-appearance: button;
+  cursor: pointer;
+}
+
+.stimma-pv button:disabled { cursor: default; }
+.stimma-pv h4 { font-size: inherit; font-weight: inherit; }
+.stimma-pv img,
+.stimma-pv svg { display: block; vertical-align: middle; }
+.stimma-pv img { max-width: 100%; }
