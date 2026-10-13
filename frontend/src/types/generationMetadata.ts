@@ -41,7 +41,11 @@ export interface PromptMetadata {
   translate_language?: string
 }
 
-/** One ancestor in the embedded generation history (newest-first). */
+/**
+ * One ancestor in the embedded generation history. `lineage_trace` is
+ * OLDEST-first: each producer appends the parent after the parent's own
+ * trace. Consumers reverse it to read newest-first (see utils/mediaProvenance).
+ */
 export interface LineageTraceEntry {
   media_id: number
   task_type?: string
