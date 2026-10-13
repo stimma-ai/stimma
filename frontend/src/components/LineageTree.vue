@@ -149,26 +149,24 @@
     <Modal
       :show="!!selectedNode"
       size="custom"
-      custom-class="w-[1100px] max-w-[calc(100vw-3rem)] h-[75vh]"
+      custom-class="w-full max-w-[1100px] h-[75vh] compact:h-auto"
       @close="selectedNodeId = null"
     >
-      <div class="relative w-full h-full overflow-hidden flex">
-        <!-- Close -->
-        <button
-          class="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-overlay-strong text-content-tertiary hover:text-content hover:bg-overlay-medium transition-colors"
-          @click="selectedNodeId = null"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+      <div class="relative w-full h-full overflow-hidden flex compact:block compact:h-auto compact:overflow-visible">
+        <div class="absolute top-3 right-3 z-chrome">
+          <Tooltip text="Close">
+            <IconButton aria-label="Close" class="bg-overlay-strong" @click="selectedNodeId = null">
+              <XMarkIcon class="w-4 h-4" />
+            </IconButton>
+          </Tooltip>
+        </div>
 
         <ImageDetailsCard
+          v-if="selectedNodeMedia"
           :media="selectedNodeMedia"
-          :source-inputs="selectedSourceInputs"
           :parent-nodes="selectedParentNodes"
           :child-nodes="selectedChildNodes"
-          @navigate="selectedNodeId = $event"
+          @navigate="selectNodeIfPresent"
           @open-flow="openFlow"
         />
       </div>
@@ -223,34 +221,43 @@
 
     <!-- Floating zoom controls -->
     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center rounded-md overflow-hidden bg-black/55 backdrop-blur-sm">
-      <button
-        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-        title="Zoom out"
-        @click="zoomBy(-0.2)"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />
-        </svg>
-      </button>
+      <Tooltip text="Zoom out">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          @click="zoomBy(-0.2)"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />
+          </svg>
+        </button>
+      </Tooltip>
       <span class="text-white/70 text-[10px] font-mono tabular-nums w-9 text-center">{{ Math.round(zoom * 100) }}%</span>
-      <button
-        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-        title="Zoom in"
-        @click="zoomBy(0.2)"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
-      <button
-        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-        title="Fit to screen"
-        @click="fitToScreen"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-        </svg>
-      </button>
+      <Tooltip text="Zoom in">
+        <button
+          type="button"
+          aria-label="Zoom in"
+          class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          @click="zoomBy(0.2)"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip text="Fit to screen">
+        <button
+          type="button"
+          aria-label="Fit to screen"
+          class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          @click="fitToScreen"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
   </div>
 </template>
@@ -263,6 +270,10 @@ import * as dagre from '@dagrejs/dagre'
 import { MediaImage } from './media'
 import Modal from './ui/Modal.vue'
 import ImageDetailsCard from './media/ImageDetailsCard.vue'
+import IconButton from './ui/IconButton.vue'
+import Tooltip from './ui/Tooltip.vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { parseGenerationMetadata } from '../utils/mediaProvenance'
 import { useMarkers } from '../composables/useMarkers'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
@@ -352,29 +363,19 @@ function openFlow(flowId) {
   router.push({ name: 'flow', params: { id: String(flowId) } })
 }
 
-function parseSourceInputs(media) {
-  const raw = media?.generation_metadata
-  if (!raw) return []
-  try {
-    const meta = typeof raw === 'string' ? JSON.parse(raw) : raw
-    return Array.isArray(meta?.source_inputs) ? meta.source_inputs : []
-  } catch { return [] }
+// The card's inputs and steps link to media; only nodes in this tree can be
+// selected here (anything else — a trashed input, an ancestor outside the
+// loaded window — has no node to show).
+function selectNodeIfPresent(id) {
+  const node = normalizedNodes.value.find(n => n.id === id)
+  if (node && !node.placeholder) selectedNodeId.value = id
 }
 
-// Source inputs from generation metadata, with flag for whether they're in the tree
-const selectedSourceInputs = computed(() => {
-  const inputs = parseSourceInputs(selectedNode.value?.media)
-  if (!inputs.length) return []
-  const nodeIds = new Set(nodes.value.map(n => n.id))
-  return inputs
-    .filter(s => s.media_id)
-    .map(s => ({ ...s, inTree: nodeIds.has(s.media_id) }))
-})
-
-// Parent nodes from lineage edges (not already shown via source_inputs)
+// Parent nodes from lineage edges (not already shown as the node's own inputs)
 const selectedParentNodes = computed(() => {
   if (!selectedNodeId.value) return []
-  const sourceInputIds = new Set(selectedSourceInputs.value.map(s => s.media_id))
+  const meta = parseGenerationMetadata(selectedNode.value?.media?.generation_metadata)
+  const sourceInputIds = new Set((meta?.source_inputs || []).map(s => s?.media_id).filter(Boolean))
   const parentEdges = edges.value.filter(e => e.target_id === selectedNodeId.value)
   const nodeMap = new Map(normalizedNodes.value.map(n => [n.id, n]))
   return parentEdges
@@ -636,28 +637,11 @@ function nodeTitle(node) {
   return 'Imported'
 }
 
-function nodeModel(node) {
-  try {
-    const meta = node.media?.generation_metadata
-    if (!meta) return null
-    const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta
-    return parsed?.model || null
-  } catch { return null }
-}
-
 function nodeSubtitle(node) {
-  const model = nodeModel(node)
-  if (model) return model
+  const meta = parseGenerationMetadata(node.media?.generation_metadata)
+  if (meta?.model) return meta.model
   // Tool display name (skip generic "Edited"/"Generated" labels)
-  const meta = node.media?.generation_metadata
-  if (meta) {
-    try {
-      const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta
-      if (parsed?.tool_id) {
-        return toolDisplayName(parsed.tool_id)
-      }
-    } catch {}
-  }
+  if (meta?.tool_id) return toolDisplayName(meta.tool_id)
   if (node.media.tool_id) {
     return toolDisplayName(node.media.tool_id)
   }

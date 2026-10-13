@@ -2,20 +2,17 @@
   <Modal
     :show="mediaDetails.state.value.visible"
     size="custom"
-    custom-class="relative w-[1100px] h-[75vh] flex overflow-hidden"
+    custom-class="relative w-full max-w-[1100px] h-[75vh] flex overflow-hidden compact:h-auto compact:block compact:overflow-y-auto"
     :close-on-esc="false"
     @close="mediaDetails.close()"
   >
-    <!-- Close -->
-    <button
-      class="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-overlay-strong text-content-tertiary hover:text-content hover:bg-overlay-medium transition-colors"
-      @click="mediaDetails.close()"
-      title="Close (Esc)"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
+    <div class="absolute top-3 right-3 z-chrome">
+      <Tooltip text="Close">
+        <IconButton aria-label="Close" class="bg-overlay-strong" @click="mediaDetails.close()">
+          <XMarkIcon class="w-4 h-4" />
+        </IconButton>
+      </Tooltip>
+    </div>
 
     <ImageDetailsCard
       v-if="media"
@@ -23,8 +20,9 @@
       @navigate="navigateTo"
       @open-flow="openFlow"
     />
-    <div v-else class="w-full h-full flex items-center justify-center">
-      <span class="text-content-tertiary text-sm animate-pulse">{{ error || 'Loading…' }}</span>
+    <div v-else class="w-full h-full min-h-48 flex items-center justify-center gap-2 text-content-tertiary text-sm">
+      <Spinner v-if="!error" size="sm" />
+      <span>{{ error || 'Loading…' }}</span>
     </div>
   </Modal>
 </template>
@@ -36,6 +34,10 @@ import { useMediaDetailsModal } from '../../composables/useMediaDetailsModal'
 import { useMediaApi } from '../../composables/useMediaApi'
 import ImageDetailsCard from './ImageDetailsCard.vue'
 import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
+import Spinner from '../ui/Spinner.vue'
+import Tooltip from '../ui/Tooltip.vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const mediaDetails = useMediaDetailsModal()
