@@ -1,7 +1,9 @@
 <template>
   <div class="flex flex-col h-full min-h-0">
     <p v-if="error" class="p-4 text-content-muted">{{ error }}</p>
-    <FileBrowser v-show="!selected && !error" :header-target="headerTarget" :header-hidden="!!selected || !!error" :root-name="file.name" @drag-root="dragWorkspaceFile($event, chatId, file)" :key="indexUrl" :entries="entries" :loading="loading" :thumbnail="entry => fileUrl(chatId, asFile(entry))" @open="selected = asFile($event)" @drag="(event, entry) => dragWorkspaceFile(event, chatId, asFile(entry))" />
+    <FileBrowser v-show="!selected && !error" :header-target="headerTarget" :header-hidden="!!selected || !!error" :root-name="file.name" @drag-root="dragWorkspaceFile($event, chatId, file)" :key="indexUrl" :entries="entries" :loading="loading" :thumbnail="entry => fileUrl(chatId, asFile(entry))" @open="selected = asFile($event)" @drag="(event, entry) => dragWorkspaceFile(event, chatId, asFile(entry))">
+      <template #actions><FileActions :file="file" :url="fileUrl(chatId, file, 'content', true)" @attach="$emit('attach', file)" @save="$emit('save', file)" /></template>
+    </FileBrowser>
     <template v-if="selected">
       <Teleport :to="headerTarget || 'body'" :disabled="!headerTarget">
       <div class="flex items-center gap-2 min-w-0 w-full" :class="headerTarget ? '' : 'px-3 py-2 border-b border-edge-subtle'">

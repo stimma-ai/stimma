@@ -7,6 +7,8 @@
  */
 
 import { ref } from 'vue'
+import axios from 'axios'
+import { addToast } from './useToasts'
 import { isDesktop as isNativeShell, desktop } from '../desktop'
 import { checkMobileDownloadSize, saveDownloadBlob } from '../utils/mobileDownload'
 
@@ -60,6 +62,21 @@ async function downloadFromResponse(
 }
 
 /**
+ * Fetch a URL and save it under the given filename. A bare <a href download>
+ * does nothing in the desktop shell, so every download goes through here.
+ */
+async function downloadUrl(url: string, filename: string): Promise<boolean> {
+  try {
+    const response = await axios.get(url, { responseType: 'blob' })
+    return await downloadFromResponse(response.data, filename)
+  } catch (error: any) {
+    console.error('Download failed:', error)
+    addToast(error?.message?.includes('phone export limit') ? error.message : `Could not download ${filename}.`, 'error')
+    return false
+  }
+}
+
+/**
  * Check if we're running in the desktop app
  */
 async function checkIsDesktop(): Promise<boolean> {
@@ -70,6 +87,7 @@ export function useDesktopDownload() {
   return {
     isDesktop,
     downloadFromResponse,
+    downloadUrl,
     saveToDownloads,
     checkIsDesktop,
     ensureInitialized

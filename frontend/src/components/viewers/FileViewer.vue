@@ -5,7 +5,7 @@
       <span v-if="kind === 'table' && rows.length" class="font-mono text-xs text-content-muted">{{ rows.length - 1 }} rows</span>
     </div>
     </Teleport>
-    <p v-if="error" class="p-4 text-sm text-content-muted">{{ error }} <a :href="url" download class="text-accent">Download</a></p>
+    <p v-if="error" class="p-4 text-sm text-content-muted">{{ error }} <button class="text-accent" @click="downloadUrl(url, name)">Download</button></p>
     <p v-else-if="loading" class="p-4 text-content-muted text-sm">Loading…</p>
     <AppImage v-else-if="kind === 'image'" :src="url" :alt="name" container-class="w-full h-full" img-class="object-contain" />
     <video v-else-if="kind === 'video'" :src="url" controls playsinline class="w-full h-full object-contain" />
@@ -26,7 +26,7 @@
     </div>
     <div v-else class="m-auto p-6 text-center space-y-3">
       <div class="text-sm">{{ name }}</div><div class="font-mono text-xs text-content-muted">{{ fileSize(size) }} · {{ mime || 'Unknown file type' }}</div>
-      <a :href="url" download class="inline-block p-2 text-accent text-sm">Download</a>
+      <button class="inline-block p-2 text-accent text-sm" @click="downloadUrl(url, name)">Download</button>
     </div>
   </div>
 </template>
@@ -36,10 +36,12 @@ import { AppImage } from '../media'
 import ReadOnlyCode from './ReadOnlyCode.vue'
 import MarkdownViewer from './MarkdownViewer.vue'
 import WorkspaceZipViewer from './WorkspaceZipViewer.vue'
+import { useDesktopDownload } from '../../composables/useDesktopDownload'
 import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import { fileKind, fileSize, parseDelimited, type WorkspaceFile } from '../../utils/fileRefs'
 const props = defineProps<{ url: string; name: string; mime?: string; controlsTarget?: HTMLElement | null; size?: number; mediaId?: number; workspaceFile?: WorkspaceFile; chatId?: number | string }>()
 defineEmits<{ attach: [file: WorkspaceFile]; save: [file: WorkspaceFile] }>()
+const { downloadUrl } = useDesktopDownload()
 const text = ref(''), loading = ref(false), error = ref('')
 const tableHost = ref<HTMLElement | null>(null), scrollTop = ref(0)
 const kind = computed(() => fileKind(props.name, props.mime))

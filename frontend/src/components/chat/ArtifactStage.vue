@@ -84,6 +84,7 @@
           >
             {{ loading ? 'Setting…' : 'Set as latest' }}
           </button>
+          <IconButton v-if="heroKind !== 'package'" title="Download" aria-label="Download" @click="downloadRevision"><ArrowDownTrayIcon class="w-4 h-4" /></IconButton>
           <div ref="overflowButtonRef" class="flex">
             <IconButton title="Actions" @click="onOverflowClick">
               <EllipsisVerticalIcon class="w-4 h-4" />
@@ -175,6 +176,7 @@ import {
   ArrowUpIcon,
   ArchiveBoxIcon,
   DocumentArrowDownIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
@@ -305,7 +307,14 @@ function onOverflowClick(event?: MouseEvent) {
   })
 }
 
-const { downloadFromResponse } = useDesktopDownload()
+const { downloadFromResponse, downloadUrl } = useDesktopDownload()
+
+function downloadRevision() {
+  const rev = props.viewedRevision
+  if (!rev) return
+  const base = (props.asset?.title || 'artifact').replace(/[\\/:*?"<>|]+/g, '-')
+  downloadUrl(getMediaFileUrl(rev.media_id), rev.filename || `${base}.${rev.file_format}`)
+}
 const downloadingPackage = ref(false)
 
 async function downloadPackage(format: 'zip' | 'pdf') {
