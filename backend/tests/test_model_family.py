@@ -19,6 +19,9 @@ FIXTURES = [
     ("flux-1.1-pro", "flux-1.1-pro"),
     ("flux-kontext-max", "flux-kontext"),
     ("flux_klein_9b", "flux-klein"),
+    ("flux3_image_klein_sd_int8_convrot.safetensors", "flux-3-klein"),
+    ("flux3-klein-base", "flux-3-klein"),
+    ("flux-3-image-klein", "flux-3-klein"),
     ("FLUX.1-Fill-dev", "flux-1-fill"),
     # --- Stable Diffusion lines ---
     ("sd_xl_base_1.0.safetensors", "sdxl"),
