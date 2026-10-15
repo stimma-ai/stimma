@@ -77,6 +77,14 @@ def test_qwen_image_21_has_its_own_generate_and_edit_modes():
     assert enhancement_mode(model_family("qwen-image-2512")) == "prose"
 
 
+def test_flux3_klein_has_its_own_generate_and_edit_modes():
+    family = model_family("flux3_image_klein_sd_int8_convrot.safetensors")
+    assert enhancement_mode(family) == "flux3-klein"
+    assert enhancement_mode(family, is_image_edit=True) == "flux3-klein-edit"
+    # FLUX.2 Klein keeps the generic styles.
+    assert enhancement_mode(model_family("flux-2-klein-9b")) == "prose"
+
+
 def test_audio_mode_is_task_driven():
     # Any audio tool gets the sound-focused style regardless of the model string.
     assert enhancement_mode(model_family("some-tts-model"), is_audio=True) == "audio"
@@ -153,6 +161,16 @@ def test_improve_request_defaults_input_image_count_zero():
             ImprovePromptRequest(prompt="make the mug blue", model="qwen-image-2.1", input_image_count=1),
             "improve_qwen_image_21_edit_system_prompt",
             "Rewrite this Qwen-Image-2.1 edit request. The model receives one input image.",
+        ),
+        (
+            ImprovePromptRequest(prompt="a fox in snow", model="flux3-klein"),
+            "improve_flux3_klein_system_prompt",
+            "Rewrite this request as a FLUX.3 Klein text-to-image caption.",
+        ),
+        (
+            ImprovePromptRequest(prompt="make the mug blue", model="flux3-klein", input_image_count=1),
+            "improve_flux3_klein_edit_system_prompt",
+            "Rewrite this FLUX.3 Klein edit request. The model receives one reference image.",
         ),
     ],
 )
@@ -540,3 +558,41 @@ async def test_repeated_echo_blocks_generation_before_queueing(
     assert 'unchanged after 3 attempts' in response.json()['detail']['message']
     assert complete.await_count == 3
     queue.submit_job.assert_not_called()
+
+
+async def test_flux3_klein_edit_shows_references_labeled_by_ordinal(prompt_variant_probe, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    async def fake_source_image(session, media_id):
+        return f"image-{media_id}"
+
+    monkeypatch.setattr(pe, "_load_source_image_b64", fake_source_image)
+    await pe.improve_prompt(
+        ImprovePromptRequest(
+            prompt="print the dog from the third image onto the mug",
+            model="flux3-klein",
+            input_image_count=3,
+            # A non-library input keeps its slot so ordinals hold.
+            input_media_ids=[11, None, 33],
+        ),
+        session=object(),
+    )
+
+    assert prompt_variant_probe["prompt_keys"] == ["improve_flux3_klein_edit_system_prompt"]
+    content = prompt_variant_probe["messages"][1]["content"]
+    assert ("3 reference images in order: the first image, the second image and the third image "
+            "(attached below, labeled)") in content[0]["text"]
+    assert [part["text"] for part in content[1::2]] == ["The first image:", "The third image:"]
+    assert [part["image_url"]["url"] for part in content[2::2]] == [
+        "data:image/jpeg;base64,image-11",
+        "data:image/jpeg;base64,image-33",
+    ]
+
+
+def test_flux3_canvas_guidance_composes_without_naming_the_canvas():
+    from routes.prompt_enhancement import _flux3_canvas_guidance
+
+    assert _flux3_canvas_guidance(None, 1024) == ""
+    assert "a wide 1920x1088 frame" in _flux3_canvas_guidance(1920, 1088)
+    assert "a tall 832x1248 frame" in _flux3_canvas_guidance(832, 1248)
+    assert "never mention the ratio" in _flux3_canvas_guidance(1024, 1024)

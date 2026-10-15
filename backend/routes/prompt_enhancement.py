@@ -67,6 +67,8 @@ def enhancement_mode(
         return "cinematography"
     if family == "qwen-image-2.1":
         return "qwen-image-2.1-edit" if is_image_edit else "qwen-image-2.1"
+    if family == "flux-3-klein":
+        return "flux3-klein-edit" if is_image_edit else "flux3-klein"
     if family == "ideogram":
         return "ideogram"
     if family in _KEYWORD_FAMILIES:
@@ -85,6 +87,8 @@ _IMPROVE_PROMPT_BY_MODE = {
     "minimax-h3": "improve_minimax_h3_system_prompt",
     "qwen-image-2.1": "improve_qwen_image_21_system_prompt",
     "qwen-image-2.1-edit": "improve_qwen_image_21_edit_system_prompt",
+    "flux3-klein": "improve_flux3_klein_system_prompt",
+    "flux3-klein-edit": "improve_flux3_klein_edit_system_prompt",
     "edit": "improve_image_edit_system_prompt",
     "audio": "improve_audio_system_prompt",
     "prose": "improve_system_prompt",
@@ -116,6 +120,36 @@ def _qwen_canvas_guidance(width: Optional[int], height: Optional[int]) -> str:
         f"The canvas is already fixed at {width}x{height}, a {shape} frame. Compose for that "
         "orientation and name it in the opening sentence, but never write the ratio or size "
         "into the description."
+    )
+
+
+_ORDINALS = ("first", "second", "third", "fourth", "fifth",
+             "sixth", "seventh", "eighth", "ninth", "tenth")
+
+
+def _ordinal_image(n: int) -> str:
+    """FLUX.3 Klein names references by ordinal: "the first image", ..."""
+    return f"the {_ORDINALS[n - 1]} image" if 1 <= n <= len(_ORDINALS) else f"image {n}"
+
+
+def _flux3_image_refs_phrase(n: int) -> str:
+    """The references a FLUX.3 Klein edit receives, named the way its upsampler names them."""
+    if n <= 1:
+        return "one reference image"
+    names = [_ordinal_image(i) for i in range(1, n + 1)]
+    return f"{n} reference images in order: " + ", ".join(names[:-1]) + f" and {names[-1]}"
+
+
+def _flux3_canvas_guidance(width: Optional[int], height: Optional[int]) -> str:
+    """FLUX.3 Klein's upsampler takes the canvas as a "TARGET CANVAS: W:H" line
+    and composes for it without ever naming it."""
+    if not width or not height:
+        return ""
+    ratio = width / height
+    shape = "wide" if ratio > 1.15 else "tall" if ratio < 1 / 1.15 else "square"
+    return (
+        f"The canvas is a {shape} {width}x{height} frame: compose for it (a wide canvas spreads "
+        "content sideways, a tall one stacks it) and never mention the ratio or the canvas."
     )
 
 
@@ -875,7 +909,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             loaded = await _load_source_image_b64(session, media_id)
             if loaded:
                 source_images_b64.append((picture_number, loaded))
-    elif mode == "qwen-image-2.1-edit":
+    elif mode in ("qwen-image-2.1-edit", "flux3-klein-edit"):
         for image_number, media_id in enumerate(request.input_media_ids, start=1):
             if media_id is None:
                 continue
@@ -906,6 +940,12 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     )
     system_prompt = system_prompt.replace(
         "{canvas_guidance}", _qwen_canvas_guidance(request.width, request.height)
+    )
+    system_prompt = system_prompt.replace(
+        "{flux3_image_refs}", _flux3_image_refs_phrase(request.input_image_count)
+    )
+    system_prompt = system_prompt.replace(
+        "{flux3_canvas_guidance}", _flux3_canvas_guidance(request.width, request.height)
     )
     system_prompt = system_prompt.replace(
         "{audio_guidance}",
@@ -968,6 +1008,23 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "Rewrite this request as a Qwen-Image-2.1 text-to-image prompt. "
             f"Return only the final model prompt:\n\n{request.prompt}{instr}"
         )
+    elif mode == "flux3-klein-edit":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            f"Rewrite this FLUX.3 Klein edit request. The model receives "
+            f"{_flux3_image_refs_phrase(request.input_image_count)}"
+            + (" (attached below, labeled)" if source_images_b64 else "")
+            + ". Return only the final model prompt:\n\n"
+            f"{request.prompt}{instr}"
+        )
+    elif mode == "flux3-klein":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            "Rewrite this request as a FLUX.3 Klein text-to-image caption. "
+            f"Return only the final model prompt:\n\n{request.prompt}{instr}"
+        )
     elif source_images_b64:
         # i2v: the attached frame is reference; the user's text is direction for
         # the clip, to be turned into motion/camera — not a prompt to "improve".
@@ -1010,6 +1067,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                 image_parts.append({"type": "text", "text": f"Picture {picture_number} ({role}):"})
             elif mode == "qwen-image-2.1-edit":
                 image_parts.append({"type": "text", "text": f"<image{picture_number}>:"})
+            elif mode == "flux3-klein-edit":
+                image_parts.append({"type": "text", "text": f"{_ordinal_image(picture_number).capitalize()}:"})
             image_parts.append(
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
             )

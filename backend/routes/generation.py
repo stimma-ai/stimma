@@ -436,7 +436,7 @@ async def _apply_generation_prompt_pipeline(
             parameters, effective_task
         )
     input_media_ids: List[Optional[int]] = []
-    if model_family(model) == "qwen-image-2.1":
+    if model_family(model) in ("qwen-image-2.1", "flux-3-klein"):
         input_media_ids = _prompt_input_media_ids(parameters)
     processed_prompt = await run_prompt_pipeline(
         db,
@@ -471,6 +471,7 @@ async def _apply_generation_prompt_pipeline(
 # a general-purpose writer doesn't. Agent tool calls enhance these by default.
 _NATIVE_PROMPT_FORMAT_LABELS = {
     "qwen-image-2.1": "Qwen-Image-2.1",
+    "flux3-klein": "FLUX.3 Klein",
     "minimax-h3": "MiniMax H3",
 }
 
