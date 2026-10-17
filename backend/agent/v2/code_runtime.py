@@ -1718,47 +1718,46 @@ class StimmaSDK:
             )
         return result
 
-    async def detect_faces(self, media_id: int) -> list[dict[str, Any]]:
-        """Get detected faces for a media item, including bounding boxes and embeddings."""
-        from database import Face, MediaItem
+    async def detect_faces(
+        self, media_id: int, *, wait: bool = True, timeout: float = 60
+    ) -> list[dict[str, Any]]:
+        """Faces in a library image, most confident first, with bbox, area and embedding."""
+        from . import embeddings
+        return await embeddings.detect_faces(self, media_id, wait=wait, timeout=timeout)
 
-        result = await self.session.execute(
-            select(MediaItem).where(MediaItem.id == media_id)
-        )
-        media = result.scalar_one_or_none()
-        if not media:
-            raise ValueError(f"Media item {media_id} not found")
+    async def face_similarity(self, a: Any, b: Any) -> dict[str, Any]:
+        """Identity similarity between two faces (media id, face, or workspace path)."""
+        from . import embeddings
+        return await embeddings.face_similarity(self, a, b)
 
-        if media.face_detection_status == "pending":
-            raise RuntimeError(
-                f"Face detection is still pending for media {media_id}. "
-                "Try again shortly — faces are detected automatically after ingestion."
-            )
-        if media.face_detection_status == "failed":
-            raise RuntimeError(f"Face detection failed for media {media_id}.")
+    async def find_faces_like(
+        self, ref: Any, *, limit: int = 50, min_similarity: float | None = None
+    ) -> dict[str, Any]:
+        """Library faces that look like the same person as ``ref``."""
+        from . import embeddings
+        return await embeddings.find_faces_like(self, ref, limit=limit, min_similarity=min_similarity)
 
-        result = await self.session.execute(
-            select(Face)
-            .where(Face.media_id == media_id)
-            .order_by(Face.confidence.desc())
-        )
-        faces = result.scalars().all()
+    async def clip_embedding(self, target: Any) -> dict[str, Any]:
+        """CLIP vector for a media id, workspace image path, or text."""
+        from . import embeddings
+        return await embeddings.clip_embedding(self, target)
 
-        out = []
-        for face in faces:
-            entry: dict[str, Any] = {
-                "id": face.id,
-                "bbox": {
-                    "x": face.bbox_x,
-                    "y": face.bbox_y,
-                    "width": face.bbox_width,
-                    "height": face.bbox_height,
-                },
-                "confidence": face.confidence,
-                "embedding": face.get_embedding().tolist() if face.get_embedding() is not None else None,
-            }
-            out.append(entry)
-        return out
+    async def clip_similarity(self, a: Any, b: Any) -> dict[str, Any]:
+        """CLIP cosine similarity between any mix of media ids, paths and text."""
+        from . import embeddings
+        return await embeddings.clip_similarity(self, a, b)
+
+    async def find_similar(
+        self, ref: Any, *, limit: int = 50, min_similarity: float | None = None
+    ) -> dict[str, Any]:
+        """Library images visually or semantically similar to ``ref`` (CLIP)."""
+        from . import embeddings
+        return await embeddings.find_similar(self, ref, limit=limit, min_similarity=min_similarity)
+
+    async def pairwise_similarity(self, targets: Sequence[Any], *, kind: str = "clip") -> dict[str, Any]:
+        """N×N similarity matrix over targets, by CLIP or face identity."""
+        from . import embeddings
+        return await embeddings.pairwise_similarity(self, targets, kind=kind)
 
     async def preprocess_controlnet(
         self,

@@ -139,6 +139,7 @@ For locating things in an image, view it and estimate the box with your own eyes
 size — express coordinates in that frame). When a task needs *pixel-accurate* regions: `stimma.detect_faces(media_id)` \
 for photographic faces, or the `detect-objects` catalog tool (SAM3, subject as a short noun phrase) for arbitrary \
 subjects — each detect-objects call is a slow full inference, so it's for precision masking, not coarse framing. \
+To compare images, the library's face and CLIP indexes answer "same person?" and "looks alike?" without viewing each one: see `sdk_help("similarity")`. \
 """ + shell_guidance + r"""
 
 **`run_code` / `run_file` async model**: Your code runs inside an `async def` — use `await` directly at top level. \

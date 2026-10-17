@@ -362,12 +362,137 @@ Use progress for long loops that produce visible stages for the user.""",
     ),
     "detect_faces": SDKMethodHelp(
         name="detect_faces",
-        signature="await stimma.detect_faces(media_id: int)",
-        summary="Detect faces in a library image.",
+        signature="await stimma.detect_faces(media_id, *, wait=True, timeout=60) -> list[dict]",
+        summary="Faces in a library image: id, bbox, area, confidence, embedding.",
         details="""\
-Use this for face-aware workflows such as cropping, matching, or portrait
-selection.""",
-        group="image",
+Faces come from the library's index, most confident first. bbox is x, y,
+width, height as fractions of the image; area is width*height, so the
+largest area is usually the subject. If the image hasn't been indexed yet
+this waits up to `timeout` seconds; wait=False raises instead.
+Returns [] for media that isn't an image or video.
+
+Example — crop the main face:
+  faces = await stimma.detect_faces(42)
+  main = max(faces, key=lambda f: f["area"])""",
+        group="similarity",
+        is_async=True,
+    ),
+    "face_similarity": SDKMethodHelp(
+        name="face_similarity",
+        signature="await stimma.face_similarity(a, b) -> dict",
+        summary="Is this the same person? Identity similarity between two faces.",
+        details="""\
+a and b are each a media id, a face (an entry from detect_faces or
+find_faces_like, or {"face_id": n}), or a workspace image path. A media id
+uses its largest face. A path is analysed on the fly and is not added to
+the library. Returns {"similarity", "a", "b"}, where a and b say which face
+was compared (face_id, bbox, area). If a side has no face, similarity is
+None and "error" says which.
+
+Face similarity measures identity and ignores pose, lighting, clothes and
+background. For "same scene / style / near-duplicate" use clip_similarity.
+
+Rough guidance, measured on public portraits (cosine, -1..1). Use these as
+starting points and check borderline cases with view_image:
+  different people         usually below 0.2 (max seen 0.20)
+  same person, other photo median about 0.63; 94% above 0.35
+  same photo, recropped    above 0.9
+Treat above 0.35 as likely the same person and above 0.5 as confident.
+Profile views, heavy stylisation and tiny faces score lower.""",
+        group="similarity",
+        is_async=True,
+    ),
+    "find_faces_like": SDKMethodHelp(
+        name="find_faces_like",
+        signature="await stimma.find_faces_like(ref, *, limit=50, min_similarity=None) -> dict",
+        summary="Find library shots of the same person as ref (a media id, face, or path).",
+        details="""\
+Searches every indexed face in the library (live library items only, not
+trash or intermediate results) and returns {"reference", "matches",
+"min_similarity", "total_compared"}. Each match has media_id, face_id,
+similarity, bbox and area, best face per image, highest first. The
+reference image itself is left out. ref is interpreted as in
+face_similarity.
+
+min_similarity defaults to the library's face-match setting (0.55 unless
+the user changed it), which favours precision. Pass about 0.35 to catch
+more varied shots of the person; different people rarely score above 0.2.
+If ref has no face the result has no matches and an "error".""",
+        group="similarity",
+        is_async=True,
+    ),
+    "clip_embedding": SDKMethodHelp(
+        name="clip_embedding",
+        signature="await stimma.clip_embedding(target) -> dict",
+        summary="CLIP vector for a media id, workspace image path, or text.",
+        details="""\
+Returns {"embedding": [floats], "dim", "model"} plus what was embedded
+(media_id, path or text). Library media uses its stored vector, waiting up
+to 60s if indexing hasn't reached it. A string is treated as a workspace
+path when it names an image file, otherwise as text. Images and text share
+one space, so a text vector can be compared with image vectors.
+Use this for your own math; for comparisons, clip_similarity,
+find_similar and pairwise_similarity are simpler.""",
+        group="similarity",
+        is_async=True,
+    ),
+    "clip_similarity": SDKMethodHelp(
+        name="clip_similarity",
+        signature="await stimma.clip_similarity(a, b) -> dict",
+        summary="Visual/semantic similarity between two images or texts (CLIP cosine).",
+        details="""\
+a and b are any mix of media ids, workspace image paths and text. Returns
+{"similarity", "a", "b"}.
+
+CLIP measures what an image looks like and depicts: same scene, same
+style, same subject matter, near-duplicates. It does not tell people apart
+reliably; for "same person?" use face_similarity.
+
+Rough guidance for image-to-image, measured on public photos (cosine):
+  near-duplicate (recrop, resize, re-encode)  above 0.95
+  same subject in a different photo           about 0.85-0.95
+  different people, same kind of shot         about 0.6-0.8
+Text-to-image scores sit much lower: about 0.2-0.3 for a good match.""",
+        group="similarity",
+        is_async=True,
+    ),
+    "find_similar": SDKMethodHelp(
+        name="find_similar",
+        signature="await stimma.find_similar(ref, *, limit=50, min_similarity=None) -> dict",
+        summary="Find visually or semantically similar library images (by image or text).",
+        details="""\
+The same search as the library's "find similar". ref is a media id, a
+workspace image path, or text. Searches live library items only (not
+trash or intermediate results) and returns {"reference", "matches",
+"min_similarity", "total_compared"}; each match has media_id and
+similarity, highest first. The reference image itself is left out.
+
+min_similarity defaults to the library's settings: 0.75 for an image
+reference, 0.225 for text. Pass a lower value to see more; pass a higher
+one (about 0.95) to find near-duplicates. Items still being indexed are
+not searched yet.""",
+        group="similarity",
+        is_async=True,
+    ),
+    "pairwise_similarity": SDKMethodHelp(
+        name="pairwise_similarity",
+        signature='await stimma.pairwise_similarity(targets, *, kind="clip") -> dict',
+        summary="N×N similarity matrix for checking a set for duplicates or repeats.",
+        details="""\
+targets is a list of up to 64 media ids, workspace paths (including crops
+you made), texts (clip only) or faces (face only). kind="clip" compares
+look and content; kind="face" compares identity using each target's
+largest face. Returns {"kind", "targets", "matrix"}; matrix[i][j] is the
+cosine between targets i and j, with None where a target had no face.
+
+Use it for dataset checks: near-duplicates (clip above about 0.95),
+repeated backgrounds or framing (run clip on background crops), or
+confirming a character stays the same person (face above about 0.35).
+
+  sims = await stimma.pairwise_similarity(paths)
+  dupes = [(i, j) for i in range(len(paths)) for j in range(i + 1, len(paths))
+           if sims["matrix"][i][j] > 0.95]""",
+        group="similarity",
         is_async=True,
     ),
     "adjust": SDKMethodHelp(
@@ -484,19 +609,23 @@ Example:
 }
 
 
-_GROUP_ORDER = ["core", "display", "library", "packages", "image", "ai"]
+_GROUP_ORDER = ["core", "display", "library", "packages", "image", "similarity", "ai"]
 _GROUP_LABELS = {
     "core": "Core",
     "display": "Display",
     "library": "Library",
+    "packages": "Packages",
     "image": "Image",
+    "similarity": "Similarity",
     "ai": "AI",
 }
 _GROUP_DESCRIPTIONS = {
     "core": "generated tools, parallel batches, progress, shared project paths",
     "display": "show, show_grid",
     "library": "search, browse, get, by_hash, save, export, lineage, regeneration",
-    "image": "adjust, filters, detect_faces",
+    "packages": "assemble, preview, edit and save deliverable packages",
+    "image": "adjust, filters, rasterize, ffmpeg",
+    "similarity": "faces and CLIP: detect_faces, same-person search, similar images, pairwise matrices",
     "ai": "llm text and vision reasoning",
 }
 
@@ -571,5 +700,6 @@ stimma quick reference (inside run_code / run_file):
     await stimma.packages.recipes() lists recipes.
   Editable layout delivery: await stimma.export_layout_html(layout_id, out="application.html") embeds fonts/images; add that file to the package.
   stimma.* also has: .library (search/browse/get/save), .llm(), .show(), .detect_faces(),
+    face_similarity/find_faces_like (same person?), clip_similarity/find_similar/pairwise_similarity (looks alike?),
     await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

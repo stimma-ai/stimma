@@ -20,6 +20,8 @@ log = get_logger(__name__)
 # Expected embedding dimension for the current ONNX model (ViT-B/32)
 # Old PyTorch model (ViT-g-14) produced 1024-dimensional embeddings
 CLIP_EMBEDDING_DIM = 512
+# Identifies the embedding space so callers can tell comparable vectors apart.
+CLIP_MODEL_VERSION = "clip-vit-b32"
 
 
 class CLIPService:

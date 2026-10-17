@@ -125,7 +125,26 @@ def _asset_expires_at_for_media():
     )
 
 
-async def _reset_stale_clip_embeddings(session: AsyncSession, item_ids: list[int]) -> None:
+def similarity_search_population():
+    """Media that library-wide similarity searches may return.
+
+    The ordinary browser population: live current-revision Asset payloads
+    only. Trashed Assets, historical revisions, bare contextual Media,
+    deletion-pending payloads, ephemeral run intermediates, unfinished
+    metadata and unavailable files never surface in similarity results.
+    Shared by the CLIP similar search route and the agent SDK searches.
+    """
+    return (
+        MediaItem.deleted_at.is_(None),
+        MediaItem.deletion_pending_at.is_(None),
+        MediaItem.ephemeral_run_id.is_(None),
+        MediaItem.metadata_status == 'completed',
+        (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
+        _media_is_current_active_asset_payload(),
+    )
+
+
+async def reset_stale_clip_embeddings(session: AsyncSession, item_ids: list[int]) -> None:
     """
     Reset CLIP embeddings for items with stale (wrong dimension) embeddings.
     Sets clip_embedding to NULL and clip_status to 'pending' for re-indexing.
@@ -350,7 +369,7 @@ async def get_media(
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
         if stale_embedding_ids:
             log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings (wrong dimensions), scheduling re-index")
-            await _reset_stale_clip_embeddings(session, stale_embedding_ids)
+            await reset_stale_clip_embeddings(session, stale_embedding_ids)
 
         # An explicit similarity_threshold always wins. Otherwise 'auto' replaces the flat
         # default with a cutoff derived from this query's own score distribution, so
@@ -458,7 +477,7 @@ async def get_media(
 
         # If any reference items have stale embeddings, reset them and return error
         if stale_reference_ids:
-            await _reset_stale_clip_embeddings(session, stale_reference_ids)
+            await reset_stale_clip_embeddings(session, stale_reference_ids)
             raise HTTPException(
                 status_code=400,
                 detail=f"Reference assets {stale_reference_ids} have outdated CLIP embeddings. They have been scheduled for re-indexing. Please try again after CLIP indexing completes."
@@ -508,7 +527,7 @@ async def get_media(
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
         if stale_embedding_ids:
             log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings (wrong dimensions), scheduling re-index")
-            await _reset_stale_clip_embeddings(session, stale_embedding_ids)
+            await reset_stale_clip_embeddings(session, stale_embedding_ids)
 
         # Sort filtered items based on sort_by parameter
         if sort_by == "similarity":
@@ -807,7 +826,7 @@ async def get_media_ids(
                 reference_embeddings.append(embedding)
 
             if stale_reference_ids:
-                await _reset_stale_clip_embeddings(session, stale_reference_ids)
+                await reset_stale_clip_embeddings(session, stale_reference_ids)
                 raise HTTPException(
                     status_code=400,
                     detail=f"Reference assets {stale_reference_ids} have outdated CLIP embeddings. They have been scheduled for re-indexing. Please try again after CLIP indexing completes."
@@ -859,7 +878,7 @@ async def get_media_ids(
             # Schedule re-indexing for items with stale embeddings
             if stale_embedding_ids:
                 log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings, scheduling re-index")
-                await _reset_stale_clip_embeddings(session, stale_embedding_ids)
+                await reset_stale_clip_embeddings(session, stale_embedding_ids)
 
             # Sort by similarity or other criteria
             if sort_by == "similarity":
@@ -1422,25 +1441,18 @@ async def search_similar(
 
     # Check if query item has stale embedding
     if query_embedding.shape[0] != CLIP_EMBEDDING_DIM:
-        await _reset_stale_clip_embeddings(session, [request.media_id])
+        await reset_stale_clip_embeddings(session, [request.media_id])
         raise HTTPException(
             status_code=400,
             detail="Reference asset has outdated CLIP embedding. It has been scheduled for re-indexing. Please try again after CLIP indexing completes."
         )
 
     # Get all items with embeddings, restricted to the ordinary browser
-    # population: live current-revision Asset payloads only. Trashed Assets,
-    # historical revisions, bare contextual Media, deletion-pending payloads,
-    # and ephemeral run intermediates never surface in similarity results.
+    # population (see similarity_search_population).
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.clip_embedding.isnot(None),
-            MediaItem.deleted_at.is_(None),
-            MediaItem.deletion_pending_at.is_(None),
-            MediaItem.ephemeral_run_id.is_(None),
-            MediaItem.metadata_status == 'completed',
-            (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
-            _media_is_current_active_asset_payload(),
+            *similarity_search_population(),
         )
     )
     all_items = result.scalars().all()
@@ -1466,7 +1478,7 @@ async def search_similar(
     # Schedule re-indexing for items with stale embeddings
     if stale_embedding_ids:
         log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings, scheduling re-index")
-        await _reset_stale_clip_embeddings(session, stale_embedding_ids)
+        await reset_stale_clip_embeddings(session, stale_embedding_ids)
 
     # Sort by similarity
     similarities.sort(key=lambda x: x[1], reverse=True)
