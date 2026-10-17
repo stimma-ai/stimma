@@ -1111,81 +1111,6 @@
       </template>
     </div>
 
-    <!-- Queued Messages (when agent is busy) -->
-    <div v-if="messageQueue.length > 0" class="border-t border-edge/50 px-4 py-2 flex flex-col gap-2">
-      <div
-        v-for="(queuedMsg, index) in messageQueue"
-        :key="index"
-        class="flex justify-end"
-      >
-        <div class="flex items-start gap-2 max-w-[60%]">
-          <div class="bg-surface-raised/50 text-content-tertiary rounded-lg px-3 py-2 text-sm">
-            <!-- Queued attachments preview -->
-            <div v-if="queuedMsg.attachments.length > 0" class="flex gap-1 mb-1">
-              <div
-                v-for="(attachment, aIdx) in queuedMsg.attachments"
-                :key="aIdx"
-                class="w-8 h-8 rounded overflow-hidden flex-shrink-0"
-              >
-                <!-- Deleted asset placeholder (deleted flag from API or broken during session) -->
-                <div
-                  v-if="attachment.deleted || (attachment.media_id && isMediaBroken(attachment.media_id))"
-                  class="w-full h-full bg-surface flex items-center justify-center"
-                  title="Asset deleted"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-muted">
-                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <!-- Library media (has media_id) -->
-                <span v-else-if="attachment.workspace_ref" class="text-xs font-mono p-2 break-all">{{ attachment.filename }}</span>
-                <MediaImage
-                  v-else-if="attachment.media_id"
-                  :mediaId="attachment.media_id"
-                  :thumbnail="true"
-                  :thumbnailSize="64"
-                  containerClass="w-full h-full"
-                  @error="handleMediaLoadError(attachment.media_id)"
-                />
-                <!-- Reference file (path only) -->
-                <AppImage
-                  v-else
-                  :src="getAttachmentThumbnail(attachment)"
-                  containerClass="w-full h-full"
-                />
-              </div>
-            </div>
-            <!-- Queued message refs — same parse as sent bubbles so the
-                 user sees chips, not the raw markdown transport. -->
-            <div
-              v-if="parseQueuedRefs(queuedMsg.text).length > 0"
-              class="flex flex-wrap gap-1 mb-1"
-            >
-              <FlowRefChip
-                v-for="r in parseQueuedRefs(queuedMsg.text)"
-                :key="r.refKey"
-                :label="r.label"
-                :breadcrumb="r.breadcrumb"
-                variant="composer"
-              />
-            </div>
-            <span v-if="stripQueuedRefs(queuedMsg.text)">{{ stripQueuedRefs(queuedMsg.text) }}</span>
-            <span v-else-if="!queuedMsg.text && queuedMsg.attachments.length > 0" class="italic text-content-muted">Attachment only</span>
-            <span v-else-if="!stripQueuedRefs(queuedMsg.text) && parseQueuedRefs(queuedMsg.text).length > 0" class="italic text-content-muted">(references only)</span>
-          </div>
-          <button
-            @click="removeQueuedMessage(index)"
-            class="p-1 rounded hover:bg-surface-raised text-content-muted hover:text-content-secondary flex-shrink-0"
-            title="Remove from queue"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Dev mode: session token usage bar -->
     <div v-if="devModeRef && sessionTokenTotals.turns > 0" class="px-4 py-1 flex-shrink-0 flex items-center gap-3 text-[10px] font-mono text-content-muted border-t border-edge bg-surface/50">
       <span v-if="sessionTokenTotals.model" class="text-content-secondary">{{ sessionTokenTotals.model }}</span>
@@ -1228,8 +1153,15 @@
       <div v-if="imageUnsupportedMessage" class="mb-2 text-xs text-amber-500">
         {{ imageUnsupportedMessage }}
       </div>
+      <ChatMessageQueue
+        v-if="messageQueue.length > 0"
+        :messages="messageQueue"
+        @steer="steerQueuedMessage"
+        @remove="removeQueuedMessage"
+      />
       <ChatInputBox
         ref="chatInputBoxRef"
+        :attached-top="messageQueue.length > 0"
         :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
@@ -1433,10 +1365,11 @@ import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
 import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import ChatMessageQueue, { type QueuedMessage } from '../components/chat/ChatMessageQueue.vue'
 import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'
 import { useFlowReferences, formatReferencesForMessage, parseMessageReferences, type FlowReference } from '../composables/useFlowReferences'
-import { useChatDraft } from '../composables/useChatDraft'
+import { getChatDraft, useChatDraft } from '../composables/useChatDraft'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useMediaDetailsModal } from '../composables/useMediaDetailsModal'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
@@ -1658,7 +1591,7 @@ const selectedMediaIds = ref([]) // Media IDs selected for "that one" references
 const editingItemId = ref(null) // ID of item being edited, null if not editing
 const editingText = ref('') // Current text in inline editor
 const editingMinSize = ref({ width: 0, height: 0 }) // Original bubble size when editing started
-const messageQueue = ref([]) // Queued messages when agent is busy: [{text, attachments}]
+const messageQueue = ref<QueuedMessage[]>([]) // Messages sent while the agent is busy
 let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace period)
 let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
 let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
@@ -3233,8 +3166,10 @@ function queueMessage() {
 
   // Add to queue
   messageQueue.value.push({
+    id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     text: message,
-    attachments: attachments
+    attachments,
+    steering: false,
   })
 
   // Clear input
@@ -3243,8 +3178,55 @@ function queueMessage() {
 }
 
 // Remove a queued message
-function removeQueuedMessage(index) {
-  messageQueue.value.splice(index, 1)
+function removeQueuedMessage(id: string) {
+  messageQueue.value = messageQueue.value.filter(m => m.id !== id)
+}
+
+// Steer: deliver a queued message into the running turn at the agent's next
+// step. It stays in the queue (marked steering) until the server broadcasts it
+// as a user_message carrying its steer_id. If the run ends first, the server
+// drops it and the normal queue drain sends it instead.
+async function steerQueuedMessage(id: string) {
+  const msg = messageQueue.value.find(m => m.id === id)
+  if (!msg || msg.steering) return
+  msg.steering = true
+  const mediaIds = msg.attachments.filter(a => a.media_id).map(a => a.media_id)
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/steer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        steer_id: msg.id,
+        message_text: msg.text,
+        selected_media_ids: [...selectedMediaIds.value, ...mediaIds],
+        attachments: msg.attachments.length > 0 ? msg.attachments : null,
+      }),
+    })
+    // 409: the run already ended; it goes out with the queue as usual.
+    if (!response.ok) msg.steering = false
+  } catch (error) {
+    console.error('Error steering message:', error)
+    msg.steering = false
+  }
+}
+
+// Put queued messages back into a chat's composer, unsent, for the user to
+// edit and resend (on Stop, or when leaving the chat with messages queued).
+function restoreQueueToComposer(targetChatId) {
+  if (messageQueue.value.length === 0 || targetChatId == null) return
+  const draft = getChatDraft(targetChatId)
+  const refsApi = useFlowReferences(targetChatId)
+  const texts = draft.text ? [draft.text] : []
+  let attachments = [...draft.attachments]
+  for (const msg of messageQueue.value) {
+    const { refs, text } = parseMessageReferences(msg.text)
+    for (const r of refs) refsApi.add(r)
+    if (text) texts.push(text)
+    attachments = [...attachments, ...msg.attachments]
+  }
+  draft.text = texts.join('\n')
+  draft.attachments = attachments
+  messageQueue.value = []
 }
 
 function updateChatModel(slug) {
@@ -3560,6 +3542,7 @@ function processNextQueuedMessage() {
   if (Date.now() < queueBackoffUntil) return
 
   const next = messageQueue.value.shift()
+  next.steering = false
   sendMessage(next)
 }
 
@@ -3847,16 +3830,6 @@ function getMessageRefs(item: any): FlowReference[] {
 }
 function getMessageBodyText(item: any): string {
   return parsedUserMessage(item).text
-}
-
-// Queued messages carry already-baked-in reference headers (queueMessage folds
-// them in at queue time so the post-dequeue send reads them verbatim). Parse
-// the same way so the queued preview shows chips instead of raw markdown.
-function parseQueuedRefs(text: string | null | undefined): FlowReference[] {
-  return parseMessageReferences(text).refs
-}
-function stripQueuedRefs(text: string | null | undefined): string {
-  return parseMessageReferences(text).text
 }
 
 // Check if a media ID is broken/deleted
@@ -4506,6 +4479,9 @@ function autoResizeTextarea() {
 
 // Agent control functions
 async function stopAgent() {
+  // Stop only stops: queued messages go back to the composer rather than
+  // firing the moment the agent goes idle.
+  restoreQueueToComposer(chatId.value)
   try {
     // Suppress stale items from in-flight operations until agent responds to stop
     suppressingPostStop.value = true
@@ -5156,6 +5132,9 @@ function setupWebSocketSubscriptions() {
       ? JSON.parse(newItem.item_metadata || '{}')
       : (newItem.item_metadata || {})
 
+    // A steered queue message has been delivered into the running turn.
+    if (metadata.steer_id) removeQueuedMessage(metadata.steer_id)
+
     // Handle stop event: this is the stop marker from the backend
     if (metadata.stop_event) {
       // The stop marker itself is not suppressed — let it through so it renders as "Interrupted"
@@ -5542,14 +5521,16 @@ watch(() => route.params.id, (newId) => {
     const parsed = parseInt(newId)
     // Only reset the send queue when moving to a different conversation.
     const chatChanged = chatId.value !== parsed
+    // The queue must not carry over — a message queued in the previous chat
+    // would otherwise post to this one — so it goes back into that chat's
+    // composer.
+    if (chatChanged) restoreQueueToComposer(chatId.value)
     // Update chatId - subscriptions filter by this value automatically
     chatId.value = parsed
     loading.value = true
     items.value = []
     // The composer follows this chat's saved draft; other drafts stay intact.
-    // Reset agent state for new chat. The queue must not carry over — a
-    // message queued in the previous chat would otherwise post to this one.
-    if (chatChanged) messageQueue.value = []
+    // Reset agent state for new chat.
     agentRunning.value = false
     agentPaused.value = false
     agentPlanning.value = false
@@ -5576,10 +5557,10 @@ watch(() => props.chatId, (newId) => {
   if (newId == null) return
   const n = resolveChatIdSource()
   if (n == null || n === chatId.value) return
+  restoreQueueToComposer(chatId.value)
   chatId.value = n
   loading.value = true
   items.value = []
-  messageQueue.value = []
   agentRunning.value = false
   agentPaused.value = false
   agentPlanning.value = false

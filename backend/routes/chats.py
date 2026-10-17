@@ -1709,6 +1709,72 @@ async def list_chat_items(
     )
 
 
+async def _attachment_metadata(
+    session: AsyncSession,
+    chat_id: int,
+    attachments: List[AttachmentInfo],
+    item_metadata: Optional[str] = None,
+) -> dict:
+    """User-message metadata carrying its attachments, for display and the agent."""
+    metadata_dict = {}
+    if item_metadata:
+        try:
+            metadata_dict = json.loads(item_metadata) if isinstance(item_metadata, str) else item_metadata
+        except json.JSONDecodeError:
+            pass
+    metadata_dict["attachments"] = [a.dict() for a in attachments]
+    workspace_refs = []
+    from routes.workspace_files import attachment_file
+    for attachment in attachments:
+        if attachment.workspace_ref:
+            ref = attachment.workspace_ref
+            workspace_refs.append(await attachment_file(
+                session, chat_id, ref.root, ref.path, ref.entry,
+            ))
+    if workspace_refs:
+        metadata_dict['workspace_refs'] = workspace_refs
+    return metadata_dict
+
+
+class SteerRequest(PydanticBaseModel):
+    steer_id: str
+    message_text: Optional[str] = None
+    selected_media_ids: Optional[List[int]] = None
+    attachments: Optional[List[AttachmentInfo]] = None
+
+
+@router.post("/{chat_id}/steer")
+async def steer_agent(
+    chat_id: int,
+    request: SteerRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Deliver a message into the running turn at the agent's next step.
+
+    409 when nothing is running; the client then sends it as an ordinary
+    message. The delivered user_message carries metadata.steer_id so the
+    client can drop it from its queue.
+    """
+    result = await session.execute(select(Chat.id).where(Chat.id == chat_id))
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    metadata = {}
+    if request.attachments:
+        metadata = await _attachment_metadata(session, chat_id, request.attachments)
+
+    from agent.v2.service import add_steer
+    accepted = add_steer(chat_id, {
+        "steer_id": request.steer_id,
+        "message_text": request.message_text,
+        "item_metadata": metadata,
+        "selected_media_ids": request.selected_media_ids or [],
+    })
+    if not accepted:
+        raise HTTPException(status_code=409, detail="Agent is not running")
+    return {"accepted": True}
+
+
 @router.post("/{chat_id}/items", response_model=ChatItemResponse)
 async def create_chat_item(
     chat_id: int,
@@ -1734,25 +1800,9 @@ async def create_chat_item(
     # Build item_metadata, including attachments if present
     item_metadata = request.item_metadata
     if request.item_type == "user_message" and request.attachments:
-        # Store attachments in metadata for display
-        metadata_dict = {}
-        if item_metadata:
-            try:
-                metadata_dict = json.loads(item_metadata) if isinstance(item_metadata, str) else item_metadata
-            except json.JSONDecodeError:
-                pass
-        metadata_dict["attachments"] = [a.dict() for a in request.attachments]
-        workspace_refs = []
-        from routes.workspace_files import attachment_file
-        for attachment in request.attachments:
-            if attachment.workspace_ref:
-                ref = attachment.workspace_ref
-                workspace_refs.append(await attachment_file(
-                    session, chat_id, ref.root, ref.path, ref.entry,
-                ))
-        if workspace_refs:
-            metadata_dict['workspace_refs'] = workspace_refs
-        item_metadata = json.dumps(metadata_dict)
+        item_metadata = json.dumps(await _attachment_metadata(
+            session, chat_id, request.attachments, item_metadata,
+        ))
 
     # Create chat item
     item = ChatItem(

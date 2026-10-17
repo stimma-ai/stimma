@@ -38,6 +38,11 @@ log = get_logger(__name__)
 _active_chat_executions: set[tuple[str, int]] = set()
 _active_chat_tasks: dict[tuple[str, int], asyncio.Task] = {}
 _interrupt_flags: dict[tuple[str, int], bool] = {}
+# Messages the user sent to steer a running turn, waiting for the loop's next
+# safe point. Only valid while that run is active: they are dropped when it
+# ends, and the client (which still holds them in its queue) sends any
+# undelivered ones as ordinary messages.
+_pending_steers: dict[tuple[str, int], list[dict]] = {}
 
 
 def _chat_key(chat_id: int) -> tuple[str, int]:
@@ -75,6 +80,71 @@ def _clear_interrupt(chat_id: int) -> None:
 
 def _is_interrupted(chat_id: int) -> bool:
     return bool(_interrupt_flags.get(_chat_key(chat_id)))
+
+
+def add_steer(chat_id: int, steer: dict) -> bool:
+    """Queue a steer for the active run. Returns False when nothing is running.
+
+    steer: {steer_id, message_text, item_metadata (dict), selected_media_ids}.
+    """
+    if not is_execution_active(chat_id):
+        return False
+    _pending_steers.setdefault(_chat_key(chat_id), []).append(steer)
+    return True
+
+
+def _has_pending_steers(chat_id: int) -> bool:
+    return bool(_pending_steers.get(_chat_key(chat_id)))
+
+
+def _drop_pending_steers(chat_id: int) -> None:
+    _pending_steers.pop(_chat_key(chat_id), None)
+
+
+STEER_REMINDER = (
+    "<system-reminder>\n"
+    "The user sent the message above while you were working. Take it into account "
+    "and carry on with the task; don't redo finished work unless they ask.\n"
+    "</system-reminder>"
+)
+
+
+async def _deliver_steers(
+    chat: Chat,
+    session: AsyncSession,
+    ws_manager: WebSocketManager,
+) -> bool:
+    """Persist pending steers as user messages. Returns True if any were delivered.
+
+    Only called between loop turns, when every tool result of the previous
+    batch is already persisted — so a steer can never land between a tool call
+    and its result.
+    """
+    steers = _pending_steers.pop(_chat_key(chat.id), None)
+    if not steers:
+        return False
+    for steer in steers:
+        metadata = dict(steer.get("item_metadata") or {})
+        metadata["steer_id"] = steer.get("steer_id")
+        media_ids = steer.get("selected_media_ids") or []
+        if media_ids:
+            copied = await _copy_media_to_workspace(media_ids, chat.id, session, chat.project_id)
+            if copied:
+                metadata["workspace_files"] = copied
+        item = ChatItem(
+            chat_id=chat.id,
+            item_type="user_message",
+            message_text=steer.get("message_text"),
+            item_metadata=json.dumps(metadata),
+        )
+        session.add(item)
+        await session.commit()
+        await session.refresh(item)
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat.id,
+            "item": item.to_dict(),
+        })
+    return True
 
 
 def _max_turns_for_chat(chat: Chat) -> int:
@@ -1165,6 +1235,7 @@ async def run_agent(
     finally:
         _active_chat_executions.discard(_chat_key(chat_id))
         _active_chat_tasks.pop(_chat_key(chat_id), None)
+        _drop_pending_steers(chat_id)
         _clear_interrupt(chat_id)
 
 
@@ -1480,8 +1551,15 @@ async def _run_agentic_loop_inner(
 
     for turn in range(start_turn, max_turns):
         _raise_if_interrupted(chat_id)
+        # Steers wait for this point: the previous turn's tool results are all
+        # persisted, so the user's message follows them in history.
+        steered = await _deliver_steers(chat, session, ws_manager)
+        if steered:
+            consecutive_textonly = 0
         # Build messages from chat history with system reminders
         system_reminders = []
+        if steered:
+            system_reminders.append(STEER_REMINDER)
         # Each skill declares which environments it's eligible for
         # (`environments:` frontmatter); the reminder only advertises skills
         # opted into this surface. Flow chats historically got none — skills
@@ -1787,6 +1865,9 @@ async def _run_agentic_loop_inner(
                         "</system-reminder>"
                     )
                     continue
+                # A steer that arrived during this last step reopens the turn.
+                if _has_pending_steers(chat_id):
+                    continue
                 if not visible:
                     await report_incomplete_response()
                 break
@@ -1852,6 +1933,8 @@ async def _run_agentic_loop_inner(
                     "Reply with a message now, or make the appropriate tool call if there is work to do.\n"
                     "</system-reminder>"
                 )
+            continue
+        if _has_pending_steers(chat_id):
             continue
         if empty_turn or truncated or malformed_tool or needs_continuation:
             await report_incomplete_response()
@@ -2183,6 +2266,7 @@ async def resume_after_hitl(
     finally:
         _active_chat_executions.discard(_chat_key(chat_id))
         _active_chat_tasks.pop(_chat_key(chat_id), None)
+        _drop_pending_steers(chat_id)
         _clear_interrupt(chat_id)
 
 
@@ -2286,6 +2370,7 @@ async def resume_after_ask_user(
     finally:
         _active_chat_executions.discard(_chat_key(chat_id))
         _active_chat_tasks.pop(_chat_key(chat_id), None)
+        _drop_pending_steers(chat_id)
         _clear_interrupt(chat_id)
 
 
@@ -2300,9 +2385,11 @@ async def interrupt_execution(
     was_active = _chat_key(chat_id) in _active_chat_executions
     _mark_interrupted(chat_id)
     _active_chat_executions.discard(_chat_key(chat_id))
+    _drop_pending_steers(chat_id)
 
     task = _active_chat_tasks.get(_chat_key(chat_id))
-    if task and not task.done():
+    cancelled_task = bool(task and not task.done())
+    if cancelled_task:
         task.cancel()
 
     await _interrupt_in_progress_thinking_items(chat_id, session, ws_manager)
@@ -2362,5 +2449,9 @@ async def interrupt_execution(
                 "item": item.to_dict(),
             })
 
-    await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+    # A cancelled run broadcasts its own agent_stopped as it unwinds. Sending a
+    # second one here can land after the user's next message has started a new
+    # run, and the client would mark that run idle.
+    if not cancelled_task:
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
     return was_active

@@ -22,7 +22,7 @@
     </Transition>
 
     <!-- Rounded input container -->
-    <div class="bg-surface border border-edge rounded-lg pt-1 overflow-hidden">
+    <div class="bg-surface border border-edge pt-1 overflow-hidden" :class="attachedTop ? 'rounded-b-lg' : 'rounded-lg'">
       <!-- Optional header above attachments — used by FlowView to render
            the context-reference tray. The unavailable state replaces the
            whole typing region, including empty context. -->
@@ -147,6 +147,8 @@ const props = defineProps({
   // every keystroke. Existing v-model consumers retain their usual behavior.
   draft: { type: Object, default: null },
   placeholder: { type: String, default: 'Type a message...' },
+  // Something (the message queue) is docked on top; square the top corners.
+  attachedTop: { type: Boolean, default: false },
   rows: { type: Number, default: 2 },
   disabled: { type: Boolean, default: false },
   agentUnavailable: { type: Boolean, default: false },
