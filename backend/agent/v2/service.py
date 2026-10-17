@@ -2407,18 +2407,24 @@ async def interrupt_execution(
     _drop_pending_steers(chat_id)
 
     task = _active_chat_tasks.get(_chat_key(chat_id))
-    if task and not task.done() and task is not asyncio.current_task():
-        task.cancel()
-        await asyncio.wait([task], timeout=_UNWIND_TIMEOUT_SECONDS)
+    unwinding = task if task and not task.done() and task is not asyncio.current_task() else None
+    if unwinding:
+        unwinding.cancel()
 
-    await _interrupt_in_progress_thinking_items(chat_id, session, ws_manager)
-
-    # Best-effort provider stop for in-flight STP operations/queues.
+    # Best-effort provider stop for in-flight STP operations/queues. Before
+    # waiting: an in-flight tool call may only unwind once its provider stops.
     try:
         from providers.registry import ProviderRegistry
         await ProviderRegistry.get_instance().interrupt_and_clear_all()
     except Exception as e:
         log.warning(f"Chat {chat_id}: failed provider interrupt on v2 cancel: {e}")
+
+    if unwinding:
+        await asyncio.wait([unwinding], timeout=_UNWIND_TIMEOUT_SECONDS)
+        if not unwinding.done():
+            log.warning(f"Chat {chat_id}: run still unwinding after {_UNWIND_TIMEOUT_SECONDS}s; stopping anyway")
+
+    await _interrupt_in_progress_thinking_items(chat_id, session, ws_manager)
 
     # Clear any pending v2 HITL continuation state.
     # If there was a pending permission prompt, create a denial response so the
