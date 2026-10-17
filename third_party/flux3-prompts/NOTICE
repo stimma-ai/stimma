@@ -1,0 +1,10 @@
+FLUX 3 Image Klein external-language-model prompt instructions
+Source: https://github.com/black-forest-labs/flux-3-image-klein
+Revision: bfc8889a4497f846416f253a3972a1941ac698b9
+File: src/flux3/pup_prompts_external_vlm.json
+Author: Black Forest Labs
+License: Apache License, Version 2.0 (included alongside this notice).
+
+The FLUX.3 generation and editing prompts in prompts.yaml are adapted from
+these instructions. Changes remove the model identity declaration and add
+Stimma's canvas, ordered-reference and protected-text template substitutions.
