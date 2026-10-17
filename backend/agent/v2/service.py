@@ -2383,7 +2383,10 @@ async def resume_after_ask_user(
 
 STOP_MARKER_TEXT = "The user interrupted the current operation."
 # How long Stop waits for a cancelled run to unwind before carrying on anyway.
-_UNWIND_TIMEOUT_SECONDS = 10
+# Real unwinds take well under a second. Agent code stuck in synchronous Python
+# can't be cancelled at all (CodeWorker is cooperative), so don't hold the UI
+# hostage to it.
+_UNWIND_TIMEOUT_SECONDS = 3
 
 
 async def interrupt_execution(
