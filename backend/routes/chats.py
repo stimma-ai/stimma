@@ -2357,32 +2357,16 @@ async def stop_agent_execution(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    # Abort current execution
+    # Abort current execution. The hidden stop marker is written once the run
+    # has unwound and before agent_stopped goes out, so the user's next message
+    # always lands after it.
     from agent import abort_plan
     await abort_plan(
         chat=chat,
         session=session,
         ws_manager=ws_manager,
+        stop_marker=True,
     )
-
-    # Create a system stop marker (hidden from normal display via metadata)
-    stop_message = "The user interrupted the current operation."
-    item = ChatItem(
-        chat_id=chat_id,
-        item_type="user_message",
-        message_text=stop_message,
-        item_metadata=json.dumps({"stop_event": True}),
-    )
-    session.add(item)
-    chat.updated_at = datetime.utcnow()
-    await session.commit()
-    await session.refresh(item)
-
-    # Broadcast the stop item
-    await ws_manager.broadcast("chat_item_created", {
-        "chat_id": chat_id,
-        "item": item.to_dict()
-    })
 
     return {"success": True}
 

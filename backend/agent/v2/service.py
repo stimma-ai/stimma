@@ -7,6 +7,7 @@ import re
 import shutil
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -1101,7 +1102,9 @@ async def run_agent(
 
     except (_AgentInterrupted, asyncio.CancelledError):
         log.info(f"Chat {chat_id}: v2 agent interrupted")
-        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+        # interrupt_execution announces its own stops, after the stop marker.
+        if not _is_interrupted(chat_id):
+            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
         _track_agent_turn("cancelled")
 
     except QuotaExceededError as e:
@@ -2246,7 +2249,9 @@ async def resume_after_hitl(
 
     except (_AgentInterrupted, asyncio.CancelledError):
         log.info(f"Chat {chat_id}: v2 resume interrupted")
-        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+        # interrupt_execution announces its own stops, after the stop marker.
+        if not _is_interrupted(chat_id):
+            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
 
     except Exception as e:
         log.error(f"V2 agent resume error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
@@ -2350,7 +2355,9 @@ async def resume_after_ask_user(
 
     except (_AgentInterrupted, asyncio.CancelledError):
         log.info(f"Chat {chat_id}: v2 resume after ask_user interrupted")
-        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+        # interrupt_execution announces its own stops, after the stop marker.
+        if not _is_interrupted(chat_id):
+            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
 
     except Exception as e:
         log.error(f"V2 agent resume_after_ask_user error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
@@ -2374,12 +2381,24 @@ async def resume_after_ask_user(
         _clear_interrupt(chat_id)
 
 
+STOP_MARKER_TEXT = "The user interrupted the current operation."
+# How long Stop waits for a cancelled run to unwind before carrying on anyway.
+_UNWIND_TIMEOUT_SECONDS = 10
+
+
 async def interrupt_execution(
     chat: Chat,
     session: AsyncSession,
     ws_manager: WebSocketManager,
+    stop_marker: bool = False,
 ) -> bool:
-    """Interrupt an active v2 execution immediately."""
+    """Interrupt an active v2 execution immediately.
+
+    Waits for the cancelled run to unwind, so everything it persists lands
+    first. Then, with stop_marker, writes the hidden "user interrupted" message,
+    and only then broadcasts agent_stopped. A message the user sends once the
+    UI goes idle therefore always follows the marker in history.
+    """
     chat_id = chat.id
 
     was_active = _chat_key(chat_id) in _active_chat_executions
@@ -2388,9 +2407,9 @@ async def interrupt_execution(
     _drop_pending_steers(chat_id)
 
     task = _active_chat_tasks.get(_chat_key(chat_id))
-    cancelled_task = bool(task and not task.done())
-    if cancelled_task:
+    if task and not task.done() and task is not asyncio.current_task():
         task.cancel()
+        await asyncio.wait([task], timeout=_UNWIND_TIMEOUT_SECONDS)
 
     await _interrupt_in_progress_thinking_items(chat_id, session, ws_manager)
 
@@ -2449,9 +2468,23 @@ async def interrupt_execution(
                 "item": item.to_dict(),
             })
 
-    # A cancelled run broadcasts its own agent_stopped as it unwinds. Sending a
-    # second one here can land after the user's next message has started a new
-    # run, and the client would mark that run idle.
-    if not cancelled_task:
-        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+    if stop_marker:
+        marker = ChatItem(
+            chat_id=chat_id,
+            item_type="user_message",
+            message_text=STOP_MARKER_TEXT,
+            item_metadata=json.dumps({"stop_event": True}),
+        )
+        session.add(marker)
+        chat.updated_at = datetime.utcnow()
+        await session.commit()
+        await session.refresh(marker)
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": marker.to_dict(),
+        })
+
+    # The cancelled run stays quiet (see its interrupt handler), so this is
+    # the one agent_stopped for this stop.
+    await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
     return was_active

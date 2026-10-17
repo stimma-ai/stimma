@@ -15,10 +15,10 @@ async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=
     await _v2_run_agent(chat, user_message, session, ws_manager, selected_media_ids, max_turns, force_plan, artifact_context=artifact_context)
 
 
-async def abort_plan(chat, session, ws_manager):
+async def abort_plan(chat, session, ws_manager, stop_marker=False):
     """Interrupt agent execution."""
     from .v2 import interrupt_execution as _v2_interrupt_execution
-    await _v2_interrupt_execution(chat, session, ws_manager)
+    await _v2_interrupt_execution(chat, session, ws_manager, stop_marker=stop_marker)
 
 
 async def resume_agent_after_hitl(chat, response_data, session, ws_manager):

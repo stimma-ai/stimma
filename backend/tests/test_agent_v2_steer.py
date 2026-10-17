@@ -108,3 +108,47 @@ async def test_steer_route_returns_409_when_idle(client, db_session):
         'steer_id': 'abc', 'message_text': 'hello',
     })
     assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_stop_orders_stragglers_then_marker_then_one_agent_stopped(db_session, monkeypatch):
+    """The user's next message, sent once the UI sees agent_stopped, must land
+    after the stop marker — so the marker has to be persisted before that
+    broadcast, and after anything the dying run persists while unwinding."""
+    import asyncio
+    ws = MockWebSocketManager()
+
+    async def long_step(*args, **kwargs):
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            await ws.broadcast('chat_item_created', {'chat_id': chat_id, 'item': {'id': -1, 'straggler': True}})
+            raise
+
+    monkeypatch.setattr(service, '_run_agentic_loop', long_step)
+    async with db_session() as run_session, db_session() as stop_session:
+        chat = Chat(name='Stopping')
+        run_session.add(chat)
+        await run_session.commit()
+        chat_id = chat.id
+        run = asyncio.create_task(service.run_agent(chat, 'go', run_session, ws))
+        while not service.is_execution_active(chat_id):
+            await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+        stop_chat = await stop_session.get(Chat, chat_id)
+        await service.interrupt_execution(stop_chat, stop_session, ws, stop_marker=True)
+        await run
+
+        events = [
+            'straggler' if d.get('item', {}).get('straggler')
+            else 'marker' if e == 'chat_item_created' and (d['item'].get('item_metadata') or {}).get('stop_event')
+            else e
+            for e, d in ws.broadcasts
+            if e in ('chat_item_created', 'agent_stopped')
+        ]
+        assert events == ['straggler', 'marker', 'agent_stopped']
+        marker = (await stop_session.execute(select(ChatItem).where(
+            ChatItem.chat_id == chat_id, ChatItem.item_type == 'user_message',
+        ))).scalars().one()
+        assert marker.message_text == service.STOP_MARKER_TEXT
