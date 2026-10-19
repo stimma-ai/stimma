@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   release-cleanup-tests:
-    name: Release storage retention tests
+    name: Release tooling tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -48,6 +48,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - uses: denoland/setup-deno@v2
       - run: tools/stimma test release-cleanup
+      - run: tools/stimma test release-pipeline
 
   desktop-tests:
     name: Electron type check and unit tests

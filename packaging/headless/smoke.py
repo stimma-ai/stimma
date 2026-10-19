@@ -77,7 +77,9 @@ def main():
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             port = str(probe.getsockname()[1])
-        name = 'stimma-server-smoke-' + str(os.getpid())
+        smoke_id = os.environ.get('STIMMA_SMOKE_RUN_ID', str(os.getpid()))
+        name = 'stimma-server-smoke-' + smoke_id
+        smoke_label = 'ai.stimma.smoke=' + smoke_id
         # Keep Unix control sockets on the Linux filesystem, including when
         # smoke runs against Docker Desktop's macOS shared directories. The
         # image's own user (uid 1000) owns the volume, so the server container
@@ -148,8 +150,8 @@ asyncio.run(check())
                 time.sleep(2)
             raise RuntimeError('Container did not become ready')
         try:
-            docker('volume', 'create', volume)
-            docker('run', '-d', '--name', name, '--network', 'host',
+            docker('volume', 'create', '--label', smoke_label, volume)
+            docker('run', '-d', '--name', name, '--label', smoke_label, '--network', 'host',
                 '--security-opt', f'seccomp={ROOT / "packaging/headless/render-seccomp.json"}', '-v', f'{volume}:/data',
                    '-v', f'{root}/test.pub:/opt/stimma/updater.pub:ro', '-v', f'{cert}:/opt/stimma/test-ca.pem:ro',
                    '-e', 'SSL_CERT_FILE=/opt/stimma/test-ca.pem', '-e', f'STIMMA_UPDATE_BASE_URL={base}',

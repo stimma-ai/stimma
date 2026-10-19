@@ -4,6 +4,10 @@ run-name: ${{ github.event_name == 'push' && format('Build / Linux AppImage - {0
 on:
   workflow_call:
     inputs:
+      publication_gate:
+        description: Job that must succeed before any release publication
+        type: string
+        default: Quality gate passed
       wait_for_quality_gate:
         description: Wait for this run's quality gate before publishing
         type: boolean
@@ -320,6 +324,12 @@ jobs:
           echo "updater_archive=$UPDATER_ARCHIVE" >> "$GITHUB_OUTPUT"
           echo "updater_sig=$UPDATER_SIG" >> "$GITHUB_OUTPUT"
 
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          STIMMA_PUBLICATION_GATE: ${{ inputs.publication_gate }}
+        run: python3 scripts/wait-for-quality-gate.py
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
@@ -332,12 +342,6 @@ jobs:
             ${{ steps.collect.outputs.appimage_file }}
             ${{ steps.collect.outputs.updater_archive }}
             ${{ steps.collect.outputs.updater_sig }}
-
-      - name: Wait for matching quality gate
-        if: inputs.wait_for_quality_gate
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/wait-for-quality-gate.py
 
       - name: Publish Linux artifacts to Cloudflare R2
         if: inputs.publish_updates == true

@@ -33,6 +33,10 @@ on:
         type: boolean
   workflow_call:
     inputs:
+      publication_gate:
+        description: Job that must succeed before any release publication
+        type: string
+        default: Quality gate passed
       wait_for_quality_gate:
         description: Wait for this run's quality gate before publishing
         type: boolean
@@ -374,6 +378,12 @@ jobs:
           "app_archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "app_sig=$($sig.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Wait for matching quality gate
+        if: inputs.wait_for_quality_gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          STIMMA_PUBLICATION_GATE: ${{ inputs.publication_gate }}
+        run: uv run --python 3.11 python scripts/wait-for-quality-gate.py
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
@@ -387,12 +397,6 @@ jobs:
             ${{ steps.collect.outputs.blockmap }}
             ${{ steps.collect.outputs.app_archive }}
             ${{ steps.collect.outputs.app_sig }}
-
-      - name: Wait for matching quality gate
-        if: inputs.wait_for_quality_gate
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: uv run --python 3.11 python scripts/wait-for-quality-gate.py
 
       - name: Publish updater artifacts to Cloudflare R2
         if: inputs.publish_updates == true && steps.collect.outputs.app_archive != ''

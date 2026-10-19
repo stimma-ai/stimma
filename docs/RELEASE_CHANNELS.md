@@ -131,17 +131,21 @@ create GitHub releases. Archival workflow uploads happen after publication.
 
 ### Build runners
 
-Desktop builds and Canary quality checks use self-hosted pools. PR checks
-remain GitHub-hosted. Headless builds currently use GitHub-hosted Linux.
+Desktop builds and trusted Canary/release/manual quality checks use self-hosted
+pools. PR checks remain GitHub-hosted, as do the small Electron and release-tooling
+checks. Headless packages use separate self-hosted workers so they can build
+alongside the desktop jobs without taking their slots.
 
 | Work | Runner labels |
 |------|---------------|
-| Canary version and quality gate | `self-hosted, linux, x64, stimma-test` |
-| PR/release quality gate by default | `ubuntu-latest` |
+| Trusted backend/acceptance tests and Canary version | `self-hosted, linux, x64, stimma-test` |
+| PR quality gate by default | `ubuntu-latest` |
 | macOS | `self-hosted, macOS, ARM64` |
 | Windows | `self-hosted, Windows, X64` |
 | Linux AppImage x64 | `self-hosted, linux, x64, stimma-build` |
 | Linux AppImage arm64 | `self-hosted, linux, arm64, spark` |
+| Headless x64 | `self-hosted, linux, x64, stimma-headless` |
+| Headless arm64 | `self-hosted, linux, arm64, stimma-headless` |
 
 The x64 pool uses Ubuntu 22.04 / glibc 2.35 to preserve AppImage compatibility.
 Each test slot must have its own container, workspace, HOME, and process/port
@@ -155,6 +159,26 @@ still fail if its host disappears and must be rerun.
 Python runtime archives outside checkout cleanup. Final installer directories
 are still cleaned before packaging. Compiler/source fingerprints determine
 native reuse; never reuse an old installer merely because it exists.
+
+Release and manual desktop builds overlap the quality gate. Automatic beta
+releases preview the version with `stimma tag beta X.Y.Z --dry-run`; the tag is
+created only after tests pass, with `--expected-tag` preventing a concurrent tag
+from silently changing the built version. All builders wait for their own run's
+publication gate before uploading either GitHub release assets or R2 updates.
+Release branch/tag builds remain pinned to their event commit even if main moves.
+The macOS signing, notarization and stapling sequence is unchanged.
+
+To verify the complete release pipeline without creating tags or publishing,
+manually dispatch `Release` with `validate_only=true` and the desired `ref`.
+It produces validation artifacts at `0.0.0-beta.1` and exercises all six targets.
+Run `stimma test release-pipeline` for the version-planning and gate regressions.
+
+Headless workers need Docker, patchelf, rsync and file preinstalled. Their smoke
+test's temporary directory must be mounted at the same absolute path on the
+worker and Docker daemon host, with shared host networking for the local fixture
+server. Each run uses a distinct image/container/volume namespace and cleans up
+only its own labelled smoke resources. Keep compiler, dependency and Docker
+caches outside checkout cleanup.
 
 ## Channel & version derivation
 

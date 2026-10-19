@@ -1,4 +1,5 @@
 import { dirname, fromFileUrl, join, resolve } from "https://deno.land/std@0.220.0/path/mod.ts";
+import { betaTagName, requireExpectedTag } from "./release-tags.ts";
 
 const scriptDir = dirname(Deno.realPathSync(fromFileUrl(import.meta.url)));
 const repoRoot = dirname(scriptDir);
@@ -622,6 +623,7 @@ Commands:
   render-test [--docker IMAGE | --executable FILE]  Validate real browser captures
   test backend    Run backend pytest tests
   test release-cleanup  Verify release retention and current-feed protection
+  test release-pipeline  Verify release version planning and publication gates
   test frontend   Run all frontend unit and browser regression tests
   test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
@@ -647,6 +649,8 @@ Commands:
                   and associated PNG/JPEG metadata; add --apply --yes to write
   tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
                       (canary builds are automatic on push to main — not tag-driven)
+                      --dry-run prints the next tag without creating or pushing it
+                      --expected-tag TAG refuses to tag if the planned version changed
   promote production  Promote the latest beta's commit to a production release
                       [--ref REF] hotfix override: promote an explicit git ref
                       [--yes] skip the confirmation prompt
@@ -774,7 +778,17 @@ async function createAndPushTag(tagName: string, commit?: string): Promise<void>
 
 async function commandTag(args: string[]): Promise<void> {
   const mode = args[0];
-  const explicit = args[1];
+  let explicit: string | undefined;
+  let expected: string | undefined;
+  let dryRun = false;
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--dry-run") dryRun = true;
+    else if (args[i] === "--expected-tag") {
+      expected = args[++i];
+      if (!expected || expected.startsWith("-")) throw new Error("--expected-tag requires a tag");
+    } else if (!args[i].startsWith("-") && !explicit) explicit = args[i];
+    else throw new Error(`Unknown tag argument: ${args[i]}`);
+  }
 
   if (mode === "production") {
     console.error("`stimma tag production` is gone — production is a promotion of a tested beta commit,");
@@ -791,19 +805,17 @@ async function commandTag(args: string[]): Promise<void> {
     Deno.exit(1);
   }
 
-  if (mode !== "beta" || args.length > 2) {
-    console.error("Usage: stimma tag beta [X.Y.Z]");
+  if (mode !== "beta") {
+    console.error("Usage: stimma tag beta [X.Y.Z] [--dry-run] [--expected-tag TAG]");
     Deno.exit(1);
   }
 
-  await warnIfDirtyWorktree();
+  if (!dryRun) await warnIfDirtyWorktree();
 
   const tags = await listTags();
   const productionTags = tags.map(parseProductionTag).filter((v): v is SemverCore => v !== null);
-  const preTags = tags.map(parsePreTag).filter((v): v is PreTag => v !== null);
   const latestProduction = maxCore(productionTags);
 
-  const channel = mode;
   let base: SemverCore;
   if (explicit) {
     const parsed = parseCore(explicit);
@@ -819,11 +831,10 @@ async function commandTag(args: string[]): Promise<void> {
     base = latestProduction ? bumpPatch(latestProduction) : { major: 0, minor: 1, patch: 0 };
   }
 
-  const existingForBase = preTags
-    .filter((t) => t.channel === channel)
-    .filter((t) => compareCore(t, base) === 0);
-  const nextN = (existingForBase.length > 0 ? Math.max(...existingForBase.map((t) => t.number)) : 0) + 1;
-  await createAndPushTag(`v${fmtCore(base)}-${channel}.${nextN}`);
+  const tag = betaTagName(tags, fmtCore(base));
+  requireExpectedTag(tag, expected);
+  if (dryRun) console.log(tag);
+  else await createAndPushTag(tag);
 }
 
 async function commandPromote(args: string[]): Promise<void> {
@@ -2462,7 +2473,11 @@ async function main(): Promise<void> {
     }
 
     case "test": {
-      if (sub === "release-cleanup") {
+      if (sub === "release-pipeline") {
+        await run(Deno.execPath(), ["test", "tools/tests/release-tags.test.ts"], { cwd: repoRoot });
+        await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "pyyaml==6.0.3", "python", "-m", "unittest",
+          "discover", "-s", "tools/tests", "-p", "test_release_pipeline.py", ...rest], { cwd: repoRoot });
+      } else if (sub === "release-cleanup") {
         await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "pyyaml==6.0.3", "python", "-m", "unittest",
           "discover", "-s", "tools/tests", "-p", "test_release_cleanup.py", ...rest], { cwd: repoRoot });
       } else if (sub === "backend") {

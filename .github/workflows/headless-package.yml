@@ -2,6 +2,10 @@ name: Build / Stimma Server package
 on:
   workflow_call:
     inputs:
+      publication_gate:
+        description: Job that must succeed before any release publication
+        type: string
+        default: Quality gate passed
       wait_for_quality_gate:
         description: Wait for this run's quality gate before publishing
         type: boolean
@@ -45,11 +49,14 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-22.04
+            runs_on: '["self-hosted","linux","x64","stimma-headless"]'
           - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+            runs_on: '["self-hosted","linux","arm64","stimma-headless"]'
+    runs-on: ${{ fromJSON(matrix.runs_on) }}
     timeout-minutes: 40
+    env:
+      BOOTSTRAP_IMAGE: stimma-server:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
+      STIMMA_SMOKE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,8 +66,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install packaging tools
-        run: sudo apt-get update && sudo apt-get install -y patchelf rsync file
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify prepared packaging tools
+        run: |
+          for tool in patchelf rsync file docker; do command -v "$tool"; done
+          docker info --format '{{.OSType}}/{{.Architecture}}'
+      - name: Configure persistent build cache
+        run: python3 scripts/configure-build-cache.py
       - name: Install test dependencies
         working-directory: backend
         run: uv sync --locked --extra dev
@@ -78,18 +90,20 @@ jobs:
           BRANCH: ${{ inputs.channel }}
         run: tools/stimma headless package --version "$VERSION" --branch "$BRANCH"
       - name: Build bootstrap for validation only
-        run: tools/stimma headless image
+        run: tools/stimma headless image --tag "$BOOTSTRAP_IMAGE"
       - name: Verify signed startup and unchanged-image updates
-        run: tools/stimma headless smoke
+        run: tools/stimma headless smoke --tag "$BOOTSTRAP_IMAGE"
 
       - name: Install release signer
         if: inputs.publish_updates
         working-directory: frontend
         run: npm ci
+
       - name: Wait for matching quality gate
         if: inputs.wait_for_quality_gate
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          STIMMA_PUBLICATION_GATE: ${{ inputs.publication_gate }}
         run: python3 scripts/wait-for-quality-gate.py
 
       - name: Publish signed headless feed
@@ -110,3 +124,11 @@ jobs:
           name: headless-${{ matrix.arch }}
           path: dist-headless/
           retention-days: 7
+
+      - name: Remove this run's smoke resources
+        if: always()
+        run: |
+          label="ai.stimma.smoke=$STIMMA_SMOKE_RUN_ID"
+          docker ps -aq --filter "label=$label" | xargs -r docker rm -f
+          docker volume ls -q --filter "label=$label" | xargs -r docker volume rm
+          docker image rm "$BOOTSTRAP_IMAGE" || true

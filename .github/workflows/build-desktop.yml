@@ -48,63 +48,77 @@ permissions:
   contents: write
 
 jobs:
+  source:
+    name: Pin source commit
+    runs-on: [self-hosted, linux, x64, stimma-test]
+    outputs:
+      ref: ${{ steps.source.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - id: source
+        run: echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   quality-gate:
     name: Quality gate
+    needs: source
     if: ${{ !inputs.skip_quality_gate }}
     uses: ./.github/workflows/quality-gate.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.source.outputs.ref }}
+      runs_on: '["self-hosted","linux","x64","stimma-test"]'
 
   macos:
     name: macOS
-    needs: quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    needs: source
     uses: ./.github/workflows/release-macos.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.source.outputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
       publish_github_release: false
+      wait_for_quality_gate: ${{ !inputs.skip_quality_gate }}
     secrets: inherit
 
   windows:
     name: Windows
-    needs: quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    needs: source
     uses: ./.github/workflows/release-windows.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.source.outputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
       publish_github_release: false
+      wait_for_quality_gate: ${{ !inputs.skip_quality_gate }}
     secrets: inherit
 
   linux:
     name: Linux AppImage x64
-    needs: quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    needs: source
     uses: ./.github/workflows/linux-appimage.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.source.outputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
       publish_github_release: false
+      wait_for_quality_gate: ${{ !inputs.skip_quality_gate }}
     secrets: inherit
 
   linux-arm64:
     name: Linux AppImage arm64
-    needs: quality-gate
-    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
+    needs: source
     uses: ./.github/workflows/linux-appimage.yml
     with:
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.source.outputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
       publish_github_release: false
+      wait_for_quality_gate: ${{ !inputs.skip_quality_gate }}
       arch: aarch64
       runs_on: '["self-hosted","linux","arm64","spark"]'
     secrets: inherit
