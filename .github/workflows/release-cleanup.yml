@@ -1,0 +1,51 @@
+name: Release storage cleanup
+
+on:
+  schedule:
+    - cron: '23 8 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Delete eligible builds (otherwise dry run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-storage-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    # Scheduled deletion and credential use are limited to the default branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: denoland/setup-deno@v2
+      - name: Test retention and latest-build protection
+        run: tools/stimma test release-cleanup
+      - name: Clean release storage
+        env:
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
+          REPORT: ${{ runner.temp }}/release-cleanup.json
+        run: |
+          args=(--report "$REPORT")
+          if [ "$APPLY" = true ]; then args+=(--apply); fi
+          tools/stimma releases cleanup "${args[@]}"
+      - name: Save cleanup receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-cleanup-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-cleanup.json
+          if-no-files-found: warn
+          retention-days: 90

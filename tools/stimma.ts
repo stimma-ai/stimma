@@ -621,6 +621,7 @@ Commands:
                   Run Knip's conservative unused frontend file check
   render-test [--docker IMAGE | --executable FILE]  Validate real browser captures
   test backend    Run backend pytest tests
+  test release-cleanup  Verify release retention and current-feed protection
   test frontend   Run all frontend unit and browser regression tests
   test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
@@ -649,6 +650,8 @@ Commands:
   promote production  Promote the latest beta's commit to a production release
                       [--ref REF] hotfix override: promote an explicit git ref
                       [--yes] skip the confirmation prompt
+  releases cleanup [--report FILE]  Preview expired R2 release artifacts
+                      Add --apply to delete (requires --report FILE)
   dir               Print data directory path
   fork              List all sandboxes with sizes and ports
   fork create NAME  Snapshot default sandbox to a new named sandbox
@@ -2270,6 +2273,12 @@ async function main(): Promise<void> {
   const rest = args.slice(2);
 
   switch (command) {
+    case "releases": {
+      if (sub !== "cleanup") printUsage();
+      await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "boto3==1.40.59", "--with", "pyyaml==6.0.3",
+        "python", join(repoRoot, "tools", "release_cleanup.py"), ...rest], { cwd: repoRoot });
+      break;
+    }
     case "mobile": {
       await run(pythonCommand, [join(repoRoot, "tools", "mobile.py"), ...args.slice(1)]);
       break;
@@ -2453,7 +2462,10 @@ async function main(): Promise<void> {
     }
 
     case "test": {
-      if (sub === "backend") {
+      if (sub === "release-cleanup") {
+        await run("uv", ["run", "--no-project", "--python", "3.11", "--with", "pyyaml==6.0.3", "python", "-m", "unittest",
+          "discover", "-s", "tools/tests", "-p", "test_release_cleanup.py", ...rest], { cwd: repoRoot });
+      } else if (sub === "backend") {
         await run("uv", ["run", "pytest", ...rest], { cwd: join(repoRoot, "backend") });
       } else if (sub === "frontend") {
         await run("npm", ["test", "--", ...rest], { cwd: join(repoRoot, "frontend") });
