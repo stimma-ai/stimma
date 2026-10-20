@@ -20,6 +20,9 @@
     <div v-else-if="displayData.status === 'timed_out'" class="mt-1.5">
       <span class="text-xs text-amber-400">Timed out</span>
     </div>
+    <div v-else-if="displayData.status === 'interrupted'" class="mt-1.5">
+      <span class="text-xs text-amber-400">Interrupted</span>
+    </div>
     <div v-else-if="displayData.status === 'error'" class="mt-1.5">
       <span class="text-xs text-red-400">Failed</span>
     </div>
@@ -31,8 +34,8 @@
     >
       <div
         ref="gridRef"
-        class="flex flex-wrap gap-1.5 overflow-hidden transition-[max-height] duration-200"
-        :style="{ maxHeight: expanded ? 'none' : '102px' }"
+        class="flex flex-wrap gap-1.5 p-0.5 -m-0.5 overflow-hidden transition-[max-height] duration-200"
+        :style="{ maxHeight: expanded ? 'none' : `${COLLAPSED_HEIGHT}px` }"
       >
         <button
           v-for="tile in previewTiles"
@@ -92,7 +95,7 @@ const props = defineProps({
     // Expected shape:
     // {
     //   title?: string,
-    //   status: "in_progress" | "completed" | "cancelled" | "timed_out" | "error",
+    //   status: "in_progress" | "completed" | "cancelled" | "timed_out" | "interrupted" | "error",
     //   current: number,
     //   total: number,
     //   previews: number[]  // media_id ints
@@ -101,6 +104,10 @@ const props = defineProps({
 })
 
 defineEmits(['view-image'])
+
+// Two rows of 48px tiles + 6px gap, plus the 2px padding each side that keeps
+// hover/focus rings from being clipped by the collapse's overflow-hidden.
+const COLLAPSED_HEIGHT = 48 * 2 + 6 + 4
 
 const expanded = ref(false)
 const gridRef = ref(null)
@@ -113,14 +120,15 @@ const progressPercent = computed(() => {
 })
 
 // Status → bucket per DESIGN.md §1.9 (statusColors.ts is the single
-// source of truth): cancelled/timed_out are non-fatal trouble (warning),
+// source of truth): cancelled/timed_out/interrupted are non-fatal trouble (warning),
 // completed is terminal success (done), error is terminal failure (failed),
 // everything else (in_progress) is running.
 const statusBucket = computed(() => {
   switch (props.displayData.status) {
     case 'completed': return 'done'
     case 'cancelled':
-    case 'timed_out': return 'warning'
+    case 'timed_out':
+    case 'interrupted': return 'warning'
     case 'error': return 'failed'
     default: return 'running'
   }
@@ -130,8 +138,8 @@ const barColorClass = computed(() => dotClass(statusBucket.value))
 
 function checkOverflow() {
   if (!gridRef.value) return
-  // scrollHeight > 102px (2 rows) means there are hidden items
-  hasOverflow.value = gridRef.value.scrollHeight > 102
+  // Taller than two rows means there are hidden items
+  hasOverflow.value = gridRef.value.scrollHeight > COLLAPSED_HEIGHT
 }
 
 onMounted(() => nextTick(checkOverflow))

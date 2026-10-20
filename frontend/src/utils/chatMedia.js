@@ -8,7 +8,7 @@ export function progressPreviewTiles(data) {
   }
   return data.preview_slots.flatMap((slot, index) => {
     const status = slot.status === 'pending' && data.status !== 'in_progress'
-      ? ({ cancelled: 'cancelled', timed_out: 'timed out', error: 'stopped' }[data.status] || 'empty')
+      ? ({ cancelled: 'cancelled', timed_out: 'timed out', interrupted: 'stopped', error: 'stopped' }[data.status] || 'empty')
       : slot.status
     return (slot.media_ids.length ? slot.media_ids : [null]).map((mediaId, child) => ({
       key: `${index}:${child}`, mediaId, option: index + 1, status,

@@ -2521,7 +2521,25 @@ async def _cleanup_stale_v2_items(
             })
             cleaned = True
 
-    # 2. Find orphaned tool_calls (no matching tool_result) and create
+    # 2. Find progress batches still marked "in_progress" — their run is gone,
+    #    so pending tiles will never fill.
+    progress_result = await session.execute(
+        select(ChatItem)
+        .where(ChatItem.chat_id == chat_id)
+        .where(ChatItem.item_type == "progress_display")
+    )
+    for item in progress_result.scalars().all():
+        try:
+            meta = json.loads(item.item_metadata) if item.item_metadata else {}
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+        display_data = meta.get("display_data")
+        if isinstance(display_data, dict) and display_data.get("status", "in_progress") == "in_progress":
+            display_data["status"] = "interrupted"
+            item.item_metadata = json.dumps({**meta, "display_data": display_data})
+            cleaned = True
+
+    # 3. Find orphaned tool_calls (no matching tool_result) and create
     #    interrupted results so they don't show as "running" forever.
     calls_result = await session.execute(
         select(ChatItem)

@@ -2195,8 +2195,28 @@ class StimmaSDK:
             "item": item_dict,
         })
 
+    async def _persist_progress(self, tracker: ProgressTracker, display_data: dict) -> None:
+        """Write a tracker's display state to its ChatItem in a fresh session.
+
+        Progress must survive a reload or a server restart, so completed
+        previews can't live only in WebSocket broadcasts.
+        """
+        from database import ChatItem
+        from database_registry import get_database_registry
+        from sqlalchemy import select
+
+        db = get_database_registry().get_database(get_current_profile())
+        async with db.async_session_maker() as session:
+            result = await session.execute(
+                select(ChatItem).where(ChatItem.id == tracker._item_id)
+            )
+            chat_item = result.scalar_one_or_none()
+            if chat_item:
+                chat_item.item_metadata = json.dumps({"display_data": display_data})
+                await session.commit()
+
     async def _flush_progress(self) -> None:
-        """Flush pending progress updates to the frontend via WebSocket (no DB write)."""
+        """Flush pending progress updates to the DB and the frontend."""
         from utils.websocket import ws_manager
 
         for tracker in self._progress_trackers:
@@ -2204,6 +2224,7 @@ class StimmaSDK:
             pending = tracker._take_pending()
             if pending is None:
                 continue
+            await self._persist_progress(tracker, pending["display_data"])
             await ws_manager.broadcast("chat_item_updated", {
                 "chat_id": self.chat_id,
                 "item": {
@@ -2219,10 +2240,7 @@ class StimmaSDK:
         Uses a fresh session (see _ensure_tracker_created) — finalize can run
         while the user's script is still touching self.session concurrently.
         """
-        from database import ChatItem
-        from database_registry import get_database_registry
         from utils.websocket import ws_manager
-        from sqlalchemy import select
 
         for tracker in self._progress_trackers:
             await self._ensure_tracker_created(tracker)
@@ -2230,17 +2248,7 @@ class StimmaSDK:
             state = tracker._take_pending()
             if state is None:
                 continue
-
-            # Persist final state to DB in a fresh session
-            db = get_database_registry().get_database(get_current_profile())
-            async with db.async_session_maker() as session:
-                result = await session.execute(
-                    select(ChatItem).where(ChatItem.id == tracker._item_id)
-                )
-                chat_item = result.scalar_one_or_none()
-                if chat_item:
-                    chat_item.item_metadata = json.dumps({"display_data": state["display_data"]})
-                    await session.commit()
+            await self._persist_progress(tracker, state["display_data"])
 
             await ws_manager.broadcast("chat_item_updated", {
                 "chat_id": self.chat_id,
