@@ -13,8 +13,9 @@
          Grammar: labels stay on the two actions whose icons don't carry
          themselves and which open menus (Remix, Send to Tool); everything
          icon-conventional is a ghost on the rail. Export-original lives in
-         the Export modal (format defaults to Original). -->
-    <div v-if="currentItem && !isTrashView && !isCurrentItemTrashed" class="px-3 pt-3 pb-2 flex-shrink-0">
+         the Export modal (format defaults to Original). In Trash only the
+         markers show: marking a trashed item restores it. -->
+    <div v-if="currentItem" class="px-3 pt-3 pb-2 flex-shrink-0">
       <div class="flex flex-wrap items-center gap-0.5" :key="'markers-' + markerUpdateTrigger">
         <Tooltip v-for="marker in availableMarkers" :key="marker.id" :text="marker.name">
           <button
@@ -30,6 +31,7 @@
             <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container"></span>
           </button>
         </Tooltip>
+        <template v-if="!isInTrash">
         <div class="flex-1"></div>
         <!-- Rail actions render only where the host handles them (Compare
              mode mounts this panel without export/share/edit/graph). -->
@@ -48,8 +50,9 @@
             <EllipsisHorizontalIcon class="w-4 h-4" />
           </IconButton>
         </Tooltip>
+        </template>
       </div>
-      <div class="grid grid-cols-2 gap-1.5 mt-2">
+      <div v-if="!isInTrash" class="grid grid-cols-2 gap-1.5 mt-2">
         <button
           v-if="showEditAction && handles('edit-image') && isImageType(currentItem)"
           type="button"
@@ -710,6 +713,8 @@ const packageManifest = ref(null)
 const packageStatus = ref(null)
 const rebuildingPackage = ref(false)
 let packageLoadToken = 0
+
+const isInTrash = computed(() => props.isTrashView || props.isCurrentItemTrashed)
 
 const packageMediaId = computed(() => {
   const item = props.currentItem

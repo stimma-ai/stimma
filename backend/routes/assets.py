@@ -1402,18 +1402,38 @@ async def batch_get_asset_markers(
     return result
 
 
+async def _markable_asset_or_404(
+    session: AsyncSession, asset_id: int
+) -> tuple[Asset, bool]:
+    """Live Asset for a marker add, rescuing it from Trash if needed.
+
+    Marking is explicit curation: on a trashed Asset (typically one that
+    auto-trash swept up) it restores the Asset in the same transaction, so
+    the mark is never lost to "restore first, then find it again". Returns
+    the Asset and whether it was restored.
+    """
+    asset = await session.get(Asset, asset_id)
+    if asset is not None and asset.state == "trashed":
+        return await restore_asset(session, asset_id=asset_id), True
+    return await _live_asset_or_404(session, asset_id), False
+
+
 @router.post("/item/{asset_id}/markers/{marker_id}")
 async def add_asset_marker(
     asset_id: int, marker_id: int, session: AsyncSession = Depends(get_db_session)
 ):
-    asset = await _live_asset_or_404(session, asset_id)
     if await session.get(Marker, marker_id) is None:
         raise HTTPException(status_code=404, detail="Marker not found")
+    asset, restored = await _markable_asset_or_404(session, asset_id)
     await set_asset_marker(
         session, asset_id=asset_id, marker_id=marker_id, add=True
     )
     await session.commit()
     markers = await _asset_markers(session, asset_id)
+    if restored:
+        await ws_manager.broadcast(
+            "asset_restored", {"asset_id": asset_id, "asset": asset.to_dict()}
+        )
     # Broadcast even for an idempotent add: it may have repaired stale
     # expiration left by an older build.
     await broadcast_asset_organization_updated(
@@ -1445,6 +1465,19 @@ async def bulk_asset_markers(
 ):
     if await session.get(Marker, request.marker_id) is None:
         raise HTTPException(status_code=404, detail="Marker not found")
+    # Adding a marker rescues trashed Assets (see _markable_asset_or_404);
+    # removing one only applies to live Assets.
+    restored_ids: list[int] = []
+    if request.add:
+        restored_ids = list(
+            await session.scalars(
+                select(Asset.id).where(
+                    Asset.id.in_(request.asset_ids), Asset.state == "trashed"
+                )
+            )
+        )
+        for asset_id in restored_ids:
+            await restore_asset(session, asset_id=asset_id)
     valid_ids = set(
         await session.scalars(
             select(Asset.id).where(
@@ -1472,7 +1505,14 @@ async def bulk_asset_markers(
             ws_manager,
             fields=("markers", "expires_at") if request.add else ("markers",),
         )
-    return {"status": "success", "changed": changed, "total": len(valid_ids)}
+    if restored_ids:
+        await ws_manager.broadcast("assets_restored", {"asset_ids": restored_ids})
+    return {
+        "status": "success",
+        "changed": changed,
+        "total": len(valid_ids),
+        "restored_asset_ids": restored_ids,
+    }
 
 
 async def _find_or_create_tag(session: AsyncSession, text: str) -> Tag | None:

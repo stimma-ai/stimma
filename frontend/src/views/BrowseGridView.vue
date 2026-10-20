@@ -1414,7 +1414,17 @@ async function handleToggleMarker({ markerId, add }) {
   if (selectedItemIds.value.length === 0) return
 
   try {
-    await bulkMarkerOperation(selectedItemIds.value, markerId, add)
+    const result = await bulkMarkerOperation(selectedItemIds.value, markerId, add)
+    // Marking restores trashed Assets, so in Trash they leave the view.
+    const restoredIds = result?.restored_asset_ids || []
+    if (isTrashMode.value && restoredIds.length) {
+      const markerName = markers.value.find((marker) => marker.id === markerId)?.name
+      const count = restoredIds.length === 1 ? '1 item' : `${restoredIds.length} items`
+      addToast(markerName ? `Restored ${count} and marked ${markerName}` : `Restored ${count}`, 'success')
+      selectedItemIds.value = []
+      multiSelectMode.value = false
+      await reconcileRemoval(restoredIds)
+    }
   } catch (error) {
     console.error('Failed to toggle marker:', error)
     addToast(add ? 'Failed to add marker' : 'Failed to remove marker', 'error')

@@ -1075,6 +1075,21 @@
             </template>
           </div>
         </div>
+
+        <!-- Scrubber visibility (video only). Persisted, so it needs a visible
+             switch — the V shortcut alone left people stuck without one. -->
+        <button
+          v-if="isVideo"
+          @click="toggleVideoTransport"
+          :class="[
+            'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
+            { '!text-live hover:!text-live/80': showVideoTransport },
+            'hover:bg-white/10 hover:text-white'
+          ]"
+          :title="showVideoTransport ? 'Hide scrubber (v)' : 'Show scrubber (v)'"
+        >
+          <FilmIcon class="w-5 h-5" />
+        </button>
       </div>
 
       <!-- Interval — its own section, only while the slideshow is running -->
@@ -1194,6 +1209,7 @@
         <button type="button" class="sheet-row" @click="toggleLoop"><span class="sheet-row-icon flex items-center justify-center text-base leading-none">↻</span><span class="flex-1">Loop</span><span class="sheet-row-detail" :class="loopEnabled ? '!text-live' : ''">{{ loopEnabled ? 'on' : 'off' }}</span></button>
         <button type="button" class="sheet-row" @click="cycleDuration"><span class="sheet-row-icon flex items-center justify-center text-[11px] font-semibold">{{ currentDuration }}s</span><span class="flex-1">Slideshow interval</span><span class="sheet-row-detail">tap to change</span></button>
         <button v-if="isVideo" type="button" class="sheet-row" @click="toggleMute"><SpeakerXMarkIcon v-if="isMuted" class="sheet-row-icon" /><SpeakerWaveIcon v-else class="sheet-row-icon" /><span class="flex-1">Sound</span><span class="sheet-row-detail" :class="isMuted ? '' : '!text-live'">{{ isMuted ? 'muted' : 'on' }}</span></button>
+        <button v-if="isVideo" type="button" class="sheet-row" @click="toggleVideoTransport"><FilmIcon class="sheet-row-icon" /><span class="flex-1">Scrubber</span><span class="sheet-row-detail" :class="showVideoTransport ? '!text-live' : ''">{{ showVideoTransport ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="showImageStrip = !showImageStrip; compactMoreOpen = false"><Squares2X2Icon class="sheet-row-icon" /><span class="flex-1">Filmstrip</span><span class="sheet-row-detail" :class="showImageStrip ? '!text-live' : ''">{{ showImageStrip ? 'shown' : 'hidden' }}</span></button>
         <button type="button" class="sheet-row" @click="compactMoreOpen = false; handleViewLineage()"><ShareIcon class="sheet-row-icon rotate-90" /><span class="flex-1">View lineage</span></button>
         <button v-if="isPackage" type="button" class="sheet-row" :disabled="downloadingPackage" @click="compactMoreOpen = false; downloadPackage('zip')"><ArchiveBoxIcon class="sheet-row-icon" /><span class="flex-1">Download ZIP</span></button>
@@ -1394,7 +1410,7 @@ import ExportModal from './ExportModal.vue'
 import NativeShareDialog from './NativeShareDialog.vue'
 import { desktop } from '../desktop'
 import { supportsNativeShare } from '../utils/nativeShare'
-import { ArrowUpTrayIcon, LinkIcon } from '@heroicons/vue/24/outline'
+import { ArrowUpTrayIcon, FilmIcon, LinkIcon } from '@heroicons/vue/24/outline'
 import { useShareDialog } from '../composables/useShareDialog'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import SlideshowMarkerControls from './SlideshowMarkerControls.vue'
@@ -5097,6 +5113,17 @@ function handleViewLineage() {
   router.push({ name: 'lineage', params: { mediaId: currentPayloadId.value } })
 }
 
+// A restored item is leaving the Trash view: drop it from the strip, the
+// shared grid list and the total (closing/clamping if needed).
+function removeRestoredItemLocally(restoredId) {
+  localRemovedIds.value = new Set([...localRemovedIds.value, restoredId])
+  if (props.mediaList) {
+    props.mediaList.removeItem(restoredId)
+  }
+  applyRemovalToCount(1)
+  handleRemovedMediaIdsLocally(new Set([restoredId]))
+}
+
 async function handleRestoreCurrentItem() {
   if (!currentItem.value) return
 
@@ -5110,18 +5137,7 @@ async function handleRestoreCurrentItem() {
     if (currentAssetId.value) await restoreAsset(currentAssetId.value)
     else await restoreFromTrash(currentPayloadId.value)
 
-    // Mark as locally removed so strip skips it (it's leaving trash view)
-    localRemovedIds.value = new Set([...localRemovedIds.value, restoredId])
-
-    // Also update shared mediaList so grid sees the removal
-    if (props.mediaList) {
-      props.mediaList.removeItem(restoredId)
-    }
-
-    // Reconcile the total (and close/clamp if needed)
-    applyRemovalToCount(1)
-    handleRemovedMediaIdsLocally(new Set([restoredId]))
-
+    removeRestoredItemLocally(restoredId)
   } catch (error) {
     console.error('Failed to restore media:', error)
     addToast('Failed to restore item', 'error')
@@ -6754,6 +6770,11 @@ async function toggleMarker(markerId) {
   const mediaId = currentPayloadId.value
   const assetId = currentAssetId.value
   const previousMarkers = currentItem.value.markers || []
+  // Marking a trashed Asset restores it server-side (marking is curation),
+  // so an auto-trashed item can be rescued in one click from Trash.
+  const restoring = !isActive && Boolean(assetId) && isCurrentItemTrashed.value
+  const itemId = itemIdentity(currentItem.value)
+  if (restoring) deletingItemIds.value.add(itemId)
 
   try {
     let response
@@ -6781,12 +6802,22 @@ async function toggleMarker(markerId) {
       // Adding explicit curation makes the Asset durable. Reflect that
       // immediately instead of leaving the info panel on a stale projection.
       ...(isActive ? {} : { expires_at: null, auto_delete_at: null }),
+      ...(restoring ? { deleted_at: null, asset_state: 'active' } : {}),
     })
 
     // Force re-render of marker UI
     markerUpdateTrigger.value++
+
+    if (restoring) {
+      const markerName = availableMarkers.value.find((marker) => marker.id === markerId)?.name
+      addToast(markerName ? `Restored and marked ${markerName}` : 'Restored and marked', 'success')
+      if (props.isTrashView) removeRestoredItemLocally(itemId)
+    }
   } catch (error) {
     console.error('Failed to toggle marker:', error)
+    if (restoring) addToast('Failed to restore and mark item', 'error')
+  } finally {
+    if (restoring) setTimeout(() => deletingItemIds.value.delete(itemId), 2000)
   }
 }
 

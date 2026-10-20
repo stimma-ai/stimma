@@ -56,6 +56,26 @@
 
             <div v-if="selectedCount <= 3" class="divider w-px h-6 bg-edge-subtle mx-2" />
 
+            <!-- Markers (trash): marking is curation, so it restores too -->
+            <template v-if="markers && markers.length > 0">
+              <div class="action-group flex items-center gap-2">
+                <Tooltip
+                  v-for="marker in markers"
+                  :key="marker.id"
+                  :text="`Restore and mark ${marker.name}`"
+                >
+                  <button
+                    class="marker-button p-1 flex items-center justify-center transition-opacity hover:opacity-70"
+                    @click="$emit('toggle-marker', { markerId: marker.id, add: true })"
+                  >
+                    <span class="marker-icon w-6 h-6 flex items-center justify-center" :style="{ color: 'var(--color-text-muted)' }" v-html="sanitizeSvg(marker.icon_svg)" />
+                  </button>
+                </Tooltip>
+              </div>
+
+              <div class="divider w-px h-6 bg-edge-subtle mx-2" />
+            </template>
+
             <!-- Restore -->
             <Tooltip text="Restore">
               <button

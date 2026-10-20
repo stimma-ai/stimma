@@ -320,6 +320,64 @@ async def test_readding_existing_asset_marker_still_clears_expiration(
 
 
 @pytest.mark.asyncio
+async def test_marking_a_trashed_asset_restores_it(client, db_session):
+    """Marking is curation: it rescues an auto-trashed Asset in one step."""
+    async with db_session() as session:
+        single_media = await create_media_item(session, file_hash="mark-single")
+        bulk_media = await create_media_item(session, file_hash="mark-bulk")
+        single = await create_asset_from_media(session, media_id=single_media.id)
+        bulk = await create_asset_from_media(session, media_id=bulk_media.id)
+        marker = Marker(name="Rescue", icon_svg="<svg />", color="#fff")
+        session.add(marker)
+        await session.flush()
+        deadline = datetime.utcnow() - timedelta(minutes=1)
+        for asset in (single, bulk):
+            asset.expires_at = deadline
+        single_id, bulk_id, marker_id = single.id, bulk.id, marker.id
+        await session.commit()
+
+    async with db_session() as session:
+        await CleanupService().cleanup_expired_images(session, {})
+        assert (await session.get(Asset, single_id)).state == "trashed"
+        assert (await session.get(Asset, bulk_id)).state == "trashed"
+
+    response = await client.post(
+        f"/api/assets/item/{single_id}/markers/{marker_id}"
+    )
+    assert response.status_code == 200, response.text
+    assert [m["id"] for m in response.json()["markers"]] == [marker_id]
+
+    response = await client.post(
+        "/api/assets/batch/markers",
+        json={"asset_ids": [bulk_id], "marker_id": marker_id, "add": True},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["restored_asset_ids"] == [bulk_id]
+    assert response.json()["changed"] == 1
+
+    async with db_session() as session:
+        for asset_id in (single_id, bulk_id):
+            asset = await session.get(Asset, asset_id)
+            assert asset.state == "active"
+            assert asset.deleted_at is None
+            assert asset.expires_at is None
+
+    # Removing a marker is not curation and never reaches into Trash.
+    async with db_session() as session:
+        asset = await session.get(Asset, bulk_id)
+        asset.state = "trashed"
+        asset.deleted_at = datetime.utcnow()
+        await session.commit()
+    response = await client.post(
+        "/api/assets/batch/markers",
+        json={"asset_ids": [bulk_id], "marker_id": marker_id, "add": False},
+    )
+    assert response.json()["restored_asset_ids"] == []
+    async with db_session() as session:
+        assert (await session.get(Asset, bulk_id)).state == "trashed"
+
+
+@pytest.mark.asyncio
 async def test_revision_history_can_restore_an_old_version_as_a_new_latest_version(
     client, db_session
 ):
