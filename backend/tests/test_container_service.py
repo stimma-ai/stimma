@@ -14,7 +14,8 @@ from container_service import (
     resolve_container_members,
     save_container_members_as_assets,
 )
-from database import Asset, MediaOwner
+from asset_association_service import set_asset_marker
+from database import Asset, AssetTag, Marker, MediaOwner, Tag
 from tests.helpers.media import create_media_item
 
 
@@ -114,6 +115,46 @@ async def test_linked_member_follows_current_revision_and_supports_multiple_memb
                 session, revision_id=container.current_revision_id
             )
             assert resolved[0]["media_id"] == replacement.id
+
+
+@pytest.mark.asyncio
+async def test_set_content_carries_member_markers_and_tags(db_session):
+    async with db_session() as session:
+        linked_media = await create_media_item(session, file_format="mp4")
+        saved_media = await create_media_item(session, file_format="mp4")
+        bare_media = await create_media_item(session, file_format="mp4")
+        linked = await create_asset_from_media(session, media_id=linked_media.id)
+        saved = await create_asset_from_media(session, media_id=saved_media.id)
+        marker = Marker(name="container-member-marker", icon_svg="<svg/>", color="#ff0000")
+        tag = Tag(tag_text="container-member-tag")
+        session.add_all([marker, tag])
+        await session.flush()
+        await set_asset_marker(session, asset_id=linked.id, marker_id=marker.id, add=True)
+        await set_asset_marker(session, asset_id=saved.id, marker_id=marker.id, add=True)
+        session.add(AssetTag(asset_id=linked.id, tag_id=tag.id))
+        set_media = await create_media_item(session, file_format="stimmaset.json")
+        await create_container_asset_from_media(
+            session,
+            media_id=set_media.id,
+            container_type="set",
+            members=[
+                {"linked_asset_id": linked.id},
+                {"embedded_media_id": saved_media.id},
+                {"embedded_media_id": bare_media.id},
+            ],
+        )
+        await session.commit()
+
+        content = await get_normalized_container_content(session, container_media=set_media)
+        members = [item["resolved"] for item in content["items"]]
+
+        # Linked members show their Asset's organization; embedded members show
+        # the saved Asset holding that exact Media, which marker writes target.
+        assert [m["id"] for m in members[0]["markers"]] == [marker.id]
+        assert [t["id"] for t in members[0]["tags"]] == [tag.id]
+        assert [m["id"] for m in members[1]["markers"]] == [marker.id]
+        assert members[1]["tags"] == []
+        assert members[2]["markers"] == []
 
 
 @pytest.mark.asyncio

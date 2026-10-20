@@ -21,7 +21,16 @@ from asset_service import (
     commit_revision,
     create_asset_from_media,
 )
-from database import Asset, AssetRevision, ContainerMember, MediaOwner
+from database import (
+    Asset,
+    AssetMarker,
+    AssetRevision,
+    AssetTag,
+    ContainerMember,
+    Marker,
+    MediaOwner,
+    Tag,
+)
 from database import MediaItem
 from sprite_document import (
     CONTAINER_FORMATS,
@@ -349,6 +358,54 @@ async def resolve_container_members(
     return resolved
 
 
+async def _member_organization(
+    session: AsyncSession,
+    asset_by_media: dict[int, int | None],
+) -> tuple[dict[int, list[dict]], dict[int, list[dict]]]:
+    """Markers and tags for container members, keyed by member Media id."""
+    from implicit_markers import implicit_markers_by_media
+
+    asset_ids = {asset_id for asset_id in asset_by_media.values() if asset_id}
+    markers_by_asset: dict[int, list[dict]] = {}
+    tags_by_asset: dict[int, list[dict]] = {}
+    if asset_ids:
+        for association, marker in (
+            await session.execute(
+                select(AssetMarker, Marker)
+                .join(Marker, Marker.id == AssetMarker.marker_id)
+                .where(
+                    AssetMarker.asset_id.in_(asset_ids),
+                    AssetMarker.deleted_at.is_(None),
+                    AssetMarker.source != "suppressed",
+                )
+            )
+        ).all():
+            markers_by_asset.setdefault(association.asset_id, []).append(
+                {**marker.to_dict(), "source": association.source}
+            )
+        for association, tag in (
+            await session.execute(
+                select(AssetTag, Tag)
+                .join(Tag, Tag.id == AssetTag.tag_id)
+                .where(
+                    AssetTag.asset_id.in_(asset_ids),
+                    AssetTag.deleted_at.is_(None),
+                )
+            )
+        ).all():
+            tags_by_asset.setdefault(association.asset_id, []).append(tag.to_dict())
+    implicit = await implicit_markers_by_media(session, asset_by_media.keys())
+    markers = {
+        media_id: [*markers_by_asset.get(asset_id, []), *implicit[media_id]]
+        for media_id, asset_id in asset_by_media.items()
+    }
+    tags = {
+        media_id: tags_by_asset.get(asset_id, [])
+        for media_id, asset_id in asset_by_media.items()
+    }
+    return markers, tags
+
+
 async def get_normalized_container_content(
     session: AsyncSession,
     *,
@@ -404,6 +461,19 @@ async def get_normalized_container_content(
         )
     } if media_ids else {}
 
+    # Members carry their Asset's organization so viewers show real marker and
+    # tag state. Linked members use the linked Asset; embedded members use the
+    # saved Asset whose revision holds that exact Media, as marker writes do.
+    organizing_asset_by_media = {
+        entry["media_id"]: entry["linked_asset_id"]
+        or saved_asset_by_media.get(entry["media_id"])
+        for entry in members
+        if entry["media_id"] is not None
+    }
+    markers_by_media, tags_by_media = await _member_organization(
+        session, organizing_asset_by_media
+    )
+
     def resolved_payload(entry: dict[str, Any]) -> dict[str, Any] | None:
         media = media_by_id.get(entry["media_id"])
         if media is None or media.deleted_at is not None or entry["unavailable"]:
@@ -422,8 +492,8 @@ async def get_normalized_container_content(
             "duration": media.duration,
             "vlm_caption": media.vlm_caption,
             "generation_metadata": media.generation_metadata,
-            "markers": [],
-            "tags": [],
+            "markers": markers_by_media.get(media.id, []),
+            "tags": tags_by_media.get(media.id, []),
         }
 
     if container_media.file_format == SPRITE_FORMAT:

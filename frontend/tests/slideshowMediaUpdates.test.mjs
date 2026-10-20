@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { computed, ref } from 'vue'
+import { computed, reactive, ref, unref } from 'vue'
 
 // Exercise the component's real update and projection functions with Vue refs,
 // without mounting its media players or requiring a running backend.
@@ -13,7 +13,7 @@ function componentFunction(name) {
   return source.slice(start, end)
 }
 
-function harness({ items = null, shared = false } = {}) {
+function harness({ items = null, shared = false, viaSlideshowStore = false } = {}) {
   const original = { id: 7, asset_id: 7, media_id: 101, markers: [], tags: [], expires_at: 'later' }
   const cache = ref(new Map([[0, original]]))
   const props = { items }
@@ -26,6 +26,8 @@ function harness({ items = null, shared = false } = {}) {
         }
       },
     }
+    // useSlideshow keeps mediaList in a reactive() store, which unwraps its refs.
+    if (viaSlideshowStore) props.mediaList = reactive({ mediaList: props.mediaList }).mediaList
   }
   const state = {
     props,
@@ -40,9 +42,11 @@ function harness({ items = null, shared = false } = {}) {
     itemIdentity: item => item?.asset_id ?? item?.id ?? null,
     assetIdOf: item => item.asset_id ?? item.id,
     hasAssetIdentity: item => item.asset_id != null,
+    unref,
   }
   const functions = new Function(...Object.keys(state), `
     ${componentFunction('withAssetHeadOverride')}
+    ${componentFunction('mediaListCache')}
     ${componentFunction('applyMediaPatchToLocalState')}
     return { resolve: withAssetHeadOverride, patch: applyMediaPatchToLocalState }
   `)(...Object.values(state))
@@ -60,6 +64,13 @@ for (const shared of [false, true]) {
     assert.deepEqual(h.current.value.markers, [])
   })
 }
+
+test('a marker toggled on a set member reaches the set view when mediaList comes through the slideshow store', () => {
+  const h = harness({ shared: true, viaSlideshowStore: true })
+  h.patch(101, { markers: [{ id: 3 }] })
+  assert.deepEqual(h.setViewStack.value[0].items[0].markers, [{ id: 3 }])
+  assert.deepEqual(h.cache.value.get(0).markers, [{ id: 3 }])
+})
 
 test('tags, captions and expiry updates reach every slideshow projection', () => {
   const h = harness()

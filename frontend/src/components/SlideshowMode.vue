@@ -1368,7 +1368,7 @@
 
 <script setup>
 import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
-import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, unref } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
 import { isDrawerEdgeTouch } from '../utils/drawerGesture'
 import { useSlideshowPresence } from '../composables/useTabNavigation'
@@ -2298,6 +2298,12 @@ function itemIdentity(item) {
 function itemPayloadId(item) {
   return item ? mediaIdOf(item) : null
 }
+
+// useSlideshow hands mediaList through a reactive() store, which unwraps its
+// refs; BrowseGridView's inline slideshow passes the raw composable. Accept both.
+function mediaListCache() {
+  return unref(props.mediaList?.itemsCache) || new Map()
+}
 const isCurrentItemTrashed = computed(() => {
   return currentItem.value?.deleted_at != null
 })
@@ -2547,7 +2553,7 @@ function applyMediaPatchToLocalState(mediaId, updates) {
   if (props.mediaList?.updateItem) {
     // A response can arrive after navigation. Match payload ids to browser
     // identities in the cache; the two id namespaces are independent.
-    for (const item of props.mediaList.itemsCache.value.values()) {
+    for (const item of mediaListCache().values()) {
       if (itemPayloadId(item) === mediaId) {
         props.mediaList.updateItem(itemIdentity(item), updates)
       }
@@ -3286,6 +3292,8 @@ function next() {
   if (isViewingSet.value) {
     if (setViewIndex.value < currentSetView.value.items.length - 1) {
       setViewIndex.value++
+    } else if (loopEnabled.value) {
+      setViewIndex.value = 0
     }
     return
   }
@@ -3398,8 +3406,6 @@ async function enterSetView(mediaId, startIndex = 0) {
     setViewIndex.value = startIndex // Start at specified item
     setOverviewData.value = null // Clear overview data since we're now inside the set
     console.log('[enterSetView] Pushed to setViewStack, length now:', setViewStack.value.length, 'startIndex:', startIndex)
-
-    stopSlideshow() // Pause slideshow when entering set
   } catch (e) {
     console.error('Failed to load set content:', e)
   } finally {
@@ -5665,17 +5671,29 @@ function followActiveNow() {
   return props.autoAdvanceOnNew && followStream.value && !isRandomized.value && liveAdvanceQueue.value.length > 0
 }
 
-// Is the manual Play timer the active advance source right now?
+// Is the manual Play timer the active advance source right now? Inside a set,
+// Play steps through the set's members instead of the outer list.
 function playActiveNow() {
-  return isPlaying.value && (currentIndex.value < localTotalCount.value - 1 || loopEnabled.value)
+  if (!isPlaying.value) return false
+  if (isViewingSet.value) {
+    const count = currentSetView.value?.items.length || 0
+    return count > 1 && (setViewIndex.value < count - 1 || loopEnabled.value)
+  }
+  return currentIndex.value < localTotalCount.value - 1 || loopEnabled.value
+}
+
+// Grid cells and source/version views are inspection detours: nothing advances
+// while they are open. A set is a sequence, so Play (never live follow) runs there.
+function advanceBlockedBySubView() {
+  return isViewingGrid.value || isViewingSource.value
 }
 
 // Re-validate at fire time — conditions may have changed during a dwell wait, an
 // async preload, or a video playthrough (user navigated, entered a sub-view, etc).
 function shouldStillAdvance(action) {
   if (!slideshowViewActive || !mobileAdvanceReady.value) return false
-  if (isViewingSet.value || isViewingGrid.value || isViewingSource.value) return false
-  if (action === performFollowStep) return followActiveNow()
+  if (advanceBlockedBySubView()) return false
+  if (action === performFollowStep) return !isViewingSet.value && followActiveNow()
   if (action === performPlayNext) return playActiveNow()
   return false
 }
@@ -5689,13 +5707,13 @@ function scheduleAdvance() {
   videoAdvanceArmed.value = false
   if (!slideshowViewActive || !mobileAdvanceReady.value) return
 
-  // No auto-advance while a sub-view is open — arrivals still pin underneath, but
-  // the view must never change out from under the user.
-  if (isViewingSet.value || isViewingGrid.value || isViewingSource.value) return
+  // Live arrivals still pin underneath any sub-view, but never pull the user out
+  // of one; only an explicit Play advances inside a set.
+  if (advanceBlockedBySubView()) return
 
   let action = null
   let floorMs = 0
-  if (followActiveNow()) {
+  if (!isViewingSet.value && followActiveNow()) {
     action = performFollowStep
     floorMs = FOLLOW_MIN_DWELL_MS
   } else if (playActiveNow()) {
@@ -5983,7 +6001,7 @@ function handleEscapeCapture(event) {
 // a no-op, not a removal.
 function browserIdentitiesForPayloadIds(mediaIds) {
   const wanted = new Set(mediaIds)
-  const source = props.mediaList ? props.mediaList.itemsCache.value : itemsCache.value
+  const source = props.mediaList ? mediaListCache() : itemsCache.value
   const identities = []
   for (const item of source.values()) {
     if (item && wanted.has(itemPayloadId(item))) {
@@ -6473,7 +6491,7 @@ watch(() => props.totalCount, (newValue, oldValue) => {
 })
 
 // Watch for mediaList.effectiveTotal changes (handles prepend/remove operations)
-watch(() => props.mediaList?.effectiveTotal?.value, (newValue) => {
+watch(() => props.mediaList ? unref(props.mediaList.effectiveTotal) : undefined, (newValue) => {
   if (newValue !== undefined && newValue !== localTotalCount.value) {
     localTotalCount.value = newValue
     // Rebuild shuffled indices if randomized
