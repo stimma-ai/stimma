@@ -68,8 +68,8 @@ export function useMediaApi() {
   }
 
   // Thumbnail URL version - bump this when thumbnail generation algorithm changes
-  // to force browser cache invalidation (v12 = video first frames in set previews)
-  const THUMBNAIL_URL_VERSION = 12
+  // to force browser cache invalidation (v13 = container previews and centered set icon)
+  const THUMBNAIL_URL_VERSION = 13
 
   const { resolvedTheme } = useTheme()
 

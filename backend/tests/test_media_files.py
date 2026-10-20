@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
-from PIL import Image
+from PIL import Image, ImageChops
 
 from delete_operations import create_delete_operation
 from database_registry import get_database_registry
@@ -135,15 +135,20 @@ def test_set_preview_uses_first_video_frames_in_member_order(tmp_path, extension
     reason="ffmpeg/ffprobe not installed",
 )
 @pytest.mark.parametrize("route", ["legacy", "profile", "thumbnail-path"])
-async def test_video_set_thumbnail_replaces_cached_placeholder(
-    client: AsyncClient, db_session, tmp_path, route,
+@pytest.mark.parametrize("file_format", ["stimmaset.json", "stimmapackage"])
+async def test_video_container_thumbnail_replaces_cached_placeholder(
+    client: AsyncClient, db_session, tmp_path, route, file_format,
 ):
-    """Decode a real two-frame video and bypass the old cached set placeholder
+    """Decode a real two-frame video and bypass the old cached placeholder
     through every thumbnail entry point, including native drag-out's path API."""
     from config import get_settings
     from routes.media_files import _sharded_cache_path
 
-    video = tmp_path / "red-then-blue.mp4"
+    source_dir = tmp_path
+    if file_format == "stimmapackage":
+        source_dir = tmp_path / "video.stimmapackage"
+        source_dir.mkdir()
+    video = source_dir / "red-then-blue.mp4"
     subprocess.run(
         [
             "ffmpeg", "-v", "error", "-y",
@@ -154,19 +159,27 @@ async def test_video_set_thumbnail_replaces_cached_placeholder(
         ],
         check=True, capture_output=True,
     )
-    manifest = tmp_path / "set.stimmaset.json"
-    manifest.write_text(json.dumps({"items": [{"path": video.name}]}))
-    file_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    if file_format == "stimmapackage":
+        manifest = source_dir
+        content_path = manifest / "stimma-package.json"
+        content_path.write_text(json.dumps({"members": [{"path": video.name}]}))
+        mtime_path = manifest / "index.html"
+        mtime_path.write_text("<html></html>")
+    else:
+        manifest = tmp_path / "set.stimmaset.json"
+        manifest.write_text(json.dumps({"items": [{"path": video.name}]}))
+        content_path = mtime_path = manifest
+    file_hash = hashlib.sha256(content_path.read_bytes()).hexdigest()
     async with db_session() as session:
         media = await create_media_item(
-            session, file_path=manifest, file_hash=file_hash, file_format="stimmaset.json",
+            session, file_path=manifest, file_hash=file_hash, file_format=file_format,
         )
         media_id = media.id
 
     db_guid = get_database_registry().get_db_guid("default")
     prefix = "" if route == "legacy" else f"{db_guid}_"
     old_key = hashlib.md5(
-        f"{prefix}{manifest}_64_crop_0_v32_mtime{manifest.stat().st_mtime}_themedark".encode()
+        f"{prefix}{manifest}_64_crop_0_v32_mtime{mtime_path.stat().st_mtime}_themedark".encode()
     ).hexdigest()
     old_cache = _sharded_cache_path(get_settings().get_thumbnail_cache_dir(), old_key, "jpg")
     old_cache.parent.mkdir(parents=True, exist_ok=True)
@@ -187,6 +200,75 @@ async def test_video_set_thumbnail_replaces_cached_placeholder(
     with thumbnail:
         red, green, blue = thumbnail.getpixel((32, 32))
         assert red > 180 and green < 70 and blue < 70  # first frame, not blue or placeholder
+
+
+@pytest.mark.parametrize("size", [64, 128, 256, 512, 1024])
+@pytest.mark.parametrize("theme", ["dark", "light"])
+def test_empty_set_icon_fits_and_is_centered(size, theme):
+    from routes.media_files import _generate_placeholder_thumbnail, THEME_PALETTES
+
+    palette = THEME_PALETTES[theme]
+    result = _generate_placeholder_thumbnail(size, "set", palette=palette)
+    background = Image.new("RGB", result.size, palette["placeholder_set_bg"])
+    left, top, right, bottom = ImageChops.difference(result, background).getbbox()
+
+    assert 0 < left < right < size
+    assert 0 < top < bottom < size
+    assert abs(left - (size - right)) <= 1
+    assert abs(top - (size - bottom)) <= 1
+    assert right - left == bottom - top
+
+
+@pytest.mark.parametrize("extension", ["jpg", "webp", "mp4"])
+@pytest.mark.parametrize("source", ["member", "run"])
+def test_package_preview_uses_visual_members_and_outputs(tmp_path, extension, source):
+    from routes.media_files import _generate_package_preview
+
+    hero = tmp_path / f"hero.{extension}"
+    if extension == "mp4":
+        hero.touch()
+    else:
+        Image.new("RGB", (40, 20), (220, 30, 20)).save(hero)
+    manifest = {"members": [], "runs": []}
+    if source == "member":
+        manifest["members"] = [{"path": hero.name}]
+    else:
+        smaller = tmp_path / "smaller.png"
+        Image.new("RGB", (4, 4), (0, 0, 255)).save(smaller)
+        manifest["runs"] = [{"files": [
+            {"path": smaller.name, "size": 100},
+            {"path": hero.name, "size": 1024},
+        ]}]
+    (tmp_path / "stimma-package.json").write_text(json.dumps(manifest))
+
+    with patch(
+        "utils.video_frames.extract_frame_to_image",
+        return_value=(Image.new("RGB", (40, 20), (220, 30, 20)), 0.0, 1.0, 24.0),
+    ) as extract:
+        result = _generate_package_preview(str(tmp_path), 64)
+
+    red, green, blue = result.getpixel((32, 32))
+    assert red > 180 and green < 70 and blue < 70
+    if extension == "mp4":
+        extract.assert_called_once_with(hero, position="first")
+    else:
+        extract.assert_not_called()
+
+
+def test_package_preview_prefers_designed_cover_over_video(tmp_path):
+    from routes.media_files import _generate_package_preview
+
+    Image.new("RGB", (40, 20), (20, 30, 220)).save(tmp_path / "cover.png")
+    (tmp_path / "member.mp4").touch()
+    (tmp_path / "stimma-package.json").write_text(json.dumps({
+        "cover_image": "cover.png", "members": [{"path": "member.mp4"}],
+    }))
+
+    with patch("utils.video_frames.extract_frame_to_image") as extract:
+        result = _generate_package_preview(str(tmp_path), 64)
+
+    extract.assert_not_called()
+    assert result.getpixel((32, 32)) == (20, 30, 220)
 
 
 def test_grid_preview_passes_video_cells_to_mosaic(tmp_path):

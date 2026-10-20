@@ -60,8 +60,8 @@ CONTAINER_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
 CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
 CONTAINER_VISUAL_FORMATS = CONTAINER_IMAGE_FORMATS | CONTAINER_VIDEO_FORMATS
 
-# Regenerate cached set placeholders without invalidating other media thumbnails.
-SET_PREVIEW_VERSION = 1
+# Invalidate changed container previews without regenerating unrelated thumbnails.
+CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 2, 'stimmapackage': 1}
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -651,12 +651,15 @@ def _generate_placeholder_thumbnail(size: int, icon_type: str = 'default', palet
     unit = size // 10
 
     if icon_type == 'set':
-        # Draw stacked rectangles
+        # Center the entire stack, including both offsets and the final edge.
+        card_size = 5 * unit
+        stack_size = card_size + 2 * unit
+        start = (size - 1 - stack_size) // 2
         for i in range(3):
             offset = i * unit
             draw.rectangle([
-                center - 3*unit + offset, center - 2*unit + offset,
-                center + 2*unit + offset, center + 3*unit + offset
+                start + offset, start + offset,
+                start + card_size + offset, start + card_size + offset
             ], outline=color, width=max(1, size // 64))
     elif icon_type == 'grid':
         # Draw a 3x3 grid
@@ -951,6 +954,19 @@ def _generate_grid_preview(
         return _generate_placeholder_thumbnail(size, 'grid', palette=palette)
 
 
+def _load_container_preview_image(path: str | Path) -> Image.Image:
+    """Load a still image or a video's first frame for a container thumbnail."""
+    if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
+        from utils.video_frames import extract_frame_to_image
+
+        source, _, _, _ = extract_frame_to_image(path, position="first")
+    else:
+        source = Image.open(path)
+    with source:
+        source.load()
+        return ImageOps.exif_transpose(source)
+
+
 def _create_stacked_cards(image_paths: list, size: int, palette=None) -> Image.Image:
     """Create stacked cards from up to 3 images or videos' first frames."""
     from PIL import ImageDraw
@@ -977,14 +993,7 @@ def _create_stacked_cards(image_paths: list, size: int, palette=None) -> Image.I
             x = (size - card_width) // 2 - offset * stack_idx + offset
             y = (size - card_height) // 2 - offset * stack_idx + offset
 
-            if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
-                from utils.video_frames import extract_frame_to_image
-
-                thumb, _, _, _ = extract_frame_to_image(path, position="first")
-            else:
-                thumb = Image.open(path)
-                thumb.load()  # Force full image load before any operations
-            thumb = ImageOps.exif_transpose(thumb)
+            thumb = _load_container_preview_image(path)
             if thumb.mode not in ('RGB', 'RGBA'):
                 thumb = thumb.convert('RGB')
 
@@ -1143,14 +1152,7 @@ def _create_grid_mosaic(
 
         if path:
             try:
-                if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
-                    from utils.video_frames import extract_frame_to_image
-
-                    thumb, _, _, _ = extract_frame_to_image(path, position="first")
-                else:
-                    thumb = Image.open(path)
-                    thumb.load()  # Force full image load before any operations
-                thumb = ImageOps.exif_transpose(thumb)
+                thumb = _load_container_preview_image(path)
                 if thumb.mode not in ('RGB', 'RGBA'):
                     thumb = thumb.convert('RGB')
 
@@ -1301,16 +1303,16 @@ def _generate_package_preview(
         hero_path = None
         for member in manifest.get('members') or []:
             candidate = bundle / (member.get('path') or '')
-            if candidate.is_file() and candidate.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}:
+            if candidate.is_file() and candidate.suffix.lower().lstrip('.') in CONTAINER_VISUAL_FORMATS:
                 hero_path = candidate
                 break
         if hero_path is None:
-            # No usable member: fall back to the largest raster any run produced.
+            # No usable member: fall back to the largest visual output from a run.
             candidates = []
             for run in manifest.get('runs') or []:
                 for entry in run.get('files') or []:
                     path = bundle / entry['path']
-                    if path.suffix.lower() == '.png' and path.is_file():
+                    if path.suffix.lower().lstrip('.') in CONTAINER_VISUAL_FORMATS and path.is_file():
                         candidates.append((entry.get('size') or 0, path))
             if candidates:
                 hero_path = max(candidates)[1]
@@ -1323,7 +1325,7 @@ def _generate_package_preview(
 
         shelf_h = max(10, size // 7)
         canvas = Image.new('RGB', (size, size), palette['package_bg'])
-        with Image.open(hero_path) as im:
+        with _load_container_preview_image(hero_path) as im:
             hero = im.convert('RGBA')
         margin = max(3, size // 9)
         fitted = _fit_rgba(hero, size - 2 * margin, size - shelf_h - 2 * margin, pixelated=False)
@@ -2357,8 +2359,8 @@ async def get_thumbnail(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
-    if fmt_lower == 'stimmaset.json':
-        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
+    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
+        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
@@ -2967,8 +2969,8 @@ async def get_thumbnail_by_db_guid(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
-    if fmt_lower == 'stimmaset.json':
-        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
+    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
+        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
@@ -3320,8 +3322,8 @@ async def get_thumbnail_path_by_media_id(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
-    if fmt_lower == 'stimmaset.json':
-        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
+    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
+        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
