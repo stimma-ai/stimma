@@ -396,7 +396,15 @@ def render_tool_stub(
     # provider schema, resolved at dispatch.
     supports_params_from = "prompt" in (schema.get("properties") or {})
     # Data tools (detect-objects, ...) return a plain dict of results, not media.
-    metadata_only = bool((getattr(descriptor, "metadata", None) or {}).get("metadata_only"))
+    metadata = getattr(descriptor, "metadata", None) or {}
+    metadata_only = bool(metadata.get("metadata_only"))
+    # Provider-authored guidance for calling the tool (STP metadata.instructions),
+    # e.g. which input_images slot is the first frame and which the last.
+    instructions = metadata.get("instructions")
+    instructions = (
+        " ".join(instructions.split()).replace("\\", "\\\\").replace('"""', '\\"""')
+        if isinstance(instructions, str) else ""
+    )
     output_keys = list(((getattr(descriptor, "output_schema", None) or {}).get("properties") or {}).keys())
 
     lines: list[str] = []
@@ -440,6 +448,9 @@ def render_tool_stub(
     if description:
         doc.append("")
         doc.append(description)
+    if instructions:
+        doc.append("")
+        doc.append(f"Usage: {instructions}")
     doc.append("")
     doc.append(f'tool_id: "{binding.tool_id}"  ·  task_type: "{binding.task_type}"')
     doc.append("")

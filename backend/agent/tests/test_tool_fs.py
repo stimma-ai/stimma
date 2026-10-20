@@ -395,3 +395,43 @@ def test_importing_unknown_tool_lists_real_names():
     # dunders still raise AttributeError so import machinery isn't broken
     with pytest.raises(AttributeError):
         getattr(mod, "__path__")
+
+
+def test_provider_instructions_render_as_usage():
+    """STP metadata.instructions is how a provider tells the agent how to call
+    the tool (e.g. input_images=[first_frame, last_frame]); it must survive into
+    the stub, and quoting in it must not break the stub's docstring."""
+
+    @dataclass
+    class InstructedDescriptor(FakeDescriptor):
+        metadata: dict = field(default_factory=lambda: {
+            "instructions": 'Pass input_images=[first_frame, last_frame].\n  Say """end""" \\ once.',
+        })
+
+    binding = tool_fs.ToolBinding(
+        func_name="flf",
+        module="flf",
+        task_type="image-to-video",
+        tool_id="comfyui:flf",
+        descriptor=InstructedDescriptor(
+            name="FLF",
+            description="Start and end frames.",
+            task_types=["image-to-video"],
+            parameter_schema={
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string"},
+                    "input_images": {
+                        "type": "array",
+                        "description": "Item 1: First frame. Item 2: Optional last frame.",
+                    },
+                },
+                "required": ["prompt", "input_images"],
+            },
+        ),
+    )
+    text, _ = tool_fs.render_tool_stub(binding)
+    tree = ast.parse(text)
+    doc = ast.get_docstring(next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef)))
+    assert 'Usage: Pass input_images=[first_frame, last_frame]. Say """end""" \\ once.' in doc
+    assert "input_images: Item 1: First frame. Item 2: Optional last frame." in doc
