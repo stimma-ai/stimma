@@ -114,6 +114,9 @@ async def test_call_tool_accepts_the_flag_nested_in_parameters():
         ("qwen-image-2512", None, "text-to-image", None),
         ("sdxl_base_1.0", None, "text-to-image", None),
         ("ltx-2", None, "text-to-video", None),
+        ("ltx-2.3", None, "image-to-video", None),
+        ("ltx-2.5", None, "text-to-video", "LTX-2.5"),
+        ("ltx-2.5", None, "image-to-video", "LTX-2.5"),
     ],
 )
 def test_native_prompt_format(model, vendor, task, expected):

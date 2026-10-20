@@ -69,6 +69,15 @@ def test_minimax_h3_gets_structured_video_mode():
     assert enhancement_mode(model_family("minimax-h3-i2v"), is_video=True) == "minimax-h3"
 
 
+def test_ltx_25_gets_its_own_video_mode():
+    for is_video in (True, False):
+        assert enhancement_mode(model_family("ltx-2.5"), is_video=is_video) == "ltx-2.5"
+    assert enhancement_mode("ltx-2.5", is_video=True, is_image_edit=True) == "ltx-2.5"
+    assert enhancement_mode("ltx-2.5", is_video=True, is_audio=True) == "audio"
+    for model in ("ltx-2", "ltx-2.3"):
+        assert enhancement_mode(model_family(model), is_video=True) == "cinematography"
+
+
 def test_qwen_image_21_has_its_own_generate_and_edit_modes():
     family = model_family("qwen-image-2.1")
     assert enhancement_mode(family) == "qwen-image-2.1"
@@ -137,6 +146,11 @@ def test_improve_request_defaults_input_image_count_zero():
             "Please improve this prompt with a light touch:",
         ),
         (
+            ImprovePromptRequest(prompt="locked-off medium shot of a speaker", model="ltx-2.5", is_video=True),
+            "improve_ltx_25_system_prompt",
+            "Rewrite this request as an LTX-2.5 audiovisual caption.",
+        ),
+        (
             ImprovePromptRequest(prompt="soft leather rustle", model="some-unknown-model", is_audio=True),
             "improve_audio_system_prompt",
             "Please improve this prompt with a light touch:",
@@ -187,7 +201,14 @@ async def test_improve_prompt_selects_expected_variant_without_source_image(
     assert prompt_variant_probe["messages"][1]["content"].startswith(expected_user_prefix)
 
 
-async def test_improve_prompt_selects_i2v_source_image_variant(prompt_variant_probe, monkeypatch):
+@pytest.mark.parametrize("model, expected_prompt_key", [
+    ("some-unknown-model", "improve_cinematography_image_system_prompt"),
+    ("ltx-2.3", "improve_cinematography_image_system_prompt"),
+    ("ltx-2.5", "improve_ltx_25_image_system_prompt"),
+])
+async def test_improve_prompt_selects_i2v_source_image_variant(
+    prompt_variant_probe, monkeypatch, model, expected_prompt_key
+):
     import routes.prompt_enhancement as pe
 
     async def fake_source_image(session, media_id):
@@ -199,7 +220,7 @@ async def test_improve_prompt_selects_i2v_source_image_variant(prompt_variant_pr
     response = await pe.improve_prompt(
         ImprovePromptRequest(
             prompt="slow dolly in toward the handbag",
-            model="some-unknown-model",
+            model=model,
             is_video=True,
             media_id=123,
         ),
@@ -207,12 +228,30 @@ async def test_improve_prompt_selects_i2v_source_image_variant(prompt_variant_pr
     )
 
     assert response.improved_prompt == "improved prompt"
-    assert prompt_variant_probe["prompt_keys"] == ["improve_cinematography_image_system_prompt"]
+    assert prompt_variant_probe["prompt_keys"] == [expected_prompt_key]
     user_content = prompt_variant_probe["messages"][1]["content"]
     assert isinstance(user_content, list)
     assert user_content[0]["type"] == "text"
     assert "first frame" in user_content[0]["text"]
     assert user_content[1]["image_url"]["url"] == "data:image/jpeg;base64,abc123"
+
+
+async def test_ltx_25_unavailable_source_frame_keeps_model_specific_prompt(prompt_variant_probe, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    async def missing_source_image(session, media_id):
+        return None
+
+    monkeypatch.setattr(pe, "_load_source_image_b64", missing_source_image)
+    await pe.improve_prompt(
+        ImprovePromptRequest(prompt='She says, "Hello."', model="ltx-2.5", is_video=True, media_id=123),
+        session=None,
+    )
+
+    assert prompt_variant_probe["prompt_keys"] == ["improve_ltx_25_system_prompt"]
+    messages = prompt_variant_probe["messages"]
+    assert "keep the spoken words exactly as written" in messages[0]["content"]
+    assert "attached image" not in messages[1]["content"]
 
 
 async def test_h3_fl2va_attaches_both_frames_in_order(prompt_variant_probe, monkeypatch):

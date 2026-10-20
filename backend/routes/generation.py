@@ -473,6 +473,7 @@ _NATIVE_PROMPT_FORMAT_LABELS = {
     "qwen-image-2.1": "Qwen-Image-2.1",
     "flux3-klein": "FLUX.3 Klein",
     "minimax-h3": "MiniMax H3",
+    "ltx-2.5": "LTX-2.5",
 }
 
 

@@ -38,7 +38,7 @@ _KEYWORD_FAMILIES = frozenset({
 })
 _VIDEO_FAMILIES = frozenset({
     "stable-video-diffusion", "wan-2.2", "wan-2.1", "wan-other",
-    "hunyuan-video", "minimax-h3", "ltx-video", "mochi", "cogvideo",
+    "hunyuan-video", "minimax-h3", "ltx-video", "ltx-2.5", "mochi", "cogvideo",
     "veo-3", "veo-2", "kling", "runway-gen", "sora", "seedance",
 })
 
@@ -49,7 +49,8 @@ def enhancement_mode(
     """Map (task, modelFamily) to an enhancement style.
 
     The TASK is authoritative for audio, video and edits: any audio tool gets the
-    sound-focused ``audio`` style, any video tool gets cinematography, and a
+    sound-focused ``audio`` style, video tools get cinematography (or their
+    model-specific video style), and a
     natural-language image model fed input image(s) gets ``edit`` — all regardless
     of whether the model string is recognized (``is_audio`` / ``is_video`` /
     ``is_image_edit`` come from the tool's I/O, not the model name).
@@ -63,6 +64,8 @@ def enhancement_mode(
         return "audio"
     if family == "minimax-h3" and (is_video or family in _VIDEO_FAMILIES):
         return "minimax-h3"
+    if family == "ltx-2.5":
+        return "ltx-2.5"
     if is_video or family in _VIDEO_FAMILIES:
         return "cinematography"
     if family == "qwen-image-2.1":
@@ -84,6 +87,7 @@ def enhancement_mode(
 _IMPROVE_PROMPT_BY_MODE = {
     "keyword": "improve_keyword_system_prompt",
     "cinematography": "improve_cinematography_system_prompt",
+    "ltx-2.5": "improve_ltx_25_system_prompt",
     "minimax-h3": "improve_minimax_h3_system_prompt",
     "qwen-image-2.1": "improve_qwen_image_21_system_prompt",
     "qwen-image-2.1-edit": "improve_qwen_image_21_edit_system_prompt",
@@ -898,7 +902,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         is_audio=request.is_audio,
     )
 
-    # i2v: on the cinematography path, show the source frame to the model so the
+    # i2v: on the cinematography paths, show the source frame to the model so the
     # prompt animates the real image. Best-effort — if the frame can't be loaded
     # we fall back to the text-only cinematography prompt.
     source_images_b64: List[tuple[int, str]] = []
@@ -916,7 +920,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             loaded = await _load_source_image_b64(session, media_id)
             if loaded:
                 source_images_b64.append((image_number, loaded))
-    elif mode == "cinematography" and request.media_id is not None:
+    elif mode in {"cinematography", "ltx-2.5"} and request.media_id is not None:
         loaded = await _load_source_image_b64(session, request.media_id)
         if loaded:
             source_images_b64.append((1, loaded))
@@ -924,6 +928,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     prompt_key = _IMPROVE_PROMPT_BY_MODE.get(mode, "improve_system_prompt")
     if source_images_b64 and mode == "cinematography":
         prompt_key = "improve_cinematography_image_system_prompt"
+    elif source_images_b64 and mode == "ltx-2.5":
+        prompt_key = "improve_ltx_25_image_system_prompt"
     prompt_from_file = get_prompt("prompt_enhancement", prompt_key)
     if not prompt_from_file and prompt_key != "improve_system_prompt":
         # A family-specific prompt isn't configured — fall back to prose.
@@ -970,7 +976,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         _protected_text_guidance(
             request.prompt,
             keyword_mode=(mode == "keyword"),
-            cinematography=(mode in {"cinematography", "minimax-h3"}),
+            cinematography=(mode in {"cinematography", "minimax-h3", "ltx-2.5"}),
             audio_conditioned=request.audio_conditioned,
             audio_disabled=(mode == "minimax-h3" and not request.h3_generate_audio),
         ),
@@ -1024,6 +1030,17 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         user_content = (
             "Rewrite this request as a FLUX.3 Klein text-to-image caption. "
             f"Return only the final model prompt:\n\n{request.prompt}{instr}"
+        )
+    elif mode == "ltx-2.5":
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        frame_context = (
+            " The attached image is the exact first frame; ground the opening composition in it."
+            if source_images_b64 else ""
+        )
+        user_content = (
+            "Rewrite this request as an LTX-2.5 audiovisual caption."
+            f"{frame_context} Return only the final model prompt:\n\n{request.prompt}{instr}"
         )
     elif source_images_b64:
         # i2v: the attached frame is reference; the user's text is direction for

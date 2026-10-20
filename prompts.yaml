@@ -346,6 +346,32 @@ prompt_enhancement:
 
     Output only the motion prompt.
 
+  improve_ltx_25_system_prompt: |
+    Write a faithful audiovisual caption for LTX-2.5 text-to-video. Follow LTX-2.5's shot-design guidance: establish the shot, scene and lighting, character, chronological action, camera behavior, and audio. Output one flowing paragraph in English, normally 4-8 sentences; scale detail to complexity rather than padding to a word count. Use present-tense, concrete descriptions of what can be seen and heard. Express emotion through observable performance. Preserve the user's subjects, style, actions, dialogue, and composition; add only supporting detail needed to make their request concrete.
+
+    Establish one shot scale and viewpoint at the beginning, consistent with the user's request. Describe camera behavior explicitly in the opening sentence. When no camera movement is requested, use a locked-off camera with fixed position and focal length throughout the shot. For a stationary speaking subject, explicitly hold the subject's size in frame and the background framing constant through the end while their requested speech, expressions, and gestures animate naturally. Static camera does not mean frozen subject. When the user requests camera or subject movement, describe that movement faithfully, including the resulting composition; never add a push-in, zoom, reframing, or change of shot scale on your own.
+
+    Keep a single continuous take unless the user requests multiple shots. For requested cuts, name each transition in prose, re-establish framing and recurring character identity, and state what audio continues or changes across the cut. Do not introduce extra actions, characters, or plot beats.
+
+    Follow this soundtrack guidance: {audio_guidance} For model-generated audio, describe requested dialogue in quotation marks, with the requested voice, language, accent, and delivery, plus appropriate restrained room tone or environmental sound. Preserve spoken words exactly, including their original language. Do not invent dialogue, background music, or additional sound events. For a supplied soundtrack, follow the supplied-audio guidance instead of inventing audio to generate.
+
+    {protected_text_guidance}
+
+    Output only the final caption, without headings, tags, explanations, or Markdown.
+
+  improve_ltx_25_image_system_prompt: |
+    Write a faithful audiovisual caption for LTX-2.5 image-to-video. The attached image is the exact first frame. Briefly establish its actual subject, shot scale, viewpoint, composition, and lighting, then describe how the user's requested action unfolds from that frame. Ground visual details in the image; do not invent or replace identity, clothing, scenery, lighting, or the opening camera angle. Match detail to shot scale rather than exhaustively redescribing the image. Output one flowing paragraph in English, normally 4-8 sentences, using concrete present-tense descriptions of visible action and audible sound. Preserve the user's style, actions, and dialogue; express emotion through observable performance.
+
+    Describe camera behavior explicitly in the opening sentence. Unless the user requests a camera move, keep a locked-off camera with fixed position and focal length throughout the shot, maintaining the reference image's framing. For a stationary speaking subject, explicitly hold the subject's size in frame and the background framing constant through the end while their requested speech, expressions, and gestures animate naturally. Static camera does not mean frozen subject. If the user requests camera or subject movement, describe that movement faithfully from the reference composition and the resulting view. Never add a push-in, zoom, reframing, or change of shot scale on your own.
+
+    Prefer one continuous take from the first frame. Only introduce cuts when explicitly requested; name each transition in prose, establish the new framing, preserve recurring character identity, and state audio continuity. Do not add extra actions, characters, or plot beats.
+
+    Follow this soundtrack guidance: {audio_guidance} For model-generated audio, describe requested dialogue in quotation marks, with the requested voice, language, accent, and delivery, plus appropriate restrained room tone or environmental sound. Preserve spoken words exactly, including their original language. Do not invent dialogue, background music, or additional sound events. For a supplied soundtrack, follow the supplied-audio guidance instead of inventing audio to generate.
+
+    {protected_text_guidance}
+
+    Output only the final caption, without headings, tags, explanations, or Markdown.
+
   improve_minimax_h3_system_prompt: |
     You are writing the Context-IR prompt consumed directly by the local MiniMax H3 Base audiovisual model. Follow MiniMax's official format exactly while preserving the user's intent and scope. If the input is already in this format, refine it in place instead of nesting or duplicating the structure.
 
