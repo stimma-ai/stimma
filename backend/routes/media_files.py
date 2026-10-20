@@ -56,9 +56,12 @@ ID_KEYED_CACHE_HEADERS = {
 
 THEMED_FORMATS = {'md', 'stimmaset.json', 'stimmagrid.json', 'stimmasprite.json', 'stimmalayout', 'stimmapackage', 'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'}
 
-GRID_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
-GRID_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
-GRID_VISUAL_FORMATS = GRID_IMAGE_FORMATS | GRID_VIDEO_FORMATS
+CONTAINER_IMAGE_FORMATS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'}
+CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
+CONTAINER_VISUAL_FORMATS = CONTAINER_IMAGE_FORMATS | CONTAINER_VIDEO_FORMATS
+
+# Regenerate cached set placeholders without invalidating other media thumbnails.
+SET_PREVIEW_VERSION = 1
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -694,8 +697,8 @@ def _generate_set_preview(
         items = (normalized_content or data).get('items', [])
         base_path = PathLib(file_path).parent
 
-        # Collect valid image paths (up to 3 for stacked cards). Track whether
-        # any image member is referenced but not yet on disk — a member payload
+        # Collect valid visual-media paths (up to 3 for stacked cards). Track whether
+        # any visual member is referenced but not yet on disk — a member payload
         # still staging/ingesting — so a transient miss doesn't get cached as a
         # permanent placeholder.
         image_paths = []
@@ -714,11 +717,10 @@ def _generate_set_preview(
             else:
                 full_path = (base_path / ref).resolve()
 
-            is_image_ref = full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
-            # Check if it's an image file that exists
-            if is_image_ref and full_path.exists():
+            is_visual_ref = full_path.suffix.lower().lstrip('.') in CONTAINER_VISUAL_FORMATS
+            if is_visual_ref and full_path.exists():
                 image_paths.append(str(full_path))
-            elif is_image_ref and resolved_path:
+            elif is_visual_ref and resolved_path:
                 # A live, resolved member whose payload hasn't landed on disk
                 # yet (still staging/ingesting). Unavailable/old-style entries
                 # (no resolved path) are treated as a stable placeholder below.
@@ -726,10 +728,10 @@ def _generate_set_preview(
 
         if not image_paths:
             if members_pending:
-                # Image members exist but their files haven't landed yet —
+                # Visual members exist but their files haven't landed yet —
                 # retryable, do not cache the placeholder.
                 raise ContainerMembersPending(file_path)
-            # Genuinely no image members: a stable, cacheable placeholder.
+            # Genuinely no visual members: a stable, cacheable placeholder.
             return _generate_placeholder_thumbnail(size, 'set', palette=palette)
 
         # Create stacked cards preview
@@ -910,7 +912,7 @@ def _generate_grid_preview(
                 full_path = ref
             else:
                 full_path = (base_path / ref).resolve()
-            is_visual_ref = full_path.suffix.lower().lstrip('.') in GRID_VISUAL_FORMATS
+            is_visual_ref = full_path.suffix.lower().lstrip('.') in CONTAINER_VISUAL_FORMATS
             if is_visual_ref and full_path.exists():
                 return str(full_path)
             if is_visual_ref and resolved_path:
@@ -950,7 +952,7 @@ def _generate_grid_preview(
 
 
 def _create_stacked_cards(image_paths: list, size: int, palette=None) -> Image.Image:
-    """Create a stacked cards preview (like a deck of photos) from up to 3 images."""
+    """Create stacked cards from up to 3 images or videos' first frames."""
     from PIL import ImageDraw
 
     palette = palette or THEME_PALETTES['dark']
@@ -975,8 +977,13 @@ def _create_stacked_cards(image_paths: list, size: int, palette=None) -> Image.I
             x = (size - card_width) // 2 - offset * stack_idx + offset
             y = (size - card_height) // 2 - offset * stack_idx + offset
 
-            thumb = Image.open(path)
-            thumb.load()  # Force full image load before any operations
+            if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
+                from utils.video_frames import extract_frame_to_image
+
+                thumb, _, _, _ = extract_frame_to_image(path, position="first")
+            else:
+                thumb = Image.open(path)
+                thumb.load()  # Force full image load before any operations
             thumb = ImageOps.exif_transpose(thumb)
             if thumb.mode not in ('RGB', 'RGBA'):
                 thumb = thumb.convert('RGB')
@@ -1136,7 +1143,7 @@ def _create_grid_mosaic(
 
         if path:
             try:
-                if Path(path).suffix.lower().lstrip('.') in GRID_VIDEO_FORMATS:
+                if Path(path).suffix.lower().lstrip('.') in CONTAINER_VIDEO_FORMATS:
                     from utils.video_frames import extract_frame_to_image
 
                     thumb, _, _, _ = extract_frame_to_image(path, position="first")
@@ -2350,6 +2357,8 @@ async def get_thumbnail(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
+    if fmt_lower == 'stimmaset.json':
+        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
@@ -2958,6 +2967,8 @@ async def get_thumbnail_by_db_guid(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
+    if fmt_lower == 'stimmaset.json':
+        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
@@ -3309,6 +3320,8 @@ async def get_thumbnail_path_by_media_id(
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
         except OSError:
             pass
+    if fmt_lower == 'stimmaset.json':
+        mtime_suffix += f"_set{SET_PREVIEW_VERSION}"
     if fmt_lower == 'svg':
         # Scoped to SVG so changing how vector thumbnails are grounded does not
         # invalidate every raster thumbnail in the library.
