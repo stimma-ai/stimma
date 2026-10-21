@@ -16,6 +16,13 @@ if not any('--multiprocessing' in arg or 'from multiprocessing' in arg for arg i
             os.setpgrp()
         except OSError:
             pass  # May fail if already a process group leader
+        # Run from a terminal, we're now outside its foreground group, so a child
+        # that touches the terminal (ffmpeg sets up stdin for its key commands)
+        # stops this whole group with SIGTTOU. Nothing here reads stdin.
+        if sys.stdin is not None and sys.stdin.isatty():
+            _devnull = os.open(os.devnull, os.O_RDONLY)
+            os.dup2(_devnull, 0)
+            os.close(_devnull)
 
 # Desktop launchers can inherit a stale or minimal PATH. Refresh it before any
 # services check for external tools such as ffmpeg and ffprobe.
