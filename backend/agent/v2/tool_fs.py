@@ -318,18 +318,33 @@ def _render_params(
         nested_notes: list[str] = []
         items_schema = prop.get("items")
         if isinstance(items_schema, dict):
+            item_required = set(items_schema.get("required") or [])
+            # Structured items (list[dict]) can't carry their fields in the
+            # annotation, so every field is documented; plain item enums keep
+            # the short form.
+            document_all = prop.get("x-control") not in (None, "lora_picker") or item_required
             for sub_name, sub_prop in (items_schema.get("properties") or {}).items():
                 if not isinstance(sub_prop, dict):
                     continue
                 sub_enum = sub_prop.get("enum")
-                if not (isinstance(sub_enum, list) and sub_enum):
+                if isinstance(sub_enum, list) and sub_enum:
+                    sub_stem = handle_enums(sub_prop, f"{name}.{sub_name}")
+                    if sub_stem:
+                        note = f"see .stimma/enums/{sub_stem}.txt (grep it)"
+                    else:
+                        note = "one of " + ", ".join(repr(str(v)) for v in sub_enum)
+                    nested_notes.append(f"{name}[].{sub_name}: {note}")
                     continue
-                sub_stem = handle_enums(sub_prop, f"{name}.{sub_name}")
-                if sub_stem:
-                    note = f"see .stimma/enums/{sub_stem}.txt (grep it)"
-                else:
-                    note = "one of " + ", ".join(repr(str(v)) for v in sub_enum)
-                nested_notes.append(f"{name}[].{sub_name}: {note}")
+                if not document_all:
+                    continue
+                parts = [_py_type_for(sub_prop, sub_name, enum_inline=True)]
+                if sub_name in item_required:
+                    parts.append("required")
+                if sub_prop.get("x-media") is not None:
+                    parts.append("library media id or workspace path")
+                desc = " ".join(str(sub_prop.get("description") or "").split())
+                nested_notes.append(
+                    f"{name}[].{sub_name} ({', '.join(parts)})" + (f": {desc}" if desc else ""))
 
         annotation = _py_type_for(prop, name, enum_inline=inline)
         is_required = name in required

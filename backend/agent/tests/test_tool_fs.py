@@ -435,3 +435,47 @@ def test_provider_instructions_render_as_usage():
     doc = ast.get_docstring(next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef)))
     assert 'Usage: Pass input_images=[first_frame, last_frame]. Say """end""" \\ once.' in doc
     assert "input_images: Item 1: First frame. Item 2: Optional last frame." in doc
+
+
+def test_structured_media_param_documents_item_fields():
+    """A keyframes-style list[dict] can't show its fields in the annotation, so the
+    stub documents each one, including that media fields take an id or a path."""
+    binding = tool_fs.ToolBinding(
+        func_name="h3_r2v",
+        module="h3_r2v",
+        task_type="reference-to-video",
+        tool_id="comfyui:h3-r2v",
+        descriptor=FakeDescriptor(
+            name="H3 R2V",
+            description="References to video.",
+            task_types=["reference-to-video"],
+            parameter_schema={
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string"},
+                    "keyframes": {
+                        "type": "array",
+                        "x-control": "keyframes",
+                        "description": "Pin stills or clips.",
+                        "items": {
+                            "type": "object",
+                            "required": ["media", "at"],
+                            "properties": {
+                                "media": {"type": "string", "x-media": ["image", "video"],
+                                          "description": "A still or a video."},
+                                "at": {"type": "number", "description": "Seconds into the output."},
+                                "sound": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+                "required": ["prompt"],
+            },
+        ),
+    )
+    text, _ = tool_fs.render_tool_stub(binding)
+    ast.parse(text)
+    assert "keyframes: list[dict] = []" in text
+    assert "keyframes[].media (str, required, library media id or workspace path): A still or a video." in text
+    assert "keyframes[].at (float, required): Seconds into the output." in text
+    assert "keyframes[].sound (bool)" in text

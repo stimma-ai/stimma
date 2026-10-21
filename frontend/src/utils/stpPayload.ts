@@ -43,6 +43,8 @@ export function buildStpCallPayload(
   if (params && typeof params === 'object') {
     for (const [key, value] of Object.entries(params)) {
       if (INTERNAL_KEYS.has(key)) continue
+      // Lineage ids for structured media params (e.g. keyframes_media_ids).
+      if (key.endsWith('_media_ids')) continue
       if (value === undefined) continue
       parameters[key] = value
     }

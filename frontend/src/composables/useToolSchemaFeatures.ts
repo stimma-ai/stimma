@@ -3,6 +3,7 @@ import { detectResolutionControls } from '../utils/resolutionControls'
 import type { ScaleFactorConstraints } from '../utils/resolutionControls'
 import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
 import type { ParamConstraint, ConstraintExpr } from '../utils/paramConstraints'
+import { keyframesConfigFromSchema, type KeyframesConfig } from '../utils/keyframes'
 
 // Special param names that have dedicated UI components
 const SPECIAL_PARAM_NAMES = new Set([
@@ -154,6 +155,8 @@ export interface UseToolSchemaFeaturesReturn {
   visualMediaInputConfigs: ComputedRef<MediaInputConfig[]>
   // Audio input configuration (separate section, audio-conditioned tools)
   audioInputConfig: ComputedRef<MediaInputConfig | null>
+  // Keyframes timeline (x-control: keyframes), null when the tool has none
+  keyframesConfig: ComputedRef<KeyframesConfig | null>
 
   // Schema-derived choices
   aspectRatioChoices: ComputedRef<string[]>
@@ -404,6 +407,14 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     }
   })
 
+  const keyframesConfig = computed((): KeyframesConfig | null => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    for (const [name, schema] of Object.entries(props)) {
+      if ((schema as any)?.['x-control'] === 'keyframes') return keyframesConfigFromSchema(name, schema)
+    }
+    return null
+  })
+
   // Whether this tool generates "from scratch" (no required input media)
   const isFromScratch = computed(() => {
     return visualMediaInputConfigs.value.length === 0 && !audioInputConfig.value && !hasVideoFrames.value
@@ -465,6 +476,9 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
 
       // Skip params with upscale_resolution control (handled by UpscaleResolutionPicker)
       if (s['x-control'] === 'upscale_resolution') continue
+
+      // Keyframes have their own timeline section
+      if (s['x-control'] === 'keyframes') continue
 
       params.push({
         name,
@@ -619,6 +633,7 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     mediaInputConfig,
     visualMediaInputConfigs,
     audioInputConfig,
+    keyframesConfig,
 
     // Schema-derived choices
     aspectRatioChoices,

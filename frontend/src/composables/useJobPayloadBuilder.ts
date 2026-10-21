@@ -6,6 +6,7 @@
  */
 
 import axios from 'axios'
+import { toWire as keyframesToWire, lineageIds as keyframeLineageIds } from '../utils/keyframes.ts'
 
 const API_BASE = '/api'
 
@@ -233,6 +234,19 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
   for (const fieldName of Object.keys(props)) {
     if (fieldName === 'input_images' && usesVideoFramePicker(config)) {
       params.input_images = activePickedImages(config, state).map(image => image.path)
+      continue
+    }
+    if (props[fieldName]?.['x-control'] === 'keyframes') {
+      // Display items → the schema's {media, at, from, length, sound}; library
+      // ids ride along positionally for lineage (stripped before the provider).
+      const items = state.modelParams[fieldName]
+      if (Array.isArray(items) && items.length) {
+        const timeline = props[fieldName]['x-timeline'] || {}
+        const duration = Number(state.modelParams[timeline.duration || 'duration']) || 0
+        params[fieldName] = keyframesToWire(items, duration)
+        const ids = keyframeLineageIds(items, duration)
+        if (ids.some(id => id != null)) params[`${fieldName}_media_ids`] = ids
+      }
       continue
     }
     const extractor = paramExtractors[fieldName]

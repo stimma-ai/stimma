@@ -216,10 +216,24 @@ def _h3_task_guidance(
             else:
                 meaning = "standalone reference audio"
             entries.append(f"- <{label}>: {meaning}")
-        mapping = "\n".join(entries) or "- No references were supplied (invalid request)."
-        return (
-            "This is REF2VA. Do not write first-frame, last-frame, or timeline-alignment instructions. "
-            "Begin directly with integrated_multimodal_description. The model receives references in "
+        mapping = "\n".join(entries) or "- No references were supplied."
+        pins = []
+        for item in reference_manifest or []:
+            if item.get("kind") != "keyframe":
+                continue
+            at = float(item.get("at") or 0.0)
+            length = float(item.get("length") or 0.0)
+            if length > 0:
+                what = f"a {length:.2f}-second clip" + (" with its sound" if item.get("sound") else "")
+            else:
+                what = "a still frame"
+            where = "the end" if seconds and at >= seconds else f"{min(at, seconds or at):.2f} seconds"
+            pins.append(f"- at {where}: {what}")
+        guidance = (
+            "This is REF2VA. "
+            + ("Do not write first-frame or last-frame alignment headers. " if pins else
+               "Do not write first-frame, last-frame, or timeline-alignment instructions. ")
+            + "Begin directly with integrated_multimodal_description. The model receives references in "
             "the exact presentation order below; these tags are positional and must not be renamed, "
             "renumbered, swapped, or described as keyframes:\n"
             f"{mapping}\n"
@@ -228,6 +242,13 @@ def _h3_task_guidance(
             "A paired <Audio N> appears immediately before its matching <Video N> in the model input, "
             "but they remain distinct tags and should be assigned distinct audio/video roles."
         )
+        if pins:
+            guidance += (
+                "\nThe target video is also pinned to these moments on its timeline. They are not tags; "
+                "describe them in words, and write the action so it passes through each one at its time "
+                "and continues naturally from any pinned clip:\n" + "\n".join(pins)
+            )
+        return guidance
     if task == "i2va":
         return (
             "This is I2VA. The output MUST begin with this exact line, followed by one blank line:\n"

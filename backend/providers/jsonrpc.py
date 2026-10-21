@@ -27,6 +27,7 @@ import aiohttp
 from core.logging import get_logger
 from tasks.schemas import validate_tool_schema, validate_tool_schema_multi, is_known_task_type, normalize_task_type
 from tool_provider_identity import tool_provider_display_name
+from utils.schema_media import map_media_leaves, media_kinds
 from .base import (
     ExecutionProgress,
     ExecutionResult,
@@ -1769,7 +1770,11 @@ class JsonRpcProvider(ToolProvider):
 
         schema_props = (parameter_schema or {}).get("properties", {})
 
-        async def upload_file(file_path: str, accept: Optional[Dict[str, Any]] = None) -> str:
+        async def upload_file(
+            file_path: str,
+            accept: Optional[Dict[str, Any]] = None,
+            kinds: tuple = (),
+        ) -> str:
             """Upload a file as an asset and return the asset ID."""
             path = Path(file_path)
             if not path.exists() or not path.is_file():
@@ -1784,6 +1789,20 @@ class JsonRpcProvider(ToolProvider):
             accepted_mimes = (accept or {}).get("mime_types") or []
             category = (mime_type or (accepted_mimes[0] if accepted_mimes else "")).split("/")[0]
             mime_type = _sniff_mime(data, category) or mime_type or "application/octet-stream"
+
+            # A video given to an audio-only field means "use its soundtrack".
+            if kinds == ("audio",) and mime_type.startswith("video/"):
+                target = _canon_mime((accept or {}).get("transcode_to")) or "audio/wav"
+                if target not in _AV_TARGETS or not target.startswith("audio/"):
+                    target = "audio/wav"
+                extracted = await _transcode_av_to(path, target)
+                if extracted is None:
+                    raise RuntimeError(
+                        f"Couldn't take the sound from {path.name}. ffmpeg is required to use a video as audio."
+                    )
+                asset_id = await self.upload_asset(extracted, target)
+                log.info(f"Extracted soundtrack {path.name} -> {target} ({len(extracted)} bytes) -> {asset_id}")
+                return asset_id
 
             # Schema-driven conversion: if the tool declared accepted MIME types
             # (`x-accept-media`) and the source isn't one of them, transcode to the
@@ -1806,16 +1825,23 @@ class JsonRpcProvider(ToolProvider):
         # Process single file keys
         for key in single_file_keys:
             if key in parameters and isinstance(parameters[key], str):
-                accept = schema_props.get(key, {}).get("x-accept-media")
-                processed[key] = await upload_file(parameters[key], accept)
+                prop = schema_props.get(key, {})
+                processed[key] = await upload_file(parameters[key], prop.get("x-accept-media"), media_kinds(prop))
 
         # Process array file keys
         for key in array_file_keys:
             if key in parameters and isinstance(parameters[key], list):
-                accept = schema_props.get(key, {}).get("x-accept-media")
-                processed[key] = [await upload_file(p, accept) for p in parameters[key] if isinstance(p, str)]
+                prop = schema_props.get(key, {})
+                accept, kinds = prop.get("x-accept-media"), media_kinds(prop)
+                processed[key] = [await upload_file(p, accept, kinds) for p in parameters[key] if isinstance(p, str)]
 
-        return processed
+        # Media nested in structured params (`x-media` leaves, e.g. keyframes[].media)
+        async def upload_leaf(value, leaf, _path):
+            if not isinstance(value, str):
+                return value
+            return await upload_file(value, leaf.get("x-accept-media"), media_kinds(leaf))
+
+        return await map_media_leaves(processed, parameter_schema, upload_leaf)
 
     async def upload_asset(self, data: bytes, mime_type: str) -> str:
         """Upload an asset to the provider."""

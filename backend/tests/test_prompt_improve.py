@@ -315,6 +315,24 @@ def test_h3_reference_guidance_preserves_exact_model_order_and_roles():
     assert "Use every listed tag at least once" in guidance
 
 
+def test_h3_reference_guidance_describes_pinned_keyframes_in_words():
+    manifest = [
+        {"label": "Picture 1", "kind": "image", "index": 0},
+        {"kind": "keyframe", "at": 0.0, "length": 0.0, "sound": False},
+        {"kind": "keyframe", "at": 2.5, "length": 0.92, "sound": True},
+        {"kind": "keyframe", "at": 8.0, "length": 0.0, "sound": False},
+    ]
+
+    guidance = _h3_task_guidance("ref2va", 8, manifest)
+
+    assert "<Picture 1>" in guidance
+    assert "- at 0.00 seconds: a still frame" in guidance
+    assert "- at 2.50 seconds: a 0.92-second clip with its sound" in guidance
+    assert "- at the end: a still frame" in guidance
+    assert "timeline-alignment instructions" not in guidance
+    assert "They are not tags" in guidance
+
+
 def test_h3_audio_disabled_keeps_schema_but_forces_na():
     guidance = _h3_audio_guidance(False)
     assert "overall_soundscape: N/A" in guidance

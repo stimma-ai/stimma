@@ -176,7 +176,8 @@ const projectId = computed<number | null>(() => {
 const acceptedKinds = computed<RecentInputKind[]>(() =>
   props.accept === 'image'
     ? (props.allowVideoFrames ? ['image', 'video'] : ['image'])
-    : [props.accept]
+    // An audio input can take a video's sound.
+    : props.accept === 'audio' ? ['audio', 'video'] : [props.accept]
 )
 
 // One key for all pickers: the popover remembers the last tab globally.

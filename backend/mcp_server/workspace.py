@@ -10,6 +10,7 @@ from sqlalchemy import select
 from database import Asset, AssetRevision, MediaItem
 from .access import access, McpError
 from .operations import Binding, present
+from utils.schema_media import map_media_leaves
 from core.logging import get_logger
 
 log = get_logger(__name__)
@@ -148,7 +149,13 @@ async def tool_parameters(caller, descriptor, parameters, session):
             # media fields take the file path the provider reads.
             resolved.append(media.id if picker else str(media.file_path))
         result[name] = resolved if many else resolved[0]
-    return result
+
+    # Media nested in structured params (`x-media` leaves, e.g. keyframes[].media)
+    # resolve to library ids, like image pickers, so lineage stays exact.
+    async def resolve_leaf(ref, _leaf, _path):
+        return (await media_row(caller, ref, session)).id
+
+    return await map_media_leaves(result, descriptor.parameter_schema, resolve_leaf)
 
 
 async def media_row(caller, reference, session, *, preview_only=False):

@@ -518,6 +518,17 @@
           :slot-labels="referenceAudioSlotLabels"
         />
 
+        <!-- Keyframes: stills or clips pinned at times on the output -->
+        <KeyframesStrip
+          v-if="keyframesConfig"
+          :config="keyframesConfig"
+          :model-value="keyframeItems"
+          :duration="keyframesDuration"
+          @update:model-value="items => (modelParams[keyframesConfig!.name] = items)"
+          @view-media="openSingleImageSlideshow"
+          @move-to-references="onKeyframeToReferences"
+        />
+
         <!-- Video Parameters: Duration (for tools using duration param) -->
         <div v-if="hasDuration" class="mb-6">
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
@@ -1231,6 +1242,8 @@ import {
   UpscaleResolutionPicker
 } from '../components/generation'
 import type { MediaItem } from '../components/generation/MediaPicker.vue'
+import KeyframesStrip from '../components/generation/KeyframesStrip.vue'
+import { fromWire as keyframesFromWire, keyframesProblems, type KeyframeItem } from '../utils/keyframes'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
 import ToolIcon from '../components/tools/ToolIcon.vue'
@@ -3499,6 +3512,7 @@ const {
   mediaInputConfig,
   visualMediaInputConfigs,
   audioInputConfig,
+  keyframesConfig,
   aspectRatioChoices,
   imageSizeChoices,
   parameterSchema,
@@ -3696,6 +3710,43 @@ const finalResolution = computed(() => {
   return modelParams.value.targetResolution || 1080
 })
 
+// Keyframes live in modelParams under the schema's param name (persisted with
+// the tool state); the strip edits rich display items, the payload builder
+// sends the schema's wire shape.
+const keyframeItems = computed<KeyframeItem[]>(() => {
+  const cfg = keyframesConfig.value
+  const value = cfg ? modelParams.value[cfg.name] : null
+  return Array.isArray(value) ? value : []
+})
+const keyframesDuration = computed(() => {
+  const cfg = keyframesConfig.value
+  const value = cfg ? Number(modelParams.value[cfg.durationParam]) : NaN
+  return Number.isFinite(value) && value > 0 ? value : (durationConfig.value?.default || 5)
+})
+
+function restoreKeyframes(data: any) {
+  const cfg = keyframesConfig.value
+  if (!cfg) return
+  modelParams.value[cfg.name] = keyframesFromWire(data?.[cfg.name], data?.[`${cfg.name}_media_ids`], keyframesDuration.value)
+}
+
+// Touch has no drag: a keyframe's menu moves it into Reference Images.
+function onKeyframeToReferences(mediaId: number) {
+  const config = visualMediaInputConfigs.value.find(c => c.paramKey === 'input_images')
+  if (!config) return
+  const current = mediaItemsForConfig(config)
+  if (current.length >= config.max) {
+    addToast(`Reference Images holds up to ${config.max}`, 'error')
+    return
+  }
+  getMediaItem(mediaId).then((media: any) => {
+    updateMediaItemsForConfig(config, [...current, {
+      path: media.file_path, filename: media.filename || media.file_path?.split('/').pop(),
+      hash: media.file_hash, mediaId: media.id, width: media.width, height: media.height,
+    }])
+  }).catch(() => addToast("Couldn't add that to Reference Images", 'error'))
+}
+
 // Schema-driven field validation checks
 // Maps parameter_schema field names to UI state validation
 const inputFieldChecks: Record<string, () => boolean> = {
@@ -3733,6 +3784,12 @@ const taskTypeValidation = computed(() =>
 /** Why the submit button is dead, when the reason is a task-type rule. */
 const submitBlockedReason = computed(() => taskTypeValidation.value.reason)
 
+// Keyframes (x-control: keyframes) satisfy a requirement only when some are pinned.
+function fieldCheck(field: string): (() => boolean) | undefined {
+  if (keyframesConfig.value?.name === field) return () => keyframeItems.value.length > 0
+  return inputFieldChecks[field]
+}
+
 // Can submit check - schema-driven validation
 const canSubmit = computed(() => {
   if (!tool.value || !outputFolder.value) return false
@@ -3740,8 +3797,12 @@ const canSubmit = computed(() => {
   // Check all required fields from parameter_schema
   const required = tool.value.parameter_schema?.required || []
   for (const field of required) {
-    const check = inputFieldChecks[field]
+    const check = fieldCheck(field)
     if (check && !check()) return false
+  }
+
+  if (keyframesConfig.value && keyframesProblems(keyframeItems.value, keyframesDuration.value, keyframesConfig.value).length) {
+    return false
   }
 
   // Standard JSON Schema cross-field alternatives. A reference-to-video tool
@@ -3752,7 +3813,7 @@ const canSubmit = computed(() => {
     const branchSatisfied = anyOf.some((branch: any) => {
       const fields = Array.isArray(branch?.required) ? branch.required : []
       return fields.length > 0 && fields.every((field: string) => {
-        const check = inputFieldChecks[field]
+        const check = fieldCheck(field)
         return check ? check() : true
       })
     })
@@ -4513,6 +4574,7 @@ async function loadPendingGeneration() {
     if (!update) return
 
     applyAdaptedConfig(update)
+    restoreKeyframes(data)
 
     // "Use these settings" from a lineage step is exact reproduction: the
     // recorded seed comes along and is locked, so Run makes the same image.
@@ -5524,6 +5586,8 @@ function getParamSchemaMap(): Record<string, any> {
     // into parameter_schema, or the agent would set_parameter a key the picker
     // ignores — reporting success while the UI never moves.
     if (raw['x-control'] === 'upscale_resolution') continue
+    // Keyframes are structured media, edited on their own timeline.
+    if (raw['x-control'] === 'keyframes') continue
     const entry: any = { type: raw.type || 'string' }
     if (raw.minimum != null) entry.min = raw.minimum
     if (raw.maximum != null) entry.max = raw.maximum

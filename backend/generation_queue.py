@@ -1279,6 +1279,70 @@ class GenerationQueue:
 
         return processed
 
+    @staticmethod
+    def _coerce_media_ref(value: Any) -> Optional[int]:
+        """A library media id given as int, digit string, or ``media:<id>``."""
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            text = value[6:] if value.startswith("media:") else value
+            if text.isdigit():
+                return int(text)
+        return None
+
+    async def _resolve_nested_media_ids(
+        self, session: AsyncSession, parameters: Dict[str, Any], schema: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Library ids in `x-media` leaves (e.g. ``keyframes[].media``) → file paths."""
+        from utils.schema_media import map_media_leaves
+
+        async def resolve(value, _leaf, path):
+            media_id = self._coerce_media_ref(value)
+            if media_id is None:
+                return value
+            resolved = await self._resolve_media_id_to_path(session, media_id)
+            if not resolved:
+                log.warning(f"Could not resolve {'.'.join(map(str, path))} media_id {media_id} to path")
+            return resolved or value
+
+        return await map_media_leaves(parameters, schema, resolve)
+
+    async def _nested_lineage(self, params: dict, schema: Optional[Dict[str, Any]], profile_id: str) -> dict:
+        """Lineage for `x-media` leaves. Ids come from ``<param>_media_ids`` (positional by
+        leaf order), else from the value itself, else a path lookup."""
+        from utils.schema_media import iter_media_leaves, lineage_id_key
+
+        source_inputs: list = []
+        lineage_trace: list = []
+        leaves = list(iter_media_leaves(params, schema))
+        if not leaves:
+            return {"source_inputs": source_inputs, "lineage_trace": lineage_trace}
+        seen: Dict[str, int] = {}
+        async with self._get_db(profile_id).async_session_maker() as session:
+            for path, value, _leaf in leaves:
+                name = str(path[0])
+                position = seen.get(name, 0)
+                seen[name] = position + 1
+                ids = params.get(lineage_id_key(name))
+                media_id = ids[position] if isinstance(ids, list) and position < len(ids) else None
+                media_id = self._coerce_media_ref(media_id)
+                file_path = value if isinstance(value, str) and self._coerce_media_ref(value) is None else None
+                if media_id is None:
+                    media_id = self._coerce_media_ref(value)
+                if media_id is None and file_path:
+                    media_id = await self._resolve_path_to_media_id(session, file_path)
+                if file_path is None and media_id is not None:
+                    file_path = await self._resolve_media_id_to_path(session, media_id)
+                # "keyframes" → role "keyframe"; one role per structured param.
+                role = name[:-1] if name.endswith("s") else name
+                source_inputs.append({"media_id": media_id, "file_path": file_path, "role": role})
+                if media_id:
+                    parent_trace = await self._get_inherited_lineage(session, media_id)
+                    lineage_trace = self._merge_lineage_traces(lineage_trace, parent_trace)
+        return {"source_inputs": source_inputs, "lineage_trace": lineage_trace}
+
     # Task types that create composite/container media - these don't transform media
     # and shouldn't be included in inherited lineage traces.
     # See utils/query_builder.py for COMPOSITE_FORMATS (stimmaset.json, stimmagrid.json)
@@ -3003,6 +3067,15 @@ class GenerationQueue:
             # This is needed for external providers that receive media IDs from agent plans
             async with self._get_db(profile_id).async_session_maker() as resolve_session:
                 exec_params = await self._resolve_media_ids_in_params(resolve_session, exec_params)
+                tool_schema = getattr(tool, "parameter_schema", None) if tool else None
+                exec_params = await self._resolve_nested_media_ids(resolve_session, exec_params, tool_schema)
+
+            # Structured media params (keyframes, …) join the direct-input lineage.
+            nested = await self._nested_lineage(params, tool_schema, profile_id)
+            if nested["source_inputs"]:
+                lineage_data["source_inputs"] = list(lineage_data["source_inputs"]) + nested["source_inputs"]
+                lineage_data["lineage_trace"] = self._merge_lineage_traces(
+                    lineage_data["lineage_trace"], nested["lineage_trace"])
 
             # Built-in filters are media-agnostic: a filter applied to a video
             # must emit a video, not a .png. The output extension is normally

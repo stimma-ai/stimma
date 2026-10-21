@@ -308,6 +308,24 @@ def _prompt_h3_context(
                 "kind": "audio",
                 "index": index,
             })
+        # Pinned keyframes sit on the output timeline, not in the tag list:
+        # unlabeled, so they are described in words rather than tagged.
+        for item in parameters.get("keyframes") or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                at = float(item.get("at") or 0.0)
+                length = float(item.get("length") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if at < 0 and duration:
+                at = max(0.0, duration + at)
+            manifest.append({
+                "kind": "keyframe",
+                "at": at,
+                "length": length,
+                "sound": bool(item.get("sound")) and length > 0,
+            })
     return task, duration, media_ids, generate_audio, manifest
 
 

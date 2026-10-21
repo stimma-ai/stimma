@@ -34,8 +34,8 @@
                 dragIndex === item.originalIndex ? 'opacity-30' : '',
                 dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-accent' : ''
               ]"
-              :draggable="!!item.mediaId && !batchMode"
-              @dragstart="item.mediaId && !batchMode && onReorderDragStart($event, item)"
+              :draggable="!!dragMediaId(item) && !batchMode"
+              @dragstart="dragMediaId(item) && !batchMode && onReorderDragStart($event, item)"
               @dragend="onReorderDragEnd()"
               @dragover.prevent.stop="onTileDragOver($event, index)"
               @dragleave.stop="onDragLeave"
@@ -1218,8 +1218,11 @@ onMounted(() => { backfillDimensions() })
 
 // Computed
 const fileAcceptString = computed(() =>
-  // Image slots also accept videos (we grab a frame); whole-video slots don't change.
-  isImageSlot.value ? `${FILE_ACCEPT.image},${FILE_ACCEPT.video}` : FILE_ACCEPT[props.accept]
+  // Image slots also accept videos (we grab a frame); audio slots take a video's
+  // sound (the host extracts it); whole-video slots don't change.
+  isImageSlot.value ? `${FILE_ACCEPT.image},${FILE_ACCEPT.video}`
+    : props.accept === 'audio' ? `${FILE_ACCEPT.audio},${FILE_ACCEPT.video}`
+    : FILE_ACCEPT[props.accept]
 )
 
 const displayLabel = computed(() => {
@@ -1398,12 +1401,12 @@ async function onDrop(event: DragEvent, replaceIndex?: number) {
   if (!files || files.length === 0) return
 
   // Image slots accept images and videos (videos → frame grab); video slots only
-  // videos; audio slots only audio.
+  // videos; audio slots audio, or a video for its sound.
   const matchingFiles = Array.from(files).filter(f =>
     isImageSlot.value
       ? (f.type.startsWith('image/') || isVideoFile(f))
       : props.accept === 'audio'
-        ? f.type.startsWith('audio/')
+        ? f.type.startsWith('audio/') || isVideoFile(f)
         : f.type.startsWith('video/')
   )
   if (matchingFiles.length === 0) return
@@ -1429,11 +1432,18 @@ function onReorderDragStart(event: DragEvent, item: MediaItem) {
   // (same shape MediaImage.vue uses) is what lets external drop zones — the
   // sidebar's board/tool/chat tabs — accept a drop of this tile; it's inert for
   // the reorder path since onReorderDrop/onTileDrop never look at it.
-  if (item.mediaId && event.dataTransfer) {
-    const thumbnailUrl = getThumbnailUrl(item.mediaId, 128)
+  const mediaId = dragMediaId(item)
+  if (mediaId && event.dataTransfer) {
+    const thumbnailUrl = getThumbnailUrl(mediaId, 128)
     const ext = item.filename?.split('.').pop()?.toLowerCase() || ''
-    createDragPreview(event, thumbnailUrl, item.mediaId, ext, props.accept === 'video')
+    createDragPreview(event, thumbnailUrl, mediaId, ext, props.accept === 'video' || !item.mediaId)
   }
+}
+
+// A frame grabbed from a library video drags as that video, so a drop target
+// (another picker, a keyframe strip) can take its own frame from it.
+function dragMediaId(item: MediaItem): number | undefined {
+  return item.mediaId ?? item._videoSource?.mediaId
 }
 
 function onReorderDragOver(event: DragEvent, displayIndex: number) {
@@ -1679,7 +1689,7 @@ async function uploadFile(file: File, replaceIndex?: number) {
     formData.append('file', file)
     appendProjectId(formData, uploadProjectId.value)
 
-    const endpoint = UPLOAD_ENDPOINTS[props.accept]
+    const endpoint = props.accept === 'audio' && isVideoFile(file) ? UPLOAD_ENDPOINTS.video : UPLOAD_ENDPOINTS[props.accept]
     const response = await axios.post(endpoint, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
