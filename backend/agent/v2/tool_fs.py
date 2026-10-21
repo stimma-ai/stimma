@@ -371,9 +371,9 @@ def _render_params(
             doc = None
         if not inline and own_stem:
             ref = f"see .stimma/enums/{own_stem}.txt (grep it)"
-            doc = f"{doc + '. ' if doc else ''}{ref}"
+            doc = f"{doc.rstrip('.') + '. ' if doc else ''}{ref}"
         if nested_notes:
-            doc = f"{doc + '. ' if doc else ''}" + "; ".join(nested_notes)
+            doc = f"{doc.rstrip('.') + '. ' if doc else ''}" + "; ".join(nested_notes)
 
         params.append(
             _RenderedParam(

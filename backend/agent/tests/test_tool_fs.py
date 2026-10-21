@@ -479,3 +479,5 @@ def test_structured_media_param_documents_item_fields():
     assert "keyframes[].media (str, required, library media id or workspace path): A still or a video." in text
     assert "keyframes[].at (float, required): Seconds into the output." in text
     assert "keyframes[].sound (bool)" in text
+    # The description's own period isn't doubled before the field notes.
+    assert "Pin stills or clips. keyframes[].media" in text
