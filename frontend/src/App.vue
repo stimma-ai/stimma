@@ -921,6 +921,7 @@ async function submitLockScreenPin() {
       } catch (e) {
         console.warn('[App] Failed to reload settings after PIN unlock:', e)
       }
+      void syncMarketplaceStimpacks()
     } else if (response.status === 502 || response.status === 503) {
       // The local proxy answers these itself when the active device is gone
       // or unreachable. That is a connection problem, not a PIN problem; the
@@ -1079,17 +1080,19 @@ async function checkStartupPin() {
       console.warn('[App] Failed to load app identity from settings:', e)
     }
 
-    // Marketplace maintenance is not required to render the saved workspace.
-    // Let it overlap first paint; completion already announces live changes
-    // through the stimpacks-changed event.
-    void syncMarketplaceStimpacks()
-
     // Start persisting route changes
     setupPersistence()
 
     const profileId = currentProfileId.value
     const requiresPin = await profileRequiresPin(profileId)
-    if (requiresPin && !hasCachedPin(profileId)) {
+    const startLocked = requiresPin && !hasCachedPin(profileId)
+
+    // Marketplace maintenance is not required to render the saved workspace.
+    // Let it overlap first paint; completion already announces live changes
+    // through the stimpacks-changed event. A locked profile syncs on unlock.
+    if (!startLocked) void syncMarketplaceStimpacks()
+
+    if (startLocked) {
       isLocked.value = true
     } else {
       // Resolve onboarding before exposing the application shell. Otherwise
@@ -1236,6 +1239,9 @@ const marketplaceStimpackSyncByProfile = new Map()
 
 async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
   if (isPrivacyLockdownActive()) return
+  // A PIN-locked profile rejects these calls, and marking it synced would skip
+  // it for the whole session. Unlocking runs the sync instead.
+  if (isLocked.value) return
   if (!profileId || syncedMarketplaceStimpackProfiles.has(profileId)) return
 
   const existingRun = marketplaceStimpackSyncByProfile.get(profileId)
