@@ -80,6 +80,19 @@ def test_steer_is_refused_when_nothing_is_running():
     assert not service._has_pending_steers(987654)
 
 
+def test_a_resent_steer_is_held_once():
+    key = service._chat_key(987655)
+    service._active_chat_executions.add(key)
+    try:
+        assert service.add_steer(987655, {'steer_id': 'q-1', 'message_text': 'warmer'})
+        assert service.add_steer(987655, {'steer_id': 'q-1', 'message_text': 'warmer'})
+        assert service.add_steer(987655, {'steer_id': 'q-2', 'message_text': 'square'})
+        assert [s['steer_id'] for s in service._pending_steers[key]] == ['q-1', 'q-2']
+    finally:
+        service._active_chat_executions.discard(key)
+        service._drop_pending_steers(987655)
+
+
 @pytest.mark.asyncio
 async def test_interrupt_drops_pending_steers(db_session):
     async with db_session() as session:

@@ -90,7 +90,11 @@ def add_steer(chat_id: int, steer: dict) -> bool:
     """
     if not is_execution_active(chat_id):
         return False
-    _pending_steers.setdefault(_chat_key(chat_id), []).append(steer)
+    pending = _pending_steers.setdefault(_chat_key(chat_id), [])
+    # The client re-posts a steer it believes the server dropped; a retry
+    # racing the original must not deliver the message twice.
+    if not any(p.get("steer_id") == steer.get("steer_id") for p in pending):
+        pending.append(steer)
     return True
 
 

@@ -27,12 +27,12 @@
           <AppImage v-else :src="attachmentUrl(attachment)" container-class="w-full h-full" />
         </div>
       </div>
-      <div class="flex-1 min-w-0 text-sm line-clamp-2 break-words" :class="msg.steering ? 'text-content' : 'text-content-secondary'">
+      <div class="flex-1 min-w-0 text-sm line-clamp-2 break-words" :class="msg.mode === 'steer' ? 'text-content' : 'text-content-secondary'">
         {{ previewText(msg) }}
       </div>
       <div class="flex items-center gap-0.5 flex-shrink-0">
         <span
-          v-if="msg.steering"
+          v-if="msg.mode === 'steer'"
           class="h-[26px] px-2.5 inline-flex items-center gap-1.5 rounded-md border border-accent/30 text-xs text-accent"
         >
           <Spinner size="sm" />Steering
@@ -46,18 +46,23 @@
         >
           Steer
         </button>
-        <!-- A steer is already with the agent and can't be taken back. -->
-        <span v-if="msg.steering" class="w-7 h-7" />
-        <IconButton v-else title="Delete" @click="emit('remove', msg.id)">
-          <TrashIcon class="w-4 h-4" />
-        </IconButton>
+        <!-- A steer the server has accepted can't be taken back. -->
+        <span v-if="msg.steering" class="w-[58px] h-7" />
+        <template v-else>
+          <IconButton title="Edit" @click="emit('edit', msg.id)">
+            <PencilIcon class="w-4 h-4" />
+          </IconButton>
+          <IconButton title="Delete" @click="emit('remove', msg.id)">
+            <TrashIcon class="w-4 h-4" />
+          </IconButton>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { TrashIcon } from '@heroicons/vue/24/outline'
+import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import IconButton from '../ui/IconButton.vue'
 import Spinner from '../ui/Spinner.vue'
 import { MediaImage, AppImage } from '../media'
@@ -70,11 +75,15 @@ export interface QueuedMessage {
   id: string
   text: string
   attachments: any[]
+  // 'steer' goes into the running turn at its next step; 'queue' waits for
+  // the turn to end.
+  mode: 'steer' | 'queue'
+  // The server holds it for the running turn (accepted, not yet delivered).
   steering: boolean
 }
 
 defineProps<{ messages: QueuedMessage[] }>()
-const emit = defineEmits<{ steer: [id: string]; remove: [id: string] }>()
+const emit = defineEmits<{ steer: [id: string]; edit: [id: string]; remove: [id: string] }>()
 
 // Queued text carries baked-in reference headers; show what the user typed.
 function previewText(msg: QueuedMessage): string {

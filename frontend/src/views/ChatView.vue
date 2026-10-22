@@ -1157,6 +1157,7 @@
         v-if="messageQueue.length > 0"
         :messages="messageQueue"
         @steer="steerQueuedMessage"
+        @edit="editQueuedMessage"
         @remove="removeQueuedMessage"
       />
       <ChatInputBox
@@ -1595,6 +1596,7 @@ const messageQueue = ref<QueuedMessage[]>([]) // Messages sent while the agent i
 let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace period)
 let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
 let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
+let steerRetryTimer = null // Retries steers the server refused because its run hadn't registered yet
 // uploadInput is now managed by ChatInputBox
 
 // WebSocket - use shared singleton composable
@@ -3071,6 +3073,15 @@ function handleKeyDown(event) {
     return
   }
 
+  // Alt+Enter while the agent is busy holds the message until the turn ends
+  // (plain Enter steers it into the running turn).
+  if (event.key === 'Enter' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault()
+    if (agentBusyForComposer()) queueMessage('queue')
+    else sendMessage()
+    return
+  }
+
   if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
 
   const textarea = messageInputRef.value
@@ -3124,8 +3135,15 @@ function navigateHistory(direction) {
   }
 }
 
-// Queue a message (when agent is busy)
-function queueMessage() {
+// While a turn runs (or a send is in flight), the composer adds to the queue
+// instead of sending.
+function agentBusyForComposer() {
+  return ((agentRunning.value || agentPlanning.value) && !hasActiveHITLRequest.value) || sending.value
+}
+
+// Queue a message (when agent is busy). 'steer' (plain Enter) goes into the
+// running turn at its next step; 'queue' (Alt+Enter) waits for the turn to end.
+function queueMessage(mode: 'steer' | 'queue' = 'steer') {
   const hasMessage = messageInput.value.trim()
   const hasAttachments = inputAttachments.value.length > 0
 
@@ -3169,12 +3187,14 @@ function queueMessage() {
     id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     text: message,
     attachments,
+    mode,
     steering: false,
   })
 
   // Clear input
   messageInput.value = ''
   inputAttachments.value = []
+  pumpSteers()
 }
 
 // Remove a queued message
@@ -3182,13 +3202,35 @@ function removeQueuedMessage(id: string) {
   messageQueue.value = messageQueue.value.filter(m => m.id !== id)
 }
 
+// Pull one queued message back into the composer to edit and resend.
+function editQueuedMessage(id: string) {
+  const msg = messageQueue.value.find(m => m.id === id)
+  if (!msg || msg.steering) return
+  restoreQueueToComposer(chatId.value, [msg])
+}
+
 // Steer: deliver a queued message into the running turn at the agent's next
 // step. It stays in the queue (marked steering) until the server broadcasts it
 // as a user_message carrying its steer_id. If the run ends first, the server
 // drops it and the normal queue drain sends it instead.
-async function steerQueuedMessage(id: string) {
+function steerQueuedMessage(id: string) {
   const msg = messageQueue.value.find(m => m.id === id)
-  if (!msg || msg.steering) return
+  if (!msg) return
+  msg.mode = 'steer'
+  pumpSteers()
+}
+
+// Hand every steer-mode message the server doesn't hold yet to the running
+// turn. Runs whenever a turn may be accepting steers, including the turn that
+// starts after Stop, so messages left pending by Stop all reach it.
+function pumpSteers() {
+  if (!(agentRunning.value || agentPlanning.value) || hasActiveHITLRequest.value || sending.value) return
+  for (const msg of messageQueue.value) {
+    if (msg.mode === 'steer' && !msg.steering) postSteer(msg)
+  }
+}
+
+async function postSteer(msg: QueuedMessage) {
   msg.steering = true
   const mediaIds = msg.attachments.filter(a => a.media_id).map(a => a.media_id)
   try {
@@ -3202,23 +3244,32 @@ async function steerQueuedMessage(id: string) {
         attachments: msg.attachments.length > 0 ? msg.attachments : null,
       }),
     })
-    // 409: the run already ended; it goes out with the queue as usual.
-    if (!response.ok) msg.steering = false
+    if (response.ok) return
+    // 409: no run is registered. Either the turn just ended (the queue drain
+    // sends it) or the one just started hasn't registered yet — retry shortly.
+    msg.steering = false
   } catch (error) {
     console.error('Error steering message:', error)
     msg.steering = false
   }
+  if (!steerRetryTimer) {
+    steerRetryTimer = setTimeout(() => {
+      steerRetryTimer = null
+      pumpSteers()
+    }, 1000)
+  }
 }
 
 // Put queued messages back into a chat's composer, unsent, for the user to
-// edit and resend (on Stop, or when leaving the chat with messages queued).
-function restoreQueueToComposer(targetChatId) {
-  if (messageQueue.value.length === 0 || targetChatId == null) return
+// edit and resend (Edit on one message, or every message when leaving the
+// chat with messages queued).
+function restoreQueueToComposer(targetChatId, messages = messageQueue.value) {
+  if (messages.length === 0 || targetChatId == null) return
   const draft = getChatDraft(targetChatId)
   const refsApi = useFlowReferences(targetChatId)
   const texts = draft.text ? [draft.text] : []
   let attachments = [...draft.attachments]
-  for (const msg of messageQueue.value) {
+  for (const msg of messages) {
     const { refs, text } = parseMessageReferences(msg.text)
     for (const r of refs) refsApi.add(r)
     if (text) texts.push(text)
@@ -3226,7 +3277,7 @@ function restoreQueueToComposer(targetChatId) {
   }
   draft.text = texts.join('\n')
   draft.attachments = attachments
-  messageQueue.value = []
+  messageQueue.value = messageQueue.value.filter(m => !messages.includes(m))
 }
 
 function updateChatModel(slug) {
@@ -3371,9 +3422,9 @@ async function sendMessage(queuedMessage = null) {
 
     if (!hasMessage && !hasAttachments) return
 
-    // If agent is busy or we're already sending, queue instead
-    if (((agentRunning.value || agentPlanning.value) && !hasActiveHITLRequest.value) || sending.value) {
-      queueMessage()
+    // If agent is busy or we're already sending, steer it into the turn
+    if (agentBusyForComposer()) {
+      queueMessage('steer')
       return
     }
 
@@ -3541,17 +3592,19 @@ function processNextQueuedMessage() {
   if (messageQueue.value.length === 0) return
   if (Date.now() < queueBackoffUntil) return
 
-  const next = messageQueue.value.shift()
-  next.steering = false
-  sendMessage(next)
+  // No run is active, so the server dropped any steers it was holding.
+  for (const msg of messageQueue.value) msg.steering = false
+  sendMessage(messageQueue.value.shift())
 }
 
-// Watch for idle state to process queue
+// Watch for idle state to process queue, and for a running turn to steer into
 watch(
-  [() => agentRunning.value, () => sending.value, () => agentPlanning.value],
+  [() => agentRunning.value, () => sending.value, () => agentPlanning.value, () => hasActiveHITLRequest.value],
   ([running, isSending, planning]) => {
     if (!running && !isSending && !planning) {
       processNextQueuedMessage()
+    } else {
+      pumpSteers()
     }
   }
 )
@@ -4479,9 +4532,8 @@ function autoResizeTextarea() {
 
 // Agent control functions
 async function stopAgent() {
-  // Stop only stops: queued messages go back to the composer rather than
-  // firing the moment the agent goes idle.
-  restoreQueueToComposer(chatId.value)
+  // Queued messages survive Stop: once the agent goes idle the first one starts
+  // the next turn and the steers among the rest follow it in.
   try {
     // Suppress stale items from in-flight operations until agent responds to stop
     suppressingPostStop.value = true
@@ -5486,6 +5538,10 @@ onDeactivated(() => {
 
 onUnmounted(() => {
   cleanupWebSocketSubscriptions()
+  if (steerRetryTimer) {
+    clearTimeout(steerRetryTimer)
+    steerRetryTimer = null
+  }
   if (queueWatchdogTimer) {
     clearInterval(queueWatchdogTimer)
     queueWatchdogTimer = null
