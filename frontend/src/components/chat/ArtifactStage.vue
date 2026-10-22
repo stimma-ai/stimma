@@ -143,7 +143,7 @@
             />
             <VideoTransportBar
               :transport="videoTransport"
-              class="absolute left-3 right-3 bottom-3 z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-default"
+              class="absolute left-1/2 -translate-x-1/2 bottom-6 w-[620px] max-w-[75%] z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-default"
             >
               <button
                 type="button"
