@@ -1218,77 +1218,19 @@
     </Sheet>
 
     <!-- Video transport (bottom center, above the control bar's default spot).
-         Filmstrip scrubber: the track is a frame-strip montage of the video with a
-         live playhead, same treatment as the prep frame picker. Toggle with V. -->
-    <div
+         Toggle with V. -->
+    <VideoTransportBar
       v-if="isVideo && showVideoTransport && !(slideshowCompact && compactImmersive)"
+      :transport="videoTransport"
       :class="slideshowCompact
         ? 'relative order-1 w-full shrink-0 bg-slideshow-matt px-2 py-1'
         : 'absolute bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] w-[620px]'"
-      class="z-chrome flex items-center gap-2 select-none"
+      class="z-chrome"
       :style="slideshowCompact ? {
         paddingLeft: 'calc(var(--safe-left, 0px) + 8px)',
         paddingRight: 'calc(var(--safe-right, 0px) + 8px)',
       } : transportBarStyle"
-      @mousedown.stop
-      @dblclick.stop
-    >
-      <!-- Play / Pause (the video, not the slideshow) -->
-      <button
-        @click="toggleVideoPlayback"
-        class="bg-transparent border-none text-white/60 cursor-pointer p-1 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white flex-shrink-0"
-        :title="videoPaused ? 'Play video' : 'Pause video'"
-      >
-        <PlayIcon v-if="videoPaused" class="w-5 h-5" />
-        <PauseIcon v-else class="w-5 h-5" />
-      </button>
-
-      <!-- Filmstrip track -->
-      <div
-        class="relative flex-1 h-[34px] rounded-md overflow-hidden border border-white/10 bg-black/30 cursor-pointer select-none touch-none"
-        @pointerdown="onTransportPointerDown"
-        @pointermove="onTransportPointerMove"
-        @pointerup="onTransportPointerUp"
-        @pointercancel="onTransportPointerCancel"
-        @dragstart.prevent
-      >
-        <img
-          v-if="transportStripUrl && !transportStripFailed"
-          :src="transportStripUrl"
-          @load="transportStripReady = true"
-          @error="transportStripFailed = true"
-          class="absolute inset-0 w-full h-full object-fill pointer-events-none transition-opacity duration-300"
-          :class="{ 'opacity-0': !transportStripReady }"
-          draggable="false"
-        />
-        <!-- skeleton cells while the strip renders (best-effort; scrubbing works regardless) -->
-        <div
-          v-if="transportStripUrl && !transportStripFailed && !transportStripReady"
-          class="absolute inset-0 flex gap-px p-px animate-pulse pointer-events-none"
-        >
-          <div v-for="i in 12" :key="i" class="flex-1 rounded-[3px] bg-white/[0.07]"></div>
-        </div>
-        <!-- progress reads as a dim over the not-yet-played region (no color haze) -->
-        <div
-          class="absolute inset-y-0 right-0 bg-black/35 pointer-events-none"
-          :style="{ width: (100 - transportPercent) + '%' }"
-        ></div>
-        <div
-          class="absolute top-0 bottom-0 w-0.5 bg-blue-400 pointer-events-none"
-          style="box-shadow: 0 0 6px rgba(96,165,250,.8)"
-          :style="{ left: transportPercent + '%' }"
-        ></div>
-      </div>
-
-      <!-- Readout. Click toggles time ↔ frames (persisted, like the prep frame picker).
-           Fixed min-width + right alignment: the ticking digits must not reflow the
-           bar, or the text moves out from under the cursor mid-click. -->
-      <button
-        @pointerdown.stop="toggleTransportDisplayMode"
-        :title="transportDisplayMode === 'frames' ? 'Show time' : 'Show frame number'"
-        class="bg-transparent border-none text-[11px] text-blue-400 font-medium tabular-nums hover:text-blue-300 hover:bg-white/10 rounded-md cursor-pointer whitespace-nowrap flex-shrink-0 px-1.5 py-1 min-w-[96px] text-right"
-      ><span class="pointer-events-none">{{ transportLabel }}</span></button>
-    </div>
+    />
 
     <!-- Project Picker Modal -->
     <Modal
@@ -1427,13 +1369,14 @@ import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructu
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { useVideoTransport } from '../composables/useVideoTransport'
+import VideoTransportBar from './media/VideoTransportBar.vue'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { openImageEditor } from '../imageEditor/stack/openImageEditor'
 import { editorLiveFrame } from '../imageEditor/liveEditorPreview'
 import { dirtyEditorAssets } from '../imageEditor/stack/editorDirtyState'
 import { getCurrentProfileId } from '../composables/useProfile'
-import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
 import { useDesktopDownload } from '../composables/useDesktopDownload'
 import { assetIdOf, mediaIdOf, hasAssetIdentity } from '../utils/assetIdentity'
@@ -1975,21 +1918,6 @@ useManagedMediaElement(videoElement)
 
 // --- Video transport (filmstrip scrubber) ---
 const showVideoTransport = ref(savedSettings.showVideoTransport ?? true)
-const videoCurrentTime = ref(0)
-const videoDuration = ref(0)
-const videoPaused = ref(true)
-const videoFps = ref(0)
-const transportStripReady = ref(false)
-const transportStripFailed = ref(false)
-const transportScrubbing = ref(false)
-// Readout mode (time vs frames), persisted in the same namespace as the prep
-// frame picker so the click-to-toggle behavior matches everywhere.
-const TRANSPORT_FRAME_MODE_KEY = 'slideshow'
-const transportDisplayMode = ref('time')
-try {
-  transportDisplayMode.value =
-    localStorage.getItem(makeProfileKey('frame-mode', TRANSPORT_FRAME_MODE_KEY)) === 'frames' ? 'frames' : 'time'
-} catch { /* default to time */ }
 
 function destroyMsePlayback() {
   msePlayback?.destroy()
@@ -2015,7 +1943,7 @@ watch(
           readyPlayback.seekLogical(deactivatedVideoState.logicalTime)
           deactivatedVideoState = null
         }
-        videoDuration.value = readyPlayback.duration
+        videoTransport.duration.value = readyPlayback.duration
         mediaLoaded.value = true
       },
       onError: (error) => {
@@ -4030,161 +3958,20 @@ function closeVolumeSlider(event) {
 
 // --- Video transport (filmstrip scrubber) ---
 
-// The track is the same server-rendered frame-strip montage the prep frame
-// picker uses; profile/pin ride along as query params because it loads via <img>.
-const transportStripUrl = computed(() => {
-  if (!isVideo.value || !displayItem.value?.file_path) return ''
-  const base = getApiBase()
-  const profileId = getCurrentProfileId()
-  const pin = getCachedPin(profileId)
-  let u = `${base}/generate/frame-strip?source_path=${encodeURIComponent(displayItem.value.file_path)}&count=12&w=96&profile=${encodeURIComponent(profileId)}`
-  if (pin) u += `&pin=${encodeURIComponent(pin)}`
-  return u
+const videoTransport = useVideoTransport({
+  video: videoElement,
+  playback: () => msePlayback,
+  source: () => (isVideo.value && displayItem.value?.file_path
+    ? { filePath: displayItem.value.file_path, duration: displayItem.value.duration }
+    : null),
+  onControl: trackControl,
 })
-
-watch(transportStripUrl, () => {
-  transportStripReady.value = false
-  transportStripFailed.value = false
-})
-
-const transportPercent = computed(() => {
-  if (videoDuration.value <= 0) return 0
-  return Math.min(100, Math.max(0, (videoCurrentTime.value / videoDuration.value) * 100))
-})
-
-const transportLabel = computed(() => {
-  if (transportDisplayMode.value === 'frames' && videoFps.value > 0) {
-    const total = Math.max(1, Math.round(videoDuration.value * videoFps.value))
-    const idx = Math.min(total, Math.round(videoCurrentTime.value * videoFps.value) + 1)
-    return `f ${idx}/${total}`
-  }
-  return `${formatTransportTime(videoCurrentTime.value)} / ${formatTransportTime(videoDuration.value)}`
-})
-
-function formatTransportTime(seconds) {
-  const s = Math.max(0, seconds || 0)
-  const m = Math.floor(s / 60)
-  const rem = s - m * 60
-  return `${m}:${rem.toFixed(1).padStart(4, '0')}`
-}
-
-function toggleTransportDisplayMode() {
-  transportDisplayMode.value = transportDisplayMode.value === 'frames' ? 'time' : 'frames'
-  try {
-    localStorage.setItem(makeProfileKey('frame-mode', TRANSPORT_FRAME_MODE_KEY), transportDisplayMode.value)
-  } catch { /* ignore */ }
-}
+const videoPaused = videoTransport.paused
 
 function toggleVideoTransport() {
   showVideoTransport.value = !showVideoTransport.value
   trackControl(showVideoTransport.value ? 'video_transport_show' : 'video_transport_hide')
 }
-
-function toggleVideoPlayback() {
-  allowMobilePlayback()
-  const v = videoElement.value
-  if (!v) return
-  if (v.paused) {
-    v.play().catch(() => { /* interrupted by teardown */ })
-    trackControl('video_play')
-  } else {
-    v.pause()
-    trackControl('video_pause')
-  }
-}
-
-// Step one frame back/forward (, / .). Pauses playback, like every video editor.
-function stepVideoFrame(dir) {
-  const v = videoElement.value
-  if (!v || videoDuration.value <= 0) return
-  if (!v.paused) v.pause()
-  const step = videoFps.value > 0 ? 1 / videoFps.value : 0.04
-  // Land one frame short of the end — seeking exactly to duration can show black.
-  const maxT = Math.max(0, videoDuration.value - step)
-  const currentTime = msePlayback?.logicalCurrentTime ?? v.currentTime
-  const target = Math.min(maxT, Math.max(0, currentTime + dir * step))
-  if (msePlayback) msePlayback.seekLogical(target)
-  else v.currentTime = target
-  videoCurrentTime.value = target
-}
-
-function transportSeekFromPointer(e) {
-  const el = e.currentTarget
-  const r = el.getBoundingClientRect()
-  const frac = r.width > 0 ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0
-  const v = videoElement.value
-  if (!v || videoDuration.value <= 0) return
-  const target = frac * videoDuration.value
-  if (msePlayback) msePlayback.seekLogical(target)
-  else v.currentTime = target
-  videoCurrentTime.value = target
-}
-
-function onTransportPointerDown(e) {
-  e.preventDefault()
-  e.stopPropagation()
-  document.body.style.userSelect = 'none'
-  e.currentTarget.setPointerCapture?.(e.pointerId)
-  transportScrubbing.value = true
-  transportSeekFromPointer(e)
-}
-
-function onTransportPointerMove(e) {
-  if (!transportScrubbing.value) return
-  e.preventDefault()
-  transportSeekFromPointer(e)
-}
-
-function onTransportPointerUp(e) {
-  if (!transportScrubbing.value) return
-  transportScrubbing.value = false
-  document.body.style.userSelect = ''
-  transportSeekFromPointer(e)
-  trackControl('video_scrub')
-}
-
-function onTransportPointerCancel() {
-  transportScrubbing.value = false
-  document.body.style.userSelect = ''
-}
-
-// Keep playhead/timecode live off the element itself (a rAF poll survives the
-// keyed <video> remounts without re-wiring event listeners each swap).
-let transportRaf = null
-function transportTick() {
-  const v = videoElement.value
-  if (v) {
-    if (!transportScrubbing.value) videoCurrentTime.value = msePlayback?.logicalCurrentTime ?? v.currentTime ?? 0
-    if (msePlayback?.duration > 0) videoDuration.value = msePlayback.duration
-    else if (Number.isFinite(v.duration) && v.duration > 0) videoDuration.value = v.duration
-    videoPaused.value = v.paused
-  }
-  transportRaf = requestAnimationFrame(transportTick)
-}
-
-watch(videoElement, (v) => {
-  if (v && transportRaf == null) {
-    transportRaf = requestAnimationFrame(transportTick)
-  } else if (!v && transportRaf != null) {
-    cancelAnimationFrame(transportRaf)
-    transportRaf = null
-  }
-}, { immediate: true })
-
-// fps comes from a one-shot server probe (media rows only carry duration);
-// frames mode falls back to time until it arrives.
-watch(() => (isVideo.value ? displayItem.value?.file_path : null), async (fp) => {
-  videoFps.value = 0
-  videoCurrentTime.value = 0
-  videoDuration.value = displayItem.value?.duration || 0
-  if (!fp) return
-  try {
-    const { data } = await axios.get('/api/generate/video-info', { params: { source_path: fp } })
-    if (displayItem.value?.file_path !== fp) return // navigated away mid-probe
-    if (data.fps > 0) videoFps.value = data.fps
-    if (data.duration > 0 && !(videoDuration.value > 0)) videoDuration.value = data.duration
-  } catch { /* readout degrades to element-reported time */ }
-}, { immediate: true })
 
 function toggleFocusMode() {
   if (preventClick.value) return
@@ -4571,7 +4358,7 @@ function handleKeydown(event) {
       // Frame step (video-editor convention). Pauses the video.
       if (isVideo.value) {
         event.preventDefault()
-        stepVideoFrame(event.key === ',' ? -1 : 1)
+        videoTransport.stepFrame(event.key === ',' ? -1 : 1)
       }
       break
     case 't':
@@ -6234,12 +6021,6 @@ onUnmounted(() => {
   window.removeEventListener('markers-changed', fetchMarkers)
   // Clean up volume popup click-outside listener
   document.removeEventListener('mousedown', closeVolumeSlider)
-  // Stop the transport playhead poll (and undo a mid-scrub userSelect lock)
-  if (transportRaf != null) {
-    cancelAnimationFrame(transportRaf)
-    transportRaf = null
-  }
-  if (transportScrubbing.value) document.body.style.userSelect = ''
 })
 
 // Also clean up focus mode when deactivated by KeepAlive (e.g., navigating away)
@@ -6272,11 +6053,6 @@ onDeactivated(() => {
     releaseHeroLoad()
     releaseHeroLoad = null
   }
-  // Pause the transport playhead poll while hidden by KeepAlive
-  if (transportRaf != null) {
-    cancelAnimationFrame(transportRaf)
-    transportRaf = null
-  }
 })
 
 // Rebuild a video element after KeepAlive activation. Reusing WebKit's old
@@ -6291,9 +6067,6 @@ onActivated(() => {
     refreshKey.value++
   } else {
     deactivatedVideoState = null
-  }
-  if (videoElement.value && transportRaf == null) {
-    transportRaf = requestAnimationFrame(transportTick)
   }
   if (mediaLoaded.value) void preloadNearbyMedia(currentIndex.value)
 })

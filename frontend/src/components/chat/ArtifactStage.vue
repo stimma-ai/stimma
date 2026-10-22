@@ -129,16 +129,33 @@
           <SvgViewer v-else-if="heroKind === 'vector'" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <SpritePlayer v-else-if="heroKind === 'sprite'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
           <PackageViewer v-else-if="heroKind === 'package'" :key="viewedRevision.media_id" :media-id="viewedRevision.media_id" class="w-full h-full" />
-          <video
-            v-else-if="heroKind === 'video'"
-            :key="viewedRevision.media_id"
-            :src="getMediaFileUrl(viewedRevision.media_id)"
-            :poster="getThumbnailUrl(viewedRevision.media_id, 1024, { mode: 'fit' })"
-            class="w-full h-full object-contain"
-            controls
-            playsinline
-            @click.stop
-          />
+          <!-- Video hero: the slideshow's player. MseLoopPlayback presents
+               repeated A/V fragments on one forward-moving timeline, so loops
+               never seek; the controller owns src, so none is bound here. -->
+          <template v-else-if="heroKind === 'video'">
+            <video
+              ref="videoRef"
+              :key="viewedRevision.media_id"
+              :poster="getThumbnailUrl(viewedRevision.media_id, 1024, { mode: 'fit' })"
+              :muted="videoMuted"
+              class="w-full h-full object-contain"
+              playsinline
+            />
+            <VideoTransportBar
+              :transport="videoTransport"
+              class="absolute left-3 right-3 bottom-3 z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-default"
+            >
+              <button
+                type="button"
+                class="bg-transparent border-none text-white/60 cursor-pointer p-1 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white flex-shrink-0"
+                :title="videoMuted ? 'Unmute' : 'Mute'"
+                @click="toggleVideoMute"
+              >
+                <SpeakerXMarkIcon v-if="videoMuted" class="w-5 h-5" />
+                <SpeakerWaveIcon v-else class="w-5 h-5" />
+              </button>
+            </VideoTransportBar>
+          </template>
           <MediaImage
             v-else-if="fileKind(viewedRevision.file_format) === 'image'"
             :media-id="viewedRevision.media_id"
@@ -193,6 +210,12 @@ import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { getMediaType } from '../../utils/mediaTypes'
 import type { ArtifactRevision } from '../../composables/useArtifactStage'
 import { toProjectId } from '../../utils/projectScope'
+import VideoTransportBar from '../media/VideoTransportBar.vue'
+import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/vue/24/solid'
+import { useVideoTransport } from '../../composables/useVideoTransport'
+import { useMediaPlayback, useManagedMediaElement } from '../../composables/useMediaPlayback'
+import { mobileAutoplayAllowed } from '../../composables/useMobilePlaybackLifecycle'
+import { MseLoopPlayback } from '../../utils/mseLoopPlayback'
 
 const props = defineProps<{
   workspaceFile?: WorkspaceFile | null
@@ -219,7 +242,7 @@ const emit = defineEmits<{
   'open-slideshow': [mediaId: number]
 }>()
 
-const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
+const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem } = useMediaApi()
 // The <MediaContextMenu> itself is mounted once by ChatView.
 const contextMenu = useMediaContextMenu()
 
@@ -262,6 +285,72 @@ const isEmpty = computed(() => !props.workspaceFile && !props.asset && !props.lo
 const heroKind = computed(() => {
   if (!props.viewedRevision) return 'image'
   return getMediaType({ file_format: props.viewedRevision.file_format })
+})
+
+// --- Video hero: seamless loop + filmstrip transport, same as the slideshow ---
+
+const { videoMuted, videoVolume, toggleVideoMute } = useMediaPlayback()
+const videoRef = ref<HTMLVideoElement | null>(null)
+useManagedMediaElement(videoRef)
+
+// The revision carries the hash; the strip and fps probe need the file path,
+// which only the media row has.
+const videoMedia = ref<{ id: number; file_hash: string; file_path?: string; duration?: number } | null>(null)
+watch(() => (heroKind.value === 'video' ? props.viewedRevision?.media_id : null), async (mediaId) => {
+  videoMedia.value = null
+  if (mediaId == null) return
+  try {
+    const item = await getMediaItem(mediaId)
+    if (props.viewedRevision?.media_id === mediaId) videoMedia.value = item
+  } catch { /* plays from the revision hash; no strip */ }
+}, { immediate: true })
+const videoHash = computed(() => heroKind.value === 'video'
+  ? (props.viewedRevision?.media_hash || videoMedia.value?.file_hash || null)
+  : null)
+
+let msePlayback: MseLoopPlayback | null = null
+function destroyMsePlayback() {
+  msePlayback?.destroy()
+  msePlayback = null
+}
+
+watch([videoRef, videoHash], ([element, fileHash]) => {
+  destroyMsePlayback()
+  if (!element || !fileHash) return
+  element.muted = videoMuted.value
+  element.volume = videoVolume.value
+  const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
+    shouldPlay: () => mobileAutoplayAllowed.value,
+    onError: (error: unknown) => {
+      if (msePlayback !== playback) return
+      // Seamless looping is progressive enhancement; the original file still
+      // plays when MSE preparation fails or the codec is unsupported.
+      console.warn('[ArtifactStage] Seamless video playback failed, using native loop:', error)
+      playback.destroy()
+      msePlayback = null
+      element.src = getMediaFileUrl(fileHash)
+      element.loop = true
+      if (mobileAutoplayAllowed.value) void element.play().catch(() => {})
+    },
+  })
+  msePlayback = playback
+  void playback.start().catch(() => {})
+}, { flush: 'post' })
+onBeforeUnmount(destroyMsePlayback)
+
+watch(videoMuted, (muted) => {
+  const el = videoRef.value
+  if (!el) return
+  el.muted = muted
+  if (!muted) el.volume = videoVolume.value
+})
+
+const videoTransport = useVideoTransport({
+  video: videoRef,
+  playback: () => msePlayback,
+  source: () => (videoMedia.value?.file_path
+    ? { filePath: videoMedia.value.file_path, duration: videoMedia.value.duration }
+    : null),
 })
 
 const showDimensionChip = computed(() =>
