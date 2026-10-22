@@ -485,8 +485,8 @@ async def _apply_generation_prompt_pipeline(
     return updated
 
 
-# Models whose prompts follow a model-specific structure the enhancer knows and
-# a general-purpose writer doesn't. Agent tool calls enhance these by default.
+# Models for which agent tool calls use model-aware enhancement by default.
+# Whether their input format is required is described separately in prompt_formats.
 _NATIVE_PROMPT_FORMAT_LABELS = {
     "qwen-image-2.1": "Qwen-Image-2.1",
     "flux3-klein": "FLUX.3 Klein",

@@ -14,7 +14,9 @@ from ..tools_registry import tool, ToolParameter
         "Generation/transformation tools are imported by their REAL name from the catalog: read .stimma/tools/<category>/ first "
         "with glob/read_file to get the exact function name, then `from stimma.tools.<category> import <name_from_catalog>` "
         "and `r = await <name_from_catalog>(...)` — the awaited result is a ToolResult (.media_id, .path, .seed). "
-        "When generating multiple images, ALWAYS use asyncio.gather() to run them in parallel — this enables the progress display and is significantly faster. "
+        "Submit all independent generations for the requested job together in one asyncio.gather(). "
+        "Let the runtime and provider manage concurrency so available GPUs stay busy. "
+        "Wait between generations only when later work depends on earlier results. "
         "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results, role='final')` "
         "If run_code already called stimma.show(), do NOT call the show tool again afterward — images are already visible. "
         + ALLOWED_MODULES_PROMPT_DESCRIPTION

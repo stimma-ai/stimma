@@ -324,6 +324,43 @@ def test_materialize_prunes_removed_tools(tmp_path: Path):
     assert (t2i / "flux_klein_9b.py").exists()
 
 
+def test_h3_reference_tracks_enhancer_source_and_is_pruned(tmp_path, monkeypatch):
+    import prompts
+
+    reg = FakeRegistry(tools=[(
+        "comfyui:minimax-h3-t2v", None,
+        FakeDescriptor(
+            name="MiniMax H3", description="Video generation.",
+            task_types=["text-to-video"], parameter_schema=_t2i_schema(),
+        ),
+    )])
+    monkeypatch.setattr(tool_fs, "_native_prompt_format", lambda *_: "MiniMax H3")
+    root = tool_fs.materialize_tool_fs(reg, tmp_path)
+    reference = root / "prompt-formats" / "minimax-h3.md"
+    text = reference.read_text()
+    stub = (root / "tools" / "text-to-video" / "minimax_h3_t2v.py").read_text()
+    ast.parse(stub)
+    assert ".stimma/prompt-formats/minimax-h3.md" in stub
+    assert "requires its documented prompt format" in stub
+    assert "enhance_prompt: bool | None = None" in stub
+    assert "{h3_" not in text and "{protected_text_guidance}" not in text
+    for task in ("T2VA", "I2VA", "FL2VA", "L2VA", "REF2VA"):
+        assert task in text
+    assert "Do not timestamp [Shot 1]" in text
+    assert "non_diegetic_music:" in text
+
+    # A prompt edit must refresh an existing chat's catalog, even if the tools
+    # and schemas did not change.
+    original = prompts.get_prompt
+    monkeypatch.setattr(prompts, "get_prompt", lambda *args: original(*args) + "\nUpdated format rule.")
+    tool_fs.materialize_tool_fs(reg, tmp_path)
+    assert "Updated format rule." in reference.read_text()
+
+    reg.tools.clear()
+    tool_fs.materialize_tool_fs(reg, tmp_path)
+    assert not reference.exists()
+
+
 @pytest.mark.asyncio
 async def test_runtime_namespace_binds_to_sdk():
     m = tool_fs.build_manifest(_registry())

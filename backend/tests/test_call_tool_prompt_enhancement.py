@@ -37,8 +37,9 @@ async def test_auto_enhances_models_with_their_own_format_and_says_so():
     params, note, enhance = await _run("auto", "Qwen-Image-2.1")
     enhance.assert_awaited_once()
     assert params == {"prompt": "REWRITTEN", "seed": 1}
-    assert "Qwen-Image-2.1's prompt format" in note
-    assert "enhance_prompt=false" in note
+    assert "rewritten for Qwen-Image-2.1 before generating" in note
+    assert "exact prompt sent" in note
+    assert "enhance_prompt" not in note
 
 
 @pytest.mark.asyncio
@@ -55,6 +56,69 @@ async def test_explicit_false_and_internal_default_never_enhance():
         params, note, enhance = await _run(flag, "Qwen-Image-2.1")
         enhance.assert_not_awaited()
         assert params["prompt"] == "a tea shop poster" and note is None
+
+
+@pytest.mark.asyncio
+async def test_h3_manual_prompt_can_still_bypass_enhancement():
+    prompt = (
+        "integrated_multimodal_description: [Shot 1] A baker opens the shop.\n\n"
+        "overall_soundscape: A bell rings.\n\nnon_diegetic_music: N/A"
+    )
+    with patch("routes.generation.enhance_tool_prompt", new=AsyncMock()) as enhance:
+        params, note = await _enhance_prompt_for_tool(
+            {"prompt": prompt}, tool_id="comfyui:minimax-h3-t2v",
+            task_type="text-to-video", enhance_prompt=False, project_id=None,
+        )
+    enhance.assert_not_awaited()
+    assert params["prompt"] == prompt
+    assert note is None
+
+
+@pytest.mark.asyncio
+async def test_sdk_keeps_enhancement_a_per_call_choice(tmp_path):
+    from types import SimpleNamespace
+    from agent.v2.code_runtime import StimmaSDK
+
+    sdk = StimmaSDK(
+        session=SimpleNamespace(bind=None), chat_id=None, workspace_dir=tmp_path,
+        project_workspace_dir=tmp_path,
+        interrupt_checker=lambda: False,
+    )
+    with patch("agent.v2.tool_permission_gate.ensure_tool_permission", new=AsyncMock()), \
+            patch("agent.v2.code_runtime.execute_call_tool", new=AsyncMock(return_value={
+                "path": str(tmp_path / "video.mp4"), "tool_id": "comfyui:minimax-h3-t2v",
+            })) as execute:
+        for flag in (True, False, None):
+            await sdk._dispatch_tool(
+                "comfyui:minimax-h3-t2v", _task_type="text-to-video",
+                prompt="An authored prompt", enhance_prompt=flag,
+            )
+    assert [call.kwargs["enhance_prompt"] for call in execute.await_args_list] == [True, False, "auto"]
+    assert all("enhance_prompt" not in call.kwargs["parameters"] for call in execute.await_args_list)
+
+
+@pytest.mark.parametrize(
+    ("label", "required"),
+    [("MiniMax H3", True), ("Qwen-Image-2.1", False), ("LTX-2.5", False)],
+)
+def test_schema_separates_format_requirements_from_enhancement(label, required):
+    import json
+    from types import SimpleNamespace
+    from agent.v2.tools.discover import _get_schema
+
+    descriptor = SimpleNamespace(
+        name=label, task_types=["text-to-video"],
+        parameter_schema={"properties": {"prompt": {"type": "string"}}},
+    )
+    registry = SimpleNamespace(get_tool=lambda _: (None, descriptor))
+    with patch("routes.generation.native_prompt_format", return_value=label):
+        schema = json.loads(_get_schema(registry, "test:tool"))
+    assert schema["prompt_format_requirements"]["required"] is required
+    assert "enhance_prompt=False" in schema["prompt_format"]
+    if required:
+        assert schema["prompt_format_requirements"]["reference"] in schema["prompt_format"]
+    else:
+        assert "recommended" in schema["prompt_format"]
 
 
 @pytest.mark.asyncio

@@ -376,10 +376,10 @@ async def _enhance_prompt_for_tool(
 
     if enhanced.get("prompt") == prompt:
         return enhanced, None
-    target = f"{prompt_format}'s prompt format" if prompt_format else "this model"
+    target = prompt_format or "this model"
     return enhanced, (
         f"Your prompt was rewritten for {target} before generating. "
-        "Pass enhance_prompt=false to send a prompt exactly as written."
+        "The result includes the exact prompt sent."
     )
 
 
@@ -930,10 +930,11 @@ async def execute_call_tool(
             name="enhance_prompt",
             type="boolean",
             description=(
-                "Rewrite the prompt into the model's preferred format before generating. "
+                "Rewrite the prompt for the selected model before generating. "
                 "Omit for the default: on for models with their own prompt format (get_schema "
                 "reports it as prompt_format), off otherwise. Pass false to send your prompt "
-                "exactly as written, true to enhance for any model."
+                "exactly as written, true to enhance for any model. A model's required "
+                "input format still applies when enhancement is off; see prompt_format_requirements."
             ),
             required=False,
         ),

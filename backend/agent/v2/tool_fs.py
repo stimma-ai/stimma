@@ -48,7 +48,7 @@ ENUM_INLINE_THRESHOLD = 100
 # Bumped whenever stub *rendering* changes (not just the catalog). Folded into the
 # materialization fingerprint so a logic change refreshes already-cached .stimma/
 # trees, instead of waiting for a provider/schema change to invalidate them.
-_RENDERER_VERSION = 3
+_RENDERER_VERSION = 4
 
 # Params the model should not fill in unprompted. Shown in the signature with
 # their default, grouped under one docstring line rather than hidden — the agent
@@ -517,11 +517,9 @@ def render_tool_stub(
         prompt_format = _native_prompt_format(binding.tool_id, binding.task_type)
         doc.append("")
         if prompt_format:
+            from prompt_formats import prompt_format_guidance
             doc.append(
-                f"Prompt format: {prompt_format} has its own prompt format, so your prompt is "
-                "rewritten into it before generating (the result's .sent_prompt shows what was "
-                "sent). Write a plain description of what you want; pass enhance_prompt=False "
-                "to send a prompt exactly as written."
+                "Prompt format: " + prompt_format_guidance(prompt_format)
             )
         else:
             doc.append(
@@ -568,8 +566,9 @@ filename / the `def` in the stub):
     stimma.show(r, role="final")
 
 `r` is a ToolResult: `.media_id`, `.path`, `.seed`, `.width`, `.height`,
-`.open()` -> PIL.Image. For batches, `asyncio.gather(...)` runs calls in
-parallel. Category directory names use hyphens; the import module uses
+`.open()` -> PIL.Image. Submit all independent generations together with
+`asyncio.gather(...)`; the runtime and provider manage concurrency.
+Category directory names use hyphens; the import module uses
 underscores (`text-to-image` -> `text_to_image`).
 
 ## Large option lists
@@ -611,11 +610,20 @@ def materialize_tool_fs(
     root = workspace_dir / ".stimma"
     manifest = manifest or build_manifest(registry)
 
+    from prompt_formats import render_h3_prompt_reference
+    references = {}
+    if any(
+        _native_prompt_format(b.tool_id, b.task_type) == "MiniMax H3"
+        for b in manifest.iter_bindings()
+    ):
+        references["minimax-h3.md"] = render_h3_prompt_reference()
+
     # Fingerprint the catalog so we can skip the whole walk when nothing changed.
     fp_src = json.dumps(
         {
             "renderer": _RENDERER_VERSION,
             "threshold": enum_threshold,
+            "prompt_format_references": references,
             "tools": {
                 module: {fn: b.tool_id for fn, b in funcs.items()}
                 for module, funcs in manifest.by_module.items()
@@ -629,6 +637,7 @@ def materialize_tool_fs(
         schema = getattr(b.descriptor, "parameter_schema", None) or {}
         schema_fp.update(b.tool_id.encode())
         schema_fp.update(json.dumps(schema, sort_keys=True, default=str).encode())
+        schema_fp.update(str(_native_prompt_format(b.tool_id, b.task_type)).encode())
     fingerprint = hashlib.sha256((fp_src + schema_fp.hexdigest()).encode()).hexdigest()
 
     fp_path = root / ".fingerprint"
@@ -641,6 +650,8 @@ def materialize_tool_fs(
     # (Re)generate. Build the desired file set, then prune stale files.
     desired: dict[Path, str] = {}
     desired[root / "README.md"] = _README
+    for filename, content in references.items():
+        desired[root / "prompt-formats" / filename] = content
 
     enum_files: dict[str, list[str]] = {}
     for module, funcs in manifest.by_module.items():
@@ -659,7 +670,7 @@ def materialize_tool_fs(
     desired[root / ".manifest.json"] = json.dumps(manifest.to_json(), indent=2)
 
     # Prune files under managed subtrees that are no longer desired.
-    managed = [root / "tools", root / "enums"]
+    managed = [root / "tools", root / "enums", root / "prompt-formats"]
     existing: set[Path] = set()
     for base in managed:
         if base.exists():
