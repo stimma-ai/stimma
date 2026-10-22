@@ -12,7 +12,7 @@
       <!-- Strip: the output's timeline, as long as the duration -->
       <div
         ref="stripRef"
-        class="relative select-none cursor-pointer h-[118px] compact:h-[96px]"
+        class="relative select-none cursor-pointer h-[118px] compact:h-[96px] [--kf-thumb:72px] compact:[--kf-thumb:56px]"
         data-testid="keyframes-strip"
         @click="onStripClick"
         @pointermove="onStripHover"
@@ -34,7 +34,7 @@
           :key="item.id"
           class="absolute top-0 flex flex-col items-center"
           :class="isClip(item) ? '' : '-translate-x-1/2'"
-          :style="{ left: pct(effectiveAt(item, duration)) }"
+          :style="{ left: pinLeft(item) }"
           :data-testid="`keyframe-pin-${item.id}`"
           draggable="true"
           @dragstart="onPinDragStart($event, item)"
@@ -48,7 +48,7 @@
             :class="problemFor(item) ? 'text-red-400' : 'text-accent-hi'"
           >{{ capLabel(item) }}</span>
           <div
-            class="relative w-[72px] h-[44px] compact:w-[56px] compact:h-[34px] rounded-media overflow-hidden border bg-matte"
+            class="relative w-[var(--kf-thumb)] h-[44px] compact:h-[34px] rounded-media overflow-hidden border bg-matte"
             :class="[
               selectedId === item.id ? 'outline outline-2 outline-offset-1 outline-selection' : '',
               problemFor(item) ? 'border-red-400' : 'border-edge-strong',
@@ -320,19 +320,27 @@ const lengths = computed(() => {
 })
 const indicatorAt = computed(() => dropAt.value ?? (popoverAt.value === null ? hoverAt.value : popoverAt.value))
 
-// ── Geometry: the track is inset so thumbs at 0 and the end stay inside ──
-const INSET = 4.5
-const trackStyle = { left: `${INSET}%`, right: `${INSET}%` }
+// ── Geometry: the track is inset by half a thumb (--kf-thumb on the strip),
+// so thumbs at 0 and the end stay inside however narrow the strip gets ──
+const INSET = 'calc(var(--kf-thumb) / 2 + 2px)'
+const TRACK = `(100% - 2 * (${INSET}))`
+const trackStyle = { left: INSET, right: INSET }
 function pct(t: number): string {
   const f = Math.min(1, Math.max(0, t / duration.value))
-  return `${INSET + f * (100 - 2 * INSET)}%`
+  return `calc(${INSET} + ${f} * ${TRACK})`
 }
 function spanWidth(seconds: number): string {
-  return `${(seconds / duration.value) * (100 - 2 * INSET)}%`
+  return `calc(${seconds / duration.value} * ${TRACK})`
+}
+// A clip's thumb hangs right of its start; push it back in near the end.
+function pinLeft(item: KeyframeItem): string {
+  const left = pct(effectiveAt(item, duration.value))
+  return isClip(item) ? `min(${left}, 100% - var(--kf-thumb))` : left
 }
 function timeAt(clientX: number): number {
   const rect = stripRef.value!.getBoundingClientRect()
-  const inset = rect.width * INSET / 100
+  const thumb = parseFloat(getComputedStyle(stripRef.value!).getPropertyValue('--kf-thumb')) || 72
+  const inset = thumb / 2 + 2
   const f = (clientX - rect.left - inset) / Math.max(1, rect.width - 2 * inset)
   const t = Math.min(1, Math.max(0, f)) * duration.value
   if (props.config.positions === 'ends') return t < duration.value / 2 ? 0 : duration.value
