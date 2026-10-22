@@ -231,7 +231,7 @@ Call schema() for fields and matching; options('loras') discovers recorded value
         name="library.query",
         signature="await stimma.library.query(filters=None, *, query=None, tags=None, limit=20, offset=0, sort_by='created_desc', random_seed=None, scope='assets')",
         summary="Search metadata with an explicit paginated response.",
-        details="Returns items, total, has_more, limit, offset and applied_filters. Filters use strings or {include, exclude, match: contains|exact|glob, mode: any|all}. Call schema() for all fields. scope='media' explicitly searches profile-wide retained intermediates and old revisions as well as current Assets.",
+        details="Returns items, total, has_more, limit, offset and applied_filters. Filters use strings or {include, exclude, match: contains|exact|glob, mode: any|all}. Call schema() for all fields. scope='media' explicitly searches profile-wide retained intermediates and old revisions as well as current Assets. scope='chat' lists media generated, shown or attached in this chat.",
         group="library", is_async=True,
     ),
     "library.schema": SDKMethodHelp(

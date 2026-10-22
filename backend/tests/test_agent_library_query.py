@@ -56,7 +56,7 @@ async def test_prompt_fields_and_explicit_glob_have_identical_sdk_results(db_ses
         percent = await media(session, prompt="100%_literal")
         distractor = await media(session, prompt="100xxliteral")
         ids = [original.id, generated.id, imported.id, percent.id, distractor.id]
-        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None))
+        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None, chat_id=None))
         results = await sdk.search("copper", filters={"media_ids": ids})
         assert {row["media_id"] for row in results} == {
             original.id,
@@ -173,7 +173,7 @@ async def test_videos_descended_from_klein_images_and_upscale_pairs(db_session):
         await link(session, video, upscale, "upscale-video")
         await link(session, image, unrelated, relationship="inspired")
         await session.commit()
-        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None))
+        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None, chat_id=None))
         candidates = await sdk.query(
             {"models": "klein", "media_types": ["images"], "media_ids": [image.id]},
             scope="media",
@@ -301,7 +301,7 @@ async def test_search_filters_and_sdk_tags_are_not_ignored(db_session):
                 filters={"models": "Klein"},
             )
         )[0]["media_id"] == item.id
-        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None))
+        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=None, chat_id=None))
         assert (
             await sdk.search(
                 "unique-search-token", tags=["nonexistent-library-test-tag"]
@@ -324,7 +324,7 @@ async def test_project_facets_match_browse_and_metadata_scope_is_explicit(db_ses
         await session.flush()
         session.add(ProjectAsset(project_id=project.id, asset_id=asset.id))
         await session.commit()
-        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=project.id))
+        sdk = StimmaLibraryAPI(SimpleNamespace(session=session, project_id=project.id, chat_id=None))
         filters = {"media_ids": [inside.id, outside.id]}
         assert (await sdk.query(filters))["total"] == 1
         assert [

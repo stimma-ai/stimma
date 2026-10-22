@@ -2,6 +2,7 @@
 
 import base64
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
@@ -621,7 +622,7 @@ async def _compress_stale_items(
 
             if i < cutoff_idx and isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
                 tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
-                placeholder = f"[{tool_name} result: {len(content)} chars — use the tool again if you need this data]"
+                placeholder = _stale_result_placeholder(tool_name, content)
                 if item.tool_result and len(item.tool_result) > TRUNCATION_MIN_CHARS:
                     item.tool_result = placeholder
                     dirty = True
@@ -646,6 +647,29 @@ async def _compress_stale_items(
 
     if dirty:
         await session.commit()
+
+
+_MEDIA_ID_RE = re.compile(r"""media_ids?["']?\s*[=:\s]\s*\[?\s*(\d+(?:\s*,\s*\d+)*)""")
+MAX_PLACEHOLDER_MEDIA_IDS = 50
+
+
+def _stale_result_placeholder(tool_name: str, content: str) -> str:
+    """Placeholder for a compressed tool result that keeps its media handles.
+
+    Generation results are not reproducible by "using the tool again" — the
+    media_ids are the only way back to what the user saw a few turns ago.
+    """
+    ids: list[str] = []
+    for match in _MEDIA_ID_RE.finditer(content):
+        for mid in re.split(r"\s*,\s*", match.group(1)):
+            if mid not in ids:
+                ids.append(mid)
+    placeholder = f"[{tool_name} result: {len(content)} chars — use the tool again if you need this data"
+    if ids:
+        shown = ", ".join(ids[:MAX_PLACEHOLDER_MEDIA_IDS])
+        more = f" (+{len(ids) - MAX_PLACEHOLDER_MEDIA_IDS} more)" if len(ids) > MAX_PLACEHOLDER_MEDIA_IDS else ""
+        placeholder += f". Media it referenced: media_id {shown}{more}"
+    return placeholder + "]"
 
 
 def _read_prior_correction(items: List["ChatItem"]) -> float:
@@ -732,7 +756,8 @@ def _apply_token_budget(
         "content": (
             f"[{len(middle_section)} earlier messages covering {middle_user_count} turns "
             f"were condensed. The conversation began with: \"{first_user_text}\". "
-            f"Use tools to re-fetch any data you need.]"
+            f"Use tools to re-fetch any data you need; library(action='browse', scope='chat') "
+            f"lists the media from this chat.]"
         ),
     }
 

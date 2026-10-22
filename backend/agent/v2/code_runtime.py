@@ -813,7 +813,7 @@ class StimmaLibraryAPI:
         raw = await _search(
             self._sdk.session, query=query, search_fields=search_fields, limit=limit,
             project_id=self._sdk.project_id,
-            filters=filters, tags=tags, offset=offset, scope=scope,
+            filters=filters, tags=tags, offset=offset, scope=scope, chat_id=self._sdk.chat_id,
         )
         if raw.startswith("Error:"):
             raise ValueError(raw)
@@ -850,7 +850,7 @@ class StimmaLibraryAPI:
         raw = await _browse(
             self._sdk.session, query=query, tags=tags, filters=filters,
             sort_by=sort_by, random_seed=random_seed, limit=limit, offset=offset,
-            project_id=self._sdk.project_id, scope=scope,
+            project_id=self._sdk.project_id, scope=scope, chat_id=self._sdk.chat_id,
         )
         parsed = json.loads(raw)
         parsed["items"] = [MediaRecord(item) for item in parsed["items"]]
@@ -867,7 +867,8 @@ class StimmaLibraryAPI:
         """Discover facet values/counts (including models, loras, task_types)."""
         from .tools.library import _browse_options
         raw = await _browse_options(self._sdk.session, facet, filters, query, limit, cursor,
-                                   scope=scope, project_id=self._sdk.project_id)
+                                   scope=scope, project_id=self._sdk.project_id,
+                                   chat_id=self._sdk.chat_id)
         if raw.startswith("Error:"):
             raise ValueError(raw)
         return json.loads(raw)
@@ -2833,7 +2834,12 @@ def _format_run_code_receipt(
             lines.extend(_fmt_success(r) for r in successes)
         else:
             lines.extend(_fmt_success(r) for r in successes[:3])
-            lines.append(f"  ... ({len(successes) - 6} more)")
+            middle = successes[3:-3]
+            middle_ids = [str(r.media_id) for r in middle if r.media_id is not None]
+            if len(middle_ids) <= 200:
+                lines.append(f"  ... {len(middle)} more: media_id " + ", ".join(middle_ids))
+            else:
+                lines.append(f"  ... {len(middle)} more — library(action='browse', scope='chat') pages through them")
             lines.extend(_fmt_success(r) for r in successes[-3:])
 
     if successes and workspace_dir is not None:

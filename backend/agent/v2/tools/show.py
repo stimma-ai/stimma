@@ -660,15 +660,17 @@ async def _create_display_item(
             })
 
     base = "Displayed 1 item to user." if len(rows) == 1 else f"Displayed {len(rows)} items to user."
-    if role != "final" or not asset_by_media:
+    # Report every media_id shown, including ones just saved from a workspace
+    # path: the transcript never replays the display itself, so this result is
+    # the agent's only record of what the user is looking at.
+    asset_by_media = asset_by_media or {}
+    if not media_ids:
         return base
-
-    # role='final' always creates an Asset — report its id so a follow-up
-    # show(revises=...) call has an unambiguous handle instead of a media_id
-    # that might collide with an unrelated asset's id.
-    pairs = [(mid, aid) for mid, aid in asset_by_media.items() if aid is not None]
-    if not pairs:
-        return base
-    if len(pairs) == 1:
-        return f"{base} asset_id={pairs[0][1]}"
-    return base + " " + ", ".join(f"media_id={mid} asset_id={aid}" for mid, aid in pairs)
+    # role='final' always creates an Asset — report its id alongside so a
+    # follow-up show(revises=...) call has an unambiguous handle instead of a
+    # media_id that might collide with an unrelated asset's id.
+    return base + " " + ", ".join(
+        f"media_id={mid} asset_id={asset_by_media[mid]}" if asset_by_media.get(mid) is not None
+        else f"media_id={mid}"
+        for mid in media_ids
+    )

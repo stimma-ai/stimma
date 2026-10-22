@@ -305,6 +305,58 @@ async def _resolve_filter_marker_ids(session: AsyncSession, raw_markers: List[An
     return list(dict.fromkeys(ids))
 
 
+async def chat_media_ids(session: AsyncSession, chat_id: int) -> list[int]:
+    """Every media payload this chat produced, displayed or was given.
+
+    The same edges chat deletion treats as the chat's media (generation jobs
+    run for it, ownership edges it holds, payloads linked to its rows), plus
+    the media its display and attachment rows point at.
+    """
+    from database import ChatItem, GenerationJob, MediaOwner
+
+    ids: set[int] = set(await session.scalars(
+        select(GenerationJob.result_media_id).where(
+            GenerationJob.output_context_kind == "chat",
+            GenerationJob.output_context_id == str(chat_id),
+            GenerationJob.result_media_id.is_not(None),
+        )
+    ))
+    # Promotion to an Asset retires the chat's edge; it still came from here.
+    ids.update(await session.scalars(
+        select(MediaOwner.media_id).where(
+            MediaOwner.root_kind == "chat",
+            MediaOwner.root_id == str(chat_id),
+        )
+    ))
+    ids.update(await session.scalars(
+        select(MediaItem.id).join(ChatItem, MediaItem.chat_item_id == ChatItem.id)
+        .where(ChatItem.chat_id == chat_id)
+    ))
+    rows = await session.execute(
+        select(ChatItem.media_id, ChatItem.media_ids, ChatItem.item_metadata).where(
+            ChatItem.chat_id == chat_id,
+            or_(ChatItem.media_id.is_not(None), ChatItem.media_ids.is_not(None),
+                ChatItem.item_type == "user_message"),
+        )
+    )
+    for row_media_id, row_media_ids, metadata in rows.all():
+        if row_media_id is not None:
+            ids.add(row_media_id)
+        for raw, key in ((row_media_ids, None), (metadata, "workspace_files")):
+            if not raw:
+                continue
+            try:
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if key is not None:
+                parsed = [f.get("media_id") for f in (parsed or {}).get(key) or [] if isinstance(f, dict)] \
+                    if isinstance(parsed, dict) else []
+            if isinstance(parsed, list):
+                ids.update(int(v) for v in parsed if isinstance(v, int) or (isinstance(v, str) and v.isdigit()))
+    return sorted(ids)
+
+
 async def _build_browse_query(
     session: AsyncSession,
     filters: Dict[str, Any],
@@ -312,11 +364,14 @@ async def _build_browse_query(
     random_seed: Optional[int],
     scope: str = "assets",
     project_id: Optional[int] = None,
+    chat_id: Optional[int] = None,
 ):
     from utils.query_builder import build_filtered_query
 
-    if scope not in {"assets", "media"}:
-        raise ValueError("scope must be assets (current library items) or media (all retained payloads)")
+    if scope not in {"assets", "media", "chat"}:
+        raise ValueError("scope must be assets (current library items), media (all retained payloads) or chat (media from this chat)")
+    if scope == "chat" and chat_id is None:
+        raise ValueError("scope='chat' is only available inside a chat")
     stmt = select(MediaItem).where(
         MediaItem.deleted_at.is_(None),
         MediaItem.deletion_pending_at.is_(None),
@@ -340,6 +395,8 @@ async def _build_browse_query(
         # Organizational facets describe Assets, so require the Assets scope.
         if set(filters) & {"tags", "markers"}:
             raise ValueError("tags/markers require scope='assets'; use media_ids or lineage for retained payloads")
+        if scope == "chat":
+            stmt = stmt.where(MediaItem.id.in_(await chat_media_ids(session, chat_id)))
 
     for key in TEXT_FIELDS & filters.keys():
         stmt = stmt.where(field_match(key, filters[key]))
@@ -464,6 +521,7 @@ def _browse_schema() -> Dict[str, Any]:
     schema["scopes"] = {
         "assets": "Default: current active library Assets, scoped to the chat project when present.",
         "media": "Explicit profile-wide search of nondeleted, nonephemeral payloads, including intermediates and historical revisions. No tags/markers.",
+        "chat": "Media generated, shown or attached in this chat, including intermediates never committed to the library. No tags/markers.",
     }
     schema["sdk"] = {
         "find": "await stimma.library.query(filters=None, query=None, tags=None, limit=20, offset=0, sort_by='created_desc', random_seed=None, scope='assets')",
@@ -503,8 +561,9 @@ async def _browse_options_static(
     filters: Dict[str, Any],
     scope: str = "assets",
     project_id: Optional[int] = None,
+    chat_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id)
+    stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id, chat_id)
     base_subquery = stmt.with_only_columns(MediaItem.id, MediaItem.file_format, MediaItem.megapixels, MediaItem.generation_metadata).subquery()
     result_rows: List[Dict[str, Any]] = []
 
@@ -575,9 +634,10 @@ async def _browse_options_dynamic(
     offset: int,
     scope: str = "assets",
     project_id: Optional[int] = None,
+    chat_id: Optional[int] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[int]]:
-    base_stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id)
-    if scope == "media" and facet in {"tags", "markers"}:
+    base_stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None, scope, project_id, chat_id)
+    if scope != "assets" and facet in {"tags", "markers"}:
         raise ValueError("tags/markers facets require scope='assets'")
     asset_media_ids = base_stmt.with_only_columns(
         MediaItem.id.label("media_id"),
@@ -993,7 +1053,7 @@ async def resolve_params_from(
         ToolParameter("limit", "integer", "Max results, default 20", required=False),
         ToolParameter("offset", "integer", "Browse result offset, default 0", required=False),
         ToolParameter("filters", "object", "Structured search/browse/options filters, or reached-endpoint filters for lineage. Call browse_schema for fields and glob matching.", required=False),
-        ToolParameter("scope", "string", "assets (default, current library/project) | media (explicit profile-wide retained payloads, including intermediates and old revisions). For browse/search/options.", required=False),
+        ToolParameter("scope", "string", "assets (default, current library/project) | media (explicit profile-wide retained payloads, including intermediates and old revisions) | chat (everything generated, shown or attached in this chat, newest first — use it to find earlier results here). For browse/search/options.", required=False),
         ToolParameter("direction", "string", "Lineage: parents (default) | children | ancestors | descendants. Recursive traversal follows recorded edges, preserving pairs.", required=False),
         ToolParameter("relationship", "string", "Lineage: derived (default) | inspired | all. Filters apply to the reached endpoint, not intermediate traversal.", required=False),
         ToolParameter("sort_by", "string", "Browse sort: created_desc | created_asc | indexed_desc | indexed_asc | random", required=False),
@@ -1072,13 +1132,16 @@ async def library(
 
     if action == "search":
         return await _search(session, query, search_fields, limit or 20, project_id=project_id,
-                             filters=filters, tags=tags, offset=offset or 0, scope=scope or "assets", sort_by=sort_by, random_seed=random_seed)
+                             filters=filters, tags=tags, offset=offset or 0, scope=scope or "assets", sort_by=sort_by, random_seed=random_seed,
+                             chat_id=kwargs.get("chat_id"))
     elif action == "browse":
-        return await _browse(session, query, tags, filters, sort_by, random_seed, limit or 20, offset or 0, project_id=project_id, scope=scope or "assets")
+        return await _browse(session, query, tags, filters, sort_by, random_seed, limit or 20, offset or 0, project_id=project_id, scope=scope or "assets",
+                             chat_id=kwargs.get("chat_id"))
     elif action == "browse_schema":
         return json.dumps(_browse_schema(), default=str)
     elif action == "browse_options":
-        return await _browse_options(session, facet, filters, query, limit or 25, cursor, scope=scope or "assets", project_id=project_id)
+        return await _browse_options(session, facet, filters, query, limit or 25, cursor, scope=scope or "assets", project_id=project_id,
+                                     chat_id=kwargs.get("chat_id"))
     elif action == "inspect":
         from ..library_graph import inspect_media
         return json.dumps(await inspect_media(session, _validate_media_ids(_collect_media_ids(media_id, media_ids))), default=str)
@@ -1136,6 +1199,7 @@ async def _search(
     scope="assets",
     sort_by=None,
     random_seed=None,
+    chat_id=None,
 ) -> str:
     if not query:
         return "Error: query is required for search"
@@ -1151,7 +1215,7 @@ async def _search(
         raise ValueError(f"Pass either query/search_fields or filters.{key}, not both")
     normalized[key] = normalize_match(query, key)
     page = json.loads(await _browse(session, None, tags, normalized, sort_by, random_seed,
-                                   limit, offset, project_id=project_id, scope=scope))
+                                   limit, offset, project_id=project_id, scope=scope, chat_id=chat_id))
     return json.dumps(page["items"], default=str) if page["items"] else "No results found."
 
 
@@ -1166,6 +1230,7 @@ async def _browse(
     offset: int,
     project_id: Optional[int] = None,
     scope: str = "assets",
+    chat_id: Optional[int] = None,
 ) -> str:
     _validate_page(limit, offset)
     normalized_filters = _normalize_filters(filters)
@@ -1186,6 +1251,7 @@ async def _browse(
         sort_spec.get("random_seed"),
         scope,
         project_id,
+        chat_id,
     )
     total_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
     total = (await session.execute(total_stmt)).scalar() or 0
@@ -1225,6 +1291,7 @@ async def _browse_options(
     cursor: Optional[str],
     scope: str = "assets",
     project_id: Optional[int] = None,
+    chat_id: Optional[int] = None,
 ) -> str:
     if not facet:
         return "Error: facet is required for browse_options"
@@ -1238,7 +1305,7 @@ async def _browse_options(
     _validate_page(limit, offset)
 
     if normalized_facet in {"media_types", "resolutions", "generated"}:
-        items = await _browse_options_static(session, normalized_facet, normalized_filters, scope, project_id)
+        items = await _browse_options_static(session, normalized_facet, normalized_filters, scope, project_id, chat_id)
         if query:
             lowered = query.lower()
             items = [item for item in items if lowered in str(item["label"]).lower()]
@@ -1262,6 +1329,7 @@ async def _browse_options(
         offset,
         scope,
         project_id,
+        chat_id,
     )
     return json.dumps({
         "facet": normalized_facet,
