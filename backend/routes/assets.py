@@ -1,5 +1,6 @@
 """Asset-first identity and contextual-Media APIs used during cutover."""
 
+import asyncio
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -483,7 +484,10 @@ async def browse_assets(
                     raise HTTPException(
                         status_code=400, detail="similar_to_text cannot be empty"
                     )
-                query_embedding = clip.encode_text(similar_to_text.strip())
+                # First use can download weights or wait for another model loader.
+                query_embedding = await asyncio.to_thread(
+                    clip.encode_text, similar_to_text.strip()
+                )
                 floor = get_settings().clip_text_similarity_threshold
             else:
                 reference_ids = parse_similarity_ids(similar_to or "", "similar_to")
@@ -2095,7 +2099,8 @@ async def list_contextual_media(
             from utils.similarity import compute_relevance_cutoff
 
             clip = get_clip_service()
-            query_embedding = clip.encode_text(search_text)
+            # Model loading/inference must leave unrelated API requests responsive.
+            query_embedding = await asyncio.to_thread(clip.encode_text, search_text)
             for media in candidate_media.values():
                 embedding = media.get_embedding()
                 if embedding is None or embedding.shape[0] != CLIP_EMBEDDING_DIM:

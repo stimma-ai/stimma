@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import threading
 import time
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
@@ -514,6 +515,56 @@ async def test_contextual_media_search_includes_visual_matches(
     assert search.status_code == 200, search.text
     assert search.json()["count"] == 1
     assert search.json()["groups"][0]["items"][0]["id"] == raccoon_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("contextual", [False, True])
+async def test_visual_search_keeps_profiles_responsive_while_encoder_loads(
+    client, db_session, monkeypatch, contextual
+):
+    from clip_service import CLIP_EMBEDDING_DIM
+
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+    embedding[0] = 1.0
+
+    class SlowClipService:
+        def encode_text(self, _text):
+            started.set()
+            release.wait(2)
+            finished.set()
+            return embedding
+
+        def compute_similarity(self, first, second):
+            return float(np.dot(first, second))
+
+    monkeypatch.setattr("clip_service.get_clip_service", lambda: SlowClipService())
+    async with db_session() as session:
+        media = await create_media_item(session)
+        media.set_embedding(embedding)
+        if contextual:
+            await acquire_media_owner(
+                session, media_id=media.id, root_kind="chat",
+                root_id="458", role="intermediate",
+            )
+        else:
+            await create_asset_from_media(session, media_id=media.id)
+        await session.commit()
+
+    endpoint = "/api/assets/contextual-media" if contextual else "/api/assets/browse"
+    params = {"q": "raccoon"} if contextual else {"similar_to_text": "raccoon"}
+    search = asyncio.create_task(client.get(endpoint, params=params))
+    try:
+        assert await asyncio.to_thread(started.wait, 5), "Search never reached encoder"
+        profiles = await client.get("/api/profiles")
+        assert profiles.status_code == 200
+        assert not finished.is_set(), "Model loading blocked unrelated API requests"
+    finally:
+        release.set()
+        response = await search
+    assert response.status_code == 200, response.text
 
 
 @pytest.mark.asyncio
