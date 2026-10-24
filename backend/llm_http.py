@@ -6,6 +6,7 @@ and error detection. All response normalization lives in llm.py.
 """
 import json
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -302,18 +303,92 @@ def _decode_responses_tool_call_id(value: str | None) -> tuple[str, str] | None:
     return value[response_start:response_end], value[response_end:]
 
 
-def _provider_http_error(resp: httpx.Response, *, provider: str) -> httpx.HTTPStatusError:
-    """Log supplier diagnostics, but keep URLs/models/body out of UI exceptions."""
+class LLMProviderHTTPError(httpx.HTTPStatusError):
+    """An HTTP rejection with bounded diagnostics for tool results and UI details.
+
+    Keep the default exception summary generic. Callers can explicitly surface
+    the sanitized upstream fields without serializing the request or response.
+    """
+
+    def __init__(self, resp: httpx.Response):
+        super().__init__(
+            f"The AI provider rejected the request (HTTP {resp.status_code}).",
+            request=resp.request,
+            response=resp,
+        )
+        self.upstream_status = resp.status_code
+        self.upstream_message, self.upstream_metadata = _provider_error_details(resp)
+
+
+def _safe_provider_detail(value: object, resp: httpx.Response, *, limit: int) -> str | None:
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        return None
+    text = str(value)
+    # Providers sometimes echo credentials in validation errors. Redact known
+    # request secrets as well as common credential formats before truncating.
+    for name, value in resp.request.headers.items():
+        if name.lower() in {
+            "authorization", "proxy-authorization", "x-api-key", "api-key",
+            "cf-access-client-id", "cf-access-client-secret",
+        }:
+            if value:
+                text = text.replace(value, "[redacted]")
+                if name.lower().endswith("authorization"):
+                    token = value.split(" ", 1)[-1]
+                    if token:
+                        text = text.replace(token, "[redacted]")
+    text = re.sub(r"(?i)\b(?:Bearer|Basic)\s+[^\s,;\"<>]+", "[redacted]", text)
+    text = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}", "[redacted]", text)
+    text = re.sub(
+        r"(?i)\b((?:api[_ -]?key|access[_ -]?token|password|secret)\s*[=:]\s*)"
+        r"(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)",
+        r"\1[redacted]", text,
+    )
+    text = re.sub(r"(?i)(?:https?|wss?)://[^\s<>\"']+", "[URL]", text)
+    text = re.sub(r"(?i)data:[^\s<>\"']+", "[data]", text)
+    text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+    text = " ".join("".join(c for c in text if c.isprintable() or c.isspace()).split())
+    if len(text) > limit:
+        text = text[:limit - 1] + "…"
+    return text or None
+
+
+def _provider_error_details(resp: httpx.Response) -> tuple[str | None, dict]:
+    """Read common provider envelopes, retaining only useful diagnostic fields."""
+    try:
+        body = json.loads(resp.text)
+    except (ValueError, httpx.ResponseNotRead):
+        body = None
+    error = body.get("error", body) if isinstance(body, dict) else None
+    metadata = {}
+    if isinstance(error, dict):
+        message = error.get("message") or error.get("detail")
+        for key in ("type", "code", "param"):
+            value = error.get(key)
+            safe = _safe_provider_detail(value, resp, limit=160)
+            if safe is not None:
+                metadata[key] = value if isinstance(value, int) and str(value) == safe else safe
+    elif isinstance(error, str):
+        message = error
+    else:
+        # A proxy's HTML error page is not useful model feedback.
+        try:
+            message = resp.text if body is None else None
+        except httpx.ResponseNotRead:
+            message = None
+        if message and re.match(r"\s*<(?:!doctype|html|head|body)\b", message, re.IGNORECASE):
+            message = None
+    return _safe_provider_detail(message, resp, limit=1000), metadata
+
+
+def _provider_http_error(resp: httpx.Response, *, provider: str) -> LLMProviderHTTPError:
+    """Keep the full supplier diagnostic in logs and sanitized fields on errors."""
     try:
         detail = resp.text
     except Exception:
         detail = "(could not read response body)"
     log.error(f"{provider} API error {resp.status_code}: {detail[:2000]}")
-    return httpx.HTTPStatusError(
-        f"The AI provider rejected the request (HTTP {resp.status_code}).",
-        request=resp.request,
-        response=resp,
-    )
+    return LLMProviderHTTPError(resp)
 
 
 def _message_text(content) -> str:
@@ -1015,8 +1090,8 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
                         upstream_status=resp.status_code,
                     )
 
-                # Raw supplier diagnostics stay in logs/response for internal
-                # classification, never in the customer-visible exception.
+                # Keep the summary generic and attach only bounded, sanitized
+                # diagnostics for tool failures and the UI Details disclosure.
                 raise _provider_http_error(resp, provider="LLM")
 
             resp.raise_for_status()

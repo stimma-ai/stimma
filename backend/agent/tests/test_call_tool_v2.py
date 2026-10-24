@@ -134,3 +134,32 @@ def test_resolve_effective_task_type_routes_input_videos():
     descriptor.task_types = ["text-to-video", "video-to-video"]
 
     assert _resolve_effective_task_type(descriptor, {"input_videos": [202]}) == "video-to-video"
+
+
+@pytest.mark.asyncio
+async def test_enhancement_rejection_reaches_agent_without_submitting_generation(
+    session, test_chat, fake_queue, mock_generation, tmp_path, monkeypatch,
+):
+    import httpx
+    from llm_http import _provider_http_error
+    from routes.prompt_enhancement import _provider_http_exception
+
+    provider_message = "At most 2 image(s) may be provided in one prompt."
+    response = httpx.Response(400, request=httpx.Request("POST", "https://provider.example/v1"), json={
+        "error": {"message": provider_message, "type": "BadRequestError", "param": "image", "code": 400},
+    })
+
+    async def reject(*args, **kwargs):
+        raise _provider_http_exception(_provider_http_error(response, provider="test"))
+
+    monkeypatch.setattr("routes.generation.enhance_tool_prompt", reject)
+    result = await call_tool(
+        tool_id="image:model-a", parameters={"prompt": "a cat"}, enhance_prompt=True,
+        session=session, chat_id=test_chat.id, workspace_dir=str(tmp_path),
+    )
+
+    assert result.startswith("Error: Prompt enhancement failed:")
+    assert "HTTP 400" in result and provider_message in result
+    assert '"param": "image"' in result
+    assert "No generation was started" in result
+    fake_queue.submit_job.assert_not_called()

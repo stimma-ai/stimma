@@ -370,6 +370,12 @@ async def _enhance_prompt_for_tool(
         log.warning(f"[call_tool_v2] Prompt enhancement failed for {tool_id}: {e}")
         detail = getattr(e, "detail", None)
         message = detail.get("message") if isinstance(detail, dict) else detail
+        if isinstance(detail, dict) and detail.get("code") == "llm_provider_error":
+            # run_code returns exception text to the agent. Keep the structured
+            # provider fields visible there as well as in the HTTP response.
+            metadata = detail.get("upstream_metadata") or {}
+            if metadata:
+                message = f"{message} Provider error fields: {json.dumps(metadata, ensure_ascii=False)}"
         raise ValueError(
             f"Prompt enhancement failed: {message or str(e)}. No generation was started."
         ) from e

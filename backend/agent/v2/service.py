@@ -192,10 +192,8 @@ def _format_raw_error(e: BaseException) -> str:
     provider detail the exception carries (cloud-routed errors propagate
     `upstream_message` / `upstream_metadata` / `upstream_status` through
     QuotaExceededError and ContentFilteredError so users can troubleshoot
-    without devmode). For everything else, `str(e)` alone — which for LLM
-    HTTP failures already includes "HTTP <status> from <url>: <body>" from
-    llm_http.py and is the most useful single string for BYOAI / LM Studio
-    debugging.
+    without devmode). LLMProviderHTTPError carries bounded, sanitized provider
+    diagnostics in the same fields. Other exceptions use `str(e)` alone.
     """
     parts: list[str] = [f"{type(e).__name__}: {e}"]
     upstream_status = getattr(e, "upstream_status", None)

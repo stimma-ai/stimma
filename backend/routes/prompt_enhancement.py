@@ -12,11 +12,29 @@ from core.dependencies import get_db_session
 
 from prompts import get_prompt
 from llm import llm_complete_text, EntitlementError
+from llm_http import LLMProviderHTTPError
 from llm_correlation import llm_correlation_context
 from model_family import model_family
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
+
+
+def _provider_http_exception(e: LLMProviderHTTPError) -> HTTPException:
+    """Preserve the assistant provider's rejection instead of reporting a 500."""
+    message = f"The tool assistant rejected the request (HTTP {e.upstream_status})."
+    if e.upstream_message:
+        message += f" Provider message: {e.upstream_message}"
+    return HTTPException(
+        status_code=502,
+        detail={
+            "code": "llm_provider_error",
+            "message": message,
+            "upstream_status": e.upstream_status,
+            "upstream_message": e.upstream_message,
+            "upstream_metadata": e.upstream_metadata,
+        },
+    )
 
 
 def _entitlement_http_exception(e: EntitlementError) -> HTTPException:
@@ -865,6 +883,8 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
         except asyncio.TimeoutError:
             log.error("Prompt enhancement request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except LLMProviderHTTPError as e:
+            raise _provider_http_exception(e) from e
         except EntitlementError as e:
             raise _entitlement_http_exception(e)
         except Exception as e:
@@ -1180,6 +1200,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         except asyncio.TimeoutError:
             log.error("Prompt improve request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except LLMProviderHTTPError as e:
+            raise _provider_http_exception(e) from e
         except EntitlementError as e:
             raise _entitlement_http_exception(e)
         except Exception as e:
@@ -1245,6 +1267,8 @@ async def translate_prompt(request: TranslatePromptRequest):
         except asyncio.TimeoutError:
             log.error("Prompt translate request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except LLMProviderHTTPError as e:
+            raise _provider_http_exception(e) from e
         except EntitlementError as e:
             raise _entitlement_http_exception(e)
         except Exception as e:
@@ -1393,6 +1417,8 @@ async def prompt_to_ideogram_json(request: IdeogramJsonRequest):
         except asyncio.TimeoutError:
             log.error("Ideogram JSON request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except LLMProviderHTTPError as e:
+            raise _provider_http_exception(e) from e
         except EntitlementError as e:
             raise _entitlement_http_exception(e)
         except Exception as e:
@@ -1621,6 +1647,8 @@ async def suggest_categories(request: SuggestCategoriesRequest):
         raise HTTPException(status_code=504, detail="Request timed out")
     except HTTPException:
         raise
+    except LLMProviderHTTPError as e:
+        raise _provider_http_exception(e) from e
     except Exception as e:
         log.error(
             "Suggest-categories error",
@@ -1807,6 +1835,8 @@ Category: {request.category.label} ({request.category.category})"""
         raise HTTPException(status_code=504, detail="Request timed out")
     except HTTPException:
         raise
+    except LLMProviderHTTPError as e:
+        raise _provider_http_exception(e) from e
     except Exception as e:
         log.error(
             "Suggest-options error",
@@ -2159,6 +2189,9 @@ async def agent_step(request: AgentStepRequest):
                 debug_info["raw_response"] = getattr(e, "upstream_message", None)
                 raise HTTPException(status_code=429, detail={"message": message, "debug": debug_info})
             raise HTTPException(status_code=429, detail=message)
+        except LLMProviderHTTPError as e:
+            _track_step("failed", error_type=classify_agent_error(e))
+            raise _provider_http_exception(e) from e
         except EntitlementError as e:
             log.warning("Prompt-agent step: no active subscription")
             _track_step("failed", error_type="subscription_required")
