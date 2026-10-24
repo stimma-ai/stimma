@@ -78,3 +78,29 @@ async def test_plan_status_interrupts_stale_progress(client, db_session):
     assert stale_data["status"] == "interrupted"
     assert stale_data["previews"] == [101, 102]
     assert (await _display_data(db_session, done_id))["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_stale_tool_recovery_does_not_invent_a_server_restart(client, db_session):
+    chat_id = await _make_chat(db_session)
+    async with db_session() as session:
+        session.add_all([
+            ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="run_code",
+                     tool_call_id="abandoned-export"),
+            ChatItem(chat_id=chat_id, item_type="assistant_message", item_metadata=json.dumps({
+                "thinking_status": "in_progress",
+            })),
+        ])
+        await session.commit()
+
+    response = await client.get(f"/api/chats/{chat_id}/plan-status")
+    assert response.status_code == 200
+    assert response.json()["is_stale"] is True
+    async with db_session() as session:
+        items = (await session.scalars(select(ChatItem).where(ChatItem.chat_id == chat_id))).all()
+        result = next(item for item in items if item.item_type == "tool_result")
+        error = json.loads(result.tool_result)["error"]
+        assert "restart" not in error.lower()
+        assert "ended" in error.lower()
+        thinking = next(item for item in items if item.item_type == "assistant_message")
+        assert "restart" not in json.loads(thinking.item_metadata)["thinking_content"].lower()

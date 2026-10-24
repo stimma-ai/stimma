@@ -2748,11 +2748,16 @@ class StimmaSDK:
 
     async def _resolve_media_or_path(self, value: str | Path | int) -> Path:
         if isinstance(value, int):
-            result = await self.session.execute(select(MediaItem).where(MediaItem.id == value))
-            item = result.scalar_one_or_none()
-            if not item or not item.file_path:
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+
+            # Layout exports can run in gather(). Each lookup owns its read
+            # transaction so concurrent exports cannot invalidate the chat's
+            # session or another export's connection checkout.
+            async with async_sessionmaker(self.session.bind, expire_on_commit=False)() as session:
+                file_path = await session.scalar(select(MediaItem.file_path).where(MediaItem.id == value))
+            if not file_path:
                 raise FileNotFoundError(f"Media {value} not found")
-            return Path(item.file_path)
+            return Path(file_path)
         return self._resolve_path(value)
 
     def _resolve_path(self, value: str | Path) -> Path:

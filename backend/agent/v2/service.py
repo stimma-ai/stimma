@@ -1212,6 +1212,7 @@ async def run_agent(
 
     except Exception as e:
         log.error(f"V2 agent error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
+        await session.rollback()
         provider_error = classify_provider_http_error(e)
         metadata = {"raw_error": _format_raw_error(e)}
         message = str(e)
@@ -2257,6 +2258,7 @@ async def resume_after_hitl(
 
     except Exception as e:
         log.error(f"V2 agent resume error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
+        await session.rollback()
         error_item = ChatItem(
             chat_id=chat_id,
             item_type="error",
@@ -2363,6 +2365,7 @@ async def resume_after_ask_user(
 
     except Exception as e:
         log.error(f"V2 agent resume_after_ask_user error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
+        await session.rollback()
         error_item = ChatItem(
             chat_id=chat_id,
             item_type="error",

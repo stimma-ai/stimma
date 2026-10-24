@@ -2497,8 +2497,9 @@ async def _cleanup_stale_v2_items(
     ws_manager,
 ) -> bool:
     """
-    Clean up stale in-progress items left behind when the server restarted
-    mid-v2-execution.  Returns True if any items were cleaned up.
+    Clean up stale in-progress items whose execution is no longer active.
+    Returns True if any items were cleaned up. A crash or failed tool can leave
+    these behind without a server restart, so do not guess the cause.
     """
     cleaned = False
 
@@ -2516,7 +2517,7 @@ async def _cleanup_stale_v2_items(
         if meta.get("thinking_status") == "in_progress":
             item.item_metadata = json.dumps({
                 "thinking_status": "failed",
-                "thinking_content": "Interrupted by server restart.",
+                "thinking_content": "The previous operation ended before it finished.",
                 "thinking_duration_seconds": 0,
             })
             cleaned = True
@@ -2564,7 +2565,7 @@ async def _cleanup_stale_v2_items(
                     tool_call_id=call_item.tool_call_id,
                     tool_result=json.dumps({
                         "tool_name": call_item.tool_name or "unknown",
-                        "error": "Interrupted by server restart.",
+                        "error": "The previous operation ended before returning a result. Retry it to continue.",
                     }),
                 )
                 session.add(result_item)
@@ -2620,7 +2621,7 @@ async def get_plan_status(
         }
 
     # Not active and no HITL pending — check for stale in-progress items
-    # left behind by a server restart mid-execution.
+    # left behind by an execution that ended without completing its items.
     cleaned = await _cleanup_stale_v2_items(chat_id, session, ws_manager)
 
     return {
