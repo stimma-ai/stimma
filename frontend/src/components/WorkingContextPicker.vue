@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useViewport } from '../composables/useViewport'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -163,10 +164,10 @@ function outside(event: MouseEvent) {
   if (open.value && !path.includes(menu.value!) && !(trigger.value && path.includes(trigger.value))) close()
 }
 function keyboard(event: KeyboardEvent) {
-  if (!open.value) return
+  if (event.defaultPrevented || !open.value) return
   if (event.key === 'Escape') {
-    event.preventDefault()
-    event.stopPropagation()
+    if (!isTopmostEscapeLayer(menu.value)) return
+    consumeEscape(event)
     if (editing.value) editing.value = null
     else close()
   } else if (['ArrowDown', 'ArrowUp', 'Tab'].includes(event.key)) {
@@ -218,7 +219,7 @@ defineExpose({ toggle, manage, openForDrop })
     <slot :toggle="toggle" :open="open" :open-for-drop="openForDrop" />
     <Teleport to="body">
       <Transition name="menu">
-        <div v-if="open" ref="menu" :style="menuStyle" tabindex="-1" role="dialog" aria-label="Choose a project" class="fixed z-menu focus-visible:outline-none w-[288px] max-w-[calc(100vw-16px)] rounded-lg border border-edge-subtle bg-surface p-1.5 shadow-lg">
+        <div v-if="open" ref="menu" data-escape-layer :style="menuStyle" tabindex="-1" role="dialog" aria-label="Choose a project" class="fixed z-menu focus-visible:outline-none w-[288px] max-w-[calc(100vw-16px)] rounded-lg border border-edge-subtle bg-surface p-1.5 shadow-lg">
           <template v-if="editing">
             <button class="flex items-center gap-1 rounded px-2 py-1.5 text-xs text-content-muted transition-colors hover:text-content coarse:min-h-11" @click="editing = null"><ChevronLeftIcon class="h-3 w-3" />Projects</button>
             <form class="px-2 pb-2 pt-1" @submit.prevent="saveName">

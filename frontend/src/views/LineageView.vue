@@ -11,7 +11,7 @@
 
 <script setup>
 import { computed, ref, onActivated, onDeactivated } from 'vue'
-import { useRouter } from 'vue-router'
+import { hasEscapeLayer } from '../utils/escapeLayers'
 import LineageTree from '../components/LineageTree.vue'
 import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
 import { useTelemetry } from '../composables/useTelemetry'
@@ -28,7 +28,6 @@ const props = defineProps({
 
 const numericMediaId = computed(() => Number(props.mediaId))
 const lineageTreeRef = ref(null)
-const router = useRouter()
 const { updateLineageFocus } = useWorkspaceTabs()
 
 function onFocusChanged(focusedMediaId) {
@@ -41,6 +40,8 @@ const dirMap = {
 }
 
 function handleKeydown(e) {
+  if (e.defaultPrevented || hasEscapeLayer()) return
+  if (e.target?.closest?.('input, textarea, [contenteditable="true"]')) return
   const dir = dirMap[e.key]
   if (dir) {
     e.preventDefault()
@@ -58,16 +59,6 @@ function handleKeydown(e) {
       lineageTreeRef.value?.openDetail?.()
     }
     return
-  }
-
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    e.stopPropagation()
-    if (lineageTreeRef.value?.hasDetailOpen?.()) {
-      lineageTreeRef.value.closeDetail()
-      return
-    }
-    router.back()
   }
 }
 

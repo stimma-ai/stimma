@@ -52,7 +52,7 @@
       <Transition name="menu">
       <div
         v-if="isOpen"
-        ref="dropdown"
+        ref="dropdown" data-escape-layer
         class="fixed z-menu flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-lg"
         :style="dropdownStyle"
         role="listbox"
@@ -154,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
@@ -375,8 +376,7 @@ function handleDropdownKeydown(e: KeyboardEvent) {
       }
       break
     case 'Escape':
-      e.preventDefault()
-      close()
+      handleGlobalKeydown(e)
       break
   }
 }
@@ -458,7 +458,8 @@ function positionDropdown() {
 
 // Global keydown handler for escape when open
 function handleGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && isOpen.value) {
+  if (!e.defaultPrevented && e.key === 'Escape' && isOpen.value && isTopmostEscapeLayer(dropdown.value)) {
+    consumeEscape(e)
     close()
   }
 }

@@ -16,6 +16,7 @@ export function useGlobalKeyboardShortcuts(options = {}) {
   const isComponentActive = ref(true)
 
   function handleGlobalKeydown(event) {
+    if (event.defaultPrevented) return
     // Don't handle if component is deactivated (KeepAlive)
     if (!isComponentActive.value) {
       return

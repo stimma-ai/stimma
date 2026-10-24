@@ -150,6 +150,7 @@ import {
   editorEscapeAction,
   selectionMatteAction,
 } from '../imageEditor/stack/selectionLifecycle'
+import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import {
   captureAdjustmentScope,
 } from '../imageEditor/stack/adjustmentScope'
@@ -264,7 +265,11 @@ const cropCanvasRef = ref<InstanceType<typeof StackCropCanvas> | null>(null)
 const docSheetOpen = ref(false)
 // The anchored document menu closes on Escape like any menu.
 function onDocMenuKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') { event.preventDefault(); docSheetOpen.value = false }
+  if (!event.defaultPrevented && event.key === 'Escape'
+    && isTopmostEscapeLayer(document.querySelector('[data-editor-document-menu]'))) {
+    consumeEscape(event)
+    docSheetOpen.value = false
+  }
 }
 watch(docSheetOpen, open => {
   if (open) window.addEventListener('keydown', onDocMenuKeydown)
@@ -8373,7 +8378,7 @@ async function flattenIfNeeded() {
 
 function onKeydown(event: KeyboardEvent) {
   // Sheets and dialogs own their shortcuts, including the dismissal key.
-  if (event.defaultPrevented || document.querySelector('[data-sheet-layer], [data-modal-layer]')) return
+  if (event.defaultPrevented || hasEscapeLayer()) return
   const target = event.target as HTMLElement
   updateHeldCombine(event)
   // Canvas text editing has no focusable element to hide behind, so the
@@ -10125,6 +10130,7 @@ watch(
       v-if="isCompact && docSheetOpen"
       class="fixed inset-0 z-menu"
       data-modal-layer
+      data-editor-document-menu
       @click.self="docSheetOpen = false"
     >
       <div

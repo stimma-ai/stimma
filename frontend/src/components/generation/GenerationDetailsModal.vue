@@ -3,7 +3,6 @@
     :show="show"
     size="custom"
     custom-class="max-h-[88vh] w-full max-w-5xl flex flex-col overflow-hidden"
-    :close-on-esc="false"
     @close="$emit('close')"
   >
     <template #header>
@@ -225,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { devModeRef } from '../../appConfig'
 import { copyToClipboard } from '../../utils/clipboard'
 import { parseFlowError } from '../../utils/flowErrors'
@@ -296,7 +295,7 @@ const props = withDefaults(defineProps<Props>(), {
   canFixWithAgent: false,
 })
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'close'): void
   (e: 'prev-step'): void
   (e: 'next-step'): void
@@ -337,22 +336,6 @@ let rawJsonCopiedTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(() => props.show, (visible) => {
   if (!visible) rawJsonExpanded.value = false
-})
-
-function handleKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape' || !props.show) return
-  event.preventDefault()
-  event.stopPropagation()
-  event.stopImmediatePropagation()
-  emit('close')
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', handleKeydown, true)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown, true)
 })
 
 async function copyValue(value: string) {

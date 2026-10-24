@@ -13,6 +13,7 @@
  * clipped by the first ancestor with overflow — the picker was there, just
  * unreachable. A popover belongs above the layout, not inside it.
  */
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
@@ -124,10 +125,8 @@ function onDocumentPointerDown(event: PointerEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (document.querySelector('[data-modal-layer]')) return
-  if (event.key === 'Escape' && open.value) {
-    event.preventDefault()
-    event.stopPropagation()
+  if (!event.defaultPrevented && event.key === 'Escape' && open.value && isTopmostEscapeLayer(panel.value)) {
+    consumeEscape(event)
     open.value = false
   }
 }
@@ -184,7 +183,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div
         v-if="open"
-        ref="panel"
+        ref="panel" data-escape-layer
         class="popover-panel editor-picker z-menu fixed overflow-y-auto rounded-lg
                border border-edge-subtle bg-surface shadow-xl p-3"
         :style="style"

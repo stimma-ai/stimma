@@ -16,7 +16,7 @@
     <Transition name="menu">
     <div
       v-if="contextMenu.state.value.visible"
-      ref="menuRef"
+      ref="menuRef" data-escape-layer
       data-context-menu
       v-show="!isCoarsePointer || !activeSubmenu"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px]"
@@ -171,7 +171,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'board'"
-            ref="boardSubmenuRef"
+            ref="boardSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[260px] max-h-[420px] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -264,7 +264,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'project'"
-            ref="projectSubmenuRef"
+            ref="projectSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[260px]"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -373,7 +373,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'generate'"
-            ref="generateSubmenuRef"
+            ref="generateSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -540,7 +540,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'tool'"
-            ref="toolSubmenuRef"
+            ref="toolSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -598,7 +598,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'chat'"
-            ref="chatSubmenuRef"
+            ref="chatSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
@@ -667,7 +667,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow'"
-            ref="flowSubmenuRef"
+            ref="flowSubmenuRef" data-escape-layer
             v-show="!isCoarsePointer || !activeFlowDestination"
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[220px] max-w-[300px] max-h-[400px] overflow-y-auto"
             :style="submenuPosition"
@@ -720,7 +720,7 @@
           <Teleport to="body">
           <div
             v-if="activeSubmenu === 'flow' && activeFlowDestination"
-            ref="flowDestinationSubmenuRef"
+            ref="flowDestinationSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[190px] max-w-[280px]"
             :style="flowDestinationPosition"
             @mouseenter="cancelSubmenuClose"
@@ -911,6 +911,7 @@
 </template>
 
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaContextMenu, useMediaContextMenuHost, broadcastMediaContextMenuEvent } from '../../composables/useMediaContextMenu'
@@ -1733,8 +1734,15 @@ function handleClickOutside(event: MouseEvent) {
 
 // Close on escape
 function handleKeyDown(event: KeyboardEvent) {
-  if (!isRenderer.value) return
-  if (event.key === 'Escape') {
+  if (event.defaultPrevented || !isRenderer.value || event.key !== 'Escape') return
+  const submenus = [generateSubmenuRef, toolSubmenuRef, chatSubmenuRef,
+    flowSubmenuRef, flowDestinationSubmenuRef, boardSubmenuRef, projectSubmenuRef]
+  if (submenus.some(menu => isTopmostEscapeLayer(menu.value))) {
+    consumeEscape(event)
+    if (activeFlowDestination.value) clearFlowDestination()
+    else activeSubmenu.value = null
+  } else if (isTopmostEscapeLayer(menuRef.value)) {
+    consumeEscape(event)
     contextMenu.hide()
     activeSubmenu.value = null
   }

@@ -56,7 +56,7 @@
     <component
       :is="isCompact ? Sheet : 'div'"
       v-if="openId === p.provider_id"
-      v-bind="isCompact ? { show: true, expandable: true, contentClass: 'flex flex-col overflow-hidden' } : {}"
+      v-bind="isCompact ? { show: true, expandable: true, contentClass: 'flex flex-col overflow-hidden' } : { 'data-provider-manager-layer': '', 'data-escape-layer': '' }"
       :class="isCompact ? undefined : 'bg-surface z-menu overflow-hidden flex flex-col absolute top-[calc(100%+0.5rem)] right-0 w-[420px] border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)]'"
       :style="isCompact ? undefined : { height: popoverHeight }"
       @close="close"
@@ -92,6 +92,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useProvidersApi, type Provider } from '../composables/useProvidersApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useTheme } from '../composables/useTheme'
@@ -213,7 +214,13 @@ function onDocClick(e: MouseEvent) {
   if (t && t.closest && t.closest('.provider-manager')) return
   close()
 }
-function onKey(e: KeyboardEvent) { if (e.key === 'Escape') close() }
+function onKey(e: KeyboardEvent) {
+  if (isCompact.value || e.defaultPrevented || e.key !== 'Escape') return
+  if (isTopmostEscapeLayer(document.querySelector('[data-provider-manager-layer]'))) {
+    consumeEscape(e)
+    close()
+  }
+}
 
 function handleStateChanged(data: { provider_id: string; state: string; summary?: string | null; attention?: 'update_available' | null }) {
   const p = providers.value.find(x => x.provider_id === data.provider_id)

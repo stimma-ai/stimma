@@ -6,6 +6,7 @@
 // ContextMenu; this component is only ever rendered when useViewport says
 // compact or coarse-pointer.
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 
 const props = withDefaults(defineProps<{
   show: boolean
@@ -65,15 +66,9 @@ function toggleSize() {
 
 function close() { emit('close') }
 
-function isTopmostLayer(): boolean {
-  const layers = document.querySelectorAll('[data-modal-layer]')
-  return layers.length === 0 || layers[layers.length - 1] === layerRef.value
-}
-
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && isTopmostLayer()) {
-    e.preventDefault()
-    e.stopPropagation()
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(layerRef.value)) {
+    consumeEscape(e)
     close()
   }
 }

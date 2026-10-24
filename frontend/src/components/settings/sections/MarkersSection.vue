@@ -85,7 +85,7 @@
     <Teleport to="body">
       <div
         v-if="openMenuIndex !== null && menuPosition"
-        data-marker-menu
+        data-marker-menu data-escape-layer
         class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
@@ -124,6 +124,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, isTopmostEscapeLayer } from '../../../utils/escapeLayers'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import MarkerPicker from '../MarkerPicker.vue'
 import ConfirmModal from '../../ConfirmModal.vue'
@@ -213,7 +214,9 @@ function handleClickOutside(event) {
 }
 
 function handleEscapeKey(event) {
-  if (event.key === 'Escape' && openMenuIndex.value !== null) {
+  if (!event.defaultPrevented && event.key === 'Escape' && openMenuIndex.value !== null
+    && isTopmostEscapeLayer(document.querySelector('[data-marker-menu]'))) {
+    consumeEscape(event)
     closeMarkerMenu()
   }
 }

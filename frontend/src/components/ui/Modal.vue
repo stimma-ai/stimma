@@ -7,6 +7,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { isDesktop } from '../../apiConfig'
 import { useViewport } from '../../composables/useViewport'
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 
 const { allowsAutofocus } = useViewport()
 
@@ -61,19 +62,11 @@ function onBackdropClick() {
   if (props.closeOnBackdrop) close()
 }
 
-// Every open modal listens on window, and stopPropagation does not stop
-// sibling listeners on the same target — so without this, one Escape inside
-// a picker launched from Settings would close the picker, the folder
-// dialog under it, and Settings itself. Layers teleport to body in opening
-// order, so the last one in the document is the one on top.
-function isTopmostLayer(): boolean {
-  const layers = document.querySelectorAll('[data-modal-layer]')
-  return layers.length === 0 || layers[layers.length - 1] === layerRef.value
-}
-
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.closeOnEsc && isTopmostLayer()) {
-    e.stopPropagation()
+  if (!e.defaultPrevented && e.key === 'Escape' && props.closeOnEsc && isTopmostEscapeLayer(layerRef.value)) {
+    // CodeMirror/Vim owns Escape while editing.
+    if ((e.target as Element)?.closest?.('.cm-editor')) return
+    consumeEscape(e)
     close()
   }
 }

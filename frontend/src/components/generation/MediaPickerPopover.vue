@@ -4,7 +4,7 @@
     <div class="fixed inset-0 z-menu" @click="$emit('close')" />
 
     <div
-      ref="panel"
+      ref="panel" data-escape-layer
       class="fixed z-menu w-[420px] bg-surface border border-edge-subtle rounded-lg shadow-lg flex flex-col overflow-hidden"
       :style="panelStyle"
     >
@@ -86,6 +86,7 @@
 </template>
 
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import MediaImage from '../media/MediaImage.vue'
@@ -331,8 +332,8 @@ function position() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    e.stopPropagation()
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(panel.value)) {
+    consumeEscape(e)
     emit('close')
   }
 }

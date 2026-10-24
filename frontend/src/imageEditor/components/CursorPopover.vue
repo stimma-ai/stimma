@@ -10,6 +10,7 @@
  * the bottom. The vertical bias puts the panel's upper third at the pointer,
  * which lands the preset grid under the pen.
  */
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
@@ -79,7 +80,10 @@ function onDocumentPointerDown(event: PointerEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') emit('close')
+  if (!event.defaultPrevented && event.key === 'Escape' && isTopmostEscapeLayer(panel.value)) {
+    consumeEscape(event)
+    emit('close')
+  }
 }
 
 onMounted(() => {
@@ -98,7 +102,7 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <div
-      ref="panel"
+      ref="panel" data-escape-layer
       class="z-menu overflow-y-auto rounded-lg border border-edge-subtle bg-surface shadow-xl p-3"
       :style="style"
     >

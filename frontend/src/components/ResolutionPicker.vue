@@ -32,7 +32,7 @@
       <div v-if="isOpen" class="fixed inset-0 z-menu" @click="close" />
       <div
         v-if="isOpen"
-        ref="panelRef"
+        ref="panelRef" data-escape-layer
         class="fixed z-menu w-[23rem] max-w-[calc(100vw-1rem)] rounded-lg border border-edge-subtle bg-surface p-4 shadow-lg"
         :style="panelStyle"
         role="dialog"
@@ -146,6 +146,7 @@
 </template>
 
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import {
   RATIO_CHOICES,
@@ -355,7 +356,12 @@ function close() {
   window.removeEventListener('scroll', position, true)
   document.removeEventListener('keydown', onKeydown)
 }
-function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') close() }
+function onKeydown(e: KeyboardEvent) {
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(panelRef.value)) {
+    consumeEscape(e)
+    close()
+  }
+}
 function position() {
   if (!containerRef.value || !panelRef.value) return
   const rect = containerRef.value.getBoundingClientRect()

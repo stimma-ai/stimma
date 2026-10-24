@@ -40,6 +40,17 @@ router = APIRouter(prefix="/api", tags=["packages"])
 
 ID_KEYED_CACHE_HEADERS = {"Cache-Control": "no-cache"}
 
+# Installed only in the in-app response. Let cover layers handle Escape first;
+# unhandled keyboard events inside a frame cannot bubble to its host viewer.
+PACKAGE_ESCAPE_BRIDGE = """<script>
+document.addEventListener('keydown', function(event) {
+  if (event.defaultPrevented || event.key !== 'Escape' || window.parent === window) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  window.parent.postMessage({type: 'stimma-package-escape'}, '*');
+});
+</script>"""
+
 
 async def _package_media(session: AsyncSession, media_id: int) -> MediaItem:
     media = await session.scalar(
@@ -142,6 +153,7 @@ async def _serve_bundle_file(
             html = target.read_text(encoding="utf-8").replace(
                 '<html lang="en" data-stimma-package="1">', '<html lang="en" data-stimma-package="1" data-stimma-host="local">', 1
             )
+            html = html.replace("<head>", "<head>" + PACKAGE_ESCAPE_BRIDGE, 1)
             return HTMLResponse(html, headers=headers)
         return FileResponse(target, media_type=mime, headers=headers)
     manifest = await manifest_for_media(session, media)

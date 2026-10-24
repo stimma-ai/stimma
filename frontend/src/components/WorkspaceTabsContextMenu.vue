@@ -3,7 +3,7 @@
     <Transition name="menu">
     <div
       v-if="contextMenu.state.value.visible"
-      ref="menuRef"
+      ref="menuRef" data-escape-layer
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[210px]"
       :style="menuStyle"
     >
@@ -136,7 +136,7 @@
           <!-- Project submenu (fixed, viewport-aware) -->
           <div
             v-if="showProjectSubmenu"
-            ref="projectSubmenuRef"
+            ref="projectSubmenuRef" data-escape-layer
             class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[260px]"
             :style="projectSubmenuStyle"
             @mouseenter="cancelHideProjectSubmenu"
@@ -171,6 +171,7 @@
 </template>
 
 <script setup lang="ts">
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
@@ -443,8 +444,14 @@ function handleClickOutside(event: MouseEvent) {
 
 // Close on escape
 function handleKeyDown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    contextMenu.hide()
+  if (!event.defaultPrevented && event.key === 'Escape' && contextMenu.state.value.visible) {
+    if (isTopmostEscapeLayer(projectSubmenuRef.value)) {
+      consumeEscape(event)
+      showProjectSubmenu.value = false
+    } else if (isTopmostEscapeLayer(menuRef.value)) {
+      consumeEscape(event)
+      contextMenu.hide()
+    }
   }
 }
 

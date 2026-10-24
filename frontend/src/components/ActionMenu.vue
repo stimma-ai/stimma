@@ -3,7 +3,7 @@
     <Transition name="menu">
       <div
         v-if="visible"
-        ref="menuRef"
+        ref="menuRef" data-escape-layer
         class="fixed z-menu min-w-[200px] bg-surface border border-edge-subtle rounded-lg shadow-lg py-1"
         :style="menuStyle"
         @click.stop
@@ -31,6 +31,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { useContextMenuPosition } from '../composables/useContextMenuPosition'
@@ -97,7 +98,8 @@ function handleClickOutside(event) {
 }
 
 function handleEscape(event) {
-  if (event.key === 'Escape' && props.visible) {
+  if (!event.defaultPrevented && event.key === 'Escape' && props.visible && isTopmostEscapeLayer(menuRef.value)) {
+    consumeEscape(event)
     emit('close')
   }
 }

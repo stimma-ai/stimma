@@ -3,7 +3,6 @@
     :show="true"
     size="custom"
     custom-class="max-w-[900px] w-full max-h-[85vh] flex flex-col overflow-hidden"
-    :close-on-esc="false"
     @close="close"
   >
     <template #header>
@@ -112,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import type { StimpackDetail } from '../../composables/useStimpacksApi'
 import Modal from '../ui/Modal.vue'
@@ -156,23 +155,6 @@ const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace } = useCodeMirr
     form.value.content = value
   },
   onBlur: () => {},
-})
-
-// Modal.vue's Esc handling is disabled (close-on-esc="false") because Escape
-// must NOT close this modal while the CodeMirror vim mode has focus (vim
-// uses Escape itself). This replicates the prior behavior exactly.
-function onWindowKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Escape') return
-  if (editorMount.value?.contains(document.activeElement)) return
-  close()
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onWindowKeydown)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onWindowKeydown)
 })
 
 function close() {

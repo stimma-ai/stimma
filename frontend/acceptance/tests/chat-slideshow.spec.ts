@@ -86,3 +86,55 @@ test('chat slideshow stays live and preserves the selected image across batches'
   await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
   await page.screenshot({ path: testInfo.outputPath('live-chat-slideshow.png') });
 });
+
+test('Escape closes only the chat slideshow before older window shortcuts run', async ({ page }) => {
+  await page.goto('/browse');
+  await waitForShell(page);
+  const profileId = await page.evaluate(() => localStorage.getItem('profileId'));
+  const upload = await page.request.post('/api/generate/upload-bulk', {
+    headers: { 'X-Profile-ID': profileId! },
+    multipart: { files: { name: 'slideshow-escape.png', mimeType: 'image/png',
+      buffer: await readFile(new URL('../../public/logo.png', import.meta.url)) } },
+  });
+  expect(upload.ok()).toBe(true);
+  const image = (await upload.json()).results[0];
+  expect(image.status).toBe('success');
+  const chat = await createChat(page, 'Slideshow dismissal');
+  const response = await apiJSON<any>(page, `/api/chats/${chat.id}/items`, {
+    method: 'POST', data: { item_type: 'media_display',
+      item_metadata: JSON.stringify({ display_data: { rows: [{
+        id: 0, input: { type: 'output_only' }, output: { status: 'complete', media_id: image.media_id },
+      }] } }) },
+  } as any);
+  await page.goto(`/chat/${chat.id}`);
+  const dismiss = page.getByTestId('readiness-dismiss');
+  if (await dismiss.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
+    await dismiss.click();
+  }
+  // Register before the slideshow, like a previously mounted navigation surface.
+  await page.evaluate(() => {
+    (window as any).__chatEscapeCount = 0;
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') (window as any).__chatEscapeCount++;
+    });
+  });
+  const preview = page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer`).first();
+  const hero = page.locator('[data-gallery-picture] img');
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole('textbox', { name: 'Type a message...' }).focus();
+    await preview.click();
+    await expect(hero).toBeVisible();
+    if (i === 1) {
+      await hero.click({ button: 'right' });
+      await expect(page.locator('[data-context-menu]')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-context-menu]')).toHaveCount(0);
+      await expect(hero).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+    await expect(hero).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/chat/${chat.id}$`));
+    await expect(preview).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__chatEscapeCount)).toBe(0);
+  }
+});

@@ -215,6 +215,24 @@ fine-tuning tier, not defaults. Nothing above p-8 without a reason.
 - Drop target: `ring-1 ring-accent/50 bg-accent/10`. The green "additive drop"
   variant stays (tool inputs), documented as the ONE exception.
 
+### 1.8a Escape dismisses layers
+
+Escape dismisses the top visible transient layer and consumes the keypress.
+Dismissal must never pop the app's or browser's navigation stack. Nested viewers
+are separate layers: screen → slideshow → set means the first Escape dismisses
+the set, the second dismisses the slideshow, and the screen stays put. Grid
+cells, source views, menus, sheets, compare views and dialogs follow the same
+one-layer-at-a-time rule.
+
+Context-specific shortcuts, such as stopping an active chat or cancelling an AI
+selection request, keep their existing behavior when no higher layer owns the
+keypress. This is a layer-dismissal rule, not a ban on contextual cancellation.
+
+Dialog and menu roots use `data-modal-layer` or `data-escape-layer` and
+`isTopmostEscapeLayer` so visual stacking, rather than listener registration
+order, determines the owner. A handled dismissal calls `consumeEscape` so the
+same keypress cannot dismiss an underlying layer.
+
 ### 1.9 Status colors — single source of truth
 
 New `utils/statusColors.ts` (or composable `useStatusColor`) mapping semantic

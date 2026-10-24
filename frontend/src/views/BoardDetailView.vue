@@ -50,7 +50,7 @@
 
         <div
           v-if="boardMenuOpen"
-          ref="boardMenuRef"
+          ref="boardMenuRef" data-escape-layer
           class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
         >
           <button
@@ -343,9 +343,11 @@
 </template>
 
 <script setup>
+import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { computed, nextTick, onMounted, onUnmounted, onActivated, reactive, ref, watch } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
+import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
@@ -907,6 +909,13 @@ function handleDocumentClick(event) {
 }
 
 function handleWindowKeydown(event) {
+  if (event.defaultPrevented) return
+  if (event.key === 'Escape' && boardMenuOpen.value && isTopmostEscapeLayer(boardMenuRef.value)) {
+    consumeEscape(event)
+    boardMenuOpen.value = false
+    return
+  }
+  if (slideshowState.active || hasEscapeLayer()) return
   // Escape during drag: cancel drag and revert
   if (event.key === 'Escape' && (dragState.item || dragState.sectionDragId)) {
     event.preventDefault()
@@ -921,6 +930,8 @@ function handleWindowKeydown(event) {
     boardMenuOpen.value = false
   }
 }
+
+useGlobalKeyboardShortcuts({ onKeydown: handleWindowKeydown })
 
 // --- Multi-select action handlers ---
 
@@ -1891,7 +1902,6 @@ onMounted(async () => {
   markersData.value = await getMarkers()
   measureWidth()
   document.addEventListener('mousedown', handleDocumentClick)
-  window.addEventListener('keydown', handleWindowKeydown)
   window.addEventListener('resize', measureWidth)
   await nextTick()
   measureWidth()
@@ -1912,7 +1922,6 @@ onUnmounted(() => {
   }
   sectionResizeObserver?.disconnect()
   document.removeEventListener('mousedown', handleDocumentClick)
-  window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('resize', measureWidth)
 })
 

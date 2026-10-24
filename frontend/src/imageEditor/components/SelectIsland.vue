@@ -22,6 +22,7 @@
  * the canvas back explicitly, while ungrouped tools retain their old toggle.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { consumeEscape, hasEscapeLayer } from '../../utils/escapeLayers'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../../components/ui/Spinner.vue'
 import Tooltip from '../../components/ui/Tooltip.vue'
@@ -214,7 +215,7 @@ function onOutsidePointerDown(event: PointerEvent) {
 }
 
 function onWindowKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return
+  if (event.defaultPrevented || event.key !== 'Escape' || hasEscapeLayer()) return
   // Waiting on a model is the one thing Esc should reach first: cancelling the
   // request is what the user means, not leaving the tool that issued it. The
   // listener is capture-phase so the editor's own Esc never sees this one.
@@ -224,7 +225,10 @@ function onWindowKeydown(event: KeyboardEvent) {
     event.preventDefault()
     return
   }
-  openGroup.value = null
+  if (openGroup.value) {
+    consumeEscape(event)
+    openGroup.value = null
+  }
 }
 
 onMounted(() => {

@@ -7,6 +7,7 @@
  * the same gesture.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import Tooltip from '../../components/ui/Tooltip.vue'
 import ToolIcon from './ToolIcon.vue'
 import { PAINT_ENGINES, PAINT_FILL_ENGINES } from '../stack/toolFamilies'
@@ -100,17 +101,21 @@ function onOutsidePointerDown(event: PointerEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') open.value = false
+  if (!event.defaultPrevented && event.key === 'Escape' && open.value
+    && isTopmostEscapeLayer(document.querySelector('[data-paint-fill-menu]'))) {
+    consumeEscape(event)
+    open.value = false
+  }
 }
 
 onMounted(() => {
   window.addEventListener('pointerdown', onOutsidePointerDown)
-  window.addEventListener('keydown', onKeydown)
+  document.addEventListener('keydown', onKeydown)
 })
 onBeforeUnmount(() => {
   cancelPress()
   window.removeEventListener('pointerdown', onOutsidePointerDown)
-  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('keydown', onKeydown)
 })
 </script>
 
@@ -144,7 +149,7 @@ onBeforeUnmount(() => {
       </button>
     </Tooltip>
 
-    <div v-if="open" class="absolute top-full left-1/2 -translate-x-1/2 pt-1 z-menu">
+    <div v-if="open" data-paint-fill-menu data-escape-layer class="absolute top-full left-1/2 -translate-x-1/2 pt-1 z-menu">
       <div
         class="flex flex-col gap-0.5 p-1 bg-surface border border-edge-subtle rounded-lg shadow-lg"
         role="menu"

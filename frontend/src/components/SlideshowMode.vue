@@ -1,11 +1,14 @@
 <template>
   <div
     ref="overlay"
+    data-escape-layer
+    tabindex="-1"
     class="[&_img]:[-webkit-touch-callout:none] [&_video]:[-webkit-touch-callout:none]"
     data-drop-zone
     :class="fullscreen ? 'fixed inset-0 bg-slideshow-matt flex z-overlay compact:flex-col' : 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
     @drop.prevent
+    @keydown.esc="handleKeydown"
   >
     <!-- Draggable region for moving the window (below the floating chrome buttons) -->
     <div
@@ -500,6 +503,7 @@
           @document-touchend="handleTouchEnd"
           @document-touchcancel="cancelSlideshowTouch"
           @document-click="suppressSlideshowSwipeClick"
+          @document-keydown="handleKeydown"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0"
@@ -531,6 +535,7 @@
           :style="galleryPictureStyle"
           :key="`package-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
+          @escape="handleKeydown"
           class="absolute inset-0"
         />
 
@@ -1321,6 +1326,7 @@ import { mobileForeground, mobileAdvanceReady, mobileAutoplayAllowed, allowMobil
 import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -4180,7 +4186,18 @@ function stopDrag() {
 
 // Keyboard handling
 function handleKeydown(event) {
-  if (document.querySelector('[data-sheet-layer]')) return
+  if (event.defaultPrevented || !slideshowViewActive) return
+  // A dialog or menu above the slideshow owns its own dismissal.
+  if (!isTopmostEscapeLayer(overlay.value)) return
+  if (event.key === 'Escape') {
+    consumeEscape(event)
+    // Dismiss one viewer layer without touching the screen's navigation stack.
+    if (isViewingGrid.value) exitGridView()
+    else if (isViewingSet.value) exitSetView()
+    else if (isViewingSource.value) goBackFromSource()
+    else close()
+    return
+  }
   // Don't handle keyboard shortcuts if user is typing in an input/textarea
   const activeElement = document.activeElement
   if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
@@ -4238,11 +4255,6 @@ function handleKeydown(event) {
             resetZoom()
           }
         }
-        return
-      case 'Escape':
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        exitGridView()
         return
     }
     // Fall through to other key handlers (zoom, focus mode, etc.)
@@ -4381,20 +4393,6 @@ function handleKeydown(event) {
       event.preventDefault()
       handleDeleteCurrentItem()
       break
-    case 'Escape':
-      // Exit set view mode first, then close slideshow
-      if (isViewingSet.value) {
-        event.preventDefault()
-        event.stopImmediatePropagation() // Prevent parent handlers from closing slideshow
-        exitSetView()
-        return
-      }
-      // The slideshow owns this Escape transition. Consume the event so a
-      // parent surface cannot also interpret the same keypress as "go back".
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      close()
-      break
   }
 }
 
@@ -4406,7 +4404,7 @@ function close() {
 // Header Back exits the mounted slideshow before navigating away from its screen.
 useBackOverride(() => true, close)
 
-// Handle close button click - exit nested views first, then close slideshow
+// Dismiss the top viewer layer, then the slideshow itself.
 function handleCloseClick() {
   if (isViewingGrid.value) {
     exitGridView()
@@ -5757,29 +5755,6 @@ useGlobalKeyboardShortcuts({
   onKeydown: handleKeydown
 })
 
-// Capture-phase Escape handler to intercept before parent view's handler
-// This is needed because parent view (BrowseGridView) has its own Escape handler
-// that closes the slideshow, but we want to exit set view first
-function handleEscapeCapture(event) {
-  // Let the top sheet dismiss before changing the underlying collection.
-  if (document.querySelector('[data-sheet-layer]')) return
-  if (event.key === 'Escape') {
-    // Grid view takes precedence - exit cell view back to grid overview
-    if (isViewingGrid.value) {
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      exitGridView()
-      return
-    }
-    // Then check set view
-    if (isViewingSet.value) {
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      exitSetView()
-    }
-  }
-}
-
 // media_deleted/media_bulk_deleted carry payload ids (media_id namespace),
 // while deletingItemIds/localRemovedIds/mediaList are keyed by browser
 // identity (itemIdentity → asset id). The two id sequences are independent,
@@ -5876,6 +5851,9 @@ function handleMediaUpdatedWs(data) {
 }
 
 onMounted(async () => {
+  // Own keyboard focus while open. Handle Escape on this surface before older
+  // window listeners can interpret the same keypress as navigation.
+  overlay.value?.focus({ preventScroll: true })
   stopImageRecovery = subscribeImageRecovery({
     element: () => mediaContainerRef.value,
     failed: () => imageLoadFailed.value,
@@ -5901,8 +5879,6 @@ onMounted(async () => {
     wsUnsubscribers.push(onWebSocketEvent('assets_restored', handleAssetsRemovedWs))
   }
 
-  // Add capture-phase Escape handler
-  window.addEventListener('keydown', handleEscapeCapture, true)
   // Ensure tools cache is populated for displaying tool names in history
   fetchProvidersAndTools()
 
@@ -6005,8 +5981,6 @@ onUnmounted(() => {
   wsUnsubscribers.length = 0
 
   stopSlideshowTimer()
-  // Clean up capture-phase Escape handler
-  window.removeEventListener('keydown', handleEscapeCapture, true)
   // Clean up focus mode body class
   document.body.classList.remove('slideshow-focus-mode')
   // Clean up cursor hiding

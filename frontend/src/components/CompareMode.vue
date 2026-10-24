@@ -2,6 +2,7 @@
   <Teleport to="body">
     <div
       ref="overlay"
+      data-escape-layer
       class="fixed inset-0 bg-black flex z-overlay"
       @keydown="handleKeyDown"
       tabindex="0"
@@ -166,6 +167,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, getCurrentInstance } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
 
 const props = defineProps({
@@ -398,9 +400,10 @@ function swapImages() {
 
 // Keyboard handling
 function handleKeyDown(e) {
+  if (e.defaultPrevented || !isTopmostEscapeLayer(overlay.value)) return
   switch (e.key) {
     case 'Escape':
-      e.stopPropagation() // Prevent bubbling to slideshow
+      consumeEscape(e)
       close()
       break
     case 's':

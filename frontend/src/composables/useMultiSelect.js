@@ -1,3 +1,4 @@
+import { hasEscapeLayer } from '../utils/escapeLayers'
 import { ref, computed } from 'vue'
 
 /**
@@ -234,6 +235,7 @@ export function useMultiSelect(options = {}) {
    */
   function createKeyboardHandler() {
     return (event) => {
+      if (event.defaultPrevented || hasEscapeLayer()) return false
       // Escape - Clear selection when selection bar is visible
       if (event.key === 'Escape') {
         if (multiSelectMode.value && selectedItemIds.value.length > 0) {

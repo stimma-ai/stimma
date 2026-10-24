@@ -57,7 +57,7 @@
     <Teleport to="body">
       <div
         v-if="flyoutOpen"
-        ref="flyoutEl"
+        ref="flyoutEl" data-escape-layer
         class="fixed z-menu w-[300px] bg-surface-raised border border-edge-subtle rounded-lg shadow-lg p-3"
         :style="submenuStyle"
         @mousedown.stop
@@ -98,6 +98,7 @@
  * Anything past that goes behind the +N chip rather than growing the sidebar —
  * a section that changes height under you is the one thing a stable map can't do.
  */
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import MediaImage from './media/MediaImage.vue'
@@ -202,7 +203,12 @@ function onDrop(e: DragEvent) {
 }
 
 function onDocumentClick() { flyoutOpen.value = false }
-function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') flyoutOpen.value = false }
+function onKeydown(e: KeyboardEvent) {
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(flyoutEl.value)) {
+    consumeEscape(e)
+    flyoutOpen.value = false
+  }
+}
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   document.addEventListener('keydown', onKeydown)

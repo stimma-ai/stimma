@@ -3066,6 +3066,7 @@ function continueAfterInterrupt() {
 
 // Handle up/down arrow keys for message history
 function handleKeyDown(event) {
+  if (event.defaultPrevented) return
   // ESC while the agent is running stops it — mirrors clicking the Stop button.
   if (event.key === 'Escape' && showStopButton.value) {
     event.preventDefault()

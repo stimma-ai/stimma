@@ -3,7 +3,6 @@
     :show="mediaDetails.state.value.visible"
     size="custom"
     custom-class="relative w-full max-w-[1100px] h-[75vh] flex overflow-hidden compact:h-auto compact:block compact:overflow-y-auto"
-    :close-on-esc="false"
     @close="mediaDetails.close()"
   >
     <div class="absolute top-3 right-3 z-chrome">
@@ -28,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaDetailsModal } from '../../composables/useMediaDetailsModal'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -82,15 +81,4 @@ watch(
   { immediate: true }
 )
 
-function handleKeydown(e) {
-  if (!mediaDetails.state.value.visible) return
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    e.stopPropagation()
-    mediaDetails.close()
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', handleKeydown, true))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown, true))
 </script>

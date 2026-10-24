@@ -38,7 +38,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['document-touchstart', 'document-touchmove', 'document-touchend', 'document-touchcancel', 'document-click'])
+const emit = defineEmits(['document-touchstart', 'document-touchmove', 'document-touchend', 'document-touchcancel', 'document-click', 'document-keydown'])
 let removeDocumentTouches = () => {}
 
 const loading = ref(true)
@@ -101,9 +101,12 @@ function onIframeLoad() {
       })
       const suppressClick = event => emit('document-click', event)
       doc.addEventListener('click', suppressClick, true)
+      const dismiss = event => { if (!event.defaultPrevented && event.key === 'Escape') emit('document-keydown', event) }
+      doc.addEventListener('keydown', dismiss)
       removeDocumentTouches = () => {
         for (const [type, handler] of handlers) doc.removeEventListener(type, handler, true)
         doc.removeEventListener('click', suppressClick, true)
+        doc.removeEventListener('keydown', dismiss)
       }
     }
   } catch { /* Cross-origin layouts retain their own interaction handling. */ }

@@ -9,6 +9,7 @@
          the package-file route as its base. -->
     <iframe
       v-if="coverUrl"
+      ref="frame"
       :src="coverUrl"
       sandbox="allow-scripts allow-same-origin allow-downloads allow-popups"
       class="h-full w-full border-0 bg-matte"
@@ -18,7 +19,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { getApiBase } from '../../apiConfig'
 import { getCurrentDbGuid, getCurrentProfileId } from '../../composables/useProfile'
 
@@ -28,6 +29,17 @@ const props = defineProps({
     required: true,
   },
 })
+
+const emit = defineEmits(['escape'])
+const frame = ref(null)
+function onFrameMessage(event) {
+  if (!frame.value?.contentWindow || event.source !== frame.value.contentWindow) return
+  if (event.data?.type === 'stimma-package-escape') {
+    emit('escape', new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
+  }
+}
+onMounted(() => window.addEventListener('message', onFrameMessage))
+onBeforeUnmount(() => window.removeEventListener('message', onFrameMessage))
 
 // A rebuild commits a new revision, which hands this viewer a new media id
 // through the prop — nothing to track locally.

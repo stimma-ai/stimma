@@ -812,11 +812,8 @@ const multiSelectKeyHandler = createKeyboardHandler()
 
 useGlobalKeyboardShortcuts({
   onKeydown: (event) => {
-    // Priority 1: Close slideshow if active
-    if (slideshowState.active && event.key === 'Escape') {
-      exitSlideshow()
-      return
-    }
+    // The overlay owns keyboard input while it is open.
+    if (slideshowState.active) return
 
     // Priority 2: Multi-select keyboard shortcuts
     if (multiSelectKeyHandler(event)) {

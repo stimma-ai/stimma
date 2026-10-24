@@ -827,7 +827,7 @@
     <Teleport to="body">
       <div
         v-if="showCloudMenu && cloudMenuPosition"
-        data-cloud-menu
+        data-cloud-menu data-escape-layer
         class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: cloudMenuPosition.top + 'px', left: cloudMenuPosition.left + 'px' }"
       >
@@ -869,7 +869,7 @@
     <Teleport to="body">
       <div
         v-if="openMenuProvider && menuPosition"
-        data-provider-menu
+        data-provider-menu data-escape-layer
         class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
@@ -921,6 +921,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, isTopmostEscapeLayer } from '../../../utils/escapeLayers'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../../ui/Spinner.vue'
@@ -1428,11 +1429,12 @@ function handleClickOutside(event) {
 }
 
 function handleEscapeKey(event) {
-  if (event.key === 'Escape') {
-    if (openMenuProvider.value) {
+  if (!event.defaultPrevented && event.key === 'Escape') {
+    if (openMenuProvider.value && isTopmostEscapeLayer(document.querySelector('[data-provider-menu]'))) {
+      consumeEscape(event)
       closeProviderMenu()
-    }
-    if (showCloudMenu.value) {
+    } else if (showCloudMenu.value && isTopmostEscapeLayer(document.querySelector('[data-cloud-menu]'))) {
+      consumeEscape(event)
       closeCloudMenu()
     }
   }

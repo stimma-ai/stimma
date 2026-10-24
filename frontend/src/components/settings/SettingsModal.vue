@@ -216,6 +216,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { useSettingsApi } from '../../composables/useSettingsApi'
@@ -375,19 +376,17 @@ function close() {
 }
 
 function handleKeydown(e) {
-  if (e.key === 'Escape' && props.show) {
+  if (!e.defaultPrevented && e.key === 'Escape' && props.show) {
     // Don't close if Escape originated from a CodeMirror editor (e.g. exiting Vim insert mode)
     if (e.target?.closest?.('.cm-editor')) return
-    // A modal stacked above Settings (folder picker, confirm) owns Escape.
-    if (document.querySelectorAll('[data-modal-layer]').length > 1) return
+    // Menus and dialogs above Settings own Escape before its setup layers.
+    const layer = document.querySelector('[data-settings-content]')?.closest('[data-modal-layer]')
+    if (!isTopmostEscapeLayer(layer)) return
+    consumeEscape(e)
     if (activeSection.value === 'ai-services' && aiServicesSection.value?.handleEscape?.()) {
-      e.preventDefault()
-      e.stopPropagation()
       return
     }
     if (activeSection.value === 'tools' && toolProvidersSection.value?.handleEscape?.()) {
-      e.preventDefault()
-      e.stopPropagation()
       return
     }
     close()

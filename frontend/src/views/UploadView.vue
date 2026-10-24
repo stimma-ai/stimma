@@ -129,7 +129,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useLibraryUpload, type UploadResult } from '../composables/useLibraryUpload'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useSlideshow } from '../composables/useSlideshow'
@@ -140,7 +140,6 @@ import Spinner from '../components/ui/Spinner.vue'
 import Button from '../components/ui/Button.vue'
 import ProgressBar from '../components/ui/ProgressBar.vue'
 
-const router = useRouter()
 const route = useRoute()
 
 interface Marker {
@@ -183,13 +182,6 @@ function clearAll() {
   uploadedMedia.value = []
 }
 
-// Handle Escape key to dismiss
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && !slideshowState.active) {
-    router.back()
-  }
-}
-
 // Load available markers on mount
 onMounted(async () => {
   try {
@@ -198,12 +190,10 @@ onMounted(async () => {
     console.error('Failed to load markers:', error)
   }
   window.addEventListener('markers-changed', handleMarkersChanged)
-  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('markers-changed', handleMarkersChanged)
-  window.removeEventListener('keydown', handleKeydown)
 })
 
 // Counter to handle nested drag events correctly

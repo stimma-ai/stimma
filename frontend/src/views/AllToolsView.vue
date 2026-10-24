@@ -270,7 +270,7 @@
     <Teleport to="body">
       <div
         v-if="toolMenu.visible"
-        ref="toolMenuRef"
+        ref="toolMenuRef" data-escape-layer
         class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[160px]"
         :style="{ left: toolMenu.x + 'px', top: toolMenu.y + 'px' }"
       >
@@ -322,7 +322,9 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, watch } from 'vue'
+import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
+import { ref, computed, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
+import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useRoute, useRouter } from 'vue-router'
 import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useViewport } from '../composables/useViewport'
@@ -914,16 +916,26 @@ function onOpenBackingFlow(flowId) {
 }
 
 function handleKeydown(e) {
-  if (e.key === 'Escape' && toolMenu.value.visible) {
+  if (e.defaultPrevented) return
+  if (e.key === 'Escape' && toolMenu.value.visible && isTopmostEscapeLayer(toolMenuRef.value)) {
+    consumeEscape(e)
     closeToolMenu()
     return
   }
+  if (hasEscapeLayer()) return
   // Focus search on '/' key, unless already in an input
   if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
     e.preventDefault()
     searchInputRef.value?.focus()
   }
 }
+
+useGlobalKeyboardShortcuts({ onKeydown: handleKeydown })
+onDeactivated(() => {
+  closeToolMenu()
+  providerSheet.value = false
+  providerDropdownOpen.value = false
+})
 
 function handleClickOutside(e) {
   // The Sheet teleports to body (outside providerDropdownRef) and dismisses
@@ -949,9 +961,6 @@ onMounted(() => {
   // Focus search input on mount (wide only: on a phone that pops the keyboard)
   if (allowsAutofocus.value) searchInputRef.value?.focus()
 
-  // Listen for '/' key to focus search
-  document.addEventListener('keydown', handleKeydown)
-
   // Listen for click outside to close dropdown
   document.addEventListener('click', handleClickOutside)
 })
@@ -967,9 +976,6 @@ onUnmounted(() => {
     unsubscribeFromProviderChanges()
     unsubscribeFromProviderChanges = null
   }
-
-  // Clean up keyboard listener
-  document.removeEventListener('keydown', handleKeydown)
 
   // Clean up click outside listener
   document.removeEventListener('click', handleClickOutside)

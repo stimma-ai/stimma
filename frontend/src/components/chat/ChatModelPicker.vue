@@ -45,7 +45,7 @@
       <!-- Dropdown -->
       <div
         v-if="isOpen"
-        ref="dropdown"
+        ref="dropdown" data-escape-layer
         class="fixed z-menu flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-xl"
         :style="dropdownStyle"
         tabindex="-1"
@@ -222,6 +222,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
@@ -359,7 +360,10 @@ onMounted(() => {
   window.addEventListener('resize', positionDropdown)
 })
 
-onBeforeUnmount(() => window.removeEventListener('resize', positionDropdown))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', positionDropdown)
+  document.removeEventListener('keydown', handleKeydown)
+})
 
 function toggle() {
   if (isOpen.value) {
@@ -374,6 +378,7 @@ function open() {
   fetchModels(props.projectId)
   recentModelSlugs.value = loadRecentModelSlugs()
   isOpen.value = true
+  document.addEventListener('keydown', handleKeydown)
   nextTick(() => {
     positionDropdown()
     if (allowsAutofocus.value) searchInput.value?.focus()
@@ -381,6 +386,7 @@ function open() {
 }
 
 function close() {
+  document.removeEventListener('keydown', handleKeydown)
   isOpen.value = false
   searchQuery.value = ''
   showCollapsedCloud.value = false
@@ -499,8 +505,8 @@ function recordRecentModel(slug) {
 }
 
 function handleKeydown(e) {
-  if (e.key === 'Escape') {
-    e.preventDefault()
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(dropdown.value)) {
+    consumeEscape(e)
     close()
   }
 }

@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="visible"
-      ref="menuRef"
+      ref="menuRef" data-escape-layer
       data-tag-picker
       class="fixed w-[280px] bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden flex flex-col"
       :class="isSubmenu ? 'z-submenu' : 'z-menu'"
@@ -82,6 +82,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useAnchoredMenuPosition, useSubmenuPosition } from '../composables/useContextMenuPosition'
@@ -296,9 +297,7 @@ function onInputKeydown(e) {
       if (tag) toggleTag(tag)
     }
   } else if (e.key === 'Escape') {
-    e.preventDefault()
-    e.stopPropagation()
-    emit('close')
+    onDocKeydown(e)
   }
 }
 
@@ -315,8 +314,8 @@ function onDocMousedown(e) {
 }
 function onDocKeydown(e) {
   // Escape when focus has strayed from the input
-  if (e.key === 'Escape') {
-    e.stopPropagation()
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(menuRef.value)) {
+    consumeEscape(e)
     emit('close')
   }
 }

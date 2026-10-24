@@ -46,7 +46,7 @@
           :placeholder="status?.deviceName || 'Server name'"
           @blur="commitName"
           @keydown.enter="$event.target.blur()"
-          @keydown.esc="nameDraft = status?.deviceName || ''"
+          @keydown.esc.stop.prevent="nameDraft = status?.deviceName || ''"
         />
       </div>
 

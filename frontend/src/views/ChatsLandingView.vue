@@ -201,7 +201,7 @@
     <Teleport to="body">
       <div
         v-if="emptyContextMenuVisible"
-        ref="emptyMenuRef"
+        ref="emptyMenuRef" data-escape-layer
         class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[160px]"
         :style="{ top: emptyContextMenuY + 'px', left: emptyContextMenuX + 'px' }"
       >
@@ -240,6 +240,7 @@
 </template>
 
 <script setup>
+import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
 import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, nextTick, watch } from 'vue'
@@ -508,6 +509,13 @@ async function performDelete(ids) {
 
 // Keyboard shortcuts
 function handleKeyDown(event) {
+  if (event.defaultPrevented) return
+  if (event.key === 'Escape' && emptyContextMenuVisible.value && isTopmostEscapeLayer(emptyMenuRef.value)) {
+    consumeEscape(event)
+    emptyContextMenuVisible.value = false
+    return
+  }
+  if (hasEscapeLayer()) return
   // Don't handle shortcuts while the user is editing text.
   if (
     event.target?.tagName === 'INPUT' ||
@@ -517,11 +525,8 @@ function handleKeyDown(event) {
 
   // Close empty context menu on Escape
   if (event.key === 'Escape') {
-    if (emptyContextMenuVisible.value) {
-      emptyContextMenuVisible.value = false
-      return
-    }
     if (multiSelectMode.value) {
+      consumeEscape(event)
       clearSelection()
       return
     }

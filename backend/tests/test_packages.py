@@ -263,6 +263,8 @@ async def test_package_routes(client, db_session, tmp_path):
 
     cover = await client.get(f"/api/media/{media_id}/package-file/index.html")
     assert cover.status_code == 200 and 'data-stimma-host="local"' in cover.text
+    assert "stimma-package-escape" in cover.text
+    assert cover.text.index("stimma-package-escape") < cover.text.index("window.__stimmaKit")
     readme = await client.get(f"/api/media/{media_id}/package-file/tiles/README.txt")
     assert readme.status_code == 200 and "Tiles for Acme" in readme.text
     run_zip = await client.get(f"/api/media/{media_id}/package-file/tiles.zip")
@@ -278,6 +280,7 @@ async def test_package_routes(client, db_session, tmp_path):
     assert pdf.content.startswith(b"%PDF-")
     html = await client.post(f"/api/media/{media_id}/package-export", json={"format": "html"})
     assert html.status_code == 200 and "data:image" in html.text
+    assert "stimma-package-escape" not in html.text
     assert (await client.post(f"/api/media/{media_id}/package-export", json={"format": "link"})).status_code == 501
 
     status = await client.get(f"/api/assets/{asset_id}/package/status")
