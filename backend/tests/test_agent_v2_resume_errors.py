@@ -1,5 +1,6 @@
 """A failed tool transaction must still produce an error and stop the chat."""
 import json
+from unittest.mock import Mock
 
 import pytest
 from sqlalchemy import select
@@ -12,6 +13,8 @@ from tests.helpers.ws import MockWebSocketManager
 @pytest.mark.asyncio
 @pytest.mark.parametrize("entry", ["message", "answer", "permission"])
 async def test_resume_reports_failed_database_transaction(db_session, tmp_path, monkeypatch, entry):
+    telemetry = Mock()
+    monkeypatch.setattr("telemetry.get_telemetry_client", lambda: telemetry)
     monkeypatch.setattr(service, "get_workspace_dir", lambda *args: tmp_path)
     monkeypatch.setattr(service, "get_project_workspace", lambda *args: None)
     monkeypatch.setattr(service, "_raise_if_interrupted", lambda *args: None)
@@ -46,3 +49,7 @@ async def test_resume_reports_failed_database_transaction(db_session, tmp_path, 
         assert "NOT NULL constraint failed" in errors[0].message_text
         assert ws.get_broadcasts("agent_stopped")[-1][1]["reason"] == "error"
         assert not service.is_execution_active(chat_id)
+        if entry == "message":
+            events = {call.args[0]: call.args[1] for call in telemetry.track.call_args_list}
+            assert events["agent_error"]["agentContext"] == "main"
+            assert events["agent_turn_completed"]["status"] == "failed"

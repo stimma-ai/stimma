@@ -1010,6 +1010,7 @@ async def run_agent(
     chat_id = chat.id
     if max_turns is None:
         max_turns = _max_turns_for_chat(chat)
+    agent_context = "flow" if chat.flow_id is not None else "main"
 
     # Telemetry: one agent_turn_completed per run (user message -> outcome).
     # The loop fills the stats in (tool count, resolved LLM config, last
@@ -1028,7 +1029,7 @@ async def run_agent(
                 "durationMs": int((time.monotonic() - turn_started) * 1000),
                 "toolCallCount": turn_stats.get("tool_call_count", 0),
                 "status": status,
-                "agentContext": "flow" if chat.flow_id is not None else "main",
+                "agentContext": agent_context,
             }
             if error_type:
                 props["errorType"] = error_type
@@ -1053,7 +1054,7 @@ async def run_agent(
             get_telemetry_client().track("agent_error", {
                 "errorType": error_type,
                 "chatHash": salted_hash(f"chat:{chat_id}"),
-                "agentContext": "flow" if chat.flow_id is not None else "main",
+                "agentContext": agent_context,
             }, category="chat")
         except Exception:
             pass

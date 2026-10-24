@@ -244,6 +244,9 @@ class _Session:
     async def commit(self):
         pass
 
+    async def rollback(self):
+        pass
+
 
 def _run_agent_with_stub(monkeypatch, loop_stub):
     from agent.v2 import service
