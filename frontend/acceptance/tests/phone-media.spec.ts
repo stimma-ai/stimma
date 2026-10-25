@@ -105,7 +105,10 @@ test.describe('phone lane: media touch paths', () => {
     expect(hits.small, `context sheet rows under 44px: ${hits.small.map((s) => `${s.el} ${s.w}×${s.h}`).join(', ')}`).toHaveLength(0);
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden({ timeout: 5000 });
-    // Escape also clears the selection, so the next tap navigates.
+    // One layer per Escape (DESIGN.md §1.8a): the menu went first; a second
+    // Escape clears the selection, so the next tap navigates.
+    await expect(page.locator(tile)).toHaveClass(/\bselected\b/);
+    await page.keyboard.press('Escape');
     await expect(page.locator(tile)).not.toHaveClass(/\bselected\b/);
 
     // Tap → slideshow, no info panel, header hidden.
