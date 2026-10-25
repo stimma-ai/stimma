@@ -8,10 +8,16 @@
  * as on desktop: progress lives in the filmstrip, and a tap queues another
  * run. The badge shows the batch size, so ×4 is never a surprise. The sheet
  * has no Run button of its own: it is settings, and Run is the control you
- * long-pressed.
+ * long-pressed. In the phone drawer it also carries the output settings
+ * (auto-markers, auto-delete), which have no room beside the controls; a dot
+ * on Run says one of them is on.
  */
 import { computed, ref } from 'vue'
 import Sheet from '../ui/Sheet.vue'
+import AutoMarkPicker from '../generation/AutoMarkPicker.vue'
+import { AUTO_DELETE_OPTIONS } from '../AutoDeletePicker.vue'
+
+interface Marker { id: number; name: string; icon_svg: string; color: string }
 
 const props = withDefaults(defineProps<{
   batchSize: number
@@ -21,7 +27,12 @@ const props = withDefaults(defineProps<{
   idleLimit: number
   isMac?: boolean
   outputDestination?: string
-}>(), { isMac: false })
+  /** Carry auto-markers and auto-delete in the sheet (the phone drawer). */
+  outputSettings?: boolean
+  markers?: Marker[]
+  autoMarkerIds?: number[]
+  autoDelete?: string
+}>(), { isMac: false, outputSettings: false, markers: () => [], autoMarkerIds: () => [], autoDelete: 'never' })
 
 const emit = defineEmits<{
   run: []
@@ -30,7 +41,11 @@ const emit = defineEmits<{
   stopForever: []
   'update:concurrency': [value: number]
   'update:idleLimit': [value: number]
+  'update:autoMarkerIds': [value: number[]]
+  'update:autoDelete': [value: string]
 }>()
+
+const outputSettingOn = computed(() => props.outputSettings && (props.autoMarkerIds.length > 0 || props.autoDelete !== 'never'))
 
 const sheetOpen = ref(false)
 let pressTimer: number | null = null
@@ -90,6 +105,11 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
       class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
       :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
     >×{{ batchSize }}</span>
+    <span
+      v-if="outputSettingOn"
+      class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-content ring-2 ring-surface"
+      aria-hidden="true"
+    ></span>
   </button>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">
@@ -127,5 +147,23 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
         <option v-for="o in IDLE" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
     </label>
+    <template v-if="outputSettings">
+      <div class="mx-4 my-1 border-t border-edge-subtle"></div>
+      <div v-if="markers.length > 0" class="flex items-center justify-between gap-3 px-4 min-h-14">
+        <span class="text-[15px] text-content flex-none">Mark new results</span>
+        <AutoMarkPicker
+          class="flex-wrap justify-end"
+          :markers="markers"
+          :model-value="autoMarkerIds"
+          @update:model-value="emit('update:autoMarkerIds', $event)"
+        />
+      </div>
+      <label class="flex items-center justify-between px-4 min-h-12 pb-2">
+        <span class="text-[15px] text-content">Auto-delete after</span>
+        <select class="bg-overlay-subtle rounded-md px-3 py-2 text-sm font-mono text-content border border-transparent focus:border-accent outline-none min-h-11" :value="autoDelete" @change="emit('update:autoDelete', ($event.target as HTMLSelectElement).value)">
+          <option v-for="o in AUTO_DELETE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+      </label>
+    </template>
   </Sheet>
 </template>

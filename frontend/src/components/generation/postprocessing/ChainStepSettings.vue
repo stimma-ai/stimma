@@ -91,6 +91,7 @@
       <div v-if="hasMegapixels" class="flex items-center justify-between gap-4 px-0 py-1.5">
         <div class="text-[13px] text-content-secondary">Megapixels</div>
         <ScrubValue
+          label="Megapixels"
           :model-value="Number(step.settings.megapixels ?? schemaDefault('megapixels') ?? 1)"
           @update:model-value="updateSetting('megapixels', $event)"
           :min="schemaProp('megapixels')?.minimum ?? 0.25"
@@ -114,6 +115,7 @@
         </div>
         <ScrubValue
           v-else
+          label="Duration"
           :model-value="Number(step.settings.duration ?? videoParamDefaults.duration)"
           @update:model-value="updateSetting('duration', $event)"
           :min="durationConfig.min"
@@ -167,6 +169,8 @@
       <div v-else class="flex items-center justify-between gap-4 px-0 py-1.5">
         <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
         <ScrubValue
+          :label="param.label"
+          :default-value="typeof param.default === 'number' ? param.default : undefined"
           :model-value="Number(step.settings[param.name] ?? param.default)"
           @update:model-value="updateSetting(param.name, $event)"
           :min="param.min ?? 0"

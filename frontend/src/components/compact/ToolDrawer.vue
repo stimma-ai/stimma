@@ -2,10 +2,12 @@
 /**
  * The tool view's bottom drawer on a phone.
  *
- * Three heights: collapsed (handle + prompt), half, full. Drag the handle or
- * tap it to toggle. The prompt is pinned at the top at every height; the
- * tool's controls scroll beneath it as one column, in the order the tool
- * renders them.
+ * Three heights: collapsed (handle + prompt), half, full. The drawer and its
+ * content are one surface: dragging anywhere on it (outside text fields and
+ * sliders) moves the drawer until it is full, and only then scrolls the
+ * content; a flick goes to the next height. The handle also taps to toggle.
+ * The prompt is pinned at the top at every height; the tool's controls
+ * scroll beneath it as one column, in the order the tool renders them.
  *
  * `contentSized` is the image editor's variant: half is the body's natural
  * height, capped at `halfFraction` of the column, so a palette of four rows
@@ -50,6 +52,7 @@ const innerEl = ref<HTMLElement | null>(null)
 const rootEl = ref<HTMLElement | null>(null)
 const promptEl = ref<HTMLElement | null>(null)
 const stripEl = ref<HTMLElement | null>(null)
+const handleEl = ref<HTMLElement | null>(null)
 const dragPx = ref<number | null>(null)
 
 // Heights come from the space the drawer actually has (its flex parent:
@@ -92,7 +95,46 @@ const style = computed(() => {
   return { height: `${h}px` }
 })
 
-// --- handle: tap toggles, drag sets height and snaps on release
+// --- one gesture for the whole drawer -------------------------------------
+// The drawer and its body read as ONE surface: pulling the content up grows
+// the drawer until it is full and only then scrolls it; pulling down at the
+// top of the content shrinks it. The handle also taps to toggle. Release
+// snaps to the nearest height, or the next one in the flick's direction.
+function levelHeights(): Array<[Level, number]> {
+  return [['collapsed', collapsedHeight()], ['half', heightFor('half')!], ['full', heightFor('full')!]]
+}
+function clampH(h: number) {
+  return Math.max(collapsedHeight(), Math.min(heightFor('full')!, h))
+}
+function settle(h: number, velocity: number) {
+  const heights = levelHeights()
+  const FLICK = 0.5 // px/ms
+  if (Math.abs(velocity) > FLICK) {
+    // A flick goes one level past wherever the finger let go.
+    const ordered = velocity > 0 ? heights : [...heights].reverse()
+    const next = ordered.find(([, lh]) => (velocity > 0 ? lh > h + 4 : lh < h - 4))
+    level.value = next ? next[0] : ordered[ordered.length - 1][0]
+  } else {
+    heights.sort((a, b) => Math.abs(a[1] - h) - Math.abs(b[1] - h))
+    level.value = heights[0][0]
+  }
+  dragPx.value = null
+}
+// Finger velocity (px/ms, positive = up) over the last ~100ms of the gesture.
+let samples: Array<[number, number]> = []
+function sample(y: number) {
+  const now = performance.now()
+  samples.push([now, y])
+  while (samples.length > 2 && now - samples[0][0] > 100) samples.shift()
+}
+function velocity(): number {
+  if (samples.length < 2) return 0
+  const [t0, y0] = samples[0]
+  const [t1, y1] = samples[samples.length - 1]
+  return t1 > t0 ? (y0 - y1) / (t1 - t0) : 0
+}
+
+// Handle: pointer events (mouse and touch alike; it is touch-none).
 let startY = 0
 let startH = 0
 let moved = false
@@ -103,6 +145,8 @@ function onPointerDown(e: PointerEvent) {
   startY = e.clientY
   startH = rootEl.value.getBoundingClientRect().height
   moved = false
+  samples = []
+  sample(e.clientY)
   ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
 }
 function onPointerMove(e: PointerEvent) {
@@ -110,8 +154,8 @@ function onPointerMove(e: PointerEvent) {
   const dy = startY - e.clientY
   if (Math.abs(dy) > 4) moved = true
   if (!moved) return
-  const collapsedH = collapsedHeight()
-  dragPx.value = Math.max(collapsedH, Math.min(availableH() - props.heroReserve, startH + dy))
+  sample(e.clientY)
+  dragPx.value = clampH(startH + dy)
 }
 function toggle() {
   if (level.value === 'collapsed') level.value = 'half'
@@ -135,18 +179,68 @@ function onPointerUp(e: PointerEvent) {
     dragPx.value = null
     return
   }
-  const h = dragPx.value ?? startH
-  const half = heightFor('half')!
-  const full = heightFor('full')!
-  const collapsedH = collapsedHeight()
-  // Snap to the nearest level.
-  const candidates: Array<[Level, number]> = [['collapsed', collapsedH], ['half', half], ['full', full]]
-  candidates.sort((a, b) => Math.abs(a[1] - h) - Math.abs(b[1] - h))
-  level.value = candidates[0][0]
-  dragPx.value = null
+  sample(e.clientY)
+  settle(dragPx.value ?? startH, velocity())
 }
+
+// Prompt and body: touch events, so the drawer can claim a vertical drag
+// before the browser turns it into a scroll. Text fields, sliders and
+// anything marked data-drawer-no-drag keep their own gestures.
+type TouchMode = 'pending' | 'drag' | 'native'
+let touch: { id: number; x: number; y: number; h: number; inBody: boolean; mode: TouchMode; scroll: number } | null = null
+const NO_DRAG = 'textarea, input, select, [contenteditable="true"], [data-drawer-no-drag]'
+function onTouchStart(e: TouchEvent) {
+  if (touch || e.touches.length !== 1 || !rootEl.value) return
+  const target = e.target as HTMLElement
+  if (handleEl.value?.contains(target) || target.closest(NO_DRAG)) return
+  const t = e.touches[0]
+  touch = {
+    id: t.identifier, x: t.clientX, y: t.clientY,
+    h: rootEl.value.getBoundingClientRect().height,
+    inBody: !!bodyEl.value?.contains(target),
+    mode: 'pending', scroll: bodyEl.value?.scrollTop ?? 0,
+  }
+  samples = []
+  sample(t.clientY)
+}
+function onTouchMove(e: TouchEvent) {
+  if (!touch) return
+  const t = Array.from(e.changedTouches).find((c) => c.identifier === touch!.id)
+  if (!t) return
+  if (touch.mode === 'pending') {
+    const dx = t.clientX - touch.x
+    const dy = touch.y - t.clientY
+    if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return
+    const full = heightFor('full')!
+    const atTop = !touch.inBody || (bodyEl.value?.scrollTop ?? 0) <= 0
+    if (Math.abs(dx) > Math.abs(dy)) touch.mode = 'native'
+    else if (dy > 0) touch.mode = touch.h < full - 1 ? 'drag' : 'native'
+    else touch.mode = atTop && touch.h > collapsedHeight() + 1 ? 'drag' : 'native'
+  }
+  if (touch.mode !== 'drag') return
+  if (e.cancelable) e.preventDefault()
+  sample(t.clientY)
+  const want = touch.h + (touch.y - t.clientY)
+  const h = clampH(want)
+  dragPx.value = h
+  // Past full, the same finger keeps going as a scroll of the content.
+  if (bodyEl.value && want > h) bodyEl.value.scrollTop = touch.scroll + (want - h)
+}
+function onTouchEnd(e: TouchEvent) {
+  if (!touch) return
+  if (!Array.from(e.changedTouches).some((c) => c.identifier === touch!.id)) return
+  const wasDrag = touch.mode === 'drag'
+  touch = null
+  if (!wasDrag) return
+  settle(dragPx.value ?? 0, e.type === 'touchcancel' ? 0 : velocity())
+}
+
+// A tool without a prompt pins nothing, and collapsed would be a bare handle.
+// The floor keeps a peek of the first controls (about the height a pinned
+// prompt gives), so the drawer still reads as there and grabbable.
+const COLLAPSED_MIN = 124
 function collapsedHeight(): number {
-  return chromeH()
+  return Math.max(COLLAPSED_MIN, chromeH())
 }
 // Collapsed is an explicit height too (measured from the pinned prompt), so
 // every level change is one continuous height tween and the body below is
@@ -169,6 +263,8 @@ watch(level, () => { if (props.contentSized) measure() })
 
 onMounted(() => {
   requestAnimationFrame(measure)
+  // Non-passive: the drawer must be able to cancel the scroll it claims.
+  rootEl.value?.addEventListener('touchmove', onTouchMove, { passive: false })
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(() => measure())
     if (promptEl.value) observer.observe(promptEl.value)
@@ -176,7 +272,10 @@ onMounted(() => {
     if (innerEl.value) observer.observe(innerEl.value)
   }
 })
-onBeforeUnmount(() => { observer?.disconnect() })
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  rootEl.value?.removeEventListener('touchmove', onTouchMove)
+})
 
 defineExpose({
   open: (l: Level) => { level.value = l },
@@ -191,8 +290,12 @@ defineExpose({
     class="tool-drawer flex-none flex flex-col min-h-0 overflow-hidden bg-surface border-t border-edge rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)] transition-[height] duration-200 ease-out"
     :style="[style, { maxHeight: `calc(100% - ${heroReserve}px)` }]"
     :data-level="level"
+    @touchstart.passive="onTouchStart"
+    @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
   >
     <div
+      ref="handleEl"
       class="flex-none h-11 -mb-2 flex items-center justify-center touch-none cursor-grab"
       role="button"
       aria-label="Toggle controls"
@@ -209,13 +312,13 @@ defineExpose({
 
     <!-- Pinned prompt (filled by the tool view's prompt editor teleport, or
          the #pin slot). -->
-    <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-3 pb-2 empty:pb-0"><slot name="pin" /></div>
+    <div ref="promptEl" :id="`${idPrefix}-prompt`" class="flex-none px-4 pb-3 empty:pb-0"><slot name="pin" /></div>
 
     <!-- Body (filled by the tool view's controls teleport, or the default slot). -->
     <div
       ref="bodyEl"
       :id="`${idPrefix}-body`"
-      class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3"
+      class="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-4"
       :class="[level === 'collapsed' ? 'overflow-hidden' : '', $slots.strip ? '' : 'pb-safe', bodyClass]"
     >
       <div ref="innerEl">

@@ -94,9 +94,13 @@
             <!-- Number: compact value row — drag the mono value to scrub,
                  click to type (the mock's ValueRow grammar; no slider). -->
             <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-1.5">
-              <div class="flex items-center justify-between gap-4">
+              <!-- On touch the whole row opens the value sheet. -->
+              <div class="flex items-center justify-between gap-4" :class="isCoarsePointer && !constraintState(param).disabled ? 'cursor-pointer' : ''" @click="isCoarsePointer && scrubRefs[param.name]?.openEditor()">
                 <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <ScrubValue
+                  :ref="(el) => { scrubRefs[param.name] = el as InstanceType<typeof ScrubValue> | null }"
+                  :label="param.label"
+                  :default-value="typeof param.default === 'number' ? param.default : undefined"
                   :model-value="Number(values[param.name] ?? param.default ?? 0)"
                   @update:model-value="emitParam(param.name, $event)"
                   :min="param.minimum ?? 0"
@@ -166,6 +170,7 @@ import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
 import { useProvidersApi, type ProviderParameterOption } from '../../composables/useProvidersApi'
+import { useViewport } from '../../composables/useViewport'
 
 // Standalone, schema-driven settings renderer. Extracted from ToolView's
 // inline generic-params section so any tool's parameter schema can be hosted
@@ -192,6 +197,9 @@ const props = defineProps<{
 }>()
 
 const { searchToolOptions } = useProvidersApi()
+const { isCoarsePointer } = useViewport()
+// Number rows open their value editor from anywhere on the row on touch.
+const scrubRefs: Record<string, InstanceType<typeof ScrubValue> | null> = {}
 
 const rowPad = computed(() => (props.flat ? 'px-0 py-1.5' : 'px-0 py-1.5'))
 

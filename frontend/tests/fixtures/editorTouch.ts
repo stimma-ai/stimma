@@ -2,6 +2,7 @@ import { createApp, h, ref, Teleport, nextTick } from 'vue'
 import EditRow from '../../src/imageEditor/components/EditRow.vue'
 import StackCropCanvas from '../../src/imageEditor/components/StackCropCanvas.vue'
 import ToolDrawer from '../../src/components/compact/ToolDrawer.vue'
+import { installSheetSwipeDismiss } from '../../src/composables/useSheetSwipe'
 import ToolbarPopover from '../../src/imageEditor/components/ToolbarPopover.vue'
 import ScrubValue from '../../src/components/ui/ScrubValue.vue'
 import ColorPicker from '../../src/imageEditor/ported/ColorPicker.vue'
@@ -41,7 +42,9 @@ Object.assign(window, { editorTouch: {
     createApp({ render: () => h(ToolbarPopover, { label: 'Brush' }, { default: () => 'Brush controls' }) }).mount('#app')
   },
   mountScrub() {
-    createApp({ render: () => h(ScrubValue, { modelValue: 50, title: 'Opacity' }) }).mount('#app')
+    installSheetSwipeDismiss()
+    const value = ref(50)
+    createApp({ render: () => h(ScrubValue, { modelValue: value.value, title: 'Opacity', label: 'Opacity', 'onUpdate:modelValue': (v: number) => { value.value = v } }) }).mount('#app')
   },
   mountDrawer() {
     const family = ref('Crop')

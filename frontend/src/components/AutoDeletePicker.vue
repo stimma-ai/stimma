@@ -45,6 +45,26 @@
   </div>
 </template>
 
+<script lang="ts">
+export const AUTO_DELETE_OPTIONS = [
+  { label: 'Never', value: 'never' },
+  { label: '1 minute', value: '1m' },
+  { label: '5 minutes', value: '5m' },
+  { label: '30 minutes', value: '30m' },
+  { label: '1 hour', value: '1h' },
+  { label: '2 hours', value: '2h' },
+  { label: '4 hours', value: '4h' },
+  { label: '6 hours', value: '6h' },
+  { label: '8 hours', value: '8h' },
+  { label: '12 hours', value: '12h' },
+  { label: '24 hours', value: '24h' },
+  { label: '3 days', value: '3d' },
+  { label: '7 days', value: '7d' },
+  { label: '30 days', value: '30d' },
+  { label: '90 days', value: '90d' },
+]
+</script>
+
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
@@ -76,23 +96,7 @@ const emit = defineEmits<{
 const showDropdown = ref(false)
 const buttonRef = ref<HTMLElement | null>(null)
 
-const options = [
-  { label: 'Never', value: 'never' },
-  { label: '1 minute', value: '1m' },
-  { label: '5 minutes', value: '5m' },
-  { label: '30 minutes', value: '30m' },
-  { label: '1 hour', value: '1h' },
-  { label: '2 hours', value: '2h' },
-  { label: '4 hours', value: '4h' },
-  { label: '6 hours', value: '6h' },
-  { label: '8 hours', value: '8h' },
-  { label: '12 hours', value: '12h' },
-  { label: '24 hours', value: '24h' },
-  { label: '3 days', value: '3d' },
-  { label: '7 days', value: '7d' },
-  { label: '30 days', value: '30d' },
-  { label: '90 days', value: '90d' },
-]
+const options = AUTO_DELETE_OPTIONS
 
 function toggleDropdown() {
   showDropdown.value = !showDropdown.value

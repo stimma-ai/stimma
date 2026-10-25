@@ -1,5 +1,5 @@
 <template>
-  <div class="relative">
+  <div class="relative" :style="sizeVars">
     <!-- Main Prompt Editor -->
     <div class="relative rounded-md border border-edge-subtle focus-within:border-accent transition-colors">
       <div ref="editorMount"></div>
@@ -263,6 +263,7 @@ import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
+import { useViewport } from '../../composables/useViewport'
 import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
 
 interface PromptOptionSetting {
@@ -315,6 +316,19 @@ const emit = defineEmits<{
   (e: 'update:expanded', value: boolean): void
   (e: 'update:promptOptions', value: PromptOptions): void
 }>()
+
+// Box height. Desktop keeps the editor's own 200–408px; phones give the
+// prompt a few lines (more on a roomy inner screen) and let it grow a little,
+// so the parameters stay in view. 21px is one 14px line at 1.5.
+const { isCompact, isRoomy } = useViewport()
+const sizeVars = computed(() => {
+  if (!isCompact.value) return undefined
+  const lines = Math.min(props.rows, isRoomy.value ? 6 : 3)
+  return {
+    '--prompt-min-h': `${lines * 21 + 8}px`,
+    '--prompt-max-h': isRoomy.value ? '260px' : '160px',
+  }
+})
 
 // Refs
 const editorMount = ref<HTMLElement | null>(null)

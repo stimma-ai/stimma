@@ -51,6 +51,7 @@ const COMPACT_MAX = 767
 const MEDIUM_MAX = 1023
 const NARROW_MAX = 599
 const MEDIUM_WIDTH_MAX = 839
+const SHORT_MAX = 499
 
 const hasWindow = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
 // A landscape phone is still a phone. Changing chrome tiers would destroy
@@ -63,10 +64,13 @@ const mediumQuery = hasWindow ? window.matchMedia(`(min-width: ${COMPACT_MAX + 1
 const coarseQuery = hasWindow ? window.matchMedia('(pointer: coarse)') : null
 const narrowQuery = hasWindow ? window.matchMedia(`(max-width: ${NARROW_MAX}px)`) : null
 const mediumWidthQuery = hasWindow ? window.matchMedia(`(min-width: ${NARROW_MAX + 1}px) and (max-width: ${MEDIUM_WIDTH_MAX}px)`) : null
+// A landscape phone: wide enough to be roomy, too short for docked extras.
+const shortQuery = hasWindow ? window.matchMedia(`(max-height: ${SHORT_MAX}px)`) : null
 
 const liveTier = ref<ViewportTier>(readTier())
 const liveWidth = ref<ViewportWidth>(readWidth())
 const livePointer = ref<PointerKind>(coarseQuery?.matches ? 'coarse' : 'fine')
+const liveShort = ref(!!shortQuery?.matches)
 
 interface Override { tier?: ViewportTier; pointer?: PointerKind; width?: ViewportWidth }
 const override = ref<Override>(readOverride())
@@ -118,6 +122,7 @@ if (hasWindow) {
   const refreshWidth = () => { liveWidth.value = readWidth() }
   narrowQuery?.addEventListener('change', refreshWidth)
   mediumWidthQuery?.addEventListener('change', refreshWidth)
+  shortQuery?.addEventListener('change', (e) => { liveShort.value = e.matches })
 }
 
 const tier = computed<ViewportTier>(() => override.value.tier ?? liveTier.value)
@@ -129,6 +134,8 @@ const isWide = computed(() => tier.value === 'wide')
 /** Compact chrome with room to spare: an unfolded foldable, a tablet in the phone shell. */
 const isRoomy = computed(() => tier.value === 'compact' && width.value !== 'narrow')
 const isCoarsePointer = computed(() => pointer.value === 'coarse')
+/** Under 500px tall (a landscape phone): keep docked extras behind a button. */
+const isShort = computed(() => liveShort.value)
 /** Browsing a touch surface should never summon the software keyboard. */
 const allowsAutofocus = computed(() => !isCompact.value && !isCoarsePointer.value)
 const hasOverride = computed(() => !!(override.value.tier || override.value.pointer || override.value.width))
@@ -172,6 +179,7 @@ export function useViewport() {
     isMedium,
     isWide,
     isRoomy,
+    isShort,
     isCoarsePointer,
     hasOverride,
     allowsAutofocus,

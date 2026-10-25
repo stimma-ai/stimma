@@ -345,6 +345,11 @@ that a desktop-sized window never trips.
   full-screen layer, `data-sheet-layer`, is the backdrop) or the global
   coarse-pointer conversion in `style.css` + `useContextMenuPosition`
   (which puts the shared `data-sheet-backdrop` under the converted menu).
+  Both also dismiss by a downward swipe (`useSheetSwipe`, installed once
+  for the document): pulled from the sheet, or from its content once that
+  is scrolled to the top, past a third of its height or flicked; a shorter
+  pull springs back. Kit Sheets that are not light-dismissable, or are
+  expandable (their handle owns the gesture), opt out.
   Both dismiss on ONE tap outside, always: the shared backdrop forwards the
   tap as an outside click and then Escape. A full-screen `inset-0` box at
   the menu tier is a backdrop, never a menu, and is never converted. Never
@@ -362,6 +367,22 @@ that a desktop-sized window never trips.
   `.sheet-row-detail`; group label `.sheet-section`). Sheets never show a
   scrollbar: the content overflows and the user tugs it. Sheets are dense,
   not toy-sized: no row padding beyond the tokens, no per-sheet sizes.
+- **The tool view on a phone.** Narrow: hero, the queue strip, then the
+  bottom drawer (prompt pinned, controls beneath). The drawer and its
+  content are one surface: a drag anywhere on it outside text fields and
+  sliders moves the drawer until it is full and only then scrolls the
+  content; pulling down at the top of the content shrinks it; a flick goes to
+  the next height. The strip and a slice of the hero stay visible at every
+  height. Only the prompt is pinned; resolution is the first control under
+  it, and the output settings (auto-markers, auto-delete) live in the sheet
+  Run's long-press opens, with a dot on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
+  the same sideways strip of results as the phone (taller) pegged to the
+  bottom. A wrap of results scrolling under the hero read as a second
+  scroll region. The agent is opt-in: the header's agent
+  button docks it full width beneath, as on desktop, and the choice is kept
+  per device (docked by default, it read as the prompt field). Short
+  screens never dock it. Undocked (always, on a narrow phone), the button
+  opens it as a second sheet layered over the drawer, never a centred modal.
 - **Bottom edge.** One docked bar per screen (composer, run dock,
   selection bar), padded with `pb-safe`. Never two docked bars.
   Safe-area tokens describe space still needed inside the web viewport.
@@ -552,7 +573,11 @@ uses accent color; it is the only colored glyph in the bar.
 grammar, editable variant — label left, **mono value right; click value to
 edit in place, drag to scrub numerics**. Non-default values read accent
 (same modified signal as prep rows); Reset appears in the row's context
-menu. Seed gets shuffle + lock glyphs (lock = accent when locked). Grouped
+menu. **On a coarse pointer nothing scrubs**: the value is a chip, and a tap
+anywhere on the row opens a kit Sheet with the value large, −/+ (hold to
+repeat), a full-width slider with a finger-sized thumb, typed entry and
+Reset. A finger that drifts while tapping, or starts near a screen edge,
+must never change a value. Seed gets shuffle + lock glyphs (lock = accent when locked). Grouped
 schema params use section micro-labels, never nested boxes. Collapsed
 subsystems (post-processing chain, advanced) are §3.3 value-first rows
 (`Post-processing chain … Off ▾`).

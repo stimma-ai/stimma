@@ -44,6 +44,8 @@
     >−</button>
     <span @pointerdown.stop @click.stop class="shrink-0 mt-[2px] coarse:mt-0 coarse:min-h-11 coarse:px-1 coarse:flex coarse:items-center">
       <ScrubValue
+        label="LoRA strength"
+        :default-value="1"
         :model-value="item.weight"
         @update:model-value="emitWeight"
         :min="-10" :max="10" :step="0.05"

@@ -41,6 +41,28 @@ test('drawer family switches preserve one panel and remove previous controls', a
     assert.equal(await page.locator('#test-drawer-body').innerText(), family ? `${family}\nEdits` : 'Edits')
   }
 })
+async function swipeTouch(page, x, y0, y1, steps = 10) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y0, id: 1 }] })
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y0 + (y1 - y0) * i / steps, id: 1 }] })
+    await page.waitForTimeout(30)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+test('dragging the drawer body moves the drawer, not just its content', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => { window.switchFamily = window.editorTouch.mountDrawer() })
+  const drawer = page.locator('.tool-drawer')
+  assert.equal(await drawer.getAttribute('data-level'), 'half')
+  const body = await page.locator('#test-drawer-body').boundingBox()
+  await swipeTouch(page, 200, body.y + 40, body.y - 260)
+  assert.equal(await drawer.getAttribute('data-level'), 'full')
+  const full = await page.locator('#test-drawer-body').boundingBox()
+  await swipeTouch(page, 200, full.y + 20, full.y + 600)
+  assert.equal(await drawer.getAttribute('data-level'), 'collapsed')
+})
 test('annotation rectangle follows a finger and finishes once', async t => {
   const page = await fixture(t)
   await page.evaluate(() => { window.annotationTest = window.editorTouch.mountAnnotation() })
@@ -87,12 +109,38 @@ test('Escape dismisses the picker without reaching editor shortcuts', async t =>
   assert.equal(await page.evaluate(() => window.escaped), false)
 })
 
-test('tapping a numeric control opens its slider without focusing text entry', async t => {
+test('tapping a numeric control opens its value sheet without focusing text entry', async t => {
   const page = await fixture(t)
   await page.evaluate(() => window.editorTouch.mountScrub())
   await page.getByRole('button', { name: '50' }).tap()
-  assert.equal(await page.locator('.editor-picker').count(), 1)
-  assert.equal(await page.locator('.editor-picker input[type=text]').evaluate(el => el === document.activeElement), false)
+  const sheet = page.locator('[data-sheet-layer]')
+  assert.equal(await sheet.count(), 1)
+  assert.equal(await sheet.locator('input[type=text]').evaluate(el => el === document.activeElement), false)
+  await sheet.getByRole('button', { name: 'Increase' }).tap()
+  assert.equal(await sheet.locator('input[type=text]').inputValue(), '51')
+})
+
+test('a sheet swipes away with a downward flick and springs back from a nudge', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => window.editorTouch.mountScrub())
+  await page.getByRole('button', { name: '50' }).tap()
+  // Grab the sheet by its title: the value field keeps its own gestures.
+  const handle = await page.locator('[data-sheet-layer] .sheet-panel h2').boundingBox()
+  const y = handle.y + handle.height / 2
+  await swipeTouch(page, 200, y, y + 20, 2)
+  await page.waitForTimeout(400)
+  assert.equal(await page.locator('[data-sheet-layer]').count(), 1)
+  await swipeTouch(page, 200, y, y + 300)
+  await page.waitForTimeout(600)
+  assert.equal(await page.locator('[data-sheet-layer]').count(), 0)
+})
+
+test('a drag across a numeric control on touch does not change it', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => window.editorTouch.mountScrub())
+  const box = await page.getByRole('button', { name: '50' }).boundingBox()
+  await dragTouch(page, [box.x + box.width / 2, box.y + box.height / 2], [box.x + box.width / 2 + 80, box.y + box.height / 2])
+  assert.equal(await page.getByRole('button', { name: '50' }).count(), 1)
 })
 
 test('crop pinch changes the crop once and renders at device resolution', async t => {

@@ -10,11 +10,13 @@ import './style.css'
 import { installTextSelectionPolicy } from './utils/textSelection'
 import { installLongPressContextMenu } from './utils/longPress'
 import { installSheetBackdropObserver } from './composables/useContextMenuPosition'
+import { installSheetSwipeDismiss } from './composables/useSheetSwipe'
 
 initConsoleBridge()
 installTextSelectionPolicy()
 installLongPressContextMenu()
 installSheetBackdropObserver()
+installSheetSwipeDismiss()
 
 // Show loading screen for Tauri mode
 function showLoadingScreen() {

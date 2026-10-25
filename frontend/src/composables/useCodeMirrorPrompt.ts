@@ -1,5 +1,4 @@
 import { ref, onMounted, onUnmounted, type Ref } from 'vue'
-import { useViewport } from './useViewport'
 import {
   EditorView,
   ViewPlugin,
@@ -17,8 +16,6 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { bracketMatching } from '@codemirror/language'
 import { useVimToggle, vimPanelKeydownHandler } from './codeMirrorVim'
 import { webkitSelectionLayer } from './webkitSelectionLayer'
-
-const { isCompact } = useViewport()
 
 // --- Diff decoration effects ---
 const addDiffEffect = StateEffect.define<{ from: number; to: number }[]>()
@@ -163,9 +160,11 @@ const stimmaTheme = EditorView.theme({
     fontFamily:
       'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     backgroundColor: 'var(--color-surface)',
-    // Phones dock the prompt above the run bar; ~3 lines is the budget.
-    minHeight: isCompact.value ? '68px' : '200px',
-    maxHeight: isCompact.value ? '160px' : '408px', // ~20 rows * 20px + 8px padding
+    // The embedder sizes the box (AIPromptEditor sets these from its rows on
+    // phones). A variable, not a value read here: this theme is built once per
+    // page, before the viewport is final, and must follow a fold or a resize.
+    minHeight: 'var(--prompt-min-h, 200px)',
+    maxHeight: 'var(--prompt-max-h, 408px)', // ~20 rows * 20px + 8px padding
     borderRadius: '0.375rem 0.375rem 0 0', // match parent's rounded-md, flat bottom
   },
   '&.cm-focused': {

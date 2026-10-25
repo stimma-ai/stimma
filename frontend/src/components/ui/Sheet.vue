@@ -96,6 +96,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         ref="layerRef"
         data-modal-layer
         data-sheet-layer
+        :data-sheet-swipe="closeOnBackdrop && !expandable ? undefined : 'off'"
         class="fixed inset-0 z-menu flex flex-col justify-end bg-overlay-backdrop coarse:cursor-pointer"
         @click.self="closeOnBackdrop && close()"
       >

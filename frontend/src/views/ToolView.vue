@@ -76,15 +76,24 @@
            sits above both columns regardless of the Studio/Stage layout. -->
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
         <!-- Plain page header (PageHeader grammar): no card — the content cards
-             below float on base; one hairline separates header from workspace. -->
-        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle compact:px-3 compact:pt-2 compact:pb-2"></div>
+             below float on base; one hairline separates header from workspace.
+             Phones carry the title and Run in the app's compact top bar, and
+             everything teleported here is compact:hidden, so the slot goes too
+             (it was an empty band with a stray hairline). -->
+        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle compact:hidden"></div>
         <!-- Transient run context (remix banners) lands here as its own card
              so the header card stays fixed-height. Hidden when the teleport
              delivers nothing. -->
         <!-- Top gap lives INSIDE the teleported card's animated wrapper so it
              eases open/closed with the card instead of snapping. -->
         <div id="tool-context-slot" class="flex-none mx-3 empty:hidden"></div>
-        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0 compact:flex-col">
+        <!-- Roomy (an unfolded foldable, a tablet in the phone shell): no drawer.
+             Controls on the left; on the right the hero, with the phone's
+             sideways strip of results (taller here) pegged to the bottom; the
+             agent docked full width beneath, as on desktop. One 8px gutter
+             around and between every block, so the hero and the strip line up
+             with the controls card and the agent dock. -->
+        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,46%)_minmax(0,1fr)] roomy:grid-rows-[minmax(0,1fr)_auto]">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
@@ -93,7 +102,7 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-2"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -126,7 +135,7 @@
        </div>
        </div>
        </Transition>
-       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6 roomy:m-2 roomy:mr-0 roomy:p-3 roomy:overscroll-contain">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between compact:flex-wrap compact:gap-y-2">
@@ -316,9 +325,15 @@
         </Teleport>
 
         <!-- Compact: the card's controls render inside ToolDrawer's body. -->
-        <Teleport to="#tool-drawer-panels" :disabled="!isCompact" defer>
-        <!-- Params-card top row: resolution + markers | auto-trash -->
-        <div class="flex items-center gap-2 mb-3">
+        <Teleport to="#tool-drawer-panels" :disabled="!drawerMode" defer>
+        <!-- Params-card top row: resolution | markers ... auto-trash. When it
+             doesn't fit, the markers + auto-trash group drops to its own line as
+             one unit (never a lone trash button), and a long marker set scrolls
+             sideways inside it rather than wrapping again. In the phone drawer
+             markers + auto-trash live in the Run sheet (they are output
+             settings), leaving resolution as the first control under the
+             pinned prompt. -->
+        <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
@@ -343,27 +358,31 @@
               v-if="hasMegapixels"
               v-model="modelParams.megapixels"
             />
-            <AutoMarkPicker
-              :markers="jobsManager?.availableMarkers.value || []"
-              v-model="globalPrefs.autoMarkerIds"
-            />
-            <span class="flex-1"></span>
-            <AutoDeletePicker
-              :model-value="autoDeleteDuration"
-              @update:model-value="setAutoDeleteDuration"
-            />
+            <div v-if="!drawerMode" class="flex-auto min-w-0 flex items-center gap-2">
+              <AutoMarkPicker
+                class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
+                :markers="jobsManager?.availableMarkers.value || []"
+                v-model="globalPrefs.autoMarkerIds"
+              />
+              <span class="flex-1"></span>
+              <AutoDeletePicker
+                class="shrink-0"
+                :model-value="autoDeleteDuration"
+                @update:model-value="setAutoDeleteDuration"
+              />
+            </div>
         </div>
 
 
         <!-- Prompt (for task types that need it). external-chat: the editor is a
              plain editor here — the page-level chat lives in the dock below and
              is owned by this view, not the prompt field. -->
-        <Teleport to="#tool-drawer-prompt" :disabled="!isCompact" defer>
-        <div v-if="hasPrompt" class="mb-6 compact:mb-0">
+        <Teleport to="#tool-drawer-prompt" :disabled="!drawerMode" defer>
+        <div v-if="hasPrompt" class="mb-6 compact:mb-0 roomy:mb-4">
           <AIPromptEditor
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
-            :rows="isCompact ? 3 : (isFromScratch ? 19 : 10)"
+            :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
             @update:promptOptions="globalPrefs.promptOptions = $event"
@@ -390,7 +409,7 @@
              the single full-width dock so it survives layout switches without
              ever changing target — the chat stays put while the studio/stage
              toggle animates the columns above it. -->
-        <Teleport defer :to="isCompact ? '#agent-dock-compact' : '#agent-dock'">
+        <Teleport defer :to="agentDocked ? '#agent-dock' : '#agent-dock-compact'">
           <PromptAgentChat
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
@@ -715,7 +734,7 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden compact:order-1 compact:flex-1 compact:min-h-[96px] compact:!p-0 roomy:col-start-2 roomy:row-start-1 roomy:min-h-0 roomy:mt-2 roomy:mx-2"
         :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
         <!-- Live generation preview: the in-flight frames at full hero size.
@@ -915,11 +934,12 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5 roomy:col-start-2 roomy:row-start-2 roomy:!h-24 roomy:!max-h-24 roomy:!w-auto roomy:!p-0 roomy:border-t-0 roomy:mx-2 roomy:mt-1 roomy:mb-2"
         :class="[
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : '',
-          isCompact && compactDrawerOpen ? '!hidden' : ''
+          // Phones: an empty strip is a dead band under the hero's own empty state.
+          isCompact && allJobs.length === 0 && jobsManager.activeChainRuns.value.length === 0 ? '!hidden' : ''
         ]"
         :style="isCompact ? {} : { width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
       >
@@ -996,9 +1016,13 @@
         </div>
 
         <!-- Compact: the drawer (prompt pinned, controls beneath) sits under the
-             hero + queue strip. ToolRunControl teleports into the compact header.
+             hero + queue strip, which stay visible at every height. ToolRunControl teleports into the compact header.
              The agent opens as a centred card from a floating button over the hero. -->
-        <ToolDrawer v-if="isCompact" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" />
+        <!-- heroReserve: the queue strip (60px) plus a slice of the hero stay
+             on screen at full height, so the drawer never squeezes the strip.
+             Roomy hides it rather than unmounting it: the controls teleport
+             back into it on a fold, and a teleport needs its target present. -->
+        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="allJobs.length === 0 ? 'half' : 'collapsed'" :hero-reserve="200" />
         <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
              every tool instance alive, and a teleport left mounted would leave
              a second Run and Agent in the header (pushing the real ones off the
@@ -1009,9 +1033,10 @@
             v-if="!llmUnconfigured"
             type="button"
             class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent transition-colors"
-            :class="compactAgentOpen ? 'text-accent-hi bg-accent/15' : 'text-content-secondary'"
+            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-accent-hi bg-accent/15' : 'text-content-secondary'"
             aria-label="Agent"
-            @click="compactAgentOpen = true"
+            :aria-pressed="roomyAgentDockable ? agentDocked : undefined"
+            @click="onCompactAgentButton"
           >
             <SparklesIcon class="w-6 h-6" />
           </button>
@@ -1029,25 +1054,49 @@
             @stop-forever="stopForeverMode"
             @update:concurrency="uiState.generateForeverConcurrency = $event"
             @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+            :output-settings="drawerMode"
+            :markers="jobsManager?.availableMarkers.value || []"
+            :auto-marker-ids="globalPrefs.autoMarkerIds"
+            :auto-delete="autoDeleteDuration"
+            @update:auto-marker-ids="globalPrefs.autoMarkerIds = $event"
+            @update:auto-delete="setAutoDeleteDuration"
           />
         </Teleport>
-        <div
-          v-if="isCompact"
-          v-show="compactAgentOpen"
-          class="fixed inset-0 z-modal bg-overlay-backdrop backdrop-blur-sm flex items-start justify-center pt-16 px-3"
-          @click.self="compactAgentOpen = false"
-        >
-          <div class="w-full max-w-[420px] max-h-[80dvh] overflow-y-auto rounded-lg border border-edge bg-surface shadow-2xl">
-            <div class="flex items-center gap-2 px-4 pt-3 pb-1">
-              <SparklesIcon class="w-5 h-5 text-accent-hi" />
-              <span class="text-[15px] font-semibold text-content">Agent</span>
-              <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+        <!-- Undocked agent on a phone: a second drawer layer over the tool
+             drawer, in the kit sheet's dress (data-sheet-layer + .sheet-panel,
+             so it swipes away like every sheet). Hand-built rather than the kit
+             Sheet because that one unmounts when closed, and the agent's
+             Teleport needs #agent-dock-compact to stay mounted. -->
+        <Transition name="sheet">
+          <div
+            v-if="isCompact"
+            v-show="compactAgentOpen"
+            ref="agentSheetEl"
+            data-sheet-layer
+            data-escape-layer
+            class="fixed inset-0 z-menu flex flex-col justify-end bg-overlay-backdrop"
+            @click.self="compactAgentOpen = false"
+          >
+            <div
+              role="dialog"
+              aria-label="Agent"
+              class="sheet-panel relative flex flex-col max-h-[calc(100dvh-var(--safe-top,0px)-3rem)] bg-surface border-t border-edge shadow-2xl pb-safe pl-safe pr-safe"
+              style="border-radius: var(--sheet-radius) var(--sheet-radius) 0 0"
+            >
+              <div class="flex-none flex items-center justify-center" style="padding-top: var(--sheet-handle-top); height: var(--sheet-pad-top)" aria-hidden="true">
+                <span class="rounded-full bg-overlay-light" style="width: var(--sheet-handle-w); height: var(--sheet-handle-h)"></span>
+              </div>
+              <div class="flex-none flex items-center gap-2 px-4 pb-1">
+                <SparklesIcon class="w-5 h-5 text-accent-hi" />
+                <h2 class="text-[15px] font-semibold text-content">Agent</h2>
+                <button type="button" class="ml-auto w-11 h-11 -mr-2 flex items-center justify-center rounded-md text-content-secondary border-none bg-transparent" aria-label="Close" @click="compactAgentOpen = false">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div id="agent-dock-compact" class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4"></div>
             </div>
-            <div id="agent-dock-compact" class="px-4 pb-4"></div>
           </div>
-        </div>
+        </Transition>
         <!-- Agent chat dock: full width at the bottom of the page in both modes,
              so the chat stays put while the columns above tween between Studio
              and Stage. Single Teleport target — no remount on layout toggle.
@@ -1055,8 +1104,8 @@
              stay mounted, and the dock reappears live once a model is added. -->
         <div
           id="agent-dock"
-          v-show="!llmUnconfigured && !isCompact"
-          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%]"
+          v-show="!llmUnconfigured && agentDocked"
+          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%] roomy:mx-2 roomy:mb-2 roomy:px-3 roomy:pt-2 roomy:pb-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1129,6 +1178,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
+import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useViewport } from '../composables/useViewport'
 import { claimCompactHeader, compactHeaderOwner, releaseCompactHeader, setCompactTitle } from '../composables/useCompactChrome'
 import ToolDrawer from '../components/compact/ToolDrawer.vue'
@@ -1269,12 +1319,40 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
-const { isCompact } = useViewport()
+const { isCompact, isRoomy, isShort } = useViewport()
+// Phone layouts: a narrow phone gets the bottom drawer; a roomy one (an
+// unfolded foldable) gets side-by-side columns with the agent docked below,
+// when asked for. The docked agent is opt-in there (the header's agent button
+// toggles it, remembered per device): docked by default it read as the
+// prompt field. Short screens (a landscape phone) never dock it.
+const roomyTool = computed(() => isCompact.value && isRoomy.value)
+const drawerMode = computed(() => isCompact.value && !isRoomy.value)
+const ROOMY_AGENT_KEY = 'stimma-roomy-agent-docked'
+const roomyAgentWanted = ref(localStorage.getItem(ROOMY_AGENT_KEY) === '1')
+watch(roomyAgentWanted, (on) => { localStorage.setItem(ROOMY_AGENT_KEY, on ? '1' : '0') })
+const roomyAgentDockable = computed(() => roomyTool.value && !isShort.value)
+const agentDocked = computed(() => !isCompact.value || (roomyAgentDockable.value && roomyAgentWanted.value))
+function onCompactAgentButton() {
+  if (roomyAgentDockable.value) roomyAgentWanted.value = !roomyAgentWanted.value
+  else compactAgentOpen.value = true
+}
 // Phones keep the agent dock behind a toggle so the controls get the height.
 const compactAgentOpen = ref(false)
+// Unfolding docks the agent; the overlay it was open in would be left empty.
+watch(agentDocked, (docked) => { if (docked) compactAgentOpen.value = false })
+const agentSheetEl = ref<HTMLElement | null>(null)
+function onAgentSheetKeydown(e: KeyboardEvent) {
+  if (!e.defaultPrevented && e.key === 'Escape' && isTopmostEscapeLayer(agentSheetEl.value)) {
+    consumeEscape(e)
+    compactAgentOpen.value = false
+  }
+}
+watch(compactAgentOpen, (open) => {
+  if (open) window.addEventListener('keydown', onAgentSheetKeydown)
+  else window.removeEventListener('keydown', onAgentSheetKeydown)
+})
+onUnmounted(() => window.removeEventListener('keydown', onAgentSheetKeydown))
 const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
-// While the drawer is up the queue strip folds away so the hero keeps its height.
-const compactDrawerOpen = computed(() => !!toolDrawerRef.value && toolDrawerRef.value.level !== 'collapsed')
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 // A session owns its destination for its whole lifetime, including queued runs.
