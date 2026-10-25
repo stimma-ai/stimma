@@ -40,14 +40,9 @@ CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-# For URLs keyed by media id rather than by content. `media_items.id` is a plain
-# SQLite rowid alias (no AUTOINCREMENT), so permanently deleting the highest
-# rows frees those ids and the next insert REUSES them: /media/{id}/file can
-# mean different bytes tomorrow than it does today. Promising immutability there
-# taught WKWebView to keep serving a deleted image forever, ignoring the ETag we
-# also send. Store it, but revalidate every time — FileResponse's ETag makes
-# that a 304 with no payload. Only content-addressed URLs (by-hash, thumbnails)
-# may claim immutability.
+# Revalidate ID-based files and redirects. Historical migrations allowed ID
+# reuse, so existing browser entries can refer to an earlier payload. Only
+# content-addressed URLs may promise immutability.
 ID_KEYED_CACHE_HEADERS = {
     'Cache-Control': 'no-cache',
     'X-Content-Type-Options': 'nosniff',
@@ -62,6 +57,36 @@ CONTAINER_VISUAL_FORMATS = CONTAINER_IMAGE_FORMATS | CONTAINER_VIDEO_FORMATS
 
 # Invalidate changed container previews without regenerating unrelated thumbnails.
 CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 2, 'stimmapackage': 1}
+
+THUMBNAIL_VERSION = 33  # Include payload identity, even when a locator is reused.
+
+
+def _thumbnail_cache_key(
+    item: MediaItem, size: int, mode: str, face_count: int,
+    theme: str, db_guid: str | None = None,
+) -> str:
+    """One cache identity for HTTP thumbnails and native drag previews."""
+    fmt = item.file_format.lower()
+    mtime = None
+    if fmt in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
+        mtime_path = Path(item.file_path)
+        if fmt in ('stimmalayout', 'stimmapackage'):
+            mtime_path /= 'index.html'
+        try:
+            mtime = mtime_path.stat().st_mtime_ns
+        except OSError:
+            pass
+    render_version = None
+    if fmt in BROWSER_RENDERED_FORMATS:
+        from utils.local_render import renderer_version
+        render_version = renderer_version()
+    identity = (
+        db_guid, item.file_hash, item.file_path, fmt, size, mode, face_count,
+        THUMBNAIL_VERSION, mtime, CONTAINER_PREVIEW_VERSIONS.get(fmt),
+        SVG_GROUND_VERSION if fmt == 'svg' else None,
+        theme if fmt in THEMED_FORMATS else None, render_version,
+    )
+    return hashlib.md5(json.dumps(identity).encode()).hexdigest()
 
 
 def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
@@ -2038,7 +2063,10 @@ async def get_thumbnail_by_media_id(
     # Redirect to file_hash endpoint, preserving profile for cross-profile support
     from fastapi.responses import RedirectResponse
     profile_id = get_current_profile()
-    return RedirectResponse(url=f"/api/thumbnail/{item.file_hash}?size={size}&mode={mode}&profile={profile_id}&theme={theme}")
+    return RedirectResponse(
+        url=f"/api/thumbnail/{item.file_hash}?size={size}&mode={mode}&profile={profile_id}&theme={theme}&v={THUMBNAIL_VERSION}",
+        headers=ID_KEYED_CACHE_HEADERS,
+    )
 
 
 @router.get("/media/{media_id}/file")
@@ -2345,34 +2373,7 @@ async def get_thumbnail(
     cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # Cache key based on file path, size, face count, and algorithm version
-    # Increment THUMBNAIL_VERSION when the cropping/generation algorithm changes
-    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
-    # For text files and sets, include mtime so edits invalidate the thumbnail cache
-    mtime_suffix = ""
-    fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
-        try:
-            mtime_path = Path(file_path)
-            if fmt_lower in ('stimmalayout', 'stimmapackage'):
-                mtime_path = mtime_path / 'index.html'
-            mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
-        except OSError:
-            pass
-    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
-        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
-    if fmt_lower == 'svg':
-        # Scoped to SVG so changing how vector thumbnails are grounded does not
-        # invalidate every raster thumbnail in the library.
-        mtime_suffix += f"_ground{SVG_GROUND_VERSION}"
-
-    # Include theme in cache key only for synthetic thumbnail types
-    theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    if fmt_lower in BROWSER_RENDERED_FORMATS:
-        from utils.local_render import renderer_version
-        mtime_suffix += f'_{renderer_version()}'
-
-    cache_key = hashlib.md5(f"{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = _thumbnail_cache_key(item, size, mode, face_count, theme)
 
     # Check for cached thumbnail (PNG for transparent images, JPG otherwise)
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
@@ -2956,33 +2957,7 @@ async def get_thumbnail_by_db_guid(
     cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # Cache key includes db_guid for profile isolation in cache
-    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
-    # For text files and sets, include mtime so edits invalidate the thumbnail cache
-    mtime_suffix = ""
-    fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
-        try:
-            mtime_path = Path(file_path)
-            if fmt_lower in ('stimmalayout', 'stimmapackage'):
-                mtime_path = mtime_path / 'index.html'
-            mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
-        except OSError:
-            pass
-    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
-        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
-    if fmt_lower == 'svg':
-        # Scoped to SVG so changing how vector thumbnails are grounded does not
-        # invalidate every raster thumbnail in the library.
-        mtime_suffix += f"_ground{SVG_GROUND_VERSION}"
-
-    # Include theme in cache key only for synthetic thumbnail types
-    theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    if fmt_lower in BROWSER_RENDERED_FORMATS:
-        from utils.local_render import renderer_version
-        mtime_suffix += f'_{renderer_version()}'
-
-    cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = _thumbnail_cache_key(item, size, mode, face_count, theme, db_guid)
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
     cache_path_jpg = _sharded_cache_path(cache_dir, cache_key, "jpg")
@@ -3269,7 +3244,10 @@ async def get_thumbnail_by_media_id_and_db_guid(
 
     # Redirect to hash-based endpoint (keeps URL consistent)
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"/api/db/{db_guid}/thumbnail/{item.file_hash}?size={size}&mode={mode}&theme={theme}")
+    return RedirectResponse(
+        url=f"/api/db/{db_guid}/thumbnail/{item.file_hash}?size={size}&mode={mode}&theme={theme}&v={THUMBNAIL_VERSION}",
+        headers=ID_KEYED_CACHE_HEADERS,
+    )
 
 
 @router.get("/db/{db_guid}/media/{media_id}/thumbnail-path")
@@ -3310,32 +3288,7 @@ async def get_thumbnail_path_by_media_id(
     cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    THUMBNAIL_VERSION = 32  # v32: render first frames for video cells in grid thumbnails
-    # For text files and sets, include mtime so edits invalidate the thumbnail cache
-    mtime_suffix = ""
-    fmt_lower = file_format.lower()
-    if fmt_lower in ('md', 'svg', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout', 'stimmapackage'):
-        try:
-            mtime_path = Path(file_path)
-            if fmt_lower in ('stimmalayout', 'stimmapackage'):
-                mtime_path = mtime_path / 'index.html'
-            mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
-        except OSError:
-            pass
-    if fmt_lower in CONTAINER_PREVIEW_VERSIONS:
-        mtime_suffix += f"_preview{CONTAINER_PREVIEW_VERSIONS[fmt_lower]}"
-    if fmt_lower == 'svg':
-        # Scoped to SVG so changing how vector thumbnails are grounded does not
-        # invalidate every raster thumbnail in the library.
-        mtime_suffix += f"_ground{SVG_GROUND_VERSION}"
-
-    # Include theme in cache key only for synthetic thumbnail types
-    theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    if fmt_lower in BROWSER_RENDERED_FORMATS:
-        from utils.local_render import renderer_version
-        mtime_suffix += f'_{renderer_version()}'
-
-    cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = _thumbnail_cache_key(item, size, mode, face_count, theme, db_guid)
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
     cache_path_jpg = _sharded_cache_path(cache_dir, cache_key, "jpg")

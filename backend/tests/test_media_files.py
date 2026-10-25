@@ -322,9 +322,8 @@ def test_grid_mosaic_uses_first_video_frame(tmp_path):
 class TestFileCacheHeaders:
     """Only content-addressed URLs may be cached immutably.
 
-    media_items.id is a recycled SQLite rowid, so /media/{id}/file can name
-    different bytes after a permanent delete. Serving it `immutable` made
-    WKWebView keep painting a deleted image.
+    Historical schemas recycled media_items.id after permanent deletion.
+    Revalidation keeps those old URL entries from painting deleted images.
     """
 
     async def test_id_keyed_file_is_revalidated_not_immutable(self, client: AsyncClient, db_session, tmp_path):
@@ -355,6 +354,54 @@ class TestFileCacheHeaders:
         response = await client.get(f"/api/db/{db_guid}/media/by-hash/{file_hash}/file")
         assert response.status_code == 200
         assert "immutable" in response.headers["cache-control"]
+
+    async def test_id_thumbnail_redirect_is_revalidated(self, client: AsyncClient, db_session, tmp_path):
+        path = tmp_path / "redirect.png"
+        file_hash = generate_test_image(path, width=73)
+        async with db_session() as session:
+            media = await create_media_item(session, file_path=path, file_hash=file_hash)
+            media_id = media.id
+        db_guid = get_database_registry().get_db_guid("default")
+        for url in (
+            f"/api/media/{media_id}/thumbnail",
+            f"/api/db/{db_guid}/media/{media_id}/thumbnail",
+        ):
+            response = await client.get(url, follow_redirects=False)
+            assert response.status_code == 307
+            assert response.headers.get("cache-control") == "no-cache"
+            assert "v=" in response.headers["location"]
+
+
+@pytest.mark.parametrize("route", ["legacy", "profile", "thumbnail-path"])
+async def test_thumbnail_cache_distinguishes_content_at_same_path(
+    client: AsyncClient, db_session, tmp_path, route,
+):
+    """A new payload at a reused locator must never inherit the old bitmap."""
+    path = tmp_path / f"reused-{route}.png"
+    db_guid = get_database_registry().get_db_guid("default")
+    responses = []
+    for color in ((255, 0, 0), (0, 0, 255)):
+        file_hash = generate_test_image(
+            path, color=color, width={"legacy": 137, "profile": 139, "thumbnail-path": 149}[route],
+        )
+        async with db_session() as session:
+            media = await create_media_item(session, file_path=path, file_hash=file_hash)
+            media_id = media.id
+        urls = {
+            "legacy": f"/api/thumbnail/{file_hash}",
+            "profile": f"/api/db/{db_guid}/thumbnail/{file_hash}",
+            "thumbnail-path": f"/api/db/{db_guid}/media/{media_id}/thumbnail-path",
+        }
+        response = await client.get(urls[route], params={"size": 64})
+        assert response.status_code == 200, response.text
+        if route == "thumbnail-path":
+            bitmap = Image.open(response.json()["path"])
+        else:
+            bitmap = Image.open(io.BytesIO(response.content))
+        with bitmap:
+            responses.append(bitmap.convert("RGB").getpixel((32, 32)))
+    for actual, expected in zip(responses, ((255, 0, 0), (0, 0, 255))):
+        assert all(abs(a - b) <= 2 for a, b in zip(actual, expected)), responses
 
 
 class TestThumbnailDeletionRaces:
