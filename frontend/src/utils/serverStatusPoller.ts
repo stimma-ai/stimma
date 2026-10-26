@@ -3,9 +3,10 @@
  *
  * Status is only interesting at a fast cadence while an update, restart, or
  * check is underway. An idle client refreshes rarely and otherwise relies on
- * events (reconnects, returning to the foreground, explicit checks). Polling
- * stops entirely while the app is backgrounded or the device is offline, and a
- * single refresh runs when it returns.
+ * events (reconnects, returning to the foreground, explicit checks). Idle
+ * polling stops while the app is backgrounded or the device is offline, and a
+ * single refresh runs when it returns. An operation in flight is not optional
+ * and keeps its cadence.
  */
 export const ACTIVE_STATUS_POLL_MS = 3_000
 export const IDLE_STATUS_POLL_MS = 10 * 60_000
@@ -20,8 +21,8 @@ export interface PollConditions {
 
 /** Milliseconds until the next status refresh, or null while polling is suspended. */
 export function statusPollDelay({ active, foreground, online }: PollConditions): number | null {
-  if (!foreground || !online) return null
-  return active ? ACTIVE_STATUS_POLL_MS : IDLE_STATUS_POLL_MS
+  if (active) return ACTIVE_STATUS_POLL_MS
+  return foreground && online ? IDLE_STATUS_POLL_MS : null
 }
 
 export interface PollTimers {
@@ -57,7 +58,7 @@ export function createStatusPoller(options: {
   let again = false
   let stopped = false
 
-  const suspended = () => !foreground || !online
+  const suspended = () => (!foreground || !online) && !options.isActive()
   function clear() {
     if (timer !== undefined) timers.clear(timer)
     timer = undefined

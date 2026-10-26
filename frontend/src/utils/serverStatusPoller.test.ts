@@ -36,11 +36,12 @@ function virtualClock() {
   return { timers, advance, flush, get now() { return now } }
 }
 
-test('poll cadence is fast only while active and suspended in background or offline', () => {
+test('poll cadence is fast only while active; idle polling pauses in background or offline', () => {
   assert.equal(statusPollDelay({ active: true, foreground: true, online: true }), ACTIVE_STATUS_POLL_MS)
   assert.equal(statusPollDelay({ active: false, foreground: true, online: true }), IDLE_STATUS_POLL_MS)
-  assert.equal(statusPollDelay({ active: true, foreground: false, online: true }), null)
-  assert.equal(statusPollDelay({ active: true, foreground: true, online: false }), null)
+  assert.equal(statusPollDelay({ active: false, foreground: false, online: true }), null)
+  assert.equal(statusPollDelay({ active: false, foreground: true, online: false }), null)
+  assert.equal(statusPollDelay({ active: true, foreground: false, online: false }), ACTIVE_STATUS_POLL_MS)
   assert.ok(IDLE_STATUS_POLL_MS >= 5 * 60_000)
 })
 
@@ -111,23 +112,55 @@ test('a restart that comes back as the same version completes from process ident
   poller.stop()
 })
 
-test('backgrounding suspends polling and returning refreshes once', async () => {
+test('backgrounding pauses idle polling and returning refreshes once', async () => {
   const clock = virtualClock()
   let calls = 0
-  const poller = createStatusPoller({ refresh: async () => { calls++ }, isActive: () => true, timers: clock.timers })
+  const poller = createStatusPoller({ refresh: async () => { calls++ }, isActive: () => false, timers: clock.timers })
   poller.wake()
   await clock.flush()
   assert.equal(calls, 1)
   poller.setForeground(false)
   await clock.advance(IDLE_STATUS_POLL_MS * 2)
   poller.wake() // Events while hidden must not reach the network either.
-  await clock.advance(ACTIVE_STATUS_POLL_MS * 10)
+  await clock.flush()
   assert.equal(calls, 1, 'no requests while backgrounded')
   poller.setForeground(true)
   await clock.flush()
   assert.equal(calls, 2, 'one catch-up refresh on return')
-  await clock.advance(ACTIVE_STATUS_POLL_MS)
-  assert.equal(calls, 3, 'the active cadence resumes')
+  poller.stop()
+})
+
+test('an operation in flight keeps being tracked in the background, then idle polling pauses', async () => {
+  const clock = virtualClock()
+  let calls = 0
+  let active = true
+  const poller = createStatusPoller({ refresh: async () => { calls++ }, isActive: () => active, timers: clock.timers })
+  poller.wake()
+  poller.setForeground(false)
+  await clock.advance(ACTIVE_STATUS_POLL_MS * 3)
+  assert.equal(calls, 4, 'active cadence continues while backgrounded')
+  active = false
+  poller.reschedule()
+  await clock.advance(IDLE_STATUS_POLL_MS * 2)
+  assert.equal(calls, 4, 'nothing once the operation ended')
+  poller.setForeground(true)
+  await clock.flush()
+  assert.equal(calls, 5)
+  poller.stop()
+})
+
+test('an idle refresh that completes after backgrounding schedules nothing more', async () => {
+  const clock = virtualClock()
+  let calls = 0
+  let release: () => void = () => {}
+  const poller = createStatusPoller({ isActive: () => false, timers: clock.timers,
+    refresh: () => { calls++; return new Promise<void>(resolve => { release = resolve }) } })
+  poller.wake()
+  poller.setForeground(false)
+  poller.setOnline(false)
+  release()
+  await clock.advance(IDLE_STATUS_POLL_MS * 3)
+  assert.equal(calls, 1)
   poller.stop()
 })
 

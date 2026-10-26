@@ -29,7 +29,8 @@ async function fixture(t, { desktop = false } = {}) {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   t.after(() => assert.deepEqual(errors, []))
-  const server = { status: { ...READY }, statusRequests: 0, commands: [], sockets: new Set() }
+  // `gate`, when set, holds status responses until it resolves.
+  const server = { status: { ...READY }, statusRequests: 0, commands: [], sockets: new Set(), gate: null }
   await page.clock.install()
   await page.routeWebSocket('**/ws', ws => {
     server.sockets.add(ws)
@@ -40,6 +41,7 @@ async function fixture(t, { desktop = false } = {}) {
     if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<div id="app"></div>' })
     if (url.pathname === '/api/headless/status') {
       server.statusRequests++
+      if (server.gate) await server.gate
       if (!server.status) return route.abort('connectionrefused')
       return route.fulfill({ json: server.status })
     }
@@ -71,11 +73,19 @@ async function fixture(t, { desktop = false } = {}) {
       }
     })
   }
+  await load(page, desktop)
+  await page.waitForFunction(() => window.serverUpdater.snapshot().version === '1.0.0')
+  return { page, server, snapshot: () => page.evaluate(() => window.serverUpdater.snapshot()) }
+}
+
+async function load(page, desktop = false) {
   await page.addScriptTag({ content: script })
   await page.evaluate(skipApiConfig => window.serverUpdater.start({ skipApiConfig }), desktop)
   await advance(page, 1000)
-  await page.waitForFunction(() => window.serverUpdater.snapshot().version === '1.0.0')
-  return { page, server, snapshot: () => page.evaluate(() => window.serverUpdater.snapshot()) }
+}
+
+function setAppActive(page, active) {
+  return page.evaluate(detail => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail })), active)
 }
 
 /** Advance virtual time in steps, letting each step's real network round trips settle. */
@@ -144,24 +154,39 @@ test('a server restart is picked up from the reconnecting socket without idle po
   assert.equal((await snapshot()).busy, false)
 })
 
-test('background and offline suspend polling; returning refreshes once', async t => {
+test('background and offline pause idle polling; returning refreshes once', async t => {
   const { page, server } = await fixture(t)
-  await page.evaluate(() => window.serverUpdater.act('restart'))
-  await advance(page, 4_000)
   const before = server.statusRequests
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
-  await advance(page, 60_000)
-  assert.equal(server.statusRequests, before, 'no polling in the background, even mid-operation')
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
+  await setAppActive(page, false)
+  await advance(page, 25 * 60_000)
+  await dropSockets(server) // Even a reconnect stays quiet while backgrounded.
+  await advance(page, 2_000)
+  assert.equal(server.statusRequests, before, 'no polling in the background')
+  await setAppActive(page, true)
   await advance(page, 100)
   assert.equal(server.statusRequests, before + 1, 'one refresh on return')
 
   await page.evaluate(() => window.dispatchEvent(new Event('offline')))
-  await advance(page, 60_000)
+  await advance(page, 25 * 60_000)
   assert.equal(server.statusRequests, before + 1, 'no polling while offline')
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
   await advance(page, 100)
   assert.equal(server.statusRequests, before + 2)
+})
+
+test('an idle response that arrives after backgrounding starts nothing more', async t => {
+  const { page, server } = await fixture(t)
+  let release
+  server.gate = new Promise(resolve => { release = resolve })
+  await dropSockets(server) // Reconnect wakes an idle refresh that is held in flight.
+  await advance(page, 2_000)
+  const started = server.statusRequests
+  await setAppActive(page, false)
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')))
+  server.gate = null
+  release()
+  await advance(page, 25 * 60_000)
+  assert.equal(server.statusRequests, started)
 })
 
 test('a client update check makes the status view follow the server check', async t => {
@@ -178,46 +203,36 @@ test('a client update check makes the status view follow the server check', asyn
   assert.equal(server.statusRequests, quiet)
 })
 
-test('an update-all suspended past the restart grace still finishes both stages', async t => {
+test('an update-all keeps being tracked while minimized and runs both stages', async t => {
   const { page, server, snapshot } = await fixture(t)
+  await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
   await page.evaluate(() => window.serverUpdater.act('update', true))
   assert.equal((await snapshot()).pending?.updateMachine, true)
-  await advance(page, 4_000)
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
-  // The server finishes while this client is minimized for eleven minutes.
+  await setAppActive(page, false)
+  await advance(page, 60_000)
+  const minimized = server.statusRequests
   server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
-  await advance(page, 11 * 60_000)
-  const before = server.statusRequests
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
-  await advance(page, 1_000)
-  assert.equal(server.statusRequests, before + 1)
-  const resumed = await snapshot()
-  assert.equal(resumed.version, '1.1.0')
-  assert.equal(resumed.pending?.serverFinished, true, 'the client follow-up survives the suspension')
-
-  // Client stage: its own check finds nothing here, so the operation ends.
-  await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
   await advance(page, 4_000)
-  assert.equal(typeof (await snapshot()).pending?.machineCheckRequestedAt, 'number')
-  // This browser has no client updater, so its checks never complete; the
-  // follow-up retries a bounded number of times and then ends.
-  await advance(page, 4 * 60_000)
+  assert.ok(server.statusRequests > minimized)
+  assert.equal((await snapshot()).pending?.serverFinished, true, 'server stage confirmed while minimized')
+  // This browser has no client updater, so the follow-up finds nothing to
+  // install and ends with its own window.
+  await advance(page, 11 * 60_000)
   assert.equal((await snapshot()).pending, null)
+  const quiet = server.statusRequests
+  await advance(page, 25 * 60_000)
+  assert.equal(server.statusRequests, quiet, 'idle and minimized: no polling')
 })
 
-test('a failed status request on resume does not discard update-all intent', async t => {
+test('transport failures past the grace do not discard update-all intent', async t => {
   const { page, server, snapshot } = await fixture(t)
   await page.evaluate(() => window.serverUpdater.act('update', true))
-  await advance(page, 4_000)
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
-  await advance(page, 11 * 60_000)
-  // The first request after waking fails (network still coming back).
+  // Unreachable for eleven minutes (or the OS froze the app): no answer.
   server.status = null
-  const before = server.statusRequests
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
-  await advance(page, 1_000)
-  assert.equal(server.statusRequests, before + 1)
-  // The server had finished the update; the next answer confirms it.
+  await advance(page, 11 * 60_000)
+  assert.equal((await snapshot()).pending, null, 'hidden once past the grace')
+  // The server had finished the update; the next answer (here prompted by
+  // the app socket reconnecting) confirms it.
   server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
   await dropSockets(server)
   await advance(page, 2_000)
@@ -226,10 +241,23 @@ test('a failed status request on resume does not discard update-all intent', asy
   assert.equal(resumed.pending?.serverFinished, true)
 })
 
-test('a slow forwarded client check keeps update-all alive and installs what it finds', async t => {
+test('a reload past the grace reconciles a saved operation before discarding it', async t => {
+  const { page, server, snapshot } = await fixture(t)
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  server.status = null
+  await advance(page, 11 * 60_000)
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await page.reload()
+  await load(page)
+  await page.waitForFunction(() => window.serverUpdater.snapshot().version === '1.1.0')
+  assert.equal((await snapshot()).pending?.serverFinished, true)
+})
+
+test('a slow forwarded client check while minimized installs what it finds', async t => {
   const { page, server, snapshot } = await fixture(t, { desktop: true })
   await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
   await page.evaluate(() => window.serverUpdater.act('update', true))
+  await setAppActive(page, false)
   server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
   await advance(page, 4_000)
   assert.equal((await snapshot()).pending?.serverFinished, true)
@@ -245,17 +273,16 @@ test('a slow forwarded client check keeps update-all alive and installs what it 
   assert.equal((await snapshot()).pending, null)
 })
 
-test('an unconfirmed operation past the grace expires only after a status answer', async t => {
+test('an unconfirmed operation past the grace expires on the next server answer', async t => {
   const { page, server, snapshot } = await fixture(t)
   await page.evaluate(() => window.serverUpdater.act('update'))
-  await advance(page, 4_000)
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
   await advance(page, 11 * 60_000)
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
-  await advance(page, 1_000)
   const after = await snapshot()
   assert.equal(after.pending, null)
   assert.equal(after.version, '1.0.0')
   assert.equal(after.busy, false)
-  assert.ok(server.commands.length === 1)
+  assert.equal(server.commands.length, 1)
+  const quiet = server.statusRequests
+  await advance(page, 5 * 60_000)
+  assert.equal(server.statusRequests, quiet, 'back to idle')
 })

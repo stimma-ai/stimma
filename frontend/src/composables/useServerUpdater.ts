@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { makeInstallKey } from '../utils/installKey'
-import { SERVER_RESTART_GRACE_MS, machineFollowUpStep, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
+import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
 import { COMMAND_BURST_MS, createStatusPoller, type StatusPoller } from '../utils/serverStatusPoller'
 import { SERVER_UPDATE_CHECK_STARTED } from '../utils/serverUpdateCheck'
 import { THIS_MACHINE_LABEL, useMultiDevice } from './useMultiDevice'
@@ -83,22 +83,9 @@ async function updateMachine() {
 }
 
 async function resumeMachine(op: ServerOperation) {
-  if (!app.loadedPrefs.value || checkingMachine) return
-  const step = machineFollowUpStep(op, {
-    currentVersion: app.currentVersion.value,
-    available: machineAvailable.value,
-    busy: app.isChecking.value || app.isDownloading.value,
-    lastCheckedAt: app.lastCheckedAt.value,
-  }, Date.now())
-  if (step === 'wait') return
-  if (step === 'done' || step === 'give-up') { clearOperation(); return }
-  if (step === 'install') { clearOperation(); await updateMachine(); return }
-  // The check may be forwarded to the window that owns the updater; its
-  // outcome is read from the shared updater state on later refreshes.
-  op.machineCheckRequestedAt = Date.now()
-  op.machineCheckBaseline = app.lastCheckedAt.value
-  op.machineCheckAttempts = (op.machineCheckAttempts ?? 0) + 1
-  persist()
+  if (!app.loadedPrefs.value || app.isDownloading.value || app.isChecking.value || checkingMachine) return
+  if (app.currentVersion.value === op.machineTarget) { clearOperation(); return }
+  if (machineAvailable.value) { clearOperation(); await updateMachine(); return }
   checkingMachine = true
   try { await app.checkForUpdates('manual') } finally { checkingMachine = false }
 }
@@ -132,14 +119,14 @@ async function refresh() {
     }
     const result = serverOperationResult(op, data)
     if (result === 'complete') {
-      if (op.updateMachine) { op.serverFinished = true; persist(); await resumeMachine(op) }
+      if (op.updateMachine) { op.serverFinished = true; op.serverFinishedAt = Date.now(); persist(); await resumeMachine(op) }
       else clearOperation()
     } else if (result === 'unchanged') clearOperation() // The ordinary update pill remains available.
   } catch { /* Status is unavailable during restarts; keep the operation across reconnects. */ }
   finally {
     polling = false
-    // Give up only when the server answered and did not confirm completion;
-    // a failed request (still resuming, network down) proves nothing.
+    // Give up only after the server answered; a failed request (app still
+    // resuming, network down) proves nothing about how the operation ended.
     now.value = Date.now()
     if (answered && operation.value?.deviceId === id && serverOperationExpired(operation.value, now.value)) clearOperation()
   }
@@ -184,11 +171,14 @@ export function startServerUpdater() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null')
     if (saved && ['update', 'restart'].includes(saved.action) && typeof saved.deviceId === 'string'
-      && typeof saved.startedAt === 'number' && !serverOperationExpired(saved, Date.now())) operation.value = saved
+      && typeof saved.startedAt === 'number') operation.value = saved // Hidden if expired until reconciled.
     else sessionStorage.removeItem(KEY)
   } catch { /* Ignore invalid session state. */ }
   // Poll quickly only while an operation is in flight; otherwise rely on
   // reconnects, foreground returns, and explicit checks, with a slow backstop.
+  // Background and offline pause only that idle polling: an operation in
+  // flight keeps being tracked (if the OS freezes the page instead, the
+  // operation is reconciled on the first server answer after resume).
   let visible = document.visibilityState !== 'hidden'
   let appActive = true
   const statusPoller = poller = createStatusPoller({
