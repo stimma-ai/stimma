@@ -21,7 +21,7 @@ const READY = { headless: true, version: '1.0.0', availableVersion: '1.1.0', sta
  * A connected client against a fake headless server. `server.status` is what
  * /api/headless/status answers; null means the server is down (restarting).
  */
-async function fixture(t) {
+async function fixture(t, { desktop = false } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage()
@@ -51,8 +51,28 @@ async function fixture(t) {
     return route.abort()
   })
   await page.goto('http://updater.test/')
+  if (desktop) {
+    // A non-owner desktop window: the updater lives in another window that
+    // this page plays through the shared BroadcastChannel.
+    await page.evaluate(() => {
+      const calls = { getBackendPort: async () => 1, mdGetState: async () => ({ activeDeviceId: 'local', devices: [], connectionState: 'ready' }),
+        mdOnConnectionState: () => () => {}, mdRefreshDevices: async () => [], mdLocalStatus: async () => ({}), getAppVersion: async () => '1.0.0' }
+      window.stimmaDesktop = new Proxy({ kind: 'electron', ...calls }, { get: (target, key) => key in target ? target[key] : async () => null })
+      window.ownerMessages = []
+      window.ownerState = { hasUpdate: false, availableVersion: null, stagedVersion: null, pendingApply: null,
+        isDownloading: false, isChecking: false, lastCheckedAt: 't0' }
+      const owner = window.owner = new BroadcastChannel('stimma-updater')
+      window.publishOwner = patch => { Object.assign(window.ownerState, patch); owner.postMessage({ type: 'state', state: { ...window.ownerState } }) }
+      owner.onmessage = event => {
+        window.ownerMessages.push(event.data.type)
+        if (event.data.type === 'request-state') window.publishOwner({})
+        // A forwarded check that runs for a long time before reporting.
+        if (event.data.type === 'check') window.publishOwner({ isChecking: true })
+      }
+    })
+  }
   await page.addScriptTag({ content: script })
-  await page.evaluate(() => window.serverUpdater.start())
+  await page.evaluate(skipApiConfig => window.serverUpdater.start({ skipApiConfig }), desktop)
   await advance(page, 1000)
   await page.waitForFunction(() => window.serverUpdater.snapshot().version === '1.0.0')
   return { page, server, snapshot: () => page.evaluate(() => window.serverUpdater.snapshot()) }
@@ -178,8 +198,50 @@ test('an update-all suspended past the restart grace still finishes both stages'
   // Client stage: its own check finds nothing here, so the operation ends.
   await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
   await advance(page, 4_000)
-  assert.equal(typeof (await snapshot()).pending?.machineCheckedAt, 'number')
-  await advance(page, 3 * 60_000)
+  assert.equal(typeof (await snapshot()).pending?.machineCheckRequestedAt, 'number')
+  // This browser has no client updater, so its checks never complete; the
+  // follow-up retries a bounded number of times and then ends.
+  await advance(page, 4 * 60_000)
+  assert.equal((await snapshot()).pending, null)
+})
+
+test('a failed status request on resume does not discard update-all intent', async t => {
+  const { page, server, snapshot } = await fixture(t)
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  await advance(page, 4_000)
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
+  await advance(page, 11 * 60_000)
+  // The first request after waking fails (network still coming back).
+  server.status = null
+  const before = server.statusRequests
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
+  await advance(page, 1_000)
+  assert.equal(server.statusRequests, before + 1)
+  // The server had finished the update; the next answer confirms it.
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await dropSockets(server)
+  await advance(page, 2_000)
+  const resumed = await snapshot()
+  assert.equal(resumed.version, '1.1.0')
+  assert.equal(resumed.pending?.serverFinished, true)
+})
+
+test('a slow forwarded client check keeps update-all alive and installs what it finds', async t => {
+  const { page, server, snapshot } = await fixture(t, { desktop: true })
+  await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await advance(page, 4_000)
+  assert.equal((await snapshot()).pending?.serverFinished, true)
+  assert.ok((await page.evaluate(() => window.ownerMessages)).includes('check'), 'check forwarded to the updater window')
+  // The owner window is still checking five minutes later.
+  await advance(page, 5 * 60_000)
+  assert.equal((await snapshot()).pending?.serverFinished, true, 'intent survives a long check')
+  const checks = (await page.evaluate(() => window.ownerMessages)).filter(type => type === 'check').length
+  assert.equal(checks, 1, 'no duplicate checks while one is running')
+  await page.evaluate(() => window.publishOwner({ isChecking: false, hasUpdate: true, availableVersion: '1.2.0', lastCheckedAt: 't1' }))
+  await advance(page, 4_000)
+  assert.ok((await page.evaluate(() => window.ownerMessages)).includes('download'), 'the found update is installed')
   assert.equal((await snapshot()).pending, null)
 })
 

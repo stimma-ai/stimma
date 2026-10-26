@@ -7,8 +7,9 @@ const updater = useServerUpdater()
 
 Object.assign(window, {
   serverUpdater: {
-    async start() {
-      await initApiConfig()
+    async start({ skipApiConfig = false } = {}) {
+      // A desktop-shell stub has no backend port to discover; use relative URLs.
+      if (!skipApiConfig) await initApiConfig()
       await useMultiDevice().init()
       startServerUpdater()
     },

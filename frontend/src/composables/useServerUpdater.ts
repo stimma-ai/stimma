@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { makeInstallKey } from '../utils/installKey'
-import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
+import { SERVER_RESTART_GRACE_MS, machineFollowUpStep, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
 import { COMMAND_BURST_MS, createStatusPoller, type StatusPoller } from '../utils/serverStatusPoller'
 import { SERVER_UPDATE_CHECK_STARTED } from '../utils/serverUpdateCheck'
 import { THIS_MACHINE_LABEL, useMultiDevice } from './useMultiDevice'
@@ -83,17 +83,24 @@ async function updateMachine() {
 }
 
 async function resumeMachine(op: ServerOperation) {
-  if (!app.loadedPrefs.value || app.isDownloading.value || app.isChecking.value || checkingMachine) return
-  if (app.currentVersion.value === op.machineTarget) { clearOperation(); return }
-  if (machineAvailable.value) { clearOperation(); await updateMachine(); return }
-  // Check once; another window may own the updater and report back later,
-  // so the operation waits a bounded time for the result before expiring.
-  if (op.machineCheckedAt !== undefined) return
-  op.machineCheckedAt = Date.now()
+  if (!app.loadedPrefs.value || checkingMachine) return
+  const step = machineFollowUpStep(op, {
+    currentVersion: app.currentVersion.value,
+    available: machineAvailable.value,
+    busy: app.isChecking.value || app.isDownloading.value,
+    lastCheckedAt: app.lastCheckedAt.value,
+  }, Date.now())
+  if (step === 'wait') return
+  if (step === 'done' || step === 'give-up') { clearOperation(); return }
+  if (step === 'install') { clearOperation(); await updateMachine(); return }
+  // The check may be forwarded to the window that owns the updater; its
+  // outcome is read from the shared updater state on later refreshes.
+  op.machineCheckRequestedAt = Date.now()
+  op.machineCheckBaseline = app.lastCheckedAt.value
+  op.machineCheckAttempts = (op.machineCheckAttempts ?? 0) + 1
   persist()
   checkingMachine = true
   try { await app.checkForUpdates('manual') } finally { checkingMachine = false }
-  if (operation.value === op && machineAvailable.value) { clearOperation(); await updateMachine() }
 }
 
 async function refresh() {
@@ -101,6 +108,7 @@ async function refresh() {
   if (polling || !connected.value || privacyLockdownActive.value) return
   polling = true
   const id = device.activeDeviceId.value
+  let answered = false
   try {
     const response = await fetch(`${getApiBase()}/headless/status`, { signal: AbortSignal.timeout(10_000) })
     if (id !== device.activeDeviceId.value) return
@@ -108,6 +116,7 @@ async function refresh() {
     if (!response.ok) return
     const data: ServerStatus = await response.json()
     if (id !== device.activeDeviceId.value) return
+    answered = true
     server.value = data.headless ? data : null
     // Reconcile even an expired operation: the server may have finished it
     // while this client was suspended.
@@ -129,9 +138,10 @@ async function refresh() {
   } catch { /* Status is unavailable during restarts; keep the operation across reconnects. */ }
   finally {
     polling = false
-    // Only give up after a status attempt could not confirm the operation.
+    // Give up only when the server answered and did not confirm completion;
+    // a failed request (still resuming, network down) proves nothing.
     now.value = Date.now()
-    if (operation.value?.deviceId === id && serverOperationExpired(operation.value, now.value)) clearOperation()
+    if (answered && operation.value?.deviceId === id && serverOperationExpired(operation.value, now.value)) clearOperation()
   }
 }
 
