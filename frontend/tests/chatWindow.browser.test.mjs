@@ -101,8 +101,9 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
   page.on('pageerror', error => errors.push(error.message))
   // `hold` holds the next display-window request until `held()` is called;
   // it answers with the server state from when it arrived.
-  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000, mediaUnfiltered: false, holdMedia: false, heldMedia: null }
-  await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
+  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000, mediaUnfiltered: false, holdMedia: false, heldMedia: null, holdPrompts: false, heldPrompts: null }
+  // The server greets each socket; realtime scopes are ready once it has.
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { server.socket = ws; ws.send(JSON.stringify({ event: 'connected', data: {} })) })
   await page.route('**/*', async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -124,6 +125,10 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
         if (request.only === 'media' && server.holdMedia) {
           server.holdMedia = false
           await new Promise(resolve => { server.heldMedia = resolve })
+        }
+        if (request.only === 'prompts' && server.holdPrompts) {
+          server.holdPrompts = false
+          await new Promise(resolve => { server.heldPrompts = resolve })
         }
         return route.fulfill({ json })
       }
@@ -576,4 +581,46 @@ test('older media linked by a subagent reaches the slideshow', async t => {
   await page.evaluate(() => window.reconcileView.openSlideshow(1013, 0))
   await expect.poll(media).toEqual([42, ...range(1000, 1013)])
   await page.evaluate(() => window.reconcileView.exitSlideshow())
+})
+
+// Recall up to the window's oldest prompt (Question 67), then press ArrowUp
+// once more with the older-prompts request held.
+async function recallPastWindow(view) {
+  const { page, server } = view
+  const up = async () => {
+    await page.evaluate(() => { const el = window.reconcileView.messageInputRef.value; el.focus(); el.setSelectionRange(0, 0) })
+    await page.keyboard.press('ArrowUp')
+  }
+  for (let n = 74; n >= 67; n--) await up()
+  assert.equal(await page.evaluate(() => window.reconcileView.messageInput.value), 'Question 67')
+  server.holdPrompts = true
+  await up()
+  await expect.poll(() => Boolean(server.heldPrompts)).toBe(true)
+}
+
+test('typing while older prompts load is not overwritten by the recall', async t => {
+  const view = await openChat(t, turns(75))
+  const { page, server } = view
+  await recallPastWindow(view)
+  await page.evaluate(() => { window.reconcileView.messageInputRef.value.setSelectionRange(11, 11) })
+  await page.keyboard.type(' and more')
+  assert.equal(await page.evaluate(() => window.reconcileView.messageInput.value), 'Question 67 and more')
+  server.heldPrompts()
+  await page.waitForTimeout(300)
+  assert.equal(await page.evaluate(() => window.reconcileView.messageInput.value), 'Question 67 and more')
+  assert.deepEqual(view.errors, [])
+})
+
+test('a profile switch while older prompts load cancels the recall', async t => {
+  const view = await openChat(t, turns(75))
+  const { page, server } = view
+  await recallPastWindow(view)
+  await page.evaluate(() => window.switchProfile('other'))
+  const draft = await page.evaluate(() => window.reconcileView.messageInput.value)
+  server.heldPrompts()
+  await page.waitForTimeout(300)
+  // Neither the composer nor recall takes the old profile's prompts.
+  assert.equal(await page.evaluate(() => window.reconcileView.messageInput.value), draft)
+  assert.notEqual(draft, 'Question 66')
+  assert.equal(server.other.filter(r => r.only === 'prompts').length, 1)
 })

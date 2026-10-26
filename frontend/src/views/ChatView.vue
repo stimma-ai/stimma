@@ -3461,24 +3461,46 @@ function recallTexts(itemsNewestFirst) {
 let recallCursor = null
 let recallLoading = false
 
+// Like media paging, a recall fetch belongs to the server, profile and chat
+// it started in; any change of those or leaving the view cancels it.
+let recallAbort = null
+function cancelRecallFetch() {
+  recallAbort?.abort()
+  recallAbort = null
+}
+watch(chatId, cancelRecallFetch)
+watch(getCurrentProfileId, cancelRecallFetch)
+onDeactivated(cancelRecallFetch)
+onUnmounted(cancelRecallFetch)
+
+// Bumped on every change to the composer text, so a recall that waited on
+// the network can tell the user typed in the meantime.
+let composerRevision = 0
+watch(messageInput, () => { composerRevision++ }, { flush: 'sync' })
+
 async function loadOlderPrompts() {
   if (recallCursor == null || recallLoading) return false
   const cursor = recallCursor
   const requestChatId = chatId.value
+  const scope = transcriptScope()
+  const abort = new AbortController()
+  recallAbort = abort
+  const current = () => !abort.signal.aborted && transcriptScope() === scope && recallCursor === cursor
   recallLoading = true
   try {
-    const response = await fetch(`/api/chats/${requestChatId}/items?only=prompts&limit=50&before_id=${cursor}`)
-    if (!response.ok) return false
+    const response = await fetch(`/api/chats/${requestChatId}/items?only=prompts&limit=50&before_id=${cursor}`, { signal: abort.signal })
+    if (!current() || !response.ok) return false
     const data = await response.json()
-    if (chatId.value !== requestChatId || recallCursor !== cursor) return false
+    if (!current()) return false
     messageHistory.value = [...messageHistory.value, ...recallTexts(data.items)]
     recallCursor = data.has_more && data.items.length ? data.items[data.items.length - 1].id : null
     return true
   } catch (error) {
-    console.error('Error loading older prompts:', error)
+    if (current()) console.error('Error loading older prompts:', error)
     return false
   } finally {
     recallLoading = false
+    if (recallAbort === abort) recallAbort = null
   }
 }
 
@@ -3488,10 +3510,19 @@ async function navigateHistory(direction) {
   // Going up (back in history)
   if (direction > 0) {
     if (newIndex >= messageHistory.value.length) {
-      // At the oldest loaded prompt: fetch older ones, then step if the
-      // reader is still here.
+      // At the oldest loaded prompt: fetch older ones, then step only if
+      // the reader is still here, in the same scope, and has not typed.
       const length = messageHistory.value.length
-      if (await loadOlderPrompts() && historyIndex.value === newIndex - 1 && messageHistory.value.length > length) {
+      const scope = transcriptScope()
+      const revision = composerRevision
+      const loaded = await loadOlderPrompts()
+      if (
+        loaded
+        && transcriptScope() === scope
+        && composerRevision === revision
+        && historyIndex.value === newIndex - 1
+        && messageHistory.value.length > length
+      ) {
         navigateHistory(1)
       }
       return
