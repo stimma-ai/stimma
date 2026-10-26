@@ -1436,6 +1436,9 @@ class ChatItem(Base):
     # Indexes
     __table_args__ = (
         Index('idx_chat_items_chat_created', chat_id, created_at),
+        # Transcript windows and pages walk a chat by id.
+        Index('idx_chat_items_chat_id', chat_id, id),
+        Index('idx_chat_items_chat_type', chat_id, item_type),
         {'sqlite_autoincrement': True},  # Prevent ID reuse after deletion
     )
 

@@ -229,3 +229,125 @@ async def test_requests_without_display_limit_keep_their_behavior(client, db_ses
     legacy = (await client.get(f"/api/chats/{chat_id}/items?visible_limit=500")).json()
     assert len(legacy["items"]) == 600
     assert legacy.get("invoked_skills") is None
+
+
+async def _delegated_turn(db_session, chat_id: int, n: int, children: int = 150) -> list[int]:
+    """A turn that delegates: question, delegate call, its children, result,
+    answer. 4 + children items."""
+    [user, call] = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type="user_message", message_text=f"Delegate {n}"),
+        ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="delegate", tool_call_id=f"d{n}", tool_args="{}"),
+    ])
+    kids = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="bash", tool_call_id=f"d{n}-{i}",
+                 tool_args="{}", parent_item_id=call)
+        for i in range(children)
+    ])
+    rest = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type="tool_result", tool_call_id=f"d{n}", tool_result='{"output": "ok"}'),
+        ChatItem(chat_id=chat_id, item_type="assistant_message", message_text=f"Delegated {n}"),
+    ])
+    return [user, call, *kids, *rest]
+
+
+@pytest.mark.anyio
+async def test_a_capped_window_ends_at_a_complete_turn(client, db_session):
+    chat_id = await _create_chat(client)
+    turns = [await _delegated_turn(db_session, chat_id, n) for n in range(3)]
+    assert all(len(turn) == 154 for turn in turns)
+
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}")).json()
+    returned = [item["id"] for item in body["items"]]
+    # Two turns would pass the cap; the window keeps the newest turn whole
+    # instead of cutting the one before it mid-delegation.
+    assert returned == sorted(turns[2], reverse=True)
+    present = set(returned)
+    assert all(item["parent_item_id"] in present for item in body["items"] if item["parent_item_id"])
+    assert body["has_more"] is True
+
+    # Pages below it are whole turns too.
+    page = (await client.get(
+        f"/api/chats/{chat_id}/items?before_id={returned[-1]}&display_limit={WINDOW}"
+    )).json()
+    assert [item["id"] for item in page["items"]] == sorted(turns[1], reverse=True)
+    # Older pages do not recompute the chat's skill summary.
+    assert page["invoked_skills"] is None
+
+
+@pytest.mark.anyio
+async def test_reach_is_one_bounded_read(client, db_session):
+    from sqlalchemy import event
+    from database_registry import get_database_registry
+
+    chat_id, ids = await _long_chat(client, db_session)
+    engine = get_database_registry().get_database("default").async_engine.sync_engine
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        if "FROM chat_items" in statement and "ORDER BY chat_items.id DESC" in statement:
+            statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}&reach_id={ids[100]}")).json()
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    assert body["items"][-1]["id"] <= ids[100]
+    # One read back to reach_id, one more to find the turn start below it.
+    assert len(statements) <= 2, statements
+
+
+@pytest.mark.anyio
+async def test_windows_and_pages_use_the_chat_id_index(client, db_session):
+    from sqlalchemy import text
+
+    async with db_session() as session:
+        indexes = {row[1] for row in (await session.execute(text("PRAGMA index_list('chat_items')"))).all()}
+        assert {"idx_chat_items_chat_id", "idx_chat_items_chat_type"} <= indexes
+        plan = " ".join(str(row[-1]) for row in (await session.execute(text(
+            "EXPLAIN QUERY PLAN SELECT * FROM chat_items WHERE chat_id = 1 AND id < 500 ORDER BY id DESC LIMIT 100"
+        ))).all())
+        assert "TEMP B-TREE" not in plan, plan
+        plan = " ".join(str(row[-1]) for row in (await session.execute(text(
+            "EXPLAIN QUERY PLAN SELECT item_metadata FROM chat_items "
+            "WHERE chat_id = 1 AND item_type = 'stimpack_injection'"
+        ))).all())
+        assert "idx_chat_items_chat_type" in plan, plan
+
+
+@pytest.mark.anyio
+async def test_prompts_and_media_page_on_their_own(client, db_session):
+    chat_id, ids = await _long_chat(client, db_session)
+    [linked] = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type="assistant_message", message_text="Here it is: ![result](media:42)"),
+    ])
+
+    prompts = []
+    before = None
+    while True:
+        url = f"/api/chats/{chat_id}/items?only=prompts&limit=7" + (f"&before_id={before}" if before else "")
+        body = (await client.get(url)).json()
+        prompts += body["items"]
+        if not body["has_more"]:
+            break
+        before = body["items"][-1]["id"]
+    assert [p["message_text"].split(":")[0] for p in prompts] == [f"Turn {n}" for n in range(33, -1, -1)]
+    assert all(p["item_type"] == "user_message" for p in prompts)
+
+    media = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=5")).json()
+    assert media["items"][0]["id"] == linked
+    assert {i["item_type"] for i in media["items"][1:]} == {"media_display"}
+    assert media["has_more"] is True
+
+
+@pytest.mark.anyio
+async def test_invoked_skills_endpoint_reflects_deletions(client, db_session):
+    chat_id = await _create_chat(client)
+    [_, injection] = await _seed(db_session, chat_id, [
+        ChatItem(chat_id=chat_id, item_type="user_message", message_text="use it"),
+        ChatItem(chat_id=chat_id, item_type="stimpack_injection", message_text="body",
+                 item_metadata=json.dumps({"skill_name": "app-icons"})),
+    ])
+    assert (await client.get(f"/api/chats/{chat_id}/invoked-skills")).json() == {"skills": ["app-icons"]}
+    assert (await client.delete(f"/api/chats/items/{injection}")).status_code == 200
+    assert (await client.get(f"/api/chats/{chat_id}/invoked-skills")).json() == {"skills": []}

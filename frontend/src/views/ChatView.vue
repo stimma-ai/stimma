@@ -266,6 +266,7 @@
                     <span class="thinking-dots">thinking</span>
                 </span>
                 <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasFailed && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && isLastActivityGroup(getActivityGroup(item.id))" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
+                <span v-if="getActivityGroup(item.id).id === partialActivityGroupId" class="text-content-tertiary" data-partial-group>earlier steps not loaded</span>
               </div>
 
               <!-- Expanded timeline -->
@@ -1122,7 +1123,7 @@
       <span>{{ formatTokenCount(sessionTokenTotals.prompt_tokens) }} in / {{ formatTokenCount(sessionTokenTotals.completion_tokens) }} out<template v-if="sessionTokenTotals.reasoning_tokens"> / {{ formatTokenCount(sessionTokenTotals.reasoning_tokens) }} reasoning</template></span>
       <span v-if="sessionTokenTotals.cache_read_input_tokens" class="text-teal-500">cache {{ formatTokenCount(sessionTokenTotals.cache_read_input_tokens) }} hit<template v-if="sessionTokenTotals.cache_creation_input_tokens"> / {{ formatTokenCount(sessionTokenTotals.cache_creation_input_tokens) }} write</template></span>
       <span v-if="sessionTokenTotals.avg_tps" class="text-content-secondary">{{ sessionTokenTotals.avg_tps.toFixed(1) }} t/s avg</span>
-      <span class="text-content-muted/60">{{ sessionTokenTotals.turns }} {{ sessionTokenTotals.turns === 1 ? 'turn' : 'turns' }}</span>
+      <span class="text-content-muted/60">{{ sessionTokenTotals.turns }} {{ sessionTokenTotals.turns === 1 ? 'turn' : 'turns' }}<template v-if="hasMore"> · loaded history</template></span>
       <!-- Context window meter — centered between left stats and right quota -->
       <div v-if="llmUsage?.context_tokens" class="ml-auto flex items-center gap-1.5">
         <span :class="tokenUsagePercent > 90 ? 'text-red-400' : tokenUsagePercent > 70 ? 'text-amber-400' : 'text-content-muted'">ctx {{ formatTokenCount(llmUsage.context_tokens) }}/{{ formatTokenCount(contextLimit) }}</span>
@@ -1333,6 +1334,7 @@
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
       :inline="true"
+      @update:index="onSlideshowIndex"
       @close="exitSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
     />
@@ -2369,6 +2371,19 @@ function isFirstInActivityGroup(itemId) {
   return group && group.firstId === itemId
 }
 
+// The oldest loaded activity group, when older history may hold more of its
+// steps (a window split an enormous turn). Passthrough items such as tool
+// results do not end a group, so they are skipped to find it.
+const partialActivityGroupId = computed(() => {
+  if (!hasMore.value) return null
+  for (const item of topLevelItems.value) {
+    const group = activityGroupInfo.value.get(item.id)
+    if (group) return group.id
+    if (!isInvisiblePassthroughItem(item)) return null
+  }
+  return null
+})
+
 // A group is named after its first loaded item. When a page boundary split
 // it, the older page that completes it renames it, so expansion recorded
 // under any member's name still applies.
@@ -2764,7 +2779,50 @@ function getPlanControlState(item) {
 // not represented in the transcript collector remains reachable for this chat.
 const slideshowReferenceIds = ref([])
 watch(chatId, () => { slideshowReferenceIds.value = []; exitSlideshow() })
-const chatMediaEntries = computed(() => collectChatMedia(items.value))
+// The slideshow's sequence covers the whole chat, not just the loaded
+// transcript: media-bearing items older than it are paged in on their own
+// (only=media) when the slideshow opens and as it browses toward the start.
+const olderChatMedia = ref({ chatId: null, items: [], cursor: null, done: false })
+let olderChatMediaLoading = false
+const chatMediaEntries = computed(() => {
+  const state = olderChatMedia.value
+  const first = items.value[0]?.id ?? Number.POSITIVE_INFINITY
+  const older = state.chatId === chatId.value ? state.items.filter(item => item.id < first) : []
+  return collectChatMedia(older.length ? [...older, ...items.value] : items.value)
+})
+
+async function loadOlderChatMedia() {
+  const requestChatId = chatId.value
+  const state = olderChatMedia.value
+  const fresh = state.chatId !== requestChatId
+  if (olderChatMediaLoading || (!fresh && state.done)) return
+  // Nothing is older than a fully loaded transcript.
+  const cursor = fresh ? (hasMore.value ? pageCursor : null) : state.cursor
+  if (cursor == null) return
+  olderChatMediaLoading = true
+  try {
+    const response = await fetch(`/api/chats/${requestChatId}/items?only=media&limit=100&before_id=${cursor}`)
+    if (!response.ok) return
+    const data = await response.json()
+    if (chatId.value !== requestChatId) return
+    const page = data.items.reverse()
+    const kept = olderChatMedia.value.chatId === requestChatId ? olderChatMedia.value.items : []
+    olderChatMedia.value = {
+      chatId: requestChatId,
+      items: [...page, ...kept],
+      cursor: page.length ? page[0].id : cursor,
+      done: !data.has_more,
+    }
+  } catch (error) {
+    console.error('Error loading older chat media:', error)
+  } finally {
+    olderChatMediaLoading = false
+  }
+}
+
+function onSlideshowIndex(index) {
+  if (index < 10) loadOlderChatMedia()
+}
 const chatMediaLabels = computed(() => Object.fromEntries(chatMediaEntries.value.map(entry => [entry.id, entry.label])))
 const liveChatMediaIds = computed(() => [...new Set([
   ...chatMediaEntries.value.map(entry => entry.id), ...slideshowReferenceIds.value,
@@ -2964,8 +3022,32 @@ async function updateAutoDeleteDuration(_duration) {
 const CHAT_WINDOW_VISIBLE = 40
 const CHAT_WINDOW_QUERY = `display_limit=${CHAT_WINDOW_VISIBLE}&visible_limit=500`
 
-function applyServerInvokedSkills(requestChatId, data) {
-  if (Array.isArray(data.invoked_skills)) serverInvokedSkills.value = { chatId: requestChatId, names: data.invoked_skills }
+// Bumped by every deletion, so a skills list read before it (a window or a
+// refresh still in flight) cannot resurrect a deleted skill.
+let skillsGeneration = 0
+
+function applyServerInvokedSkills(requestChatId, names, generation) {
+  if (generation !== skillsGeneration || chatId.value !== requestChatId || !Array.isArray(names)) return
+  serverInvokedSkills.value = { chatId: requestChatId, names }
+}
+
+let skillsRefreshTimer = null
+function refreshInvokedSkills() {
+  skillsGeneration++
+  clearTimeout(skillsRefreshTimer)
+  // Coalesce the per-item events of a range delete.
+  skillsRefreshTimer = setTimeout(async () => {
+    const requestChatId = chatId.value
+    const generation = skillsGeneration
+    if (!requestChatId) return
+    try {
+      const response = await fetch(`/api/chats/${requestChatId}/invoked-skills`)
+      if (!response.ok) return
+      applyServerInvokedSkills(requestChatId, (await response.json()).skills, generation)
+    } catch (error) {
+      console.error('Error refreshing invoked skills:', error)
+    }
+  }, 50)
 }
 
 // Load chat items
@@ -2976,6 +3058,7 @@ async function loadItems() {
   cancelPendingResync()
   const epoch = ++historyEpoch
   const requestChatId = chatId.value
+  const skillsAt = skillsGeneration
   fullLoadsInFlight++
   try {
     // Read the snapshot only once the server sends this chat's live items.
@@ -2987,7 +3070,7 @@ async function loadItems() {
     }
 
     const data = await response.json()
-    applyServerInvokedSkills(requestChatId, data)
+    applyServerInvokedSkills(requestChatId, data.invoked_skills, skillsAt)
 
     // Debug: log loaded items summary
     console.log(`Loaded ${data.items.length} items, hasMore: ${data.has_more}`)
@@ -3002,12 +3085,11 @@ async function loadItems() {
     hasMore.value = data.has_more
     loading.value = false
 
-    // Initialize message history from existing user messages.
-    // Strip any baked-in flow-reference headers so arrow-up navigation
-    // surfaces the user's pristine text rather than the transport markdown.
-    messageHistory.value = data.items
-      .filter(item => item.item_type === 'user_message' && item.message_text)
-      .map(item => parseMessageReferences(item.message_text).text || item.message_text)
+    // Initialize message recall from the window's user messages, newest
+    // first. Older prompts join as history pages in or on demand.
+    messageHistory.value = recallTexts([...items.value].reverse())
+    recallCursor = data.has_more ? pageCursor : null
+    olderChatMedia.value = { chatId: null, items: [], cursor: null, done: false }
 
     // Scroll to bottom - use multiple nextTicks to ensure render completes
     await nextTick()
@@ -3087,6 +3169,7 @@ async function resyncItems() {
   // overlaps what is loaded and repairs it in place. After a long one (past
   // the server's cap) it is disjoint and replaces it, as reconcile requires.
   const reach = Number.isFinite(coveredThrough) ? `&reach_id=${coveredThrough}` : ''
+  const skillsAt = skillsGeneration
   try {
     // Changes broadcast before the server follows this chat for us would
     // otherwise fall between the snapshot and the live stream.
@@ -3097,7 +3180,7 @@ async function resyncItems() {
     const data = await response.json()
     // A newer resync, a chat switch, or a full reload superseded this one.
     if (generation !== resyncGeneration || chatId.value !== requestChatId || loading.value) return
-    applyServerInvokedSkills(requestChatId, data)
+    applyServerInvokedSkills(requestChatId, data.invoked_skills, skillsAt)
     const fresh = data.items.reverse()
     const result = reconcileChatItems(toRaw(items.value).map(item => toRaw(item)), fresh, {
       hasMore: data.has_more,
@@ -3202,6 +3285,11 @@ async function loadMore() {
 
     // API returns newest first; reverse for display order.
     const present = new Set(items.value.map(item => item.id))
+    // Recall gains this page's prompts unless it already reached past it.
+    if (recallCursor === cursor) {
+      messageHistory.value = [...messageHistory.value, ...recallTexts(data.items)]
+      recallCursor = data.has_more && data.items.length ? data.items[data.items.length - 1].id : null
+    }
     const older = data.items.reverse().filter(item => !present.has(item.id))
     if (older.length) items.value = [...older, ...items.value]
     if (data.items.length) {
@@ -3311,14 +3399,54 @@ function handleKeyDown(event) {
   }
 }
 
-function navigateHistory(direction) {
-  if (messageHistory.value.length === 0) return
+// Recall texts for user messages (newest first in, newest first out). Strip
+// baked-in flow-reference headers so arrow-up navigation surfaces the user's
+// pristine text rather than the transport markdown.
+function recallTexts(itemsNewestFirst) {
+  return itemsNewestFirst
+    .filter(item => item.item_type === 'user_message' && !item.parent_item_id && item.message_text)
+    .map(item => parseMessageReferences(item.message_text).text || item.message_text)
+}
 
+// before_id for prompts older than recall holds; null when none remain.
+let recallCursor = null
+let recallLoading = false
+
+async function loadOlderPrompts() {
+  if (recallCursor == null || recallLoading) return false
+  const cursor = recallCursor
+  const requestChatId = chatId.value
+  recallLoading = true
+  try {
+    const response = await fetch(`/api/chats/${requestChatId}/items?only=prompts&limit=50&before_id=${cursor}`)
+    if (!response.ok) return false
+    const data = await response.json()
+    if (chatId.value !== requestChatId || recallCursor !== cursor) return false
+    messageHistory.value = [...messageHistory.value, ...recallTexts(data.items)]
+    recallCursor = data.has_more && data.items.length ? data.items[data.items.length - 1].id : null
+    return true
+  } catch (error) {
+    console.error('Error loading older prompts:', error)
+    return false
+  } finally {
+    recallLoading = false
+  }
+}
+
+async function navigateHistory(direction) {
   const newIndex = historyIndex.value + direction
 
   // Going up (back in history)
   if (direction > 0) {
-    if (newIndex >= messageHistory.value.length) return  // Already at oldest
+    if (newIndex >= messageHistory.value.length) {
+      // At the oldest loaded prompt: fetch older ones, then step if the
+      // reader is still here.
+      const length = messageHistory.value.length
+      if (await loadOlderPrompts() && historyIndex.value === newIndex - 1 && messageHistory.value.length > length) {
+        navigateHistory(1)
+      }
+      return
+    }
 
     // Save current input when first entering history
     if (historyIndex.value === -1) {
@@ -3361,12 +3489,7 @@ function queueMessage(mode: 'steer' | 'queue' = 'steer') {
 
   // Add the user-authored message (without refs header) to history so arrow-
   // up navigation shows what the user typed, not the prepended metadata.
-  if (userMessage) {
-    messageHistory.value.unshift(userMessage)
-    if (messageHistory.value.length > 100) {
-      messageHistory.value.pop()
-    }
-  }
+  if (userMessage) messageHistory.value.unshift(userMessage)
   historyIndex.value = -1
   savedCurrentInput.value = ''
 
@@ -3641,13 +3764,7 @@ async function sendMessage(queuedMessage = null) {
     // Add to history (at the front, most recent first) — stores the user-
     // authored text only, so arrow-up navigation doesn't replay the ref
     // header as if the user had typed it.
-    if (message) {
-      messageHistory.value.unshift(message)
-      // Keep history to a reasonable size
-      if (messageHistory.value.length > 100) {
-        messageHistory.value.pop()
-      }
-    }
+    if (message) messageHistory.value.unshift(message)
     // Reset history navigation state
     historyIndex.value = -1
     savedCurrentInput.value = ''
@@ -4284,6 +4401,7 @@ function parseMarkdownSegmentsUncached(text) {
 // Open slideshow at a specific media ID
 function openSlideshow(mediaId, indexInGrid) {
   if (!mediaId) return
+  loadOlderChatMedia()
   if (!liveChatMediaIds.value.includes(mediaId)) slideshowReferenceIds.value.push(mediaId)
 
   // Find the index of this media ID - open immediately without validation
@@ -4389,6 +4507,7 @@ async function deleteItem(itemId) {
     if (response.ok) {
       // Remove from local items list
       items.value = items.value.filter(item => item.id !== itemId)
+      refreshInvokedSkills()
     } else {
       console.error('Failed to delete item:', await response.text())
     }
@@ -4413,6 +4532,7 @@ async function deleteFromHere(itemId) {
   // providers reject the conversation on replay.
   try {
     await fetch(`/api/chats/${chatId.value}/items/${itemId}/delete-from-here`, { method: 'POST' })
+    refreshInvokedSkills()
   } catch (error) {
     console.error('Error deleting items:', error)
   }
@@ -4578,8 +4698,10 @@ function handleEditKeydown(event, item) {
 async function copyJsonFromHere(itemId) {
   const index = items.value.findIndex(item => item.id === itemId)
   if (index === -1) return
+  await copyItemsJson(items.value.slice(index))
+}
 
-  const itemsToCopy = items.value.slice(index)
+async function copyItemsJson(itemsToCopy) {
   // Compact JSON: one item per line, strip nulls
   const lines = itemsToCopy.map(item => JSON.stringify(stripNulls(item)))
   const text = lines.join('\n')
@@ -4592,11 +4714,27 @@ async function copyJsonFromHere(itemId) {
   }
 }
 
-// Copy all raw messages to clipboard (shortcut for "copy from here" on the first item)
+// Copy the complete transcript, including history not loaded into the view.
 async function copyAllRawMessages() {
-  const firstItemId = items.value[0]?.id
-  if (firstItemId === undefined) return
-  await copyJsonFromHere(firstItemId)
+  const requestChatId = chatId.value
+  const all = []
+  try {
+    let before = null
+    for (let page = 0; page < 1000; page++) {
+      const response = await fetch(`/api/chats/${requestChatId}/items?limit=200${before ? `&before_id=${before}` : ''}`)
+      if (!response.ok) throw new Error('Failed to load chat items')
+      const data = await response.json()
+      all.push(...data.items)
+      if (!data.has_more || !data.items.length) break
+      before = data.items[data.items.length - 1].id
+    }
+  } catch (error) {
+    console.error('Error loading the transcript to copy:', error)
+    addToast('Failed to copy to clipboard', 'error', 3000)
+    return
+  }
+  if (!all.length) return
+  await copyItemsJson(all.reverse())
 }
 
 // Copy subagent child items to clipboard
@@ -4728,6 +4866,8 @@ async function clearChat() {
       // Clear local items array
       items.value = []
       serverInvokedSkills.value = { chatId: null, names: [] }
+      olderChatMedia.value = { chatId: null, items: [], cursor: null, done: false }
+      skillsGeneration++
     }
   } catch (error) {
     console.error('Error clearing chat:', error)
@@ -5460,6 +5600,10 @@ function setupWebSocketSubscriptions() {
     const deletedId = data.item_id
     noteLiveChange(deletedId, null)
     items.value = items.value.filter(item => item.id !== deletedId)
+    if (olderChatMedia.value.items.some(item => item.id === deletedId)) {
+      olderChatMedia.value = { ...olderChatMedia.value, items: olderChatMedia.value.items.filter(item => item.id !== deletedId) }
+    }
+    refreshInvokedSkills()
   }))
 
   // chat_updated - chat details changed (e.g., auto-naming, settings)

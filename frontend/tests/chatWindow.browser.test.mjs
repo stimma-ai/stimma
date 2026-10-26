@@ -10,7 +10,7 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 const instrument = { name: 'chat-window-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet }; defineExpose({})\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet, messageInput, messageInputRef, liveChatMediaIds, openSlideshow, onSlideshowIndex, slideshowState, exitSlideshow, copyAllRawMessages, devModeRef }; defineExpose({})\n</script>')
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -41,20 +41,36 @@ function turns(count, steps = 3, firstId = 1) {
 }
 
 // The endpoint's display window, newest first: `display` visible top-level
-// items, extended to a turn start, below `before`, reaching `reach`, capped.
+// items, extended to a turn start, below `before`, reaching `reach`. Capped
+// windows end at their oldest complete turn unless the newest turn alone
+// passes the cap.
 const isVisible = item => item.item_type !== 'tool_result' && !(item.item_type === 'assistant_message' && !item.message_text)
 function displayWindow(all, { display, before, reach, cap }) {
   const source = before ? all.filter(i => i.id < before) : all
-  const out = []
+  let out = []
   let visible = 0
+  let complete = 0
+  let done = false
   for (let k = source.length - 1; k >= 0 && out.length < cap; k--) {
     const item = source[k]
     out.push(item)
     if (item.parent_item_id) continue
     if (isVisible(item)) visible++
-    if (visible >= display && item.item_type === 'user_message' && (reach == null || item.id <= reach)) break
+    if (item.item_type === 'user_message') {
+      complete = out.length
+      if (visible >= display && (reach == null || item.id <= reach)) { done = true; break }
+    }
   }
+  if (!done && out.length >= cap && complete) out = out.slice(0, complete)
   return { items: out, has_more: out.length > 0 && source.some(i => i.id < out.at(-1).id) }
+}
+const MEDIA_TYPES = new Set(['progress_display', 'media_display', 'scored_results', 'analysis_result', 'grid_generation'])
+function subset(all, only, { before, limit }) {
+  const matches = item => !item.parent_item_id && (only === 'prompts'
+    ? item.item_type === 'user_message'
+    : MEDIA_TYPES.has(item.item_type) || (item.item_type === 'assistant_message' && /\]\(media/.test(item.message_text || '')))
+  const source = all.filter(i => matches(i) && (!before || i.id < before)).reverse()
+  return { items: source.slice(0, limit), has_more: source.length > limit }
 }
 
 async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [] } = {}) {
@@ -63,7 +79,9 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const server = { items: initial, requests: [], socket: null, skills, rawCap, reachCap }
+  // `hold` holds the next display-window request until `held()` is called;
+  // it answers with the server state from when it arrived.
+  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null }
   await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
   await page.route('**/*', async route => {
     const request = route.request()
@@ -71,15 +89,34 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
     const path = url.pathname
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="app" style="height:650px;display:flex;flex-direction:column"></div></body></html>' })
     if (/^\/api\/chats\/\d+$/.test(path)) return route.fulfill({ json: { id: 1, name: 'Window test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
+    if (path.endsWith('/invoked-skills')) {
+      server.other.push('invoked-skills')
+      return route.fulfill({ json: { skills: server.skills } })
+    }
     if (path.endsWith('/items') && request.method() === 'GET') {
       const params = url.searchParams
       const num = key => params.has(key) ? Number(params.get(key)) : null
-      const request = { display: num('display_limit'), before: num('before_id'), reach: num('reach_id'), limit: num('limit'), visible: num('visible_limit') }
-      assert.ok(request.display, `every transcript request is a display window: ${url.search}`)
+      const request = { display: num('display_limit'), before: num('before_id'), reach: num('reach_id'), limit: num('limit'), visible: num('visible_limit'), only: params.get('only') }
+      if (request.only) {
+        server.other.push(request)
+        return route.fulfill({ json: subset(server.items, request.only, request) })
+      }
+      if (!request.display) {
+        // Plain pages (copying the whole transcript).
+        server.other.push(request)
+        const source = request.before ? server.items.filter(i => i.id < request.before) : server.items
+        const page = source.slice(-request.limit).reverse()
+        return route.fulfill({ json: { items: page, has_more: source.length > page.length } })
+      }
       const json = displayWindow(server.items, { ...request, cap: request.reach == null ? server.rawCap : server.reachCap })
+      const skillsNow = request.before == null ? server.skills : null
       request.returned = json.items.length
       server.requests.push(request)
-      return route.fulfill({ json: { ...json, invoked_skills: server.skills } })
+      if (server.hold) {
+        server.hold = false
+        await new Promise(resolve => { server.held = resolve })
+      }
+      return route.fulfill({ json: { ...json, invoked_skills: skillsNow } })
     }
     if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
     if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
@@ -139,16 +176,40 @@ test('a long chat opens on a bounded window at the bottom and pages older turns 
   assert.deepEqual(view.errors, [])
 })
 
-test('an activity group split by the raw cap stays expanded as its older steps page in', async t => {
-  // One enormous turn of 150 steps, then a short one with a long answer.
-  // The window cap (100) splits the big turn's group.
-  const all = [...turn(1, 0, 150), ...turn(400, 1, 1)]
+test('a capped window ends at a complete turn rather than mid-delegation', async t => {
+  // Three delegated turns of 154 items: the delegate call's 150 children
+  // render inside it. Two turns would pass the cap (300).
+  const delegated = (first, n) => [
+    { id: first, chat_id: 1, created_at: at, item_type: 'user_message', message_text: `Delegate ${n}`, item_metadata: null },
+    { id: first + 1, chat_id: 1, created_at: at, item_type: 'tool_call', tool_name: 'delegate', tool_call_id: `d${n}`, tool_args: { task: 'x' }, item_metadata: null },
+    ...Array.from({ length: 150 }, (_, i) => ({ id: first + 2 + i, chat_id: 1, created_at: at, item_type: 'tool_call', tool_name: 'bash', tool_call_id: `d${n}-${i}`, tool_args: { command: 'x' }, parent_item_id: first + 1, item_metadata: null })),
+    { id: first + 152, chat_id: 1, created_at: at, item_type: 'tool_result', tool_call_id: `d${n}`, tool_result: { output: 'ok' }, item_metadata: null },
+    { id: first + 153, chat_id: 1, created_at: at, item_type: 'assistant_message', message_text: Array.from({ length: 30 }, (_, i) => `Delegated ${n} line ${i}`).join('\n\n'), item_metadata: null },
+  ]
+  const all = [...delegated(1, 0), ...delegated(155, 1), ...delegated(309, 2)]
+  const view = await openChat(t, all)
+  const { page } = view
+  assert.deepEqual(await view.ids(), range(309, 462))
+  const loaded = await page.evaluate(() => window.reconcileView.items.value)
+  assert.ok(loaded.every(item => !item.parent_item_id || loaded.some(other => other.id === item.parent_item_id)))
+  await expect(page.locator('[data-partial-group]')).toHaveCount(0)
+  await view.scrollToStart()
+  assert.deepEqual(await view.ids(), range(1, 462))
+  assert.deepEqual(view.errors, [])
+})
+
+test('an activity group split by the raw cap is marked and stays expanded as its older steps page in', async t => {
+  // One enormous turn of 150 steps with a long answer: by itself it passes
+  // the window cap (100), so only it is split.
+  const all = turn(1, 0, 150)
   all.at(-1).message_text = Array.from({ length: 40 }, (_, i) => `Paragraph ${i}`).join('\n\n')
   const view = await openChat(t, all, { rawCap: 100 })
   const { page } = view
   const ids = await view.ids()
   assert.equal(ids.length, 100)
   assert.notEqual(ids[0], 1)
+  // The partial group says older steps exist.
+  await expect(page.locator('[data-partial-group]')).toHaveText('earlier steps not loaded')
   // Expand the partial group and read it from the top.
   const group = page.locator('.activity-summary').first()
   await group.click()
@@ -158,7 +219,8 @@ test('an activity group split by the raw cap stays expanded as its older steps p
   assert.deepEqual(await view.ids(), all.map(i => i.id))
   // The completed group keeps its expansion though its first item changed.
   await expect(page.locator('[data-scroll-anchor^="step:"]')).toHaveCount(150)
-  await expect(page.locator('.activity-summary')).toHaveCount(2)
+  await expect(page.locator('.activity-summary')).toHaveCount(1)
+  await expect(page.locator('[data-partial-group]')).toHaveCount(0)
   // And it still collapses.
   await page.locator('.activity-summary').first().click()
   await expect(page.locator('[data-scroll-anchor^="step:"]')).toHaveCount(0)
@@ -228,6 +290,124 @@ test('skills invoked before the window stay active', async t => {
   const view = await openChat(t, all, { skills: ['app-icons'] })
   const { page } = view
   assert.ok(!(await view.ids()).includes(2))
-  await expect.poll(() => page.evaluate(() => [...window.reconcileView.invokedSkillKeySet.value])).toEqual(['app-icons'])
+  const skills = () => page.evaluate(() => [...window.reconcileView.invokedSkillKeySet.value])
+  await expect.poll(skills).toEqual(['app-icons'])
+
+  // A reconnect's window is held while it still lists the skill...
+  const previous = view.server.socket
+  view.server.hold = true
+  previous.close()
+  await expect.poll(() => view.server.socket !== previous && Boolean(view.server.held)).toBe(true)
+  // ...then the injection, outside the loaded window, is deleted.
+  view.server.items = view.server.items.filter(i => i.id !== 2)
+  view.server.skills = []
+  view.send('chat_item_deleted', { item_id: 2 })
+  await expect.poll(skills).toEqual([])
+  assert.ok(view.server.other.includes('invoked-skills'))
+  // The stale window lands afterwards and does not bring the skill back.
+  view.server.held()
+  await expect.poll(() => view.server.requests.at(-1).returned > 0).toBe(true)
+  await page.waitForTimeout(300)
+  assert.deepEqual(await skills(), [])
+  assert.deepEqual(view.errors, [])
+})
+
+test('arrow-up recall grows with paged history and fetches older prompts on demand', async t => {
+  const view = await openChat(t, turns(75))
+  const { page, server } = view
+  // The window holds Questions 67..74; one older page adds 59..66.
+  await page.evaluate(() => window.reconcileView.loadMore())
+  await expect.poll(async () => (await view.ids())[0]).toBe(1 + 8 * 59)
+  const input = () => page.evaluate(() => window.reconcileView.messageInput.value)
+  const up = async () => {
+    await page.evaluate(() => { const el = window.reconcileView.messageInputRef.value; el.focus(); el.setSelectionRange(0, 0) })
+    await page.keyboard.press('ArrowUp')
+  }
+  const prompts = () => server.other.filter(r => r.only === 'prompts')
+  // Newest first, through the paged-in history, without fetching.
+  for (let n = 74; n >= 59; n--) {
+    await up()
+    assert.equal(await input(), `Question ${n}`)
+  }
+  assert.equal(prompts().length, 0)
+  // Past the oldest loaded prompt, older ones are fetched on demand.
+  await up()
+  await expect.poll(input).toBe('Question 58')
+  assert.equal(prompts().length, 1)
+  assert.equal(prompts()[0].before, 1 + 8 * 59)
+  for (let n = 57; n >= 9; n--) {
+    await up()
+    assert.equal(await input(), `Question ${n}`)
+  }
+  await up()
+  await expect.poll(input).toBe('Question 8')
+  for (let n = 7; n >= 0; n--) {
+    await up()
+    assert.equal(await input(), `Question ${n}`)
+  }
+  // The start of the chat: nothing more to fetch.
+  await up()
+  await page.waitForTimeout(200)
+  assert.equal(await input(), 'Question 0')
+  assert.equal(prompts().length, 2)
+  assert.deepEqual(view.errors, [])
+})
+
+test('the slideshow sequence covers media older than the loaded transcript', async t => {
+  // 150 turns that each show one image; the window holds the newest 14.
+  const all = []
+  for (let n = 0; n < 150; n++) {
+    const first = 1 + 3 * n
+    all.push(
+      { id: first, chat_id: 1, created_at: at, item_type: 'user_message', message_text: `Draw ${n}`, item_metadata: null },
+      { id: first + 1, chat_id: 1, created_at: at, item_type: 'media_display', message_text: null, item_metadata: { display_data: { rows: [{ output: { media_id: 1000 + n, status: 'completed' } }] } } },
+      { id: first + 2, chat_id: 1, created_at: at, item_type: 'assistant_message', message_text: `Here is ${n}\n\nmore\n\nlines`, item_metadata: null },
+    )
+  }
+  const view = await openChat(t, all)
+  const { page, server } = view
+  const media = () => page.evaluate(() => [...window.reconcileView.liveChatMediaIds.value])
+  const loadedFirst = (await view.ids())[0]
+  assert.equal(loadedFirst, 1 + 3 * 136)
+  assert.deepEqual(await media(), range(1136, 1149))
+  // Opening the slideshow pages in the 100 newest older images...
+  await page.evaluate(() => window.reconcileView.openSlideshow(1149, 0))
+  await expect.poll(media).toEqual(range(1036, 1149))
+  const requests = () => server.other.filter(r => r.only === 'media')
+  assert.equal(requests()[0].before, loadedFirst)
+  // ...and browsing toward the start pages in the rest.
+  await page.evaluate(() => window.reconcileView.onSlideshowIndex(3))
+  await expect.poll(media).toEqual(range(1000, 1149))
+  // Below the oldest image item fetched so far (turn 36's).
+  assert.equal(requests()[1].before, 2 + 3 * 36)
+  await page.evaluate(() => window.reconcileView.onSlideshowIndex(0))
+  await page.waitForTimeout(200)
+  assert.equal(requests().length, 2)
+  // The transcript itself did not page.
+  assert.equal((await view.ids())[0], loadedFirst)
+  await page.evaluate(() => window.reconcileView.exitSlideshow())
+})
+
+test('copying raw messages copies the whole chat; dev token totals say they cover loaded history', async t => {
+  const all = turns(75).map(item => item.item_type === 'assistant_message'
+    ? { ...item, item_metadata: { llm_usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, model: 'test-model' } } }
+    : item)
+  const view = await openChat(t, all)
+  const { page, server } = view
+  await page.evaluate(() => { window.reconcileView.devModeRef.value = true })
+  await expect(page.getByText('loaded history')).toBeVisible()
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedText = text } } })
+  })
+  await page.evaluate(() => window.reconcileView.copyAllRawMessages())
+  const lines = (await page.evaluate(() => window.copiedText)).split('\n').map(line => JSON.parse(line).id)
+  assert.deepEqual(lines, range(1, 600))
+  assert.equal(server.other.filter(r => !r.only).length, 3)
+  // The transcript itself did not page.
+  assert.equal((await view.ids()).length, 64)
+
+  await view.scrollToStart()
+  await expect(page.getByText('loaded history')).toHaveCount(0)
   assert.deepEqual(view.errors, [])
 })

@@ -1643,15 +1643,18 @@ async def _mark_deleted_media_in_items(items: list, session: AsyncSession) -> li
 # A window holds display_limit visible top-level items (see _is_visible_item;
 # subagent children render inside their parent and do not count) and then
 # extends back to the start of that turn, a top-level user message, so no
-# activity group straddles its older edge. Unlike visible_limit it returns no
-# items past that point. A raw cap bounds turns that are enormous; the client
-# tolerates a group split there.
+# activity group or subagent run straddles its older edge. Unlike
+# visible_limit it returns no items past that point.
+#
+# A raw cap bounds the response. A capped window is trimmed back to the
+# oldest complete turn in it; only a newest turn larger than the cap by
+# itself is returned split, and the client marks that group as continuing.
 DISPLAY_WINDOW_RAW_CAP = 300
 # A reconnect asks the window to reach back to the newest item it already
 # holds contiguously (reach_id), so a short outage overlaps loaded history
 # instead of replacing it. Past this cap the client treats the gap as long.
 DISPLAY_WINDOW_REACH_CAP = 1500
-_DISPLAY_BATCH = 100
+_DISPLAY_FIRST_BATCH = 100
 
 
 async def _display_window(
@@ -1665,32 +1668,46 @@ async def _display_window(
     cap = DISPLAY_WINDOW_REACH_CAP if reach_id is not None else DISPLAY_WINDOW_RAW_CAP
     taken: list = []
     visible = 0
+    # len(taken) through the oldest turn start seen so far.
+    complete = 0
     cursor = before_id
+    batch_size = _DISPLAY_FIRST_BATCH
+    reaching = reach_id is not None
     while len(taken) < cap:
         query = select(ChatItem).where(ChatItem.chat_id == chat_id)
         if cursor is not None:
             query = query.where(ChatItem.id < cursor)
-        query = query.order_by(desc(ChatItem.id)).limit(min(_DISPLAY_BATCH, cap - len(taken)))
+        if reaching:
+            # Everything back to the client's history in one bounded read.
+            query = query.where(ChatItem.id >= reach_id)
+            limit = cap
+        else:
+            limit = min(batch_size, cap - len(taken))
+            batch_size *= 2
+        query = query.order_by(desc(ChatItem.id)).limit(limit)
         batch = list((await session.execute(query)).scalars().all())
-        if not batch:
-            break
         for item in batch:
             taken.append(item)
             if item.parent_item_id:
                 continue
             if _is_visible_item(item):
                 visible += 1
-            if (
-                visible >= display_limit
-                and item.item_type == 'user_message'
-                and (reach_id is None or item.id <= reach_id)
-            ):
-                return taken
-        cursor = batch[-1].id
-    return taken
+            if item.item_type == 'user_message':
+                complete = len(taken)
+                if visible >= display_limit and (reach_id is None or item.id <= reach_id):
+                    return taken
+        if batch:
+            cursor = batch[-1].id
+        if reaching:
+            reaching = False
+        elif len(batch) < limit:
+            # The start of the chat: a complete window.
+            return taken
+    return taken[:complete] if complete else taken
 
 
 async def _invoked_skills(session: AsyncSession, chat_id: int) -> List[str]:
+    """Skills invoked anywhere in the chat, oldest first."""
     result = await session.execute(
         select(ChatItem.item_metadata)
         .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
@@ -1711,6 +1728,11 @@ async def _invoked_skills(session: AsyncSession, chat_id: int) -> List[str]:
     return names
 
 
+# Item types whose display can include media (see the chat view's media
+# collector); assistant messages are included when they embed a media link.
+_MEDIA_ITEM_TYPES = ('progress_display', 'media_display', 'scored_results', 'analysis_result', 'grid_generation')
+
+
 @router.get("/{chat_id}/items", response_model=ChatItemListResponse)
 async def list_chat_items(
     chat_id: int,
@@ -1719,6 +1741,7 @@ async def list_chat_items(
     visible_limit: Optional[int] = Query(None, ge=1, le=500),
     display_limit: Optional[int] = Query(None, ge=1, le=200),
     reach_id: Optional[int] = Query(None),
+    only: Optional[Literal['prompts', 'media']] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
@@ -1727,7 +1750,12 @@ async def list_chat_items(
     If display_limit is provided (takes precedence over limit and
     visible_limit), returns a display window: that many visible top-level
     items, extended back to a turn start, below before_id if given, and
-    reaching back to reach_id if given. See _display_window.
+    reaching back to reach_id if given. See _display_window. Its
+    invoked_skills is returned for the newest window only (no before_id).
+
+    If only is provided, pages (limit, before_id) through a subset: "prompts"
+    is top-level user messages, for message recall; "media" is the items
+    that can show media, for the chat's slideshow sequence.
 
     If visible_limit is provided, keeps fetching until we have that many
     visible items (filtering out tool_call, tool_result, etc.).
@@ -1745,6 +1773,23 @@ async def list_chat_items(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
+    if only:
+        query = select(ChatItem).where(ChatItem.chat_id == chat_id, ChatItem.parent_item_id.is_(None))
+        if only == 'prompts':
+            query = query.where(ChatItem.item_type == 'user_message')
+        else:
+            query = query.where(or_(
+                ChatItem.item_type.in_(_MEDIA_ITEM_TYPES),
+                and_(ChatItem.item_type == 'assistant_message', ChatItem.message_text.like('%](media%')),
+            ))
+        if before_id:
+            query = query.where(ChatItem.id < before_id)
+        rows = list((await session.execute(query.order_by(desc(ChatItem.id)).limit(limit + 1))).scalars().all())
+        return ChatItemListResponse(
+            items=await _mark_deleted_media_in_items(rows[:limit], session),
+            has_more=len(rows) > limit,
+        )
+
     if display_limit:
         window = await _display_window(session, chat_id, display_limit, before_id, reach_id)
         has_more = False
@@ -1758,7 +1803,7 @@ async def list_chat_items(
         return ChatItemListResponse(
             items=await _mark_deleted_media_in_items(window, session),
             has_more=has_more,
-            invoked_skills=await _invoked_skills(session, chat_id),
+            invoked_skills=None if before_id else await _invoked_skills(session, chat_id),
         )
 
     # If visible_limit is requested, we need to fetch in batches until we have enough
@@ -2970,26 +3015,8 @@ async def list_invoked_skills(
     chat_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List skills that have been invoked in this chat.
-
-    "stimpack_name" is the legacy metadata key from before skills were
-    addressed flat — old history items still count as invoked.
-    """
-    result = await session.execute(
-        select(ChatItem)
-        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
-    )
-    names = []
-    for item in result.scalars():
-        if item.item_metadata:
-            try:
-                meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-                name = meta.get("skill_name") or meta.get("stimpack_name")
-                if name and name not in names:
-                    names.append(name)
-            except (json.JSONDecodeError, TypeError):
-                pass
-    return {"skills": names}
+    """List skills that have been invoked in this chat (see _invoked_skills)."""
+    return {"skills": await _invoked_skills(session, chat_id)}
 
 
 class InvokeSkillRequest(PydanticBaseModel):

@@ -9,6 +9,9 @@ from database import (
 )
 from utils.migrations import get_alembic_config
 
+# Indexes created by migrations after the identity repair.
+ADDED_LATER = {"idx_chat_items_chat_id", "idx_chat_items_chat_type"}
+
 
 def test_migrations_preserve_non_reusable_ids(tmp_path):
     path = tmp_path / "identity.db"
@@ -106,7 +109,9 @@ def test_identity_repair_preserves_existing_data_and_high_water(tmp_path, alread
             for model in tables:
                 name = model.__tablename__
                 assert connection.exec_driver_sql(f'SELECT * FROM "{name}" ORDER BY id').all() == rows_before[name]
-                assert inspector.get_indexes(name) == indexes_before[name]
+                # Later migrations may add indexes; none may be lost or changed.
+                after = [i for i in inspector.get_indexes(name) if i["name"] not in ADDED_LATER]
+                assert after == [i for i in indexes_before[name] if i["name"] not in ADDED_LATER]
                 by_columns = lambda fk: tuple(fk["constrained_columns"])
                 assert sorted(inspector.get_foreign_keys(name), key=by_columns) == sorted(fks_before[name], key=by_columns)
             assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
