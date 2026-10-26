@@ -1,15 +1,16 @@
 """Per-client WebSocket delivery: isolation, bounds, coalescing and cleanup.
 
-Every connected client has its own bounded outbound queue and sender task. A
-slow or half-open client (a phone on a weak cellular link) must not delay any
-other client, must not grow memory without bound, and must not silently lose
-durable state-change events: it is disconnected instead, and the UI resyncs on
-reconnect.
+Every connected client has its own outbound queue and sender task. A slow or
+half-open client (a phone on a weak cellular link) must not delay any other
+client and must not grow memory without bound. Only transient progress frames
+are ever coalesced or shed; durable state changes (including terminal and
+error transitions) are never dropped while the client is connected. A client
+past the hard cap, or whose send misses the deadline, is disconnected as a
+network drop would, without abandoning its generator work.
 """
 import asyncio
 import json
 
-import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -63,6 +64,16 @@ async def _settle(manager, *sockets):
             await asyncio.wait_for(client.wait_idle(), 2)
 
 
+async def _hold(manager, socket):
+    """Put one frame in flight so later frames queue behind the gate."""
+    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
+    await socket.started.wait()
+
+
+def _chain(run_id, status, **extra):
+    return {"chain_run": {"id": run_id, "status": status, **extra}}
+
+
 async def test_stalled_client_cannot_delay_a_healthy_client():
     manager = WebSocketManager()
     stalled, healthy = Gated(), Healthy()
@@ -108,8 +119,28 @@ async def test_broadcast_is_serialized_once_and_shared_by_every_queue():
     await manager.disconnect(b)
 
 
-async def test_overflowing_client_is_disconnected_not_silently_truncated():
-    manager = WebSocketManager(max_frames=8)
+async def test_durable_events_are_kept_past_the_soft_budget():
+    manager = WebSocketManager(soft_max_frames=4, soft_max_bytes=512)
+    slow = Gated()
+    client = manager.attach(slow)
+    await _hold(manager, slow)
+
+    for i in range(1, 41):
+        await manager.broadcast(
+            "chat_item_updated", {"chat_id": 1, "n": i, "body": "x" * 50}, include_profile=False
+        )
+    # Far beyond the soft budget, still connected, nothing dropped.
+    assert client.queued_frames == 40
+    assert slow in manager.active_connections and not client.closed
+
+    slow.gate.set()
+    await _settle(manager, slow)
+    assert [m["data"]["n"] for m in slow.messages[1:]] == list(range(1, 41))
+    await manager.disconnect(slow)
+
+
+async def test_hard_cap_disconnects_instead_of_dropping_durable_events():
+    manager = WebSocketManager(hard_max_frames=8)
     stalled, healthy = Gated(), Healthy()
     stalled_client = manager.attach(stalled)
     manager.attach(healthy)
@@ -120,26 +151,25 @@ async def test_overflowing_client_is_disconnected_not_silently_truncated():
         observed_max = max(observed_max, stalled_client.queued_frames)
     await manager.drain()
 
-    # Bounded: never more than the configured backlog.
+    # Bounded: never more than the hard cap.
     assert observed_max <= 8
-    # Durable events were not dropped while the client stayed connected: the
-    # client was cut off (so it reconnects and resyncs) and fully released.
+    # The stalled client was cut off (as a network drop would) and released,
+    # rather than kept connected with a gap in its durable events.
     assert stalled not in manager.active_connections
     assert stalled.closed_with == OVERFLOW_CLOSE_CODE
     assert stalled_client.closed
     assert stalled_client.queued_frames == 0 and stalled_client.queued_bytes == 0
     assert stalled_client.sender_task is None
-    # The healthy client saw everything.
+    # A burst does not overflow a client that keeps up.
     assert [m["data"]["n"] for m in healthy.messages] == list(range(50))
-    # Nothing more is queued for the dropped socket.
     await manager.broadcast("chat_item_created", {"chat_id": 1, "n": 99}, include_profile=False)
     assert stalled_client.queued_frames == 0
 
     await manager.disconnect(healthy)
 
 
-async def test_byte_budget_bounds_the_queue():
-    manager = WebSocketManager(max_bytes=4096)
+async def test_hard_byte_cap_bounds_the_queue():
+    manager = WebSocketManager(hard_max_bytes=4096)
     stalled = Gated()
     client = manager.attach(stalled)
     payload = "x" * 1000
@@ -151,13 +181,28 @@ async def test_byte_budget_bounds_the_queue():
     assert stalled.closed_with == OVERFLOW_CLOSE_CODE
 
 
+async def test_transient_frames_stay_within_the_soft_budget():
+    manager = WebSocketManager(soft_max_frames=4)
+    slow = Gated()
+    client = manager.attach(slow)
+    await _hold(manager, slow)
+    for job in range(50):
+        await manager.broadcast(
+            "generation_job_progress", {"job_id": job, "progress": 0.5}, include_profile=False
+        )
+        assert client.queued_frames <= 4
+    assert slow in manager.active_connections
+    slow.gate.set()
+    await manager.drain()
+    await manager.disconnect(slow)
+
+
 async def test_progress_frames_coalesce_latest_wins_and_durable_order_is_kept():
     manager = WebSocketManager()
     slow = Gated()
     client = manager.attach(slow)
+    await _hold(manager, slow)
 
-    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
-    await slow.started.wait()  # media_added 0 is in flight; the rest queue up
     await manager.broadcast("generation_job_started", {"job": {"id": 1}}, include_profile=False)
     for p in range(1, 11):
         await manager.broadcast(
@@ -195,9 +240,8 @@ async def test_numeric_tick_never_replaces_a_pending_preview_frame():
     manager = WebSocketManager()
     slow = Gated()
     manager.attach(slow)
+    await _hold(manager, slow)
 
-    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
-    await slow.started.wait()
     await manager.broadcast(
         "generation_job_progress",
         {"job_id": 7, "progress": 0.2, "preview_b64": "AAAA"},
@@ -227,8 +271,7 @@ async def test_coalescing_never_merges_across_profiles():
     manager = WebSocketManager()
     slow = Gated()
     client = manager.attach(slow)
-    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
-    await slow.started.wait()
+    await _hold(manager, slow)
     await manager.broadcast("generation_job_progress", {"job_id": 1, "progress": 0.1, "profile_id": "a"})
     await manager.broadcast("generation_job_progress", {"job_id": 1, "progress": 0.2, "profile_id": "b"})
     assert client.queued_frames == 2
@@ -238,35 +281,128 @@ async def test_coalescing_never_merges_across_profiles():
 
 
 async def test_pressure_sheds_stale_progress_before_touching_durable_events():
-    manager = WebSocketManager(max_frames=6)
+    manager = WebSocketManager(soft_max_frames=6)
     slow = Gated()
     client = manager.attach(slow)
+    await _hold(manager, slow)
 
-    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
-    await slow.started.wait()
     for job in range(4):
         await manager.broadcast(
             "generation_job_progress", {"job_id": job, "progress": 0.5}, include_profile=False
         )
-    for i in range(1, 5):
+    for i in range(1, 9):
         await manager.broadcast("media_added", {"media_id": i}, include_profile=False)
-    assert client.queued_frames <= 6
-    assert client.shed >= 1
+    assert client.shed == 4
     assert slow in manager.active_connections
 
     slow.gate.set()
     await _settle(manager, slow)
     durable = [m["data"]["media_id"] for m in slow.messages if m["event"] == "media_added"]
-    assert durable == [0, 1, 2, 3, 4]
+    assert durable == list(range(9))
     await manager.disconnect(slow)
 
 
-async def test_half_open_socket_is_closed_by_the_send_deadline():
-    manager = WebSocketManager(send_timeout=0.05)
-    released = []
+async def test_terminal_chain_state_survives_pressure_and_coalescing():
+    manager = WebSocketManager(soft_max_frames=3)
+    slow = Gated()
+    client = manager.attach(slow)
+    await _hold(manager, slow)
+
+    for step in range(5):
+        await manager.broadcast(
+            "postprocessing_chain_progress", _chain(1, "running", step=step), include_profile=False
+        )
+    await manager.broadcast(
+        "postprocessing_chain_progress", _chain(1, "completed", final_media_id=9), include_profile=False
+    )
+    await manager.broadcast(
+        "postprocessing_chain_progress", _chain(2, "paused", error="boom"), include_profile=False
+    )
+    # A later running frame must not replace the queued terminal ones, and
+    # pressure from transient frames must never shed them.
+    await manager.broadcast(
+        "postprocessing_chain_progress", _chain(2, "running", step=1), include_profile=False
+    )
+    for job in range(20):
+        await manager.broadcast(
+            "generation_job_progress", {"job_id": job, "progress": 0.1}, include_profile=False
+        )
+    assert slow in manager.active_connections and not client.closed
+
+    slow.gate.set()
+    await _settle(manager, slow)
+    runs = [m["data"]["chain_run"] for m in slow.messages if m["event"] == "postprocessing_chain_progress"]
+    assert {"id": 1, "status": "completed", "final_media_id": 9} in runs
+    assert {"id": 2, "status": "paused", "error": "boom"} in runs
+    # The stale running snapshot of run 1 was superseded by its terminal one.
+    assert [r["status"] for r in runs if r["id"] == 1] == ["completed"]
+    await manager.disconnect(slow)
+
+
+async def test_final_stats_and_delete_progress_are_coalesced_but_never_shed():
+    manager = WebSocketManager(soft_max_frames=2)
+    slow = Gated()
+    manager.attach(slow)
+    await _hold(manager, slow)
+
+    await manager.broadcast("processing_stats", {"phase_stats": {"n": 1}}, include_profile=False)
+    await manager.broadcast("delete_operation_progress", {"id": 5, "processed": 3}, include_profile=False)
+    for job in range(10):
+        await manager.broadcast(
+            "generation_job_progress", {"job_id": job, "progress": 0.1}, include_profile=False
+        )
+    await manager.broadcast("processing_stats", {"phase_stats": {"n": 2}}, include_profile=False)
+
+    slow.gate.set()
+    await _settle(manager, slow)
+    stats = [m["data"] for m in slow.messages if m["event"] == "processing_stats"]
+    deletes = [m["data"] for m in slow.messages if m["event"] == "delete_operation_progress"]
+    assert stats == [{"phase_stats": {"n": 2}}]
+    assert deletes == [{"id": 5, "processed": 3}]
+    await manager.disconnect(slow)
+
+
+async def test_server_drop_keeps_generator_work_and_reattach_cancels_abandonment():
+    manager = WebSocketManager(hard_max_frames=4, generator_reattach_grace=0.2)
+    abandoned = []
 
     async def on_generator_disconnect(generator_instance_id):
-        released.append(generator_instance_id)
+        abandoned.append(generator_instance_id)
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    phone = Gated()
+    manager.attach(phone)
+    manager.register_generator_instance(phone, "gen-phone")
+
+    for i in range(10):
+        await manager.broadcast("media_added", {"media_id": i}, include_profile=False)
+    await manager.drain()
+    assert phone not in manager.active_connections
+    # Backpressure is not abandonment: queued jobs are not cancelled.
+    assert abandoned == []
+
+    # The page reconnects and re-registers the same instance in time.
+    reconnected = Healthy()
+    manager.attach(reconnected)
+    manager.register_generator_instance(reconnected, "gen-phone")
+    await asyncio.sleep(0.3)
+    assert abandoned == []
+    assert await manager.send_to_generator_instance("gen-phone", "generation_request_work", {}) is True
+
+    # An ordinary disconnect keeps today's semantics: abandoned immediately.
+    await manager.disconnect(reconnected)
+    assert abandoned == ["gen-phone"]
+
+
+async def test_server_drop_abandons_generator_after_grace_without_reattach(monkeypatch):
+    import utils.websocket as websocket_module
+
+    monkeypatch.setattr(websocket_module, "CLIENT_CLOSE_TIMEOUT_SECONDS", 0.05)
+    manager = WebSocketManager(send_timeout=0.05, generator_reattach_grace=0.5)
+    abandoned = []
+
+    async def on_generator_disconnect(generator_instance_id):
+        abandoned.append(generator_instance_id)
 
     manager.set_on_generator_disconnect(on_generator_disconnect)
     dead, healthy = HalfOpen(), Healthy()
@@ -278,12 +414,16 @@ async def test_half_open_socket_is_closed_by_the_send_deadline():
     # Closing a half-open peer may itself hang; the drop is bounded too.
     await asyncio.wait_for(manager.drain(), 5)
 
+    # The send deadline closed the half-open socket and released its queue.
     assert dead not in manager.active_connections
     assert dead.closed_with == OVERFLOW_CLOSE_CODE
     assert dead_client.sender_task is None and dead_client.queued_frames == 0
-    assert released == ["gen-dead"]
-    assert await manager.send_to_generator_instance("gen-dead", "generation_request_work", {}) is False
     assert healthy.events() == ["media_added"]
+    assert await manager.send_to_generator_instance("gen-dead", "generation_request_work", {}) is False
+    assert abandoned == []
+
+    await asyncio.sleep(0.6)
+    assert abandoned == ["gen-dead"]
     await manager.disconnect(healthy)
 
 

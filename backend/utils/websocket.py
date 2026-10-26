@@ -56,58 +56,95 @@ def _payload_log_metadata(data: dict) -> dict:
     return metadata
 
 
-# Per-client delivery bounds. Each connection gets its own outbound queue and
-# sender task, so one slow or half-open client (typically a phone on a weak
-# cellular link) can never delay delivery to the others or the broadcaster.
+# Per-client delivery. Each connection gets its own outbound queue and sender
+# task, so one slow or half-open client (typically a phone on a weak cellular
+# link) can never delay delivery to the others or the broadcaster.
 #
-# A client whose queue overflows is disconnected rather than silently losing
-# durable events. The frontend already treats every (re)connect as a resync
-# point: its socket reconnects automatically and emits
-# ``websocket_reconnected``, on which views refetch authoritative state. An
-# in-band "you missed events" message would need a protocol change that older
-# UI packages cannot interpret, so disconnecting is the safe overflow signal.
-CLIENT_QUEUE_MAX_FRAMES = 512
-CLIENT_QUEUE_MAX_BYTES = 16 * 1024 * 1024
+# Frames are either transient or durable:
+# - Transient frames (live progress ticks and previews) may be replaced by a
+#   newer frame for the same entity, and are shed once a client's backlog
+#   passes the soft budget. A newer tick, or the durable terminal event that
+#   follows, always carries the state forward.
+# - Durable frames (every state change, including terminal and error
+#   transitions) are never dropped while the client is connected. Their only
+#   bound is a much larger hard cap: a client that far behind, or one whose
+#   send misses the deadline, is stalled or dead and is disconnected, exactly
+#   as if its network had dropped.
+CLIENT_SOFT_MAX_FRAMES = 512
+CLIENT_SOFT_MAX_BYTES = 8 * 1024 * 1024
+CLIENT_HARD_MAX_FRAMES = 50_000
+CLIENT_HARD_MAX_BYTES = 128 * 1024 * 1024
 # A single send that cannot complete in this window means the socket is
 # stalled or half-open. websockets applies write backpressure, so a dead peer
 # eventually blocks a send; the deadline turns that into a close instead of an
 # ever-growing queue.
 CLIENT_SEND_TIMEOUT_SECONDS = 20.0
 CLIENT_CLOSE_TIMEOUT_SECONDS = 2.0
-# "Try again later": the client should reconnect (and resync).
+# "Try again later": the client should reconnect.
 OVERFLOW_CLOSE_CODE = 1013
+# A client the server disconnects for backpressure did not abandon its work.
+# Its generator instances keep their queued jobs for this long so the page can
+# reconnect and re-register the same instance; only then is it abandoned.
+GENERATOR_REATTACH_GRACE_SECONDS = 120.0
+
+# Post-processing chain states that are still in motion. Any other status
+# (completed, paused with an error, failed, cancelled) is a terminal or error
+# transition and therefore durable.
+_CHAIN_ACTIVE_STATUSES = frozenset({"running", "pending", "queued"})
 
 
-def _transient_key(event: str, data: dict) -> Optional[tuple]:
-    """Return the supersession key for a transient snapshot event, else None.
+@dataclass(frozen=True)
+class _Delivery:
+    """How a frame may be treated while it waits in a client's queue."""
 
-    Only events whose newest frame fully replaces an older one for the same
-    entity are coalesced; every other event is durable and is delivered in
-    order or not at all (the client is disconnected and resyncs). Keys include
-    the profile so a later per-client filter can never merge across profiles.
+    # Frames with the same key describe the same entity.
+    key: Optional[tuple] = None
+    # A newer frame with the same key may replace this one (latest wins).
+    replaceable: bool = False
+    # This frame may be dropped under pressure.
+    sheddable: bool = False
+
+
+_DURABLE = _Delivery()
+
+
+def _delivery_policy(event: str, data: dict) -> _Delivery:
+    """Classify an event. Anything not listed here is durable.
+
+    Keys include the profile so a later per-client filter can never merge
+    frames across profiles.
     """
     profile_id = data.get("profile_id")
     if event == "generation_job_progress":
         job_id = data.get("job_id")
         if job_id is None:
-            return None
-        # The UI keeps the last preview frame when a tick carries none, so a
-        # numeric-only tick must never replace a pending preview frame.
-        return (event, profile_id, job_id, bool(data.get("preview_b64")))
+            return _DURABLE
+        # Terminal job states are separate durable events. The UI keeps the
+        # last preview frame when a tick carries none, so a numeric-only tick
+        # must never replace a pending preview frame: they get distinct keys.
+        key = (event, profile_id, job_id, bool(data.get("preview_b64")))
+        return _Delivery(key, replaceable=True, sheddable=True)
     if event == "postprocessing_chain_progress":
         run = data.get("chain_run")
         run_id = run.get("id") if isinstance(run, dict) else None
         if run_id is None:
-            return None
-        return (event, profile_id, run_id)
+            return _DURABLE
+        key = (event, profile_id, run_id)
+        if run.get("status") in _CHAIN_ACTIVE_STATUSES:
+            return _Delivery(key, replaceable=True, sheddable=True)
+        # Terminal snapshot: it supersedes a pending running snapshot of the
+        # same run, but is never itself replaced or shed.
+        return _Delivery(key)
     if event == "delete_operation_progress":
         operation_id = data.get("id")
         if operation_id is None:
-            return None
-        return (event, profile_id, operation_id)
+            return _DURABLE
+        # Full snapshot of the operation: latest wins, but never shed.
+        return _Delivery((event, profile_id, operation_id), replaceable=True)
     if event == "processing_stats":
-        return (event, profile_id)
-    return None
+        # Broadcast only on change, so the newest snapshot must arrive.
+        return _Delivery((event, profile_id), replaceable=True)
+    return _DURABLE
 
 
 @dataclass(frozen=True, eq=False)
@@ -116,9 +153,7 @@ class OutboundFrame:
 
     event: str
     text: str
-    # Non-None marks a transient snapshot that a newer frame with the same key
-    # supersedes, and that may be shed under pressure.
-    transient_key: Optional[tuple] = None
+    delivery: _Delivery = _DURABLE
     # Carried for per-client filtering (profile/entity subscriptions).
     profile_id: Optional[str] = None
 
@@ -135,17 +170,22 @@ class ClientConnection:
         websocket: WebSocket,
         on_failure: Callable[["ClientConnection", str], None],
         *,
-        max_frames: int = CLIENT_QUEUE_MAX_FRAMES,
-        max_bytes: int = CLIENT_QUEUE_MAX_BYTES,
+        soft_max_frames: int = CLIENT_SOFT_MAX_FRAMES,
+        soft_max_bytes: int = CLIENT_SOFT_MAX_BYTES,
+        hard_max_frames: int = CLIENT_HARD_MAX_FRAMES,
+        hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
     ):
         self.websocket = websocket
-        self.max_frames = max_frames
-        self.max_bytes = max_bytes
+        self.soft_max_frames = soft_max_frames
+        self.soft_max_bytes = soft_max_bytes
+        self.hard_max_frames = hard_max_frames
+        self.hard_max_bytes = hard_max_bytes
         self.send_timeout = send_timeout
         self._on_failure = on_failure
         self._queue: deque[OutboundFrame] = deque()
-        self._transient: Dict[tuple, OutboundFrame] = {}
+        # key -> the pending frame a newer same-key frame may replace
+        self._replaceable: Dict[tuple, OutboundFrame] = {}
         self._queued_bytes = 0
         self._wake = asyncio.Event()
         self._idle = asyncio.Event()
@@ -180,22 +220,36 @@ class ClientConnection:
         return True
 
     def enqueue(self, frame: OutboundFrame) -> bool:
-        """Queue a frame without waiting. Returns False on overflow."""
+        """Queue a frame without waiting.
+
+        Returns False only when a durable frame would exceed the hard cap; the
+        caller then disconnects the client. Shedding a transient frame is not
+        a failure.
+        """
         if self.closed:
             return False
-        if frame.transient_key is not None:
-            previous = self._transient.pop(frame.transient_key, None)
+        delivery = frame.delivery
+        if delivery.key is not None:
+            previous = self._replaceable.pop(delivery.key, None)
             if previous is not None:
                 # Latest wins, at the tail: the new frame keeps its true order
                 # relative to everything enqueued in between.
                 self._remove(previous)
                 self.coalesced += 1
-        if not self._make_room(frame.size):
-            return False
+        if delivery.sheddable:
+            if not self._make_room(frame.size, self.soft_max_frames, self.soft_max_bytes):
+                self.shed += 1
+                return True
+        else:
+            # Transient frames give way first, at the soft budget, so durable
+            # frames only ever compete with each other for the hard cap.
+            self._make_room(frame.size, self.soft_max_frames, self.soft_max_bytes)
+            if not self._make_room(frame.size, self.hard_max_frames, self.hard_max_bytes):
+                return False
         self._queue.append(frame)
         self._queued_bytes += frame.size
-        if frame.transient_key is not None:
-            self._transient[frame.transient_key] = frame
+        if delivery.replaceable:
+            self._replaceable[delivery.key] = frame
         self._idle.clear()
         self._wake.set()
         if self._task is None:
@@ -206,22 +260,19 @@ class ClientConnection:
         self._queue.remove(frame)
         self._queued_bytes -= frame.size
 
-    def _full(self, size: int) -> bool:
-        return (
-            len(self._queue) + 1 > self.max_frames
-            or self._queued_bytes + size > self.max_bytes
-        )
+    def _fits(self, size: int, max_frames: int, max_bytes: int) -> bool:
+        return len(self._queue) < max_frames and self._queued_bytes + size <= max_bytes
 
-    def _make_room(self, size: int) -> bool:
-        if not self._full(size):
+    def _make_room(self, size: int, max_frames: int, max_bytes: int) -> bool:
+        """Shed sheddable frames, oldest first, until ``size`` more fits."""
+        if self._fits(size, max_frames, max_bytes):
             return True
-        # Shed stale transient frames (oldest first) before giving up; a newer
-        # frame or the next tick replaces them. Durable frames are never shed.
-        for frame in [f for f in self._queue if f.transient_key is not None]:
-            self._transient.pop(frame.transient_key, None)
+        for frame in [f for f in self._queue if f.delivery.sheddable]:
+            if self._replaceable.get(frame.delivery.key) is frame:
+                del self._replaceable[frame.delivery.key]
             self._remove(frame)
             self.shed += 1
-            if not self._full(size):
+            if self._fits(size, max_frames, max_bytes):
                 return True
         return False
 
@@ -236,11 +287,9 @@ class ClientConnection:
                 continue
             frame = self._queue.popleft()
             self._queued_bytes -= frame.size
-            if (
-                frame.transient_key is not None
-                and self._transient.get(frame.transient_key) is frame
-            ):
-                del self._transient[frame.transient_key]
+            key = frame.delivery.key
+            if key is not None and self._replaceable.get(key) is frame:
+                del self._replaceable[key]
             try:
                 # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow
                 # a cancellation that races a completing send.
@@ -282,7 +331,7 @@ class ClientConnection:
             except Exception:
                 pass
         self._queue.clear()
-        self._transient.clear()
+        self._replaceable.clear()
         self._queued_bytes = 0
         self._idle.set()
 
@@ -293,20 +342,31 @@ class WebSocketManager:
     def __init__(
         self,
         *,
-        max_frames: int = CLIENT_QUEUE_MAX_FRAMES,
-        max_bytes: int = CLIENT_QUEUE_MAX_BYTES,
+        soft_max_frames: int = CLIENT_SOFT_MAX_FRAMES,
+        soft_max_bytes: int = CLIENT_SOFT_MAX_BYTES,
+        hard_max_frames: int = CLIENT_HARD_MAX_FRAMES,
+        hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
+        generator_reattach_grace: float = GENERATOR_REATTACH_GRACE_SECONDS,
     ):
         self._clients: Dict[int, ClientConnection] = {}
         self._client_limits = dict(
-            max_frames=max_frames, max_bytes=max_bytes, send_timeout=send_timeout
+            soft_max_frames=soft_max_frames,
+            soft_max_bytes=soft_max_bytes,
+            hard_max_frames=hard_max_frames,
+            hard_max_bytes=hard_max_bytes,
+            send_timeout=send_timeout,
         )
+        self._generator_reattach_grace = generator_reattach_grace
         # Track generator_instance_id -> websocket mapping for cleanup on disconnect
         self._generator_instance_websockets: Dict[str, WebSocket] = {}
         # Callback for when a generator instance disconnects
         self._on_generator_disconnect: Optional[Callable[[str], Awaitable[None]]] = None
         # Strong references to in-flight client drops.
         self._dropping: set[asyncio.Task] = set()
+        # Generator instances detached by a server-initiated drop, awaiting
+        # re-registration before they are treated as abandoned.
+        self._generator_grace: Dict[str, asyncio.Task] = {}
 
     @property
     def active_connections(self) -> List[WebSocket]:
@@ -340,11 +400,20 @@ class WebSocketManager:
 
     def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str):
         """Associate a generator instance ID with a WebSocket connection."""
+        grace = self._generator_grace.pop(generator_instance_id, None)
+        if grace is not None:
+            grace.cancel()
+            log.info(f"Generator instance {generator_instance_id} re-attached within grace window")
         self._generator_instance_websockets[generator_instance_id] = websocket
         log.info(f"Registered generator instance {generator_instance_id} with WebSocket")
 
-    async def disconnect(self, websocket: WebSocket):
-        """Remove a disconnected WebSocket, its queue and sender, and its generator instances."""
+    async def disconnect(self, websocket: WebSocket, *, abandoned: bool = True):
+        """Remove a disconnected WebSocket, its queue and sender, and its generator instances.
+
+        ``abandoned=False`` is for server-initiated drops (backpressure, send
+        deadline): the page did not go away, so its generator instances get a
+        grace window to re-register before their queued work is cancelled.
+        """
         client = self._clients.pop(id(websocket), None)
         if client is not None:
             await client.stop()
@@ -356,18 +425,36 @@ class WebSocketManager:
         ]
         for gid in disconnected_instances:
             del self._generator_instance_websockets[gid]
+            if not abandoned:
+                log.info(f"Generator instance {gid} detached; awaiting re-registration")
+                self._generator_grace[gid] = asyncio.create_task(
+                    self._expire_generator_grace(gid)
+                )
+                continue
             log.info(f"Generator instance {gid} disconnected")
-            # Call the cleanup callback
-            if self._on_generator_disconnect:
-                try:
-                    await self._on_generator_disconnect(gid)
-                except Exception as e:
-                    log.error(f"Error in generator disconnect callback: {e}")
+            await self._abandon_generator_instance(gid)
 
         log.info(f"WebSocket disconnected. Total connections: {len(self._clients)}")
 
+    async def _abandon_generator_instance(self, generator_instance_id: str) -> None:
+        if self._on_generator_disconnect:
+            try:
+                await self._on_generator_disconnect(generator_instance_id)
+            except Exception as e:
+                log.error(f"Error in generator disconnect callback: {e}")
+
+    async def _expire_generator_grace(self, generator_instance_id: str) -> None:
+        await asyncio.sleep(self._generator_reattach_grace)
+        if self._generator_grace.get(generator_instance_id) is not asyncio.current_task():
+            return
+        del self._generator_grace[generator_instance_id]
+        if generator_instance_id in self._generator_instance_websockets:
+            return
+        log.info(f"Generator instance {generator_instance_id} did not re-attach; abandoning")
+        await self._abandon_generator_instance(generator_instance_id)
+
     def _client_failed(self, client: ClientConnection, reason: str) -> None:
-        """Drop a client that overflowed or stalled; it reconnects and resyncs."""
+        """Drop a client that is stalled or dead, as a network drop would."""
         if self._clients.get(id(client.websocket)) is not client:
             return
         client.closed = True
@@ -383,7 +470,7 @@ class WebSocketManager:
 
     async def _drop(self, client: ClientConnection) -> None:
         websocket = client.websocket
-        await self.disconnect(websocket)
+        await self.disconnect(websocket, abandoned=False)
         try:
             async with asyncio.timeout(CLIENT_CLOSE_TIMEOUT_SECONDS):
                 await websocket.close(code=OVERFLOW_CLOSE_CODE)
@@ -449,7 +536,7 @@ class WebSocketManager:
         frame = OutboundFrame(
             event=event,
             text=json.dumps({"event": event, "data": data}),
-            transient_key=_transient_key(event, data),
+            delivery=_delivery_policy(event, data),
             profile_id=profile_id if isinstance(profile_id, str) else None,
         )
         # Log outgoing broadcast (truncate data for readability)
