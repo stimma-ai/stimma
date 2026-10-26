@@ -1,6 +1,13 @@
 package ai.stimma.mobile
 
+import okhttp3.ConnectionPool
+import okhttp3.CookieJar
+import okhttp3.Headers
 import okhttp3.HttpUrl
+import okhttp3.Interceptor
+import okhttp3.MediaType
+import okhttp3.Protocol
+import okio.BufferedSink
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -20,6 +27,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.security.SecureRandom
 import java.security.MessageDigest
@@ -27,7 +35,9 @@ import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.Base64
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
@@ -104,6 +114,8 @@ class RemoteHttpError(val status: Int) : Exception("The server request failed (H
 class PinnedServer(
     val host: String, val port: Int, val pin: String?, val session: String = "", val debugLoopback: Boolean = false,
     private val connectTimeoutMillis: Int = 4000, private val readTimeoutMillis: Int = 30000,
+    /** A client for the same route and pin whose connections this session may reuse. */
+    shared: OkHttpClient? = null,
 ) {
     private val trust = object : X509TrustManager {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
@@ -118,11 +130,55 @@ class PinnedServer(
     init {
         require(port in 1..65535 && session.none { it.code < 32 || it.code == 127 })
         require(if (debugLoopback) BuildConfig.DEBUG && host == "127.0.0.1" else pin?.matches(Regex("[a-fA-F0-9]{64}")) == true)
-        client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+        client = shared?.newBuilder()?.build() ?: OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
             .sslSocketFactory(tls.socketFactory, trust).hostnameVerifier { _, ssl ->
                 runCatching { sha256(ssl.peerCertificates[0].encoded) == pin?.lowercase() }.getOrDefault(false)
-            }.connectTimeout(4, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS).build()
+            }
+            // The server speaks HTTP/1.1; one protocol keeps every caller on the same pooled connections.
+            .protocols(listOf(Protocol.HTTP_1_1))
+            // Idle connections retire before the server's own 5 second keep-alive closes them,
+            // so a request is never written onto a connection the server is about to drop.
+            .connectionPool(ConnectionPool(8, IDLE_KEEP_ALIVE_MILLIS, TimeUnit.MILLISECONDS))
+            .cookieJar(CookieJar.NO_COOKIES).cache(null)
+            .connectTimeout(4, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS).build()
     }
+
+    /**
+     * The WebView proxy's client. It shares the pin, pool and dispatcher with
+     * [client], so all traffic for this session reuses the same connections.
+     * There is no overall deadline because downloads and uploads stream; the
+     * connect and per-read/write timeouts match the old raw sockets. Calls are
+     * made with `execute()` on proxy workers, so the dispatcher's per-host
+     * limit never queues them; the proxy's own permits bound concurrency.
+     */
+    internal val proxyClient: OkHttpClient by lazy {
+        client.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS)
+            .connectTimeout(connectTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+            .readTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+            .writeTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+            .addNetworkInterceptor(ProxyWireHeaders).build()
+    }
+
+    /** The authenticated session on this route, reusing the connections that discovered it. */
+    fun withSession(session: String) = PinnedServer(host, port, pin, session, debugLoopback, connectTimeoutMillis, readTimeoutMillis, client)
+
+    /** Close idle connections, e.g. before they cross a background period or network change. */
+    fun evictIdle() { retirement.execute { client.connectionPool.evictAll() } }
+
+    /** This session is finished: cancel every call it is making and close its connections. */
+    fun retire() {
+        client.dispatcher.cancelAll()
+        evictIdle()
+    }
+
+    internal val pooledConnections get() = client.connectionPool.connectionCount()
+
+    companion object {
+        const val IDLE_KEEP_ALIVE_MILLIS = 3000L
+        // Closing TLS sockets can write, which Android forbids on the main thread.
+        private val retirement = Executors.newSingleThreadExecutor { Thread(it, "stimma-pool-retire").apply { isDaemon = true } }
+    }
+
     fun bytes(path: String, limit: Int, body: RequestBody? = null, timeoutSeconds: Long = 20): ByteArray {
         val request = Request.Builder().url(base.resolve(path)!!)
         if (session.isNotEmpty()) request.header("Authorization", "Bearer $session")
@@ -169,6 +225,57 @@ private class ResponseStream(output: OutputStream) : FilterOutputStream(output) 
 /** The WebView side of a request went away; there is nobody left to answer. */
 private class LocalClosed(cause: Throwable? = null) : Exception(cause)
 
+/** The WebView stopped sending an upload; an IOException so OkHttp abandons the exchange like any I/O failure. */
+private class LocalUploadAborted(cause: Throwable? = null) : IOException(cause)
+
+/** Marks a request built by the proxy and records what the WebView itself sent. */
+private class ProxiedRequest(val userAgent: Boolean)
+
+/**
+ * Keeps the proxied wire request what the proxy asked for. The proxy sets
+ * `Accept-Encoding: identity` only so OkHttp neither adds gzip nor decodes
+ * transparently; the header itself is removed, as the proxy has always done.
+ * OkHttp's default User-Agent is removed when the WebView sent none.
+ */
+internal object ProxyWireHeaders : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val tag = chain.request().tag(ProxiedRequest::class.java) ?: return chain.proceed(chain.request())
+        val request = chain.request().newBuilder().removeHeader("Accept-Encoding")
+        if (!tag.userAgent) request.removeHeader("User-Agent")
+        return chain.proceed(request.build())
+    }
+}
+
+/**
+ * Streams a WebView upload straight to the server. One-shot, so OkHttp never
+ * replays it: a mutation whose outcome is unknown is not sent twice.
+ */
+private class UploadBody(private val input: InputStream, private val length: Long, private val localGone: AtomicBoolean, private val sent: CountDownLatch) : RequestBody() {
+    override fun contentType(): MediaType? = null
+    override fun contentLength() = length
+    override fun isOneShot() = true
+    override fun writeTo(sink: BufferedSink) {
+        val buffer = ByteArray(65536)
+        var remaining = length
+        while (remaining > 0) {
+            val count = try { input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt()) }
+                catch (error: IOException) { localGone.set(true); throw LocalUploadAborted(error) }
+            if (count <= 0) { localGone.set(true); throw LocalUploadAborted() }
+            sink.write(buffer, 0, count); remaining -= count
+        }
+        sink.flush()
+        sent.countDown()
+    }
+}
+
+private val CRLF = "\r\n".toByteArray()
+/** Never forwarded upstream: browser credentials and context, hop-by-hop fields, and framing OkHttp writes itself. */
+private val REQUEST_EXCLUDED = setOf("host", "authorization", "cookie", "origin", "proxy-connection", "proxy-authorization", "forwarded", "referer",
+    "accept-encoding", "connection", "keep-alive", "te", "trailer", "transfer-encoding", "upgrade", "content-length")
+/** Never forwarded to the WebView: server cookies and policy the proxy sets itself, and hop-by-hop fields. */
+private val RESPONSE_EXCLUDED = setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials",
+    "connection", "keep-alive", "proxy-connection", "te", "trailer", "transfer-encoding", "upgrade")
+
 class MobileTransport(
     private val report: (ProxyFailureReport) -> Unit = {},
     private val assets: (String) -> InputStream,
@@ -182,15 +289,25 @@ class MobileTransport(
     private val executor = Executors.newCachedThreadPool()
     private val permits = Semaphore(32)
     private val sockets = Collections.synchronizedSet(mutableSetOf<Socket>())
+    private val calls = Collections.synchronizedSet(mutableSetOf<Call>())
+    /** The server session WebView traffic goes to. Replacing it retires the previous session's calls and connections. */
     @Volatile var target: PinnedServer? = null
+        set(value) {
+            val previous = field
+            field = value
+            if (previous != null && previous !== value) previous.retire()
+        }
     /** Test seam: runs on the worker before it touches the accepted socket. Debug builds only. */
     @Volatile internal var beforeServe: ((Socket) -> Unit)? = null
     internal val availablePermits get() = permits.availablePermits()
     internal val openSockets get() = sockets.size
+    internal val inFlightCalls get() = calls.size
+    /** How long the WebView side may stay silent mid-request. A test seam; the app keeps 30 seconds. */
+    @Volatile internal var localReadTimeoutMillis = 30000
     @Volatile private var suspended = false
     fun setForeground(active: Boolean) {
         suspended = !active
-        if (!active) interruptConnections()
+        if (!active) { interruptConnections(); target?.evictIdle() }
     }
     @Volatile private var inlineScriptHashes = ""
     @Volatile var directory: File? = null
@@ -256,17 +373,23 @@ class MobileTransport(
         runCatching { respond(output, failure.status, "text/plain", "Request unavailable".byteInputStream(), 19, failure = failure) }
     }
 
-    /** Run upstream I/O, classifying its failures. Interruptions caused by backgrounding or a target swap are unavailability. */
-    private inline fun <T> fromServer(remote: PinnedServer, block: () -> T): T = try { block() }
+    /**
+     * Run upstream I/O, classifying its failures. Interruptions caused by
+     * backgrounding or a target swap are unavailability; a call cancelled
+     * because the WebView went away has nobody to answer.
+     */
+    private inline fun <T> fromServer(remote: PinnedServer, localGone: AtomicBoolean? = null, block: () -> T): T = try { block() }
         catch (error: ProxyException) { throw error }
+        catch (error: LocalClosed) { throw error }
         catch (error: Exception) {
+            if (localGone?.get() == true) throw LocalClosed(error)
             throw ProxyException(if (suspended || target !== remote) ProxyFailure.UNAVAILABLE else ProxyFailure.upstream(error), error)
         }
 
     private inline fun <T> toClient(block: () -> T): T = try { block() } catch (error: IOException) { throw LocalClosed(error) }
 
     private fun serve(socket: Socket, output: ResponseStream) {
-        socket.soTimeout = 30000
+        socket.soTimeout = localReadTimeoutMillis
         val input = socket.getInputStream().buffered()
         val request = HttpHead.read(input)
         authorize(request)
@@ -275,7 +398,8 @@ class MobileTransport(
         val remote = target
         if (path == "/health" || path == "/api" || path.startsWith("/api/") || path == "/ws" || path.startsWith("/ws/")) {
             if (remote == null || suspended) throw ProxyException(ProxyFailure.UNAVAILABLE)
-            proxy(socket, input, output, request, remote)
+            if (request.single("upgrade")?.lowercase() == "websocket") tunnel(socket, input, output, request, remote)
+            else forward(socket, input, output, request, remote)
             return
         }
         require(request.method in setOf("GET", "HEAD"))
@@ -310,10 +434,121 @@ class MobileTransport(
         output.flush()
     }
 
-    private fun proxy(local: Socket, input: InputStream, destination: OutputStream, request: HttpHead, remote: PinnedServer) {
-        val websocket = request.single("upgrade")?.lowercase() == "websocket"
-        if (websocket) require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
+    /**
+     * Forward one HTTP request over the session's pooled OkHttp client. The
+     * WebView side keeps its one-request-per-connection bridge; only the
+     * upstream connection is reused. Bodies stream in both directions. If the
+     * WebView closes its socket, or the app is backgrounded or the session
+     * replaced, the upstream call is cancelled.
+     */
+    private fun forward(local: Socket, input: InputStream, destination: ResponseStream, request: HttpHead, remote: PinnedServer) {
         val providerPanel = URI(request.target).path.startsWith("/api/provider-manage/")
+        require('#' !in request.target)
+        val length = request.single("content-length")?.toLong()
+        val uploadLength = when (request.method) {
+            "GET", "HEAD" -> { require(length == null || length == 0L); null }
+            "OPTIONS" -> length
+            // Mutations always carry a one-shot body, even an empty one, so OkHttp never replays them.
+            else -> length ?: 0
+        }
+        val localGone = AtomicBoolean()
+        val finished = AtomicBoolean()
+        val bodySent = CountDownLatch(if (uploadLength == null) 0 else 1)
+        val connectionTokens = request.fields.filter { it.first == "connection" }.flatMap { field -> field.second.split(',').map { it.trim().lowercase() } }
+        val headers = Headers.Builder()
+        for ((name, value) in request.fields) {
+            if (name in REQUEST_EXCLUDED || name in connectionTokens || name.startsWith("sec-fetch-") || name.startsWith("x-forwarded-")) continue
+            // HttpHead decoded the bytes as Latin-1; OkHttp writes UTF-8. Round-trip so the server sees the WebView's bytes.
+            headers.addUnsafeNonAscii(name, value.toByteArray(Charsets.ISO_8859_1).toString(Charsets.UTF_8))
+        }
+        if (remote.session.isNotEmpty()) headers.set("Authorization", "Bearer ${remote.session}")
+        headers.set("Accept-Encoding", "identity")
+        val url = remote.base.newBuilder().encodedPath(request.target.substringBefore('?'))
+            .encodedQuery(if ('?' in request.target) request.target.substringAfter('?') else null).build()
+        val call = remote.proxyClient.newCall(Request.Builder().url(url).headers(headers.build())
+            .method(request.method, uploadLength?.let { UploadBody(input, it, localGone, bodySent) })
+            .tag(ProxiedRequest::class.java, ProxiedRequest(request.single("user-agent") != null)).build())
+        calls.add(call)
+        try {
+            if (suspended || target !== remote || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            watchForClose(input, bodySent, finished, localGone, call)
+            fromServer(remote, localGone) { call.execute() }.use { response ->
+                val locations = response.headers("Location")
+                val localRedirect = locations.singleOrNull()?.let { value ->
+                    val uri = runCatching { URI(value) }.getOrNull()
+                    uri != null && !uri.isAbsolute && uri.rawAuthority == null && uri.path.startsWith("/api/provider-manage/") &&
+                        uri.path.split('/').none { it == "." || it == ".." } && '\\' !in value
+                } == true
+                if (locations.size > 1 || response.code in 300..399 && response.code != 304 && !(providerPanel && localRedirect)) {
+                    throw ProxyException(ProxyFailure.UPSTREAM_PROTOCOL)
+                }
+                val bodiless = request.method == "HEAD" || response.code in 100..199 || response.code == 204 || response.code == 304
+                val responseTokens = response.headers("Connection").flatMap { field -> field.split(',').map { it.trim().lowercase() } }
+                val declaredLength = response.headers("Content-Length").singleOrNull()
+                // OkHttp has removed the upstream framing. A known length is kept; anything else is
+                // re-chunked so the WebView can still tell a complete body from a truncated one.
+                val fixedLength = bodiless || response.header("Transfer-Encoding") == null && declaredLength != null
+                toClient {
+                    destination.write(buildString {
+                        append("HTTP/1.1 ${response.code} ${response.message}\r\n")
+                        for ((name, value) in response.headers) {
+                            val key = name.lowercase()
+                            if (key !in RESPONSE_EXCLUDED && key !in responseTokens && (key != "content-length" || fixedLength)) append("$key: $value\r\n")
+                        }
+                        if (!fixedLength) append("Transfer-Encoding: chunked\r\n")
+                        append("Connection: close\r\n")
+                        val responsePolicy = if (providerPanel)
+                            "sandbox allow-scripts allow-same-origin allow-forms; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+                            else "sandbox; default-src 'none'"
+                        append("Content-Security-Policy: $responsePolicy\r\nX-Content-Type-Options: nosniff\r\n\r\n")
+                    }.toByteArray(Charsets.UTF_8))
+                }
+                if (!bodiless) {
+                    val source = response.body!!.byteStream()
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val count = fromServer(remote, localGone) { source.read(buffer) }
+                        if (count < 0) break
+                        if (count == 0) continue
+                        toClient {
+                            if (!fixedLength) destination.write("${count.toString(16)}\r\n".toByteArray())
+                            destination.write(buffer, 0, count)
+                            if (!fixedLength) destination.write(CRLF)
+                        }
+                    }
+                    if (!fixedLength) toClient { destination.write("0\r\n\r\n".toByteArray()) }
+                }
+                toClient { destination.flush() }
+                finished.set(true)
+            }
+        } catch (error: Throwable) {
+            finished.set(true); call.cancel(); throw error
+        } finally {
+            finished.set(true); bodySent.countDown(); calls.remove(call)
+        }
+    }
+
+    /**
+     * Once the request is sent the WebView has nothing more to say on this
+     * connection, so end-of-stream or an error means it gave up (an aborted
+     * fetch, a thumbnail scrolled away): stop the upstream call too.
+     */
+    private fun watchForClose(input: InputStream, bodySent: CountDownLatch, finished: AtomicBoolean, localGone: AtomicBoolean, call: Call) {
+        executor.execute {
+            try {
+                bodySent.await()
+                while (!finished.get()) {
+                    try { if (input.read() >= 0) return@execute; break } // Unexpected pipelined bytes: stop watching.
+                    catch (_: SocketTimeoutException) { }
+                }
+            } catch (_: Exception) { }
+            if (!finished.get()) { localGone.set(true); call.cancel() }
+        }
+    }
+
+    /** WebSocket upgrades keep their own raw pinned connection for the life of the socket. */
+    private fun tunnel(local: Socket, input: InputStream, destination: OutputStream, request: HttpHead, remote: PinnedServer) {
+        require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
         fromServer(remote) { remote.socket() }.use { upstream ->
             sockets.add(upstream)
             try {
@@ -323,49 +558,34 @@ class MobileTransport(
                 val headers = request.fields.filter { it.first !in excluded && !it.first.startsWith("sec-fetch-") && !it.first.startsWith("x-forwarded-") }
                 val text = buildString {
                     append("${request.method} ${request.target} HTTP/1.1\r\nHost: ${remote.base.host.let { if (':' in it) "[$it]" else it }}:${remote.port}\r\n")
-                    append("Connection: ${if (websocket) "Upgrade" else "close"}\r\n")
-                    if (websocket) append("Upgrade: websocket\r\n")
+                    append("Connection: Upgrade\r\nUpgrade: websocket\r\n")
                     if (remote.session.isNotEmpty()) append("Authorization: Bearer ${remote.session}\r\n")
                     for ((name, value) in headers) append("$name: $value\r\n")
                     append("\r\n")
                 }
-                fromServer(remote) { output.write(text.toByteArray(Charsets.ISO_8859_1)) }
-                var remaining = request.single("content-length")?.toLong() ?: 0
-                val buffer = ByteArray(65536)
-                while (remaining > 0) {
-                    val count = toClient { input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt()) }
-                    if (count <= 0) throw LocalClosed()
-                    fromServer(remote) { output.write(buffer, 0, count) }; remaining -= count
-                }
-                fromServer(remote) { output.flush() }
+                fromServer(remote) { output.write(text.toByteArray(Charsets.ISO_8859_1)); output.flush() }
                 val responseInput = fromServer(remote) { upstream.getInputStream().buffered() }
                 val response = fromServer(remote) {
                     val head = HttpHead.read(responseInput)
                     require(head.method == "HTTP/1.1" && head.target.toInt() in 100..599)
-                    val localRedirect = head.single("location")?.let { value ->
-                        val uri = URI(value)
-                        !uri.isAbsolute && uri.rawAuthority == null && uri.path.startsWith("/api/provider-manage/") &&
-                            uri.path.split('/').none { it == "." || it == ".." } && '\\' !in value
-                    } == true
-                    require(head.target.toInt() !in 300..399 || head.target == "304" || providerPanel && localRedirect)
+                    require(head.target.toInt() !in 300..399 || head.target == "304")
                     head
                 }
+                val upgraded = response.target == "101"
                 toClient {
                     destination.write(buildString {
                         append("${response.method} ${response.target} ${response.version}\r\n")
                         for ((name, value) in response.fields) if (name !in setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials", "connection")) append("$name: $value\r\n")
-                        append("Connection: ${if (websocket && response.target == "101") "Upgrade" else "close"}\r\n")
-                        val responsePolicy = if (providerPanel)
-                            "sandbox allow-scripts allow-same-origin allow-forms; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
-                            else "sandbox; default-src 'none'"
-                        append("Content-Security-Policy: $responsePolicy\r\nX-Content-Type-Options: nosniff\r\n\r\n")
+                        append("Connection: ${if (upgraded) "Upgrade" else "close"}\r\n")
+                        append("Content-Security-Policy: sandbox; default-src 'none'\r\nX-Content-Type-Options: nosniff\r\n\r\n")
                     }.toByteArray(Charsets.ISO_8859_1))
                     destination.flush()
                 }
-                if (websocket && response.target == "101") {
+                if (upgraded) {
                     local.soTimeout = 0; upstream.soTimeout = 0
                     executor.execute { try { input.copyTo(output) } catch (_: Exception) { } finally { upstream.close(); local.close() } }
                 }
+                val buffer = ByteArray(65536)
                 while (true) {
                     val count = fromServer(remote) { responseInput.read(buffer) }
                     if (count < 0) break
@@ -376,7 +596,9 @@ class MobileTransport(
         }
     }
 
+    /** Drop every request in progress: cancel upstream calls and close local and WebSocket sockets. */
     fun interruptConnections() {
+        synchronized(calls) { calls.toList() }.forEach { it.cancel() }
         synchronized(sockets) { sockets.toList().forEach { runCatching { it.close() } } }
     }
     fun disconnect() { target = null; interruptConnections() }

@@ -238,7 +238,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         }
         coroutineContext.ensureActive()
         check(session.getString("deviceId") == identity)
-        val remote = PinnedServer(reachable.host, reachable.port, pin, session.getString("session"))
+        val remote = reachable.withSession(session.getString("session"))
         if (recovering && main != null && activeHash != null && selected?.getString("deviceId") == identity) {
             main!!.interruptConnections()
             main!!.target = remote
