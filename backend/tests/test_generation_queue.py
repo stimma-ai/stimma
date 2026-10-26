@@ -96,8 +96,7 @@ class TestPendingCounterManagement:
         client = "test-client-1"
 
         # Simulate _fill_available_slots having appended timestamps
-        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+        _reserve(generation_queue, client, backend, 1)
 
         await generation_queue.submit_job(
             generator_name="test",
@@ -154,8 +153,7 @@ class TestPendingCounterManagement:
         client = "test-client-bug3"
 
         # Simulate pending from _fill_available_slots
-        generation_queue._pending_work_requests[backend] = _make_timestamps(2)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(2)
+        _reserve(generation_queue, client, backend, 2)
 
         requested_folder = "/nonexistent/folder/that/must/not/be/used"
         job_id = await generation_queue.submit_job(
@@ -185,8 +183,7 @@ class TestPendingCounterManagement:
 
         backend = "missing"
         client = "test-client-invalid-tool"
-        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+        _reserve(generation_queue, client, backend, 1)
 
         with pytest.raises(ValueError, match="Tool not found"):
             await generation_queue.submit_job(
@@ -210,8 +207,7 @@ class TestPendingCounterManagement:
 
         backend = "test"
         client = "test-client-manual"
-        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+        _reserve(generation_queue, client, backend, 1)
 
         await generation_queue.submit_job(
             generator_name="test",
@@ -236,8 +232,7 @@ class TestPendingCounterManagement:
         backend = "test"
         client = "test-client-batch-bug3"
 
-        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+        _reserve(generation_queue, client, backend, 1)
 
         requested_folder = "/bad/client-selected/folder"
         job_id = await generation_queue.submit_batch_job(
@@ -780,6 +775,61 @@ class TestClientCleanup:
 
         assert mock_ws.get_broadcasts("generation_request_work") == []
         await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_legacy_decline_then_disconnect_never_over_dispatches(
+        self, generation_queue
+    ):
+        """A decline without a reservation id releases the decliner's own
+        request, never an older one held by another client; its later
+        disconnect then has nothing of the other client's left to remove."""
+        _reset_queue_state(generation_queue)
+        backend = "test"
+        healthy, departing = "test-legacy-healthy", "test-legacy-departing"
+        generation_queue._forever_mode_clients[backend] = {healthy: 1, departing: 1}
+        [healthy_ts] = _reserve(generation_queue, healthy, backend, 1)  # oldest
+        _reserve(generation_queue, departing, backend, 1)
+
+        with patch.object(generation_queue, "_fill_available_slots", AsyncMock()):
+            await generation_queue.decline_work_request(departing, backend)
+            assert generation_queue._pending_work_requests[backend] == [healthy_ts]
+            assert [r["generator_instance_id"] for r in generation_queue._work_reservations.values()] == [healthy]
+
+            await generation_queue.cleanup_disconnected_client(departing)
+            await generation_queue.wait_for_scheduled_refills()
+
+        # The pending count still matches the one valid reservation.
+        assert generation_queue._pending_work_requests[backend] == [healthy_ts]
+        assert generation_queue._pending_work_requests_per_client[healthy] == [healthy_ts]
+        assert len(generation_queue._work_reservations) == 1
+
+        # A legacy decline from a client with nothing outstanding is a no-op.
+        with patch.object(generation_queue, "_fill_available_slots", AsyncMock()):
+            await generation_queue.decline_work_request("test-legacy-nobody", backend)
+        assert generation_queue._pending_work_requests[backend] == [healthy_ts]
+        _reset_queue_state(generation_queue)
+
+    async def test_stop_workers_cancels_refills_and_admits_no_new_ones(self):
+        """Scheduled refills must not outlive shutdown."""
+        from generation_queue import GenerationQueue
+
+        queue = GenerationQueue()
+        started = asyncio.Event()
+
+        async def slow_fill(backend_name):
+            started.set()
+            await asyncio.Event().wait()
+
+        with patch.object(queue, "_fill_available_slots", slow_fill):
+            queue._schedule_refill("test")
+            [task] = list(queue._refill_tasks)
+            await started.wait()
+
+            await asyncio.wait_for(queue.stop_workers(), 5)
+
+            assert task.cancelled()
+            assert not queue._refill_tasks
+            queue._schedule_refill("test")
+            assert not queue._refill_tasks
 
     async def test_multi_backend_cleanup_keeps_other_clients_reservations(
         self, generation_queue, mock_ws

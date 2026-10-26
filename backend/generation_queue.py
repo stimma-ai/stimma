@@ -372,6 +372,7 @@ class GenerationQueue:
         self._pending_work_requests_per_client: Dict[str, List[float]] = {}
         # Strong references to scheduled forever-mode refills.
         self._refill_tasks: set = set()
+        self._refills_closed = False
         # Single-use capabilities for frontend-driven forever work. A submit
         # must claim the exact request that caused it; counters alone cannot
         # prevent two renderers from answering one request.
@@ -764,8 +765,31 @@ class GenerationQueue:
             self._pending_work_requests_per_client.pop(generator_instance_id, None)
         return released
 
+    def _release_oldest_owned_reservation(
+        self, generator_instance_id: str, backend_name: str
+    ) -> Optional[dict]:
+        """Release the client's oldest reservation on a backend, if any.
+
+        For callers that do not name a reservation (legacy declines and
+        count-based submit consumption). Never touches another client's.
+        """
+        owned = [
+            (reservation['created_at'], reservation_id)
+            for reservation_id, reservation in self._work_reservations.items()
+            if reservation['generator_instance_id'] == generator_instance_id
+            and reservation['backend_name'] == backend_name
+        ]
+        if not owned:
+            return None
+        return self._release_reservation(min(owned)[1])
+
     def _schedule_refill(self, backend_name: str) -> None:
-        """Refill a backend's forever-mode slots in a separate task."""
+        """Refill a backend's forever-mode slots in a separate task.
+
+        Refused once shutdown has begun, so nothing outlives stop_workers().
+        """
+        if self._refills_closed:
+            return
         task = asyncio.create_task(self._fill_available_slots(backend_name))
         self._refill_tasks.add(task)
         task.add_done_callback(self._refill_tasks.discard)
@@ -778,14 +802,10 @@ class GenerationQueue:
     async def decline_work_request(self, generator_instance_id: str, backend_name: str):
         """Handle a client declining a work request (couldn't submit).
 
-        Pops one pending timestamp for the client/backend pair and re-fills slots.
+        Legacy clients decline without a reservation id: release this client's
+        oldest reservation on this backend, never another client's entry.
         """
-        timestamps = self._pending_work_requests.get(backend_name, [])
-        if timestamps:
-            timestamps.pop(0)
-        timestamps = self._pending_work_requests_per_client.get(generator_instance_id, [])
-        if timestamps:
-            timestamps.pop(0)
+        self._release_oldest_owned_reservation(generator_instance_id, backend_name)
         log.debug(f"Forever mode: client {generator_instance_id} declined work for {backend_name}")
         # Re-fill to potentially assign the slot to another client or retry
         await self._fill_available_slots(backend_name)
@@ -1800,15 +1820,10 @@ class GenerationQueue:
             # submit was triggered by a reserved work request. Manual submits
             # and local follow-up submits can happen while pending reservations
             # exist for the same client; they must not steal those slots.
-            if consume_pending_request:
-                timestamps = self._pending_work_requests.get(backend_name, []) if backend_name else []
-                if timestamps:
-                    timestamps.pop(0)
-                    log.debug(f"Forever mode: job submitted for {backend_name}, pending now {len(timestamps)}")
-                timestamps = self._pending_work_requests_per_client.get(generator_instance_id, []) if generator_instance_id else []
-                if timestamps:
-                    timestamps.pop(0)
-                    log.debug(f"Forever mode: job submitted by {generator_instance_id}, client_pending now {len(timestamps)}")
+            if consume_pending_request and backend_name and generator_instance_id:
+                # Consume this client's own oldest reservation on this backend.
+                if self._release_oldest_owned_reservation(generator_instance_id, backend_name):
+                    log.debug(f"Forever mode: job submitted by {generator_instance_id} for {backend_name}")
 
     async def submit_job(
         self,
@@ -2333,6 +2348,7 @@ class GenerationQueue:
             return
 
         self._workers_running = True
+        self._refills_closed = False
         # One initial recovery scan picks up durable jobs left by a prior process.
         # After that, submissions wake the workers instead of every worker polling
         # every profile database once per second while the app is idle.
@@ -2345,6 +2361,20 @@ class GenerationQueue:
     async def stop_workers(self):
         """Stop all worker tasks."""
         self._workers_running = False
+
+        # No new refills once shutdown begins; cancel the scheduled ones before
+        # the resources they use (sockets, databases) go away.
+        self._refills_closed = True
+        refills = list(self._refill_tasks)
+        for task in refills:
+            task.cancel()
+        if refills:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*refills, return_exceptions=True), timeout=2.0
+                )
+            except asyncio.TimeoutError:
+                log.warning("forever-mode refills did not stop in time during shutdown")
 
         for task in self._worker_tasks:
             task.cancel()
