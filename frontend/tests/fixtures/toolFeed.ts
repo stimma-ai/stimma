@@ -12,7 +12,10 @@ const app = createApp({
       await feed.init()
       window.feedInitialized = true
     })
-    return () => h('ul', feed.jobs.value.map(job => h('li', { class: 'job', 'data-id': job.id }, String(job.id))))
+    // Shown as the strip does: dismissed jobs are hidden.
+    return () => h('ul', feed.jobs.value
+      .filter(job => !feed.dismissedJobs.value.has(job.id))
+      .map(job => h('li', { class: 'job', 'data-id': job.id }, String(job.id))))
   },
 })
 initApiConfig().then(() => {

@@ -314,11 +314,15 @@ export function useGenerationJobs(options = {}) {
   }
 
   let jobLoadSequence = 0
+  let dismissFailuresOnLoad = false
 
   // Load jobs from API
   async function loadJobs(quiet = false) {
     const sequence = ++jobLoadSequence
     const profileId = getCurrentProfileId()
+    // A full load hides failures from previous sessions. A quiet reload that
+    // supersedes it (realtime confirmation) must carry that out instead.
+    if (quiet !== true) dismissFailuresOnLoad = true
     try {
       // Clear all cached media data when reloading jobs (important for profile switches)
       // Media IDs are only valid within the same profile's database
@@ -355,7 +359,9 @@ export function useGenerationJobs(options = {}) {
         .filter(j => j.status === 'failed')
         .map(j => j.id)
 
-      if (quiet !== true && failedJobIds.length > 0) {
+      const dismissFailures = dismissFailuresOnLoad
+      dismissFailuresOnLoad = false
+      if (dismissFailures && failedJobIds.length > 0) {
         console.log(`Auto-dismissing ${failedJobIds.length} failed job(s) from previous session`)
         dismissedJobs.value = new Set(failedJobIds)
       }
