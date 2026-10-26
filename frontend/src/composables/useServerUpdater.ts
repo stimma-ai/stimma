@@ -169,6 +169,11 @@ async function updateAll() {
   else if (machineAvailable.value) await updateMachine()
 }
 
+/** An update or restart from before a reload still needs tracking. */
+export function hasServerOperationInProgress() {
+  try { return sessionStorage.getItem(KEY) !== null } catch { return false }
+}
+
 export function startServerUpdater() {
   if (started) return
   started = true

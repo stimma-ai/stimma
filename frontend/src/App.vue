@@ -312,7 +312,7 @@ import ShareDialog from './components/ShareDialog.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import FirstRunTour from './components/FirstRunTour.vue'
 import ConnectionScreen from './components/ConnectionScreen.vue'
-import { startServerUpdater, stopServerUpdater } from './composables/useServerUpdater'
+import { hasServerOperationInProgress, startServerUpdater, stopServerUpdater } from './composables/useServerUpdater'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import DirectoryPickerModal from './components/DirectoryPickerModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
@@ -1359,8 +1359,10 @@ function handleOpenSettings(e) {
 let appMounted = false
 onMounted(async () => {
   appMounted = true
-  // Server update status is optional chrome; keep it off the startup path.
-  void scheduleMaintenance('server-updater', () => { if (appMounted) startServerUpdater() })
+  // Idle server update status is optional chrome; keep it off the startup
+  // path. An update or restart already underway is tracked immediately.
+  if (hasServerOperationInProgress()) startServerUpdater()
+  else void scheduleMaintenance('server-updater', () => { if (appMounted) startServerUpdater() })
   // Guard the root scrolling element the same way as the shell divs.
   const rootGuard = () => {
     const d = document.scrollingElement || document.documentElement
