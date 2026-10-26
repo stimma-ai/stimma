@@ -3,6 +3,8 @@ import { setMobileSocketReady } from './useMobileRecovery.js'
 import { getCurrentProfileId } from './useProfile'
 import { getWsBase, isInitialized as isApiInitialized } from '../apiConfig'
 import { addToast, removeToast } from './useToasts'
+import { realtimeScope } from './realtimeScope.js'
+import { installRealtimeScope } from './useRealtimeTopic.js'
 
 /**
  * Singleton WebSocket connection shared across all components
@@ -48,8 +50,12 @@ export function useWebSocket() {
         const host = window.location.host
         wsUrl = `${protocol}//${host}${wsUrl}`
       }
+      // Declare the realtime capability and restore this window's scope
+      // (profile, followed topics, preview policy) atomically with the
+      // connection. Older servers ignore the query and send everything.
+      wsUrl += (wsUrl.includes('?') ? '&' : '?') + realtimeScope.connectQuery(getCurrentProfileId())
 
-      console.log('[WebSocket] Connecting to:', wsUrl)
+      console.log('[WebSocket] Connecting to:', wsUrl.split('?')[0])
       ws.value = new WebSocket(wsUrl)
 
       ws.value.onopen = () => {
@@ -65,6 +71,8 @@ export function useWebSocket() {
           reconnectTimeout = null
         }
 
+        realtimeScope.socketOpened(send)
+
         // Notify listeners so they can refresh state - on both first connect and reconnect.
         // On first launch the frontend may mount before the backend is ready, causing initial
         // data fetches to fail. Firing this on every connect ensures state gets populated.
@@ -75,6 +83,7 @@ export function useWebSocket() {
       ws.value.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data)
+          realtimeScope.handleServerMessage(message?.event, message?.data)
           handleMessage(message)
         } catch (error) {
           console.error('[WebSocket] Failed to parse message', {
@@ -93,6 +102,7 @@ export function useWebSocket() {
         connected.value = false
         setMobileSocketReady(false)
         ws.value = null
+        realtimeScope.socketClosed()
 
         // Lost contact does not imply that remote jobs have stopped.
         handleMessage({ event: 'websocket_disconnected', data: {} })
@@ -142,6 +152,7 @@ export function useWebSocket() {
       previous.onopen = previous.onmessage = previous.onerror = previous.onclose = null
       previous.close()
     }
+    realtimeScope.socketClosed()
 
     connected.value = false
     setMobileSocketReady(false)
@@ -251,6 +262,7 @@ export function useWebSocket() {
   // Auto-connect only once (singleton pattern)
   if (!isInitialized) {
     isInitialized = true
+    installRealtimeScope()
     connect()
     console.log('[WebSocket] Singleton instance initialized')
 

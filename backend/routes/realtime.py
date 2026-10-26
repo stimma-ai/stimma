@@ -7,7 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 
 from ingestion import get_ingestion
-from utils.websocket import ws_manager
+from utils.websocket import REALTIME_PROTOCOL, scope_from_query, ws_manager
 from agent_state import agent_state_manager
 
 router = APIRouter(tags=["realtime"])
@@ -32,6 +32,31 @@ async def get_progress_stream():
     return EventSourceResponse(event_generator())
 
 
+_SCOPE_MESSAGES = {
+    "realtime_scope": "scope",
+    "realtime_subscribe": "subscribe",
+    "realtime_unsubscribe": "unsubscribe",
+}
+
+
+async def _handle_scope_message(websocket: WebSocket, message: dict) -> None:
+    """Apply a scope message and acknowledge it with the resulting scope.
+
+    The acknowledgement is queued behind everything broadcast before the
+    change, so a client that waits for it before reading state over HTTP
+    cannot miss an event for what it just subscribed to.
+    """
+    data = message.get("data")
+    seq = data.get("seq") if isinstance(data, dict) else None
+    try:
+        applied = ws_manager.update_scope(websocket, _SCOPE_MESSAGES[message["event"]], data)
+    except ValueError as e:
+        await ws_manager.send_to(websocket, "realtime_scope_rejected", {"seq": seq, "reason": str(e)})
+        return
+    if applied is not None:
+        await ws_manager.send_to(websocket, "realtime_scope_applied", {"seq": seq, **applied})
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -41,15 +66,29 @@ async def websocket_endpoint(websocket: WebSocket):
     - media_updated: Media items processed/updated
     - media_deleted: Media items removed
     - progress_update: Processing progress changes
+
+    Clients that declare the realtime capability (``?realtime=1``, see
+    ``utils.websocket``) receive only their profile's events and per-entity
+    detail for what they subscribe to; others receive every broadcast.
     """
-    await ws_manager.connect(websocket)
+    try:
+        scope = scope_from_query(websocket.query_params)
+    except ValueError as e:
+        # Unusable scope: fall back to the legacy stream rather than refuse.
+        log.warning("Ignoring invalid realtime scope on connect", error=str(e))
+        scope = None
+    await ws_manager.connect(websocket, scope)
 
     try:
         # Send welcome message
-        await ws_manager.send_to(websocket, "connected", {
+        welcome = {
             "message": "Connected to Stimma WebSocket",
-            "timestamp": datetime.now().isoformat()
-        })
+            "timestamp": datetime.now().isoformat(),
+            "realtime_protocol": REALTIME_PROTOCOL,
+        }
+        if scope is not None:
+            welcome["realtime"] = scope.describe()
+        await ws_manager.send_to(websocket, "connected", welcome)
 
         # Keep connection alive and handle incoming messages
         while True:
@@ -71,6 +110,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Handle ping/pong for keep-alive
                 if message.get("event") == "ping":
                     await ws_manager.send_to(websocket, "pong", {"timestamp": datetime.now().isoformat()})
+
+                # Realtime scope: profile, entity subscriptions, preview policy
+                elif message.get("event") in _SCOPE_MESSAGES:
+                    await _handle_scope_message(websocket, message)
 
                 # Handle generator instance registration (for cleanup on disconnect)
                 elif message.get("event") == "register_generator_instance":

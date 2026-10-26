@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { createRealtimeScope } from '../src/composables/realtimeScope.js'
 
 // Exercise the real singleton with controlled sockets and timers. No server
 // is needed to reproduce WebKit retaining an OPEN socket across suspension.
@@ -19,10 +20,11 @@ function fixture() {
   const window = new EventTarget()
   const timers = new Map()
   let timerId = 0
-  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', `const setMobileSocketReady = () => {}; ${source}; return useWebSocket`)
+  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', 'realtimeScope', 'installRealtimeScope', `const setMobileSocketReady = () => {}; ${source}; return useWebSocket`)
   const useSocket = create(value => ({ value }), () => 'test', () => 'ws://localhost/ws', () => true,
     () => {}, () => {}, window, Socket,
-    fn => { timers.set(++timerId, fn); return timerId }, id => timers.delete(id))
+    fn => { timers.set(++timerId, fn); return timerId }, id => timers.delete(id),
+    createRealtimeScope({ schedule: fn => fn() }), () => {})
   return { api: useSocket(), sockets, timers, resume: () => window.dispatchEvent(new Event('stimma:transport-resumed')) }
 }
 

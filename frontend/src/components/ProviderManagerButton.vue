@@ -95,6 +95,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useProvidersApi, type Provider } from '../composables/useProvidersApi'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useRealtimeTopic } from '../composables/useRealtimeTopic'
 import { useTheme } from '../composables/useTheme'
 import { useViewport } from '../composables/useViewport'
 import { useToasts } from '../composables/useToasts'
@@ -117,6 +118,8 @@ const { addToast } = useToasts()
 
 const providers = ref<ManagedProvider[]>([])
 const openId = ref<string | null>(null)
+// An open manager panel refreshes on every job tick, including other tools'.
+useRealtimeTopic(() => (openId.value ? 'generation' : null))
 const anchor = ref<string>('')
 const frameEl = ref<HTMLIFrameElement | null>(null)
 function setFrame(el: unknown) { frameEl.value = (el as HTMLIFrameElement | null) }

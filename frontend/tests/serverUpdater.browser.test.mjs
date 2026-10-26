@@ -32,7 +32,7 @@ async function fixture(t, { desktop = false } = {}) {
   // `gate`, when set, holds status responses until it resolves.
   const server = { status: { ...READY }, statusRequests: 0, commands: [], sockets: new Set(), gate: null }
   await page.clock.install()
-  await page.routeWebSocket('**/ws', ws => {
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
     server.sockets.add(ws)
     ws.onClose(() => server.sockets.delete(ws))
   })

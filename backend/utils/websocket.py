@@ -2,13 +2,14 @@
 import asyncio
 import functools
 import json
+import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from collections import OrderedDict, deque
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from core.logging import get_logger
-from typing import List, Dict, Optional, Callable, Awaitable
+from typing import Any, List, Dict, Optional, Callable, Awaitable
 from fastapi import WebSocket, WebSocketDisconnect
 
 from core.profile_context import get_current_profile
@@ -156,10 +157,327 @@ class OutboundFrame:
     # Direct frames only: called if the connection is torn down before this
     # frame was written, so the sender can release what it reserved.
     on_undelivered: Optional[Callable[[], Awaitable[None]]] = None
+    # Scoped clients get this frame in full only if they subscribe to one of
+    # these topics; None means every client is interested.
+    topics: Optional[tuple] = None
+    # A preview image rides in this frame; scoped clients get it only if they
+    # subscribe to one of these topics and their preview policy allows it.
+    preview_topics: Optional[tuple] = None
+    preview_bytes: int = 0
+    # Lazily built alternatives ("summary" for an uninterested client,
+    # "no_preview" for one that declines the image). Each is serialized at
+    # most once per broadcast and shared by every client that takes it.
+    _variant_factories: Dict[str, Callable[[], "OutboundFrame"]] = field(
+        default_factory=dict, repr=False
+    )
+    _variants: Dict[str, "OutboundFrame"] = field(default_factory=dict, repr=False)
 
     @property
     def size(self) -> int:
         return len(self.text)
+
+    def variant(self, name: str) -> Optional["OutboundFrame"]:
+        built = self._variants.get(name)
+        if built is None:
+            factory = self._variant_factories.get(name)
+            if factory is None:
+                return None
+            built = self._variants[name] = factory()
+        return built
+
+    def seal(self) -> None:
+        """Release the variant builders (they retain the source payload)."""
+        self._variant_factories.clear()
+        for built in self._variants.values():
+            built.seal()
+
+
+# --- Realtime scopes ------------------------------------------------------
+#
+# A client that declares the realtime capability (``?realtime=1`` on connect,
+# or any ``realtime_*`` message) gets a scope: its profile, the entities it
+# is looking at (topics) and its preview policy. A client that never declares
+# it is a legacy client and receives every broadcast exactly as before.
+#
+# For a scoped client:
+# - Frames tagged with another profile are not delivered. Untagged (global)
+#   frames always are.
+# - Heavy per-entity detail is delivered only for subscribed topics:
+#     chat:<id>            chat items, plan/node progress and usage for one chat
+#     generator:<id>       full job detail and progress ticks for one generator
+#                          instance (a tool view's job feed)
+#     generation           the same for every generator instance
+#     previews:<id>        generation preview images for one generator instance
+#     previews             preview images for every generator instance
+# - Job lifecycle events for a generator instance the client does not follow
+#   arrive as small summaries (ids, status, result), so every client still learns
+#   that remote work exists, starts and finishes.
+REALTIME_PROTOCOL = 1
+REALTIME_MAX_TOPICS = 256
+REALTIME_MAX_TOPIC_LENGTH = 256
+REALTIME_MAX_PROFILE_LENGTH = 128
+PREVIEW_MIN_FPS = 0.1
+PREVIEW_MAX_FPS = 60.0
+# Cadence bookkeeping per client is bounded; old jobs fall out first.
+_PREVIEW_CADENCE_ENTRIES = 256
+
+_JOB_LIFECYCLE_EVENTS = frozenset({
+    "generation_job_queued",
+    "generation_job_started",
+    "generation_job_completed",
+    "generation_job_failed",
+    "generation_job_cancelled",
+})
+# What a client that does not show a job's feed needs to know about it:
+# that it exists, whose it is, how it ended and what it produced (activity
+# counts, unseen dots, image editor candidates). Parameters, paths, worker
+# and timing detail are for the job's own feed.
+_JOB_SUMMARY_FIELDS = (
+    "id",
+    "status",
+    "task_type",
+    "tool_id",
+    "generator_instance_id",
+    "profile_id",
+    "project_id",
+    "batch_id",
+    "batch_total",
+    "batch_output_set_id",
+    "result_media_id",
+    "result_asset_id",
+    "error",
+)
+# Per-chat detail that only an open view of that chat renders. Chat list and
+# activity summaries (chat_updated, agent_started/stopped, ...) stay global.
+_CHAT_DETAIL_EVENTS = frozenset({
+    "chat_item_created",
+    "chat_item_updated",
+    "chat_item_deleted",
+    "agent_node_progress",
+    "agent_planning",
+    "agent_executing",
+    "plan_status_changed",
+    "plan_node_updated",
+    "llm_usage",
+})
+
+
+def _job_summary(data: dict) -> dict:
+    job = data["job"]
+    return {
+        **data,
+        "job": {k: job[k] for k in _JOB_SUMMARY_FIELDS if k in job},
+        "detail": "summary",
+    }
+
+
+def _without_preview(data: dict) -> dict:
+    return {k: v for k, v in data.items() if k not in ("preview_b64", "preview_mime")}
+
+
+def _generator_instance_of(data: dict) -> Optional[str]:
+    gid = data.get("generator_instance_id")
+    if not gid and isinstance(data.get("job"), dict):
+        gid = data["job"].get("generator_instance_id")
+    return gid if isinstance(gid, str) and gid else None
+
+
+def build_frame(event: str, data: dict) -> OutboundFrame:
+    """Serialize a broadcast once and attach its interest metadata."""
+    profile_id = data.get("profile_id")
+    topics = preview_topics = None
+    preview_bytes = 0
+    factories: Dict[str, Callable[[], OutboundFrame]] = {}
+    if event in _JOB_LIFECYCLE_EVENTS:
+        gid = _generator_instance_of(data)
+        # A job without an instance is shown by any feed; keep it whole.
+        if gid and isinstance(data.get("job"), dict):
+            topics = ("generation", f"generator:{gid}")
+            factories["summary"] = lambda: build_frame(event, _job_summary(data))
+    elif event == "generation_job_progress":
+        gid = _generator_instance_of(data)
+        if gid:
+            topics = ("generation", f"generator:{gid}")
+        preview = data.get("preview_b64")
+        if preview:
+            preview_topics = ("previews", f"previews:{gid}") if gid else ("previews",)
+            preview_bytes = len(preview) if isinstance(preview, str) else 0
+            factories["no_preview"] = lambda: build_frame(event, _without_preview(data))
+    elif event in _CHAT_DETAIL_EVENTS:
+        chat_id = data.get("chat_id")
+        if chat_id is not None:
+            topics = (f"chat:{chat_id}",)
+    return OutboundFrame(
+        event=event,
+        text=json.dumps({"event": event, "data": data}),
+        delivery=_delivery_policy(event, data),
+        profile_id=profile_id if isinstance(profile_id, str) else None,
+        topics=topics,
+        preview_topics=preview_topics,
+        preview_bytes=preview_bytes,
+        _variant_factories=factories,
+    )
+
+
+def _parse_topics(value: Any) -> set:
+    if not isinstance(value, list):
+        raise ValueError("topics must be a list")
+    topics = set()
+    for topic in value:
+        if not isinstance(topic, str) or not topic or len(topic) > REALTIME_MAX_TOPIC_LENGTH:
+            raise ValueError("invalid topic")
+        topics.add(topic)
+    if len(topics) > REALTIME_MAX_TOPICS:
+        raise ValueError("too many topics")
+    return topics
+
+
+def _parse_previews(value: Any) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError("previews must be an object")
+    parsed = {}
+    if "enabled" in value:
+        if not isinstance(value["enabled"], bool):
+            raise ValueError("previews.enabled must be a boolean")
+        parsed["enabled"] = value["enabled"]
+    if "max_fps" in value:
+        fps = value["max_fps"]
+        if fps is not None:
+            if isinstance(fps, bool) or not isinstance(fps, (int, float)) or fps <= 0:
+                raise ValueError("previews.max_fps must be a positive number or null")
+            fps = min(max(float(fps), PREVIEW_MIN_FPS), PREVIEW_MAX_FPS)
+        parsed["max_fps"] = fps
+    if "max_bytes" in value:
+        limit = value["max_bytes"]
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
+            raise ValueError("previews.max_bytes must be a positive integer or null")
+        parsed["max_bytes"] = limit
+    return parsed
+
+
+def _parse_profile(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > REALTIME_MAX_PROFILE_LENGTH:
+        raise ValueError("invalid profile_id")
+    return value
+
+
+class RealtimeScope:
+    """What one capability-declaring client wants delivered."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic):
+        self.profile_id: Optional[str] = None
+        self.topics: set = set()
+        self.previews_enabled = True
+        self.preview_max_fps: Optional[float] = None
+        self.preview_max_bytes: Optional[int] = None
+        self._clock = clock
+        # (profile, job) -> when this client last got a preview image for it
+        self._last_preview: "OrderedDict[tuple, float]" = OrderedDict()
+
+    def update(self, kind: str, payload: Any) -> None:
+        """Apply a scope message atomically; ValueError leaves it unchanged.
+
+        ``scope`` replaces each field it names (profile_id, topics, previews);
+        ``subscribe`` / ``unsubscribe`` add or remove topics.
+        """
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+        if kind in ("subscribe", "unsubscribe"):
+            changed = _parse_topics(payload.get("topics"))
+            topics = self.topics | changed if kind == "subscribe" else self.topics - changed
+            if len(topics) > REALTIME_MAX_TOPICS:
+                raise ValueError("too many topics")
+            self.topics = topics
+            return
+        if kind != "scope":
+            raise ValueError("unknown scope message")
+        profile_id = _parse_profile(payload["profile_id"]) if "profile_id" in payload else self.profile_id
+        topics = _parse_topics(payload["topics"]) if "topics" in payload else self.topics
+        previews = _parse_previews(payload["previews"]) if "previews" in payload else {}
+        if profile_id != self.profile_id:
+            self._last_preview.clear()
+        self.profile_id = profile_id
+        self.topics = topics
+        self.previews_enabled = previews.get("enabled", self.previews_enabled)
+        self.preview_max_fps = previews.get("max_fps", self.preview_max_fps)
+        self.preview_max_bytes = previews.get("max_bytes", self.preview_max_bytes)
+
+    def describe(self) -> dict:
+        return {
+            "protocol": REALTIME_PROTOCOL,
+            "profile_id": self.profile_id,
+            "topics": sorted(self.topics),
+            "previews": {
+                "enabled": self.previews_enabled,
+                "max_fps": self.preview_max_fps,
+                "max_bytes": self.preview_max_bytes,
+            },
+        }
+
+    def _allows_preview(self, frame: OutboundFrame) -> bool:
+        if not self.previews_enabled:
+            return False
+        if frame.preview_topics is not None and self.topics.isdisjoint(frame.preview_topics):
+            return False
+        if self.preview_max_bytes is not None and frame.preview_bytes > self.preview_max_bytes:
+            return False
+        if self.preview_max_fps:
+            key = frame.delivery.key[:3] if frame.delivery.key else (frame.event, frame.profile_id)
+            now = self._clock()
+            last = self._last_preview.get(key)
+            if last is not None and now - last < 1.0 / self.preview_max_fps:
+                return False
+            self._last_preview[key] = now
+            self._last_preview.move_to_end(key)
+            while len(self._last_preview) > _PREVIEW_CADENCE_ENTRIES:
+                self._last_preview.popitem(last=False)
+        return True
+
+    def select(self, frame: OutboundFrame) -> Optional[OutboundFrame]:
+        if (
+            frame.profile_id is not None
+            and self.profile_id is not None
+            and frame.profile_id != self.profile_id
+        ):
+            return None
+        if frame.topics is not None and self.topics.isdisjoint(frame.topics):
+            # Not following this entity: a summary if the event has one
+            # (job lifecycle), otherwise nothing (detail, progress ticks).
+            return frame.variant("summary")
+        if frame.preview_bytes and not self._allows_preview(frame):
+            return frame.variant("no_preview")
+        return frame
+
+
+def scope_from_query(params) -> Optional[RealtimeScope]:
+    """Build the initial scope from connect-time query parameters.
+
+    ``/ws?realtime=1&profile=P&topic=T&topic=U&previews=0&preview_fps=2&preview_bytes=N``.
+    Applying it before the socket is registered closes the gap between
+    connecting and subscribing. Returns None for a legacy client.
+    """
+    if params.get("realtime") != "1":
+        return None
+    payload: Dict[str, Any] = {"topics": list(params.getlist("topic"))}
+    if params.get("profile"):
+        payload["profile_id"] = params.get("profile")
+    previews: Dict[str, Any] = {}
+    if params.get("previews") in ("0", "1"):
+        previews["enabled"] = params.get("previews") == "1"
+    try:
+        if params.get("preview_fps"):
+            previews["max_fps"] = float(params.get("preview_fps"))
+        if params.get("preview_bytes"):
+            previews["max_bytes"] = int(params.get("preview_bytes"))
+    except ValueError:
+        raise ValueError("invalid preview policy")
+    if previews:
+        payload["previews"] = previews
+    scope = RealtimeScope()
+    scope.update("scope", payload)
+    return scope
 
 
 class _Entry:
@@ -214,6 +532,8 @@ class ClientConnection:
         self.closed = False
         self.coalesced = 0
         self.shed = 0
+        # None until the client declares the realtime capability.
+        self.scope: Optional[RealtimeScope] = None
 
     @property
     def queued_frames(self) -> int:
@@ -234,13 +554,15 @@ class ClientConnection:
     def pending_frames(self) -> List[OutboundFrame]:
         return [entry.frame for entry in self._queue if entry.alive]
 
-    def wants(self, frame: OutboundFrame) -> bool:
-        """Whether this client should receive a broadcast frame.
+    def frame_for(self, frame: OutboundFrame) -> Optional[OutboundFrame]:
+        """The form of a broadcast frame this client receives, if any.
 
-        Every client receives every broadcast today (the UI filters by
-        profile). Per-client subscriptions plug in here.
+        A legacy client (no realtime scope) receives every broadcast as is
+        and filters by profile itself.
         """
-        return True
+        if self.scope is None:
+            return frame
+        return self.scope.select(frame)
 
     def enqueue(self, frame: OutboundFrame) -> bool:
         """Queue a frame without waiting.
@@ -441,21 +763,46 @@ class WebSocketManager:
         """
         self._on_generator_disconnect = callback
 
-    async def connect(self, websocket: WebSocket):
-        """Accept a new WebSocket connection (refused once shutdown began)."""
+    async def connect(self, websocket: WebSocket, scope: Optional[RealtimeScope] = None):
+        """Accept a new WebSocket connection (refused once shutdown began).
+
+        A connect-time ``scope`` is in force before the first broadcast can
+        reach this client.
+        """
         if self._closing:
             raise WebSocketDisconnect(code=1001)
         await websocket.accept()
-        self.attach(websocket)
-        log.info(f"WebSocket connected. Total connections: {len(self._clients)}")
+        self.attach(websocket, scope)
+        log.info(
+            f"WebSocket connected. Total connections: {len(self._clients)}",
+            scoped=scope is not None,
+        )
 
-    def attach(self, websocket: WebSocket) -> ClientConnection:
+    def attach(self, websocket: WebSocket, scope: Optional[RealtimeScope] = None) -> ClientConnection:
         """Register an already-accepted socket for delivery."""
         client = self._clients.get(id(websocket))
         if client is None:
             client = ClientConnection(websocket, self._client_failed, **self._client_limits)
             self._clients[id(websocket)] = client
+        if scope is not None:
+            client.scope = scope
         return client
+
+    def update_scope(self, websocket: WebSocket, kind: str, payload: Any) -> Optional[dict]:
+        """Apply a realtime scope message from a client and describe the result.
+
+        The first such message opts a legacy connection in. Takes effect for
+        every broadcast after it; nothing already queued is withdrawn. Raises
+        ValueError (scope unchanged) for an invalid message; returns None for a
+        socket that is no longer attached.
+        """
+        client = self._clients.get(id(websocket))
+        if client is None or client.closed:
+            return None
+        scope = client.scope if client.scope is not None else RealtimeScope()
+        scope.update(kind, payload)
+        client.scope = scope
+        return scope.describe()
 
     def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str) -> bool:
         """Associate a generator instance ID with a WebSocket connection.
@@ -669,14 +1016,9 @@ class WebSocketManager:
                 # If we can't get profile, send without it (worker threads, etc.)
                 pass
 
-        # Serialize once; every client's queue shares the same frame.
-        profile_id = data.get('profile_id')
-        frame = OutboundFrame(
-            event=event,
-            text=json.dumps({"event": event, "data": data}),
-            delivery=_delivery_policy(event, data),
-            profile_id=profile_id if isinstance(profile_id, str) else None,
-        )
+        # Serialize once; every client's queue shares the same frame (or the
+        # same shared variant of it).
+        frame = build_frame(event, data)
         # Log outgoing broadcast (truncate data for readability)
         # Skip noisy high-frequency events
         if event not in ("processing_stats",):
@@ -694,8 +1036,10 @@ class WebSocketManager:
                 )
 
         for client in list(self._clients.values()):
-            if client.wants(frame):
-                self._deliver(client, frame)
+            selected = client.frame_for(frame)
+            if selected is not None:
+                self._deliver(client, selected)
+        frame.seal()
         # Yield once so sender tasks keep pace with a caller that broadcasts in
         # a tight loop; otherwise a burst could fill even a healthy client's
         # queue before its sender ever runs. This never waits on a socket.

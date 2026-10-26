@@ -1,0 +1,199 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import test from 'node:test'
+import { createRealtimeScope } from '../src/composables/realtimeScope.js'
+
+function harness() {
+  const sent = []
+  const timers = new Map()
+  let timerId = 0
+  const scope = createRealtimeScope({
+    schedule: fn => fn(),
+    setTimer: (fn) => { timers.set(++timerId, fn); return timerId },
+    clearTimer: id => timers.delete(id),
+    warn: () => {},
+  })
+  const send = (event, data) => { sent.push({ event, data }); return true }
+  const fireTimers = () => { for (const [id, fn] of [...timers]) { timers.delete(id); fn() } }
+  return { scope, sent, send, timers, fireTimers }
+}
+
+const settled = async (promise) => {
+  let done = false
+  promise.then(() => { done = true })
+  await new Promise(resolve => setImmediate(resolve))
+  return done
+}
+
+test('the connect query carries the capability and the complete scope', () => {
+  const { scope } = harness()
+  scope.acquire('chat:7')
+  scope.acquire('previews:tool-a@@g')
+  scope.setPreviewPolicy({ maxFps: 2, maxBytes: 262144 })
+  const params = new URLSearchParams(scope.connectQuery('profile-a'))
+  assert.equal(params.get('realtime'), '1')
+  assert.equal(params.get('profile'), 'profile-a')
+  assert.deepEqual(params.getAll('topic'), ['chat:7', 'previews:tool-a@@g'])
+  assert.equal(params.get('previews'), '1')
+  assert.equal(params.get('preview_fps'), '2')
+  assert.equal(params.get('preview_bytes'), '262144')
+})
+
+test('a current server gets the full scope after each change and acknowledges it', async () => {
+  const { scope, sent, send } = harness()
+  scope.connectQuery('a')
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { protocol: 1, profile_id: 'a', topics: [] } })
+  assert.equal(sent.length, 0, 'nothing changed since connecting')
+
+  const release = scope.acquire('chat:7')
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].event, 'realtime_scope')
+  assert.deepEqual(sent[0].data, {
+    profile_id: 'a', topics: ['chat:7'],
+    previews: { enabled: true, max_fps: null, max_bytes: null }, seq: 1,
+  })
+  // A view reads chat 7 over HTTP only once the server follows it for us.
+  const ready = scope.ready('chat:7')
+  assert.equal(await settled(ready), false)
+  scope.handleServerMessage('realtime_scope_applied', { seq: 1, topics: ['chat:7'] })
+  assert.equal(await settled(ready), true)
+
+  // A second view of the same chat shares the subscription.
+  const again = scope.acquire('chat:7')
+  assert.equal(sent.length, 1)
+  release()
+  assert.equal(sent.length, 1, 'still followed by the other view')
+  again()
+  assert.deepEqual(sent[1].data.topics, [])
+  assert.equal(sent[1].data.seq, 2)
+
+  scope.setProfile('b')
+  scope.setPreviewsVisible(false)
+  assert.equal(sent.at(-1).data.profile_id, 'b')
+  assert.equal(sent.at(-1).data.previews.enabled, false)
+})
+
+test('changes made while connecting are sent once the server confirms scopes', () => {
+  const { scope, sent, send } = harness()
+  scope.acquire('chat:1')
+  scope.connectQuery('a')
+  scope.acquire('generator:tool-x@@g')
+  scope.socketOpened(send)
+  assert.equal(sent.length, 0, 'not before the server says it understands scopes')
+  scope.handleServerMessage('connected', { realtime: { topics: ['chat:1'] } })
+  assert.deepEqual(sent.map(m => m.data.topics), [['chat:1', 'generator:tool-x@@g']])
+})
+
+test('an older server is never sent scope messages and never delays a view', async () => {
+  const { scope, sent, send } = harness()
+  scope.connectQuery('a')
+  scope.socketOpened(send)
+  const pending = scope.ready(undefined)
+  scope.acquire('chat:3')
+  const ready = scope.ready('chat:3')
+  scope.handleServerMessage('connected', { message: 'Connected to Stimma WebSocket' })
+  assert.equal(await settled(ready), true)
+  assert.equal(await settled(pending), true)
+  scope.acquire('chat:4')
+  scope.setPreviewsVisible(false)
+  assert.equal(sent.length, 0)
+  assert.equal(await settled(scope.ready('chat:4')), true)
+})
+
+test('topics in the connect URL are ready as soon as the socket opens', async () => {
+  const { scope, send } = harness()
+  scope.acquire('chat:9')
+  scope.connectQuery('a')
+  const ready = scope.ready('chat:9')
+  assert.equal(await settled(ready), false)
+  scope.socketOpened(send)
+  assert.equal(await settled(ready), true)
+})
+
+test('a lost acknowledgement or a dropped socket never stalls a view', async () => {
+  const { scope, send, fireTimers } = harness()
+  scope.connectQuery('a')
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { topics: [] } })
+  scope.acquire('chat:1')
+  const timedOut = scope.ready('chat:1')
+  fireTimers()
+  assert.equal(await settled(timedOut), true)
+
+  scope.acquire('chat:2')
+  const dropped = scope.ready('chat:2')
+  scope.socketClosed()
+  assert.equal(await settled(dropped), true)
+  // Offline: the reconnect resynchronizes, so there is nothing to wait for.
+  assert.equal(await settled(scope.ready('chat:2')), true)
+})
+
+test('reconnecting restores every followed topic and the profile', () => {
+  const { scope, sent, send } = harness()
+  scope.connectQuery('a')
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { topics: [] } })
+  scope.acquire('chat:5')
+  scope.acquire('generator:tool-y@@g')
+  scope.setProfile('b')
+  scope.socketClosed()
+  const params = new URLSearchParams(scope.connectQuery('b'))
+  assert.deepEqual(params.getAll('topic'), ['chat:5', 'generator:tool-y@@g'])
+  assert.equal(params.get('profile'), 'b')
+  const before = sent.length
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { topics: ['chat:5', 'generator:tool-y@@g'] } })
+  assert.equal(sent.length, before, 'the URL already restored the scope')
+})
+
+// The real useWebSocket singleton with a controlled socket.
+function socketFixture(before = () => {}) {
+  const source = readFileSync(new URL('../src/composables/useWebSocket.js', import.meta.url), 'utf8')
+    .replace(/^import .*$/gm, '').replace('export function', 'function').replaceAll('import.meta.hot', 'false')
+  const sockets = []
+  class Socket {
+    static OPEN = 1
+    static CONNECTING = 0
+    readyState = 0
+    sent = []
+    constructor(url) { this.url = url; sockets.push(this) }
+    send(text) { this.sent.push(JSON.parse(text)) }
+    close() { this.closed = true }
+    open() { this.readyState = 1; this.onopen?.() }
+    receive(event, data) { this.onmessage?.({ data: JSON.stringify({ event, data }) }) }
+  }
+  const scope = createRealtimeScope({ schedule: fn => fn() })
+  before(scope)
+  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', 'realtimeScope', 'installRealtimeScope', `const setMobileSocketReady = () => {}; ${source}; return useWebSocket`)
+  const useSocket = create(value => ({ value }), () => 'profile-a', () => 'ws://server/ws', () => true,
+    () => {}, () => {}, new EventTarget(), Socket, () => 0, () => {}, scope, () => {})
+  return { api: useSocket(), sockets, scope }
+}
+
+test('the socket connects with the scope and keeps the server in step', () => {
+  let release
+  // The singleton connects as soon as it is first used.
+  const { api, sockets, scope } = socketFixture(scope => { release = scope.acquire('chat:12') })
+  assert.equal(sockets.length, 1)
+  const url = new URL(sockets[0].url)
+  assert.equal(url.pathname, '/ws')
+  assert.equal(url.searchParams.get('realtime'), '1')
+  assert.equal(url.searchParams.get('profile'), 'profile-a')
+  assert.deepEqual(url.searchParams.getAll('topic'), ['chat:12'])
+
+  const seen = []
+  api.on('connected', data => seen.push(data))
+  sockets[0].open()
+  sockets[0].receive('connected', { realtime: { protocol: 1, profile_id: 'profile-a', topics: ['chat:12'] } })
+  assert.equal(seen.length, 1, 'ordinary handlers still see the welcome')
+  release()
+  assert.deepEqual(sockets[0].sent.map(m => [m.event, m.data.topics]), [['realtime_scope', []]])
+
+  // Events for another profile are still dropped client-side.
+  const media = []
+  api.on('media_added', data => media.push(data.media_id))
+  sockets[0].receive('media_added', { media_id: 1, profile_id: 'profile-b' })
+  sockets[0].receive('media_added', { media_id: 2, profile_id: 'profile-a' })
+  assert.deepEqual(media, [2])
+})

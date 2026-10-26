@@ -1447,6 +1447,7 @@ import { getMediaType } from '../utils/mediaTypes'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useRealtimeTopic } from '../composables/useRealtimeTopic'
 import { marked } from 'marked'
 import { buildChatItemIndex } from '../utils/chatItemIndex'
 import { createBoundedTextCache } from '../utils/boundedTextCache'
@@ -1608,6 +1609,9 @@ let steerRetryTimer = null // Retries steers the server refused because its run 
 // WebSocket - use shared singleton composable
 const { on: onWsEvent, connected: wsConnected } = useWebSocket()
 const wsUnsubscribes = [] // Store unsubscribe functions for cleanup
+// Chat item detail is only sent for chats a client has open. Follows the
+// same lifetime as the handlers below (mounted and active).
+const chatTopic = useRealtimeTopic(() => (chatId.value ? `chat:${chatId.value}` : null))
 
 // Agent status computed
 const agentStatus = computed(() => {
@@ -2925,8 +2929,11 @@ async function loadItems() {
   // A full load replaces the transcript; a resync or older page already in
   // flight was computed against the old one and must not land after it.
   cancelPendingResync()
-  historyEpoch++
+  const epoch = ++historyEpoch
   try {
+    // Read the snapshot only once the server sends this chat's live items.
+    await chatTopic.ready()
+    if (epoch !== historyEpoch) return
     // Request enough items to have 500 VISIBLE items. The backend keeps
     // fetching until it has 500 visible items (filters out tool_call, etc.)
     const response = await fetch(`/api/chats/${chatId.value}/items?visible_limit=500`)
@@ -3011,6 +3018,10 @@ async function resyncItems() {
   resyncJournal = journal
   const before = new Set(toRaw(items.value).map(item => item.id))
   try {
+    // Changes broadcast before the server follows this chat for us would
+    // otherwise fall between the snapshot and the live stream.
+    await chatTopic.ready()
+    if (generation !== resyncGeneration || chatId.value !== requestChatId) return
     const response = await fetch(`/api/chats/${requestChatId}/items?visible_limit=500`)
     if (!response.ok) return
     const data = await response.json()

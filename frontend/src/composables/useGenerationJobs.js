@@ -2,6 +2,7 @@ import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref, computed, unref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
+import { acquireRealtimeTopic, realtimeTopicReady } from './useRealtimeTopic'
 import { useMediaApi } from './useMediaApi'
 import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
@@ -1199,11 +1200,15 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('batch_job_completed', handleBatchJobCompleted))
     unsubscribers.push(onWebSocketEvent('batch_completed', handleBatchCompleted))
     unsubscribers.push(onWebSocketEvent('postprocessing_chain_progress', handleChainProgress))
+    // This feed's jobs arrive in full (other clients get summaries) for as
+    // long as the feed exists, including while its view is cached offscreen.
+    const generatorTopic = generatorInstanceId ? `generator:${generatorInstanceId}` : null
+    if (generatorTopic) unsubscribers.push(acquireRealtimeTopic(generatorTopic))
 
     // Then load initial data (chain runs after jobs — loadJobs resets the
     // chain-run state, so populating must come second)
     await Promise.all([
-      loadJobs(),
+      realtimeTopicReady(generatorTopic).then(() => loadJobs()),
       loadMarkers()
     ])
     await loadChainRuns()

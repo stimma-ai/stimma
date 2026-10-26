@@ -5,6 +5,9 @@ import { build } from 'vite'
 import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
+// Greet like a server without realtime scopes, which sends every event.
+const welcome = ws => ws.send(JSON.stringify({ event: 'connected', data: {} }))
+
 const instrument = { name: 'chat-queue-fixture', enforce: 'pre', transform(source, id) {
   if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.queueView = { messageQueue, messageInput, inputAttachments, agentRunning, modelsFetched, sendMessage }; defineExpose({})\n</script>')
 } }
@@ -25,7 +28,7 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
   const posts = []
   let steerStatus = 200
   let socket
-  await page.routeWebSocket(/\/ws$/, ws => { socket = ws })
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { socket = ws; welcome(ws) })
   await page.route('**/*', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname

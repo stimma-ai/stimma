@@ -5,6 +5,9 @@ import { build } from 'vite'
 import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
+// Greet like a server without realtime scopes, which sends every event.
+const welcome = ws => ws.send(JSON.stringify({ event: 'connected', data: {} }))
+
 const instrument = { name: 'chat-reconcile-fixture', enforce: 'pre', transform(source, id) {
   if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, messageInput, sending, modelsFetched, messagesContainer, sendMessage, loadMore, reloadAll, hasMore }; defineExpose({})\n</script>')
 } }
@@ -34,7 +37,7 @@ test('reconnect repairs changed and deleted items without moving the reader, the
   ]
   let socket
   let releasePost
-  await page.routeWebSocket(/\/ws$/, ws => { socket = ws })
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { socket = ws; welcome(ws) })
   await page.route('**/*', async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -139,7 +142,7 @@ async function openChat(t, initial, { hasMore = false, window: initialWindow = n
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const server = { items: initial, window: initialWindow, requests: [], hold: false, held: null, socket: null }
-  await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { server.socket = ws; welcome(ws) })
   await page.route('**/*', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
@@ -457,4 +460,71 @@ test('reconciling 2,000 items stays cheap on a throttled CPU', async t => {
   assert.equal(timings.unchanged.changed, false)
   assert.equal(timings.oneEdit.changed, true)
   assert.ok(timings.unchanged.ms < 250 && timings.oneEdit.ms < 250, JSON.stringify(timings))
+})
+
+test('the open chat is read only once a scoped server follows it, and a reconnect restores that', async t => {
+  const browser = await chromium.launch()
+  t.after(() => browser.close())
+  const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  const server = { urls: [], socket: null, scopes: [], holdAck: true, pendingAck: null, itemReads: 0 }
+  // A current server: applies the connect-time scope, echoes it in the
+  // welcome, and acknowledges scope changes (the first one held).
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
+    const url = new URL(ws.url())
+    server.urls.push(url)
+    server.socket = ws
+    ws.send(JSON.stringify({ event: 'connected', data: { realtime_protocol: 1, realtime: {
+      protocol: 1, profile_id: url.searchParams.get('profile'), topics: url.searchParams.getAll('topic'),
+    } } }))
+    ws.onMessage(message => {
+      const { event, data } = JSON.parse(String(message))
+      if (event !== 'realtime_scope') return
+      server.scopes.push(data)
+      const ack = () => ws.send(JSON.stringify({ event: 'realtime_scope_applied', data }))
+      if (server.holdAck) server.pendingAck = ack
+      else ack()
+    })
+  })
+  await page.route('**/*', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="app" style="height:650px;display:flex;flex-direction:column"></div></body></html>' })
+    if (/^\/api\/chats\/\d+$/.test(path)) return route.fulfill({ json: { id: 1, name: 'Scoped test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
+    if (path.endsWith('/items') && request.method() === 'GET') {
+      server.itemReads++
+      return route.fulfill({ json: { items: [user(3), user(2), user(1)], has_more: false } })
+    }
+    if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
+    if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('http://chat-reconcile.test/')
+  await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
+
+  // The open chat is followed; its transcript is not read until the server
+  // confirms, so nothing broadcast in between can be missed.
+  await expect.poll(() => server.scopes.length).toBe(1)
+  assert.deepEqual(server.scopes[0].topics, ['chat:1'])
+  assert.equal(server.urls[0].searchParams.get('realtime'), '1')
+  await page.waitForTimeout(300)
+  assert.equal(server.itemReads, 0)
+  server.holdAck = false
+  server.pendingAck()
+  await expect.poll(() => server.itemReads).toBe(1)
+  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.map(i => i.id))).toEqual([1, 2, 3])
+
+  // Detail for the open chat is applied live.
+  server.socket.send(JSON.stringify({ event: 'chat_item_created', data: { chat_id: 1, item: user(4) } }))
+  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.length)).toBe(4)
+
+  // A reconnect carries the subscription in its URL and resynchronizes at
+  // once, without another scope round trip.
+  server.socket.close()
+  await expect.poll(() => server.urls.length).toBe(2)
+  assert.deepEqual(server.urls[1].searchParams.getAll('topic'), ['chat:1'])
+  await expect.poll(() => server.itemReads).toBe(2)
+  assert.equal(server.scopes.length, 1)
+  assert.deepEqual(errors, [])
 })

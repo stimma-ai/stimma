@@ -1201,6 +1201,7 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { ArchiveBoxIcon, PhotoIcon, SparklesIcon } from '@heroicons/vue/24/outline'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useRealtimeTopic } from '../composables/useRealtimeTopic'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { useStimpacksApi, type Skill } from '../composables/useStimpacksApi'
@@ -2704,6 +2705,9 @@ const jobsManager = useGenerationJobs({
   activeCap: activeJobsCap
 })
 const { beginInstanceWork, setInstanceForeverMode } = useGenerationStatus()
+// Preview images are sent only while this tool is on screen (KeepAlive
+// active). The job feed itself stays followed while the view is cached.
+useRealtimeTopic(() => `previews:${generatorInstanceId}`)
 
 // Generation preferences composable - called at TOP LEVEL during setup
 // taskType is a placeholder - the real key is toolId which creates tool-specific storage
