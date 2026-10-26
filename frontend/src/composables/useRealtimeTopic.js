@@ -53,6 +53,14 @@ export function acquireRealtimeTopic(topic) {
  * Resolves once the server delivers `topic` (bounded wait): true when
  * confirmed, false when the read that follows is provisional.
  */
+/**
+ * Mark a read of `topic` that does not wait for confirmation; true when it
+ * is provisional (a later confirmation fires the reconcile hooks).
+ */
+export function markRealtimeTopicProvisional(topic) {
+  return realtimeScope.markProvisional(topic)
+}
+
 export function realtimeTopicReady(topic) {
   return realtimeScope.ready(topic)
 }
@@ -101,6 +109,11 @@ export function useRealtimeTopic(getter, { onLateConfirm = null } = {}) {
     ready() {
       sync()
       return realtimeScope.ready(current)
+    },
+    /** Read now without waiting; `onLateConfirm` reconciles if needed. */
+    readProvisionally() {
+      sync()
+      return realtimeScope.markProvisional(current)
     },
   }
 }

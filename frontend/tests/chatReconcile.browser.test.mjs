@@ -522,52 +522,59 @@ async function openScopedChat(t, { holdAcks = false } = {}) {
   }
 }
 
-test('the open chat is read only once a scoped server follows it, and a reconnect restores that', async t => {
+test('the open chat paints before a scoped server confirms it, reconciles on confirmation, and a reconnect restores it', async t => {
   const { page, server, errors, reads, ids } = await openScopedChat(t, { holdAcks: true })
-  // The open chat is followed; its transcript is not read until the server
-  // confirms, so nothing broadcast in between can be missed.
+  // The transcript is read and painted at once, without waiting on the
+  // socket, while the subscription to it is still unacknowledged.
   await expect.poll(() => server.scopes.length).toBe(1)
   assert.deepEqual(server.scopes[0].topics, ['chat:1'])
   assert.equal(server.urls[0].searchParams.get('realtime'), '1')
-  await page.waitForTimeout(300)
-  assert.equal(reads(1), 0)
+  await expect.poll(ids, { timeout: 1000 }).toEqual([1, 2, 3])
+  assert.equal(reads(1), 1)
+  assert.equal(server.heldAcks.length, 1)
+
+  // Item 4 is created before the subscription applies, so it is never sent;
+  // the confirmation reconciles the transcript and picks it up.
+  server.items[1] = [user(1), user(2), user(3), user(4)]
   server.releaseAcks()
-  await expect.poll(() => reads(1)).toBe(1)
-  await expect.poll(ids).toEqual([1, 2, 3])
+  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(ids).toEqual([1, 2, 3, 4])
 
   // Detail for the open chat is applied live.
-  server.socket.send(JSON.stringify({ event: 'chat_item_created', data: { chat_id: 1, item: user(4) } }))
-  await expect.poll(async () => (await ids()).length).toBe(4)
+  server.socket.send(JSON.stringify({ event: 'chat_item_created', data: { chat_id: 1, item: user(5) } }))
+  await expect.poll(async () => (await ids()).length).toBe(5)
 
   // A reconnect carries the subscription in its URL and resynchronizes at
   // once, without another scope round trip.
   server.socket.close()
   await expect.poll(() => server.urls.length).toBe(2)
   assert.deepEqual(server.urls[1].searchParams.getAll('topic'), ['chat:1'])
-  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(() => reads(1)).toBe(3)
   assert.equal(server.scopes.length, 1)
   assert.deepEqual(errors, [])
 })
 
-test('returning to a chat before its re-subscription is acknowledged waits for that acknowledgement', async t => {
+test('returning to a chat before its re-subscription is acknowledged reconciles once it is', async t => {
   const { page, server, errors, reads, ids } = await openScopedChat(t)
   await expect.poll(ids).toEqual([1, 2, 3])
-  assert.equal(reads(1), 1)
+  // The first read raced the subscription, so its confirmation reconciled.
+  await expect.poll(() => reads(1)).toBe(2)
 
   // Leave chat 1 and come straight back while the server sits on the acks.
   // The last acknowledged scope still lists chat 1, but its unsubscribe and
-  // resubscribe are in flight: reading now could miss its changes.
+  // resubscribe are in flight, so the read on return is provisional.
   server.holdAcks = true
   await page.evaluate(() => window.chatRouter.push('/chat/2'))
   await expect.poll(() => server.scopes.at(-1).topics).toEqual(['chat:2'])
   await page.evaluate(() => window.chatRouter.push('/chat/1'))
   await expect.poll(() => server.scopes.at(-1).topics).toEqual(['chat:1'])
-  await page.waitForTimeout(300)
-  assert.equal(reads(1), 1, 'no read of chat 1 on a stale acknowledgement')
-
-  server.releaseAcks()
-  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(() => reads(1), { timeout: 1000 }).toBe(3)
   await expect.poll(ids).toEqual([1, 2, 3])
+
+  server.items[1] = [user(1), user(2), user(3), user(4)]
+  server.releaseAcks()
+  await expect.poll(() => reads(1)).toBe(4)
+  await expect.poll(ids).toEqual([1, 2, 3, 4])
   assert.deepEqual(errors, [])
 })
 

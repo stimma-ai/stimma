@@ -3105,14 +3105,15 @@ async function loadItems() {
   // A full load replaces the transcript; a resync or older page already in
   // flight was computed against the old one and must not land after it.
   cancelPendingResync()
-  const epoch = ++historyEpoch
+  historyEpoch++
   const requestChatId = chatId.value
   const skillsAt = skillsGeneration
   fullLoadsInFlight++
   try {
-    // Read the snapshot only once the server sends this chat's live items.
-    await chatTopic.ready()
-    if (epoch !== historyEpoch) return
+    // Read at once so the transcript paints without waiting on the socket.
+    // If the server does not follow this chat yet, its confirmation
+    // reconciles the transcript after this load lands (onLateConfirm).
+    chatTopic.readProvisionally()
     const response = await fetch(`/api/chats/${requestChatId}/items?${CHAT_WINDOW_QUERY}`)
     if (!response.ok) {
       throw new Error('Failed to load chat items')

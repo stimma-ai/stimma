@@ -40,7 +40,8 @@
  * It resolves `true` when that is confirmed (or nothing needs confirming)
  * and `false` when it gave up waiting. A view that read provisionally is
  * told through `onLateConfirm` once the topic is confirmed, and reconciles
- * then. `onProfileConfirmed` fires when the server starts filtering for a
+ * then. Views that must not wait before first paint read at once with
+ * `markProvisional(topic)` and reconcile the same way. `onProfileConfirmed` fires when the server starts filtering for a
  * new profile, so state read during the switch can be reconciled.
  */
 
@@ -184,6 +185,20 @@ export function createRealtimeScope({
     })
   }
 
+  /**
+   * A view is about to read `topic` over HTTP without waiting. Returns true
+   * when that read is provisional: the topic is not yet confirmed, so
+   * `onLateConfirm` will fire once it is and the view reconciles then.
+   */
+  function markProvisional(topic) {
+    // Unlike a wait, a read made while (re)connecting stays provisional: not
+    // every reconnect reload waits for readiness, and the confirmation (or
+    // the connect URL's scope) settles it once the socket is up.
+    if (!topic || mode === 'legacy' || !counts.has(topic) || confirmed(topic)) return false
+    provisional.add(topic)
+    return true
+  }
+
   function onLateConfirm(listener) {
     lateConfirmListeners.add(listener)
     return () => lateConfirmListeners.delete(listener)
@@ -274,6 +289,9 @@ export function createRealtimeScope({
         flush()
       } else {
         mode = 'legacy'
+        // An older server sends everything from here on, and the connect
+        // itself resynchronizes views: nothing provisional to reconcile.
+        provisional.clear()
       }
       settle()
       return false
@@ -311,6 +329,7 @@ export function createRealtimeScope({
   return {
     acquire,
     ready,
+    markProvisional,
     onLateConfirm,
     onProfileConfirmed,
     setProfile,

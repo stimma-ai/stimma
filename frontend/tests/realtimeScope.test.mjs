@@ -213,6 +213,20 @@ test('overlapping scope changes still reconcile a profile switch exactly once', 
   assert.deepEqual(confirmedProfiles, ['b'])
 })
 
+test('a read that does not wait is provisional only until the topic is confirmed', () => {
+  const { scope, ack } = scopedHarness()
+  const late = []
+  scope.onLateConfirm(topic => late.push(topic))
+  scope.acquire('generator:tool-q@@g')
+  assert.equal(scope.markProvisional('generator:tool-q@@g'), true)
+  ack()
+  assert.deepEqual(late, ['generator:tool-q@@g'])
+  // Once confirmed, a read needs no reconciliation.
+  assert.equal(scope.markProvisional('generator:tool-q@@g'), false)
+  ack()
+  assert.deepEqual(late, ['generator:tool-q@@g'])
+})
+
 test('a timed-out wait reads provisionally and is reconciled on confirmation', async () => {
   const { scope, ack, fireTimers } = scopedHarness()
   const late = []

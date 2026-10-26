@@ -2,7 +2,7 @@ import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref, computed, unref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
-import { acquireRealtimeTopic, realtimeTopicReady, onRealtimeTopicConfirmed } from './useRealtimeTopic'
+import { acquireRealtimeTopic, markRealtimeTopicProvisional, onRealtimeTopicConfirmed } from './useRealtimeTopic'
 import { useMediaApi } from './useMediaApi'
 import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
@@ -1212,9 +1212,12 @@ export function useGenerationJobs(options = {}) {
     }
 
     // Then load initial data (chain runs after jobs — loadJobs resets the
-    // chain-run state, so populating must come second)
+    // chain-run state, so populating must come second). The feed renders
+    // from this read at once; if the server does not follow the feed yet,
+    // its confirmation reloads the jobs (above), so nothing is missed.
+    if (generatorTopic) markRealtimeTopicProvisional(generatorTopic)
     await Promise.all([
-      realtimeTopicReady(generatorTopic).then(() => loadJobs()),
+      loadJobs(),
       loadMarkers()
     ])
     await loadChainRuns()
