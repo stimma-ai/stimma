@@ -138,7 +138,7 @@ async function openChat(t, initial, { hasMore = false } = {}) {
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const server = { items: initial, hold: false, held: null, socket: null }
+  const server = { items: initial, window: null, requests: [], hold: false, held: null, socket: null }
   await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
   await page.route('**/*', async route => {
     const request = route.request()
@@ -146,7 +146,15 @@ async function openChat(t, initial, { hasMore = false } = {}) {
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="app" style="height:650px;display:flex;flex-direction:column"></div></body></html>' })
     if (/^\/api\/chats\/\d+$/.test(path)) return route.fulfill({ json: { id: 1, name: 'Reconcile test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
     if (path.endsWith('/items') && request.method() === 'GET') {
-      const json = { items: [...server.items].reverse(), has_more: hasMore }
+      // `server.window` makes the newest-window request partial, like the
+      // real endpoint; before_id pages like the real pagination.
+      const params = new URL(request.url()).searchParams
+      const beforeId = Number(params.get('before_id')) || null
+      const source = beforeId ? server.items.filter(i => i.id < beforeId) : server.items
+      const size = beforeId ? Number(params.get('limit')) : server.window
+      const page = size ? source.slice(-size) : source
+      server.requests.push(beforeId)
+      const json = { items: [...page].reverse(), has_more: size ? source.length > page.length : hasMore }
       if (server.hold) {
         server.hold = false
         await new Promise(resolve => { server.held = resolve })
@@ -213,6 +221,34 @@ test('a full reload invalidates a resync that is still in flight', async t => {
   view.server.held()
   await view.page.waitForTimeout(300)
   assert.deepEqual((await view.items()).map(i => i.id), [1, 2, 3, 4, 5])
+  assert.deepEqual(view.errors, [])
+})
+
+test('a snapshot far past the loaded history replaces it instead of leaving an unpageable hole', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3)])
+  const { page } = view
+  // Park the reader on the old history, away from the bottom.
+  await page.evaluate(() => { window.reconcileView.messagesContainer.value.scrollTop = 0 })
+  // While away the chat grows to 400 items; the endpoint returns only the
+  // newest 200, so the snapshot starts at 201 and shares nothing with 1..3.
+  view.server.items = Array.from({ length: 400 }, (_, i) => user(i + 1))
+  view.server.window = 200
+  view.server.socket.close()
+  await expect.poll(async () => (await view.items())[0].id).toBe(201)
+  const ids = (await view.items()).map(i => i.id)
+  assert.equal(ids.length, 200)
+  assert.equal(ids.at(-1), 400)
+  // The reader's old messages are gone, so the view lands on the newest.
+  await expect(page.locator('[data-scroll-anchor="item:400"]')).toBeInViewport()
+  // Paging continues from the snapshot's start and reaches the beginning.
+  view.server.requests.length = 0
+  await expect.poll(() => page.evaluate(async () => {
+    await window.reconcileView.loadMore()
+    return window.reconcileView.items.value[0].id
+  }), { timeout: 20000 }).toBe(1)
+  assert.equal(view.server.requests[0], 201)
+  const all = (await view.items()).map(i => i.id)
+  assert.deepEqual(all, Array.from({ length: 400 }, (_, i) => i + 1))
   assert.deepEqual(view.errors, [])
 })
 

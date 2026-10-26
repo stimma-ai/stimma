@@ -3032,7 +3032,10 @@ async function resyncItems() {
     if (merged.length === 0 || merged[0].id === fresh[0]?.id) hasMore.value = data.has_more
     await nextTick()
     if (follow) scrollToBottom()
-    else restoreScrollAnchor(container, anchor)
+    // If everything the reader was looking at is gone (deleted, or a stale
+    // run of history replaced by a much newer snapshot), land on the newest
+    // messages rather than at an arbitrary offset.
+    else if (!restoreScrollAnchor(container, anchor)) scrollToBottom()
   } catch (error) {
     console.error('Error resyncing chat items:', error)
   } finally {
@@ -3061,14 +3064,15 @@ function captureScrollAnchor(container) {
 }
 
 function restoreScrollAnchor(container, anchors) {
-  if (!container || !anchors) return
+  if (!container || !anchors) return false
   const top = container.getBoundingClientRect().top
   for (const { key, offset } of anchors) {
     const el = container.querySelector(`[data-scroll-anchor="${CSS.escape(key)}"]`)
     if (!el) continue
     container.scrollTop += el.getBoundingClientRect().top - top - offset
-    return
+    return true
   }
+  return false
 }
 
 // Load more messages

@@ -9,6 +9,8 @@
 // The snapshot covers only the newest window of the chat, so absence from it
 // proves deletion only inside that window. Older history loaded by paging is
 // kept as-is; deletions there are not detected (no tombstones exist yet).
+// When the loaded history does not reach the snapshot window at all, it is
+// dropped instead, so no unpageable hole is left between the two.
 //
 // The fetch races live updates. The caller records every live change made
 // while the fetch is in flight in a journal (an item, or null for a
@@ -79,10 +81,28 @@ export function reconcileChatItems<T extends ChatItemLike>(
   const freshById = new Map<number, T>()
   for (const item of fresh) freshById.set(item.id, item)
 
+  // The transcript is a contiguous run of history. If none of it reaches into
+  // a partial snapshot, the snapshot may begin far past it (history grew a
+  // lot while away), and keeping both would leave a hole that paging, which
+  // only fetches before the oldest loaded item, could never fill. Drop the
+  // stale older run; the snapshot becomes the transcript's new start.
+  let reachesWindow = false
+  let olderThanWindow = false
+  for (const item of current) {
+    if (!before.has(item.id)) continue
+    if (item.id >= windowStart) reachesWindow = true
+    else olderThanWindow = true
+  }
+  const disjoint = hasMore && olderThanWindow && !reachesWindow
+
   let changed = false
   const merged: T[] = []
   const present = new Set<number>()
   for (const item of current) {
+    if (disjoint && item.id < windowStart) {
+      changed = true
+      continue
+    }
     present.add(item.id)
     if (journal.has(item.id) || !before.has(item.id)) {
       // Changed or added live while the fetch was in flight (or paged in).

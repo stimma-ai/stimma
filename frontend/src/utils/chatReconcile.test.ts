@@ -51,6 +51,22 @@ test('older history outside the snapshot window is kept', () => {
   assert.equal(items[0], current[0])
 })
 
+test('loaded history that never reaches a partial snapshot is replaced, not left behind a hole', () => {
+  // Items 1..3 were loaded; the chat grew to 1..1200 and the snapshot is 601..1200.
+  const current = [item(1), item(2), item(3)]
+  const fresh = Array.from({ length: 600 }, (_, i) => item(i + 601))
+  const { items, changed } = reconcileChatItems(current, fresh, { hasMore: true, before: ids(current), journal: quiet() })
+  assert.equal(changed, true)
+  assert.equal(items[0].id, 601)
+  assert.equal(items.length, 600)
+})
+
+test('loaded history that overlaps a partial snapshot keeps its older part', () => {
+  const current = [item(1), item(2), item(3), item(4)]
+  const { items } = reconcileChatItems(current, [item(4), item(5)], { hasMore: true, before: ids(current), journal: quiet() })
+  assert.deepEqual(items.map(i => i.id), [1, 2, 3, 4, 5])
+})
+
 test('a complete snapshot removes anything it does not contain', () => {
   const current = [item(1), item(2)]
   const { items } = reconcileChatItems(current, [], { hasMore: false, before: ids(current), journal: quiet() })
