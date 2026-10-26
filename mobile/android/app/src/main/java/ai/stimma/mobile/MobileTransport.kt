@@ -166,25 +166,29 @@ class PinnedServer(
     /** Close idle connections, e.g. before they cross a background period or network change. */
     fun evictIdle() { retirement.execute { client.connectionPool.evictAll() } }
 
-    private val proxyCalls = mutableSetOf<Call>()
+    /** A proxied request: what retiring its session must do to stop it. */
+    internal fun interface Retirable { fun retire() }
+
+    private val proxyRequests = mutableSetOf<Retirable>()
     private var retired = false
 
     /**
-     * Register a proxied call for this session's lifetime, from before its
-     * final admission check until its response is closed. False once the
-     * session is retired, so a call can never start after retirement.
+     * Register a proxied request for this session's lifetime, from before its
+     * final admission check until its response is delivered to the WebView.
+     * False once the session is retired, so nothing can start afterwards.
      */
-    internal fun admit(call: Call): Boolean = synchronized(proxyCalls) { if (retired) false else proxyCalls.add(call) }
-    internal fun release(call: Call) { synchronized(proxyCalls) { proxyCalls.remove(call) } }
+    internal fun admit(request: Retirable): Boolean = synchronized(proxyRequests) { if (retired) false else proxyRequests.add(request) }
+    internal fun release(request: Retirable) { synchronized(proxyRequests) { proxyRequests.remove(request) } }
 
     /**
-     * This session is finished: cancel every call it is making, including
-     * proxied responses still streaming (OkHttp's dispatcher only tracks a
-     * synchronous call until its headers arrive), and close its connections.
+     * This session is finished: stop every proxied request it is serving,
+     * including responses still being delivered (OkHttp's dispatcher only
+     * tracks a synchronous call until its headers arrive), cancel its other
+     * calls, and close its connections.
      */
     fun retire() {
-        val active = synchronized(proxyCalls) { retired = true; proxyCalls.toList().also { proxyCalls.clear() } }
-        active.forEach { it.cancel() }
+        val active = synchronized(proxyRequests) { retired = true; proxyRequests.toList().also { proxyRequests.clear() } }
+        active.forEach { runCatching { it.retire() } }
         client.dispatcher.cancelAll()
         evictIdle()
     }
@@ -232,12 +236,45 @@ class PinnedServer(
     }
 }
 
-/** Records whether any byte of a response reached the WebView, after which no other response may follow. */
-private class ResponseStream(output: OutputStream) : FilterOutputStream(output) {
+/**
+ * The response to one WebView request. Records whether any byte reached the
+ * WebView, after which no other response may follow, and lets a retired
+ * session stop a response that has not been completely delivered.
+ */
+private class ResponseStream(private val socket: Socket) : FilterOutputStream(socket.getOutputStream()) {
     @Volatile var started = false
         private set
-    override fun write(b: Int) { started = true; out.write(b) }
-    override fun write(b: ByteArray, off: Int, len: Int) { started = true; out.write(b, off, len) }
+    /** Set once the last byte of the response has been handed to the socket. */
+    @Volatile var delivered = false
+    @Volatile private var writing = false
+    @Volatile private var cut = false
+    /** The socket stream itself, for the proxy's own failure response. */
+    val raw: OutputStream get() = out
+
+    /**
+     * Stop this response for a retired session. Before any byte is written the
+     * worker answers 503 instead; once writing has begun the stream is reset,
+     * so the WebView sees a failed response rather than a complete old one.
+     * Writers mark [writing] before checking [cut], and this sets [cut] before
+     * checking [writing], so one side always sees the other.
+     */
+    fun cutOff() {
+        cut = true
+        if (writing && !delivered) reset()
+    }
+
+    private fun reset() { runCatching { socket.setSoLinger(true, 0) }; runCatching { socket.close() } }
+
+    private fun admit() {
+        writing = true
+        if (cut) {
+            if (!started) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            reset(); throw IOException("Session retired.")
+        }
+        started = true
+    }
+    override fun write(b: Int) { admit(); out.write(b) }
+    override fun write(b: ByteArray, off: Int, len: Int) { admit(); out.write(b, off, len) }
 }
 
 /** The WebView side of a request went away; there is nobody left to answer. */
@@ -319,6 +356,8 @@ class MobileTransport(
     @Volatile internal var beforeServe: ((Socket) -> Unit)? = null
     /** Test seam: runs after a proxied call passes admission, just before it goes upstream. Debug builds only. */
     @Volatile internal var beforeUpstream: (() -> Unit)? = null
+    /** Test seam: runs once a proxied response has been read completely from the server, before its last bytes go to the WebView. Debug builds only. */
+    @Volatile internal var upstreamComplete: (() -> Unit)? = null
     internal val availablePermits get() = permits.availablePermits()
     internal val openSockets get() = sockets.size
     internal val inFlightCalls get() = calls.size
@@ -352,7 +391,7 @@ class MobileTransport(
                     var output: ResponseStream? = null
                     try {
                         if (BuildConfig.DEBUG) beforeServe?.invoke(socket)
-                        output = ResponseStream(socket.getOutputStream())
+                        output = ResponseStream(socket)
                         serve(socket, output)
                     } catch (error: Exception) { output?.let { fail(socket, it, error) } }
                     finally { runCatching { socket.close() }; sockets.remove(socket); permits.release() }
@@ -390,7 +429,7 @@ class MobileTransport(
         val failure = (error as? ProxyException)?.failure ?: ProxyFailure.REJECTED
         runCatching { report(ProxyFailureReport(failure, output.started, (error.cause ?: error).javaClass.simpleName)) }
         if (output.started) { runCatching { socket.setSoLinger(true, 0) }; return }
-        runCatching { respond(output, failure.status, "text/plain", "Request unavailable".byteInputStream(), 19, failure = failure) }
+        runCatching { respond(output.raw, failure.status, "text/plain", "Request unavailable".byteInputStream(), 19, failure = failure) }
     }
 
     /**
@@ -489,9 +528,11 @@ class MobileTransport(
             .method(request.method, uploadLength?.let { UploadBody(input, it, localGone, bodySent) })
             .tag(ProxiedRequest::class.java, ProxiedRequest(request.single("user-agent") != null)).build())
         calls.add(call)
+        // Retiring the session stops both legs: the upstream call and any delivery to the WebView not yet complete.
+        val registration = PinnedServer.Retirable { destination.cutOff(); call.cancel() }
         try {
-            // Registered with the session before the final check: a session retired after this point cancels the call.
-            if (!remote.admit(call) || suspended || target !== remote || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            // Registered with the session before the final check, so a session retired after this point stops the request.
+            if (!remote.admit(registration) || suspended || target !== remote || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
             if (BuildConfig.DEBUG) beforeUpstream?.invoke()
             watchForClose(input, bodySent, finished, localGone, call)
             fromServer(remote, localGone) { call.execute() }.use { response ->
@@ -512,7 +553,8 @@ class MobileTransport(
                 val fixedLength = bodiless || response.header("Transfer-Encoding") == null && declaredLength != null
                 // Mark the exchange complete before the WebView can see its last byte: a WebView that hangs up
                 // right after must not cancel a call whose connection has already gone back to the pool.
-                if (bodiless) finished.set(true)
+                fun complete() { finished.set(true); if (BuildConfig.DEBUG) upstreamComplete?.invoke() }
+                if (bodiless) complete()
                 toClient {
                     destination.write(buildString {
                         append("HTTP/1.1 ${response.code} ${response.message}\r\n")
@@ -535,10 +577,10 @@ class MobileTransport(
                     var total = 0L
                     while (true) {
                         val count = fromServer(remote, localGone) { source.read(buffer) }
-                        if (count < 0) { finished.set(true); break }
+                        if (count < 0) { if (!finished.get()) complete(); break }
                         if (count == 0) continue
                         total += count
-                        if (total == expected) finished.set(true)
+                        if (total == expected) complete()
                         toClient {
                             if (!fixedLength) destination.write("${count.toString(16)}\r\n".toByteArray())
                             destination.write(buffer, 0, count)
@@ -548,13 +590,14 @@ class MobileTransport(
                     if (!fixedLength) toClient { destination.write("0\r\n\r\n".toByteArray()) }
                 }
                 toClient { destination.flush() }
+                destination.delivered = true
                 finished.set(true)
             }
         } catch (error: Throwable) {
             if (!finished.getAndSet(true)) call.cancel()
             throw error
         } finally {
-            finished.set(true); bodySent.countDown(); calls.remove(call); remote.release(call)
+            finished.set(true); bodySent.countDown(); calls.remove(call); remote.release(registration)
         }
     }
 

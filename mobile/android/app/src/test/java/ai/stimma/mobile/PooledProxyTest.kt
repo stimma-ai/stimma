@@ -472,6 +472,33 @@ class PooledProxyTest {
         waitFor { transport.inFlightCalls == 0 }
     }
 
+    @Test fun aSwitchCutsAResponseReadFromTheServerButNotYetDelivered() {
+        // The old server has answered in full, so cancelling its call stops nothing; the
+        // delivery to the WebView must itself be cut. Covers both local framings.
+        for (chunked in listOf(false, true)) {
+            val first = tlsServer()
+            val second = tlsServer()
+            attach(first)
+            val size = 8192
+            first.enqueue(if (chunked) MockResponse().setChunkedBody("y".repeat(size), 1024) else MockResponse().setBody("y".repeat(size)))
+            val complete = CountDownLatch(1)
+            val resume = CountDownLatch(1)
+            // Pause the worker after the final upstream read, before the last bytes go to the WebView.
+            transport.upstreamComplete = { complete.countDown(); resume.await(5, TimeUnit.SECONDS) }
+            open("GET", "/api/media/1/file").use { socket ->
+                assertTrue(complete.await(5, TimeUnit.SECONDS))
+                transport.upstreamComplete = null
+                attach(second) // Returns with the old session retired.
+                resume.countDown()
+                val input = socket.getInputStream().buffered()
+                // A reset may arrive before even the head is read; either way the response must not be whole.
+                val body = try { HttpHead.read(input); if (chunked) dechunk(input) else input.readBytes() } catch (_: Exception) { null }
+                assertTrue("chunked=$chunked: the old response was delivered complete after the switch", body == null || body.size < size)
+            }
+            waitFor { transport.inFlightCalls == 0 && transport.availablePermits == 32 }
+        }
+    }
+
     @Test fun sessionReusesTheConnectionThatDiscoveredIt() {
         val server = tlsServer()
         server.enqueue(MockResponse().setBody("""{"deviceId":"d"}"""))
