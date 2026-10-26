@@ -4,6 +4,8 @@ import ChatView from '../../src/views/ChatView.vue'
 import '../../src/style.css'
 import { initApiConfig } from '../../src/apiConfig'
 import { useWebSocket } from '../../src/composables/useWebSocket'
+import { reconcileChatItems } from '../../src/utils/chatReconcile'
+window.reconcileChatItems = reconcileChatItems
 const router = createRouter({ history: createMemoryHistory(), routes: [
   { path: '/chat/:id', component: ChatView },
 ] })

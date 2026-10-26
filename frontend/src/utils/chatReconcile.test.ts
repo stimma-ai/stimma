@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { reconcileChatItems } from './chatReconcile.ts'
+import { reconcileChatItems, sameChatItem } from './chatReconcile.ts'
 
-type Item = { id: number, item_type: string, message_text?: string, item_metadata?: Record<string, unknown> }
+type Item = { id: number, item_type: string, message_text?: string, item_metadata?: Record<string, unknown> | null }
 
-const item = (id: number, extra: Partial<Item> = {}): Item => ({ id, item_type: 'assistant_message', message_text: `m${id}`, ...extra })
-const snapshot = (items: Item[]) => new Map(items.map(i => [i.id, i]))
+const item = (id: number, extra: Partial<Item> = {}): Item => ({ id, item_type: 'assistant_message', message_text: `m${id}`, item_metadata: null, ...extra })
+const ids = (items: Item[]) => new Set(items.map(i => i.id))
+const quiet = () => new Map<number, Item | null>()
 
 test('an item changed while away is replaced even though its ID is unchanged', () => {
   const running = item(3, { item_type: 'tool_call', item_metadata: { status: 'running' } })
   const current = [item(1), item(2), running]
   const done = { ...running, message_text: 'finished', item_metadata: { status: 'completed' } }
-  const { items, changed } = reconcileChatItems(current, [item(1), item(2), done], { hasMore: false, before: snapshot(current) })
+  const { items, changed } = reconcileChatItems(current, [item(1), item(2), done], { hasMore: false, before: ids(current), journal: quiet() })
   assert.equal(changed, true)
   assert.deepEqual(items[2], done)
   // Unchanged items keep their identity so the view does not re-render them.
@@ -20,8 +21,9 @@ test('an item changed while away is replaced even though its ID is unchanged', (
 })
 
 test('identical content leaves the transcript array untouched', () => {
-  const current = [item(1), item(2)]
-  const result = reconcileChatItems(current, [item(1), item(2)], { hasMore: false, before: snapshot(current) })
+  const current = [item(1, { item_metadata: { a: [1, 2] } }), item(2)]
+  const fresh = [item(1, { item_metadata: { a: [1, 2] } }), item(2)]
+  const result = reconcileChatItems(current, fresh, { hasMore: false, before: ids(current), journal: quiet() })
   assert.equal(result.changed, false)
   assert.equal(result.items, current)
 })
@@ -29,13 +31,13 @@ test('identical content leaves the transcript array untouched', () => {
 test('items deleted inside the returned window are removed, missed items are inserted', () => {
   const current = [item(10), item(11), item(12), item(13)]
   const fresh = [item(10), item(12), item(14)]
-  const { items } = reconcileChatItems(current, fresh, { hasMore: true, before: snapshot(current) })
+  const { items } = reconcileChatItems(current, fresh, { hasMore: true, before: ids(current), journal: quiet() })
   assert.deepEqual(items.map(i => i.id), [10, 12, 14])
 })
 
 test('a deleted newest item is removed even though it is past the snapshot', () => {
   const current = [item(1), item(2), item(3)]
-  const { items } = reconcileChatItems(current, [item(1), item(2)], { hasMore: false, before: snapshot(current) })
+  const { items } = reconcileChatItems(current, [item(1), item(2)], { hasMore: false, before: ids(current), journal: quiet() })
   assert.deepEqual(items.map(i => i.id), [1, 2])
 })
 
@@ -43,7 +45,7 @@ test('older history outside the snapshot window is kept', () => {
   // Pages 1..4 were loaded by scrolling up; the snapshot covers 5..7 only.
   const current = [item(1), item(2), item(3), item(4), item(5), item(6), item(7)]
   const fresh = [item(5), item(6, { message_text: 'edited' }), item(7)]
-  const { items } = reconcileChatItems(current, fresh, { hasMore: true, before: snapshot(current) })
+  const { items } = reconcileChatItems(current, fresh, { hasMore: true, before: ids(current), journal: quiet() })
   assert.deepEqual(items.map(i => i.id), [1, 2, 3, 4, 5, 6, 7])
   assert.equal(items[5].message_text, 'edited')
   assert.equal(items[0], current[0])
@@ -51,13 +53,13 @@ test('older history outside the snapshot window is kept', () => {
 
 test('a complete snapshot removes anything it does not contain', () => {
   const current = [item(1), item(2)]
-  const { items } = reconcileChatItems(current, [], { hasMore: false, before: snapshot(current) })
+  const { items } = reconcileChatItems(current, [], { hasMore: false, before: ids(current), journal: quiet() })
   assert.deepEqual(items, [])
 })
 
 test('an empty partial snapshot proves nothing', () => {
   const current = [item(1), item(2)]
-  const result = reconcileChatItems(current, [], { hasMore: true, before: snapshot(current) })
+  const result = reconcileChatItems(current, [], { hasMore: true, before: ids(current), journal: quiet() })
   assert.equal(result.items, current)
 })
 
@@ -67,10 +69,43 @@ test('live updates that land while the fetch is in flight win over the snapshot'
   // the just-sent user message 6 arrived. The snapshot predates all of that.
   const liveUpdate = item(2, { message_text: 'newer than snapshot' })
   const sent = item(6, { item_type: 'user_message', message_text: 'hello' })
+  const journal = new Map<number, Item | null>([[2, liveUpdate], [3, null], [6, sent]])
   const current = [before[0], liveUpdate, before[3], sent]
   const fresh = [item(1), item(2, { message_text: 'older' }), item(3), item(4), item(5)]
-  const { items } = reconcileChatItems(current, fresh, { hasMore: false, before: snapshot(before) })
+  const { items } = reconcileChatItems(current, fresh, { hasMore: false, before: ids(before), journal })
   assert.deepEqual(items.map(i => i.id), [1, 2, 4, 5, 6])
   assert.equal(items[1], liveUpdate)
   assert.equal(items[4], sent)
+})
+
+test('live changes to items the transcript never loaded beat the snapshot', () => {
+  // Items 3 and 4 were created during the disconnect, so the transcript has
+  // never seen them. While the fetch is in flight, 3 is updated and 4 deleted
+  // live; both handlers find nothing to change locally.
+  const current = [item(1), item(2)]
+  const updated3 = item(3, { message_text: 'completed live' })
+  const journal = new Map<number, Item | null>([[3, updated3], [4, null]])
+  const fresh = [item(1), item(2), item(3, { message_text: 'stale' }), item(4)]
+  const { items } = reconcileChatItems(current, fresh, { hasMore: false, before: ids(current), journal })
+  assert.deepEqual(items.map(i => i.id), [1, 2, 3])
+  assert.equal(items[2], updated3)
+})
+
+test('object identity is irrelevant: copies of unchanged items still accept offline edits', () => {
+  // A live delete filtered the reactive array, which can hand back different
+  // wrapper objects for the surviving items. Only the journal marks changes.
+  const original = [item(1), item(2), item(3)]
+  const current = [{ ...original[0] }, { ...original[1] }]
+  const journal = new Map<number, Item | null>([[3, null]])
+  const fresh = [item(1), item(2, { message_text: 'edited offline' }), item(3)]
+  const { items } = reconcileChatItems(current, fresh, { hasMore: false, before: ids(original), journal })
+  assert.deepEqual(items.map(i => i.id), [1, 2])
+  assert.equal(items[1].message_text, 'edited offline')
+})
+
+test('sameChatItem compares nested values and exits on the first difference', () => {
+  assert.equal(sameChatItem(item(1, { item_metadata: { a: { b: 1 } } }), item(1, { item_metadata: { a: { b: 1 } } })), true)
+  assert.equal(sameChatItem(item(1, { item_metadata: { a: { b: 1 } } }), item(1, { item_metadata: { a: { b: 2 } } })), false)
+  assert.equal(sameChatItem(item(1, { item_metadata: null }), item(1, { item_metadata: {} })), false)
+  assert.equal(sameChatItem(item(1), { ...item(1), extra: 1 }), false)
 })

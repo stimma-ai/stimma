@@ -6,7 +6,7 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 const instrument = { name: 'chat-reconcile-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, messageInput, sending, modelsFetched, messagesContainer, sendMessage, loadMore }; defineExpose({})\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, messageInput, sending, modelsFetched, messagesContainer, sendMessage, loadMore, reloadAll }; defineExpose({})\n</script>')
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -127,4 +127,167 @@ test('reconnect repairs changed and deleted items without moving the reader, the
   await expect.poll(async () => (await ids()).at(-1)).toBe(41)
   assert.equal((await ids()).filter(id => id === 41).length, 1)
   assert.deepEqual(errors, [])
+})
+
+// A chat whose item list is a mutable server copy, with the ability to hold
+// the next list request until the test releases it. A held request answers
+// with the server state as of when it arrived, like a real snapshot.
+async function openChat(t, initial, { hasMore = false } = {}) {
+  const browser = await chromium.launch()
+  t.after(() => browser.close())
+  const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  const server = { items: initial, hold: false, held: null, socket: null }
+  await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
+  await page.route('**/*', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="app" style="height:650px;display:flex;flex-direction:column"></div></body></html>' })
+    if (/^\/api\/chats\/\d+$/.test(path)) return route.fulfill({ json: { id: 1, name: 'Reconcile test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
+    if (path.endsWith('/items') && request.method() === 'GET') {
+      const json = { items: [...server.items].reverse(), has_more: hasMore }
+      if (server.hold) {
+        server.hold = false
+        await new Promise(resolve => { server.held = resolve })
+      }
+      return route.fulfill({ json })
+    }
+    if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
+    if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('http://chat-reconcile.test/')
+  for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
+  await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
+  await expect.poll(() => page.evaluate(() => window.reconcileView?.modelsFetched.value)).toBe(true)
+  await expect.poll(() => Boolean(server.socket)).toBe(true)
+  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.length)).toBe(initial.length)
+  return {
+    page, server, errors,
+    items: () => page.evaluate(() => window.reconcileView.items.value.map(i => ({ id: i.id, text: i.message_text }))),
+    send: (event, data) => server.socket.send(JSON.stringify({ event, data: { chat_id: 1, ...data } })),
+    // Drop the socket and hold the resync its reconnect triggers.
+    async reconnectHeld() {
+      const previous = server.socket
+      server.hold = true
+      server.held = null
+      previous.close()
+      await expect.poll(() => server.socket !== previous && Boolean(server.held)).toBe(true)
+    },
+  }
+}
+
+test('live changes during a resync win, including for items the transcript has not loaded', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3), user(4), user(5)])
+  // While disconnected: item 2 is edited and item 6 is created.
+  view.server.items = [user(1), user(2, 'Edited offline'), user(3), user(4), user(5), user(6, 'Created offline')]
+  await view.reconnectHeld()
+  // While the resync is in flight the socket reports changes its snapshot
+  // predates: an update to never-loaded item 6, and a delete of loaded item 3
+  // (whose filter re-wraps the surviving items in new reactive proxies).
+  view.send('chat_item_updated', { item: user(6, 'Completed live') })
+  view.send('chat_item_deleted', { item_id: 3 })
+  await expect.poll(async () => (await view.items()).map(i => i.id)).toEqual([1, 2, 4, 5])
+  view.server.held()
+  await expect.poll(view.items).toEqual([
+    { id: 1, text: 'Message 1' },
+    { id: 2, text: 'Edited offline' },
+    { id: 4, text: 'Message 4' },
+    { id: 5, text: 'Message 5' },
+    { id: 6, text: 'Completed live' },
+  ])
+  assert.deepEqual(view.errors, [])
+})
+
+test('a full reload invalidates a resync that is still in flight', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3), user(4), user(5)])
+  // Item 6 is created while disconnected, so the held snapshot contains it.
+  view.server.items = [user(1), user(2), user(3), user(4), user(5), user(6)]
+  await view.reconnectHeld()
+  // Item 6 is then deleted, and the view reloads from scratch showing 1..5.
+  view.server.items = [user(1), user(2), user(3), user(4), user(5)]
+  await view.page.evaluate(() => window.reconcileView.reloadAll())
+  await expect.poll(async () => (await view.items()).map(i => i.id)).toEqual([1, 2, 3, 4, 5])
+  // The older resync now answers with its stale snapshot (still holding 6).
+  view.server.held()
+  await view.page.waitForTimeout(300)
+  assert.deepEqual((await view.items()).map(i => i.id), [1, 2, 3, 4, 5])
+  assert.deepEqual(view.errors, [])
+})
+
+test('reading inside an expanded activity group stays put when steps change', async t => {
+  const steps = []
+  for (let n = 0; n < 60; n++) {
+    const id = 10 + n * 2
+    steps.push(
+      { id, chat_id: 1, created_at: '2026-01-01T00:00:00', item_type: 'tool_call', tool_name: 'bash', tool_call_id: `call-${n}`, tool_args: { command: `echo step ${n}` }, item_metadata: null },
+      { id: id + 1, chat_id: 1, created_at: '2026-01-01T00:00:00', item_type: 'tool_result', tool_call_id: `call-${n}`, tool_result: { output: `step ${n}` }, item_metadata: null },
+    )
+  }
+  const answer = { id: 500, chat_id: 1, created_at: '2026-01-01T00:00:00', item_type: 'assistant_message', message_text: 'All done', item_metadata: null }
+  // A long answer keeps room below the reader once later steps are removed,
+  // so the scroll position is never clamped by the shorter transcript.
+  const longText = text => [text, ...Array.from({ length: 40 }, (_, i) => `Paragraph ${i}`)].join('\n\n')
+  const view = await openChat(t, [user(1, 'Run the steps'), ...steps, answer])
+  const { page } = view
+  await page.locator('.activity-summary').first().click()
+  await expect(page.locator('[data-scroll-anchor^="step:"]')).toHaveCount(60)
+  // Park the reader on a step in the middle of the expanded group.
+  const reading = page.locator('[data-scroll-anchor="step:60"]')
+  const topOf = () => reading.evaluate(el => el.getBoundingClientRect().top - el.closest('.overflow-y-auto').getBoundingClientRect().top)
+  await reading.evaluate(async el => {
+    const container = el.closest('.overflow-y-auto')
+    for (let i = 0; i < 20; i++) {
+      el.scrollIntoView({ block: 'start' })
+      container.scrollTop -= 40
+      const height = container.scrollHeight
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      if (container.scrollHeight === height) return
+    }
+  })
+  const before = await topOf()
+  assert.ok(before > 0 && before < 200, `reader parked at ${before}`)
+  // While disconnected: steps above and all steps below are removed and the
+  // answer is rewritten.
+  view.server.items = [
+    user(1, 'Run the steps'),
+    // The first step stays: it names the group, so the group stays expanded.
+    ...steps.filter(step => step.id < 12 || (step.id >= 20 && step.id < 80)),
+    { ...answer, message_text: longText('All done, rewritten') },
+  ]
+  view.server.socket.close()
+  await expect.poll(async () => (await view.items()).at(-1).text).toMatch(/^All done, rewritten/)
+  await expect(page.locator('[data-scroll-anchor^="step:"]')).toHaveCount(31)
+  assert.ok(Math.abs(await topOf() - before) <= 2, `reading position moved from ${before} to ${await topOf()}`)
+  assert.deepEqual(view.errors, [])
+})
+
+test('reconciling 2,000 items stays cheap on a throttled CPU', async t => {
+  const view = await openChat(t, [user(1)])
+  const session = await view.page.context().newCDPSession(view.page)
+  await session.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+  const timings = await view.page.evaluate(() => {
+    const make = (id, text) => ({
+      id, chat_id: 1, created_at: '2026-01-01T00:00:00', item_type: id % 3 ? 'tool_call' : 'assistant_message',
+      message_text: text, tool_name: 'bash', tool_call_id: `call-${id}`, tool_args: { command: `echo ${id}`, cwd: '/work' },
+      tool_result: { output: 'x'.repeat(400), exit_code: 0 }, tool_error: null, media_id: null, media_ids: [id, id + 1],
+      grid_layout: null, parent_item_id: null, item_metadata: { status: 'completed', thinking_content: 'y'.repeat(300), duration: 1.5 },
+    })
+    const current = Array.from({ length: 2000 }, (_, i) => make(i + 1, `text ${i}`))
+    const same = current.map(item => JSON.parse(JSON.stringify(item)))
+    const edited = same.map(item => item.id === 1999 ? { ...item, message_text: 'edited' } : item)
+    const before = new Set(current.map(item => item.id))
+    const run = fresh => {
+      const start = performance.now()
+      const result = window.reconcileChatItems(current, fresh, { hasMore: false, before, journal: new Map() })
+      return { ms: performance.now() - start, changed: result.changed }
+    }
+    run(same)
+    return { unchanged: run(same), oneEdit: run(edited) }
+  })
+  console.log(`reconcile 2,000 items at 4x CPU throttle: unchanged ${timings.unchanged.ms.toFixed(1)} ms, one edit ${timings.oneEdit.ms.toFixed(1)} ms`)
+  assert.equal(timings.unchanged.changed, false)
+  assert.equal(timings.oneEdit.changed, true)
+  assert.ok(timings.unchanged.ms < 250 && timings.oneEdit.ms < 250, JSON.stringify(timings))
 })

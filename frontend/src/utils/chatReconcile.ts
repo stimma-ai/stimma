@@ -10,19 +10,24 @@
 // proves deletion only inside that window. Older history loaded by paging is
 // kept as-is; deletions there are not detected (no tombstones exist yet).
 //
-// The fetch races live updates. `before` holds the transcript's items as they
-// were when the fetch started; anything the live path added, replaced, or
-// removed since then is newer than the snapshot and wins.
+// The fetch races live updates. The caller records every live change made
+// while the fetch is in flight in a journal (an item, or null for a
+// deletion), including changes to items the transcript has not loaded yet.
+// Journaled changes are newer than the snapshot and always win.
 
 export interface ChatItemLike {
   id: number
 }
 
+export type LiveJournal<T> = Map<number, T | null>
+
 export interface ReconcileOptions<T extends ChatItemLike> {
   // The server has items older than the snapshot's oldest one.
   hasMore: boolean
-  // The transcript's items, by ID, at the moment the fetch was issued.
-  before: Map<number, T>
+  // IDs of the transcript's items when the fetch was issued.
+  before: Set<number>
+  // Live changes since the fetch was issued: the newest item, or null if deleted.
+  journal: LiveJournal<T>
 }
 
 export interface ReconcileResult<T> {
@@ -30,13 +35,33 @@ export interface ReconcileResult<T> {
   changed: boolean
 }
 
-function sameContent(a: unknown, b: unknown): boolean {
+// Field-wise comparison with early exit. Most fields are primitives; only
+// nested values (metadata, tool args/results, layouts) are serialized.
+export function sameChatItem(a: object, b: object): boolean {
   if (a === b) return true
-  try {
-    return JSON.stringify(a) === JSON.stringify(b)
-  } catch {
-    return false
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left)
+  if (keys.length !== Object.keys(right).length) return false
+  for (const key of keys) {
+    const x = left[key]
+    const y = right[key]
+    if (x === y) continue
+    if (x === null || y === null || typeof x !== 'object' || typeof y !== 'object') return false
+    try {
+      if (JSON.stringify(x) !== JSON.stringify(y)) return false
+    } catch {
+      return false
+    }
   }
+  return true
+}
+
+function insertById<T extends ChatItemLike>(list: T[], item: T) {
+  // New items are almost always the newest; scan from the end.
+  let at = list.length
+  while (at > 0 && list[at - 1].id > item.id) at--
+  list.splice(at, 0, item)
 }
 
 // `current` is the transcript now; `fresh` is the snapshot in display order
@@ -45,7 +70,7 @@ function sameContent(a: unknown, b: unknown): boolean {
 export function reconcileChatItems<T extends ChatItemLike>(
   current: T[],
   fresh: T[],
-  { hasMore, before }: ReconcileOptions<T>,
+  { hasMore, before, journal }: ReconcileOptions<T>,
 ): ReconcileResult<T> {
   // A partial snapshot with no items says nothing about what exists.
   if (hasMore && fresh.length === 0) return { items: current, changed: false }
@@ -59,9 +84,8 @@ export function reconcileChatItems<T extends ChatItemLike>(
   const present = new Set<number>()
   for (const item of current) {
     present.add(item.id)
-    const touchedSinceFetch = before.get(item.id) !== item
-    if (touchedSinceFetch) {
-      // Arrived or was replaced live while the fetch was in flight.
+    if (journal.has(item.id) || !before.has(item.id)) {
+      // Changed or added live while the fetch was in flight (or paged in).
       merged.push(item)
       continue
     }
@@ -74,7 +98,7 @@ export function reconcileChatItems<T extends ChatItemLike>(
         continue
       }
       merged.push(item)
-    } else if (sameContent(item, server)) {
+    } else if (sameChatItem(item, server)) {
       merged.push(item)
     } else {
       merged.push(server)
@@ -84,11 +108,17 @@ export function reconcileChatItems<T extends ChatItemLike>(
 
   for (const item of fresh) {
     if (present.has(item.id)) continue
-    // Removed locally while the fetch was in flight (live delete, retry).
+    // Removed locally while the fetch was in flight.
     if (before.has(item.id)) continue
-    const at = merged.findIndex(existing => existing.id > item.id)
-    if (at === -1) merged.push(item)
-    else merged.splice(at, 0, item)
+    if (journal.has(item.id)) {
+      // The live path saw a newer version (or a deletion) of an item the
+      // transcript had not loaded yet.
+      const live = journal.get(item.id)
+      if (!live) continue
+      insertById(merged, live)
+    } else {
+      insertById(merged, item)
+    }
     changed = true
   }
 

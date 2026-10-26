@@ -230,6 +230,7 @@
           <div
             v-for="item in topLevelItems"
             :key="item.id"
+            :data-scroll-anchor="`item:${item.id}`"
             class="chat-item [content-visibility:auto] [contain-intrinsic-size:auto_80px] empty:[content-visibility:visible] empty:[contain-intrinsic-size:none] print:[content-visibility:visible] print:[contain-intrinsic-size:none]"
           >
           <!-- Activity Group: skip non-first items (they render as part of the group) -->
@@ -270,6 +271,7 @@
                 <div
                   v-for="(actItem, stepIdx) in getVisibleActivityItems(getActivityGroup(item.id))"
                   :key="actItem.id"
+                  :data-scroll-anchor="`step:${actItem.id}`"
                   class="activity-step"
                   :class="{ 'activity-step--last': stepIdx === getVisibleActivityItems(getActivityGroup(item.id)).length - 1 }"
                 >
@@ -342,6 +344,7 @@
                         <div
                           v-for="(childItem, childIdx) in getDelegateActivityItems(actItem.id)"
                           :key="childItem.id"
+                          :data-scroll-anchor="`step:${childItem.id}`"
                           class="activity-step"
                           :class="{ 'activity-step--last': childIdx === getDelegateActivityItems(actItem.id).length - 1 }"
                         >
@@ -2916,6 +2919,9 @@ async function updateAutoDeleteDuration(_duration) {
 
 // Load chat items
 async function loadItems(beforeId = null) {
+  // A full load replaces the transcript; a resync already in flight was
+  // computed against the old one and must not land after it.
+  if (!beforeId) cancelPendingResync()
   try {
     let url
     if (beforeId) {
@@ -2985,11 +2991,25 @@ async function loadItems(beforeId = null) {
 // path delivered while the fetch was in flight (including a message being
 // sent right now) wins over the snapshot. See utils/chatReconcile.
 let resyncGeneration = 0
+// Live changes recorded while the current resync's fetch is in flight.
+let resyncJournal = null
+
+function noteLiveChange(id, item) {
+  resyncJournal?.set(id, item ? toRaw(item) : null)
+}
+
+function cancelPendingResync() {
+  resyncGeneration++
+  resyncJournal = null
+}
+
 async function resyncItems() {
   if (!chatId.value || loading.value) return
   const requestChatId = chatId.value
   const generation = ++resyncGeneration
-  const before = new Map(toRaw(items.value).map(item => [item.id, item]))
+  const journal = new Map()
+  resyncJournal = journal
+  const before = new Set(toRaw(items.value).map(item => item.id))
   try {
     const response = await fetch(`/api/chats/${requestChatId}/items?visible_limit=500`)
     if (!response.ok) return
@@ -2997,9 +3017,10 @@ async function resyncItems() {
     // A newer resync, a chat switch, or a full reload superseded this one.
     if (generation !== resyncGeneration || chatId.value !== requestChatId || loading.value) return
     const fresh = data.items.reverse()
-    const { items: merged, changed } = reconcileChatItems(toRaw(items.value), fresh, {
+    const { items: merged, changed } = reconcileChatItems(toRaw(items.value).map(item => toRaw(item)), fresh, {
       hasMore: data.has_more,
       before,
+      journal,
     })
     if (!changed) return
     const container = messagesContainer.value
@@ -3014,30 +3035,36 @@ async function resyncItems() {
     else restoreScrollAnchor(container, anchor)
   } catch (error) {
     console.error('Error resyncing chat items:', error)
+  } finally {
+    if (resyncJournal === journal) resyncJournal = null
   }
 }
 
-// Keep what the reader is looking at in place when items above it change
-// size, appear, or disappear. Several visible items are recorded so the
-// anchor survives the topmost one being deleted.
+// Keep what the reader is looking at in place when content above it changes
+// size, appears, or disappears. Anchors are messages and individual activity
+// steps (data-scroll-anchor). The innermost visible ones come first so text
+// inside an expanded activity group stays put; their containers follow as
+// fallbacks in case every recorded step was removed.
 function captureScrollAnchor(container) {
   if (!container) return null
-  const top = container.getBoundingClientRect().top
-  const anchors = []
-  for (const el of container.querySelectorAll('[data-item-id]')) {
+  const box = container.getBoundingClientRect()
+  const visible = []
+  for (const el of container.querySelectorAll('[data-scroll-anchor]')) {
     const rect = el.getBoundingClientRect()
-    if (rect.bottom <= top) continue
-    anchors.push({ id: el.getAttribute('data-item-id'), offset: rect.top - top })
-    if (anchors.length >= 5) break
+    if (rect.bottom <= box.top || rect.top >= box.bottom || rect.height === 0) continue
+    visible.push({ el, offset: rect.top - box.top })
   }
-  return anchors
+  const isLeaf = ({ el }) => !visible.some(other => other.el !== el && el.contains(other.el))
+  const leaves = visible.filter(isLeaf).slice(0, 8)
+  const containers = visible.filter(entry => !isLeaf(entry)).reverse()
+  return [...leaves, ...containers].map(({ el, offset }) => ({ key: el.getAttribute('data-scroll-anchor'), offset }))
 }
 
 function restoreScrollAnchor(container, anchors) {
   if (!container || !anchors) return
   const top = container.getBoundingClientRect().top
-  for (const { id, offset } of anchors) {
-    const el = container.querySelector(`[data-item-id="${CSS.escape(id)}"]`)
+  for (const { key, offset } of anchors) {
+    const el = container.querySelector(`[data-scroll-anchor="${CSS.escape(key)}"]`)
     if (!el) continue
     container.scrollTop += el.getBoundingClientRect().top - top - offset
     return
@@ -5254,6 +5281,7 @@ function setupWebSocketSubscriptions() {
     // Check if item already exists (avoid duplicates)
     const existingIndex = items.value.findIndex(item => item.id === newItem.id)
     if (existingIndex === -1) {
+      noteLiveChange(newItem.id, newItem)
       // Insert in correct position by ID to maintain chronological order
       const insertIdx = items.value.findIndex(item => item.id > newItem.id)
       if (insertIdx === -1) {
@@ -5282,6 +5310,9 @@ function setupWebSocketSubscriptions() {
   wsUnsubscribes.push(onWsEvent('chat_item_updated', (data) => {
     if (data.chat_id !== chatId.value) return
     const updatedItem = data.item
+    // Journal it even when not loaded yet: a pending resync may be about to
+    // insert an older copy of this item.
+    noteLiveChange(updatedItem.id, updatedItem)
     const index = items.value.findIndex(item => item.id === updatedItem.id)
     if (index !== -1) {
       items.value[index] = updatedItem
@@ -5292,6 +5323,7 @@ function setupWebSocketSubscriptions() {
   wsUnsubscribes.push(onWsEvent('chat_item_deleted', (data) => {
     if (data.chat_id !== chatId.value) return
     const deletedId = data.item_id
+    noteLiveChange(deletedId, null)
     items.value = items.value.filter(item => item.id !== deletedId)
   }))
 
@@ -5408,6 +5440,7 @@ function setupWebSocketSubscriptions() {
             ...item,
             item_metadata: JSON.stringify(planData)
           }
+          noteLiveChange(item.id, items.value[i])
         } catch (e) {
           console.error('Error updating plan status:', e)
         }
@@ -5439,6 +5472,7 @@ function setupWebSocketSubscriptions() {
                 ...item,
                 item_metadata: JSON.stringify(planData)
               }
+              noteLiveChange(item.id, items.value[i])
               console.log('Updated node in plan:', node_id)
             }
           }
