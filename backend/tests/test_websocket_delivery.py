@@ -502,6 +502,92 @@ async def test_racing_disconnects_clean_up_exactly_once():
     assert manager.clients == []
 
 
+async def test_disconnect_teardown_survives_cancellation_during_generator_cleanup():
+    """Cancelling the caller mid-cleanup must not orphan the sender or skip
+    the undelivered release; the cancellation still reaches the caller."""
+    manager = WebSocketManager()
+    gate = asyncio.Event()
+    calls = []
+
+    async def on_generator_disconnect(generator_instance_id, **_):
+        calls.append("abandon-start")
+        await gate.wait()  # e.g. cancelling jobs in the database
+        calls.append("abandon-done")
+
+    async def released():
+        calls.append("undelivered")
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    socket = Gated()
+    client = manager.attach(socket)
+    await _hold(manager, socket)
+    sender = client.sender_task
+    manager.register_generator_instance(socket, "gen")
+    await manager.send_to_generator_instance(
+        "gen", "generation_request_work", {"reservation_id": "r1"}, on_undelivered=released
+    )
+
+    caller = asyncio.create_task(manager.disconnect(socket))
+    while calls != ["abandon-start"]:
+        await asyncio.sleep(0)
+    caller.cancel()
+    try:
+        await caller
+        raise AssertionError("the caller's cancellation must be re-raised")
+    except asyncio.CancelledError:
+        pass
+
+    gate.set()
+    await asyncio.wait_for(manager.drain(), 2)
+    assert calls == ["abandon-start", "abandon-done", "undelivered"]
+    assert sender.done() and client.sender_task is None
+    assert client.queued_frames == 0 and client.queued_bytes == 0
+
+
+async def test_already_cancelled_endpoint_still_tears_down_in_finally():
+    """The endpoint's receive loop is cancelled (server shutdown, transport
+    torn down) and calls disconnect from its finally block."""
+    manager = WebSocketManager()
+    calls = []
+
+    async def released():
+        calls.append("undelivered")
+
+    old, new = Gated(), Healthy()
+    client = manager.attach(old)
+    await _hold(manager, old)
+    sender = client.sender_task
+    manager.register_generator_instance(old, "gen")
+    await manager.send_to_generator_instance(
+        "gen", "generation_request_work", {"reservation_id": "r1"}, on_undelivered=released
+    )
+    # The page already re-registered on a new socket: the request is
+    # stranded on the old one and must still be released.
+    manager.attach(new)
+    manager.register_generator_instance(new, "gen")
+
+    async def endpoint():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await manager.disconnect(old)
+
+    task = asyncio.create_task(endpoint())
+    await asyncio.sleep(0)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    await asyncio.wait_for(manager.drain(), 2)
+    assert calls == ["undelivered"]
+    assert sender.done() and client.sender_task is None
+    assert client.queued_frames == 0
+    assert old not in manager.active_connections
+    await manager.disconnect(new)
+
+
 async def test_enqueue_cost_is_bounded_with_a_large_durable_backlog():
     """Past the soft budget with nothing sheddable, each durable enqueue must
     not rescan the backlog (that was quadratic: ~15 s for 50k frames)."""
@@ -603,7 +689,8 @@ async def test_re_registration_during_cleanup_keeps_the_new_session():
     manager.register_generator_instance(old, "gen")
 
     cleanup = asyncio.create_task(manager.disconnect(old))
-    await asyncio.sleep(0)
+    while not observed:  # the old socket's cleanup is under way
+        await asyncio.sleep(0)
     manager.attach(new)
     manager.register_generator_instance(new, "gen")
     gate.set()

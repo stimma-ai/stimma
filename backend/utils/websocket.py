@@ -363,30 +363,27 @@ class ClientConnection:
         """Stop the sender and release the queue.
 
         Returns the frames that were never confirmed written (queued, or in
-        flight when the socket failed or was torn down).
+        flight when the socket failed or was torn down). The queue is
+        released even if the caller is cancelled while the sender stops.
         """
         self.closed = True
         self._wake.set()
         task, self._task = self._task, None
-        if task is not None and task is not asyncio.current_task():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                current = asyncio.current_task()
-                if current is not None and current.cancelling():
-                    raise
-            except Exception:
-                pass
-        undelivered = self.pending_frames()
-        if self._in_flight is not None:
-            undelivered.insert(0, self._in_flight)
-            self._in_flight = None
-        self._queue.clear()
-        self._replaceable.clear()
-        self._sheddable.clear()
-        self._live = self._tombstones = self._queued_bytes = 0
-        self._idle.set()
+        try:
+            if task is not None and task is not asyncio.current_task():
+                task.cancel()
+                # wait() never re-raises the sender's own cancellation.
+                await asyncio.wait({task})
+        finally:
+            undelivered = self.pending_frames()
+            if self._in_flight is not None:
+                undelivered.insert(0, self._in_flight)
+                self._in_flight = None
+            self._queue.clear()
+            self._replaceable.clear()
+            self._sheddable.clear()
+            self._live = self._tombstones = self._queued_bytes = 0
+            self._idle.set()
         return undelivered
 
 
@@ -419,6 +416,8 @@ class WebSocketManager:
         self._on_generator_disconnect: Optional[Callable[[str], Awaitable[None]]] = None
         # Strong references to in-flight client drops.
         self._dropping: set[asyncio.Task] = set()
+        # Strong references to running disconnect teardowns.
+        self._teardowns: set[asyncio.Task] = set()
 
     @property
     def active_connections(self) -> List[WebSocket]:
@@ -482,9 +481,15 @@ class WebSocketManager:
 
         Every caller (the endpoint's receive loop, a server-initiated drop)
         may race; the first claims the client and its generator instances
-        before awaiting anything, so cleanup runs exactly once.
+        synchronously, so cleanup runs exactly once. The teardown then runs
+        in its own task, shielded from the caller: an endpoint that is
+        being cancelled (or is cancelled mid-cleanup) still gets its sender
+        stopped, its queue released and its undelivered frames reported.
+        The caller's cancellation is re-raised after the teardown is handed off.
         """
         client = self._clients.pop(id(websocket), None)
+        if client is not None:
+            client.closed = True
         disconnected_instances = [
             gid for gid, ws in self._generator_instance_websockets.items()
             if ws == websocket
@@ -494,27 +499,41 @@ class WebSocketManager:
         owned = {
             gid: self._generator_registrations.get(gid) for gid in disconnected_instances
         }
+        if client is None and not owned:
+            return
 
-        # Instance cleanup first, before this coroutine yields for the sender
-        # shutdown. The cleanup itself awaits, so it is also told whether the
-        # instance is still abandoned: a page that re-registers the same ID
-        # meanwhile owns it, and an older disconnect must leave it alone.
-        for gid, generation in owned.items():
-            log.info(f"Generator instance {gid} disconnected")
-            if self._on_generator_disconnect:
-                try:
-                    await self._on_generator_disconnect(
-                        gid,
-                        still_abandoned=functools.partial(
-                            self._generator_still_abandoned, gid, generation
-                        ),
-                    )
-                except Exception as e:
-                    log.error(f"Error in generator disconnect callback: {e}")
-            if self._generator_still_abandoned(gid, generation):
-                self._generator_registrations.pop(gid, None)
+        teardown = asyncio.create_task(self._teardown(client, owned))
+        self._teardowns.add(teardown)
+        teardown.add_done_callback(self._teardowns.discard)
+        await asyncio.shield(teardown)
 
-        undelivered = await client.stop() if client is not None else []
+    async def _teardown(
+        self, client: Optional[ClientConnection], owned: Dict[str, Optional[int]]
+    ) -> None:
+        """Release one claimed connection. Runs exactly once per disconnect."""
+        try:
+            # Instance cleanup first. The cleanup itself awaits, so it is also
+            # told whether the instance is still abandoned: a page that
+            # re-registers the same ID meanwhile owns it, and an older
+            # disconnect must leave it alone.
+            for gid, generation in owned.items():
+                log.info(f"Generator instance {gid} disconnected")
+                if self._on_generator_disconnect:
+                    try:
+                        await self._on_generator_disconnect(
+                            gid,
+                            still_abandoned=functools.partial(
+                                self._generator_still_abandoned, gid, generation
+                            ),
+                        )
+                    except Exception as e:
+                        log.error(f"Error in generator disconnect callback: {e}")
+                if self._generator_still_abandoned(gid, generation):
+                    self._generator_registrations.pop(gid, None)
+        finally:
+            # Whatever happened above, the sender is stopped and the queue
+            # released; the frames it never wrote are reported below.
+            undelivered = await client.stop() if client is not None else []
 
         # After instance cleanup, so a released reservation is refilled only
         # by instances that are still connected.
@@ -572,8 +591,10 @@ class WebSocketManager:
             busy = [c for c in self._clients.values() if not c.idle]
             if busy:
                 await asyncio.gather(*(c.wait_idle() for c in busy))
-            elif self._dropping:
-                await asyncio.gather(*list(self._dropping), return_exceptions=True)
+            elif self._dropping or self._teardowns:
+                await asyncio.gather(
+                    *list(self._dropping), *list(self._teardowns), return_exceptions=True
+                )
             else:
                 return
 

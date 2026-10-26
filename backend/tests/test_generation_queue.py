@@ -896,7 +896,10 @@ class TestClientCleanup:
         gate = asyncio.Event()
         original_cancel = generation_queue.cancel_queued_jobs_for_instance
 
+        paused = asyncio.Event()
+
         async def paused_cancel(*args, **kwargs):
+            paused.set()
             await gate.wait()
             return await original_cancel(*args, **kwargs)
 
@@ -906,7 +909,7 @@ class TestClientCleanup:
             assert manager.register_generator_instance(socket, client) is True
             with patch.object(generation_queue, "cancel_queued_jobs_for_instance", paused_cancel):
                 disconnect = asyncio.create_task(manager.disconnect(socket))
-                await asyncio.sleep(0)  # paused inside job cancellation
+                await asyncio.wait_for(paused.wait(), 2)  # paused inside job cancellation
 
                 # The receive loop processes one more registration on that socket.
                 assert manager.register_generator_instance(socket, client) is False
