@@ -35,6 +35,9 @@ const lastFetchTime = ref(0)
 // global list.
 const lastProjectId = ref(null)
 let fetchVersion = 0
+// The request in flight, so callers asking for the same scope at once (a
+// screen's mount and activation, several pickers) share one read.
+let inflight = null
 
 const LEGACY_MODEL_SLUGS = {
   'agent-max': 'stimma:minimax-m3',
@@ -107,11 +110,22 @@ async function fetchModels(projectId = null, force = false) {
   ) {
     return
   }
+  if (!force && inflight && inflight.projectId === requestedProjectId) return inflight.promise
 
   lastFetchTime.value = 0
   const version = ++fetchVersion
   lastProjectId.value = requestedProjectId
   loading.value = true
+  const promise = loadModels(projectId, version, now)
+  inflight = { projectId: requestedProjectId, promise }
+  try {
+    await promise
+  } finally {
+    if (inflight?.promise === promise) inflight = null
+  }
+}
+
+async function loadModels(projectId, version, now) {
   try {
     const params = {}
     if (projectId != null) params.project_id = projectId

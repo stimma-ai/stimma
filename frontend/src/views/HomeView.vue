@@ -13,7 +13,9 @@
 
     <!-- Main content -->
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
-      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
+      <!-- Fades in once the model check says which hero to show; recents and
+           their artwork fill in below as they arrive. -->
+      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 compact:px-4" :class="heroReady ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
         <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16 compact:pt-12 compact:pb-12">
@@ -115,7 +117,15 @@
         </div>
 
         <!-- Content sections -->
-        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10">
+        <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10" :data-recents-state="recentsState">
+
+          <p v-if="recentsState === 'error' && jumpBackIn.length === 0 && recentMedia.length === 0" class="text-center text-xs text-content-muted">
+            Couldn't load your recent work.
+            <button
+              @click="refreshHome({ force: true })"
+              class="font-medium text-accent-hi hover:text-accent transition-colors coarse:inline-flex coarse:min-h-11 coarse:items-center"
+            >Try again</button>
+          </p>
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
@@ -273,7 +283,7 @@
       @move-to-project="handleContextMenuMoveToProject"
     />
 
-    <MediaContextMenu @refresh="loadRecentMedia" />
+    <MediaContextMenu @refresh="loadRecentMedia()" />
   </div>
 </template>
 
@@ -281,7 +291,7 @@
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
 import { useViewport } from '../composables/useViewport'
-import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
@@ -312,6 +322,10 @@ import { useFaceFocalPoints } from '../composables/useFaceFocalPoints'
 import { contextRoute } from '../utils/workingContext'
 import { makeStorageKey } from '../utils/storageKeys'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
+import { createScopedLoad, scopeKey } from '../utils/scopedLoad'
+import { getBackendOrigin } from '../apiConfig'
+import { getCurrentProfileId } from '../composables/useProfile'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const { allowsAutofocus } = useViewport()
 
@@ -358,7 +372,11 @@ const recentBoards = ref([])
 const recentFlows = ref([])
 const flowOutputMedia = ref(new Map()) // flow_id -> [media_id, ...] newest-first
 const boardDetails = ref(new Map())
-const loaded = ref(false)
+// 'loading' until the recent chats/boards/flows/assets lists settle, then
+// 'ready', or 'error' when any of them failed. Artwork is not part of it.
+const recentsState = ref('loading')
+// The model check decides which hero (composer or tool grid) to show.
+const heroReady = ref(false)
 const dragOverBoardId = ref(null)
 const contentWidth = ref(960)
 
@@ -385,7 +403,7 @@ function hasChatMedia(chat) {
 // True only after the first load with nothing to show: no chats, boards,
 // flows, or library media — i.e. a fresh install right after onboarding.
 const isFirstRun = computed(() =>
-  loaded.value
+  recentsState.value === 'ready'
   && recentChats.value.length === 0
   && recentBoards.value.length === 0
   && recentFlows.value.length === 0
@@ -546,7 +564,7 @@ function handleJumpContextMenu(event, item) {
 let resizeObserver = null
 
 function setupResizeObserver() {
-  if (!contentRef.value) return
+  if (resizeObserver || !contentRef.value) return
   resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       contentWidth.value = entry.contentRect.width
@@ -564,54 +582,70 @@ function cleanupResizeObserver() {
 
 // ==================== Data loading ====================
 
-async function loadRecentChats() {
+// Each list loader takes the scope guard of the load that started it and
+// drops its result once a newer scope has taken over, so a late response
+// can't put another project's or profile's items on screen. They resolve
+// false on failure. Card artwork loads afterwards and never blocks the list.
+
+async function loadRecentChats(isCurrent = homeLoads.guard()) {
   try {
     // The top level shows only chats with no project.
     const data = await fetchScopedJson('/api/chats/previews', new URLSearchParams({ page: '1', page_size: '6' }), projectId.value)
+    if (!isCurrent()) return true
     recentChats.value = data.items || []
     requestFaceFocalPoints(recentChats.value.map((c) => c.recent_media?.[0]?.media_id))
+    return true
   } catch (err) {
     console.error('Failed to load recent chats:', err)
+    return false
   }
 }
 
-async function loadRecentFlows() {
+async function loadRecentFlows(isCurrent = homeLoads.guard()) {
   try {
     const all = await listFlows(projectId.value == null ? {} : { project_id: projectId.value })
+    if (!isCurrent()) return true
     recentFlows.value = [...all]
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
       .slice(0, 6)
-
-    // Card art: the flow list endpoint doesn't aggregate output media, so pull
-    // each flow's equations and derive outputs the same way FlowCard does.
-    const results = await Promise.allSettled(
-      recentFlows.value.map((flow) => listEquations(flow.id))
-    )
-    const next = new Map()
-    results.forEach((result, index) => {
-      if (result.status !== 'fulfilled') return
-      const byKey = new Map()
-      for (const eq of result.value) byKey.set(eq.equation_key, eq)
-      next.set(recentFlows.value[index].id, computeFlowOutputs(byKey).map((o) => o.mediaId))
-    })
-    flowOutputMedia.value = next
-    requestFaceFocalPoints([...next.values()].flatMap((ids) => ids.slice(0, 3)))
+    void loadFlowArtwork(recentFlows.value, isCurrent)
+    return true
   } catch (err) {
     console.error('Failed to load recent flows:', err)
+    return false
   }
+}
+
+// Card art: the flow list endpoint doesn't aggregate output media, so pull
+// each flow's equations and derive outputs the same way FlowCard does.
+async function loadFlowArtwork(flows, isCurrent) {
+  const results = await Promise.allSettled(flows.map((flow) => listEquations(flow.id)))
+  if (!isCurrent()) return
+  const next = new Map()
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return
+    const byKey = new Map()
+    for (const eq of result.value) byKey.set(eq.equation_key, eq)
+    next.set(flows[index].id, computeFlowOutputs(byKey).map((o) => o.mediaId))
+  })
+  flowOutputMedia.value = next
+  requestFaceFocalPoints([...next.values()].flatMap((ids) => ids.slice(0, 3)))
 }
 
 function getFlowPreviewMediaIds(flowId) {
   return (flowOutputMedia.value.get(flowId) || []).slice(0, 3)
 }
 
-async function loadRecentMedia() {
+async function loadRecentMedia(isCurrent = homeLoads.guard()) {
   try {
     // Top-level Home shows top-level assets, like the top-level browser.
     const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined, scope: projectId.value == null ? 'unfiled' : undefined })
+    if (!isCurrent()) return true
     recentMedia.value = response.items || []
+    return true
   } catch (err) {
     console.error('Failed to load recent media:', err)
+    return false
   }
 }
 
@@ -682,30 +716,32 @@ function openChat(chat) {
   router.push({ name: 'chat', params: { id: chat.id } })
 }
 
-async function loadRecentBoards() {
+async function loadRecentBoards(isCurrent = homeLoads.guard()) {
   try {
     const boards = await getBoards(projectId.value)
+    if (!isCurrent()) return true
     recentBoards.value = boards.slice(0, 6)
-
-    const results = await Promise.allSettled(
-      recentBoards.value.map((board) => getBoard(board.id))
-    )
-
-    const next = new Map()
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        next.set(recentBoards.value[index].id, result.value)
-      }
-    })
-    boardDetails.value = next
-    requestFaceFocalPoints(
-      [...next.values()].flatMap((detail) =>
-        (detail?.sections || []).flatMap((s) => s.items || []).slice(0, 6).map((it) => mediaIdOf(it))
-      )
-    )
+    void loadBoardArtwork(recentBoards.value, isCurrent)
+    return true
   } catch (err) {
     console.error('Failed to load boards:', err)
+    return false
   }
+}
+
+async function loadBoardArtwork(boards, isCurrent) {
+  const results = await Promise.allSettled(boards.map((board) => getBoard(board.id)))
+  if (!isCurrent()) return
+  const next = new Map()
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') next.set(boards[index].id, result.value)
+  })
+  boardDetails.value = next
+  requestFaceFocalPoints(
+    [...next.values()].flatMap((detail) =>
+      (detail?.sections || []).flatMap((s) => s.items || []).slice(0, 6).map((it) => mediaIdOf(it))
+    )
+  )
 }
 
 function openBoard(boardId) {
@@ -954,9 +990,59 @@ function checkPendingMedia() {
 
 watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 
-async function loadAll() {
-  await Promise.all([loadRecentChats(), loadRecentMedia(), loadRecentBoards(), loadRecentFlows(), loadTools()])
-  loaded.value = true
+// ==================== Load policy ====================
+
+// Mount, reactivation, retry and scope changes all go through refreshHome.
+// One scope is read at most once at a time and is reused while fresh; server
+// change events mark it stale so the next visit reloads. Home does not
+// reload live while it is on screen.
+const HOME_FRESH_MS = 30_000
+const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS })
+const HOME_CHANGE_EVENTS = [
+  'chat_created', 'chat_updated', 'chat_deleted', 'chat_restored', 'chat_item_created',
+  'board_created', 'board_updated', 'board_deleted', 'board_restored', 'board_items_changed',
+  'flow_created', 'flow_updated', 'flow_deleted', 'flow_restored', 'flow_equation_updated',
+  'asset_created', 'asset_deleted', 'asset_trashed', 'assets_trashed', 'assets_restored',
+  'assets_permanently_deleted', 'asset_current_revision_changed', 'media_added', 'media_restored',
+]
+
+function homeScope() {
+  return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId(), projectId.value)
+}
+
+function resetHomeData() {
+  recentChats.value = []
+  recentMedia.value = []
+  recentBoards.value = []
+  recentFlows.value = []
+  flowOutputMedia.value = new Map()
+  boardDetails.value = new Map()
+  recentsState.value = 'loading'
+}
+
+function refreshHome({ force = false } = {}) {
+  const key = homeScope()
+  // Never show one scope's items while another's are loading.
+  if (homeLoads.activeKey !== null && homeLoads.activeKey !== key) resetHomeData()
+  return homeLoads.request(key, async (isCurrent) => {
+    if (recentsState.value === 'error') recentsState.value = 'loading'
+    const tools = loadTools()
+    const results = await Promise.all([
+      loadRecentChats(isCurrent), loadRecentMedia(isCurrent), loadRecentBoards(isCurrent), loadRecentFlows(isCurrent),
+    ])
+    const ok = results.every(Boolean)
+    if (isCurrent()) recentsState.value = ok ? 'ready' : 'error'
+    await tools
+    return ok
+  }, { force })
+}
+
+async function checkModels() {
+  try {
+    await checkAgentModels(projectId.value)
+  } finally {
+    heroReady.value = true
+  }
 }
 
 // Providers connect and tools appear asynchronously (login, funding, first
@@ -964,29 +1050,63 @@ async function loadAll() {
 // wizard. Reload tools on provider/tool change events so the launcher pills
 // and first-run starter grid fill in as soon as tools exist.
 let unsubscribeFromProviderChanges = null
+const { on: onServerEvent } = useWebSocket()
+const unsubscribeFromServerEvents = []
 
-onMounted(() => {
+// Under KeepAlive the initial mount fires both onMounted and onActivated;
+// the active flag makes them one entry.
+let active = false
+function activate() {
+  if (active) return
+  active = true
   setupResizeObserver()
-  loadAll()
-  checkAgentModels(projectId.value)
+  void refreshHome()
+  void checkModels()
   checkPendingMedia()
   if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
+}
+
+function handleProfileChanged() {
+  if (active) void refreshHome()
+}
+
+watch(projectId, () => {
+  if (!active) return
+  void refreshHome()
+  void checkModels()
+})
+
+onMounted(() => {
+  activate()
   unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
+  for (const event of HOME_CHANGE_EVENTS) {
+    unsubscribeFromServerEvents.push(onServerEvent(event, () => homeLoads.invalidate()))
+  }
+  // A reconnect may have missed change events. Retry right away only when
+  // the last load failed; otherwise the next visit reloads.
+  unsubscribeFromServerEvents.push(onServerEvent('websocket_reconnected', () => {
+    homeLoads.invalidate()
+    if (active && recentsState.value === 'error') void refreshHome()
+  }))
+  window.addEventListener('stimma:transport-resumed', homeLoads.invalidate)
+  window.addEventListener('profile-changed', handleProfileChanged)
+})
+
+onActivated(activate)
+
+onDeactivated(() => {
+  active = false
 })
 
 onUnmounted(() => {
+  active = false
   cleanupResizeObserver()
   if (unsubscribeFromProviderChanges) {
     unsubscribeFromProviderChanges()
     unsubscribeFromProviderChanges = null
   }
-})
-
-onActivated(() => {
-  setupResizeObserver()
-  loadAll()
-  checkAgentModels(projectId.value)
-  checkPendingMedia()
-  if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
+  for (const unsubscribe of unsubscribeFromServerEvents.splice(0)) unsubscribe()
+  window.removeEventListener('stimma:transport-resumed', homeLoads.invalidate)
+  window.removeEventListener('profile-changed', handleProfileChanged)
 })
 </script>
