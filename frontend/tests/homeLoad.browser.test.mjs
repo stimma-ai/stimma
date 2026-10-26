@@ -23,7 +23,7 @@ function chat(id, name) {
  * Serve Home's API. `respond(path, query, headers)` may return a JSON body, a status
  * number, or a promise of either (to delay); undefined falls back to empty.
  */
-async function openHome(t, { start = '/', respond = () => undefined } = {}) {
+async function openHome(t, { start = '/', respond = () => undefined, deadline = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
@@ -44,7 +44,7 @@ async function openHome(t, { start = '/', respond = () => undefined } = {}) {
     }
     return route.fulfill({ json: answer }).catch(() => {})
   })
-  await page.goto(`http://home-load.test/?start=${encodeURIComponent(start)}`)
+  await page.goto(`http://home-load.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}`)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   return { page, counts, errors, push: path => page.evaluate(path => window.homeLoadTest.router.push(path), path) }
@@ -455,4 +455,65 @@ for (const order of ['retry fails, rerun succeeds', 'retry succeeds, rerun fails
     }
   })
 }
+
+test('a stalled recents read is aborted at its deadline and a retry recovers', async t => {
+  let reads = 0
+  const { page, counts } = await openHome(t, {
+    deadline: 1500,
+    respond: path => {
+      if (path !== '/api/chats/previews') return
+      reads++
+      return reads === 1 ? hang() : { items: [chat(8, 'After the stall')], total: 1 }
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await expect(page.getByText("Couldn't load recent chats.")).toBeVisible({ timeout: 5000 })
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('After the stall')).toBeVisible()
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  assert.equal(counts.get('/api/chats/previews'), 2)
+})
+
+test('a stalled tool catalog read is aborted and the next visit recovers', async t => {
+  let reads = 0
+  const { page, push } = await openHome(t, {
+    deadline: 1500,
+    respond: path => {
+      if (path === '/api/chats/previews') return { items: [chat(9, 'Some chat')], total: 1 }
+      if (path === '/api/tools/providers') return []
+      if (path !== '/api/tools/providers/tools') return
+      reads++
+      return reads === 1 ? hang() : [catalogTool('p:late', 'Late tool')]
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await page.evaluate(() => window.homeLoadTest.recordToolVisit('p:late', 'Late tool'))
+  await page.waitForTimeout(2000)
+  await push('/elsewhere')
+  await push('/')
+  await expect(page.getByText('Late tool')).toBeVisible()
+  assert.equal(reads, 2)
+})
+
+test('a failed forced tool refresh is not treated as fresh on the next visit', async t => {
+  let reads = 0
+  const { page, push } = await openHome(t, {
+    respond: path => {
+      if (path === '/api/chats/previews') return { items: [chat(10, 'Some chat')], total: 1 }
+      if (path === '/api/tools/providers') return []
+      if (path !== '/api/tools/providers/tools') return
+      reads++
+      if (reads === 2) return 503
+      return [catalogTool('p:t', `Tool v${reads}`)]
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await expect.poll(() => reads).toBe(1)
+  await page.evaluate(() => window.homeLoadTest.serverEvent('tools_updated', {}))
+  await expect.poll(() => reads).toBe(2)
+  await page.waitForTimeout(200)
+  await push('/elsewhere')
+  await push('/')
+  await expect.poll(() => reads).toBe(3)
+})
 

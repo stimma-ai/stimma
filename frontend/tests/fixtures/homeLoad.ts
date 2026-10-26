@@ -6,6 +6,7 @@ import { setCurrentProfileId } from '../../src/composables/useProfile'
 import { useAvailableModels } from '../../src/composables/useAvailableModels'
 import { recordEntityVisit } from '../../src/composables/useRecentEntities'
 import { useProvidersApi } from '../../src/composables/useProvidersApi'
+import { setReadDeadlineMs } from '../../src/utils/readDeadline'
 import '../../src/style.css'
 
 // A scripted server socket: the test pushes broadcasts and drops the
@@ -59,5 +60,7 @@ const app = createApp({ render: () => h('main', [h('div', { id: 'compact-header-
   default: ({ Component, route }: any) => h(KeepAlive, null, { default: () => h(Component, { key: route.matched[0]?.path }) }),
 })]) })
 app.use(router)
-const start = new URLSearchParams(location.search).get('start') || '/'
+const query = new URLSearchParams(location.search)
+const start = query.get('start') || '/'
+if (query.get('deadline')) setReadDeadlineMs(Number(query.get('deadline')))
 initApiConfig().then(() => router.push(start)).then(() => app.mount('#app'))

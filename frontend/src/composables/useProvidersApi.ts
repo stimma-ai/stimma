@@ -171,9 +171,9 @@ export function useProvidersApi() {
   /**
    * List all registered providers
    */
-  async function listProviders(): Promise<Provider[]> {
+  async function listProviders(config: { signal?: AbortSignal } = {}): Promise<Provider[]> {
     const read = beginCatalogRead()
-    const response = await axios.get(`${getToolsAPIBase()}/providers`)
+    const response = await axios.get(`${getToolsAPIBase()}/providers`, config)
     const providers = response.data.map(normalizeProvider)
     if (mayPublish(read, 'providers')) providersCache.value = providers
     else if (supersededInCache(read, 'providers')) return providersCache.value
@@ -191,9 +191,9 @@ export function useProvidersApi() {
   /**
    * List all tools from all providers
    */
-  async function listAllTools(): Promise<ProviderTool[]> {
+  async function listAllTools(config: { signal?: AbortSignal } = {}): Promise<ProviderTool[]> {
     const read = beginCatalogRead()
-    const response = await axios.get(`${getToolsAPIBase()}/providers/tools`)
+    const response = await axios.get(`${getToolsAPIBase()}/providers/tools`, config)
     const tools = response.data.map(normalizeProvider)
     if (mayPublish(read, 'tools')) {
       toolsCache.value = tools
@@ -222,7 +222,7 @@ export function useProvidersApi() {
   /**
    * Fetch providers and tools together, with caching
    */
-  async function fetchProvidersAndTools(forceRefresh = false): Promise<{
+  async function fetchProvidersAndTools(forceRefresh = false, config: { signal?: AbortSignal } = {}): Promise<{
     providers: Provider[]
     tools: ProviderTool[]
   }> {
@@ -235,8 +235,8 @@ export function useProvidersApi() {
     }
 
     const [providers, tools] = await Promise.all([
-      listProviders(),
-      listAllTools(),
+      listProviders(config),
+      listAllTools(config),
     ])
 
     return { providers, tools }

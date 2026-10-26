@@ -15,14 +15,14 @@ function unscopedOnly(data: any) {
   return data
 }
 
-export async function fetchScopedJson(path: string, params: URLSearchParams, projectId: number | null | undefined) {
+export async function fetchScopedJson(path: string, params: URLSearchParams, projectId: number | null | undefined, init: RequestInit = {}) {
   const scoped = new URLSearchParams(params)
   scoped.set('project_id', scopeParam(projectId))
-  let response = await fetch(`${path}?${scoped}`)
+  let response = await fetch(`${path}?${scoped}`, init)
   if (response.status === 422 && projectId == null) {
     const loose = new URLSearchParams(params)
     loose.delete('project_id')
-    response = await fetch(`${path}?${loose}`)
+    response = await fetch(`${path}?${loose}`, init)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     return unscopedOnly(await response.json())
   }

@@ -320,6 +320,7 @@ import { contextRoute } from '../utils/workingContext'
 import { makeStorageKey } from '../utils/storageKeys'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
 import { createScopedLoad, scopeKey } from '../utils/scopedLoad'
+import { withReadDeadline } from '../utils/readDeadline'
 import { getBackendOrigin } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -455,7 +456,7 @@ function loadTools({ force = false } = {}) {
   }
   return toolLoads.request(key, async (isCurrent) => {
     try {
-      const { tools } = await fetchProvidersAndTools(force)
+      const { tools } = await withReadDeadline(signal => fetchProvidersAndTools(force, { signal }))
       if (!isCurrent()) return
       toolsList.value = tools.filter(t => !t.metadata?.agent_only)
       return true
@@ -624,7 +625,7 @@ function cleanupResizeObserver() {
 async function loadRecentChats(isCurrent = homeLoads.guard()) {
   try {
     // The top level shows only chats with no project.
-    const data = await fetchScopedJson('/api/chats/previews', new URLSearchParams({ page: '1', page_size: '6' }), projectId.value)
+    const data = await withReadDeadline(signal => fetchScopedJson('/api/chats/previews', new URLSearchParams({ page: '1', page_size: '6' }), projectId.value, { signal }))
     if (!isCurrent()) return true
     recentChats.value = data.items || []
     requestFaceFocalPoints(recentChats.value.map((c) => c.recent_media?.[0]?.media_id))
@@ -637,7 +638,7 @@ async function loadRecentChats(isCurrent = homeLoads.guard()) {
 
 async function loadRecentFlows(isCurrent = homeLoads.guard()) {
   try {
-    const all = await listFlows(projectId.value == null ? {} : { project_id: projectId.value })
+    const all = await withReadDeadline(signal => listFlows(projectId.value == null ? {} : { project_id: projectId.value }, { signal }))
     if (!isCurrent()) return true
     recentFlows.value = [...all]
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
@@ -653,7 +654,7 @@ async function loadRecentFlows(isCurrent = homeLoads.guard()) {
 // Card art: the flow list endpoint doesn't aggregate output media, so pull
 // each flow's equations and derive outputs the same way FlowCard does.
 async function loadFlowArtwork(flows, isCurrent) {
-  const results = await Promise.allSettled(flows.map((flow) => listEquations(flow.id)))
+  const results = await Promise.allSettled(flows.map((flow) => withReadDeadline(signal => listEquations(flow.id, {}, { signal }))))
   if (!isCurrent()) return
   const next = new Map()
   results.forEach((result, index) => {
@@ -673,7 +674,7 @@ function getFlowPreviewMediaIds(flowId) {
 async function loadRecentMedia(isCurrent = homeLoads.guard()) {
   try {
     // Top-level Home shows top-level assets, like the top-level browser.
-    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined, scope: projectId.value == null ? 'unfiled' : undefined })
+    const response = await withReadDeadline(signal => fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16, project_id: projectId.value ?? undefined, scope: projectId.value == null ? 'unfiled' : undefined }, { signal }))
     if (!isCurrent()) return true
     recentMedia.value = response.items || []
     return true
@@ -752,7 +753,7 @@ function openChat(chat) {
 
 async function loadRecentBoards(isCurrent = homeLoads.guard()) {
   try {
-    const boards = await getBoards(projectId.value)
+    const boards = await withReadDeadline(signal => getBoards(projectId.value, { signal }))
     if (!isCurrent()) return true
     recentBoards.value = boards.slice(0, 6)
     void loadBoardArtwork(recentBoards.value, isCurrent)
@@ -764,7 +765,7 @@ async function loadRecentBoards(isCurrent = homeLoads.guard()) {
 }
 
 async function loadBoardArtwork(boards, isCurrent) {
-  const results = await Promise.allSettled(boards.map((board) => getBoard(board.id)))
+  const results = await Promise.allSettled(boards.map((board) => withReadDeadline(signal => getBoard(board.id, { signal }))))
   if (!isCurrent()) return
   const next = new Map()
   results.forEach((result, index) => {

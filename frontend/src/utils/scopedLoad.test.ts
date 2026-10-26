@@ -149,6 +149,16 @@ test('a request after an invalidation during a read reruns once it settles', asy
   assert.equal(await loads.request('a', async () => { calls++ }), false)
 })
 
+test('a failed forced refresh does not keep an earlier success fresh', async () => {
+  const loads = createScopedLoad({ freshMs: 60_000 })
+  let calls = 0
+  await loads.request('a', async () => { calls++ })
+  await loads.request('a', async () => { calls++; return false }, { force: true })
+  await loads.request('a', async () => { calls++ })
+  assert.equal(calls, 3)
+  assert.equal(await loads.request('a', async () => { calls++ }), false)
+})
+
 test('a scope change cancels a pending rerun', async () => {
   const loads = createScopedLoad({ freshMs: 1000 })
   const slow = deferred()

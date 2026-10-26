@@ -52,6 +52,9 @@ export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions)
     const mine = epoch
     const changesAtStart = changes
     const isCurrent = () => mine === epoch
+    // A new read replaces whatever freshness an earlier one earned; only its
+    // own success can restore it.
+    freshKey = null
     const promise = (async () => {
       let ok: boolean | void = false
       try {

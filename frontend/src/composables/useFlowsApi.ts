@@ -127,8 +127,8 @@ export function useFlowsApi() {
     project_id?: number
     parent_id?: number
     include_deleted?: boolean
-  } = {}): Promise<Flow[]> {
-    const response = await axios.get(`${base()}/flows`, { params })
+  } = {}, config: { signal?: AbortSignal } = {}): Promise<Flow[]> {
+    const response = await axios.get(`${base()}/flows`, { ...config, params })
     return response.data
   }
 
@@ -198,11 +198,11 @@ export function useFlowsApi() {
   async function listEquations(id: number | string, params: {
     status?: string
     phase_path?: string[]
-  } = {}): Promise<FlowEquation[]> {
+  } = {}, config: { signal?: AbortSignal } = {}): Promise<FlowEquation[]> {
     const query: Record<string, any> = {}
     if (params.status) query.status = params.status
     if (params.phase_path) query.phase_path = JSON.stringify(params.phase_path)
-    const response = await axios.get(`${base()}/flows/${id}/equations`, { params: query })
+    const response = await axios.get(`${base()}/flows/${id}/equations`, { ...config, params: query })
     return response.data
   }
 

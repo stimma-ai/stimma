@@ -225,10 +225,10 @@ export function useMediaApi() {
   }
 
   // ===== Boards =====
-  async function getBoards(projectId = null) {
+  async function getBoards(projectId = null, config = {}) {
     const params = {}
     if (projectId != null) params.project_id = projectId
-    const response = await axios.get(`${getAPIBase()}/boards`, { params })
+    const response = await axios.get(`${getAPIBase()}/boards`, { ...config, params })
     return response.data
   }
 
@@ -237,8 +237,8 @@ export function useMediaApi() {
     return response.data
   }
 
-  async function getBoard(boardId) {
-    const response = await axios.get(`${getAPIBase()}/boards/${boardId}`)
+  async function getBoard(boardId, config = {}) {
+    const response = await axios.get(`${getAPIBase()}/boards/${boardId}`, config)
     return response.data
   }
 

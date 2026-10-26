@@ -28,8 +28,8 @@ const api = () => getApiBase()
  * deliberately remain in useMediaApi and require an explicit media_id.
  */
 export function useAssetApi() {
-  async function fetchAssets(params: Record<string, unknown> = {}): Promise<AssetBrowseResponse> {
-    return (await axios.get(`${api()}/assets/browse`, { params })).data
+  async function fetchAssets(params: Record<string, unknown> = {}, config: { signal?: AbortSignal } = {}): Promise<AssetBrowseResponse> {
+    return (await axios.get(`${api()}/assets/browse`, { ...config, params })).data
   }
 
   async function fetchAssetIds(params: Record<string, unknown> = {}): Promise<{ ids: number[] }> {

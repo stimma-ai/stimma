@@ -6,6 +6,7 @@ import { computed, ref, readonly } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from './useProfile'
+import { withReadDeadline } from '../utils/readDeadline'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 import { sortModelsByBrand } from '../utils/modelVendors'
 import {
@@ -158,7 +159,7 @@ async function loadModels(projectId, version, now) {
   try {
     const params = {}
     if (projectId != null) params.project_id = projectId
-    const response = await axios.get(`${getApiBase()}/models/available`, { params })
+    const response = await withReadDeadline(signal => axios.get(`${getApiBase()}/models/available`, { params, signal }))
     if (version !== fetchVersion) return
     models.value = sortModelsByBrand(response.data.models || [])
     globalDefault.value = normalizeModelSlug(response.data.global_default || 'auto')
