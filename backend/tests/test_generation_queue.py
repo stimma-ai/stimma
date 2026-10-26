@@ -411,6 +411,54 @@ class TestForeverModeSlotFilling:
 
         await generation_queue.unregister_forever_mode(client, "test")
 
+    async def test_undelivered_work_request_releases_reservation_and_refills(
+        self, generation_queue, mock_ws
+    ):
+        """A queued request whose socket closed before it was written must not
+        hold its slot: the reservation is released and the slot re-offered."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-undelivered-request"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        first = mock_ws.get_broadcasts("generation_request_work")[0][1]
+        on_undelivered = mock_ws.undelivered_callback_for(first)
+        assert on_undelivered is not None
+        mock_ws.clear()
+
+        # e.g. the request was stranded on a socket the page already replaced
+        await on_undelivered()
+
+        assert first["reservation_id"] not in generation_queue._work_reservations
+        refill = mock_ws.get_broadcasts("generation_request_work")
+        assert len(refill) == 1
+        assert refill[0][1]["reservation_id"] != first["reservation_id"]
+        assert list(generation_queue._work_reservations) == [refill[0][1]["reservation_id"]]
+        assert len(generation_queue._pending_work_requests["test"]) == 1
+
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_undelivered_request_after_disconnect_cleanup_is_harmless(
+        self, generation_queue, mock_ws
+    ):
+        """Disconnect cleanup already released the instance; the late callback
+        must not double-release or revive the departed instance."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-undelivered-after-cleanup"
+
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        first = mock_ws.get_broadcasts("generation_request_work")[0][1]
+        on_undelivered = mock_ws.undelivered_callback_for(first)
+        mock_ws.clear()
+
+        await generation_queue.cleanup_disconnected_client(client)
+        await on_undelivered()
+
+        assert generation_queue._work_reservations == {}
+        assert generation_queue._pending_work_requests.get("test", []) == []
+        assert mock_ws.get_broadcasts("generation_request_work") == []
+
     async def test_cancel_job_refills_forever_mode_slots(
         self, generation_queue, generation_db_session, mock_ws, output_folder
     ):

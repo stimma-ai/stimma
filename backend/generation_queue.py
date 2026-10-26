@@ -6,6 +6,7 @@ import os
 import json
 import time
 import asyncio
+import functools
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from sqlalchemy import select, update, func
@@ -761,6 +762,18 @@ class GenerationQueue:
             await self._fill_available_slots(backend_name)
         return released
 
+    async def release_undelivered_work_request(
+        self, reservation_id: str, generator_instance_id: str, backend_name: str
+    ) -> None:
+        """A work request was queued but its socket closed before it was written.
+
+        Disconnect cleanup normally releases the instance's reservations
+        already; this also covers a request stranded on a superseded socket.
+        Either way the slot is offered to the clients still connected.
+        """
+        await self.claim_work_reservation(reservation_id, generator_instance_id, backend_name)
+        await self._fill_available_slots(backend_name)
+
     async def cancel_queued_jobs_for_instance(self, generator_instance_id: str,
                                                error_message: str = 'Cancelled - cleanup') -> int:
         """
@@ -976,11 +989,19 @@ class GenerationQueue:
                 }
 
                 log.debug(f"Forever mode: requesting work from {next_client} for {backend_name} ({requests_sent+1}/{backend_slots_to_fill}, sent_this_call={requests_sent_this_call[next_client]})")
-                sent = await self._websocket_manager.send_to_generator_instance(next_client, 'generation_request_work', {
-                    'generator_instance_id': next_client,
-                    'backend_name': backend_name,
-                    'reservation_id': reservation_id,
-                })
+                sent = await self._websocket_manager.send_to_generator_instance(
+                    next_client,
+                    'generation_request_work',
+                    {
+                        'generator_instance_id': next_client,
+                        'backend_name': backend_name,
+                        'reservation_id': reservation_id,
+                    },
+                    on_undelivered=functools.partial(
+                        self.release_undelivered_work_request,
+                        reservation_id, next_client, backend_name,
+                    ),
+                )
                 if not sent:
                     self._work_reservations.pop(reservation_id, None)
                     self._pending_work_requests[backend_name].pop()

@@ -123,15 +123,23 @@ class MockWebSocketManager:
     def __init__(self):
         self.broadcasts: list[tuple[str, dict]] = []
         self.connections: list = []
+        self.undelivered_callbacks: dict = {}
 
     async def broadcast(self, event: str, data: dict, include_profile: bool = True):
         """Capture a broadcast event."""
         self.broadcasts.append((event, data))
 
-    async def send_to_generator_instance(self, generator_instance_id: str, event: str, data: dict) -> bool:
-        """Capture a directed generator event."""
+    async def send_to_generator_instance(
+        self, generator_instance_id: str, event: str, data: dict, *, on_undelivered=None
+    ) -> bool:
+        """Capture a directed generator event and its undelivered callback."""
         self.broadcasts.append((event, data))
+        self.undelivered_callbacks[id(data)] = on_undelivered
         return True
+
+    def undelivered_callback_for(self, data: dict):
+        """The ``on_undelivered`` callback passed with a captured directed event."""
+        return self.undelivered_callbacks.get(id(data))
 
     async def connect(self, websocket):
         """Track a connection."""
@@ -151,6 +159,7 @@ class MockWebSocketManager:
     def clear(self):
         """Clear all captured broadcasts."""
         self.broadcasts.clear()
+        self.undelivered_callbacks.clear()
 
     def assert_broadcast(self, event_name: str, data_match: Optional[dict] = None):
         """Assert that a specific event was broadcast.

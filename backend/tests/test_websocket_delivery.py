@@ -108,8 +108,8 @@ async def test_broadcast_is_serialized_once_and_shared_by_every_queue():
     await manager.broadcast("media_added", {"media_id": 1}, include_profile=False)
     await manager.broadcast("media_added", {"media_id": 2}, include_profile=False)
 
-    frame_a = manager.client_for(a)._queue[0]
-    frame_b = manager.client_for(b)._queue[0]
+    frame_a = manager.client_for(a).pending_frames()[0]
+    frame_b = manager.client_for(b).pending_frames()[0]
     assert frame_a is frame_b
 
     a.gate.set()
@@ -362,8 +362,10 @@ async def test_final_stats_and_delete_progress_are_coalesced_but_never_shed():
     await manager.disconnect(slow)
 
 
-async def test_server_drop_keeps_generator_work_and_reattach_cancels_abandonment():
-    manager = WebSocketManager(hard_max_frames=4, generator_reattach_grace=0.2)
+async def test_stalled_client_drop_uses_ordinary_disconnect_semantics():
+    """A hard-cap or deadline drop is a network drop: the generator instance
+    is released once, through the same cleanup as any other disconnect."""
+    manager = WebSocketManager(hard_max_frames=4)
     abandoned = []
 
     async def on_generator_disconnect(generator_instance_id):
@@ -377,28 +379,18 @@ async def test_server_drop_keeps_generator_work_and_reattach_cancels_abandonment
     for i in range(10):
         await manager.broadcast("media_added", {"media_id": i}, include_profile=False)
     await manager.drain()
+
     assert phone not in manager.active_connections
-    # Backpressure is not abandonment: queued jobs are not cancelled.
-    assert abandoned == []
-
-    # The page reconnects and re-registers the same instance in time.
-    reconnected = Healthy()
-    manager.attach(reconnected)
-    manager.register_generator_instance(reconnected, "gen-phone")
-    await asyncio.sleep(0.3)
-    assert abandoned == []
-    assert await manager.send_to_generator_instance("gen-phone", "generation_request_work", {}) is True
-
-    # An ordinary disconnect keeps today's semantics: abandoned immediately.
-    await manager.disconnect(reconnected)
+    assert phone.closed_with == OVERFLOW_CLOSE_CODE
     assert abandoned == ["gen-phone"]
+    assert await manager.send_to_generator_instance("gen-phone", "generation_request_work", {}) is False
 
 
-async def test_server_drop_abandons_generator_after_grace_without_reattach(monkeypatch):
+async def test_half_open_socket_is_closed_by_the_send_deadline(monkeypatch):
     import utils.websocket as websocket_module
 
     monkeypatch.setattr(websocket_module, "CLIENT_CLOSE_TIMEOUT_SECONDS", 0.05)
-    manager = WebSocketManager(send_timeout=0.05, generator_reattach_grace=0.5)
+    manager = WebSocketManager(send_timeout=0.05)
     abandoned = []
 
     async def on_generator_disconnect(generator_instance_id):
@@ -411,20 +403,153 @@ async def test_server_drop_abandons_generator_after_grace_without_reattach(monke
     manager.register_generator_instance(dead, "gen-dead")
 
     await manager.broadcast("media_added", {"media_id": 1}, include_profile=False)
-    # Closing a half-open peer may itself hang; the drop is bounded too.
     await asyncio.wait_for(manager.drain(), 5)
 
-    # The send deadline closed the half-open socket and released its queue.
     assert dead not in manager.active_connections
     assert dead.closed_with == OVERFLOW_CLOSE_CODE
     assert dead_client.sender_task is None and dead_client.queued_frames == 0
     assert healthy.events() == ["media_added"]
-    assert await manager.send_to_generator_instance("gen-dead", "generation_request_work", {}) is False
-    assert abandoned == []
-
-    await asyncio.sleep(0.6)
     assert abandoned == ["gen-dead"]
     await manager.disconnect(healthy)
+
+
+async def test_unwritten_direct_frames_report_undelivered_after_instance_cleanup():
+    manager = WebSocketManager(send_timeout=0.05)
+    order = []
+
+    async def on_generator_disconnect(generator_instance_id):
+        order.append(("abandon", generator_instance_id))
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    dead = HalfOpen()
+    manager.attach(dead)
+    manager.register_generator_instance(dead, "gen")
+
+    def undelivered(tag):
+        async def callback():
+            order.append(("undelivered", tag))
+        return callback
+
+    # The first request goes in flight and stalls; the second waits behind it.
+    for tag in ("r1", "r2"):
+        assert await manager.send_to_generator_instance(
+            "gen", "generation_request_work", {"reservation_id": tag},
+            on_undelivered=undelivered(tag),
+        ) is True
+    await asyncio.wait_for(manager.drain(), 5)
+
+    assert order == [("abandon", "gen"), ("undelivered", "r1"), ("undelivered", "r2")]
+
+
+async def test_request_stranded_on_superseded_socket_is_released():
+    """The page re-registered its instance on a new socket; the old socket's
+    unwritten request must still release its reservation, without abandoning
+    the instance that now lives on the new socket."""
+    manager = WebSocketManager()
+    events = []
+
+    async def on_generator_disconnect(generator_instance_id):
+        events.append(("abandon", generator_instance_id))
+
+    async def released():
+        events.append(("undelivered", "r1"))
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    old, new = Gated(), Healthy()
+    manager.attach(old)
+    await _hold(manager, old)
+    manager.register_generator_instance(old, "gen")
+    assert await manager.send_to_generator_instance(
+        "gen", "generation_request_work", {"reservation_id": "r1"}, on_undelivered=released
+    )
+    manager.attach(new)
+    manager.register_generator_instance(new, "gen")
+
+    await manager.disconnect(old)
+    assert events == [("undelivered", "r1")]
+    await manager.disconnect(new)
+    assert events == [("undelivered", "r1"), ("abandon", "gen")]
+
+
+async def test_racing_disconnects_clean_up_exactly_once():
+    """The endpoint's receive loop and a server-initiated drop can both call
+    disconnect; the instance cleanup and undelivered release run once."""
+    manager = WebSocketManager()
+    calls = []
+
+    async def on_generator_disconnect(generator_instance_id):
+        calls.append(("abandon", generator_instance_id))
+        await asyncio.sleep(0)
+
+    async def released():
+        calls.append(("undelivered", "r1"))
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    socket = Gated()
+    client = manager.attach(socket)
+    await _hold(manager, socket)
+    manager.register_generator_instance(socket, "gen")
+    await manager.send_to_generator_instance(
+        "gen", "generation_request_work", {"reservation_id": "r1"}, on_undelivered=released
+    )
+
+    # Server-initiated drop and the endpoint's cleanup, interleaved.
+    manager._client_failed(client, "queue_overflow")
+    await asyncio.gather(manager.disconnect(socket), manager.disconnect(socket))
+    await manager.drain()
+
+    assert calls == [("abandon", "gen"), ("undelivered", "r1")]
+    assert manager.clients == []
+
+
+async def test_enqueue_cost_is_bounded_with_a_large_durable_backlog():
+    """Past the soft budget with nothing sheddable, each durable enqueue must
+    not rescan the backlog (that was quadratic: ~15 s for 50k frames)."""
+    manager = WebSocketManager(soft_max_frames=16, hard_max_frames=100_000)
+    stalled = Gated()
+    client = manager.attach(stalled)
+    await _hold(manager, stalled)
+
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    for i in range(50_000):
+        client.enqueue(manager_frame(i))
+    elapsed = loop.time() - started
+
+    assert client.queued_frames == 50_000
+    assert elapsed < 2.0, elapsed
+    await manager.disconnect(stalled)
+
+
+async def test_coalescing_on_a_stalled_client_keeps_the_queue_bounded():
+    """Replaced frames leave tombstones; they must not accumulate without bound."""
+    manager = WebSocketManager()
+    stalled = Gated()
+    client = manager.attach(stalled)
+    await _hold(manager, stalled)
+
+    for i in range(20_000):
+        await manager.broadcast(
+            "generation_job_progress", {"job_id": i % 3, "progress": i}, include_profile=False
+        )
+    assert client.queued_frames == 3
+    assert len(client._queue) <= 2 * client.queued_frames + 65
+
+    # Shedding is O(1) per frame too: a long run of distinct jobs past the
+    # soft budget stays fast and bounded.
+    for i in range(20_000):
+        await manager.broadcast(
+            "generation_job_progress", {"job_id": 100 + i, "progress": 0.1}, include_profile=False
+        )
+    assert client.queued_frames <= client.soft_max_frames
+    assert len(client._queue) <= 2 * client.queued_frames + 65
+    await manager.disconnect(stalled)
+
+
+def manager_frame(i):
+    from utils.websocket import OutboundFrame
+
+    return OutboundFrame(event="media_added", text=json.dumps({"event": "media_added", "data": {"n": i}}))
 
 
 async def test_disconnect_cancels_sender_and_releases_queue():
