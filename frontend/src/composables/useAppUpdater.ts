@@ -238,14 +238,20 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
   }
 
   isChecking.value = true
+  // Keep a connected headless server's available-version state in step with
+  // every real client updater check. This is deliberately best-effort: an
+  // offline or desktop-managed backend must not hold up the client check,
+  // so it runs alongside it; the check as a whole ends when both have.
+  const companion = triggerServerUpdateCheck(getApiBase()).then(async started => {
+    if (!started) return
+    // Let the status view follow the check without steady idle polling.
+    // Listeners add the status reads they start, so this check also ends
+    // only once those have answered.
+    const followUps: Promise<unknown>[] = []
+    window.dispatchEvent(new CustomEvent(SERVER_UPDATE_CHECK_STARTED, { detail: { followUps } }))
+    await Promise.allSettled(followUps)
+  })
   try {
-    // Keep a connected headless server's available-version state in step with
-    // every real client updater check. This is deliberately best-effort: an
-    // offline or desktop-managed backend must not hold up the client check.
-    void triggerServerUpdateCheck(getApiBase()).then(started => {
-      // Let the status view follow the check without steady idle polling.
-      if (started) window.dispatchEvent(new Event(SERVER_UPDATE_CHECK_STARTED))
-    })
     const update = await desktop.checkForUpdate()
     await saveLastCheckedAt()
 
@@ -288,6 +294,7 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
     console.error('[updater] Failed checking for updates:', error)
   } finally {
     isChecking.value = false
+    await companion
   }
 }
 

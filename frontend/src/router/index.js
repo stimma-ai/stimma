@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { desktop } from '../desktop'
+import { withReadDeadline } from '../utils/readDeadline'
 import BrowseGridView from '../views/BrowseGridView.vue'
 import BoardDetailView from '../views/BoardDetailView.vue'
 import BoardsLandingView from '../views/BoardsLandingView.vue'
@@ -230,13 +231,16 @@ const router = createRouter({
 // (tool, project), else a freshly minted one. Callers that want an explicit
 // fresh instance pass ?instance themselves.
 // Loads an entity to learn its project, retrying once for a transient
-// failure. Resolves null when it can't be loaded (or doesn't exist).
+// failure. Resolves null when it can't be loaded (or doesn't exist). Each
+// read has a deadline: navigation (and startup, which waits for the first
+// one) must not hang on a request that stopped making progress.
 async function fetchOwner(url) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return (await axios.get(url)).data
+      return (await withReadDeadline(signal => axios.get(url, { signal }))).data
     } catch (err) {
-      if (err?.response?.status === 404 || attempt) return null
+      // A read that hit its deadline already waited long enough.
+      if (err?.response?.status === 404 || err?.code === 'ERR_CANCELED' || attempt) return null
       await new Promise(resolve => setTimeout(resolve, 400))
     }
   }
@@ -249,11 +253,11 @@ async function assetProjectIds(to) {
   try {
     let mediaId = to.params.mediaId
     if (to.name === 'edit-image') {
-      const { data } = await axios.get(`${getApiBase()}/assets/${to.params.assetId}`)
+      const { data } = await withReadDeadline(signal => axios.get(`${getApiBase()}/assets/${to.params.assetId}`, { signal }))
       mediaId = data?.media?.id
     }
     if (mediaId == null) return null
-    const { data } = await axios.get(`${getApiBase()}/media/${mediaId}/projects`)
+    const { data } = await withReadDeadline(signal => axios.get(`${getApiBase()}/media/${mediaId}/projects`, { signal }))
     return Array.isArray(data) ? data.map(p => p.id).filter(id => Number.isSafeInteger(id)) : null
   } catch {
     return null

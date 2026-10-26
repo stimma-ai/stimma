@@ -204,7 +204,11 @@ export function startServerUpdater(): Promise<void> {
   const onAppActive = (event: Event) => { appActive = (event as CustomEvent).detail !== false; statusPoller.setForeground(visible && appActive) }
   const onOnline = () => statusPoller.setOnline(true)
   const onOffline = () => statusPoller.setOnline(false)
-  const onCheckStarted = () => { startCommandBurst(); statusPoller.wake() }
+  const onCheckStarted = (event: Event) => {
+    startCommandBurst()
+    const read = statusPoller.wake()
+    ;(event as CustomEvent<{ followUps?: Promise<unknown>[] }>).detail?.followUps?.push(read)
+  }
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('stimma:app-active', onAppActive)
   window.addEventListener('online', onOnline)

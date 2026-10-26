@@ -19,7 +19,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const LATENCY_MS = 60
 // Maintenance answers more slowly than the queue's gap between tasks, so a
 // task that resolved before its network work finished would overlap the next.
-const SLOW = { '/api/boards/7': 800, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
+const SLOW = { '/api/boards/7': 800, '/api/boards/8': Infinity, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
 const DESKTOP_CHECK_MS = 800
 const MAINTENANCE = ['/api/stimpack-marketplace/auto-install', '/api/stimpack-marketplace/check-updates', '/api/headless/status']
 const BUNDLE = 'ai.stimma.stimma.debug'
@@ -134,6 +134,7 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
     const url = new URL(request.url())
     const path = url.pathname
     const profileId = request.headers()['x-profile-id'] || null
+    if (SLOW[path] === Infinity) return // a read that never answers
     await new Promise(resolve => setTimeout(resolve, SLOW[path] ?? LATENCY_MS))
     let status = 200
     let body = []
@@ -243,10 +244,22 @@ test('optional maintenance waits for the usable shell, runs one task at a time, 
 })
 
 // Each maintenance task's network work ends before the next task's begins.
-function assertSequential(work) {
-  const first = work.filter((r, i) => work.findIndex(o => o.path === r.path) === i).sort((a, b) => a.start - b.start)
-  for (let i = 1; i < first.length; i++) {
-    assert.ok(first[i].start >= first[i - 1].end, `${first[i].path} at ${Math.round(first[i].start)} overlapped ${first[i - 1].path} ending ${Math.round(first[i - 1].end)}`)
+// Every request counts, not only the first per endpoint. `parallel` units
+// (the desktop update check) deliberately run companion requests alongside
+// themselves; those that start inside such a unit belong to it, and the unit
+// as a whole must still end before the next task begins.
+function assertSequential(requests, parallel = []) {
+  const units = parallel.map(u => ({ ...u, ownEnd: u.end }))
+  for (const r of requests) {
+    // Companions start alongside the unit's own work (allow a millisecond of
+    // clock skew between the bridge and Resource Timing), not after it.
+    const owner = units.find(u => u.ownEnd !== undefined && r.start >= u.start - 1 && r.start <= u.ownEnd)
+    if (owner) owner.end = Math.max(owner.end, r.end)
+    else units.push({ ...r })
+  }
+  units.sort((a, b) => a.start - b.start)
+  for (let i = 1; i < units.length; i++) {
+    assert.ok(units[i].start >= units[i - 1].end, `${units[i].path} at ${Math.round(units[i].start)} overlapped ${units[i - 1].path} ending ${Math.round(units[i - 1].end)}`)
   }
 }
 
@@ -257,9 +270,10 @@ test('the desktop update loop finishes its first check before the next maintenan
   const checks = await page.evaluate(() => window.updateChecks)
   assert.equal(checks.length, 1, 'the desktop update check still runs')
   assert.ok(checks[0].start >= shellAt, 'after the shell')
-  const work = [...(await timeline(page)).filter(r => MAINTENANCE.includes(r.path)), { path: 'app update check', ...checks[0] }]
+  const work = (await timeline(page)).filter(r => MAINTENANCE.includes(r.path))
   for (const path of MAINTENANCE) assert.ok(work.some(r => r.path === path), `${path} still runs`)
-  assertSequential(work)
+  assert.ok(work.filter(r => r.path === '/api/headless/status').length >= 2, 'the update check consults the server too')
+  assertSequential(work, [{ path: 'app update check', parallel: true, ...checks[0] }])
 })
 
 test('a PIN-locked start sees only profile metadata, then unlock fetches its settings fresh', async t => {
@@ -300,6 +314,21 @@ test('a deep link whose route guard is still fetching is not replaced by the sav
   await shellVisibleAt(page)
   await settle(page, backend)
   assert.equal(new URL(page.url()).pathname, '/boards/7')
+})
+
+test('a deep link whose guard never answers still gets the shell and keeps its destination', async t => {
+  const { page, backend } = await boot(t, { path: 'boards/8', savedRoute: '/browse' })
+  const shellAt = await shellVisibleAt(page)
+  assert.ok(shellAt < 15_000, `shell at ${Math.round(shellAt)} ms`)
+  await settle(page, backend)
+  assert.equal(new URL(page.url()).pathname, '/boards/8', 'not replaced by the saved route')
+})
+
+test('opening the app at its root restores the saved route', async t => {
+  const { page, backend } = await boot(t, { path: '', savedRoute: '/browse' })
+  await shellVisibleAt(page)
+  await settle(page, backend)
+  assert.equal(new URL(page.url()).pathname, '/browse')
 })
 
 test('a profile unlocked by a cached PIN reuses the roster for its PIN policy', async t => {

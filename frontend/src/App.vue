@@ -1059,6 +1059,8 @@ async function multiDeviceReady() {
   }
 }
 
+const FIRST_NAVIGATION_WAIT_MS = 3000
+
 async function checkStartupPin() {
   try {
     // In the desktop app each window is pinned to one profile; resolve it
@@ -1115,11 +1117,16 @@ async function checkStartupPin() {
       // user into the wizard. The connection screen owns that case; the
       // window is reloaded from the root once the device comes back.
       //
-      // The decisions below read the current route, so the initial
-      // navigation must have finished: its guards may still be fetching
-      // (an entity deep link checks its owner), and until then the route
-      // reads as the root, where restoreRoute() would replace the deep link.
-      await router.isReady().catch(() => {})
+      // Restoring a saved route reads where navigation started, so the
+      // initial navigation should have finished: its guards may still be
+      // fetching (an entity deep link checks its owner). Wait for it only
+      // briefly; the shell must not hang on a stalled read. If it is still
+      // pending, the requested destination is not replaced, and the guard
+      // settles it (or falls back with a notice) when its read ends.
+      const firstNavigationDone = await Promise.race([
+        router.isReady().then(() => true, () => true),
+        new Promise(resolve => setTimeout(() => resolve(false), FIRST_NAVIGATION_WAIT_MS)),
+      ])
       const startupReady = isSettingsLoaded() && (await multiDeviceReady())
       const onboarded = localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
       // The onboarding flag is scoped to the backend this window is driving,
@@ -1134,7 +1141,7 @@ async function checkStartupPin() {
         return
       }
       // Restore saved route if not locked
-      restoreRoute()
+      if (firstNavigationDone) restoreRoute()
       // Onboarding already finished in some prior launch — check the
       // app-entry readiness gate (ReadinessPanel shows itself when unready).
       void checkStartupReadiness()
