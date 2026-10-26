@@ -1,3 +1,6 @@
+/** Window event raised after a companion server check is accepted. */
+export const SERVER_UPDATE_CHECK_STARTED = 'stimma:server-update-check-started'
+
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 /** Best-effort companion check for a headless server connected to the client. */

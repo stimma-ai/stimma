@@ -3,7 +3,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { isDesktop, getApiBase } from '../apiConfig'
 import { desktop } from '../desktop'
 import type { DesktopUpdate } from '../desktop'
-import { triggerServerUpdateCheck } from '../utils/serverUpdateCheck'
+import { SERVER_UPDATE_CHECK_STARTED, triggerServerUpdateCheck } from '../utils/serverUpdateCheck'
 import { useTelemetry } from './useTelemetry'
 import { addToast } from './useToasts'
 import { isPrivacyLockdownActive, usePrivacyLockdown } from './usePrivacyLockdown'
@@ -242,7 +242,10 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
     // Keep a connected headless server's available-version state in step with
     // every real client updater check. This is deliberately best-effort: an
     // offline or desktop-managed backend must not hold up the client check.
-    void triggerServerUpdateCheck(getApiBase())
+    void triggerServerUpdateCheck(getApiBase()).then(started => {
+      // Let the status view follow the check without steady idle polling.
+      if (started) window.dispatchEvent(new Event(SERVER_UPDATE_CHECK_STARTED))
+    })
     const update = await desktop.checkForUpdate()
     await saveLastCheckedAt()
 

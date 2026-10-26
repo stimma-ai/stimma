@@ -2,9 +2,12 @@ import { computed, ref, watch } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { makeInstallKey } from '../utils/installKey'
 import { SERVER_RESTART_GRACE_MS, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
+import { COMMAND_BURST_MS, createStatusPoller, type StatusPoller } from '../utils/serverStatusPoller'
+import { SERVER_UPDATE_CHECK_STARTED } from '../utils/serverUpdateCheck'
 import { THIS_MACHINE_LABEL, useMultiDevice } from './useMultiDevice'
 import { useAppUpdater } from './useAppUpdater'
 import { usePrivacyLockdown } from './usePrivacyLockdown'
+import { useWebSocket } from './useWebSocket'
 
 interface ServerStatus {
   headless: boolean
@@ -29,7 +32,8 @@ const now = ref(Date.now())
 let started = false
 let polling = false
 let checkingMachine = false
-let pollTimer: ReturnType<typeof setInterval> | undefined
+let poller: StatusPoller | null = null
+let commandBurstUntil = 0
 let stopWatches: Array<() => void> = []
 const device = useMultiDevice()
 const app = useAppUpdater()
@@ -121,6 +125,7 @@ async function act(action: 'check' | 'update' | 'restart', updateLocal = false) 
   if (action === 'update' && baseRequired.value) return
   error.value = ''
   const id = device.activeDeviceId.value
+  startCommandBurst()
   if (action !== 'check') {
     operation.value = { deviceId: id, name: device.activeDeviceName.value, action, startedAt: Date.now(),
       fromVersion: server.value.version, targetVersion: server.value.availableVersion,
@@ -134,7 +139,7 @@ async function act(action: 'check' | 'update' | 'restart', updateLocal = false) 
     if (id !== device.activeDeviceId.value) return
     if (!response.ok) { error.value = data.detail || 'Could not start the server operation'; clearOperation(); return }
     if (data.headless) server.value = data
-    void refresh()
+    wakeStatus()
   } catch {
     // The request may have succeeded before the connection closed. Do not
     // automatically submit another update or restart to a different server.
@@ -157,17 +162,57 @@ export function startServerUpdater() {
       && typeof saved.startedAt === 'number' && Date.now() - saved.startedAt < SERVER_RESTART_GRACE_MS) operation.value = saved
     else sessionStorage.removeItem(KEY)
   } catch { /* Ignore invalid session state. */ }
-  stopWatches.push(watch(device.activeDeviceId, () => { server.value = null; error.value = ''; void refresh() }))
+  // Poll quickly only while an operation is in flight; otherwise rely on
+  // reconnects, foreground returns, and explicit checks, with a slow backstop.
+  let visible = document.visibilityState !== 'hidden'
+  let appActive = true
+  const statusPoller = poller = createStatusPoller({
+    refresh,
+    isActive: () => serverBusy.value || Date.now() < commandBurstUntil,
+    foreground: visible,
+    online: navigator.onLine !== false,
+  })
+  const onVisibility = () => { visible = document.visibilityState !== 'hidden'; statusPoller.setForeground(visible && appActive) }
+  const onAppActive = (event: Event) => { appActive = (event as CustomEvent).detail !== false; statusPoller.setForeground(visible && appActive) }
+  const onOnline = () => statusPoller.setOnline(true)
+  const onOffline = () => statusPoller.setOnline(false)
+  const onCheckStarted = () => { startCommandBurst(); statusPoller.wake() }
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('stimma:app-active', onAppActive)
+  window.addEventListener('online', onOnline)
+  window.addEventListener('offline', onOffline)
+  window.addEventListener(SERVER_UPDATE_CHECK_STARTED, onCheckStarted)
+  stopWatches.push(() => {
+    document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('stimma:app-active', onAppActive)
+    window.removeEventListener('online', onOnline)
+    window.removeEventListener('offline', onOffline)
+    window.removeEventListener(SERVER_UPDATE_CHECK_STARTED, onCheckStarted)
+  })
+  // A server restart drops and re-opens the app socket on every client.
+  stopWatches.push(useWebSocket().on('websocket_reconnected', () => statusPoller.wake()))
+  stopWatches.push(watch(serverBusy, () => statusPoller.reschedule()))
+  stopWatches.push(watch(device.activeDeviceId, () => { server.value = null; error.value = ''; statusPoller.wake() }))
   stopWatches.push(watch(device.connectionState, state => {
     if (pending.value && state !== 'ready') { pending.value.sawTransition = true; persist() }
-    if (state === 'ready') void refresh()
+    if (state === 'ready') statusPoller.wake()
   }))
-  pollTimer = setInterval(() => { void refresh() }, 3000)
-  void refresh()
+  statusPoller.wake()
+}
+
+function startCommandBurst() {
+  commandBurstUntil = Date.now() + COMMAND_BURST_MS
+  poller?.reschedule()
+}
+
+function wakeStatus() {
+  if (poller) poller.wake()
+  else void refresh()
 }
 
 export function stopServerUpdater() {
-  clearInterval(pollTimer)
+  poller?.stop()
+  poller = null
   stopWatches.forEach(stop => stop())
   stopWatches = []
   started = false
@@ -176,5 +221,5 @@ export function stopServerUpdater() {
 export function useServerUpdater() {
   return { server: visibleServer, pending, error, connected, serverName, machineLabel, machineAvailable,
     serverAvailable, baseRequired, baseAvailable, serverBusy, busy, installableCount, updateCount,
-    restartExpected, restartTakingLonger, statusLabel, refresh, act, updateMachine, updateAll }
+    restartExpected, restartTakingLonger, statusLabel, refresh: wakeStatus, act, updateMachine, updateAll }
 }
