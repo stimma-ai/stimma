@@ -183,7 +183,7 @@ class MobileTransport(
     private val permits = Semaphore(32)
     private val sockets = Collections.synchronizedSet(mutableSetOf<Socket>())
     @Volatile var target: PinnedServer? = null
-    /** Test seam: runs on the worker before it touches the accepted socket. */
+    /** Test seam: runs on the worker before it touches the accepted socket. Debug builds only. */
     @Volatile internal var beforeServe: ((Socket) -> Unit)? = null
     internal val availablePermits get() = permits.availablePermits()
     internal val openSockets get() = sockets.size
@@ -214,7 +214,7 @@ class MobileTransport(
                     // step that can throw must sit inside the permit cleanup.
                     var output: ResponseStream? = null
                     try {
-                        beforeServe?.invoke(socket)
+                        if (BuildConfig.DEBUG) beforeServe?.invoke(socket)
                         output = ResponseStream(socket.getOutputStream())
                         serve(socket, output)
                     } catch (error: Exception) { output?.let { fail(socket, it, error) } }
