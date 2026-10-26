@@ -653,13 +653,31 @@ class PooledProxyTest {
         }
     }
 
+    @Test fun aConnectionIdlePastTheReadLimitIsReplacedWhileFreshOnesAreReused() {
+        // The read pool's limit is a ceiling on idle time, not on age: a connection kept busy stays
+        // in use, and one left idle past the limit is replaced. Scaled down from the 25 s ceiling.
+        val server = advertisingServer()
+        val session = PinnedServer("127.0.0.1", server.port, pin, "s", keepAliveMillis = 2000).also { transport.target = it }
+        get("/api/profiles")
+        assertEquals(0, server.takeRequest().sequenceNumber)
+        repeat(3) {
+            Thread.sleep(1200) // Idle, but within the limit.
+            get("/api/profiles")
+            assertEquals(it + 1, server.takeRequest().sequenceNumber)
+        }
+        Thread.sleep(2700) // Idle past the limit: evicted, so the next read opens a new connection.
+        get("/api/profiles")
+        assertEquals(0, server.takeRequest().sequenceNumber)
+        assertEquals(1, session.pooledConnections)
+    }
+
     @Test fun anAdvertisedKeepAliveKeepsTheConnectionAcrossAPause() {
         val server = advertisingServer()
         val probe = PinnedServer("127.0.0.1", server.port, pin)
         runBlocking { probe.ping("d") }
         assertEquals(65L, probe.advertisedKeepAlive)
         val session = probe.withSession("s").also { transport.target = it }
-        assertEquals(54_000L, session.keepAliveMillis)
+        assertEquals(KeepAlive.MAX_IDLE_MILLIS, session.keepAliveMillis)
         server.takeRequest()
         assertEquals("ok GET", get("/api/profiles").body.toString(Charsets.UTF_8))
         val first = server.takeRequest().sequenceNumber
@@ -771,9 +789,11 @@ class PooledProxyTest {
         assertNull(KeepAlive.parse(listOf("timeout=65", "timeout=65")))
 
         assertEquals(KeepAlive.FALLBACK_MILLIS, KeepAlive.idleMillis(null))
-        assertEquals(54_000L, KeepAlive.idleMillis(65))      // Capped at 60 s, less a tenth.
-        assertEquals(54_000L, KeepAlive.idleMillis(999_999))
-        assertEquals(27_000L, KeepAlive.idleMillis(30))
+        assertEquals(25_000L, KeepAlive.idleMillis(65))      // The read ceiling, not the server's 65 s.
+        assertEquals(25_000L, KeepAlive.idleMillis(999_999))
+        assertEquals(25_000L, KeepAlive.idleMillis(30))
+        assertEquals(24_300L, KeepAlive.idleMillis(27))      // A shorter server value, less a tenth, is kept.
+        assertEquals(18_000L, KeepAlive.idleMillis(20))
         assertEquals(3_000L, KeepAlive.idleMillis(5))        // uvicorn's default, if a server says so.
         assertEquals(1L, KeepAlive.idleMillis(1))            // Shorter than the margin: effectively no idle reuse.
         assertEquals(1L, KeepAlive.idleMillis(0))

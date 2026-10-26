@@ -123,8 +123,15 @@ class RemoteHttpError(val status: Int) : Exception("The server request failed (H
 object KeepAlive {
     /** For a server that advertises nothing: retire well inside its 5 seconds. */
     const val FALLBACK_MILLIS = 3000L
-    /** However long a server offers, idle connections are not kept beyond this. */
+    /** Advertised timeouts beyond this are treated as this. */
     const val CAP_SECONDS = 60L
+    /**
+     * However long a server offers, an idle read connection is not reused
+     * after this. Mobile carrier NATs and middleboxes can drop idle mappings
+     * without telling either end, and a read on such a connection waits out
+     * its read timeout instead of failing fast; a short ceiling bounds that.
+     */
+    const val MAX_IDLE_MILLIS = 25_000L
 
     /**
      * The advertised timeout in seconds, or null unless the response carries
@@ -146,14 +153,15 @@ object KeepAlive {
     }
 
     /**
-     * The pool's idle limit for an advertised timeout: capped, then shortened
-     * by a margin (at least 2 seconds or a tenth) because the client's idle
-     * clock starts after the server's, and the request still has to arrive.
+     * The read pool's idle limit for an advertised timeout: shortened by a
+     * margin (at least 2 seconds or a tenth) because the client's idle clock
+     * starts after the server's and the request still has to arrive, and
+     * never more than [MAX_IDLE_MILLIS]. A shorter server value is kept.
      */
     fun idleMillis(advertisedSeconds: Long?): Long {
         if (advertisedSeconds == null) return FALLBACK_MILLIS
         val limit = minOf(advertisedSeconds, CAP_SECONDS) * 1000
-        return maxOf(1L, limit - maxOf(2000L, limit / 10))
+        return maxOf(1L, minOf(MAX_IDLE_MILLIS, limit - maxOf(2000L, limit / 10)))
     }
 }
 
@@ -776,11 +784,16 @@ class MobileTransport(
         synchronized(sockets) { sockets.toList().forEach { runCatching { it.close() } } }
     }
     /**
-     * The default network changed: idle pooled connections were made on the
-     * old one and may be dead without either side knowing, so none is reused.
-     * Requests in flight are left to finish or fail on their own.
+     * The single hook for a change of default network ([DefaultNetworkChanges]
+     * calls it). Other reactions to a network change belong here too.
+     *
+     * Idle pooled connections were made on the old network and may be dead
+     * without either side knowing, so none is reused. Requests in flight are
+     * left to finish or fail on their own.
      */
-    fun networkChanged() { target?.evictIdle() }
+    fun networkChanged() {
+        target?.evictIdle()
+    }
     fun disconnect() { target = null; interruptConnections() }
     override fun close() { listener.close(); disconnect(); executor.shutdownNow() }
 }
