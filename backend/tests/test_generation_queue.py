@@ -43,6 +43,23 @@ def _make_timestamps(n: int) -> list[float]:
     return [time.monotonic() for _ in range(n)]
 
 
+def _reserve(queue, client: str, backend: str, n: int) -> list[float]:
+    """Create n outstanding work requests the way the scheduler does: one
+    reservation per request, with matching pending entries."""
+    import uuid
+
+    stamps = []
+    for _ in range(n):
+        now = time.monotonic()
+        stamps.append(now)
+        queue._work_reservations[str(uuid.uuid4())] = {
+            'created_at': now, 'generator_instance_id': client, 'backend_name': backend,
+        }
+        queue._pending_work_requests.setdefault(backend, []).append(now)
+        queue._pending_work_requests_per_client.setdefault(client, []).append(now)
+    return stamps
+
+
 def test_resolve_recorded_seed_falls_back_to_requested_when_provider_reports_none():
     assert resolve_recorded_seed(12345, None) == 12345
     assert resolve_recorded_seed(12345, 67890) == 67890
@@ -256,10 +273,10 @@ class TestPendingCounterManagement:
         # Register forever mode
         generation_queue._forever_mode_clients[backend] = {client: 3}
         # Client has 3 pending work requests
-        generation_queue._pending_work_requests[backend] = _make_timestamps(3)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(3)
+        _reserve(generation_queue, client, backend, 3)
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
 
         # All 3 should be released, not just 1
         assert len(generation_queue._pending_work_requests.get(backend, [])) == 0
@@ -275,12 +292,14 @@ class TestPendingCounterManagement:
         backend = "test"
         client = "test-client-underflow"
 
-        # Client thinks it has 5 pending but global only has 2
+        # Client thinks it has 5 pending but global only has 2 (three were
+        # already consumed by a legacy count-based path)
         generation_queue._forever_mode_clients[backend] = {client: 0}
-        generation_queue._pending_work_requests[backend] = _make_timestamps(2)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(5)
+        stamps = _reserve(generation_queue, client, backend, 5)
+        generation_queue._pending_work_requests[backend] = stamps[:2]
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
 
         assert len(generation_queue._pending_work_requests.get(backend, [])) == 0  # 2 - 5 entries removed = empty
 
@@ -294,8 +313,7 @@ class TestPendingCounterManagement:
         client = "test-client-mod1"
 
         generation_queue._forever_mode_clients[backend] = {client: 2}
-        generation_queue._pending_work_requests[backend] = _make_timestamps(2)
-        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(2)
+        _reserve(generation_queue, client, backend, 2)
 
         await generation_queue.unregister_forever_mode(client, backend)
 
@@ -428,6 +446,7 @@ class TestForeverModeSlotFilling:
 
         # e.g. the request was stranded on a socket the page already replaced
         await on_undelivered()
+        await generation_queue.wait_for_scheduled_refills()
 
         assert first["reservation_id"] not in generation_queue._work_reservations
         refill = mock_ws.get_broadcasts("generation_request_work")
@@ -453,7 +472,9 @@ class TestForeverModeSlotFilling:
         mock_ws.clear()
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
         await on_undelivered()
+        await generation_queue.wait_for_scheduled_refills()
 
         assert generation_queue._work_reservations == {}
         assert generation_queue._pending_work_requests.get("test", []) == []
@@ -625,6 +646,7 @@ class TestClientCleanup:
         mock_ws.clear()
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
 
         # Verify jobs are cancelled
         async with generation_db_session() as session:
@@ -656,6 +678,7 @@ class TestClientCleanup:
         generation_queue._forever_mode_clients["backend-b"] = {client: 3}
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
 
         assert client not in generation_queue._forever_mode_clients.get("backend-a", {})
         assert client not in generation_queue._forever_mode_clients.get("backend-b", {})
@@ -723,6 +746,7 @@ class TestClientCleanup:
         mock_ws.clear()
 
         await generation_queue.cleanup_disconnected_client(departed)
+        await generation_queue.wait_for_scheduled_refills()
         refills = mock_ws.get_broadcasts("generation_request_work")
         assert reservation not in generation_queue._work_reservations
         assert [d["generator_instance_id"] for _, d in refills] == [remaining]
@@ -731,6 +755,7 @@ class TestClientCleanup:
         # must not request a second refill.
         mock_ws.clear()
         await on_undelivered()
+        await generation_queue.wait_for_scheduled_refills()
         assert mock_ws.get_broadcasts("generation_request_work") == []
         await generation_queue.unregister_forever_mode(remaining, "test")
 
@@ -751,9 +776,104 @@ class TestClientCleanup:
         mock_ws.clear()
 
         await on_undelivered()
+        await generation_queue.wait_for_scheduled_refills()
 
         assert mock_ws.get_broadcasts("generation_request_work") == []
         await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_multi_backend_cleanup_keeps_other_clients_reservations(
+        self, generation_queue, mock_ws
+    ):
+        """Cleanup releases exactly the departed client's entries per backend;
+        a healthy client's outstanding request is neither erased nor
+        double-dispatched by the refill."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        departed, healthy = "test-mb-departed", "test-mb-healthy"
+        # The departed client holds requests on two backends; the healthy one
+        # holds the single slot's request on backend-a.
+        now = time.monotonic()
+        generation_queue._forever_mode_clients["backend-a"] = {departed: 1, healthy: 1}
+        generation_queue._forever_mode_clients["backend-b"] = {departed: 1}
+        for rid, client, backend, t in (
+            ("r-dep-a", departed, "backend-a", now),
+            ("r-dep-b", departed, "backend-b", now + 0.001),
+            ("r-healthy-a", healthy, "backend-a", now + 0.002),
+        ):
+            generation_queue._work_reservations[rid] = {
+                "created_at": t, "generator_instance_id": client, "backend_name": backend,
+            }
+            generation_queue._pending_work_requests.setdefault(backend, []).append(t)
+            generation_queue._pending_work_requests_per_client.setdefault(client, []).append(t)
+
+        with patch.object(generation_queue, "_fill_available_slots", AsyncMock()) as refill:
+            await generation_queue.cleanup_disconnected_client(departed)
+            await generation_queue.wait_for_scheduled_refills()
+
+        assert list(generation_queue._work_reservations) == ["r-healthy-a"]
+        assert generation_queue._pending_work_requests["backend-a"] == [now + 0.002]
+        assert generation_queue._pending_work_requests["backend-b"] == []
+        assert generation_queue._pending_work_requests_per_client[healthy] == [now + 0.002]
+        assert departed not in generation_queue._pending_work_requests_per_client
+        assert sorted(call.args[0] for call in refill.await_args_list) == ["backend-a", "backend-b"]
+        _reset_queue_state(generation_queue)
+
+    async def test_detached_socket_cannot_wedge_the_scheduler(
+        self, generation_queue, mock_ws
+    ):
+        """Disconnect paused in job cancellation, the same socket re-registers
+        and a work request is attempted: nothing may write to the detached
+        socket or re-enter the scheduler lock, so forever mode keeps going."""
+        from utils.websocket import WebSocketManager
+
+        _reset_queue_state(generation_queue)
+        manager = WebSocketManager()
+        manager.set_on_generator_disconnect(generation_queue.cleanup_disconnected_client)
+        client = "test-detached-wedge"
+
+        class FailingSocket:
+            def __init__(self):
+                self.sent = []
+
+            async def send_text(self, message):
+                self.sent.append(message)
+                raise RuntimeError("socket is gone")
+
+            async def close(self, code=1000):
+                pass
+
+        socket = FailingSocket()
+        gate = asyncio.Event()
+        original_cancel = generation_queue.cancel_queued_jobs_for_instance
+
+        async def paused_cancel(*args, **kwargs):
+            await gate.wait()
+            return await original_cancel(*args, **kwargs)
+
+        generation_queue.set_websocket_manager(manager)
+        try:
+            manager.attach(socket)
+            assert manager.register_generator_instance(socket, client) is True
+            with patch.object(generation_queue, "cancel_queued_jobs_for_instance", paused_cancel):
+                disconnect = asyncio.create_task(manager.disconnect(socket))
+                await asyncio.sleep(0)  # paused inside job cancellation
+
+                # The receive loop processes one more registration on that socket.
+                assert manager.register_generator_instance(socket, client) is False
+                sent_before = len(socket.sent)
+                generation_queue._forever_mode_clients["test"] = {client: 1}
+                await asyncio.wait_for(generation_queue._fill_available_slots("test"), 2)
+                assert len(socket.sent) == sent_before
+                assert await manager.send_to(socket, "generator_instance_registered", {}) is False
+
+                gate.set()
+                await asyncio.wait_for(disconnect, 2)
+                await asyncio.wait_for(generation_queue.wait_for_scheduled_refills(), 2)
+            assert not generation_queue._forever_mode_lock.locked()
+            await asyncio.wait_for(generation_queue._fill_available_slots("test"), 2)
+        finally:
+            generation_queue.set_websocket_manager(mock_ws)
+            _reset_queue_state(generation_queue)
 
     async def test_cancel_queued_jobs_returns_count(
         self, generation_queue, generation_db_session, mock_ws
@@ -1074,6 +1194,7 @@ class TestPromptWarmPool:
         generation_queue._prompt_warm_ready[client] = [{"improvedPrompt": "x"}]
 
         await generation_queue.cleanup_disconnected_client(client)
+        await generation_queue.wait_for_scheduled_refills()
 
         assert client not in generation_queue._prompt_warm_intent
         assert client not in generation_queue._prompt_warm_ready

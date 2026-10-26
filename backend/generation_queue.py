@@ -370,6 +370,8 @@ class GenerationQueue:
         self._pending_work_requests: Dict[str, List[float]] = {}
         # Track pending work requests per client (timestamps for TTL-based self-healing)
         self._pending_work_requests_per_client: Dict[str, List[float]] = {}
+        # Strong references to scheduled forever-mode refills.
+        self._refill_tasks: set = set()
         # Single-use capabilities for frontend-driven forever work. A submit
         # must claim the exact request that caused it; counters alone cannot
         # prevent two renderers from answering one request.
@@ -475,20 +477,8 @@ class GenerationQueue:
         """Unregister a client from continuous work."""
         if backend_name in self._forever_mode_clients:
             self._forever_mode_clients[backend_name].pop(generator_instance_id, None)
-            # Release pending request reservations for this client from the global counter
-            client_pending_count = len(self._pending_work_requests_per_client.get(generator_instance_id, []))
-            if client_pending_count > 0 and backend_name in self._pending_work_requests:
-                # Remove that many entries from the backend list (oldest first)
-                self._pending_work_requests[backend_name] = self._pending_work_requests[backend_name][client_pending_count:]
-                log.debug(f"Forever mode: released {client_pending_count} pending requests for {backend_name}, pending now {len(self._pending_work_requests[backend_name])}")
-            self._pending_work_requests_per_client.pop(generator_instance_id, None)
-            self._work_reservations = {
-                rid: reservation for rid, reservation in self._work_reservations.items()
-                if not (
-                    reservation['generator_instance_id'] == generator_instance_id
-                    and reservation['backend_name'] == backend_name
-                )
-            }
+            # Release exactly this client's reservations on this backend.
+            self._release_client_reservations(generator_instance_id, backend_name)
             log.info(f"Forever mode: unregistered {generator_instance_id} from backend {backend_name}")
         # Forever mode is the only thing that authorizes the prompt warm pool to
         # exist - stopping it (for any backend) tears the pool down immediately.
@@ -520,28 +510,15 @@ class GenerationQueue:
         disconnected_at = datetime.utcnow()
 
         # Unregister from all backends' forever mode and release pending request reservations
-        released_backends = {
-            reservation['backend_name']
-            for reservation in self._work_reservations.values()
-            if reservation['generator_instance_id'] == generator_instance_id
-        }
-        client_pending_count = len(self._pending_work_requests_per_client.get(generator_instance_id, []))
+        # Release exactly this client's reservations, per backend; other
+        # clients' outstanding requests on the same backends are untouched.
+        released_backends = self._release_client_reservations(generator_instance_id)
         for backend_name in list(self._forever_mode_clients.keys()):
             if generator_instance_id in self._forever_mode_clients[backend_name]:
                 self._forever_mode_clients[backend_name].pop(generator_instance_id, None)
                 released_backends.add(backend_name)
-                # Release all pending request reservations for this client from the backend list
-                if client_pending_count > 0 and backend_name in self._pending_work_requests:
-                    self._pending_work_requests[backend_name] = self._pending_work_requests[backend_name][client_pending_count:]
-                    log.debug(f"Forever mode: released {client_pending_count} pending requests for {backend_name}, pending now {len(self._pending_work_requests[backend_name])}")
                 log.info(f"Forever mode: unregistered {generator_instance_id} from backend {backend_name} (disconnect)")
-
-        # Clear per-client pending list
         self._pending_work_requests_per_client.pop(generator_instance_id, None)
-        self._work_reservations = {
-            rid: reservation for rid, reservation in self._work_reservations.items()
-            if reservation['generator_instance_id'] != generator_instance_id
-        }
 
         # Cancel the queued jobs this connection left behind. Jobs created
         # after the disconnect belong to whichever session owns the ID now.
@@ -556,10 +533,12 @@ class GenerationQueue:
         if still_abandoned():
             self.teardown_prompt_warm_pool(generator_instance_id)
 
-        # The departed client's slots are free; offer them to the others.
+        # The departed client's slots are free; offer them to the others. This
+        # runs as its own task: cleanup can be reached from a path that already
+        # holds the scheduler lock, and must never re-enter it synchronously.
         for backend_name in sorted(released_backends):
             if backend_name in self._forever_mode_clients:
-                await self._fill_available_slots(backend_name)
+                self._schedule_refill(backend_name)
 
     # --- Prompt warm pool ---------------------------------------------------
     #
@@ -749,6 +728,53 @@ class GenerationQueue:
         self._prompt_warm_ready.pop(generator_instance_id, None)
         self._prompt_warm_intent.pop(generator_instance_id, None)
 
+    def _release_reservation(self, reservation_id: str) -> Optional[dict]:
+        """Drop one reservation and exactly the pending entries it created."""
+        reservation = self._work_reservations.pop(reservation_id, None)
+        if reservation is None:
+            return None
+        created_at = reservation['created_at']
+        for timestamps in (
+            self._pending_work_requests.get(reservation['backend_name']),
+            self._pending_work_requests_per_client.get(reservation['generator_instance_id']),
+        ):
+            # Entries are matched by value, never by position, so releasing
+            # one client's request can't erase another client's. A missing
+            # value was already consumed by a legacy count-based path.
+            if timestamps and created_at in timestamps:
+                timestamps.remove(created_at)
+        return reservation
+
+    def _release_client_reservations(
+        self, generator_instance_id: str, backend_name: Optional[str] = None
+    ) -> set:
+        """Release a client's outstanding reservations (one backend, or all).
+
+        Returns the backends that had a reservation released.
+        """
+        released = set()
+        for reservation_id, reservation in list(self._work_reservations.items()):
+            if reservation['generator_instance_id'] != generator_instance_id:
+                continue
+            if backend_name is not None and reservation['backend_name'] != backend_name:
+                continue
+            self._release_reservation(reservation_id)
+            released.add(reservation['backend_name'])
+        if not self._pending_work_requests_per_client.get(generator_instance_id, True):
+            self._pending_work_requests_per_client.pop(generator_instance_id, None)
+        return released
+
+    def _schedule_refill(self, backend_name: str) -> None:
+        """Refill a backend's forever-mode slots in a separate task."""
+        task = asyncio.create_task(self._fill_available_slots(backend_name))
+        self._refill_tasks.add(task)
+        task.add_done_callback(self._refill_tasks.discard)
+
+    async def wait_for_scheduled_refills(self) -> None:
+        """Wait for scheduled refills to finish (tests, shutdown)."""
+        while self._refill_tasks:
+            await asyncio.gather(*list(self._refill_tasks), return_exceptions=True)
+
     async def decline_work_request(self, generator_instance_id: str, backend_name: str):
         """Handle a client declining a work request (couldn't submit).
 
@@ -776,13 +802,7 @@ class GenerationQueue:
                 or reservation['backend_name'] != backend_name
             ):
                 return False
-            self._work_reservations.pop(reservation_id, None)
-            timestamps = self._pending_work_requests.get(backend_name, [])
-            if timestamps:
-                timestamps.pop(0)
-            timestamps = self._pending_work_requests_per_client.get(generator_instance_id, [])
-            if timestamps:
-                timestamps.pop(0)
+            self._release_reservation(reservation_id)
             return True
 
     async def decline_work_reservation(
@@ -808,7 +828,7 @@ class GenerationQueue:
         re-offer.
         """
         if await self.claim_work_reservation(reservation_id, generator_instance_id, backend_name):
-            await self._fill_available_slots(backend_name)
+            self._schedule_refill(backend_name)
 
     async def cancel_queued_jobs_for_instance(self, generator_instance_id: str,
                                                error_message: str = 'Cancelled - cleanup',

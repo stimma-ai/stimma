@@ -455,16 +455,27 @@ class WebSocketManager:
             self._clients[id(websocket)] = client
         return client
 
-    def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str):
+    def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str) -> bool:
         """Associate a generator instance ID with a WebSocket connection.
 
         Each registration is a new ownership generation: cleanup for an older
         connection must never touch a session that registered after it.
+        Returns False, registering nothing, for a socket that is no longer
+        attached (its disconnect cleanup may still be running); the page will
+        register again on its new connection.
         """
+        client = self._clients.get(id(websocket))
+        if client is None or client.closed:
+            log.info(
+                "Ignoring generator registration on a detached WebSocket",
+                generator_instance_id=generator_instance_id,
+            )
+            return False
         self._registration_seq += 1
         self._generator_registrations[generator_instance_id] = self._registration_seq
         self._generator_instance_websockets[generator_instance_id] = websocket
         log.info(f"Registered generator instance {generator_instance_id} with WebSocket")
+        return True
 
     async def disconnect(self, websocket: WebSocket):
         """Remove a disconnected WebSocket, its queue and sender, and its generator instances.
@@ -663,14 +674,11 @@ class WebSocketManager:
                 client,
                 OutboundFrame(event=event, text=message, on_undelivered=on_undelivered),
             )
-        try:
-            async with asyncio.timeout(CLIENT_SEND_TIMEOUT_SECONDS):
-                await websocket.send_text(message)
-            return True
-        except Exception as e:
-            log.error(f"Error sending to client: {e}")
-            await self.disconnect(websocket)
-            return False
+        # Not attached, or already detached by disconnect: never write to it
+        # directly. A raw send could block, and its failure would re-enter
+        # disconnect cleanup from whatever called us.
+        log.debug("Dropping direct WebSocket send to a detached client", ws_event=event)
+        return False
 
     async def send_to_generator_instance(
         self,

@@ -50,6 +50,7 @@ async def test_websocket_direct_logs_payload_shape_without_content():
     secret_prompt = "PRIVATE PROMPT sentinel-direct-48302"
     manager = WebSocketManager()
     socket = AsyncMock()
+    manager.attach(socket)
 
     with patch("utils.websocket.log") as mock_log:
         await manager.send_to(
@@ -57,6 +58,8 @@ async def test_websocket_direct_logs_payload_shape_without_content():
             "prompt_preview",
             {"request_id": "req-123", "prompt": secret_prompt},
         )
+        await manager.drain()
+    await manager.disconnect(socket)
 
     assert secret_prompt not in _logged_text(mock_log)
     mock_log.info.assert_called_once_with(

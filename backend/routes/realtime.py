@@ -75,8 +75,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Handle generator instance registration (for cleanup on disconnect)
                 elif message.get("event") == "register_generator_instance":
                     generator_instance_id = message.get("data", {}).get("generator_instance_id")
-                    if generator_instance_id:
-                        ws_manager.register_generator_instance(websocket, generator_instance_id)
+                    if generator_instance_id and ws_manager.register_generator_instance(
+                        websocket, generator_instance_id
+                    ):
                         await ws_manager.send_to(websocket, "generator_instance_registered", {
                             "generator_instance_id": generator_instance_id
                         })

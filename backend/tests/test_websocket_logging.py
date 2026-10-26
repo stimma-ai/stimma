@@ -23,8 +23,11 @@ class FakeWebSocket:
 async def test_send_to_logs_without_shadowing_structlogs_event_field():
     manager = WebSocketManager()
     ws = FakeWebSocket()
+    manager.attach(ws)
 
     await manager.send_to(ws, "connected", {"message": "hi", "chat_id": 7})
+    await manager.drain()
+    await manager.disconnect(ws)
 
     assert len(ws.sent) == 1
     assert '"event": "connected"' in ws.sent[0]
