@@ -234,12 +234,25 @@ export function useProvidersApi() {
       }
     }
 
-    const [providers, tools] = await Promise.all([
-      listProviders(config),
-      listAllTools(config),
-    ])
-
-    return { providers, tools }
+    // Both reads share one abort: if either fails, the other is cancelled,
+    // and this returns only once both have settled, so a failure never
+    // leaves a sibling read running unseen.
+    const both = new AbortController()
+    const abortBoth = () => both.abort()
+    if (config.signal?.aborted) both.abort()
+    config.signal?.addEventListener('abort', abortBoth)
+    try {
+      const failFast = <T>(read: Promise<T>) => read.catch((error) => { both.abort(); throw error })
+      const [providers, tools] = await Promise.allSettled([
+        failFast(listProviders({ signal: both.signal })),
+        failFast(listAllTools({ signal: both.signal })),
+      ])
+      if (providers.status === 'rejected') throw providers.reason
+      if (tools.status === 'rejected') throw tools.reason
+      return { providers: providers.value, tools: tools.value }
+    } finally {
+      config.signal?.removeEventListener('abort', abortBoth)
+    }
   }
 
   /**

@@ -517,3 +517,38 @@ test('a failed forced tool refresh is not treated as fresh on the next visit', a
   await expect.poll(() => reads).toBe(3)
 })
 
+for (const failing of ['/api/tools/providers', '/api/tools/providers/tools']) {
+  test(`when ${failing} fails while its sibling stalls, the sibling is cancelled at once`, async t => {
+    const sibling = failing === '/api/tools/providers' ? '/api/tools/providers/tools' : '/api/tools/providers'
+    const reads = new Map()
+    const { page, push } = await openHome(t, {
+      // Far longer than the test waits: cancellation must not depend on it.
+      deadline: 60_000,
+      respond: path => {
+        if (path === '/api/chats/previews') return { items: [chat(11, 'Some chat')], total: 1 }
+        if (path !== failing && path !== sibling) return
+        const read = (reads.get(path) || 0) + 1
+        reads.set(path, read)
+        if (read > 1) return path.endsWith('/tools') ? [catalogTool('p:ok', 'Recovered tool')] : []
+        return path === failing ? 503 : hang()
+      },
+    })
+    // Requests start before this listener exists; cancellations come later.
+    let siblingCancelled = 0
+    page.on('requestfailed', request => {
+      if (new URL(request.url()).pathname === sibling) siblingCancelled++
+    })
+    await expect(composer(page)).toBeVisible()
+    await page.evaluate(() => window.homeLoadTest.recordToolVisit('p:ok', 'Recovered tool'))
+    await expect.poll(() => reads.get(failing) || 0).toBe(1)
+    // The stalled sibling is cancelled as soon as its partner fails.
+    await expect.poll(() => siblingCancelled, { timeout: 3000 }).toBe(1)
+    // So a revisit starts a fresh catalog read with nothing left behind, and recovers.
+    await push('/elsewhere')
+    await push('/')
+    await expect(page.getByText('Recovered tool')).toBeVisible()
+    assert.equal(reads.get(sibling), 2)
+    assert.equal(siblingCancelled, 1)
+  })
+}
+
