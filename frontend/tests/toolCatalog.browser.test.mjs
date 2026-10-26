@@ -54,12 +54,13 @@ const catalogFor = profile => [fullTool('paint', 'Paint', profile), fullTool('up
  * Serve the launch surfaces. `oldServer` ignores `view=summary`, as a server
  * from before the summary view does. Records every catalog and schema read.
  */
-async function openApp(t, { start = '/', oldServer = false, respond = () => undefined } = {}) {
+async function openApp(t, { start = '/', oldServer = false, deadline = null, respond = () => undefined } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
+  if (process.env.CATALOG_DEBUG) page.on('console', message => { if (/ToolView|ProvidersApi|rror/.test(message.text())) console.log('PAGE', message.text().slice(0, 300)) })
   const reads = []
   const bytes = new Map()
   await page.route('**/*', async route => {
@@ -90,7 +91,7 @@ async function openApp(t, { start = '/', oldServer = false, respond = () => unde
     bytes.set(key, (bytes.get(key) || 0) + body.length)
     return route.fulfill({ contentType: 'application/json', body }).catch(() => {})
   })
-  await page.goto(`http://tool-catalog.test/?start=${encodeURIComponent(start)}`)
+  await page.goto(`http://tool-catalog.test/?start=${encodeURIComponent(start)}${deadline ? `&deadline=${deadline}` : ''}`)
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   const count = (path, filter = () => true) => reads.filter(read => read.path === path && filter(read)).length
@@ -141,10 +142,13 @@ test('a tool change makes every launch surface reread the catalog together, once
 test('opening a tool reads its schema once, and again only after the catalog changes', async t => {
   const app = await openApp(t, { start: '/elsewhere' })
   await expect(app.page.locator('#elsewhere')).toBeVisible()
+  // ToolView subscribes to tool changes once its load has finished.
+  const loaded = app.page.waitForEvent('console', { predicate: message => message.text().includes('[ToolView onMounted] loadTool completed'), timeout: 20_000 })
   await app.push('/tools/p:paint')
   await expect.poll(() => app.schemaReads('p:paint')).toBe(1)
   await expect(app.page.getByText('Paint').first()).toBeVisible()
-  await app.page.waitForTimeout(800)
+  await loaded
+  await app.page.waitForTimeout(300)
   assert.equal(app.schemaReads('p:paint'), 1, 'one schema read while the tool opens')
   assert.equal(app.schemaReads('p:upscale'), 0, 'only the opened tool')
   // Other readers of the same tool (send-to, chain steps) share it.
@@ -307,4 +311,146 @@ test('callers that give up on a shared catalog read cancel it only when nobody e
   assert.equal(await app.page.evaluate(() => window.loneOutcome), 'AbortError')
   await expect.poll(() => cancelled).toBe(1)
   release()
+})
+
+// A tool whose schema default and availability say which version answered.
+function versioned(version, availability = 'available') {
+  const tool = fullTool('paint', 'Paint')
+  tool.parameter_schema.properties.steps.default = version * 10
+  tool.availability = availability
+  return tool
+}
+
+test('a schema read that a tool change overtakes never wins: callers end on the newer schema', async t => {
+  let version = 1
+  let releaseFirst
+  const firstGate = new Promise(resolve => { releaseFirst = resolve })
+  let schemaReads = 0
+  const app = await openApp(t, {
+    start: '/elsewhere',
+    respond: async path => {
+      if (path !== '/api/tools/provider-tool/p:paint') return
+      const answer = versioned(version)
+      if (++schemaReads === 1) await firstGate
+      return answer
+    },
+  })
+  await expect(app.page.locator('#elsewhere')).toBeVisible()
+  await app.page.evaluate(() => { window.pending = window.toolCatalogTest.catalog.getProviderTool('p:paint') })
+  await expect.poll(() => schemaReads).toBe(1)
+  // The tool changes while v1 is in flight; then the v1 answer lands.
+  version = 2
+  await app.page.evaluate(() => window.toolCatalogTest.serverEvent('tools_updated', {}))
+  releaseFirst()
+  const steps = await app.page.evaluate(async () => (await window.pending).parameter_schema.properties.steps.default)
+  assert.equal(steps, 20, 'the caller gets the schema read after the change')
+  const cached = await app.page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).parameter_schema.properties.steps.default)
+  assert.equal(cached, 20, 'and only the newer schema is kept')
+  assert.equal(schemaReads, 2)
+})
+
+test('a stalled schema read is bounded by the read deadline, and a later open recovers', async t => {
+  let schemaReads = 0
+  const app = await openApp(t, {
+    start: '/elsewhere',
+    deadline: 1500,
+    respond: path => {
+      if (path !== '/api/tools/provider-tool/p:paint') return
+      return ++schemaReads === 1 ? new Promise(() => {}) : undefined
+    },
+  })
+  await expect(app.page.locator('#elsewhere')).toBeVisible()
+  const first = await app.page.evaluate(() =>
+    window.toolCatalogTest.catalog.getProviderTool('p:paint').then(() => 'resolved', error => error.name || error.code || 'failed'))
+  assert.notEqual(first, 'resolved')
+  const second = await app.page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).name)
+  assert.equal(second, 'Paint')
+  assert.equal(schemaReads, 2)
+})
+
+test('a schema read is cancelled once every caller waiting on it gives up, and only then', async t => {
+  const held = { gate: null }
+  const app = await openApp(t, {
+    start: '/elsewhere',
+    respond: async path => {
+      if (path === '/api/tools/provider-tool/p:paint' && held.gate) await held.gate
+    },
+  })
+  let cancelled = 0
+  app.page.on('requestfailed', request => { if (decodeURIComponent(new URL(request.url()).pathname) === '/api/tools/provider-tool/p:paint') cancelled++ })
+  await expect(app.page.locator('#elsewhere')).toBeVisible()
+  let release
+  held.gate = new Promise(resolve => { release = resolve })
+  await app.page.evaluate(() => {
+    const { catalog } = window.toolCatalogTest
+    const a = new AbortController()
+    const b = new AbortController()
+    window.outcomes = [a, b].map(controller => catalog.getProviderTool('p:paint', { signal: controller.signal }).then(() => 'resolved', error => error.name))
+    window.abortA = () => a.abort()
+    window.abortB = () => b.abort()
+  })
+  await expect.poll(() => app.schemaReads('p:paint')).toBe(1)
+  await app.page.evaluate(() => window.abortA())
+  await app.page.waitForTimeout(300)
+  assert.equal(cancelled, 0, 'still wanted by the other caller')
+  await app.page.evaluate(() => window.abortB())
+  await expect.poll(() => cancelled).toBe(1)
+  assert.deepEqual(await app.page.evaluate(() => Promise.all(window.outcomes)), ['AbortError', 'AbortError'])
+  held.gate = null
+  release()
+  assert.equal(app.schemaReads('p:paint'), 1, 'both callers shared one read')
+})
+
+test('a newer catalog retires a full tool it disagrees with, and explicit reads are fresh', async t => {
+  let current = versioned(1, 'disconnected')
+  const app = await openApp(t, {
+    start: '/elsewhere',
+    respond: path => {
+      if (path === '/api/tools/provider-tool/p:paint') return current
+      if (path === '/api/tools/providers/tools') return [summaryOf(current)]
+    },
+  })
+  await expect(app.page.locator('#elsewhere')).toBeVisible()
+  await app.page.waitForTimeout(500)
+  const first = await app.page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).availability)
+  assert.equal(first, 'disconnected')
+  // The provider comes back but its event is missed; a later catalog read
+  // (here forced, as after the cache expires) says available.
+  current = versioned(2, 'available')
+  const result = await app.page.evaluate(async () => {
+    const { catalog } = window.toolCatalogTest
+    const listed = (await catalog.fetchProvidersAndTools(true)).tools[0].availability
+    const opened = await catalog.getProviderTool('p:paint')
+    return { listed, opened: opened.availability, steps: opened.parameter_schema.properties.steps.default }
+  })
+  assert.deepEqual(result, { listed: 'available', opened: 'available', steps: 20 })
+  // A full tool the catalog agrees with is kept, unless the caller asks fresh.
+  const reads = app.schemaReads('p:paint')
+  await app.page.evaluate(() => window.toolCatalogTest.catalog.getProviderTool('p:paint'))
+  assert.equal(app.schemaReads('p:paint'), reads)
+  await app.page.evaluate(() => window.toolCatalogTest.catalog.getProviderTool('p:paint', { fresh: true }))
+  assert.equal(app.schemaReads('p:paint'), reads + 1)
+})
+
+test('a socket reconnect after an outage rereads the catalog and the tools it may have missed', async t => {
+  let current = versioned(1)
+  const app = await openApp(t, {
+    respond: path => {
+      if (path === '/api/tools/provider-tool/p:paint') return current
+    },
+  })
+  await expect(composer(app.page)).toBeVisible()
+  await app.page.waitForTimeout(1500)
+  assert.equal(app.catalogReads(), 1)
+  await app.page.evaluate(() => window.toolCatalogTest.catalog.getProviderTool('p:paint'))
+  current = versioned(2)
+  // Down, then back: tools_updated may have been sent while nobody listened.
+  const sockets = await app.page.evaluate(() => window.toolCatalogTest.socketCount())
+  await app.page.evaluate(() => window.toolCatalogTest.dropSocket())
+  await expect.poll(() => app.page.evaluate(() => window.toolCatalogTest.socketCount())).toBeGreaterThan(sockets)
+  await expect.poll(app.catalogReads).toBe(2)
+  await app.page.waitForTimeout(800)
+  assert.equal(app.catalogReads(), 2, 'one shared reread')
+  const steps = await app.page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).parameter_schema.properties.steps.default)
+  assert.equal(steps, 20)
 })

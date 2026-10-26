@@ -166,17 +166,45 @@ function normalizeProvider<T extends { provider_id?: string | null; provider_nam
   }
 }
 
-// Full tools (with schemas), read one at a time when a tool is opened.
-// Entries belong to a scope and a catalog generation: every invalidation of
-// the catalog (tools or provider changed, profile changed, explicit clear)
-// starts a new generation, so a schema is never served across a change it
-// may predate.
-let catalogGeneration = 0
-const fullTools = new Map<string, ProviderTool>()
-const fullToolReads = new Map<string, Promise<ProviderTool>>()
+// Full tools (with schemas), read one at a time when a tool is opened. Each
+// entry and read belongs to a scope and carries the request sequence number
+// it started at. A full tool is current only if its read started at or after
+// `fullToolFloor`: an invalidation (tools or provider changed, profile
+// changed, socket recovery, explicit clear) raises the floor to "now", so a
+// schema is never served across a change it may predate. A newer catalog
+// revalidates full tools read before it (see revalidateFullTools), so a fresh
+// catalog never sits next to an older full tool.
+let fullToolFloor = 0
+const fullTools = new Map<string, { tool: ProviderTool; seq: number }>()
+const fullToolReads = new Map<string, SharedRead<ProviderTool> & { seq: number; scope: string }>()
 
 function fullToolKey(fullToolId: string) {
-  return JSON.stringify([catalogGeneration, catalogScope(), fullToolId])
+  return JSON.stringify([catalogScope(), fullToolId])
+}
+
+function retireFullToolsBefore(seq: number) {
+  fullToolFloor = Math.max(fullToolFloor, seq)
+  for (const [key, entry] of fullTools) if (entry.seq < fullToolFloor) fullTools.delete(key)
+  for (const [key, read] of fullToolReads) if (read.seq < fullToolFloor) fullToolReads.delete(key)
+}
+
+// What the catalog and a full tool both say about a tool. A full tool read
+// before the current catalog that disagrees with it on any of these is older
+// than the catalog (a change whose event was missed, say).
+const CATALOG_FIELDS = ['name', 'availability', 'task_type', 'task_types', 'provider_name', 'model', 'model_vendor', 'preview_frames'] as const
+
+function agreesWithCatalog(tool: ProviderTool) {
+  const listed = toolsCache.value.find(t => t.full_tool_id === tool.full_tool_id)
+  if (!listed) return false
+  return CATALOG_FIELDS.every(field => JSON.stringify(listed[field] ?? null) === JSON.stringify(tool[field] ?? null))
+}
+
+// A newer catalog keeps the full tools it agrees with; the rest are read
+// again when next asked.
+function revalidateFullTools(catalogSeq: number) {
+  for (const [key, entry] of fullTools) {
+    if (entry.seq < catalogSeq && !agreesWithCatalog(entry.tool)) fullTools.delete(key)
+  }
 }
 
 // Module-level cache clearing function (used by event handlers)
@@ -186,9 +214,7 @@ function clearToolsCache() {
   lastFetchTime.value = 0
   cacheScope = null
   catalogClearedAtSeq = catalogRequestSeq
-  catalogGeneration++
-  fullTools.clear()
-  fullToolReads.clear()
+  retireFullToolsBefore(catalogRequestSeq + 1)
 }
 
 // Listen for tools-changed browser event (dispatched by useWebSocket on
@@ -245,6 +271,7 @@ async function readToolSummaries(config: { signal?: AbortSignal } = {}): Promise
     toolsCache.value = tools
     lastFetchTime.value = Date.now()
     cacheScope = read.scope
+    revalidateFullTools(read.seq)
   } else if (supersededInCache(read, 'tools')) {
     return toolsCache.value
   }
@@ -278,60 +305,44 @@ async function readCatalog(signal: AbortSignal): Promise<Catalog> {
   }
 }
 
+
 /**
- * The catalog read callers share. Everyone who needs the catalog while it is
- * being read waits on the same request instead of starting their own. It is
+ * A read that callers share. Everyone who needs the same data while it is
+ * being read waits on one request instead of starting their own. It is
  * bounded by the read deadline, since a stalled transport must not hold every
- * consumer forever, and it is cancelled once every caller waiting on it has
+ * caller forever, and it is cancelled once every caller waiting on it has
  * given up.
  */
-interface SharedCatalogRead {
-  scope: string
-  firstSeq: number
+interface SharedRead<T> {
   controller: AbortController
-  promise: Promise<Catalog>
+  promise: Promise<T>
   waiting: number
   done: boolean
 }
 
-let sharedCatalogRead: SharedCatalogRead | null = null
-
-function joinable(read: SharedCatalogRead | null): read is SharedCatalogRead {
-  // A read that started before the last invalidation may predate the change.
-  return !!read && !read.done && read.scope === catalogScope() && read.firstSeq > catalogClearedAtSeq
-}
-
-function startSharedCatalogRead(): SharedCatalogRead {
+function startSharedRead<T>(run: (signal: AbortSignal) => Promise<T>, settled: () => void): SharedRead<T> {
   const controller = new AbortController()
-  const read: SharedCatalogRead = {
-    scope: catalogScope(),
-    firstSeq: catalogRequestSeq + 1,
-    controller,
-    promise: Promise.resolve({ providers: [], tools: [] }),
-    waiting: 0,
-    done: false,
-  }
   const timer = setTimeout(() => controller.abort(), getReadDeadlineMs())
-  read.promise = readCatalog(controller.signal).finally(() => {
+  const read: SharedRead<T> = { controller, promise: null as unknown as Promise<T>, waiting: 0, done: false }
+  read.promise = run(controller.signal).finally(() => {
     clearTimeout(timer)
     read.done = true
-    if (sharedCatalogRead === read) sharedCatalogRead = null
+    settled()
   })
   // Each caller sees failures through its own wait; this keeps a read
   // everyone abandoned from reporting an unhandled rejection.
   read.promise.catch(() => {})
-  sharedCatalogRead = read
   return read
 }
 
-function catalogAbortError() {
-  return new DOMException('The tool catalog read was cancelled', 'AbortError')
+function readCancelledError() {
+  return new DOMException('The read was cancelled', 'AbortError')
 }
 
-function waitForSharedRead(read: SharedCatalogRead, signal?: AbortSignal): Promise<Catalog> {
-  if (signal?.aborted) return Promise.reject(catalogAbortError())
+function waitForShared<T>(read: SharedRead<T>, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) return Promise.reject(readCancelledError())
   read.waiting++
-  return new Promise<Catalog>((resolve, reject) => {
+  return new Promise<T>((resolve, reject) => {
     let left = false
     const leave = () => {
       if (left) return false
@@ -346,14 +357,34 @@ function waitForSharedRead(read: SharedCatalogRead, signal?: AbortSignal): Promi
         read.done = true
         read.controller.abort()
       }
-      reject(catalogAbortError())
+      reject(readCancelledError())
     }
     signal?.addEventListener('abort', onAbort)
     read.promise.then(
-      (catalog) => { if (leave()) resolve(catalog) },
+      (value) => { if (leave()) resolve(value) },
       (error) => { if (leave()) reject(error) },
     )
   })
+}
+
+type SharedCatalogRead = SharedRead<Catalog> & { scope: string; firstSeq: number }
+
+let sharedCatalogRead: SharedCatalogRead | null = null
+
+function joinable(read: SharedCatalogRead | null): read is SharedCatalogRead {
+  // A read that started before the last invalidation may predate the change.
+  return !!read && !read.done && read.scope === catalogScope() && read.firstSeq > catalogClearedAtSeq
+}
+
+function startSharedCatalogRead(): SharedCatalogRead {
+  const scope = catalogScope()
+  const firstSeq = catalogRequestSeq + 1
+  const read: SharedCatalogRead = Object.assign(
+    startSharedRead(readCatalog, () => { if (sharedCatalogRead === read) sharedCatalogRead = null }),
+    { scope, firstSeq },
+  )
+  sharedCatalogRead = read
+  return read
 }
 
 /**
@@ -373,50 +404,81 @@ function fetchCatalog(forceRefresh = false, config: { signal?: AbortSignal } = {
     })
   }
   const read = !forceRefresh && joinable(sharedCatalogRead) ? sharedCatalogRead : startSharedCatalogRead()
-  return waitForSharedRead(read, config.signal)
+  return waitForShared(read, config.signal)
 }
+
+/** How often a schema read is retried when a change lands while it is in flight. */
+const FULL_TOOL_ATTEMPTS = 3
 
 /**
  * The full tool, schemas included, for a tool that is being opened or run.
- * Read once per tool per catalog generation and shared while in flight. A
- * catalog that already carries full tools (an older server) answers directly.
+ * Read once and shared while in flight, until a change or a newer catalog
+ * retires it. A catalog that already carries full tools (an older server)
+ * answers directly. `fresh` always reads again (availability checks, retries).
+ * An answer to a read that a change overtook is never returned or kept: the
+ * read is made again, so the caller ends on the newer tool.
  */
-async function fetchFullTool(fullToolId: string, { fresh = false } = {}): Promise<ProviderTool> {
+async function fetchFullTool(
+  fullToolId: string,
+  { fresh = false, signal }: { fresh?: boolean; signal?: AbortSignal } = {},
+): Promise<ProviderTool> {
   // Every caller gets its own copy, as when each read was its own request:
   // screens build working state on the tool they are handed.
-  return copyTool(await readFullTool(fullToolId, fresh))
+  return copyTool(await readFullTool(fullToolId, fresh, signal, FULL_TOOL_ATTEMPTS))
 }
 
 function copyTool(tool: ProviderTool): ProviderTool {
   return JSON.parse(JSON.stringify(toRaw(tool)))
 }
 
-async function readFullTool(fullToolId: string, fresh: boolean): Promise<ProviderTool> {
+async function readFullTool(
+  fullToolId: string,
+  fresh: boolean,
+  signal: AbortSignal | undefined,
+  attempts: number,
+): Promise<ProviderTool> {
   const key = fullToolKey(fullToolId)
+  let read = fresh ? undefined : fullToolReads.get(key)
   if (!fresh) {
     const cached = fullTools.get(key)
-    if (cached) return cached
+    if (cached && cached.seq >= fullToolFloor) return cached.tool
     if (cacheScope === catalogScope()) {
       const listed = toolsCache.value.find(t => t.full_tool_id === fullToolId)
       if (isFullTool(listed)) return listed
     }
-    const pending = fullToolReads.get(key)
-    if (pending) return pending
   }
-  const read = (async () => {
-    const response = await axios.get(`${getToolsAPIBase()}/provider-tool/${encodeURIComponent(fullToolId)}`)
-    const tool: ProviderTool = normalizeProvider(response.data)
-    // Kept only if nothing changed while it was read.
-    if (fullToolKey(fullToolId) === key) fullTools.set(key, tool)
+  if (!read || read.done || read.seq < fullToolFloor) {
+    const seq = ++catalogRequestSeq
+    const scope = catalogScope()
+    const started: SharedRead<ProviderTool> & { seq: number; scope: string } = Object.assign(
+      startSharedRead(async (readSignal) => {
+        const url = `${getToolsAPIBase()}/provider-tool/${encodeURIComponent(fullToolId)}`
+        return normalizeProvider((await axios.get(url, { signal: readSignal })).data) as ProviderTool
+      }, () => { if (fullToolReads.get(key) === started) fullToolReads.delete(key) }),
+      { seq, scope },
+    )
+    fullToolReads.set(key, started)
+    read = started
+  }
+  const tool = await waitForShared(read, signal)
+  if (read.scope !== catalogScope()) return tool  // the caller's scope is gone; never cached
+  // A change landed while this was in flight, or a newer catalog disagrees
+  // with the answer: it may predate either, so read again.
+  const overtaken = read.seq < fullToolFloor
+    || (cacheScope === read.scope && publishedSeq.tools > read.seq && !agreesWithCatalog(tool))
+  if (overtaken) {
+    if (attempts > 1) return readFullTool(fullToolId, false, signal, attempts - 1)
     return tool
-  })()
-  fullToolReads.set(key, read)
-  try {
-    return await read
-  } finally {
-    if (fullToolReads.get(key) === read) fullToolReads.delete(key)
   }
+  const current = fullTools.get(key)
+  if (!current || current.seq < read.seq) fullTools.set(key, { tool, seq: read.seq })
+  return tool
 }
+
+// Events can be missed only while the socket is down, so a reconnect after a
+// disconnect counts as a change: the catalog and every full tool are read
+// again. The first connect is not one.
+let socketWasDown = false
 
 export function useProvidersApi() {
   // The socket is opened by its first user; install the change bridge then
@@ -426,6 +488,12 @@ export function useProvidersApi() {
     catalogEventsInstalled = true
     on('tools_updated', handleCatalogChange)
     on('provider_status_changed', handleCatalogChange)
+    on('websocket_disconnected', () => { socketWasDown = true })
+    on('websocket_reconnected', () => {
+      if (!socketWasDown) return
+      socketWasDown = false
+      handleCatalogChange({})
+    })
   }
 
   async function searchToolOptions(
@@ -512,10 +580,11 @@ export function useProvidersApi() {
   }
 
   /**
-   * The full tool (schemas included) by full ID. Read once per catalog
-   * generation; `fresh` reads it again regardless.
+   * The full tool (schemas included) by full ID, shared and cached until a
+   * change or a newer catalog retires it; `fresh` reads it again regardless.
+   * Bounded by the read deadline; `signal` lets a caller stop waiting.
    */
-  async function getProviderTool(fullToolId: string, options: { fresh?: boolean } = {}): Promise<ProviderTool> {
+  async function getProviderTool(fullToolId: string, options: { fresh?: boolean; signal?: AbortSignal } = {}): Promise<ProviderTool> {
     return fetchFullTool(fullToolId, options)
   }
 

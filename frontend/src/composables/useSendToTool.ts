@@ -98,7 +98,7 @@ export function useSendToTool() {
 
     // Menus and the sidebar pass catalog summaries, which carry no
     // parameter_schema. Batch detection needs the schema to see the media
-    // slot, so use the full tool (read once per catalog generation). The
+    // slot, so use the full tool (shared and cached). The
     // caller's object is a shared catalog entry: never write into it.
     if (!tool.parameter_schema?.properties) {
       try {

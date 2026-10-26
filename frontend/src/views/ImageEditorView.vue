@@ -753,33 +753,58 @@ const activeReferenceLimits = computed(() =>
  * The catalog lists tool summaries; a tool's schema (its parameters, limits
  * and defaults) is read when the editor actually uses that tool, and merged
  * into its entry in `tools`. Returns the full tool, or null if it is not in
- * the catalog or could not be read.
+ * the catalog (absent from the list, or the server no longer knows it).
+ * Throws ToolSchemaUnavailableError when it could not be read right now.
+ *
+ * `current` asks the shared cache even when the entry already has a schema,
+ * so a run never uses a schema a change has since retired.
  */
-async function ensureFullTool(fullToolId: string | null | undefined): Promise<any | null> {
+class ToolSchemaUnavailableError extends Error {}
+
+// Bumped whenever `tools` is replaced from the catalog: a schema read that
+// started against an earlier list is applied to the list it belongs to, never
+// to a newer one.
+let toolCatalogVersion = 0
+
+async function ensureFullTool(fullToolId: string | null | undefined, { current = false } = {}): Promise<any | null> {
   if (!fullToolId) return null
   const listed = tools.value.find(tool => tool.full_tool_id === fullToolId)
   if (!listed) return null
-  if (isFullTool(listed)) return listed
+  if (isFullTool(listed) && !current) return listed
+  const version = toolCatalogVersion
+  let full: any
   try {
-    const full = await getProviderTool(fullToolId)
-    let merged: any = null
-    tools.value = tools.value.map(tool => {
-      if (tool.full_tool_id !== fullToolId) return tool
-      merged = isFullTool(tool) ? tool : { ...tool, ...full }
-      return merged
-    })
-    return merged
-  } catch (toolError) {
+    full = await getProviderTool(fullToolId)
+  } catch (toolError: any) {
+    if (toolError?.response?.status === 404) return null
     console.warn('[imageStack] could not read tool schema', fullToolId, toolError)
-    return null
+    const reason = apiErrorMessage(toolError, 'the server did not answer')
+    throw new ToolSchemaUnavailableError(`Couldn't load this tool's settings (${reason}). Try again.`)
   }
+  // The list was replaced while this was read: start over against it.
+  if (version !== toolCatalogVersion) return ensureFullTool(fullToolId, { current })
+  const entry = tools.value.find(tool => tool.full_tool_id === fullToolId)
+  if (!entry) return null
+  if (isFullTool(entry) && JSON.stringify(entry.parameter_schema) === JSON.stringify(full.parameter_schema)
+    && entry.availability === full.availability) return entry
+  const merged = { ...entry, ...full }
+  tools.value = tools.value.map(tool => (tool.full_tool_id === fullToolId ? merged : tool))
+  return merged
+}
+
+/** Read a tool's schema in the background (pickers, panels); failures surface on Run. */
+function prefetchFullTool(fullToolId: string | null | undefined) {
+  return ensureFullTool(fullToolId).catch(() => null)
 }
 
 function ensureModelToolParams(tool: any) {
   if (!tool?.full_tool_id || modelToolParams.value[tool.full_tool_id]) return
-  // Defaults come from the schema: seed them once the full tool is read.
+  // Defaults come from the schema: seed them once the full tool is read, and
+  // only from the tool as the current list has it.
   if (!isFullTool(tool)) {
-    void ensureFullTool(tool.full_tool_id).then(full => { if (full) ensureModelToolParams(full) })
+    void prefetchFullTool(tool.full_tool_id).then(full => {
+      if (full && full === tools.value.find(entry => entry.full_tool_id === full.full_tool_id)) ensureModelToolParams(full)
+    })
     return
   }
   modelToolParams.value = {
@@ -821,7 +846,8 @@ async function refreshEditorLoras(fullToolId: string) {
   isRefreshingLoras.value = true
   try {
     await refreshProviderTools(fullToolId.split(':')[0] || undefined)
-    const refreshed = await getProviderTool(fullToolId)
+    const refreshed = await getProviderTool(fullToolId, { fresh: true })
+    toolCatalogVersion++
     tools.value = tools.value.map(tool =>
       tool.full_tool_id === fullToolId ? { ...tool, ...refreshed } : tool
     )
@@ -2833,7 +2859,7 @@ async function run() {
           ? 'expand'
           : 'cutout'
     const toolId = activeToolId.value!
-    const tool = await ensureFullTool(toolId)
+    const tool = await ensureFullTool(toolId, { current: true })
     if (!tool) throw new Error('That tool is no longer in the catalog.')
     const toolParams = sanitizeModelToolParams(tool, {
       ...activeToolParamValues.value,
@@ -3070,7 +3096,13 @@ async function resample(opId: string) {
 
   const index = doc.edits.findIndex(o => o.id === opId)
   const inputHash = stackHashes(doc).inputs[index]
-  const tool = await ensureFullTool(op.exec.tool_id)
+  let tool: any
+  try {
+    tool = await ensureFullTool(op.exec.tool_id, { current: true })
+  } catch (toolError: any) {
+    error.value = toolError?.message || 'Could not load the tool.'
+    return
+  }
   if (!tool) {
     error.value = 'That tool is no longer in the catalog.'
     return
@@ -8330,7 +8362,7 @@ async function applyOutputStage(flattened: HTMLCanvasElement): Promise<HTMLCanva
   const target = outputDimensions(output, withoutVectors.width, withoutVectors.height)
 
   let scaled: HTMLCanvasElement
-  const tool = output.method === 'resample' ? null : await ensureFullTool(output.tool_id)
+  const tool = output.method === 'resample' ? null : await ensureFullTool(output.tool_id, { current: true })
   if (output.method === 'resample' || !tool) {
     if (output.method === 'photo' && !tool) {
       throw new Error('The upscale tool is no longer in the catalog.')
@@ -8578,7 +8610,9 @@ let resizeObserver: ResizeObserver | null = null
 /** Re-read the runnable catalog after a provider is enabled, disabled or drops. */
 async function refreshToolCatalog() {
   try {
-    tools.value = (await listAllTools()).filter(isRunnableTool)
+    const refreshed = (await listAllTools()).filter(isRunnableTool)
+    toolCatalogVersion++
+    tools.value = refreshed
   } catch (toolError) {
     console.warn('[imageStack] could not refresh tool catalog', toolError)
   }
@@ -8610,7 +8644,7 @@ watch(
     tools.value,
   ] as const,
   ([active, selected, output]) => {
-    for (const id of new Set([active, selected, output])) void ensureFullTool(id)
+    for (const id of new Set([active, selected, output])) void prefetchFullTool(id)
   },
   { immediate: true },
 )
@@ -8632,6 +8666,7 @@ async function hydrateEditorExtras() {
     // an offer, and offering a tool that cannot run is a dead end the person
     // only discovers by pressing Run.
     const all = (await listAllTools()).filter(isRunnableTool)
+    toolCatalogVersion++
     tools.value = all
     // Last session's pick wins, but only while that tool is still installed
     // and still supports the operation the restored family will ask it for.

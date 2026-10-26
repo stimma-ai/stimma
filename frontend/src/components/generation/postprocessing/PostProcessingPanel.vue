@@ -270,7 +270,7 @@ function insertStep(step: ChainStep) {
 async function addToolStep(summary: ProviderToolSummary) {
   addMenuOpen.value = false
   // The menu lists catalog summaries; the seeded settings come from the
-  // tool's schema, so read the full tool (once per catalog generation).
+  // tool's schema, so read the full tool (shared and cached).
   let tool: ProviderToolSummary = summary
   try {
     tool = await getProviderTool(summary.full_tool_id)

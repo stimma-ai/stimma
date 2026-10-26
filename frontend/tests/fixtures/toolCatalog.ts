@@ -8,6 +8,7 @@ import { initApiConfig } from '../../src/apiConfig'
 import { setCurrentProfileId } from '../../src/composables/useProfile'
 import { useProvidersApi } from '../../src/composables/useProvidersApi'
 import { planToolHandoff } from '../../src/utils/toolHandoff'
+import { setReadDeadlineMs } from '../../src/utils/readDeadline'
 import '../../src/style.css'
 
 // A scripted server socket: the test pushes broadcasts.
@@ -48,6 +49,14 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
   serverEvent(event: string, data = {}) {
     sockets[sockets.length - 1]?.onmessage?.({ data: JSON.stringify({ event, data }) })
   },
+  // Lose the socket; the app's own reconnect logic opens the next one.
+  dropSocket() {
+    const socket = sockets[sockets.length - 1]
+    if (!socket) return
+    socket.readyState = 3
+    socket.onclose?.()
+  },
+  socketCount: () => sockets.length,
 }
 
 const app = createApp({ render: () => h('div', { class: 'flex h-screen' }, [
@@ -62,5 +71,7 @@ const app = createApp({ render: () => h('div', { class: 'flex h-screen' }, [
   ]),
 ]) })
 app.use(router)
-const start = new URLSearchParams(location.search).get('start') || '/'
+const query = new URLSearchParams(location.search)
+const start = query.get('start') || '/'
+if (query.get('deadline')) setReadDeadlineMs(Number(query.get('deadline')))
 initApiConfig().then(() => router.push(start)).then(() => app.mount('#app'))

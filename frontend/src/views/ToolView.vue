@@ -2531,7 +2531,7 @@ function startAvailabilityPolling() {
       return
     }
     try {
-      const refreshedTool = await getProviderTool(tool.value.full_tool_id)
+      const refreshedTool = await getProviderTool(tool.value.full_tool_id, { fresh: true })
       tool.value = buildToolWithState(refreshedTool, tool.value.state || {})
       if (refreshedTool.availability === 'available') {
         stopAvailabilityPolling()
@@ -3456,7 +3456,7 @@ async function refreshLoras() {
 
     // Quietly fetch updated tool schema without triggering full loading state
     if (fullToolId) {
-      const providerTool = await getProviderTool(fullToolId)
+      const providerTool = await getProviderTool(fullToolId, { fresh: true })
       // Update only the parameter_schema which contains LoRA info
       tool.value = {
         ...tool.value,
@@ -3523,7 +3523,7 @@ async function uploadLora(files: File[]) {
           // Refresh schema so the new LoRA appears in availableLoras
           const fullToolId = tool.value.full_tool_id
           if (fullToolId) {
-            const providerTool = await getProviderTool(fullToolId)
+            const providerTool = await getProviderTool(fullToolId, { fresh: true })
             tool.value = {
               ...tool.value,
               parameter_schema: providerTool.parameter_schema
@@ -4259,7 +4259,7 @@ async function loadTool(forceReload = false, silent = false) {
 
   try {
     // Load provider tool descriptor; tolerate state fetch failures
-    const providerTool = await getProviderTool(fullToolId)
+    const providerTool = await getProviderTool(fullToolId, { fresh: forceReload })
     const toolState = await getToolState(fullToolId).catch(() => ({ state: {} as Record<string, any> }))
     tool.value = buildToolWithState(providerTool, toolState.state || {})
     error.value = null

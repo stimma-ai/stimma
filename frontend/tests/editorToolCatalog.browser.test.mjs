@@ -10,8 +10,11 @@ import config from '../vite.config.js'
 const observe = {
   name: 'editor-tool-catalog-observer', enforce: 'pre',
   transform(source, id) {
+    // The editor fixture never initializes the API config, so the socket
+    // would never connect; let the test do it.
+    if (id.endsWith('/src/apiConfig.js')) return `${source}\nwindow.__initApiConfig = initApiConfig\n`
     if (!id.endsWith('/src/views/ImageEditorView.vue')) return
-    return source.replace('</script>', 'defineExpose({ tools, modelToolParams, repaintToolId, defaultUpscaleToolId, loading, activeReferenceLimits })\n</script>')
+    return source.replace('</script>', 'defineExpose({ tools, modelToolParams, repaintToolId, defaultUpscaleToolId, loading, ensureFullTool })\n</script>')
   },
 }
 const base = config({})
@@ -26,14 +29,14 @@ const built = await build({
 })
 const output = (Array.isArray(built) ? built : [built]).flatMap(result => result.output)
 
-function fullTool(id, taskType) {
+function fullTool(id, taskType, steps = 28) {
   return {
     full_tool_id: `p:${id}`, tool_id: id, name: id, task_type: taskType, task_types: [taskType],
     provider_id: 'p', provider_name: 'Test Provider', availability: 'available', metadata: {},
     parameter_schema: { properties: {
       prompt: { type: 'string', default: '' },
       input_images: { type: 'array', minItems: 1, maxItems: 3 },
-      steps: { type: 'integer', default: 28 },
+      steps: { type: 'integer', default: steps },
       scale: { type: 'number', default: 2 },
     } },
     output_schema: {},
@@ -44,7 +47,11 @@ const summary = ({ parameter_schema, output_schema, ...rest }) => ({
   ...rest, parameter_outline: { properties: { input_images: parameter_schema.properties.input_images } },
 })
 
-test('the editor lists summaries and reads schemas only for the tools it uses', async t => {
+/**
+ * Open the real editor on a one-layer document. `schema(id)` may answer a
+ * schema read with a tool, a status number, or a promise of either.
+ */
+async function openEditor(t, { catalog = () => CATALOG, schema = id => CATALOG.find(tool => tool.full_tool_id === id) ?? 404 } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
@@ -72,28 +79,54 @@ test('the editor lists summaries and reads schemas only for the tools it uses', 
     if (path.includes('/payloads/')) return route.fulfill({ status: 404 })
     if (path.endsWith('/journal')) return route.fulfill({ json: { entries: [] } })
     if (path === '/api/tools/providers') return route.fulfill({ json: [] })
-    if (path === '/api/tools/providers/tools') return route.fulfill({ json: url.searchParams.get('view') === 'summary' ? CATALOG.map(summary) : CATALOG })
+    if (path === '/api/tools/providers/tools') {
+      const tools = catalog()
+      return route.fulfill({ json: url.searchParams.get('view') === 'summary' ? tools.map(summary) : tools })
+    }
     if (path.startsWith('/api/tools/provider-tool/')) {
-      const tool = CATALOG.find(item => item.full_tool_id === path.slice('/api/tools/provider-tool/'.length))
-      return tool ? route.fulfill({ json: tool }) : route.fulfill({ status: 404, json: {} })
+      const answer = await schema(path.slice('/api/tools/provider-tool/'.length))
+      if (typeof answer === 'number') return route.fulfill({ status: answer, json: { detail: 'unavailable' } }).catch(() => {})
+      return route.fulfill({ json: answer }).catch(() => {})
     }
     if (path.includes('tools') || path.includes('markers') || path.includes('fonts')) return route.fulfill({ json: [] })
     return route.fulfill({ json: {} })
   })
   await page.goto('http://editor.test/')
+  // A scripted server socket, so the test can broadcast tool changes.
+  await page.evaluate(() => {
+    window.sockets = []
+    window.WebSocket = class {
+      static CONNECTING = 0
+      static OPEN = 1
+      static CLOSING = 2
+      static CLOSED = 3
+      readyState = 0
+      constructor() { window.sockets.push(this); setTimeout(() => { this.readyState = 1; this.onopen?.() }, 0) }
+      send() {}
+      close() { this.readyState = 3 }
+    }
+    window.serverEvent = (event, data = {}) => window.sockets.at(-1)?.onmessage?.({ data: JSON.stringify({ event, data }) })
+  })
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
-
+  await page.evaluate(() => window.__initApiConfig())
+  await expect.poll(() => page.evaluate(() => window.sockets.length)).toBeGreaterThan(0)
   await expect.poll(() => page.evaluate(() => window.editorTest?.loading)).toBe(false)
+  return { page, errors, reads }
+}
+
+const schemaReadsOf = reads => reads.filter(read => read.path.startsWith('/api/tools/provider-tool/')).map(read => read.path.split('/').pop())
+
+test('the editor lists summaries and reads schemas only for the tools it uses', async t => {
+  const { page, errors, reads } = await openEditor(t)
   // The picked repaint tool's defaults come from its schema, read on demand.
   await expect.poll(() => page.evaluate(() => window.editorTest.modelToolParams['p:repaint']?.steps ?? null)).toBe(28)
   await page.waitForTimeout(500)
   const catalogReads = reads.filter(read => read.path === '/api/tools/providers/tools')
   assert.deepEqual(catalogReads.map(read => read.view), ['summary'])
-  const schemaReads = reads.filter(read => read.path.startsWith('/api/tools/provider-tool/')).map(read => read.path.split('/').pop())
   // The repaint pick (its defaults) and the default upscaler (the output
   // stage) — not the alternative nobody picked — each read once.
-  assert.deepEqual(schemaReads.sort(), ['p:repaint', 'p:upscale'])
+  assert.deepEqual(schemaReadsOf(reads).sort(), ['p:repaint', 'p:upscale'])
   const state = await page.evaluate(() => {
     const { tools, repaintToolId, defaultUpscaleToolId } = window.editorTest
     const byId = Object.fromEntries(tools.map(tool => [tool.full_tool_id, !!tool.parameter_schema]))
@@ -103,4 +136,57 @@ test('the editor lists summaries and reads schemas only for the tools it uses', 
   assert.equal(state.defaultUpscaleToolId, 'p:upscale')
   assert.deepEqual(state.byId, { 'p:repaint': true, 'p:repaint-alt': false, 'p:upscale': true })
   assert.deepEqual(errors, [])
+})
+
+test('an obsolete schema that lands after a tool change never seeds or replaces the newer one', async t => {
+  let version = 1
+  let releaseFirst
+  const firstGate = new Promise(resolve => { releaseFirst = resolve })
+  let repaintReads = 0
+  const { page, errors } = await openEditor(t, {
+    catalog: () => CATALOG.map(tool => (tool.full_tool_id === 'p:repaint' ? fullTool('repaint', 'inpaint-image', version * 10) : tool)),
+    schema: async id => {
+      if (id !== 'p:repaint') return CATALOG.find(tool => tool.full_tool_id === id) ?? 404
+      const answer = fullTool('repaint', 'inpaint-image', version * 10)
+      if (++repaintReads === 1) await firstGate
+      return answer
+    },
+  })
+  await expect.poll(() => repaintReads).toBe(1)
+  // Wait until the editor follows tool changes (after its catalog is in).
+  await expect.poll(() => page.evaluate(() => window.editorTest.tools.length)).toBe(3)
+  await page.waitForTimeout(200)
+  version = 2
+  await page.evaluate(() => window.serverEvent('tools_updated', {}))
+  releaseFirst()
+  await expect.poll(() => page.evaluate(() => window.editorTest.modelToolParams['p:repaint']?.steps ?? null)).toBe(20)
+  await page.waitForTimeout(500)
+  const state = await page.evaluate(() => ({
+    seeded: window.editorTest.modelToolParams['p:repaint'].steps,
+    listed: window.editorTest.tools.find(tool => tool.full_tool_id === 'p:repaint').parameter_schema.properties.steps.default,
+  }))
+  assert.deepEqual(state, { seeded: 20, listed: 20 })
+  assert.deepEqual(errors, [])
+})
+
+test('a schema read that fails reports why and can be retried; only a confirmed absence says removed', async t => {
+  let failing = true
+  const { page } = await openEditor(t, {
+    schema: id => {
+      if (id === 'p:repaint-alt') return 404
+      if (id === 'p:repaint' && failing) return 503
+      return CATALOG.find(tool => tool.full_tool_id === id) ?? 404
+    },
+  })
+  await expect.poll(() => page.evaluate(() => window.editorTest.tools.length)).toBe(3)
+  const failed = await page.evaluate(() => window.editorTest.ensureFullTool('p:repaint', { current: true }).then(() => 'resolved', error => error.message))
+  assert.match(failed, /Couldn't load this tool's settings/)
+  assert.match(failed, /Try again/)
+  assert.doesNotMatch(failed, /no longer in the catalog/)
+  // A retry once the server answers again succeeds.
+  failing = false
+  const retried = await page.evaluate(async () => (await window.editorTest.ensureFullTool('p:repaint', { current: true }))?.parameter_schema?.properties?.steps?.default)
+  assert.equal(retried, 28)
+  // The server no longer knows this one: that, and only that, is "removed".
+  assert.equal(await page.evaluate(() => window.editorTest.ensureFullTool('p:repaint-alt', { current: true })), null)
 })
