@@ -330,30 +330,129 @@ test('a slow recents read is waited for across repeated visits, never restarted'
   await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
 })
 
-test('a catalog read that predates a tool change never refills the shared cache', async t => {
-  let releaseOld
-  const oldGate = new Promise(resolve => { releaseOld = resolve })
-  let toolReads = 0
-  const tool = (id, name) => ({ full_tool_id: id, tool_id: id, provider_id: 'p', name, availability: 'available' })
-  const { page, counts } = await openHome(t, {
-    respond: async path => {
-      if (path === '/api/tools/providers') return []
-      if (path !== '/api/tools/providers/tools') return
-      toolReads++
-      if (toolReads === 1) { await oldGate; return [tool('p:old', 'Old tool')] }
-      return [tool('p:new', 'New tool')]
-    },
-  })
+const catalogTool = (id, name) => ({ full_tool_id: id, tool_id: id, provider_id: 'p', name, availability: 'available' })
+
+/** Serve the tool catalog: the first read is held until released, later reads are new. */
+function heldCatalog() {
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const state = { reads: 0, running: 0, maxRunning: 0, release: () => release() }
+  state.respond = async path => {
+    if (path === '/api/chats/previews') return { items: [chat(6, 'Some chat')], total: 1 }
+    if (path === '/api/tools/providers') return []
+    if (path !== '/api/tools/providers/tools') return
+    const read = ++state.reads
+    state.running++
+    state.maxRunning = Math.max(state.maxRunning, state.running)
+    try {
+      if (read === 1) { await gate; return [catalogTool('p:old', 'Old tool')] }
+      return [catalogTool('p:new', 'New tool')]
+    } finally { state.running-- }
+  }
+  return state
+}
+
+test('a tool change during a slow catalog read reruns once, after it, and Home ends on the new catalog', async t => {
+  const catalog = heldCatalog()
+  const { page, push } = await openHome(t, { respond: catalog.respond })
   await expect(composer(page)).toBeVisible()
-  await expect.poll(() => toolReads).toBe(1)
-  // The server reports a tool change; Home rereads and the new read lands first.
+  await page.evaluate(() => {
+    window.homeLoadTest.recordToolVisit('p:old', 'Old tool')
+    window.homeLoadTest.recordToolVisit('p:new', 'New tool')
+  })
+  await expect.poll(() => catalog.reads).toBe(1)
+  // Several changes and a revisit while the first read is held: no second read yet.
   await page.evaluate(() => window.homeLoadTest.serverEvent('tools_updated', {}))
-  await expect.poll(() => toolReads).toBe(2)
-  await page.waitForTimeout(200)
-  releaseOld()
+  await page.evaluate(() => window.homeLoadTest.serverEvent('tools_updated', {}))
+  await push('/elsewhere')
+  await push('/')
   await page.waitForTimeout(300)
+  assert.equal(catalog.reads, 1)
+  catalog.release()
+  await expect(page.getByText('New tool')).toBeVisible()
+  await expect(page.getByText('Old tool')).toHaveCount(0)
+  await page.waitForTimeout(300)
+  assert.equal(catalog.reads, 2, 'one coalesced rerun')
+  assert.equal(catalog.maxRunning, 1)
+  // Fresh now: a revisit doesn't read again.
+  await push('/elsewhere')
+  await push('/')
+  await page.waitForTimeout(300)
+  assert.equal(catalog.reads, 2)
+})
+
+test('a catalog read that predates a cache clear never refills or overrides the shared cache', async t => {
+  const catalog = heldCatalog()
+  const { page, counts } = await openHome(t, { respond: catalog.respond })
+  await expect(composer(page)).toBeVisible()
+  await expect.poll(() => catalog.reads).toBe(1)
+  // Another consumer clears the cache and reads the new catalog first.
+  const newer = await page.evaluate(async () => {
+    window.dispatchEvent(new Event('tools-changed'))
+    return (await window.homeLoadTest.catalog.fetchProvidersAndTools(true)).tools.map(item => item.name)
+  })
+  assert.deepEqual(newer, ['New tool'])
+  catalog.release()
+  await page.waitForTimeout(400)
   const before = counts.get('/api/tools/providers/tools')
-  const names = await page.evaluate(async () => (await window.homeLoadTest.catalog.fetchProvidersAndTools()).tools.map(item => item.name))
-  assert.deepEqual(names, ['New tool'])
+  const cached = await page.evaluate(async () => (await window.homeLoadTest.catalog.fetchProvidersAndTools()).tools.map(item => item.name))
+  assert.deepEqual(cached, ['New tool'])
   assert.equal(counts.get('/api/tools/providers/tools'), before, 'served from the cache')
 })
+
+for (const order of ['retry fails, rerun succeeds', 'retry succeeds, rerun fails']) {
+  test(`repeated retries run one at a time and settle correctly: ${order}`, async t => {
+    const firstFails = order.startsWith('retry fails')
+    let reads = 0
+    let running = 0
+    let maxRunning = 0
+    let releaseRetry
+    const retryGate = new Promise(resolve => { releaseRetry = resolve })
+    const { page, push } = await openHome(t, {
+      respond: async path => {
+        if (path !== '/api/chats/previews') return
+        const read = ++reads
+        running++
+        maxRunning = Math.max(maxRunning, running)
+        try {
+          if (read === 1) return 503
+          if (read === 2) { await retryGate; return firstFails ? 503 : { items: [chat(7, 'Recovered')], total: 1 } }
+          if (read === 3) return firstFails ? { items: [chat(7, 'Recovered')], total: 1 } : 503
+          return { items: [chat(7, 'Recovered')], total: 1 }
+        } finally { running-- }
+      },
+    })
+    await expect(page.getByText("Couldn't load recent chats.")).toBeVisible()
+    const retry = page.getByRole('button', { name: 'Try again' })
+    await retry.click()
+    await expect.poll(() => reads).toBe(2)
+    await retry.click()
+    await retry.click()
+    await page.waitForTimeout(300)
+    assert.equal(reads, 2, 'no second read while the first retry runs')
+    releaseRetry()
+    await expect.poll(() => reads).toBe(3)
+    await page.waitForTimeout(300)
+    assert.equal(maxRunning, 1)
+    await expect(page.getByText('Recovered')).toBeVisible()
+    if (firstFails) {
+      await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+      await expect(page.locator('[data-recents-error]')).toHaveCount(0)
+      // Fresh and healthy: a revisit doesn't reread.
+      await push('/elsewhere')
+      await push('/')
+      await page.waitForTimeout(300)
+      assert.equal(reads, 3)
+    } else {
+      // The newer read failed: keep what loaded, offer a retry, and don't
+      // treat the failure as fresh — a revisit reads again and recovers.
+      await expect(page.getByText("Couldn't load recent chats.")).toBeVisible()
+      await push('/elsewhere')
+      await push('/')
+      await expect.poll(() => reads).toBe(4)
+      await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+      await expect(page.locator('[data-recents-error]')).toHaveCount(0)
+    }
+  })
+}
+

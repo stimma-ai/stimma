@@ -1,20 +1,22 @@
 /**
  * One loading policy for a screen whose data belongs to a scope (server,
  * profile, project, ...). Mount and reactivation both call `request`; the
- * coordinator decides whether that needs a network load:
+ * coordinator decides whether that needs a network load. It is strictly
+ * single-flight: at most one read runs at a time, so replies are applied in
+ * the order their reads started and can never overtake each other.
  *
- * - A request for the scope already loading joins the in-flight load, however
- *   long it takes. A slow read on a poor connection is never abandoned and
- *   restarted; that would only add competing reads for the same data.
- * - A completed load stays fresh for `freshMs` unless `invalidate()` marks it
- *   stale (a change event, a reconnect). A change seen while a load is in
- *   flight keeps the result stale, because that response may predate it.
- * - A forced request (an explicit retry or a known change) starts a new read
- *   even while one is in flight. Both belong to the same scope, so whichever
- *   answers first is used.
- * - A request for a different scope makes every earlier read obsolete.
- *   Loaders get an `isCurrent()` guard and must drop their results once it
- *   turns false, so a late response can never replace another scope's data.
+ * - A request while a read is running joins it, however long it takes. A
+ *   slow read on a poor connection is never abandoned and restarted.
+ * - A forced request (an explicit retry, a known change), or any request
+ *   after `invalidate()` while a read is running, does not start a second
+ *   read. It schedules one rerun once the current read settles; any number
+ *   of such requests coalesce into that single rerun.
+ * - A completed read stays fresh for `freshMs`. It counts as fresh only if
+ *   it succeeded, nothing invalidated it while it ran, and no rerun is due.
+ * - A request for a different scope makes the running read obsolete and
+ *   cancels any rerun. Loaders get an `isCurrent()` guard and must drop their
+ *   results once it turns false, so a late reply can never replace another
+ *   scope's data.
  */
 export type ScopeKeyPart = string | number | null | undefined
 
@@ -34,7 +36,10 @@ export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions)
   // are obsolete.
   let epoch = 0
   let activeKey: string | null = null
-  let inflight: { key: string; promise: Promise<boolean> } | null = null
+  let inflight: { promise: Promise<boolean>; changesAtStart: number } | null = null
+  // A rerun requested while a read was running, and the promise its callers
+  // wait on.
+  let rerun: { load: Loader; done: Promise<boolean>; settle: (ran: Promise<boolean>) => void } | null = null
   let freshKey: string | null = null
   let freshAt = 0
   let changes = 0
@@ -43,40 +48,65 @@ export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions)
     return freshKey === key && now() - freshAt < freshMs
   }
 
+  function start(key: string, load: Loader): Promise<boolean> {
+    const mine = epoch
+    const changesAtStart = changes
+    const isCurrent = () => mine === epoch
+    const promise = (async () => {
+      let ok: boolean | void = false
+      try {
+        ok = await load(isCurrent)
+      } catch {
+        ok = false
+      }
+      if (!isCurrent()) return true
+      inflight = null
+      if (ok !== false && changesAtStart === changes && !rerun) {
+        freshKey = key
+        freshAt = now()
+      }
+      if (rerun) {
+        const next = rerun
+        rerun = null
+        next.settle(start(key, next.load))
+      }
+      return true
+    })()
+    inflight = { promise, changesAtStart }
+    return promise
+  }
+
   return {
     /** Scope of the most recent request (in flight or settled). */
     get activeKey() { return activeKey },
 
     /**
-     * Load `key` unless that load is already running or fresh. Resolves true
-     * when this call (or the load it joined) actually ran the loader.
+     * Load `key` unless it is fresh. Joins a running read, or schedules one
+     * rerun after it when forced or invalidated. Resolves once the read this
+     * call depends on has settled.
      */
     request(key: string, load: Loader, { force = false } = {}): Promise<boolean> {
       if (key !== activeKey) {
         epoch++
         activeKey = key
         inflight = null
+        rerun?.settle(Promise.resolve(false))
+        rerun = null
         freshKey = null
       }
-      if (inflight && !force) return inflight.promise
-      if (!force && isFresh(key)) return Promise.resolve(false)
-      const mine = epoch
-      const startedAt = changes
-      const isCurrent = () => mine === epoch
-      const promise = (async () => {
-        try {
-          const ok = await load(isCurrent)
-          if (isCurrent() && ok !== false && startedAt === changes) {
-            freshKey = key
-            freshAt = now()
-          }
-          return true
-        } finally {
-          if (inflight?.promise === promise) inflight = null
+      if (inflight) {
+        if (!force && inflight.changesAtStart === changes) return inflight.promise
+        if (rerun) {
+          rerun.load = load
+          return rerun.done
         }
-      })()
-      inflight = { key, promise }
-      return promise
+        let settle!: (ran: Promise<boolean>) => void
+        const done = new Promise<boolean>(resolve => { settle = ran => resolve(ran) })
+        rerun = { load, done, settle }
+        return done
+      }
+      if (!force && isFresh(key)) return Promise.resolve(false)
+      return start(key, load)
     },
 
     /** A guard for a partial reload of the current scope. */

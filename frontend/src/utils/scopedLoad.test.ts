@@ -104,17 +104,59 @@ test('a slow load is joined by every later request and its result is used', asyn
   assert.equal(await loads.request('a', load), false)
 })
 
-test('a forced retry does not throw away the first reply for the same scope', async () => {
+test('forced requests during a read coalesce into one rerun after it', async () => {
   const loads = createScopedLoad({ freshMs: 1000 })
   const slow = deferred()
-  const retry = deferred()
-  const shown: string[] = []
-  const first = loads.request('a', async isCurrent => { await slow.promise; if (isCurrent()) shown.push('first') })
-  const second = loads.request('a', async isCurrent => { await retry.promise; if (isCurrent()) shown.push('retry') }, { force: true })
+  const order: string[] = []
+  let running = 0
+  let maxRunning = 0
+  const load = (name: string, gate?: Promise<unknown>) => async () => {
+    running++
+    maxRunning = Math.max(maxRunning, running)
+    order.push(`start ${name}`)
+    await gate
+    order.push(`end ${name}`)
+    running--
+  }
+  const first = loads.request('a', load('first', slow.promise))
+  const forced = [
+    loads.request('a', load('retry 1'), { force: true }),
+    loads.request('a', load('retry 2'), { force: true }),
+  ]
+  // A plain request now joins the pending rerun rather than starting a third read.
+  const joined = loads.request('a', load('visit'))
+  assert.deepEqual(order, ['start first'])
   slow.resolve()
   await first
-  assert.deepEqual(shown, ['first'])
-  retry.resolve()
-  await second
-  assert.deepEqual(shown, ['first', 'retry'])
+  await Promise.all([...forced, joined])
+  assert.deepEqual(order, ['start first', 'end first', 'start retry 2', 'end retry 2'])
+  assert.equal(maxRunning, 1)
+  assert.equal(await loads.request('a', load('later')), false)
+})
+
+test('a request after an invalidation during a read reruns once it settles', async () => {
+  const loads = createScopedLoad({ freshMs: 1000 })
+  const slow = deferred()
+  let calls = 0
+  const first = loads.request('a', async () => { calls++; await slow.promise })
+  loads.invalidate()
+  const visit = loads.request('a', async () => { calls++ })
+  assert.equal(calls, 1)
+  slow.resolve()
+  await first
+  await visit
+  assert.equal(calls, 2)
+  assert.equal(await loads.request('a', async () => { calls++ }), false)
+})
+
+test('a scope change cancels a pending rerun', async () => {
+  const loads = createScopedLoad({ freshMs: 1000 })
+  const slow = deferred()
+  const ran: string[] = []
+  void loads.request('a', async () => { await slow.promise })
+  const rerun = loads.request('a', async () => { ran.push('a rerun') }, { force: true })
+  await loads.request('b', async () => { ran.push('b') })
+  slow.resolve()
+  await rerun
+  assert.deepEqual(ran, ['b'])
 })

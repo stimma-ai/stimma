@@ -118,6 +118,12 @@ function mayPublish(read: { seq: number; scope: string }, kind: keyof typeof pub
   return true
 }
 
+// A reply that lost to a newer one already cached for the same scope: callers
+// get the newer cached data instead of the older reply.
+function supersededInCache(read: { seq: number; scope: string }, kind: keyof typeof publishedSeq) {
+  return read.scope === catalogScope() && cacheScope === read.scope && publishedSeq[kind] > read.seq
+}
+
 function normalizeProvider<T extends { provider_id?: string | null; provider_name?: string | null }>(provider: T): T {
   return {
     ...provider,
@@ -170,6 +176,7 @@ export function useProvidersApi() {
     const response = await axios.get(`${getToolsAPIBase()}/providers`)
     const providers = response.data.map(normalizeProvider)
     if (mayPublish(read, 'providers')) providersCache.value = providers
+    else if (supersededInCache(read, 'providers')) return providersCache.value
     return providers
   }
 
@@ -192,6 +199,8 @@ export function useProvidersApi() {
       toolsCache.value = tools
       lastFetchTime.value = Date.now()
       cacheScope = read.scope
+    } else if (supersededInCache(read, 'tools')) {
+      return toolsCache.value
     }
     return tools
   }
