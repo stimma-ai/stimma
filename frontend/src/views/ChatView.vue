@@ -1351,7 +1351,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -1404,6 +1404,7 @@ import JobErrorModal from '../components/generation/JobErrorModal.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
 import { createInitialMessageConsumer } from '../utils/initialMessage'
+import { reconcileChatItems } from '../utils/chatReconcile'
 import { useEntityMove } from '../composables/useEntityMove'
 import { useCompare } from '../composables/useCompare'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -2977,24 +2978,69 @@ async function loadItems(beforeId = null) {
 // stale — an active ask_user question stays invisible while the last
 // activity group keeps spinning, and range deletions computed from the
 // stale list orphan the unseen items.
+//
+// Items are merged, not swapped wholesale: same-ID items whose content changed
+// (completed, failed, edited) are replaced, deletions inside the returned
+// window are dropped, older paged-in history is kept, and anything the live
+// path delivered while the fetch was in flight (including a message being
+// sent right now) wins over the snapshot. See utils/chatReconcile.
+let resyncGeneration = 0
 async function resyncItems() {
-  if (!chatId.value || loading.value || sending.value) return
+  if (!chatId.value || loading.value) return
+  const requestChatId = chatId.value
+  const generation = ++resyncGeneration
+  const before = new Map(toRaw(items.value).map(item => [item.id, item]))
   try {
-    const response = await fetch(`/api/chats/${chatId.value}/items?visible_limit=500`)
+    const response = await fetch(`/api/chats/${requestChatId}/items?visible_limit=500`)
     if (!response.ok) return
     const data = await response.json()
+    // A newer resync, a chat switch, or a full reload superseded this one.
+    if (generation !== resyncGeneration || chatId.value !== requestChatId || loading.value) return
     const fresh = data.items.reverse()
-    const unchanged = fresh.length === items.value.length
-      && fresh.every((item, i) => item.id === items.value[i].id)
-    if (unchanged) return
+    const { items: merged, changed } = reconcileChatItems(toRaw(items.value), fresh, {
+      hasMore: data.has_more,
+      before,
+    })
+    if (!changed) return
     const container = messagesContainer.value
     const follow = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 80
-    items.value = fresh
-    hasMore.value = data.has_more
+    const anchor = follow ? null : captureScrollAnchor(container)
+    items.value = merged
+    // The snapshot's has_more only describes the transcript when no older
+    // history was paged in beyond it.
+    if (merged.length === 0 || merged[0].id === fresh[0]?.id) hasMore.value = data.has_more
     await nextTick()
     if (follow) scrollToBottom()
+    else restoreScrollAnchor(container, anchor)
   } catch (error) {
     console.error('Error resyncing chat items:', error)
+  }
+}
+
+// Keep what the reader is looking at in place when items above it change
+// size, appear, or disappear. Several visible items are recorded so the
+// anchor survives the topmost one being deleted.
+function captureScrollAnchor(container) {
+  if (!container) return null
+  const top = container.getBoundingClientRect().top
+  const anchors = []
+  for (const el of container.querySelectorAll('[data-item-id]')) {
+    const rect = el.getBoundingClientRect()
+    if (rect.bottom <= top) continue
+    anchors.push({ id: el.getAttribute('data-item-id'), offset: rect.top - top })
+    if (anchors.length >= 5) break
+  }
+  return anchors
+}
+
+function restoreScrollAnchor(container, anchors) {
+  if (!container || !anchors) return
+  const top = container.getBoundingClientRect().top
+  for (const { id, offset } of anchors) {
+    const el = container.querySelector(`[data-item-id="${CSS.escape(id)}"]`)
+    if (!el) continue
+    container.scrollTop += el.getBoundingClientRect().top - top - offset
+    return
   }
 }
 
