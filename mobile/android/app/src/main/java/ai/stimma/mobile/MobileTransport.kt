@@ -201,13 +201,30 @@ class PinnedServer(
      * made with `execute()` on proxy workers, so the dispatcher's per-host
      * limit never queues them; the proxy's own permits bound concurrency.
      */
-    internal val proxyClient: OkHttpClient by lazy {
-        client.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS)
-            .connectTimeout(connectTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
-            .readTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
-            .writeTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
-            .addNetworkInterceptor(ProxyWireHeaders).build()
-    }
+    internal val proxyClient: OkHttpClient by lazy { proxied(client) }
+
+    /**
+     * Requests that may change server state. A request whose connection dies
+     * after it was sent is never replayed, so these must not ride a connection
+     * that sat idle long enough for the server or the network to have dropped
+     * it unnoticed (OkHttp only probes a connection idle for 10 seconds or
+     * more). They get their own pool with the short fallback idle limit; same
+     * pin, trust, cookie, redirect and dispatcher configuration as [client],
+     * and retired with it. With the fallback limit already, it is [client].
+     */
+    private val mutationClient: OkHttpClient =
+        if (keepAliveMillis <= KeepAlive.FALLBACK_MILLIS) client
+        else client.newBuilder().connectionPool(ConnectionPool(8, KeepAlive.FALLBACK_MILLIS, TimeUnit.MILLISECONDS)).build()
+    private val proxyMutationClient: OkHttpClient by lazy { if (mutationClient === client) proxyClient else proxied(mutationClient) }
+
+    /** The WebView proxy's client for a request method: long-idle reuse only for safe reads. */
+    internal fun proxyClientFor(method: String) = if (method in SAFE_METHODS) proxyClient else proxyMutationClient
+
+    private fun proxied(base: OkHttpClient) = base.newBuilder().callTimeout(0, TimeUnit.MILLISECONDS)
+        .connectTimeout(connectTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+        .readTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+        .writeTimeout(readTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+        .addNetworkInterceptor(ProxyWireHeaders).build()
 
     /**
      * The server's advertised keep-alive, in seconds. Recorded only by [ping]
@@ -243,7 +260,7 @@ class PinnedServer(
     }
 
     /** Close idle connections, e.g. before they cross a background period or network change. */
-    fun evictIdle() { retirement.execute { client.connectionPool.evictAll() } }
+    fun evictIdle() { retirement.execute { client.connectionPool.evictAll(); mutationClient.connectionPool.evictAll() } }
 
     /** A proxied request: what retiring its session must do to stop it. */
     internal fun interface Retirable { fun retire() }
@@ -273,8 +290,10 @@ class PinnedServer(
     }
 
     internal val pooledConnections get() = client.connectionPool.connectionCount()
+    internal val pooledMutationConnections get() = if (mutationClient === client) 0 else mutationClient.connectionPool.connectionCount()
 
     companion object {
+        private val SAFE_METHODS = setOf("GET", "HEAD", "OPTIONS")
         // Closing TLS sockets can write, which Android forbids on the main thread.
         private val retirement = Executors.newSingleThreadExecutor { Thread(it, "stimma-pool-retire").apply { isDaemon = true } }
     }
@@ -283,7 +302,7 @@ class PinnedServer(
         val request = Request.Builder().url(base.resolve(path)!!)
         if (session.isNotEmpty()) request.header("Authorization", "Bearer $session")
         if (body != null) request.post(body)
-        val call = client.newCall(request.build())
+        val call = (if (body != null) mutationClient else client).newCall(request.build())
         call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
         call.execute().use { response ->
             check(response.isSuccessful) { "The server request failed (HTTP ${response.code})." }
@@ -295,7 +314,7 @@ class PinnedServer(
         val request = Request.Builder().url(base.resolve(path)!!)
         if (session.isNotEmpty()) request.header("Authorization", "Bearer $session")
         if (body != null) request.post(body)
-        val call = client.newCall(request.build())
+        val call = (if (body != null) mutationClient else client).newCall(request.build())
         call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
         val (status, bytes) = call.awaitBody(limit)
         if (status !in 200..299) throw RemoteHttpError(status)
@@ -606,7 +625,7 @@ class MobileTransport(
         if (request.fields.none { it.first == "accept-encoding" }) headers.set("Accept-Encoding", "identity")
         val url = remote.base.newBuilder().encodedPath(request.target.substringBefore('?'))
             .encodedQuery(if ('?' in request.target) request.target.substringAfter('?') else null).build()
-        val call = remote.proxyClient.newCall(Request.Builder().url(url).headers(headers.build())
+        val call = remote.proxyClientFor(request.method).newCall(Request.Builder().url(url).headers(headers.build())
             .method(request.method, uploadLength?.let { UploadBody(input, it, localGone, bodySent) })
             .tag(ProxiedRequest::class.java, ProxiedRequest(request.single("user-agent") != null)).build())
         calls.add(call)
@@ -756,6 +775,36 @@ class MobileTransport(
         synchronized(calls) { calls.toList() }.forEach { it.cancel() }
         synchronized(sockets) { sockets.toList().forEach { runCatching { it.close() } } }
     }
+    /**
+     * The default network changed: idle pooled connections were made on the
+     * old one and may be dead without either side knowing, so none is reused.
+     * Requests in flight are left to finish or fail on their own.
+     */
+    fun networkChanged() { target?.evictIdle() }
     fun disconnect() { target = null; interruptConnections() }
     override fun close() { listener.close(); disconnect(); executor.shutdownNow() }
+}
+
+/**
+ * Reports a change of default network: a different network becoming the
+ * default, or the default being lost. The first network seen is the
+ * starting point, not a change. Generic so the decision is testable without
+ * Android's network types.
+ */
+class NetworkChangeTracker<T : Any>(private val changed: () -> Unit) {
+    private var current: T? = null
+    @Synchronized fun available(network: T) { val previous = current; current = network; if (previous != null && previous != network) changed() }
+    @Synchronized fun lost(network: T) { if (network == current) { current = null; changed() } }
+}
+
+/** Watches the system default network for [NetworkChangeTracker]; unregister with [close]. */
+class DefaultNetworkChanges(context: android.content.Context, changed: () -> Unit) : Closeable {
+    private val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+    private val tracker = NetworkChangeTracker<android.net.Network>(changed)
+    private val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) = tracker.available(network)
+        override fun onLost(network: android.net.Network) = tracker.lost(network)
+    }
+    private val registered = runCatching { connectivity?.registerDefaultNetworkCallback(callback) }.isSuccess && connectivity != null
+    override fun close() { if (registered) runCatching { connectivity?.unregisterNetworkCallback(callback) } }
 }

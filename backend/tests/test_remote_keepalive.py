@@ -115,3 +115,45 @@ async def test_a_connection_survives_a_pause_longer_than_uvicorns_default(monkey
         for instance in servers:
             instance.should_exit = True
         await asyncio.gather(*tasks)
+
+
+def _exchange(address, request: bytes) -> bytes:
+    with socket.create_connection(address, timeout=5) as connection:
+        connection.sendall(request)
+        data = b""
+        while b"\r\n\r\n" not in data:
+            chunk = connection.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+        return data.partition(b"\r\n\r\n")[0].lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("http", ["h11", "httptools"])
+async def test_only_connections_that_stay_open_are_advertised(http):
+    """On the wire, with both of uvicorn's HTTP implementations: a request
+    that asks to close, or HTTP/1.0, gets no keep-alive promise; an ordinary
+    HTTP/1.1 request gets it."""
+    gate = server.ServingGate(_app(), lambda: "server-device")
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(8)
+    config = server.serving_config(gate)
+    config.http = http
+    instance = uvicorn.Server(config)
+    instance.install_signal_handlers = lambda: None
+    task = asyncio.create_task(instance.serve(sockets=[sock]))
+    while not instance.started:
+        await asyncio.sleep(0.02)
+    address = sock.getsockname()
+    try:
+        kept = await asyncio.to_thread(_exchange, address, b"GET /multi-device/ping HTTP/1.1\r\nHost: test\r\n\r\n")
+        assert b"keep-alive: timeout=65" in kept and b"connection: close" not in kept
+        closing = await asyncio.to_thread(_exchange, address, b"GET /multi-device/ping HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+        assert b"connection: close" in closing and b"keep-alive" not in closing
+        legacy = await asyncio.to_thread(_exchange, address, b"GET /multi-device/ping HTTP/1.0\r\nHost: test\r\n\r\n")
+        assert b" 200 " in legacy.split(b"\r\n")[0] and b"keep-alive" not in legacy
+    finally:
+        instance.should_exit = True
+        await task

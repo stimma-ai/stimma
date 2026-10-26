@@ -35,6 +35,8 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     private val cache = UIPackageCache(File(application.cacheDir, "ui-packages"))
     var main: MobileTransport? = null
         private set
+    /** Pooled connections belong to the network they were made on; drop idle ones when it changes. */
+    private val networkChanges = DefaultNetworkChanges(application) { main?.networkChanged() }
     var devServerURL: String? = null
         private set
     var devices = JSONArray()
@@ -302,5 +304,5 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         if (report.failure == ProxyFailure.REJECTED) Log.i("StimmaProxy", report.toString()) else Log.w("StimmaProxy", report.toString())
     }
 
-    override fun onCleared() { callback?.close(); setup.close(); main?.close() }
+    override fun onCleared() { networkChanges.close(); callback?.close(); setup.close(); main?.close() }
 }

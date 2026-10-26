@@ -57,16 +57,27 @@ KEEP_ALIVE_SECONDS = 65
 KEEP_ALIVE_HEADER = (b"keep-alive", b"timeout=%d" % KEEP_ALIVE_SECONDS)
 
 
-def _advertising_keep_alive(send):
-    """Add the keep-alive advertisement to each response the listener sends."""
+def _closes(headers) -> bool:
+    return any(
+        name.lower() == b"connection" and b"close" in [token.strip() for token in value.lower().split(b",")]
+        for name, value in headers
+    )
+
+
+def _advertising_keep_alive(scope, send):
+    """Add the keep-alive advertisement to each response that keeps its connection.
+
+    Not on HTTP/1.0 (no persistent connection without an explicit opt-in),
+    not when the request asked to close (uvicorn adds Connection: close to
+    the response later, after this runs), and not when the response closes.
+    """
+    if scope.get("http_version") != "1.1" or _closes(scope.get("headers", [])):
+        return send
+
     async def wrapped(message):
         if message["type"] == "http.response.start":
             headers = list(message.get("headers", []))
-            closing = any(
-                name.lower() == b"connection" and b"close" in value.lower()
-                for name, value in headers
-            )
-            if not closing and not any(name.lower() == b"keep-alive" for name, _ in headers):
+            if not _closes(headers) and not any(name.lower() == b"keep-alive" for name, _ in headers):
                 message = {**message, "headers": headers + [KEEP_ALIVE_HEADER]}
         await send(message)
     return wrapped
@@ -164,7 +175,7 @@ class ServingGate:
                     return
 
         if scope["type"] == "http":
-            send = _advertising_keep_alive(send)
+            send = _advertising_keep_alive(scope, send)
             path = scope.get("path", "")
             if path == PING_PATH:
                 await _send_json(send, 200, {

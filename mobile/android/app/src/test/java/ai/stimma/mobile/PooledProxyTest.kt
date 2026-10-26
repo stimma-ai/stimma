@@ -673,26 +673,71 @@ class PooledProxyTest {
         println("request after a 6 s pause reused connection: true, took ${elapsedMillis} ms")
     }
 
-    @Test fun aLongerPoolStillNeverReplaysAMutation() {
+    private fun post(target: String) = read(open("POST", target, contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) })
+
+    @Test fun mutationsNeverRideALongIdleConnection() {
         val server = advertisingServer()
         val probe = PinnedServer("127.0.0.1", server.port, pin)
         runBlocking { probe.ping("d") }
-        transport.target = probe.withSession("s")
+        val session = probe.withSession("s").also { transport.target = it }
         server.takeRequest()
-        // The server closed an idle connection earlier than it advertised (a restart, say). OkHttp
-        // health-checks a connection idle for 10 seconds or more before a non-GET uses it, so a
-        // mutation after a long pause sees the close and goes out once on a fresh connection.
+        // Reads and mutations use separate pools: a mutation never takes a read's warm connection.
+        assertEquals("ok GET", get("/api/profiles").body.toString(Charsets.UTF_8))
+        val read = server.takeRequest().sequenceNumber
+        assertEquals("ok POST", post("/api/boards").body.toString(Charsets.UTF_8))
+        assertEquals(0, server.takeRequest().sequenceNumber)
+        assertEquals(1, session.pooledConnections)
+        assertEquals(1, session.pooledMutationConnections)
+        // The server then closes both connections without the client noticing yet (a restart, say).
         assertEquals("last", get("/api/last").body.toString(Charsets.UTF_8))
-        server.takeRequest()
-        Thread.sleep(10_500)
-        val post = read(open("POST", "/api/boards", contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) })
-        assertEquals("status=${post.status} failure=${post.header("x-stimma-proxy-failure")} requests=${server.requestCount}", "ok POST", post.body.toString(Charsets.UTF_8))
+        assertEquals(read + 1, server.takeRequest().sequenceNumber)
+        assertEquals("last", post("/api/last").body.toString(Charsets.UTF_8))
+        assertEquals(1, server.takeRequest().sequenceNumber)
+        // Six seconds later: inside OkHttp's 10 second window in which it would not probe the
+        // connection, and past the mutation pool's 3 second idle limit. The POST goes out once,
+        // on a fresh connection, and succeeds.
+        Thread.sleep(6000)
+        val after = post("/api/boards")
+        assertEquals("status=${after.status} failure=${after.header("x-stimma-proxy-failure")}", "ok POST", after.body.toString(Charsets.UTF_8))
         assertEquals(0, server.takeRequest().sequenceNumber)
         // A mutation whose connection dies after the request was sent is reported, never sent again.
         val before = server.requestCount
         val dropped = read(open("POST", "/api/drop", contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) })
         assertEquals("502", dropped.status)
         assertEquals(before + 1, server.requestCount)
+    }
+
+    @Test fun aNetworkChangeEvictsIdleConnectionsOfBothPools() {
+        val server = advertisingServer()
+        val probe = PinnedServer("127.0.0.1", server.port, pin)
+        runBlocking { probe.ping("d") }
+        val session = probe.withSession("s").also { transport.target = it }
+        get("/api/profiles"); post("/api/boards")
+        assertEquals(1, session.pooledConnections)
+        assertEquals(1, session.pooledMutationConnections)
+        transport.networkChanged()
+        waitFor { session.pooledConnections == 0 && session.pooledMutationConnections == 0 }
+        // The next read opens a connection on the new network.
+        repeat(3) { server.takeRequest() }
+        get("/api/profiles")
+        assertEquals(0, server.takeRequest().sequenceNumber)
+    }
+
+    @Test fun onlyADifferentOrLostDefaultNetworkCountsAsAChange() {
+        var changes = 0
+        val tracker = NetworkChangeTracker<String> { changes++ }
+        tracker.available("wifi")          // Registration reports the current network: not a change.
+        assertEquals(0, changes)
+        tracker.available("wifi")          // Same network again (capabilities refresh).
+        assertEquals(0, changes)
+        tracker.available("cellular")      // Handoff.
+        assertEquals(1, changes)
+        tracker.lost("wifi")               // Losing a network that is no longer the default.
+        assertEquals(1, changes)
+        tracker.lost("cellular")           // Losing the default.
+        assertEquals(2, changes)
+        tracker.available("wifi")          // Back from no network: a fresh start, already evicted.
+        assertEquals(2, changes)
     }
 
     @Test fun onlyAVerifiedRouteMayAdvertise() {
