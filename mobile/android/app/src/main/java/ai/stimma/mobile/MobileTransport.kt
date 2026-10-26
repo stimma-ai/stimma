@@ -46,7 +46,11 @@ import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-suspend fun Call.awaitBody(limit: Int): Pair<Int, ByteArray> = suspendCancellableCoroutine { continuation ->
+suspend fun Call.awaitBody(limit: Int): Pair<Int, ByteArray> = awaitResponse(limit).let { it.status to it.body }
+
+class FetchedResponse(val status: Int, val headers: Headers, val body: ByteArray)
+
+suspend fun Call.awaitResponse(limit: Int): FetchedResponse = suspendCancellableCoroutine { continuation ->
     continuation.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onFailure(call: Call, error: IOException) {
@@ -54,7 +58,7 @@ suspend fun Call.awaitBody(limit: Int): Pair<Int, ByteArray> = suspendCancellabl
         }
         override fun onResponse(call: Call, response: Response) {
             try {
-                val result = response.use { it.code to it.body!!.byteStream().bounded(limit) }
+                val result = response.use { FetchedResponse(it.code, it.headers, it.body!!.byteStream().bounded(limit)) }
                 if (continuation.isActive) continuation.resume(result)
             } catch (error: Exception) {
                 if (continuation.isActive) continuation.resumeWithException(error)
@@ -111,11 +115,55 @@ data class HttpHead(val method: String, val target: String, val version: String,
 
 class RemoteHttpError(val status: Int) : Exception("The server request failed (HTTP $status).")
 
+/**
+ * How long an idle upstream connection may wait in the pool. A server
+ * advertises its own idle limit (`Keep-Alive: timeout=N`); older servers say
+ * nothing and close idle connections after uvicorn's default 5 seconds.
+ */
+object KeepAlive {
+    /** For a server that advertises nothing: retire well inside its 5 seconds. */
+    const val FALLBACK_MILLIS = 3000L
+    /** However long a server offers, idle connections are not kept beyond this. */
+    const val CAP_SECONDS = 60L
+
+    /**
+     * The advertised timeout in seconds, or null unless the response carries
+     * exactly one well-formed Keep-Alive field with exactly one `timeout`.
+     * Anything unexpected means "not advertised" and the fallback applies.
+     */
+    fun parse(values: List<String>): Long? {
+        if (values.size != 1) return null
+        var timeout: Long? = null
+        for (part in values[0].split(',')) {
+            val pieces = part.split('=')
+            if (pieces.size != 2) return null
+            val name = pieces[0].trim().lowercase()
+            val value = pieces[1].trim()
+            if (!name.matches(Regex("[a-z]+")) || !value.matches(Regex("[0-9]{1,6}"))) return null
+            if (name == "timeout") { if (timeout != null) return null; timeout = value.toLong() }
+        }
+        return timeout
+    }
+
+    /**
+     * The pool's idle limit for an advertised timeout: capped, then shortened
+     * by a margin (at least 2 seconds or a tenth) because the client's idle
+     * clock starts after the server's, and the request still has to arrive.
+     */
+    fun idleMillis(advertisedSeconds: Long?): Long {
+        if (advertisedSeconds == null) return FALLBACK_MILLIS
+        val limit = minOf(advertisedSeconds, CAP_SECONDS) * 1000
+        return maxOf(1L, limit - maxOf(2000L, limit / 10))
+    }
+}
+
 class PinnedServer(
     val host: String, val port: Int, val pin: String?, val session: String = "", val debugLoopback: Boolean = false,
     private val connectTimeoutMillis: Int = 4000, private val readTimeoutMillis: Int = 30000,
     /** A client for the same route and pin whose connections this session may reuse. */
     shared: OkHttpClient? = null,
+    /** How long idle connections stay pooled; fixed for the life of this client's pool. */
+    val keepAliveMillis: Long = KeepAlive.FALLBACK_MILLIS,
 ) {
     private val trust = object : X509TrustManager {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
@@ -136,10 +184,11 @@ class PinnedServer(
             }
             // The server speaks HTTP/1.1; one protocol keeps every caller on the same pooled connections.
             .protocols(listOf(Protocol.HTTP_1_1))
-            // Idle connections retire well before the server's own 5 second keep-alive closes them,
-            // which makes writing a request onto a connection the server is dropping unlikely.
-            // Client and server clocks start at different moments, so it is a margin, not a guarantee.
-            .connectionPool(ConnectionPool(8, IDLE_KEEP_ALIVE_MILLIS, TimeUnit.MILLISECONDS))
+            // Idle connections retire before the server's own keep-alive closes them, which makes
+            // writing a request onto a connection the server is dropping unlikely. Client and server
+            // clocks start at different moments, so it is a margin, not a guarantee; mutations carry
+            // one-shot bodies and are never replayed if it loses that race (see KeepAlive).
+            .connectionPool(ConnectionPool(8, keepAliveMillis, TimeUnit.MILLISECONDS))
             .cookieJar(CookieJar.NO_COOKIES).cache(null)
             .connectTimeout(4, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS).build()
     }
@@ -160,8 +209,38 @@ class PinnedServer(
             .addNetworkInterceptor(ProxyWireHeaders).build()
     }
 
-    /** The authenticated session on this route, reusing the connections that discovered it. */
-    fun withSession(session: String) = PinnedServer(host, port, pin, session, debugLoopback, connectTimeoutMillis, readTimeoutMillis, client)
+    /**
+     * The server's advertised keep-alive, in seconds. Recorded only by [ping]
+     * once the route has proven it is the expected device; null otherwise.
+     */
+    @Volatile var advertisedKeepAlive: Long? = null
+        private set
+
+    /**
+     * Prove this route reaches the registered device (the pin already proved
+     * the certificate) and learn its keep-alive advertisement.
+     */
+    suspend fun ping(deviceId: String, timeoutSeconds: Long = 5) {
+        val call = client.newCall(Request.Builder().url(base.resolve("/multi-device/ping")!!).build())
+        call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
+        val response = call.awaitResponse(16384)
+        if (response.status !in 200..299) throw RemoteHttpError(response.status)
+        require(JSONObject(response.body.toString(Charsets.UTF_8)).getString("deviceId") == deviceId) { "A different device answered." }
+        advertisedKeepAlive = KeepAlive.parse(response.headers.values("Keep-Alive"))
+    }
+
+    /**
+     * The authenticated session on this route, with one pool sized from the
+     * verified keep-alive advertisement. When that matches this client's own
+     * pool (an older server, say) the session reuses the connections that
+     * discovered it; otherwise it starts its own pool and this one is emptied.
+     */
+    fun withSession(session: String): PinnedServer {
+        val idle = KeepAlive.idleMillis(advertisedKeepAlive)
+        if (idle == keepAliveMillis) return PinnedServer(host, port, pin, session, debugLoopback, connectTimeoutMillis, readTimeoutMillis, client, idle)
+        evictIdle()
+        return PinnedServer(host, port, pin, session, debugLoopback, connectTimeoutMillis, readTimeoutMillis, null, idle)
+    }
 
     /** Close idle connections, e.g. before they cross a background period or network change. */
     fun evictIdle() { retirement.execute { client.connectionPool.evictAll() } }
@@ -196,7 +275,6 @@ class PinnedServer(
     internal val pooledConnections get() = client.connectionPool.connectionCount()
 
     companion object {
-        const val IDLE_KEEP_ALIVE_MILLIS = 3000L
         // Closing TLS sockets can write, which Android forbids on the main thread.
         private val retirement = Executors.newSingleThreadExecutor { Thread(it, "stimma-pool-retire").apply { isDaemon = true } }
     }

@@ -8,6 +8,7 @@ import okhttp3.mockwebserver.SocketPolicy
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import okio.Buffer
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -619,5 +620,117 @@ class PooledProxyTest {
         val manifest = server.takeRequest()
         assertEquals("Bearer fresh-session", manifest.getHeader("Authorization"))
         assertEquals(1, manifest.sequenceNumber)
+    }
+
+    @Test fun anOlderServerKeepsTheShortFallbackAndTheDiscoveryConnection() {
+        val server = tlsServer()
+        server.enqueue(MockResponse().setBody("""{"deviceId":"d"}"""))
+        repeat(3) { server.enqueue(MockResponse().setBody("item $it")) }
+        val probe = PinnedServer("127.0.0.1", server.port, pin)
+        runBlocking { probe.ping("d") }
+        assertNull(probe.advertisedKeepAlive)
+        val session = probe.withSession("s").also { transport.target = it }
+        assertEquals(KeepAlive.FALLBACK_MILLIS, session.keepAliveMillis)
+        assertEquals("item 0", get("/api/profiles").body.toString(Charsets.UTF_8))
+        server.takeRequest()
+        assertEquals(1, server.takeRequest().sequenceNumber) // Reused the ping's connection.
+        // Past the fallback the idle connection is gone, so the next request cannot meet a
+        // connection an old server (5 second keep-alive) is closing.
+        Thread.sleep(KeepAlive.FALLBACK_MILLIS + 700)
+        assertEquals("item 1", get("/api/profiles").body.toString(Charsets.UTF_8))
+        assertEquals(0, server.takeRequest().sequenceNumber)
+    }
+
+    /** A server that advertises its keep-alive on every response, like the remote listener. */
+    private fun advertisingServer(deviceId: String = "d", keepAlive: String = "timeout=65") = tlsServer().also { server ->
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.path) {
+                "/multi-device/ping" -> MockResponse().setBody("""{"deviceId":"$deviceId"}""")
+                "/api/drop" -> MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+                "/api/last" -> MockResponse().setBody("last").setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
+                else -> MockResponse().setBody("ok ${request.method}")
+            }.setHeader("Keep-Alive", keepAlive)
+        }
+    }
+
+    @Test fun anAdvertisedKeepAliveKeepsTheConnectionAcrossAPause() {
+        val server = advertisingServer()
+        val probe = PinnedServer("127.0.0.1", server.port, pin)
+        runBlocking { probe.ping("d") }
+        assertEquals(65L, probe.advertisedKeepAlive)
+        val session = probe.withSession("s").also { transport.target = it }
+        assertEquals(54_000L, session.keepAliveMillis)
+        server.takeRequest()
+        assertEquals("ok GET", get("/api/profiles").body.toString(Charsets.UTF_8))
+        val first = server.takeRequest().sequenceNumber
+        // Longer than both the old 3 second pool and uvicorn's default 5 second keep-alive.
+        Thread.sleep(6000)
+        val started = System.nanoTime()
+        assertEquals("ok GET", get("/api/profiles").body.toString(Charsets.UTF_8))
+        val elapsedMillis = (System.nanoTime() - started) / 1_000_000
+        assertEquals("the request after the pause reused the warm connection", first + 1, server.takeRequest().sequenceNumber)
+        assertEquals(1, session.pooledConnections)
+        println("request after a 6 s pause reused connection: true, took ${elapsedMillis} ms")
+    }
+
+    @Test fun aLongerPoolStillNeverReplaysAMutation() {
+        val server = advertisingServer()
+        val probe = PinnedServer("127.0.0.1", server.port, pin)
+        runBlocking { probe.ping("d") }
+        transport.target = probe.withSession("s")
+        server.takeRequest()
+        // The server closed an idle connection earlier than it advertised (a restart, say). OkHttp
+        // health-checks a connection idle for 10 seconds or more before a non-GET uses it, so a
+        // mutation after a long pause sees the close and goes out once on a fresh connection.
+        assertEquals("last", get("/api/last").body.toString(Charsets.UTF_8))
+        server.takeRequest()
+        Thread.sleep(10_500)
+        val post = read(open("POST", "/api/boards", contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) })
+        assertEquals("status=${post.status} failure=${post.header("x-stimma-proxy-failure")} requests=${server.requestCount}", "ok POST", post.body.toString(Charsets.UTF_8))
+        assertEquals(0, server.takeRequest().sequenceNumber)
+        // A mutation whose connection dies after the request was sent is reported, never sent again.
+        val before = server.requestCount
+        val dropped = read(open("POST", "/api/drop", contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) })
+        assertEquals("502", dropped.status)
+        assertEquals(before + 1, server.requestCount)
+    }
+
+    @Test fun onlyAVerifiedRouteMayAdvertise() {
+        // A route whose certificate matches but that is not the expected device: its advertisement is ignored.
+        val impostor = advertisingServer(deviceId = "someone-else")
+        val probe = PinnedServer("127.0.0.1", impostor.port, pin)
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { probe.ping("d") } }
+        assertNull(probe.advertisedKeepAlive)
+        assertEquals(KeepAlive.FALLBACK_MILLIS, probe.withSession("s").keepAliveMillis)
+        // Ordinary responses never change the advertisement; only the identity-checked ping does.
+        val server = advertisingServer(keepAlive = "timeout=30")
+        val other = PinnedServer("127.0.0.1", server.port, pin)
+        runBlocking { other.asyncBytes("/api/profiles", 100) }
+        assertNull(other.advertisedKeepAlive)
+        // A malformed advertisement is the same as none.
+        val malformed = PinnedServer("127.0.0.1", advertisingServer(keepAlive = "timeout=65, timeout=5").port, pin)
+        runBlocking { malformed.ping("d") }
+        assertNull(malformed.advertisedKeepAlive)
+        assertEquals(KeepAlive.FALLBACK_MILLIS, malformed.withSession("s").keepAliveMillis)
+    }
+
+    @Test fun keepAliveAdvertisementsAreParsedConservatively() {
+        assertEquals(65L, KeepAlive.parse(listOf("timeout=65")))
+        assertEquals(65L, KeepAlive.parse(listOf("timeout=65, max=100")))
+        assertEquals(65L, KeepAlive.parse(listOf(" Timeout = 65 ")))
+        for (value in listOf("", "timeout", "timeout=", "timeout=-1", "timeout=6.5", "timeout=\"65\"", "timeout=1234567",
+            "max=100", "timeout=65; max=100", "timeout=65, timeout=65", "timeout=65=1")) {
+            assertNull(value, KeepAlive.parse(listOf(value)))
+        }
+        assertNull(KeepAlive.parse(emptyList()))
+        assertNull(KeepAlive.parse(listOf("timeout=65", "timeout=65")))
+
+        assertEquals(KeepAlive.FALLBACK_MILLIS, KeepAlive.idleMillis(null))
+        assertEquals(54_000L, KeepAlive.idleMillis(65))      // Capped at 60 s, less a tenth.
+        assertEquals(54_000L, KeepAlive.idleMillis(999_999))
+        assertEquals(27_000L, KeepAlive.idleMillis(30))
+        assertEquals(3_000L, KeepAlive.idleMillis(5))        // uvicorn's default, if a server says so.
+        assertEquals(1L, KeepAlive.idleMillis(1))            // Shorter than the margin: effectively no idle reuse.
+        assertEquals(1L, KeepAlive.idleMillis(0))
     }
 }

@@ -47,6 +47,29 @@ SESSION_INVALID_HEADER = (b"x-stimma-session-invalid", b"1")
 # connecting machine, say) reaches the app intact. A bearer is still accepted
 # for older proxies and for mobile clients that talk to this listener directly.
 DEVICE_SESSION_HEADER = b"x-stimma-device-session"
+# How long an idle remote connection stays open. Remote clients cross slow
+# links where a TLS handshake costs several round trips, and ordinary use has
+# pauses of more than uvicorn's 5 second default between bursts. It is
+# advertised on every response (Keep-Alive: timeout=N) so a client can keep
+# its idle connections just short of it instead of guessing; clients that
+# ignore the header keep their own shorter idle limits and are unaffected.
+KEEP_ALIVE_SECONDS = 65
+KEEP_ALIVE_HEADER = (b"keep-alive", b"timeout=%d" % KEEP_ALIVE_SECONDS)
+
+
+def _advertising_keep_alive(send):
+    """Add the keep-alive advertisement to each response the listener sends."""
+    async def wrapped(message):
+        if message["type"] == "http.response.start":
+            headers = list(message.get("headers", []))
+            closing = any(
+                name.lower() == b"connection" and b"close" in value.lower()
+                for name, value in headers
+            )
+            if not closing and not any(name.lower() == b"keep-alive" for name, _ in headers):
+                message = {**message, "headers": headers + [KEEP_ALIVE_HEADER]}
+        await send(message)
+    return wrapped
 
 _server_task: Optional[asyncio.Task] = None
 _server = None
@@ -141,6 +164,7 @@ class ServingGate:
                     return
 
         if scope["type"] == "http":
+            send = _advertising_keep_alive(send)
             path = scope.get("path", "")
             if path == PING_PATH:
                 await _send_json(send, 200, {
@@ -263,6 +287,19 @@ def _bind_listener(preferred: int) -> socket.socket:
     return sock
 
 
+def serving_config(gate, **ssl):
+    """The remote listener's uvicorn configuration."""
+    import uvicorn
+
+    return uvicorn.Config(
+        gate,
+        log_config=None,
+        lifespan="on",
+        timeout_keep_alive=KEEP_ALIVE_SECONDS,
+        **ssl,
+    )
+
+
 async def start_serving(app, cert_pem: str, key_pem: str, port: int, device_id: str) -> int:
     """Start (or restart) the TLS listener. Returns the port actually bound."""
     global _server_task, _server, _bound_port
@@ -279,14 +316,7 @@ async def start_serving(app, cert_pem: str, key_pem: str, port: int, device_id: 
     bound = sock.getsockname()[1]
 
     gate = ServingGate(app, lambda: device_id)
-    config = uvicorn.Config(
-        gate,
-        ssl_certfile=str(cert_path),
-        ssl_keyfile=str(key_path),
-        log_config=None,
-        lifespan="on",
-    )
-    _server = uvicorn.Server(config)
+    _server = uvicorn.Server(serving_config(gate, ssl_certfile=str(cert_path), ssl_keyfile=str(key_path)))
     # install_signal_handlers would steal SIGINT/SIGTERM from the main server.
     _server.install_signal_handlers = lambda: None
 

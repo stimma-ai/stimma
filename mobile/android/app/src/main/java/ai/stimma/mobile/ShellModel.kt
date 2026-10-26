@@ -219,7 +219,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
                     val result = runCatching {
                         val route = routes.getJSONObject(index)
                         val server = PinnedServer(route.getString("host"), route.getInt("port"), pin)
-                        require(server.asyncJson("/multi-device/ping", timeoutSeconds = 5).getString("deviceId") == identity)
+                        server.ping(identity)
                         server
                     }.getOrNull()
                     results.trySend(result)
