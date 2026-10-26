@@ -26,6 +26,17 @@ export function serverOperationExpired(operation: ServerOperation, now: number):
   return now - (operation.serverFinishedAt ?? operation.startedAt) > SERVER_RESTART_GRACE_MS
 }
 
+/**
+ * How long a hidden, expired operation keeps the client polling for the
+ * server answer that resolves it. Past this it waits for an ordinary refresh.
+ */
+export const SERVER_RECONCILE_LIMIT_MS = 60 * 60_000
+
+/** An operation still worth polling for, whether or not it is shown. */
+export function serverOperationTracked(operation: ServerOperation, now: number): boolean {
+  return now - (operation.serverFinishedAt ?? operation.startedAt) < SERVER_RECONCILE_LIMIT_MS
+}
+
 /** Only server-reported state confirms completion; a disconnect is not failure. */
 export function serverOperationResult(operation: ServerOperation, server: {
   status: string; version?: string | null; serverStartedAt?: number

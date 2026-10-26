@@ -273,6 +273,25 @@ test('a slow forwarded client check while minimized installs what it finds', asy
   assert.equal((await snapshot()).pending, null)
 })
 
+test('a hidden operation keeps polling while minimized and runs the client stage on recovery', async t => {
+  const { page, server, snapshot } = await fixture(t, { desktop: true })
+  await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  await setAppActive(page, false)
+  // Status requests fail past the grace window; the cached status says ready.
+  server.status = null
+  await advance(page, 11 * 60_000)
+  assert.equal((await snapshot()).pending, null, 'hidden once past the grace')
+  const hidden = server.statusRequests
+  await advance(page, 30_000)
+  assert.ok(server.statusRequests > hidden, 'still polling for the answer that resolves it')
+  // Recovery while still minimized: the server finished the update.
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await advance(page, 4_000)
+  assert.equal((await snapshot()).pending?.serverFinished, true)
+  assert.ok((await page.evaluate(() => window.ownerMessages)).includes('check'), 'client stage ran without foregrounding')
+})
+
 test('an unconfirmed operation past the grace expires on the next server answer', async t => {
   const { page, server, snapshot } = await fixture(t)
   await page.evaluate(() => window.serverUpdater.act('update'))

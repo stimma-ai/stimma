@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from './serverUpdateState.ts'
+import { SERVER_RECONCILE_LIMIT_MS, SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult,
+  serverOperationTracked, type ServerOperation } from './serverUpdateState.ts'
 
 const operation: ServerOperation = { deviceId: 'server', name: 'Server', action: 'update', startedAt: 100,
   fromVersion: '1.0.0', targetVersion: '1.1.0', fromStartedAt: 10, sawTransition: false,
@@ -29,4 +30,9 @@ test('the client follow-up gets its own window from server confirmation', () => 
   const finished = {...operation, serverFinished: true, serverFinishedAt: late}
   assert.equal(serverOperationExpired(finished, late + SERVER_RESTART_GRACE_MS), false)
   assert.equal(serverOperationExpired(finished, late + SERVER_RESTART_GRACE_MS + 1), true)
+})
+
+test('a hidden operation is tracked for a bounded time after its stage began', () => {
+  assert.equal(serverOperationTracked(operation, operation.startedAt + SERVER_RESTART_GRACE_MS + 1), true)
+  assert.equal(serverOperationTracked(operation, operation.startedAt + SERVER_RECONCILE_LIMIT_MS), false)
 })

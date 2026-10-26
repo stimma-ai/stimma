@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { makeInstallKey } from '../utils/installKey'
-import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
+import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, serverOperationTracked, type ServerOperation } from '../utils/serverUpdateState'
 import { COMMAND_BURST_MS, createStatusPoller, type StatusPoller } from '../utils/serverStatusPoller'
 import { SERVER_UPDATE_CHECK_STARTED } from '../utils/serverUpdateCheck'
 import { THIS_MACHINE_LABEL, useMultiDevice } from './useMultiDevice'
@@ -183,7 +183,7 @@ export function startServerUpdater() {
   let appActive = true
   const statusPoller = poller = createStatusPoller({
     refresh,
-    isActive: () => serverBusy.value || Date.now() < commandBurstUntil,
+    isActive: () => serverBusy.value || tracking() || Date.now() < commandBurstUntil,
     foreground: visible,
     online: navigator.onLine !== false,
   })
@@ -206,13 +206,23 @@ export function startServerUpdater() {
   })
   // A server restart drops and re-opens the app socket on every client.
   stopWatches.push(useWebSocket().on('websocket_reconnected', () => statusPoller.wake()))
-  stopWatches.push(watch(serverBusy, () => statusPoller.reschedule()))
+  stopWatches.push(watch([serverBusy, operation], () => statusPoller.reschedule()))
   stopWatches.push(watch(device.activeDeviceId, () => { server.value = null; error.value = ''; statusPoller.wake() }))
   stopWatches.push(watch(device.connectionState, state => {
     if (pending.value && state !== 'ready') { pending.value.sawTransition = true; persist() }
     if (state === 'ready') statusPoller.wake()
   }))
   statusPoller.wake()
+}
+
+/**
+ * Tracking is separate from what is shown: an operation hidden past its grace
+ * window still polls until a server answer resolves it, so a client that was
+ * cut off (or frozen) through the end of an update still runs its follow-up.
+ */
+function tracking() {
+  const op = operation.value
+  return Boolean(op && op.deviceId === device.activeDeviceId.value && serverOperationTracked(op, Date.now()))
 }
 
 function startCommandBurst() {
