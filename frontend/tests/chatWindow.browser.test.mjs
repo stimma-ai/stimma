@@ -11,6 +11,7 @@ import config from '../vite.config.js'
 
 const instrument = { name: 'chat-window-fixture', enforce: 'pre', transform(source, id) {
   if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet, messageInput, messageInputRef, liveChatMediaIds, openSlideshow, onSlideshowIndex, slideshowState, exitSlideshow, copyAllRawMessages, devModeRef }; defineExpose({})\n</script>')
+  if (id.endsWith('/tests/fixtures/chatReconcile.ts')) return `import { setCurrentProfileId as switchProfile } from '../../src/composables/useProfile'\nwindow.switchProfile = switchProfile\n${source}`
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -65,12 +66,34 @@ function displayWindow(all, { display, before, reach, cap }) {
   return { items: out, has_more: out.length > 0 && source.some(i => i.id < out.at(-1).id) }
 }
 const MEDIA_TYPES = new Set(['progress_display', 'media_display', 'scored_results', 'analysis_result', 'grid_generation'])
-function subset(all, only, { before, limit }) {
+// only=prompts pages user messages; only=media returns only records that show
+// media, scanning at most `scanCap` candidates and handing back a cursor.
+const showsMedia = item => {
+  const data = item.item_metadata?.display_data || {}
+  if (item.item_type === 'assistant_message') return /!\[[^\]]*\]\(media(?:_id=|:)\d+\)/.test(item.message_text || '')
+  if (item.item_type === 'progress_display') return Array.isArray(data.preview_slots) ? data.preview_slots.some(slot => slot.media_ids?.length) : Boolean(data.previews?.length)
+  if (item.item_type === 'media_display') return (data.rows || []).some(row => row.output?.media_id || row.input?.input_image?.media_id)
+  return true
+}
+function subset(all, only, { before, limit }, scanCap) {
   const matches = item => !item.parent_item_id && (only === 'prompts'
     ? item.item_type === 'user_message'
     : MEDIA_TYPES.has(item.item_type) || (item.item_type === 'assistant_message' && /\]\(media/.test(item.message_text || '')))
   const source = all.filter(i => matches(i) && (!before || i.id < before)).reverse()
-  return { items: source.slice(0, limit), has_more: source.length > limit }
+  if (only === 'prompts') {
+    const page = source.slice(0, limit)
+    return { items: page, has_more: source.length > limit, next_before_id: page.at(-1)?.id ?? null }
+  }
+  const found = []
+  let scanned = 0
+  let cursor = before
+  for (const item of source) {
+    if (scanned >= scanCap || found.length >= limit) break
+    scanned++
+    cursor = item.id
+    if (showsMedia(item)) found.push(item)
+  }
+  return { items: found, has_more: source.some(i => i.id < cursor), next_before_id: cursor }
 }
 
 async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [] } = {}) {
@@ -81,7 +104,7 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
   page.on('pageerror', error => errors.push(error.message))
   // `hold` holds the next display-window request until `held()` is called;
   // it answers with the server state from when it arrived.
-  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null }
+  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000 }
   await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
   await page.route('**/*', async route => {
     const request = route.request()
@@ -99,13 +122,18 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
       const request = { display: num('display_limit'), before: num('before_id'), reach: num('reach_id'), limit: num('limit'), visible: num('visible_limit'), only: params.get('only') }
       if (request.only) {
         server.other.push(request)
-        return route.fulfill({ json: subset(server.items, request.only, request) })
+        return route.fulfill({ json: subset(server.items, request.only, request, server.mediaScanCap) })
       }
       if (!request.display) {
         // Plain pages (copying the whole transcript).
+        request.profile = route.request().headers()['x-profile-id']
         server.other.push(request)
         const source = request.before ? server.items.filter(i => i.id < request.before) : server.items
         const page = source.slice(-request.limit).reverse()
+        if (server.holdPlain) {
+          server.holdPlain = false
+          await new Promise(resolve => { server.heldPlain = resolve })
+        }
         return route.fulfill({ json: { items: page, has_more: source.length > page.length } })
       }
       const json = displayWindow(server.items, { ...request, cap: request.reach == null ? server.rawCap : server.reachCap })
@@ -410,4 +438,78 @@ test('copying raw messages copies the whole chat; dev token totals say they cove
   await view.scrollToStart()
   await expect(page.getByText('loaded history')).toHaveCount(0)
   assert.deepEqual(view.errors, [])
+})
+
+test('a profile switch while copying cancels the copy instead of mixing profiles', async t => {
+  const view = await openChat(t, turns(75))
+  const { page, server } = view
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedText = text } } })
+  })
+  // The first transcript page is held, then the profile changes.
+  server.holdPlain = true
+  const copying = page.evaluate(() => window.reconcileView.copyAllRawMessages())
+  await expect.poll(() => Boolean(server.heldPlain)).toBe(true)
+  await page.evaluate(() => window.switchProfile('other'))
+  server.heldPlain()
+  await copying
+  await page.waitForTimeout(300)
+  assert.equal(await page.evaluate(() => window.copiedText), undefined)
+  // No page was requested under the new profile.
+  const pages = server.other.filter(r => !r.only)
+  assert.equal(pages.length, 1)
+  assert.notEqual(pages[0].profile, 'other')
+})
+
+test('a window that starts inside an enormous delegation shows the partial run until its call pages in', async t => {
+  const all = [
+    { id: 1, chat_id: 1, created_at: at, item_type: 'user_message', message_text: 'Delegate it', item_metadata: null },
+    { id: 2, chat_id: 1, created_at: at, item_type: 'tool_call', tool_name: 'delegate', tool_call_id: 'd', tool_args: { task: 'x' }, item_metadata: null },
+    ...Array.from({ length: 350 }, (_, i) => ({ id: 3 + i, chat_id: 1, created_at: at, item_type: 'tool_call', tool_name: 'bash', tool_call_id: `d-${i}`, tool_args: { command: 'x' }, parent_item_id: 2, item_metadata: null })),
+    { id: 353, chat_id: 1, created_at: at, item_type: 'tool_result', tool_call_id: 'd', tool_result: { output: 'ok' }, item_metadata: null },
+    { id: 354, chat_id: 1, created_at: at, item_type: 'assistant_message', message_text: Array.from({ length: 40 }, (_, i) => `Done ${i}`).join('\n\n'), item_metadata: null },
+  ]
+  const view = await openChat(t, all)
+  const { page } = view
+  // The newest 300 items: the answer, the delegate's result and 298 steps
+  // whose delegate call is older than the window.
+  assert.equal((await view.ids())[0], 55)
+  await expect(page.locator('[data-partial-turn]')).toContainText('298 steps · earlier steps not loaded')
+  await view.scrollToStart()
+  assert.deepEqual(await view.ids(), range(1, 354))
+  await expect(page.locator('[data-partial-turn]')).toHaveCount(0)
+  // The run now renders inside its delegate call's group.
+  await expect(page.locator('.activity-summary')).toHaveCount(1)
+  assert.deepEqual(view.errors, [])
+})
+
+test('slideshow paging reads past records that show no media', async t => {
+  // An old image, then 120 cancelled batches that show nothing, then 14
+  // turns of images that fill the window.
+  const cancelled = { status: 'cancelled', preview_slots: [{ status: 'pending', media_ids: [] }] }
+  const all = [
+    { id: 1, chat_id: 1, created_at: at, item_type: 'user_message', message_text: 'Draw', item_metadata: null },
+    { id: 2, chat_id: 1, created_at: at, item_type: 'media_display', message_text: null, item_metadata: { display_data: { rows: [{ output: { media_id: 999, status: 'completed' } }] } } },
+    { id: 3, chat_id: 1, created_at: at, item_type: 'user_message', message_text: 'Batch', item_metadata: null },
+    ...Array.from({ length: 120 }, (_, i) => ({ id: 4 + i, chat_id: 1, created_at: at, item_type: 'progress_display', message_text: null, item_metadata: { display_data: cancelled } })),
+  ]
+  for (let n = 0; n < 14; n++) {
+    const first = 200 + 3 * n
+    all.push(
+      { id: first, chat_id: 1, created_at: at, item_type: 'user_message', message_text: `Draw ${n}`, item_metadata: null },
+      { id: first + 1, chat_id: 1, created_at: at, item_type: 'media_display', message_text: null, item_metadata: { display_data: { rows: [{ output: { media_id: 1000 + n, status: 'completed' } }] } } },
+      { id: first + 2, chat_id: 1, created_at: at, item_type: 'assistant_message', message_text: `Here is ${n}\n\nmore\n\nlines`, item_metadata: null },
+    )
+  }
+  const view = await openChat(t, all)
+  const { page, server } = view
+  // The server bounds each media scan; here to 50 candidates.
+  server.mediaScanCap = 50
+  assert.equal((await view.ids())[0], 200)
+  const media = () => page.evaluate(() => [...window.reconcileView.liveChatMediaIds.value])
+  await page.evaluate(() => window.reconcileView.openSlideshow(1013, 0))
+  await expect.poll(media).toEqual([999, ...range(1000, 1013)])
+  // Two pages came back empty before the one holding the image.
+  assert.equal(server.other.filter(r => r.only === 'media').length, 3)
+  await page.evaluate(() => window.reconcileView.exitSlideshow())
 })

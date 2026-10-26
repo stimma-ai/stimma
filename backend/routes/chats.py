@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_, and_, desc, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
+import re
 
 from database import Chat, ChatItem, GenerationJob, LLMTrace, UserPreference, MediaItem
 from core.dependencies import get_db_session
@@ -155,6 +156,9 @@ class ChatItemListResponse(PydanticBaseModel):
     # Skills invoked anywhere in the chat. Only returned for display windows
     # (display_limit), which may not reach the turns that invoked them.
     invoked_skills: Optional[List[str]] = None
+    # For only= pages: before_id for the next page. A media page can end
+    # before it is full when it scanned many records that show nothing.
+    next_before_id: Optional[int] = None
 
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
@@ -1729,8 +1733,52 @@ async def _invoked_skills(session: AsyncSession, chat_id: int) -> List[str]:
 
 
 # Item types whose display can include media (see the chat view's media
-# collector); assistant messages are included when they embed a media link.
+# collector, utils/chatMedia.js); assistant messages are included when they
+# embed a media link.
 _MEDIA_ITEM_TYPES = ('progress_display', 'media_display', 'scored_results', 'analysis_result', 'grid_generation')
+_MEDIA_LINK = re.compile(r'!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)')
+# Candidate records one media page may scan before it returns what it has.
+_MEDIA_SCAN_CAP = 1000
+
+
+def _shows_media(item: ChatItem) -> bool:
+    """Whether the chat view's media collector would find media in the item."""
+    if item.item_type == 'assistant_message':
+        return bool(_MEDIA_LINK.search(item.message_text or ''))
+    try:
+        meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(meta, dict):
+        return False
+    data = meta.get('display_data') if isinstance(meta.get('display_data'), dict) else {}
+    if item.item_type == 'progress_display':
+        slots = data.get('preview_slots')
+        if isinstance(slots, list):
+            return any(isinstance(slot, dict) and slot.get('media_ids') for slot in slots)
+        return bool(data.get('previews'))
+    if item.item_type == 'media_display':
+        for row in data.get('rows') or []:
+            if not isinstance(row, dict):
+                continue
+            given = row.get('input') if isinstance(row.get('input'), dict) else {}
+            image = given.get('input_image') if isinstance(given.get('input_image'), dict) else {}
+            refs = given.get('ref_images') if isinstance(given.get('ref_images'), list) else []
+            output = row.get('output') if isinstance(row.get('output'), dict) else {}
+            if image.get('media_id') or output.get('media_id'):
+                return True
+            if any(isinstance(ref, dict) and ref.get('media_id') for ref in refs):
+                return True
+        return False
+    if item.item_type == 'scored_results':
+        scored = meta.get('scored_data') if isinstance(meta.get('scored_data'), dict) else {}
+        return any(isinstance(entry, dict) and entry.get('media_id') for entry in scored.get('items') or [])
+    if item.item_type == 'analysis_result':
+        analysis = meta.get('analysis_data') if isinstance(meta.get('analysis_data'), dict) else {}
+        return bool(analysis.get('media_id'))
+    if item.item_type == 'grid_generation':
+        return bool(data.get('grid_media_id'))
+    return False
 
 
 @router.get("/{chat_id}/items", response_model=ChatItemListResponse)
@@ -1782,12 +1830,45 @@ async def list_chat_items(
                 ChatItem.item_type.in_(_MEDIA_ITEM_TYPES),
                 and_(ChatItem.item_type == 'assistant_message', ChatItem.message_text.like('%](media%')),
             ))
-        if before_id:
-            query = query.where(ChatItem.id < before_id)
-        rows = list((await session.execute(query.order_by(desc(ChatItem.id)).limit(limit + 1))).scalars().all())
+        if only == 'prompts':
+            if before_id:
+                query = query.where(ChatItem.id < before_id)
+            rows = list((await session.execute(query.order_by(desc(ChatItem.id)).limit(limit + 1))).scalars().all())
+            page = rows[:limit]
+            return ChatItemListResponse(
+                items=await _mark_deleted_media_in_items(page, session),
+                has_more=len(rows) > limit,
+                next_before_id=page[-1].id if page else None,
+            )
+        # Media: only records that actually show media, so records that show
+        # none (cancelled progress, empty rows) cannot fill a page. The scan
+        # is bounded; a short page carries the cursor to continue from.
+        found: list = []
+        scanned = 0
+        cursor = before_id
+        exhausted = False
+        while len(found) < limit and scanned < _MEDIA_SCAN_CAP:
+            batch_query = query.where(ChatItem.id < cursor) if cursor else query
+            batch = list((await session.execute(
+                batch_query.order_by(desc(ChatItem.id)).limit(min(200, _MEDIA_SCAN_CAP - scanned))
+            )).scalars().all())
+            if not batch:
+                exhausted = True
+                break
+            for item in batch:
+                scanned += 1
+                cursor = item.id
+                if _shows_media(item):
+                    found.append(item)
+                    if len(found) == limit:
+                        break
+        if not exhausted and cursor is not None:
+            more = await session.execute(query.where(ChatItem.id < cursor).limit(1))
+            exhausted = more.first() is None
         return ChatItemListResponse(
-            items=await _mark_deleted_media_in_items(rows[:limit], session),
-            has_more=len(rows) > limit,
+            items=await _mark_deleted_media_in_items(found, session),
+            has_more=not exhausted,
+            next_before_id=cursor,
         )
 
     if display_limit:

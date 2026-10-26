@@ -229,6 +229,16 @@
 
         <!-- Normal Chat View -->
         <div v-else class="space-y-2">
+          <!-- The window began inside a subagent run whose delegate call is
+               older than it: show the run until paging brings the call in. -->
+          <div v-if="hasMore && orphanSubagentSteps" class="flex justify-start" data-partial-turn>
+            <div class="activity-group">
+              <div class="activity-summary" style="cursor: default;">
+                <span class="activity-tool-list"><span class="activity-tool-name">Subagent activity</span></span>
+                <span class="text-content-tertiary">{{ orphanSubagentSteps }} {{ orphanSubagentSteps === 1 ? 'step' : 'steps' }} · earlier steps not loaded</span>
+              </div>
+            </div>
+          </div>
           <div
             v-for="item in topLevelItems"
             :key="item.id"
@@ -2180,6 +2190,17 @@ const topLevelItems = computed(() => {
   return items.value.filter(item => !item.parent_item_id)
 })
 
+// Subagent steps whose delegate call is not loaded: a window that starts in
+// the middle of an enormous delegation (see the partial-turn row).
+const orphanSubagentSteps = computed(() => {
+  const byId = itemIndex.value.byId
+  let count = 0
+  for (const item of items.value) {
+    if (item.parent_item_id && !byId.has(item.parent_item_id) && item.item_type === 'tool_call') count++
+  }
+  return count
+})
+
 // Skills menu on the chat input — the one place skills are seen/activated.
 // Regular chats list chat-eligible skills; embedded (flow) chats list
 // flow-eligible ones. Activation state comes from stimpack_injection items
@@ -2801,17 +2822,26 @@ async function loadOlderChatMedia() {
   if (cursor == null) return
   olderChatMediaLoading = true
   try {
-    const response = await fetch(`/api/chats/${requestChatId}/items?only=media&limit=100&before_id=${cursor}`)
-    if (!response.ok) return
-    const data = await response.json()
-    if (chatId.value !== requestChatId) return
-    const page = data.items.reverse()
-    const kept = olderChatMedia.value.chatId === requestChatId ? olderChatMedia.value.items : []
-    olderChatMedia.value = {
-      chatId: requestChatId,
-      items: [...page, ...kept],
-      cursor: page.length ? page[0].id : cursor,
-      done: !data.has_more,
+    // The server returns only records that show media but bounds its scan,
+    // so a page can come back empty with more to read. Keep reading until
+    // something shows or the start is reached, unless the chat changes or
+    // the slideshow closes.
+    let next = cursor
+    for (;;) {
+      const response = await fetch(`/api/chats/${requestChatId}/items?only=media&limit=100&before_id=${next}`)
+      if (!response.ok) return
+      const data = await response.json()
+      if (chatId.value !== requestChatId) return
+      const page = data.items.reverse()
+      next = data.next_before_id ?? (page.length ? page[0].id : null)
+      const kept = olderChatMedia.value.chatId === requestChatId ? olderChatMedia.value.items : []
+      olderChatMedia.value = {
+        chatId: requestChatId,
+        items: [...page, ...kept],
+        cursor: next,
+        done: !data.has_more || next == null,
+      }
+      if (page.length || olderChatMedia.value.done || !slideshowState.active) return
     }
   } catch (error) {
     console.error('Error loading older chat media:', error)
@@ -4715,27 +4745,52 @@ async function copyItemsJson(itemsToCopy) {
 }
 
 // Copy the complete transcript, including history not loaded into the view.
+// Every page must come from the same server, profile and chat (requests carry
+// the current profile), so a scope change or leaving the view cancels it.
+let copyAbort = null
+function cancelTranscriptCopy() {
+  copyAbort?.abort()
+  copyAbort = null
+}
+const transcriptScope = () => `${getApiBase()}|${getCurrentProfileId()}|${chatId.value}`
+
 async function copyAllRawMessages() {
+  cancelTranscriptCopy()
+  const abort = new AbortController()
+  copyAbort = abort
+  const scope = transcriptScope()
   const requestChatId = chatId.value
+  const current = () => !abort.signal.aborted && transcriptScope() === scope
   const all = []
   try {
     let before = null
-    for (let page = 0; page < 1000; page++) {
-      const response = await fetch(`/api/chats/${requestChatId}/items?limit=200${before ? `&before_id=${before}` : ''}`)
+    for (;;) {
+      const response = await fetch(`/api/chats/${requestChatId}/items?limit=200${before ? `&before_id=${before}` : ''}`, { signal: abort.signal })
+      if (!current()) return
       if (!response.ok) throw new Error('Failed to load chat items')
       const data = await response.json()
+      if (!current()) return
       all.push(...data.items)
-      if (!data.has_more || !data.items.length) break
-      before = data.items[data.items.length - 1].id
+      const last = data.items[data.items.length - 1]?.id
+      // Ids strictly decrease page to page; anything else would loop.
+      if (!data.has_more || last == null || (before != null && last >= before)) break
+      before = last
     }
   } catch (error) {
+    if (!current()) return
     console.error('Error loading the transcript to copy:', error)
     addToast('Failed to copy to clipboard', 'error', 3000)
     return
+  } finally {
+    if (copyAbort === abort) copyAbort = null
   }
-  if (!all.length) return
+  if (!all.length || !current()) return
   await copyItemsJson(all.reverse())
 }
+watch(chatId, cancelTranscriptCopy)
+watch(getCurrentProfileId, cancelTranscriptCopy)
+onDeactivated(cancelTranscriptCopy)
+onUnmounted(cancelTranscriptCopy)
 
 // Copy subagent child items to clipboard
 async function copyChildItems(parentItemId) {

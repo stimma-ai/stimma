@@ -334,10 +334,11 @@ async def test_prompts_and_media_page_on_their_own(client, db_session):
     assert [p["message_text"].split(":")[0] for p in prompts] == [f"Turn {n}" for n in range(33, -1, -1)]
     assert all(p["item_type"] == "user_message" for p in prompts)
 
+    # The fixture's image rows carry no media id, so only the linked
+    # message shows media.
     media = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=5")).json()
-    assert media["items"][0]["id"] == linked
-    assert {i["item_type"] for i in media["items"][1:]} == {"media_display"}
-    assert media["has_more"] is True
+    assert [i["id"] for i in media["items"]] == [linked]
+    assert media["has_more"] is False
 
 
 @pytest.mark.anyio
@@ -351,3 +352,45 @@ async def test_invoked_skills_endpoint_reflects_deletions(client, db_session):
     assert (await client.get(f"/api/chats/{chat_id}/invoked-skills")).json() == {"skills": ["app-icons"]}
     assert (await client.delete(f"/api/chats/items/{injection}")).status_code == 200
     assert (await client.get(f"/api/chats/{chat_id}/invoked-skills")).json() == {"skills": []}
+
+
+def _image(chat_id: int, media_id: int) -> ChatItem:
+    return ChatItem(chat_id=chat_id, item_type="media_display", item_metadata=json.dumps({
+        "display_data": {"rows": [{"output": {"media_id": media_id, "status": "completed"}}]},
+    }))
+
+
+def _cancelled_batch(chat_id: int) -> ChatItem:
+    return ChatItem(chat_id=chat_id, item_type="progress_display", item_metadata=json.dumps({
+        "display_data": {"status": "cancelled", "preview_slots": [{"status": "pending", "media_ids": []}]},
+    }))
+
+
+@pytest.mark.anyio
+async def test_media_pages_skip_records_that_show_nothing(client, db_session):
+    chat_id = await _create_chat(client)
+    [image] = await _seed(db_session, chat_id, [_image(chat_id, 999)])
+    await _seed(db_session, chat_id, [_cancelled_batch(chat_id) for _ in range(120)])
+    [newest] = await _seed(db_session, chat_id, [_image(chat_id, 1000)])
+    body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
+    # The 120 empty batches neither fill the page nor hide the older image.
+    assert [item["id"] for item in body["items"]] == [newest, image]
+    assert body["has_more"] is False
+
+
+@pytest.mark.anyio
+async def test_media_pages_bound_their_scan_and_hand_back_a_cursor(client, db_session):
+    from routes.chats import _MEDIA_SCAN_CAP
+
+    chat_id = await _create_chat(client)
+    [image] = await _seed(db_session, chat_id, [_image(chat_id, 999)])
+    empty = await _seed(db_session, chat_id, [_cancelled_batch(chat_id) for _ in range(_MEDIA_SCAN_CAP + 20)])
+    body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
+    assert body["items"] == []
+    assert body["has_more"] is True
+    assert body["next_before_id"] == empty[20]
+    body = (await client.get(
+        f"/api/chats/{chat_id}/items?only=media&limit=100&before_id={body['next_before_id']}"
+    )).json()
+    assert [item["id"] for item in body["items"]] == [image]
+    assert body["has_more"] is False
