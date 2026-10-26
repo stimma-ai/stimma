@@ -1741,44 +1741,54 @@ _MEDIA_LINK = re.compile(r'!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)')
 _MEDIA_SCAN_CAP = 1000
 
 
-def _shows_media(item: ChatItem) -> bool:
-    """Whether the chat view's media collector would find media in the item."""
-    if item.item_type == 'assistant_message':
-        return bool(_MEDIA_LINK.search(item.message_text or ''))
-    try:
-        meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-    except (json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(meta, dict):
-        return False
-    data = meta.get('display_data') if isinstance(meta.get('display_data'), dict) else {}
-    if item.item_type == 'progress_display':
+def _served_media_ids(item_type: str, metadata, message_text: Optional[str]) -> list:
+    """Media the chat view's collector (utils/chatMedia.js) finds in a served
+    item, i.e. after _mark_deleted_media_in_items. Parity vectors shared with
+    the frontend live in frontend/tests/fixtures/chatMediaVectors.json."""
+    found: list = []
+
+    def add(media_id):
+        if media_id and media_id not in found:
+            found.append(media_id)
+
+    def obj(value) -> dict:
+        return value if isinstance(value, dict) else {}
+
+    def seq(value) -> list:
+        return value if isinstance(value, list) else []
+
+    meta = obj(metadata)
+    data = obj(meta.get('display_data'))
+    if item_type == 'progress_display':
         slots = data.get('preview_slots')
         if isinstance(slots, list):
-            return any(isinstance(slot, dict) and slot.get('media_ids') for slot in slots)
-        return bool(data.get('previews'))
-    if item.item_type == 'media_display':
-        for row in data.get('rows') or []:
-            if not isinstance(row, dict):
-                continue
-            given = row.get('input') if isinstance(row.get('input'), dict) else {}
-            image = given.get('input_image') if isinstance(given.get('input_image'), dict) else {}
-            refs = given.get('ref_images') if isinstance(given.get('ref_images'), list) else []
-            output = row.get('output') if isinstance(row.get('output'), dict) else {}
-            if image.get('media_id') or output.get('media_id'):
-                return True
-            if any(isinstance(ref, dict) and ref.get('media_id') for ref in refs):
-                return True
-        return False
-    if item.item_type == 'scored_results':
-        scored = meta.get('scored_data') if isinstance(meta.get('scored_data'), dict) else {}
-        return any(isinstance(entry, dict) and entry.get('media_id') for entry in scored.get('items') or [])
-    if item.item_type == 'analysis_result':
-        analysis = meta.get('analysis_data') if isinstance(meta.get('analysis_data'), dict) else {}
-        return bool(analysis.get('media_id'))
-    if item.item_type == 'grid_generation':
-        return bool(data.get('grid_media_id'))
-    return False
+            for slot in slots:
+                for media_id in seq(obj(slot).get('media_ids')):
+                    add(media_id)
+        else:
+            for media_id in seq(data.get('previews')):
+                add(media_id)
+    elif item_type == 'media_display':
+        for row in seq(data.get('rows')):
+            row = obj(row)
+            given = obj(row.get('input'))
+            add(obj(given.get('input_image')).get('media_id'))
+            for reference in seq(given.get('ref_images')):
+                add(obj(reference).get('media_id'))
+            output = obj(row.get('output'))
+            if not output.get('deleted') and output.get('status') != 'trashed':
+                add(output.get('media_id'))
+    elif item_type == 'scored_results':
+        for entry in seq(obj(meta.get('scored_data')).get('items')):
+            add(obj(entry).get('media_id'))
+    elif item_type == 'analysis_result':
+        add(obj(meta.get('analysis_data')).get('media_id'))
+    elif item_type == 'grid_generation':
+        add(data.get('grid_media_id'))
+    elif item_type == 'assistant_message':
+        for match in _MEDIA_LINK.finditer(message_text or ''):
+            add(int(match.group(1)))
+    return found
 
 
 @router.get("/{chat_id}/items", response_model=ChatItemListResponse)
@@ -1821,28 +1831,32 @@ async def list_chat_items(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    if only:
-        query = select(ChatItem).where(ChatItem.chat_id == chat_id, ChatItem.parent_item_id.is_(None))
-        if only == 'prompts':
-            query = query.where(ChatItem.item_type == 'user_message')
-        else:
-            query = query.where(or_(
-                ChatItem.item_type.in_(_MEDIA_ITEM_TYPES),
-                and_(ChatItem.item_type == 'assistant_message', ChatItem.message_text.like('%](media%')),
-            ))
-        if only == 'prompts':
-            if before_id:
-                query = query.where(ChatItem.id < before_id)
-            rows = list((await session.execute(query.order_by(desc(ChatItem.id)).limit(limit + 1))).scalars().all())
-            page = rows[:limit]
-            return ChatItemListResponse(
-                items=await _mark_deleted_media_in_items(page, session),
-                has_more=len(rows) > limit,
-                next_before_id=page[-1].id if page else None,
-            )
-        # Media: only records that actually show media, so records that show
-        # none (cancelled progress, empty rows) cannot fill a page. The scan
-        # is bounded; a short page carries the cursor to continue from.
+    if only == 'prompts':
+        query = select(ChatItem).where(
+            ChatItem.chat_id == chat_id,
+            ChatItem.parent_item_id.is_(None),
+            ChatItem.item_type == 'user_message',
+        )
+        if before_id:
+            query = query.where(ChatItem.id < before_id)
+        rows = list((await session.execute(query.order_by(desc(ChatItem.id)).limit(limit + 1))).scalars().all())
+        page = rows[:limit]
+        return ChatItemListResponse(
+            items=await _mark_deleted_media_in_items(page, session),
+            has_more=len(rows) > limit,
+            next_before_id=page[-1].id if page else None,
+        )
+
+    if only == 'media':
+        # Records the slideshow can show, subagent ones included (the
+        # collector reads every loaded item). Judged as served, after deleted
+        # media is marked, so records showing nothing usable (cancelled
+        # batches, trashed or deleted outputs) cannot fill a page. The scan is
+        # bounded; a short page carries the cursor to continue from.
+        query = select(ChatItem).where(ChatItem.chat_id == chat_id, or_(
+            ChatItem.item_type.in_(_MEDIA_ITEM_TYPES),
+            and_(ChatItem.item_type == 'assistant_message', ChatItem.message_text.like('%](media%')),
+        ))
         found: list = []
         scanned = 0
         cursor = before_id
@@ -1855,21 +1869,17 @@ async def list_chat_items(
             if not batch:
                 exhausted = True
                 break
-            for item in batch:
+            for served in await _mark_deleted_media_in_items(batch, session):
                 scanned += 1
-                cursor = item.id
-                if _shows_media(item):
-                    found.append(item)
+                cursor = served.id
+                if _served_media_ids(served.item_type, served.item_metadata, served.message_text):
+                    found.append(served)
                     if len(found) == limit:
                         break
         if not exhausted and cursor is not None:
-            more = await session.execute(query.where(ChatItem.id < cursor).limit(1))
+            more = await session.execute(query.where(ChatItem.id < cursor).with_only_columns(ChatItem.id).limit(1))
             exhausted = more.first() is None
-        return ChatItemListResponse(
-            items=await _mark_deleted_media_in_items(found, session),
-            has_more=not exhausted,
-            next_before_id=cursor,
-        )
+        return ChatItemListResponse(items=found, has_more=not exhausted, next_before_id=cursor)
 
     if display_limit:
         window = await _display_window(session, chat_id, display_limit, before_id, reach_id)

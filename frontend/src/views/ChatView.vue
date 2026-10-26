@@ -2800,55 +2800,74 @@ function getPlanControlState(item) {
 // not represented in the transcript collector remains reachable for this chat.
 const slideshowReferenceIds = ref([])
 watch(chatId, () => { slideshowReferenceIds.value = []; exitSlideshow() })
+
+// The server, profile and chat a multi-request read belongs to.
+const transcriptScope = () => `${getApiBase()}|${getCurrentProfileId()}|${chatId.value}`
+
 // The slideshow's sequence covers the whole chat, not just the loaded
 // transcript: media-bearing items older than it are paged in on their own
 // (only=media) when the slideshow opens and as it browses toward the start.
-const olderChatMedia = ref({ chatId: null, items: [], cursor: null, done: false })
-let olderChatMediaLoading = false
+const olderChatMedia = ref({ scope: null, items: [], cursor: null, done: false })
 const chatMediaEntries = computed(() => {
   const state = olderChatMedia.value
   const first = items.value[0]?.id ?? Number.POSITIVE_INFINITY
-  const older = state.chatId === chatId.value ? state.items.filter(item => item.id < first) : []
+  const older = state.scope === transcriptScope() ? state.items.filter(item => item.id < first) : []
   return collectChatMedia(older.length ? [...older, ...items.value] : items.value)
 })
 
+// Like copying, media paging must stay in the server, profile and chat it
+// started in (requests carry the current profile), so any change of those,
+// leaving the view or closing the slideshow cancels it.
+let olderChatMediaAbort = null
+function cancelOlderChatMedia() {
+  olderChatMediaAbort?.abort()
+  olderChatMediaAbort = null
+}
+
 async function loadOlderChatMedia() {
+  const scope = transcriptScope()
   const requestChatId = chatId.value
   const state = olderChatMedia.value
-  const fresh = state.chatId !== requestChatId
-  if (olderChatMediaLoading || (!fresh && state.done)) return
+  const fresh = state.scope !== scope
+  if (olderChatMediaAbort || (!fresh && state.done)) return
   // Nothing is older than a fully loaded transcript.
   const cursor = fresh ? (hasMore.value ? pageCursor : null) : state.cursor
   if (cursor == null) return
-  olderChatMediaLoading = true
+  const abort = new AbortController()
+  olderChatMediaAbort = abort
+  const current = () => !abort.signal.aborted && transcriptScope() === scope
   try {
-    // The server returns only records that show media but bounds its scan,
-    // so a page can come back empty with more to read. Keep reading until
-    // something shows or the start is reached, unless the chat changes or
-    // the slideshow closes.
+    // The server returns only records that show media, but bounds its scan,
+    // so a page can come back empty with more to read. Keep reading until a
+    // page adds media or the start is reached.
     let next = cursor
     for (;;) {
-      const response = await fetch(`/api/chats/${requestChatId}/items?only=media&limit=100&before_id=${next}`)
-      if (!response.ok) return
+      const response = await fetch(`/api/chats/${requestChatId}/items?only=media&limit=100&before_id=${next}`, { signal: abort.signal })
+      if (!current() || !response.ok) return
       const data = await response.json()
-      if (chatId.value !== requestChatId) return
+      if (!current()) return
       const page = data.items.reverse()
       next = data.next_before_id ?? (page.length ? page[0].id : null)
-      const kept = olderChatMedia.value.chatId === requestChatId ? olderChatMedia.value.items : []
+      const kept = olderChatMedia.value.scope === scope ? olderChatMedia.value.items : []
       olderChatMedia.value = {
-        chatId: requestChatId,
+        scope,
         items: [...page, ...kept],
         cursor: next,
         done: !data.has_more || next == null,
       }
-      if (page.length || olderChatMedia.value.done || !slideshowState.active) return
+      if (collectChatMedia(page).length || olderChatMedia.value.done) return
     }
   } catch (error) {
-    console.error('Error loading older chat media:', error)
+    if (current()) console.error('Error loading older chat media:', error)
   } finally {
-    olderChatMediaLoading = false
+    if (olderChatMediaAbort === abort) olderChatMediaAbort = null
   }
 }
+watch(chatId, cancelOlderChatMedia)
+watch(getCurrentProfileId, cancelOlderChatMedia)
+watch(() => slideshowState.active, active => { if (!active) cancelOlderChatMedia() })
+onDeactivated(cancelOlderChatMedia)
+onUnmounted(cancelOlderChatMedia)
 
 function onSlideshowIndex(index) {
   if (index < 10) loadOlderChatMedia()
@@ -3119,7 +3138,7 @@ async function loadItems() {
     // first. Older prompts join as history pages in or on demand.
     messageHistory.value = recallTexts([...items.value].reverse())
     recallCursor = data.has_more ? pageCursor : null
-    olderChatMedia.value = { chatId: null, items: [], cursor: null, done: false }
+    olderChatMedia.value = { scope: null, items: [], cursor: null, done: false }
 
     // Scroll to bottom - use multiple nextTicks to ensure render completes
     await nextTick()
@@ -4752,7 +4771,6 @@ function cancelTranscriptCopy() {
   copyAbort?.abort()
   copyAbort = null
 }
-const transcriptScope = () => `${getApiBase()}|${getCurrentProfileId()}|${chatId.value}`
 
 async function copyAllRawMessages() {
   cancelTranscriptCopy()
@@ -4921,7 +4939,7 @@ async function clearChat() {
       // Clear local items array
       items.value = []
       serverInvokedSkills.value = { chatId: null, names: [] }
-      olderChatMedia.value = { chatId: null, items: [], cursor: null, done: false }
+      olderChatMedia.value = { scope: null, items: [], cursor: null, done: false }
       skillsGeneration++
     }
   } catch (error) {

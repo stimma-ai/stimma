@@ -360,6 +360,26 @@ def _image(chat_id: int, media_id: int) -> ChatItem:
     }))
 
 
+def _trashed_image(chat_id: int, media_id: int) -> ChatItem:
+    return ChatItem(chat_id=chat_id, item_type="media_display", item_metadata=json.dumps({
+        "display_data": {"rows": [{"output": {"media_id": media_id, "status": "trashed"}}]},
+    }))
+
+
+async def _library(db_session, *media_ids: int) -> None:
+    """Library media with fixed ids, so served items do not mark them deleted."""
+    from database import MediaItem
+
+    async with db_session() as session:
+        for media_id in media_ids:
+            if await session.get(MediaItem, media_id) is None:
+                session.add(MediaItem(
+                    id=media_id, file_path=f"m{media_id}.png", file_hash=f"hash-{media_id}", file_size=100,
+                    file_format="png", width=64, height=64, megapixels=0.004,
+                ))
+        await session.commit()
+
+
 def _cancelled_batch(chat_id: int) -> ChatItem:
     return ChatItem(chat_id=chat_id, item_type="progress_display", item_metadata=json.dumps({
         "display_data": {"status": "cancelled", "preview_slots": [{"status": "pending", "media_ids": []}]},
@@ -368,10 +388,11 @@ def _cancelled_batch(chat_id: int) -> ChatItem:
 
 @pytest.mark.anyio
 async def test_media_pages_skip_records_that_show_nothing(client, db_session):
+    await _library(db_session, 870999, 871000)
     chat_id = await _create_chat(client)
-    [image] = await _seed(db_session, chat_id, [_image(chat_id, 999)])
+    [image] = await _seed(db_session, chat_id, [_image(chat_id, 870999)])
     await _seed(db_session, chat_id, [_cancelled_batch(chat_id) for _ in range(120)])
-    [newest] = await _seed(db_session, chat_id, [_image(chat_id, 1000)])
+    [newest] = await _seed(db_session, chat_id, [_image(chat_id, 871000)])
     body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
     # The 120 empty batches neither fill the page nor hide the older image.
     assert [item["id"] for item in body["items"]] == [newest, image]
@@ -382,8 +403,9 @@ async def test_media_pages_skip_records_that_show_nothing(client, db_session):
 async def test_media_pages_bound_their_scan_and_hand_back_a_cursor(client, db_session):
     from routes.chats import _MEDIA_SCAN_CAP
 
+    await _library(db_session, 870999)
     chat_id = await _create_chat(client)
-    [image] = await _seed(db_session, chat_id, [_image(chat_id, 999)])
+    [image] = await _seed(db_session, chat_id, [_image(chat_id, 870999)])
     empty = await _seed(db_session, chat_id, [_cancelled_batch(chat_id) for _ in range(_MEDIA_SCAN_CAP + 20)])
     body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
     assert body["items"] == []
@@ -392,5 +414,18 @@ async def test_media_pages_bound_their_scan_and_hand_back_a_cursor(client, db_se
     body = (await client.get(
         f"/api/chats/{chat_id}/items?only=media&limit=100&before_id={body['next_before_id']}"
     )).json()
+    assert [item["id"] for item in body["items"]] == [image]
+    assert body["has_more"] is False
+
+
+@pytest.mark.anyio
+async def test_media_pages_skip_trashed_and_deleted_outputs(client, db_session):
+    await _library(db_session, 870999, 871001)
+    chat_id = await _create_chat(client)
+    [image] = await _seed(db_session, chat_id, [_image(chat_id, 870999)])
+    # 100 trashed outputs and 100 outputs whose media left the library.
+    await _seed(db_session, chat_id, [_trashed_image(chat_id, 871001) for _ in range(100)])
+    await _seed(db_session, chat_id, [_image(chat_id, 990000 + i) for i in range(100)])
+    body = (await client.get(f"/api/chats/{chat_id}/items?only=media&limit=100")).json()
     assert [item["id"] for item in body["items"]] == [image]
     assert body["has_more"] is False

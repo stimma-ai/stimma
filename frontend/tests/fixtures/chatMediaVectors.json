@@ -1,0 +1,85 @@
+{
+  "about": "Shared parity vectors for the chat's media sequence. The backend test (backend/tests/test_chat_media_parity.py) stores each record, with the ids in existing_media present in the library, and checks the served item and whether GET items?only=media returns it. The frontend test (frontend/tests/chatMediaParity.test.mjs) runs collectChatMedia over each served item. media_ids is what the collector finds; only=media returns a record exactly when it is non-empty.",
+  "existing_media": [880101, 880102, 880103, 880104, 880105, 880108, 880109, 880110],
+  "vectors": [
+    {
+      "name": "image output",
+      "record": {"item_type": "media_display", "message_text": null, "item_metadata": {"display_data": {"rows": [{"output": {"media_id": 880101, "status": "completed"}}]}}},
+      "served_metadata": {"display_data": {"rows": [{"output": {"media_id": 880101, "status": "completed"}}]}},
+      "media_ids": [880101]
+    },
+    {
+      "name": "trashed output",
+      "record": {"item_type": "media_display", "message_text": null, "item_metadata": {"display_data": {"rows": [{"output": {"media_id": 880102, "status": "trashed"}}]}}},
+      "served_metadata": {"display_data": {"rows": [{"output": {"media_id": 880102, "status": "trashed"}}]}},
+      "media_ids": []
+    },
+    {
+      "name": "output deleted from the library (marked while serving)",
+      "record": {"item_type": "media_display", "message_text": null, "item_metadata": {"display_data": {"rows": [{"output": {"media_id": 990001, "status": "completed"}}]}}},
+      "served_metadata": {"display_data": {"rows": [{"output": {"media_id": 990001, "status": "completed", "deleted": true}}]}},
+      "media_ids": []
+    },
+    {
+      "name": "input image kept although the output was deleted",
+      "record": {"item_type": "media_display", "message_text": null, "item_metadata": {"display_data": {"rows": [{"input": {"input_image": {"media_id": 880103}}, "output": {"media_id": 990002, "status": "completed"}}]}}},
+      "served_metadata": {"display_data": {"rows": [{"input": {"input_image": {"media_id": 880103}}, "output": {"media_id": 990002, "status": "completed", "deleted": true}}]}},
+      "media_ids": [880103]
+    },
+    {
+      "name": "cancelled batch with empty slots",
+      "record": {"item_type": "progress_display", "message_text": null, "item_metadata": {"display_data": {"status": "cancelled", "preview_slots": [{"status": "pending", "media_ids": []}]}}},
+      "served_metadata": {"display_data": {"status": "cancelled", "preview_slots": [{"status": "pending", "media_ids": []}]}},
+      "media_ids": []
+    },
+    {
+      "name": "batch slot with a preview",
+      "record": {"item_type": "progress_display", "message_text": null, "item_metadata": {"display_data": {"status": "completed", "preview_slots": [{"status": "completed", "media_ids": [880104]}]}}},
+      "served_metadata": {"display_data": {"status": "completed", "preview_slots": [{"status": "completed", "media_ids": [880104]}]}},
+      "media_ids": [880104]
+    },
+    {
+      "name": "legacy batch previews",
+      "record": {"item_type": "progress_display", "message_text": null, "item_metadata": {"display_data": {"status": "completed", "previews": [880105]}}},
+      "served_metadata": {"display_data": {"status": "completed", "previews": [880105]}},
+      "media_ids": [880105]
+    },
+    {
+      "name": "assistant message linking media",
+      "record": {"item_type": "assistant_message", "message_text": "Here it is: ![result](media:880106)", "item_metadata": null},
+      "served_metadata": null,
+      "media_ids": [880106]
+    },
+    {
+      "name": "delegated assistant message linking media",
+      "delegated": true,
+      "record": {"item_type": "assistant_message", "message_text": "Subagent result ![result](media_id=880107)", "item_metadata": null},
+      "served_metadata": null,
+      "media_ids": [880107]
+    },
+    {
+      "name": "assistant message without a media link",
+      "record": {"item_type": "assistant_message", "message_text": "No pictures (media:1) here", "item_metadata": null},
+      "served_metadata": null,
+      "media_ids": []
+    },
+    {
+      "name": "scored results",
+      "record": {"item_type": "scored_results", "message_text": null, "item_metadata": {"scored_data": {"items": [{"media_id": 880108, "score": 0.9}]}}},
+      "served_metadata": {"scored_data": {"items": [{"media_id": 880108, "score": 0.9}]}},
+      "media_ids": [880108]
+    },
+    {
+      "name": "grid",
+      "record": {"item_type": "grid_generation", "message_text": null, "item_metadata": {"display_data": {"grid_media_id": 880109}}},
+      "served_metadata": {"display_data": {"grid_media_id": 880109}},
+      "media_ids": [880109]
+    },
+    {
+      "name": "analysis",
+      "record": {"item_type": "analysis_result", "message_text": null, "item_metadata": {"analysis_data": {"media_id": 880110}}},
+      "served_metadata": {"analysis_data": {"media_id": 880110}},
+      "media_ids": [880110]
+    }
+  ]
+}
