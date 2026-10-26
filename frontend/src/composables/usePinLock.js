@@ -270,16 +270,14 @@ const PIN_REQUIREMENT_MAX_AGE_MS = 30_000
  * Returns null if profile has no PIN configured.
  */
 async function getProfilePinTimeout(profileId) {
-  let timer
   try {
-    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), 5000) })
-    const data = await Promise.race([readProfiles({ maxAgeMs: PIN_POLICY_MAX_AGE_MS }), timeout])
+    // The shared roster request is itself bounded and aborted on expiry, so
+    // a lost request is replaced by the next check rather than joined again.
+    const data = await readProfiles({ maxAgeMs: PIN_POLICY_MAX_AGE_MS })
     const profile = data.profiles?.find(p => p.id === profileId)
     return profile?.has_pin ? (profile.pin_idle_timeout_minutes || 30) : null
   } catch {
     return null
-  } finally {
-    clearTimeout(timer)
   }
 }
 

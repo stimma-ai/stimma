@@ -17,6 +17,10 @@ import viteConfig from '../vite.config.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const LATENCY_MS = 60
+// Maintenance answers more slowly than the queue's gap between tasks, so a
+// task that resolved before its network work finished would overlap the next.
+const SLOW = { '/api/boards/7': 800, '/api/headless/status': 1500, '/api/stimpack-marketplace/auto-install': 400, '/api/stimpack-marketplace/check-updates': 400 }
+const DESKTOP_CHECK_MS = 800
 const MAINTENANCE = ['/api/stimpack-marketplace/auto-install', '/api/stimpack-marketplace/check-updates', '/api/headless/status']
 const BUNDLE = 'ai.stimma.stimma.debug'
 
@@ -43,6 +47,8 @@ test.before(async () => {
   const config = viteConfig()
   delete config.server.proxy
   const cacheDir = mkdtempSync(join(tmpdir(), 'startup-bootstrap-vite-'))
+  // Builds with an update endpoint run the desktop update loop.
+  config.define = { ...config.define, 'import.meta.env.VITE_STIMMA_UPDATE_ENDPOINT': JSON.stringify('https://updates.invalid') }
   server = await createServer({ ...config, configFile: false, root, cacheDir, logLevel: 'error',
     server: { port: 0, host: '127.0.0.1', strictPort: false, hmr: false, watch: null } })
   await server.listen()
@@ -65,25 +71,53 @@ test.after(async () => {
  * id -> PIN the fixture enforces on profile-scoped routes like the server's
  * middleware does.
  */
-async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile = 'main', cachedPin = null } = {}) {
+async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile = 'main', cachedPin = null, desktop = false, path = 'home', savedRoute = null } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 860 } })
   t.after(() => context.close())
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const backend = { profiles, pins, log: [] }
-  await page.addInitScript(({ bundle, storedProfile, cachedPin }) => {
+  await page.addInitScript(({ bundle, storedProfile, cachedPin, savedRoute }) => {
     if (sessionStorage.getItem('startup-test-seeded')) return
     sessionStorage.setItem('startup-test-seeded', '1')
     localStorage.setItem(`stimma_${bundle}_default_global_onboarding_completed`, '1')
     localStorage.setItem('stimma_install_terms_accepted', JSON.stringify({ version: 999, at: Date.now() }))
     if (storedProfile) localStorage.setItem('profileId', storedProfile)
+    if (savedRoute) localStorage.setItem(`stimma_${bundle}_default_${storedProfile}_last_route`, savedRoute)
     if (cachedPin) {
       sessionStorage.setItem('stimma_global_pin_cache', JSON.stringify({
-        [cachedPin.profileId]: { pin: cachedPin.pin, lastActivity: Date.now(), timeoutMinutes: 30 },
+        [cachedPin.profileId]: { pin: cachedPin.pin, lastActivity: Date.now() - (cachedPin.idleMs ?? 0), timeoutMinutes: 30 },
       }))
     }
-  }, { bundle: BUNDLE, storedProfile, cachedPin })
+  }, { bundle: BUNDLE, storedProfile, cachedPin, savedRoute })
+  if (desktop) {
+    // A minimal Electron bridge: same-origin backend, one ready local device,
+    // and an app update check that takes a while (recorded on the page clock).
+    const port = Number(new URL(server.resolvedUrls.local[0]).port)
+    await page.addInitScript(({ port, checkMs }) => {
+      window.updateChecks = []
+      const calls = {
+        kind: 'electron',
+        getBackendPort: async () => port,
+        getWindowProfile: async () => null,
+        mdGetState: async () => ({ activeDeviceId: 'local', devices: [], connectionState: 'ready' }),
+        mdOnConnectionState: () => () => {},
+        mdRefreshDevices: async () => [],
+        mdLocalStatus: async () => ({}),
+        getAppVersion: async () => '1.0.0',
+        authLocal: async () => ({ ok: true, status: 200, data: { authenticated: false } }),
+        checkForUpdate: async () => {
+          const check = { start: performance.now() }
+          window.updateChecks.push(check)
+          await new Promise(resolve => setTimeout(resolve, checkMs))
+          check.end = performance.now()
+          return null
+        },
+      }
+      window.stimmaDesktop = new Proxy(calls, { get: (target, key) => (key in target ? target[key] : async () => null) })
+    }, { port, checkMs: DESKTOP_CHECK_MS })
+  }
   // Page-clock timeline: when the shell first renders, and every API request's
   // start and response end (Resource Timing), so ordering is exact.
   await page.addInitScript(() => {
@@ -100,7 +134,7 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
     const url = new URL(request.url())
     const path = url.pathname
     const profileId = request.headers()['x-profile-id'] || null
-    await new Promise(resolve => setTimeout(resolve, LATENCY_MS))
+    await new Promise(resolve => setTimeout(resolve, SLOW[path] ?? LATENCY_MS))
     let status = 200
     let body = []
     const exempt = path === '/api/profiles' || /^\/api\/profiles\/[^/]+\/verify-pin$/.test(path) || path.startsWith('/api/telemetry')
@@ -117,6 +151,8 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
       body = ok ? { valid: true } : { detail: 'Invalid PIN' }
     } else if (path === '/api/settings') {
       body = { ...settingsBody, profile_id: profileId }
+    } else if (path === '/api/boards/7') {
+      body = { id: 7, name: 'Deep-linked board', project_id: null, items: [], sections: [] }
     } else if (path === '/api/headless/status') {
       status = 404
       body = {}
@@ -126,7 +162,7 @@ async function boot(t, { profiles = [profile('main')], pins = {}, storedProfile 
     backend.log.push({ method: request.method(), path, profileId, status })
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }).catch(() => {})
   })
-  await page.goto(`${server.resolvedUrls.local[0]}home`)
+  await page.goto(`${server.resolvedUrls.local[0]}${path}`)
   t.after(() => assert.deepEqual(errors, []))
   return { page, backend }
 }
@@ -203,11 +239,27 @@ test('optional maintenance waits for the usable shell, runs one task at a time, 
   const maintenance = (await timeline(page)).filter(r => MAINTENANCE.includes(r.path))
   for (const path of MAINTENANCE) assert.ok(maintenance.some(r => r.path === path), `${path} still runs`)
   for (const r of maintenance) assert.ok(r.start >= shellAt, `${r.path} started at ${Math.round(r.start)} before the shell at ${Math.round(shellAt)}`)
-  const startup = maintenance.filter(r => r.path !== '/api/headless/status' || r === maintenance.find(m => m.path === '/api/headless/status'))
-  startup.sort((a, b) => a.start - b.start)
-  for (let i = 1; i < startup.length; i++) {
-    assert.ok(startup[i].start >= startup[i - 1].end, `${startup[i].path} overlapped ${startup[i - 1].path}`)
+  assertSequential(maintenance)
+})
+
+// Each maintenance task's network work ends before the next task's begins.
+function assertSequential(work) {
+  const first = work.filter((r, i) => work.findIndex(o => o.path === r.path) === i).sort((a, b) => a.start - b.start)
+  for (let i = 1; i < first.length; i++) {
+    assert.ok(first[i].start >= first[i - 1].end, `${first[i].path} at ${Math.round(first[i].start)} overlapped ${first[i - 1].path} ending ${Math.round(first[i - 1].end)}`)
   }
+}
+
+test('the desktop update loop finishes its first check before the next maintenance task', async t => {
+  const { page, backend } = await boot(t, { desktop: true })
+  const shellAt = await shellVisibleAt(page)
+  await settle(page, backend)
+  const checks = await page.evaluate(() => window.updateChecks)
+  assert.equal(checks.length, 1, 'the desktop update check still runs')
+  assert.ok(checks[0].start >= shellAt, 'after the shell')
+  const work = [...(await timeline(page)).filter(r => MAINTENANCE.includes(r.path)), { path: 'app update check', ...checks[0] }]
+  for (const path of MAINTENANCE) assert.ok(work.some(r => r.path === path), `${path} still runs`)
+  assertSequential(work)
 })
 
 test('a PIN-locked start sees only profile metadata, then unlock fetches its settings fresh', async t => {
@@ -242,6 +294,14 @@ test('a PIN-locked start sees only profile metadata, then unlock fetches its set
   assert.ok(count(backend, '/api/stimpack-marketplace/check-updates') >= 1)
 })
 
+test('a deep link whose route guard is still fetching is not replaced by the saved route', async t => {
+  // Startup now finishes before the board's owner check answers.
+  const { page, backend } = await boot(t, { path: 'boards/7', savedRoute: '/browse' })
+  await shellVisibleAt(page)
+  await settle(page, backend)
+  assert.equal(new URL(page.url()).pathname, '/boards/7')
+})
+
 test('a profile unlocked by a cached PIN reuses the roster for its PIN policy', async t => {
   const { page, backend } = await boot(t, { profiles: [profile('main', { has_pin: true })], pins: { main: '2468' }, cachedPin: { profileId: 'main', pin: '2468' } })
   const shellAt = await shellVisibleAt(page)
@@ -251,6 +311,57 @@ test('a profile unlocked by a cached PIN reuses the roster for its PIN policy', 
   assert.equal(count(backend, '/api/settings'), 1)
   assert.equal(count(backend, '/api/settings', { status: 200 }), 1)
   assert.ok(serialDepth(await timeline(page), shellAt) <= 2)
+})
+
+test('a PIN past its deadline while timers were suspended is not satisfied from the snapshot', async t => {
+  const { page, backend } = await boot(t, {
+    profiles: [profile('main', { has_pin: true })], pins: { main: '2468' },
+    cachedPin: { profileId: 'main', pin: '2468' },
+  })
+  await shellVisibleAt(page)
+  const before = count(backend, '/api/settings')
+  const result = await page.evaluate(async () => {
+    const { useSettingsApi } = await import('/src/composables/useSettingsApi.js')
+    const pinLock = await import('/src/composables/usePinLock.js')
+    const { fetchSettings } = useSettingsApi()
+    // A 15-second limit, a fresh unlock, and a fresh snapshot.
+    pinLock.syncPinTimeouts([{ id: 'main', has_pin: true, pin_idle_timeout_minutes: 0.25 }])
+    pinLock.cachePin('main', '2468')
+    await fetchSettings()
+    const early = (await fetchSettings({ reuse: true })).profile_id
+    // The wall clock moves past the PIN deadline without delivering any timer
+    // (sleep), still well inside the snapshot's own reuse window, and the very
+    // next thing the page does is reuse settings.
+    const realNow = Date.now
+    const jumped = realNow() + 16_000
+    Date.now = () => jumped
+    let pending
+    try {
+      pending = fetchSettings({ reuse: true })
+    } finally {
+      Date.now = realNow
+    }
+    const late = await pending.then(s => s.profile_id, e => e.response?.status ?? e.message)
+    return { early, late, pin: pinLock.getCachedPin('main') }
+  })
+  assert.deepEqual(result, { early: 'main', late: 403, pin: null }, 'past the deadline only the server may answer, and it refuses')
+  assert.equal(count(backend, '/api/settings') - before, 2, 'one fresh read, then the refused one; the early reuse asked nothing')
+})
+
+test('a refusal after a successful read leaves nothing protected to reuse', async t => {
+  const { page, backend } = await boot(t)
+  await shellVisibleAt(page)
+  await settle(page, backend)
+  backend.pins.main = '1357' // e.g. a PIN set from another client
+  const result = await page.evaluate(async () => {
+    const { useSettingsApi } = await import('/src/composables/useSettingsApi.js')
+    const { fetchSettings } = useSettingsApi()
+    const status = e => e.response?.status ?? e.message
+    const fresh = await fetchSettings().then(() => 'served', status)
+    const reused = await fetchSettings({ reuse: true }).then(() => 'served', status)
+    return { fresh, reused }
+  })
+  assert.deepEqual(result, { fresh: 403, reused: 403 })
 })
 
 test('profile switches, server switches, and lock events invalidate the right snapshots', async t => {

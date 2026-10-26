@@ -174,8 +174,12 @@ export function hasServerOperationInProgress() {
   try { return sessionStorage.getItem(KEY) !== null } catch { return false }
 }
 
-export function startServerUpdater() {
-  if (started) return
+/**
+ * Resolves once the first status read has answered (or failed), so startup
+ * maintenance can wait for it; polling continues on its own afterwards.
+ */
+export function startServerUpdater(): Promise<void> {
+  if (started) return Promise.resolve()
   started = true
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null')
@@ -221,7 +225,7 @@ export function startServerUpdater() {
     if (pending.value && state !== 'ready') { pending.value.sawTransition = true; persist() }
     if (state === 'ready') statusPoller.wake()
   }))
-  statusPoller.wake()
+  return statusPoller.wake()
 }
 
 /**

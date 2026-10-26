@@ -15,16 +15,35 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { createScopedSnapshot } from '../utils/scopedSnapshot.js'
 
-const profiles = createScopedSnapshot(async () => {
-  const response = await fetch(`${getApiBase()}/profiles`)
+// The shared roster request is bounded and aborted on expiry, so a request
+// lost to a dead connection cannot keep every later reader waiting on it;
+// the next reader starts a new one.
+const PROFILES_REQUEST_TIMEOUT_MS = 10_000
+
+const profiles = createScopedSnapshot(async (_scope, signal) => {
+  const response = await fetch(`${getApiBase()}/profiles`, { signal })
   if (!response.ok) throw new Error(`Failed to load profiles: ${response.status}`)
   return response.json()
-})
+}, { timeoutMs: PROFILES_REQUEST_TIMEOUT_MS })
+
+// The server refused this profile's settings (PIN required or wrong, unknown
+// profile): whatever was read before is no longer authorized.
+const REFUSED = new Set([400, 401, 403, 404])
 
 const settings = createScopedSnapshot(async () => {
   const response = await axios.get(`${getApiBase()}/settings`)
   return response.data
-})
+}, { evictOnError: error => REFUSED.has(error?.response?.status) })
+
+// Installed by useProfile (which owns profile identity and the PIN cache):
+// may this window read `profileId`'s protected settings right now? It must
+// apply PIN expiry synchronously, because idle timers can be suspended past
+// the deadline (sleep, background) and a stored copy must not outlive it.
+let settingsAccess = () => true
+
+export function configureSettingsAccess(check) {
+  settingsAccess = check
+}
 
 const serverScope = () => getApiBase()
 const settingsScope = profileId => `${getApiBase()}\n${profileId ?? ''}`
@@ -37,6 +56,18 @@ export function readProfiles({ fresh = false, maxAgeMs } = {}) {
 /** Settings for `profileId` (requests carry the current profile's headers). */
 export function readSettings(profileId, { fresh = false, maxAgeMs } = {}) {
   const scope = settingsScope(profileId)
+  let allowed
+  try {
+    allowed = settingsAccess(profileId)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+  // Not authorized right now: neither a stored copy nor a request started
+  // before is usable. Ask the server, which decides (and normally refuses).
+  if (!allowed) {
+    settings.invalidate(other => other !== scope)
+    return settings.refresh(scope)
+  }
   return fresh ? settings.refresh(scope) : settings.read(scope, { maxAgeMs })
 }
 

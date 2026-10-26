@@ -9,7 +9,7 @@ import axios from 'axios'
 import { rewriteUrl, isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCachedPin, syncPinTimeouts } from './usePinLock'
-import { readProfiles } from './useBootstrapSnapshot'
+import { configureSettingsAccess, readProfiles } from './useBootstrapSnapshot'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
@@ -73,6 +73,19 @@ export async function openProfileWindow(profileId) {
 }
 const profiles = ref([])
 const isLoadingProfiles = ref(false)
+
+// Protected settings are read for the current profile only (requests carry
+// its headers), and a stored copy is served only while its PIN is unexpired.
+// getCachedPin() applies the idle deadline synchronously, locking (and
+// discarding protected snapshots) if it passed while timers were suspended.
+configureSettingsAccess(profileId => {
+  if (profileId !== currentProfileId.value) {
+    throw new Error('Settings can only be read for the current profile')
+  }
+  const pin = getCachedPin(profileId)
+  const requiresPin = profiles.value.find(p => p.id === profileId)?.has_pin === true
+  return !requiresPin || pin !== null
+})
 
 // Computed db_guid for current profile (used in URLs and localStorage keys)
 const currentDbGuid = computed(() => {

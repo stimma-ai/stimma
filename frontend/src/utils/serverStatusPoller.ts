@@ -46,8 +46,11 @@ export interface PollTimers {
 }
 
 export interface StatusPoller {
-  /** Refresh now (or once on return if suspended), then reschedule. */
-  wake(): void
+  /**
+   * Refresh now (or once on return if suspended), then reschedule. Resolves
+   * when that refresh (or the one already running) settles.
+   */
+  wake(): Promise<void>
   /** Recompute the next refresh after the active state changed. */
   reschedule(): void
   setForeground(foreground: boolean): void
@@ -75,6 +78,7 @@ export function createStatusPoller(options: {
   let again = false
   let stopped = false
   let failures = 0
+  let current: Promise<void> = Promise.resolve()
 
   const suspended = () => (!foreground || !online) && !options.isActive()
   function clear() {
@@ -85,22 +89,23 @@ export function createStatusPoller(options: {
     clear()
     if (stopped || running) return
     const delay = statusPollDelay({ active: options.isActive(), foreground, online, failures }, options.random)
-    if (delay !== null) timer = timers.set(wake, delay)
+    if (delay !== null) timer = timers.set(() => { void wake() }, delay)
   }
-  function wake() {
-    if (stopped) return
-    if (suspended()) { clear(); return }
-    if (running) { again = true; return }
+  function wake(): Promise<void> {
+    if (stopped) return Promise.resolve()
+    if (suspended()) { clear(); return Promise.resolve() }
+    if (running) { again = true; return current }
     clear()
     running = true
     // Events (reconnect, online, foreground) still refresh immediately; only
     // the timer backs off while requests fail.
-    void options.refresh().then(result => { failures = result === false ? failures + 1 : 0 },
+    current = options.refresh().then(result => { failures = result === false ? failures + 1 : 0 },
       () => { failures++ }).finally(() => {
       running = false
-      if (again && !stopped) { again = false; wake(); return }
+      if (again && !stopped) { again = false; void wake(); return }
       reschedule()
     })
+    return current
   }
   function setCondition(returned: boolean, update: () => void) {
     const wasSuspended = suspended()
@@ -108,7 +113,7 @@ export function createStatusPoller(options: {
     if (suspended()) { clear(); return }
     // One refresh on return to the foreground or network (also cutting short
     // any failure backoff of an active operation); the schedule follows it.
-    if (wasSuspended || returned) wake()
+    if (wasSuspended || returned) void wake()
   }
   return {
     wake,

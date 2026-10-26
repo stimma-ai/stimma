@@ -9,10 +9,20 @@
  *   already running when its scope was invalidated still answers its own
  *   caller but is never stored.
  *
- * Failures are never stored. Every caller receives its own copy, so editing a
+ * Failures are never stored. A failure `evictOnError` recognizes (for example
+ * an authorization refusal) also forgets the scope's stored value and fences
+ * every request already in flight for it, so nothing obtained before the
+ * refusal is served after it. Every caller receives its own copy, so editing a
  * returned object (forms do) cannot leak into what the next caller reads.
  */
-export function createScopedSnapshot(load, { now = () => Date.now() } = {}) {
+export function createScopedSnapshot(load, {
+  now = () => Date.now(),
+  evictOnError = () => false,
+  // Bound each request: on expiry it is aborted (load receives the signal)
+  // and dropped, so later readers start a new request instead of joining it.
+  timeoutMs = null,
+  timers = globalThis,
+} = {}) {
   const values = new Map() // scope -> { value, at }
   const inflight = new Map() // scope -> { promise, generation }
   // Bumped per scope on invalidation, so late answers cannot be stored.
@@ -26,17 +36,36 @@ export function createScopedSnapshot(load, { now = () => Date.now() } = {}) {
     const order = ++sequence
     // Start the request synchronously: it must carry the identity of the
     // scope it is stored under, not whatever is current a microtask later.
-    const promise = new Promise(resolve => resolve(load(scope)))
+    const controller = new AbortController()
+    const timer = timeoutMs == null ? null : timers.setTimeout(() => {
+      controller.abort(new Error('Request timed out'))
+      if (inflight.get(scope)?.promise === promise) inflight.delete(scope)
+    }, timeoutMs)
+    const aborted = new Promise((_, reject) => {
+      controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
+    })
+    aborted.catch(() => {})
+    const promise = Promise.race([new Promise(resolve => resolve(load(scope, controller.signal))), aborted])
       .then(value => {
         const stored = values.get(scope)
         if (generationOf(scope) === generation && !(stored?.order > order)) values.set(scope, { value, at: now(), order })
         return value
+      }, error => {
+        if (evictOnError(error)) forget(scope)
+        throw error
       })
       .finally(() => {
+        if (timer !== null) timers.clearTimeout(timer)
         if (inflight.get(scope)?.promise === promise) inflight.delete(scope)
       })
     inflight.set(scope, { promise, generation })
     return promise.then(copy)
+  }
+
+  function forget(scope) {
+    values.delete(scope)
+    inflight.delete(scope)
+    generations.set(scope, generationOf(scope) + 1)
   }
 
   return {
@@ -60,10 +89,7 @@ export function createScopedSnapshot(load, { now = () => Date.now() } = {}) {
     /** Forget every scope, or only those `keep(scope)` rejects. */
     invalidate(keep = () => false) {
       for (const scope of new Set([...values.keys(), ...inflight.keys()])) {
-        if (keep(scope)) continue
-        values.delete(scope)
-        inflight.delete(scope)
-        generations.set(scope, generationOf(scope) + 1)
+        if (!keep(scope)) forget(scope)
       }
     },
   }

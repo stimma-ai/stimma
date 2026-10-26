@@ -367,6 +367,7 @@ import { makeGlobalKey } from './utils/storageKeys'
 import { adoptLegacyAcceptance } from './utils/terms'
 import { updateCheckIntervalMs } from './utils/updateCheckSchedule'
 import { scheduleMaintenance, markStartupUsable } from './utils/startupMaintenance'
+import { startExclusiveLoop } from './utils/exclusiveLoop'
 import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
 const route = useRoute()
@@ -1113,6 +1114,12 @@ async function checkStartupPin() {
       // is wrong and the flag reads as absent, which would shove an onboarded
       // user into the wizard. The connection screen owns that case; the
       // window is reloaded from the root once the device comes back.
+      //
+      // The decisions below read the current route, so the initial
+      // navigation must have finished: its guards may still be fetching
+      // (an entity deep link checks its owner), and until then the route
+      // reads as the root, where restoreRoute() would replace the deep link.
+      await router.isReady().catch(() => {})
       const startupReady = isSettingsLoaded() && (await multiDeviceReady())
       const onboarded = localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
       // The onboarding flag is scoped to the backend this window is driving,
@@ -1320,16 +1327,9 @@ async function startUpdaterLoop(privacyLockdownActive) {
   // With several profile windows open, only one may run the update loop —
   // concurrent automatic downloads would collide. The Web Lock is held for
   // as long as the loop runs; if the owning window closes, a waiting window
-  // acquires it and takes over.
-  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
-    void navigator.locks.request('stimma-updater-loop', async () => {
-      if (await runUpdaterLoop()) {
-        return new Promise(() => {})
-      }
-    })
-  } else {
-    void runUpdaterLoop()
-  }
+  // acquires it and takes over. Resolves when this window's first check is
+  // done (or at once if another window owns the loop).
+  await startExclusiveLoop(typeof navigator === 'undefined' ? undefined : navigator.locks, 'stimma-updater-loop', runUpdaterLoop)
 }
 
 // Returns true when the scheduled check loop actually started.
@@ -1361,8 +1361,9 @@ onMounted(async () => {
   appMounted = true
   // Idle server update status is optional chrome; keep it off the startup
   // path. An update or restart already underway is tracked immediately.
-  if (hasServerOperationInProgress()) startServerUpdater()
-  else void scheduleMaintenance('server-updater', () => { if (appMounted) startServerUpdater() })
+  // The task completes when the first status read answers.
+  if (hasServerOperationInProgress()) void startServerUpdater()
+  else void scheduleMaintenance('server-updater', () => (appMounted ? startServerUpdater() : undefined))
   // Guard the root scrolling element the same way as the shell divs.
   const rootGuard = () => {
     const d = document.scrollingElement || document.documentElement
