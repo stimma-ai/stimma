@@ -3377,7 +3377,10 @@ function setupLoadMoreObserver() {
 
   loadMoreObserver.value = new IntersectionObserver(
     (entries) => {
-      if (entries[0].isIntersecting && hasMore.value && !initialPositioning) {
+      // A busy main thread batches several changes into one callback, oldest
+      // first. Only the newest says whether the sentinel is in view now; an
+      // older "out of view" entry would skip a load nothing else retries.
+      if (entries[entries.length - 1].isIntersecting && hasMore.value && !initialPositioning) {
         loadMore()
       }
     },

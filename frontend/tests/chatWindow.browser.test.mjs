@@ -18,7 +18,7 @@ const expect = baseExpect.configure({ timeout: 30_000 })
 const CONDITION_TIMEOUT = 30_000
 
 const instrument = { name: 'chat-window-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet, messageInput, messageInputRef, liveChatMediaIds, openSlideshow, onSlideshowIndex, slideshowState, exitSlideshow, copyAllRawMessages, devModeRef }; defineExpose({})\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet, messageInput, messageInputRef, liveChatMediaIds, openSlideshow, onSlideshowIndex, slideshowState, exitSlideshow, copyAllRawMessages, devModeRef, pagingState: () => ({ loadingMore, pageCursor, initialPositioning, observer: Boolean(loadMoreObserver.value), sentinel: Boolean(loadMoreSentinel.value) }) }; defineExpose({})\n</script>')
   if (id.endsWith('/tests/fixtures/chatReconcile.ts')) return `import { setCurrentProfileId as switchProfile } from '../../src/composables/useProfile'\nwindow.switchProfile = switchProfile\n${source}`
 } }
 const base = config({})
@@ -100,17 +100,18 @@ function subset(all, only, { before, limit }, scanCap, unfiltered = false) {
   return { items: found, has_more: source.some(i => i.id < cursor), next_before_id: cursor }
 }
 
-async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [] } = {}) {
+async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [], initScript = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
+  page.on('request', request => { if (/before_id=.*display_limit/.test(request.url())) page.__pagesIssued = (page.__pagesIssued || 0) + 1 })
   // `hold` holds the next display-window request until `held()` is called;
   // it answers with the server state from when it arrived.
   const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000, mediaUnfiltered: false, holdMedia: false, heldMedia: null, holdPrompts: false, heldPrompts: null }
   // The server greets each socket; realtime scopes are ready once it has.
-  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { server.socket = ws; ws.send(JSON.stringify({ event: 'connected', data: {} })) })
+  await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { server.sockets = (server.sockets || 0) + 1; server.socket = ws; ws.send(JSON.stringify({ event: 'connected', data: {} })) })
   await page.route('**/*', async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -165,6 +166,7 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
     if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
     return route.fulfill({ json: {} })
   })
+  if (initScript) await page.addInitScript(initScript)
   await page.goto('http://chat-window.test/')
   for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
@@ -185,7 +187,13 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
         await page.evaluate(() => { window.reconcileView.messagesContainer.value.scrollTop = 0 })
         await page.waitForTimeout(100)
       }
-      throw new Error('history never finished paging')
+      const state = await page.evaluate(() => ({
+        loaded: window.reconcileView.items.value.length,
+        first: window.reconcileView.items.value[0]?.id,
+        scrollTop: window.reconcileView.messagesContainer.value.scrollTop, ...window.reconcileView.pagingState(),
+      }))
+      const pages = server.requests.filter(r => r.before != null).length
+      throw new Error(`history never finished paging: ${JSON.stringify(state)}, ${pages} older pages served, ${server.sockets} sockets opened, ${page.__pagesIssued || 0} older pages requested by the page`)
     },
   }
 }
@@ -256,11 +264,16 @@ test('an activity group split by the raw cap is marked and stays expanded as its
   assert.notEqual(ids[0], 1)
   // The partial group says older steps exist.
   await expect(page.locator('[data-partial-group]')).toHaveText('earlier steps not loaded')
-  // Expand the partial group and read it from the top.
+  // Expand the partial group and read it from the top. Clicking scrolls the
+  // group, and the sentinel above it, into view, so hold the older page that
+  // triggers until the partial group has been counted.
+  view.server.hold = true
   const group = page.locator('.activity-summary').first()
   await group.click()
   const partial = await page.locator('[data-scroll-anchor^="step:"]').count()
   assert.ok(partial > 0 && partial < 150, `partial group shows ${partial} steps`)
+  view.server.hold = false
+  view.server.held?.()
   await view.scrollToStart()
   assert.deepEqual(await view.ids(), all.map(i => i.id))
   // The completed group keeps its expansion though its first item changed.
@@ -633,4 +646,30 @@ test('a profile switch while older prompts load cancels the recall', async t => 
   assert.equal(await page.evaluate(() => window.reconcileView.messageInput.value), draft)
   assert.notEqual(draft, 'Question 66')
   assert.equal(server.other.filter(r => r.only === 'prompts').length, 1)
+})
+
+test('paging follows the newest sentinel state when a busy page batches observer entries', async t => {
+  // On a busy main thread the observer reports the sentinel leaving and
+  // re-entering view in one callback. Acting on the oldest entry skipped the
+  // load, and with no further change nothing retried it: paging stalled with
+  // the sentinel in view.
+  const view = await openChat(t, turns(75), {
+    initScript: () => {
+      const Native = window.IntersectionObserver
+      window.IntersectionObserver = class extends Native {
+        constructor(callback, options) {
+          super(callback, options)
+          window.__sentinelCallback = callback
+        }
+      }
+    },
+  })
+  const { page, server } = view
+  // Past the initial positioning, at the bottom: nothing pages yet.
+  await page.waitForTimeout(300)
+  const before = server.requests.filter(r => r.before != null).length
+  assert.equal(before, 0)
+  await page.evaluate(() => window.__sentinelCallback([{ isIntersecting: false }, { isIntersecting: true }]))
+  await expect.poll(() => server.requests.filter(r => r.before != null).length).toBe(1)
+  assert.deepEqual(view.errors, [])
 })
