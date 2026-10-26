@@ -43,6 +43,59 @@ def test_deterministic_regular_file_archive(source, tmp_path):
     assert gzip.decompress(data)[257:263] == b"ustar\x00"
 
 
+def test_build_metadata_stays_out_of_package_hash(source, tmp_path):
+    """Rebuilding identical UI at another commit must not change the hash."""
+    (source / "build-info.json").write_text('{"commit":"1111111"}')
+    first = build_ui_package(source, tmp_path / "first")
+    (source / "build-info.json").write_text('{"commit":"2222222"}')
+    second = build_ui_package(source, tmp_path / "second")
+    assert first["hash"] == second["hash"]
+    assert (first["build"], second["build"]) == ({"commit": "1111111"}, {"commit": "2222222"})
+    assert json.loads((tmp_path / "second/manifest.json").read_text()) == second
+    data = (tmp_path / "second/packages" / f"{second['hash']}.tar.gz").read_bytes()
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        assert archive.getnames() == ["assets/app.js", "index.html"]
+    (source / "build-info.json").unlink()
+    without = build_ui_package(source, tmp_path / "without")
+    assert without["hash"] == first["hash"] and "build" not in without
+    # Any real interface change still produces a new package.
+    (source / "assets/app.js").write_text("console.log('changed')")
+    assert build_ui_package(source, tmp_path / "changed")["hash"] != first["hash"]
+
+
+@pytest.mark.parametrize("contents", ['{"commit":"not a commit"}', '{"commit":7}', "{}"])
+def test_unrecognized_build_metadata_is_dropped(source, tmp_path, contents):
+    (source / "build-info.json").write_text(contents)
+    assert "build" not in build_ui_package(source, tmp_path / "out")
+
+
+@pytest.mark.parametrize("contents", ["not json", "[]", '{"commit":"' + "a" * 5000 + '"}'])
+def test_malformed_build_metadata_rejected(source, tmp_path, contents):
+    (source / "build-info.json").write_text(contents)
+    with pytest.raises(ValueError, match="build info"):
+        build_ui_package(source, tmp_path / "out")
+    assert not (tmp_path / "out/manifest.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_manifest_revalidates_when_only_build_metadata_changes(source, tmp_path, monkeypatch):
+    output = tmp_path / "published"
+    monkeypatch.setenv("STIMMA_UI_PACKAGE_DIR", str(output))
+    app = FastAPI()
+    app.include_router(router)
+    client = httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test")
+    (source / "build-info.json").write_text('{"commit":"1111111"}')
+    first = build_ui_package(source, output)
+    etag = (await client.get("/api/mobile-ui/manifest")).headers["etag"]
+    assert (await client.get("/api/mobile-ui/manifest", headers={"If-None-Match": etag})).status_code == 304
+    (source / "build-info.json").write_text('{"commit":"2222222"}')
+    second = build_ui_package(source, output)
+    assert second["hash"] == first["hash"]
+    response = await client.get("/api/mobile-ui/manifest", headers={"If-None-Match": etag})
+    assert response.status_code == 200 and response.json()["build"] == {"commit": "2222222"}
+    await client.aclose()
+
+
 def test_publish_keeps_old_hash_and_failure_preserves_manifest(source, tmp_path):
     output = tmp_path / "published"
     first = build_ui_package(source, output)
@@ -101,7 +154,8 @@ async def test_delivery_etags_missing_and_hash_snapshot(source, tmp_path, monkey
     assert archive.status_code == 200
     assert hashlib.sha256(archive.content).hexdigest() == first["hash"]
     assert "immutable" in archive.headers["cache-control"]
-    assert (await client.get(package_url, headers={"If-None-Match": etag})).status_code == 304
+    assert archive.headers["etag"] == f'"{first["hash"]}"'
+    assert (await client.get(package_url, headers={"If-None-Match": archive.headers["etag"]})).status_code == 304
     assert (await client.get("/api/mobile-ui/packages/not-a-hash.tar.gz")).status_code == 404
     assert (await client.get(f"/api/mobile-ui/packages/{'0' * 64}.tar.gz")).status_code == 404
 

@@ -31,6 +31,10 @@ struct UIPackageChecks {
         check(try String(contentsOf: first.directory.appendingPathComponent("index.html"), encoding: .utf8) == "first interface")
         let hit = try await cache.resolve(manifest: one.manifest, download: { throw Failure.unexpectedDownload })
         check(hit.cacheHit && hit.directory == first.directory)
+        // Build metadata outside the hash does not invalidate a verified package.
+        let rebuilt = try Fixture(fixtures, "one-rebuilt")
+        let rebuiltHit = try await cache.resolve(manifest: rebuilt.manifest, download: { throw Failure.unexpectedDownload })
+        check(rebuiltHit.cacheHit && rebuiltHit.directory == first.directory)
         // Extracted contents are verified against the archive, not trusted by name.
         try Data("tampered interface".utf8).write(to: first.directory.appendingPathComponent("index.html"))
         let repaired = try await cache.resolve(manifest: one.manifest, download: { one.archive })

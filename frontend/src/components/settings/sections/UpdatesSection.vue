@@ -191,7 +191,9 @@ import { useViewport } from '../../../composables/useViewport'
 import { desktop } from '../../../desktop'
 import { useAppUpdater } from '../../../composables/useAppUpdater'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
-import { COMMIT_HASH } from '../../../distribution'
+import { isMobileShell } from '../../../desktop/mobileBridge'
+import { rewriteUrl } from '../../../apiConfig'
+import { loadBuildInfo } from '../../../utils/buildInfo'
 import StatusDot from '../../ui/StatusDot.vue'
 import Button from '../../ui/Button.vue'
 import UpdatePill from '../../ui/UpdatePill.vue'
@@ -295,7 +297,8 @@ const displayInfo = computed(() => {
 })
 const copied = ref(false)
 const attributionOpen = ref(false)
-const commitHash = COMMIT_HASH
+// Read at runtime: build metadata is kept out of the bundle (utils/buildInfo).
+const commitHash = ref('')
 
 const channelBadge = computed(() => {
   const value = channel.value
@@ -308,7 +311,7 @@ const channelBadge = computed(() => {
 
 async function copyBuildInfo() {
   const parts = [`Stimma ${appVersion.value}`]
-  if (commitHash) parts.push(`(${commitHash})`)
+  if (commitHash.value) parts.push(`(${commitHash.value})`)
   if (channelBadge.value) parts.push(channelBadge.value.toLowerCase())
   parts.push(`· ${displayInfo.value}`)
   try {
@@ -353,6 +356,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', readViewportSize))
 onMounted(async () => {
   readViewportSize()
   window.addEventListener('resize', readViewportSize)
+  void loadBuildInfo({ mobile: isMobileShell(), apiUrl: rewriteUrl }).then(info => { commitHash.value = info.commit })
   await loadPreferences()
   try {
     appVersion.value = await desktop.getAppVersion()

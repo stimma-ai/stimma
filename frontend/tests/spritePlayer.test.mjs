@@ -11,7 +11,7 @@ test('slideshow selects moves/directions, scrubs merged holds and honors once', 
     configFile: false,
     plugins: [vue()],
     logLevel: 'error',
-    define: { 'process.env.NODE_ENV': JSON.stringify('production'), __STIMMA_DISTRIBUTION__: JSON.stringify('dev'), __STIMMA_COMMIT__: JSON.stringify('test') },
+    define: { 'process.env.NODE_ENV': JSON.stringify('production'), __STIMMA_DISTRIBUTION__: JSON.stringify('dev') },
     build: {
       write: false, minify: false,
       lib: { entry: 'tests/fixtures/spritePlayer.js', name: 'SpritePlayerTest', formats: ['iife'] },

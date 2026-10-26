@@ -1,18 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mobileDevReconnect } from './plugins/mobileDevReconnect.js'
+import { buildInfo } from './plugins/buildInfo.js'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
-import { execSync } from 'child_process'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-
-let commitHash = ''
-try {
-  commitHash = execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim()
-} catch {
-  // not a git checkout (e.g. source tarball) — omit the hash
-}
 
 const mobileShell = process.env.STIMMA_MOBILE_SHELL === '1'
 
@@ -64,7 +57,8 @@ const distributionAliases = [
 ]
 
 export default defineConfig(() => ({
-  plugins: [vue(), mobileDevReconnect()],
+  // Build metadata stays out of the bundle (see plugins/buildInfo.js).
+  plugins: [vue(), mobileDevReconnect(), buildInfo(__dirname)],
   build: {
     outDir: mobileShell ? 'dist-mobile' : 'dist',
     rollupOptions: {
@@ -73,7 +67,6 @@ export default defineConfig(() => ({
   },
   define: {
     __STIMMA_DISTRIBUTION__: JSON.stringify(distribution),
-    __STIMMA_COMMIT__: JSON.stringify(commitHash),
   },
   resolve: {
     alias: distributionAliases

@@ -116,6 +116,24 @@ class ProtocolTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun cacheHitSurvivesBuildMetadataOutsideTheHash() {
+        val root = Files.createTempDirectory("stimma-package-build").toFile()
+        try {
+            val archive = archive("index.html" to "ok", "assets/app.js" to "app")
+            fun rebuilt(commit: String) = JSONObject(manifest(archive, 5).toString(Charsets.UTF_8))
+                .put("build", JSONObject().put("commit", commit)).toString().toByteArray()
+            val cache = UIPackageCache(root)
+            val content = cache.resolve(rebuilt("1111111")) { archive }
+            // A server update that only changed build metadata reuses the verified package.
+            assertEquals(content, cache.resolve(rebuilt("2222222")) { error("Cache miss") })
+            assertEquals(content, cache.cached(rebuilt("3333333"), emptySet()) {})
+            assertEquals(content, cache.resolve(manifest(archive, 5)) { error("Cache miss") })
+            // Integrity checks still apply to the reused package.
+            File(content, "assets/app.js").writeText("bad")
+            assertEquals(null, cache.cached(rebuilt("4444444"), emptySet()) {})
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun cacheEvictsOldVersionsAndRejectsUnsupportedManifests() {
         val root = Files.createTempDirectory("stimma-eviction").toFile()
         try {

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import tarfile
 import tempfile
@@ -14,6 +15,13 @@ import unicodedata
 MAX_COMPRESSED_BYTES = 64 * 1024 * 1024
 MAX_UNPACKED_BYTES = 128 * 1024 * 1024
 MAX_FILES = 10_000
+# Build metadata the frontend build writes beside the bundle. It describes the
+# build, not the interface, so it goes in the manifest instead of the hashed
+# archive: a new commit with byte-identical UI must not force phones to
+# download the whole package again.
+BUILD_INFO = "build-info.json"
+MAX_BUILD_INFO_BYTES = 4096
+_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def package_directory() -> Path:
@@ -69,11 +77,30 @@ def _open_regular_file(path: Path):
         raise
 
 
+def _read_build_info(path: Path) -> dict:
+    """Validated build metadata for the manifest; {} when absent."""
+    if not path.exists() and not path.is_symlink():
+        return {}
+    with _open_regular_file(path) as contents:
+        raw = contents.read(MAX_BUILD_INFO_BYTES + 1)
+    if len(raw) > MAX_BUILD_INFO_BYTES:
+        raise ValueError("UI build info is too large")
+    try:
+        info = json.loads(raw)
+    except ValueError:
+        raise ValueError("UI build info is not valid JSON") from None
+    if not isinstance(info, dict):
+        raise ValueError("UI build info must be an object")
+    commit = info.get("commit")
+    return {"commit": commit} if isinstance(commit, str) and _COMMIT.fullmatch(commit) else {}
+
+
 def build_ui_package(source: Path, output: Path) -> dict:
     """Publish archive before atomically replacing its manifest; retain old hashes.
 
     Input must be a completed frontend build. USTAR metadata and gzip headers
-    are normalized so equivalent builds produce the same compressed hash.
+    are normalized and build metadata is moved to the manifest, so builds of
+    the same UI produce the same compressed hash whatever commit they came from.
     """
     source, output = Path(source), Path(output)
     if source.is_symlink() or not source.is_dir():
@@ -91,7 +118,7 @@ def build_ui_package(source: Path, output: Path) -> dict:
         if not stat.S_ISREG(mode):
             raise ValueError("UI packages can contain only regular files")
         name = path.relative_to(source).as_posix()
-        if name == "mobile.html":
+        if name in ("mobile.html", BUILD_INFO):
             continue
         unpacked += path.stat().st_size
         files.append((path, name))
@@ -100,6 +127,7 @@ def build_ui_package(source: Path, output: Path) -> dict:
         raise ValueError("UI build is missing index.html")
     if len(files) > MAX_FILES or unpacked > MAX_UNPACKED_BYTES:
         raise ValueError("UI build exceeds mobile package limits")
+    build = _read_build_info(source / BUILD_INFO)
     archives = output / "packages"
     archives.mkdir(parents=True, exist_ok=True)
     temp_path = None
@@ -138,6 +166,9 @@ def build_ui_package(source: Path, output: Path) -> dict:
             "unpackedBytes": actual_unpacked, "bridgeVersion": 1, "apiVersion": 1,
             "entrypoint": "index.html",
         }
+        if build:
+            # Outside the hash; native shells ignore unknown manifest fields.
+            manifest["build"] = build
         destination = archives / f"{digest}.tar.gz"
         # Temp files are created owner-only; the package is read by whoever
         # runs the server (a build as root, a gate as an unprivileged user,

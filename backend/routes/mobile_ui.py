@@ -3,6 +3,7 @@
 The remote listener's ServingGate authenticates these routes like all app APIs.
 They are profile independent so a shell can load before selecting a library.
 """
+import hashlib
 import json
 import re
 
@@ -24,7 +25,8 @@ def _not_modified(request: Request, etag: str) -> bool:
 def manifest(request: Request):
     directory = package_directory()
     try:
-        snapshot = json.loads((directory / "manifest.json").read_bytes())
+        raw = (directory / "manifest.json").read_bytes()
+        snapshot = json.loads(raw)
         digest = snapshot["hash"]
         if not isinstance(digest, str) or not HASH.fullmatch(digest):
             raise ValueError("Invalid package hash")
@@ -32,7 +34,9 @@ def manifest(request: Request):
             raise ValueError("Missing package archive")
     except (OSError, ValueError, KeyError, TypeError):
         raise HTTPException(503, "Mobile UI package is not available") from None
-    etag = f'"{digest}"'
+    # The manifest carries build metadata outside the package hash, so its
+    # validator covers the whole document rather than just the package.
+    etag = f'"{hashlib.sha256(raw).hexdigest()}"'
     headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
     if _not_modified(request, etag):
         return Response(status_code=304, headers=headers)

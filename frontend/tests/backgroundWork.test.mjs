@@ -9,7 +9,7 @@ test('disabled analysis backlog stays idle and enabling a phase updates the pane
     configFile: false,
     plugins: [vue()],
     logLevel: 'error',
-    define: { 'process.env.NODE_ENV': JSON.stringify('production'), __STIMMA_DISTRIBUTION__: JSON.stringify('dev'), __STIMMA_COMMIT__: JSON.stringify('test') },
+    define: { 'process.env.NODE_ENV': JSON.stringify('production'), __STIMMA_DISTRIBUTION__: JSON.stringify('dev') },
     build: {
       write: false, minify: false,
       lib: { entry: 'tests/fixtures/backgroundWork.js', name: 'BackgroundWorkTest', formats: ['iife'] },

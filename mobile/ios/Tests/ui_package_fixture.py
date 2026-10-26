@@ -45,6 +45,12 @@ def main():
             (root / (name + ".json")).write_text(json.dumps(manifest))
 
         write("one")
+        # The same package published by a later server build: only metadata
+        # outside the hash differs.
+        rebuilt = json.loads((root / "one.json").read_text())
+        rebuilt["build"] = {"commit": "2222222"}
+        (root / "one-rebuilt.json").write_text(json.dumps(rebuilt))
+        (root / "one-rebuilt.tar.gz").write_bytes((root / "one.tar.gz").read_bytes())
         write("two", [("index.html", b"other interface", regular), ("assets/app.js", b"console.log('other')", regular)])
         write("three", [("index.html", b"third interface", regular), ("assets/app.js", b"console.log('third')", regular)])
         for name, path, kind in [
