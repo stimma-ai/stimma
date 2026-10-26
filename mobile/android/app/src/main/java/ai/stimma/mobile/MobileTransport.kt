@@ -442,6 +442,8 @@ const val HEALTH_PATH = "/api/multi-device/health"
 const val LEGACY_HEALTH_PATH = "/api/profiles"
 /** Set by the server's session gate when the device session itself was refused. */
 private const val SESSION_INVALID_HEADER = "x-stimma-session-invalid"
+/** How much of a check's answer is read through; the profile list on older servers is the largest. */
+private const val LEGACY_HEALTH_LIMIT = 1024 * 1024
 
 class MobileTransport(
     private val report: (ProxyFailureReport) -> Unit = {},
@@ -824,8 +826,13 @@ class MobileTransport(
         socket.soTimeout = timeoutMillis
         socket.getOutputStream().write(("GET $path HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nCookie: $cookieName=$capability\r\n" +
             "Sec-Fetch-Site: same-origin\r\nAccept: application/json\r\n\r\n").toByteArray(Charsets.ISO_8859_1))
-        val head = HttpHead.read(socket.getInputStream().buffered())
+        val input = socket.getInputStream().buffered()
+        val head = HttpHead.read(input)
         val status = head.target.toIntOrNull() ?: return PathHealth.UNREACHABLE
+        // Read the answer to its end (the proxy closes after it) before hanging up. Closing early
+        // looks like an abandoned request, which cancels the upstream exchange and discards its
+        // pooled connection, so the next request would pay for a new handshake.
+        runCatching { input.bounded(LEGACY_HEALTH_LIMIT) }
         return when {
             // Answered by this proxy, not the server: the server was not reached.
             head.single(ProxyFailure.HEADER.lowercase()) != null -> PathHealth.UNREACHABLE

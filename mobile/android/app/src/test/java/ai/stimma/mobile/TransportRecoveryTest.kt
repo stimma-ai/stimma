@@ -333,16 +333,26 @@ class TransportRecoveryTest {
         assertEquals("a handoff to another network disrupts", 3, disruptions.get())
     }
 
-    @Test fun oneNetworkChangeEvictsIdleConnectionsAndEndsTunnels() = runBlocking {
+    @Test fun oneNetworkChangeEvictsIdleConnectionsAndEndsTunnels() {
         val server = tlsServer()
         val remote = attach(server)
         server.enqueue(MockResponse().setBody("{}"))
-        assertEquals(PathHealth.HEALTHY, transport.checkConnection())
-        assertEquals(1, remote.pooledConnections)
-        transport.networkChanged()
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-        while (remote.pooledConnections > 0 && System.nanoTime() < deadline) Thread.sleep(10)
-        assertEquals(0, remote.pooledConnections)
+        server.enqueue(MockResponse().withWebSocketUpgrade(object : okhttp3.WebSocketListener() {}))
+        assertEquals(PathHealth.HEALTHY, runBlocking { transport.checkConnection() })
+        // The probe returns once it has the answer's head; its connection goes back to the pool
+        // when the proxy finishes the exchange, so wait for that rather than assume it.
+        waitFor { remote.pooledConnections == 1 }
+        Socket("127.0.0.1", transport.port).use { socket ->
+            socket.soTimeout = 5000
+            socket.getOutputStream().write(("GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: ${transport.cookie.substringBefore(';')}\r\n" +
+                "Origin: ${transport.origin}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n").toByteArray())
+            val input = socket.getInputStream().buffered()
+            assertEquals("101", HttpHead.read(input).target)
+            transport.networkChanged()
+            // Both what the old network carried are gone: the idle pooled connection and the tunnel.
+            assertEquals(-1, runCatching { input.read() }.getOrDefault(-1))
+            waitFor { remote.pooledConnections == 0 }
+        }
     }
 
     @Test fun nativeTimingMatchesTheSharedContract() {
