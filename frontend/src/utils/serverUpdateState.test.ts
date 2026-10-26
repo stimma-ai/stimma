@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { serverOperationResult, type ServerOperation } from './serverUpdateState.ts'
+import { MACHINE_FOLLOW_UP_MS, SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from './serverUpdateState.ts'
 
 const operation: ServerOperation = { deviceId: 'server', name: 'Server', action: 'update', startedAt: 100,
   fromVersion: '1.0.0', targetVersion: '1.1.0', fromStartedAt: 10, sawTransition: false,
@@ -22,4 +22,12 @@ test('restart completion uses the server process identity without requiring a mi
   assert.equal(serverOperationResult(restart, {status:'ready',serverStartedAt:10}), 'pending')
   assert.equal(serverOperationResult(restart, {status:'ready',serverStartedAt:11}), 'complete')
   assert.equal(serverOperationResult({...restart,sawTransition:true}, {status:'ready'}), 'complete')
+})
+test('the client follow-up is not on the server restart clock', () => {
+  const late = operation.startedAt + SERVER_RESTART_GRACE_MS + 1
+  assert.equal(serverOperationExpired(operation, late), true)
+  assert.equal(serverOperationExpired({...operation,serverFinished:true}, late * 10), false)
+  const checked = {...operation, serverFinished:true, machineCheckedAt: late}
+  assert.equal(serverOperationExpired(checked, late + MACHINE_FOLLOW_UP_MS), false)
+  assert.equal(serverOperationExpired(checked, late + MACHINE_FOLLOW_UP_MS + 1), true)
 })

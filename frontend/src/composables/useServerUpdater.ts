@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { makeInstallKey } from '../utils/installKey'
-import { SERVER_RESTART_GRACE_MS, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
+import { SERVER_RESTART_GRACE_MS, serverOperationExpired, serverOperationResult, type ServerOperation } from '../utils/serverUpdateState'
 import { COMMAND_BURST_MS, createStatusPoller, type StatusPoller } from '../utils/serverStatusPoller'
 import { SERVER_UPDATE_CHECK_STARTED } from '../utils/serverUpdateCheck'
 import { THIS_MACHINE_LABEL, useMultiDevice } from './useMultiDevice'
@@ -38,7 +38,10 @@ let stopWatches: Array<() => void> = []
 const device = useMultiDevice()
 const app = useAppUpdater()
 const { privacyLockdownActive } = usePrivacyLockdown()
-const pending = computed(() => operation.value?.deviceId === device.activeDeviceId.value ? operation.value : null)
+// An expired operation is hidden but kept until a status response reconciles
+// it, so a server that finished while this client was suspended still counts.
+const pending = computed(() => operation.value?.deviceId === device.activeDeviceId.value
+  && !serverOperationExpired(operation.value, now.value) ? operation.value : null)
 const connected = computed(() => device.connectionState.value === 'ready')
 const visibleServer = computed(() => connected.value ? server.value : null)
 const restartExpected = computed(() => Boolean(pending.value && !pending.value.serverFinished
@@ -83,13 +86,18 @@ async function resumeMachine(op: ServerOperation) {
   if (!app.loadedPrefs.value || app.isDownloading.value || app.isChecking.value || checkingMachine) return
   if (app.currentVersion.value === op.machineTarget) { clearOperation(); return }
   if (machineAvailable.value) { clearOperation(); await updateMachine(); return }
+  // Check once; another window may own the updater and report back later,
+  // so the operation waits a bounded time for the result before expiring.
+  if (op.machineCheckedAt !== undefined) return
+  op.machineCheckedAt = Date.now()
+  persist()
   checkingMachine = true
   try { await app.checkForUpdates('manual') } finally { checkingMachine = false }
+  if (operation.value === op && machineAvailable.value) { clearOperation(); await updateMachine() }
 }
 
 async function refresh() {
   now.value = Date.now()
-  if (pending.value && now.value - pending.value.startedAt > SERVER_RESTART_GRACE_MS) clearOperation()
   if (polling || !connected.value || privacyLockdownActive.value) return
   polling = true
   const id = device.activeDeviceId.value
@@ -101,7 +109,9 @@ async function refresh() {
     const data: ServerStatus = await response.json()
     if (id !== device.activeDeviceId.value) return
     server.value = data.headless ? data : null
-    const op = pending.value
+    // Reconcile even an expired operation: the server may have finished it
+    // while this client was suspended.
+    const op = operation.value?.deviceId === id ? operation.value : null
     if (!op || !data.headless) return
     if (op.serverFinished) { await resumeMachine(op); return }
     if (!['ready', 'error'].includes(data.status)) { op.sawTransition = true; persist(); return }
@@ -117,7 +127,12 @@ async function refresh() {
       else clearOperation()
     } else if (result === 'unchanged') clearOperation() // The ordinary update pill remains available.
   } catch { /* Status is unavailable during restarts; keep the operation across reconnects. */ }
-  finally { polling = false }
+  finally {
+    polling = false
+    // Only give up after a status attempt could not confirm the operation.
+    now.value = Date.now()
+    if (operation.value?.deviceId === id && serverOperationExpired(operation.value, now.value)) clearOperation()
+  }
 }
 
 async function act(action: 'check' | 'update' | 'restart', updateLocal = false) {
@@ -159,7 +174,7 @@ export function startServerUpdater() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null')
     if (saved && ['update', 'restart'].includes(saved.action) && typeof saved.deviceId === 'string'
-      && typeof saved.startedAt === 'number' && Date.now() - saved.startedAt < SERVER_RESTART_GRACE_MS) operation.value = saved
+      && typeof saved.startedAt === 'number' && !serverOperationExpired(saved, Date.now())) operation.value = saved
     else sessionStorage.removeItem(KEY)
   } catch { /* Ignore invalid session state. */ }
   // Poll quickly only while an operation is in flight; otherwise rely on

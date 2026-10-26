@@ -10,9 +10,27 @@ export interface ServerOperation {
   updateMachine: boolean
   machineTarget: string | null
   serverFinished?: boolean
+  /** When the client follow-up first checked for its own update. */
+  machineCheckedAt?: number
 }
 
 export const SERVER_RESTART_GRACE_MS = 10 * 60_000
+
+/** How long the client follow-up waits for its own update check to find something. */
+export const MACHINE_FOLLOW_UP_MS = 2 * 60_000
+
+/**
+ * An unconfirmed server operation stops being shown after the grace period.
+ * Once the server stage has finished, the client follow-up is not on that
+ * clock (the client may have been suspended through it): it ends when the
+ * client update starts, or a while after the client's own check found nothing.
+ */
+export function serverOperationExpired(operation: ServerOperation, now: number): boolean {
+  if (operation.serverFinished) {
+    return operation.machineCheckedAt !== undefined && now - operation.machineCheckedAt > MACHINE_FOLLOW_UP_MS
+  }
+  return now - operation.startedAt > SERVER_RESTART_GRACE_MS
+}
 
 /** Only server-reported state confirms completion; a disconnect is not failure. */
 export function serverOperationResult(operation: ServerOperation, server: {

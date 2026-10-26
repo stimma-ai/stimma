@@ -157,3 +157,43 @@ test('a client update check makes the status view follow the server check', asyn
   await advance(page, 5 * 60_000)
   assert.equal(server.statusRequests, quiet)
 })
+
+test('an update-all suspended past the restart grace still finishes both stages', async t => {
+  const { page, server, snapshot } = await fixture(t)
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  assert.equal((await snapshot()).pending?.updateMachine, true)
+  await advance(page, 4_000)
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
+  // The server finishes while this client is minimized for eleven minutes.
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await advance(page, 11 * 60_000)
+  const before = server.statusRequests
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
+  await advance(page, 1_000)
+  assert.equal(server.statusRequests, before + 1)
+  const resumed = await snapshot()
+  assert.equal(resumed.version, '1.1.0')
+  assert.equal(resumed.pending?.serverFinished, true, 'the client follow-up survives the suspension')
+
+  // Client stage: its own check finds nothing here, so the operation ends.
+  await page.evaluate(() => window.serverUpdater.clientUpdaterReady())
+  await advance(page, 4_000)
+  assert.equal(typeof (await snapshot()).pending?.machineCheckedAt, 'number')
+  await advance(page, 3 * 60_000)
+  assert.equal((await snapshot()).pending, null)
+})
+
+test('an unconfirmed operation past the grace expires only after a status answer', async t => {
+  const { page, server, snapshot } = await fixture(t)
+  await page.evaluate(() => window.serverUpdater.act('update'))
+  await advance(page, 4_000)
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false })))
+  await advance(page, 11 * 60_000)
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true })))
+  await advance(page, 1_000)
+  const after = await snapshot()
+  assert.equal(after.pending, null)
+  assert.equal(after.version, '1.0.0')
+  assert.equal(after.busy, false)
+  assert.ok(server.commands.length === 1)
+})
