@@ -1567,6 +1567,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
+    # Negotiated gzip for the remote listener only. Added first so it is the
+    # innermost middleware: the BaseHTTPMiddleware layers below re-emit every
+    # body as a stream, and only here is a complete JSON body still whole.
+    from multi_device.compression import JsonCompression
+    app.add_middleware(JsonCompression)
+
     # Request logging + slowtrace middleware
     app.add_middleware(SlowtraceMiddleware)
 
