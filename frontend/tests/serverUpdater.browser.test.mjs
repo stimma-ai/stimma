@@ -227,6 +227,25 @@ test('an update-all keeps being tracked while minimized and runs both stages', a
   assert.equal(server.statusRequests, quiet, 'idle and minimized: no polling')
 })
 
+test('the updater-owning window finishes update-all recovery and keeps polling after its companion server check', async t => {
+  // The client stage runs here, and its companion server check succeeds (the
+  // server is headless), which asks the status view for a follow-up read
+  // while the recovering status read is still in progress.
+  const { page, server, snapshot } = await fixture(t, { desktop: true })
+  await page.evaluate(() => { window.serverUpdater.becomeUpdaterOwner(); window.serverUpdater.clientUpdaterReady() })
+  await page.evaluate(() => window.serverUpdater.act('update', true))
+  server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
+  await advance(page, 4_000)
+  assert.equal((await snapshot()).pending?.serverFinished, true, 'server stage confirmed')
+  assert.ok(server.commands.includes('check'), 'the client stage ran its companion server check')
+  // Status reads still complete afterwards: nothing waits on itself.
+  const after = server.statusRequests
+  await advance(page, 9_000)
+  assert.ok(server.statusRequests > after, 'polling continues after the client stage')
+  await advance(page, 11 * 60_000)
+  assert.equal((await snapshot()).pending, null, 'the operation resolves')
+})
+
 test('transport failures past the grace do not discard update-all intent', async t => {
   const { page, server, snapshot } = await fixture(t)
   await page.evaluate(() => window.serverUpdater.act('update', true))

@@ -1,5 +1,5 @@
 import { initApiConfig } from '../../src/apiConfig'
-import { useAppUpdater } from '../../src/composables/useAppUpdater'
+import { markUpdaterOwner, useAppUpdater } from '../../src/composables/useAppUpdater'
 import { useMultiDevice } from '../../src/composables/useMultiDevice'
 import { startServerUpdater, stopServerUpdater, useServerUpdater } from '../../src/composables/useServerUpdater'
 
@@ -16,6 +16,8 @@ Object.assign(window, {
     stop: stopServerUpdater,
     // The browser has no client updater; let the follow-up stage run its check.
     clientUpdaterReady() { useAppUpdater().loadedPrefs.value = true },
+    // This window runs the client update loop itself (no forwarding).
+    becomeUpdaterOwner: markUpdaterOwner,
     act: updater.act,
     snapshot: () => ({
       pending: updater.pending.value ? { ...updater.pending.value } : null,

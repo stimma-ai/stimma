@@ -97,6 +97,10 @@ async function refresh(): Promise<boolean | undefined> {
   polling = true
   const id = device.activeDeviceId.value
   let answered = false
+  // The client stage runs after this read settles, not inside it: its update
+  // check asks the status view for a follow-up read and waits for it, which
+  // must not be this read waiting on itself.
+  let resume: ServerOperation | null = null
   try {
     const response = await fetch(`${getApiBase()}/headless/status`, { signal: AbortSignal.timeout(10_000) })
     if (id !== device.activeDeviceId.value) return
@@ -110,7 +114,7 @@ async function refresh(): Promise<boolean | undefined> {
     // while this client was suspended.
     const op = operation.value?.deviceId === id ? operation.value : null
     if (!op || !data.headless) return
-    if (op.serverFinished) { await resumeMachine(op); return }
+    if (op.serverFinished) { resume = op; return }
     if (!['ready', 'error'].includes(data.status)) { op.sawTransition = true; persist(); return }
     if (data.status === 'error') {
       // A real supervisor error is actionable. A network interruption is not.
@@ -120,7 +124,7 @@ async function refresh(): Promise<boolean | undefined> {
     }
     const result = serverOperationResult(op, data)
     if (result === 'complete') {
-      if (op.updateMachine) { op.serverFinished = true; op.serverFinishedAt = Date.now(); persist(); await resumeMachine(op) }
+      if (op.updateMachine) { op.serverFinished = true; op.serverFinishedAt = Date.now(); persist(); resume = op }
       else clearOperation()
     } else if (result === 'unchanged') clearOperation() // The ordinary update pill remains available.
   } catch {
@@ -133,6 +137,10 @@ async function refresh(): Promise<boolean | undefined> {
     // resuming, network down) proves nothing about how the operation ended.
     now.value = Date.now()
     if (answered && operation.value?.deviceId === id && serverOperationExpired(operation.value, now.value)) clearOperation()
+    if (resume) {
+      const op = resume
+      void Promise.resolve().then(() => resumeMachine(op))
+    }
   }
 }
 
