@@ -5,6 +5,7 @@
 import { computed, ref, readonly } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import { getCurrentProfileId } from './useProfile'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 import { sortModelsByBrand } from '../utils/modelVendors'
 import {
@@ -34,10 +35,36 @@ const lastFetchTime = ref(0)
 // window focus) can re-fetch the same scope instead of clobbering it with the
 // global list.
 const lastProjectId = ref(null)
+// Server + profile + project of the cached catalog. Models and defaults are
+// per profile, so neither the cache nor an in-flight read may cross profiles.
+let lastScope = null
 let fetchVersion = 0
 // The request in flight, so callers asking for the same scope at once (a
 // screen's mount and activation, several pickers) share one read.
 let inflight = null
+
+function modelScope(projectId) {
+  return JSON.stringify([getApiBase() ?? null, getCurrentProfileId() ?? null, projectId ?? null])
+}
+
+// A profile switch makes the catalog and any outstanding read belong to the
+// previous profile: drop both so nothing from it lands under the new one.
+function resetForProfileChange() {
+  fetchVersion++
+  inflight = null
+  lastScope = null
+  lastFetchTime.value = 0
+  loading.value = false
+  models.value = []
+  globalDefault.value = 'auto'
+  roleDefaults.value = {}
+  reasoningLevels.value = {}
+  cloudStatus.value = 'unknown'
+  cloudMessage.value = ''
+  llmConfigured.value = null
+  error.value = null
+}
+if (typeof window !== 'undefined') window.addEventListener('profile-changed', resetForProfileChange)
 
 const LEGACY_MODEL_SLUGS = {
   'agent-max': 'stimma:minimax-m3',
@@ -102,22 +129,24 @@ const selectableModels = computed(() => visibleModels.value.filter(
 async function fetchModels(projectId = null, force = false) {
   const now = Date.now()
   const requestedProjectId = projectId ?? null
+  const scope = modelScope(requestedProjectId)
   if (
     !force
     && models.value.length > 0
-    && lastProjectId.value === requestedProjectId
+    && lastScope === scope
     && now - lastFetchTime.value < CACHE_TTL_MS
   ) {
     return
   }
-  if (!force && inflight && inflight.projectId === requestedProjectId) return inflight.promise
+  if (!force && inflight && inflight.scope === scope) return inflight.promise
 
   lastFetchTime.value = 0
   const version = ++fetchVersion
   lastProjectId.value = requestedProjectId
+  lastScope = scope
   loading.value = true
   const promise = loadModels(projectId, version, now)
-  inflight = { projectId: requestedProjectId, promise }
+  inflight = { scope, promise }
   try {
     await promise
   } finally {

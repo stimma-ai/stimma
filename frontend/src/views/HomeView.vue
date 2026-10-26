@@ -119,12 +119,9 @@
         <!-- Content sections -->
         <div ref="contentRef" class="w-full max-w-[960px] pb-12 compact:pb-20 space-y-10" :data-recents-state="recentsState">
 
-          <p v-if="recentsState === 'error' && jumpBackIn.length === 0 && recentMedia.length === 0" class="text-center text-xs text-content-muted">
-            Couldn't load your recent work.
-            <button
-              @click="refreshHome({ force: true })"
-              class="font-medium text-accent-hi hover:text-accent transition-colors coarse:inline-flex coarse:min-h-11 coarse:items-center"
-            >Try again</button>
+          <p v-if="failedRecentsLabel" class="text-center text-xs text-content-muted" data-recents-error>
+            Couldn't load recent {{ failedRecentsLabel }}.
+            <Button variant="link" size="sm" class="coarse:min-h-11" @click="refreshHome({ force: true })">Try again</Button>
           </p>
 
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
@@ -326,6 +323,8 @@ import { createScopedLoad, scopeKey } from '../utils/scopedLoad'
 import { getBackendOrigin } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { useWebSocket } from '../composables/useWebSocket'
+import { PROJECT_ASSETS_CHANGED_EVENT } from '../utils/projectScope'
+import Button from '../components/ui/Button.vue'
 
 const { allowsAutofocus } = useViewport()
 
@@ -375,8 +374,19 @@ const boardDetails = ref(new Map())
 // 'loading' until the recent chats/boards/flows/assets lists settle, then
 // 'ready', or 'error' when any of them failed. Artwork is not part of it.
 const recentsState = ref('loading')
-// The model check decides which hero (composer or tool grid) to show.
+// Which recents lists failed in the last load ('chats', 'assets', ...). Shown
+// as a quiet retry line next to whatever did load.
+const failedRecents = ref([])
+const failedRecentsLabel = computed(() => {
+  const names = failedRecents.value
+  if (names.length <= 1) return names[0] || ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+})
+// The model check decides which hero (composer or tool grid) to show. The
+// page is revealed when it settles, when recents settle, or after a short
+// wait, whichever is first; until the check answers, the composer shows.
 const heroReady = ref(false)
+const HERO_WAIT_MS = 1500
 const dragOverBoardId = ref(null)
 const contentWidth = ref(960)
 
@@ -998,13 +1008,21 @@ watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 // reload live while it is on screen.
 const HOME_FRESH_MS = 30_000
 const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS })
+// Every server broadcast that can change a chat preview (name, count,
+// snippet, cover), a board or flow card, or the recent-assets strip.
 const HOME_CHANGE_EVENTS = [
-  'chat_created', 'chat_updated', 'chat_deleted', 'chat_restored', 'chat_item_created',
+  'chat_created', 'chat_updated', 'chat_deleted', 'chat_restored', 'chat_cleared',
+  'chat_item_created', 'chat_item_updated', 'chat_item_deleted',
   'board_created', 'board_updated', 'board_deleted', 'board_restored', 'board_items_changed',
+  'board_section_created', 'board_section_updated', 'board_section_deleted',
   'flow_created', 'flow_updated', 'flow_deleted', 'flow_restored', 'flow_equation_updated',
   'asset_created', 'asset_deleted', 'asset_trashed', 'assets_trashed', 'assets_restored',
-  'assets_permanently_deleted', 'asset_current_revision_changed', 'media_added', 'media_restored',
+  'assets_permanently_deleted', 'asset_identities_deleted', 'asset_current_revision_changed', 'assets_updated',
+  'media_added', 'media_updated', 'media_restored', 'media_bulk_restored', 'media_permanently_deleted',
+  'project_assets_changed', 'trash_emptied',
 ]
+// Changes this window makes itself, announced ahead of the server broadcast.
+const HOME_LOCAL_CHANGE_EVENTS = [PROJECT_ASSETS_CHANGED_EVENT]
 
 function homeScope() {
   return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId(), projectId.value)
@@ -1018,6 +1036,7 @@ function resetHomeData() {
   flowOutputMedia.value = new Map()
   boardDetails.value = new Map()
   recentsState.value = 'loading'
+  failedRecents.value = []
 }
 
 function refreshHome({ force = false } = {}) {
@@ -1027,13 +1046,20 @@ function refreshHome({ force = false } = {}) {
   return homeLoads.request(key, async (isCurrent) => {
     if (recentsState.value === 'error') recentsState.value = 'loading'
     const tools = loadTools()
-    const results = await Promise.all([
-      loadRecentChats(isCurrent), loadRecentMedia(isCurrent), loadRecentBoards(isCurrent), loadRecentFlows(isCurrent),
-    ])
-    const ok = results.every(Boolean)
-    if (isCurrent()) recentsState.value = ok ? 'ready' : 'error'
+    const sections = [
+      ['chats', loadRecentChats(isCurrent)],
+      ['assets', loadRecentMedia(isCurrent)],
+      ['boards', loadRecentBoards(isCurrent)],
+      ['flows', loadRecentFlows(isCurrent)],
+    ]
+    const results = await Promise.all(sections.map(([, loaded]) => loaded))
+    const failed = sections.filter((_, index) => !results[index]).map(([name]) => name)
+    if (isCurrent()) {
+      failedRecents.value = failed
+      recentsState.value = failed.length === 0 ? 'ready' : 'error'
+    }
     await tools
-    return ok
+    return failed.length === 0
   }, { force })
 }
 
@@ -1044,6 +1070,20 @@ async function checkModels() {
     heroReady.value = true
   }
 }
+
+// Bound the wait for the model check: a stalled request must not keep the
+// page hidden once there is something to show.
+let heroTimer = null
+function revealHeroSoon() {
+  if (heroReady.value || heroTimer) return
+  heroTimer = setTimeout(() => {
+    heroTimer = null
+    heroReady.value = true
+  }, HERO_WAIT_MS)
+}
+watch(recentsState, (state) => {
+  if (state !== 'loading') heroReady.value = true
+})
 
 // Providers connect and tools appear asynchronously (login, funding, first
 // sync) — often after this screen has already rendered behind the setup
@@ -1062,13 +1102,24 @@ function activate() {
   setupResizeObserver()
   void refreshHome()
   void checkModels()
+  revealHeroSoon()
   checkPendingMedia()
   if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
 }
 
 function handleProfileChanged() {
-  if (active) void refreshHome()
+  if (!active) return
+  void refreshHome()
+  void checkModels()
 }
+
+function invalidateHome() {
+  homeLoads.invalidate()
+}
+
+// Events can be missed only while the socket is down, so a reconnect after a
+// disconnect invalidates; the first connect does not.
+let socketWasDown = false
 
 watch(projectId, () => {
   if (!active) return
@@ -1080,15 +1131,21 @@ onMounted(() => {
   activate()
   unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
   for (const event of HOME_CHANGE_EVENTS) {
-    unsubscribeFromServerEvents.push(onServerEvent(event, () => homeLoads.invalidate()))
+    unsubscribeFromServerEvents.push(onServerEvent(event, invalidateHome))
   }
-  // A reconnect may have missed change events. Retry right away only when
-  // the last load failed; otherwise the next visit reloads.
+  unsubscribeFromServerEvents.push(onServerEvent('websocket_disconnected', () => {
+    socketWasDown = true
+    invalidateHome()
+  }))
+  // Retry right away only when the last load failed; otherwise the next
+  // visit reloads.
   unsubscribeFromServerEvents.push(onServerEvent('websocket_reconnected', () => {
-    homeLoads.invalidate()
+    if (socketWasDown) invalidateHome()
+    socketWasDown = false
     if (active && recentsState.value === 'error') void refreshHome()
   }))
-  window.addEventListener('stimma:transport-resumed', homeLoads.invalidate)
+  for (const event of HOME_LOCAL_CHANGE_EVENTS) window.addEventListener(event, invalidateHome)
+  window.addEventListener('stimma:transport-resumed', invalidateHome)
   window.addEventListener('profile-changed', handleProfileChanged)
 })
 
@@ -1106,7 +1163,10 @@ onUnmounted(() => {
     unsubscribeFromProviderChanges = null
   }
   for (const unsubscribe of unsubscribeFromServerEvents.splice(0)) unsubscribe()
-  window.removeEventListener('stimma:transport-resumed', homeLoads.invalidate)
+  for (const event of HOME_LOCAL_CHANGE_EVENTS) window.removeEventListener(event, invalidateHome)
+  window.removeEventListener('stimma:transport-resumed', invalidateHome)
+  if (heroTimer) clearTimeout(heroTimer)
+  heroTimer = null
   window.removeEventListener('profile-changed', handleProfileChanged)
 })
 </script>
