@@ -102,18 +102,19 @@ export function createStatusPoller(options: {
       reschedule()
     })
   }
-  function setCondition(update: () => void) {
+  function setCondition(returned: boolean, update: () => void) {
     const wasSuspended = suspended()
     update()
     if (suspended()) { clear(); return }
-    // One catch-up refresh on return; the regular schedule follows it.
-    if (wasSuspended) wake()
+    // One refresh on return to the foreground or network (also cutting short
+    // any failure backoff of an active operation); the schedule follows it.
+    if (wasSuspended || returned) wake()
   }
   return {
     wake,
     reschedule,
-    setForeground: value => setCondition(() => { foreground = value }),
-    setOnline: value => setCondition(() => { online = value }),
+    setForeground: value => setCondition(!foreground && value, () => { foreground = value }),
+    setOnline: value => setCondition(!online && value, () => { online = value }),
     stop() { stopped = true; clear() },
   }
 }

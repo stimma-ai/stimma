@@ -259,3 +259,29 @@ test('the poller backs off while the server is unreachable and resets on an answ
   assert.equal(at.length, before + 2, 'back to the 3 s cadence after an answer')
   poller.stop()
 })
+
+for (const [name, leave, back] of [
+  ['foreground', (p: ReturnType<typeof createStatusPoller>) => p.setForeground(false), (p: ReturnType<typeof createStatusPoller>) => p.setForeground(true)],
+  ['online', (p: ReturnType<typeof createStatusPoller>) => p.setOnline(false), (p: ReturnType<typeof createStatusPoller>) => p.setOnline(true)],
+] as const) {
+  test(`returning ${name} cuts short a capped backoff for an active operation`, async () => {
+    const clock = virtualClock()
+    let calls = 0
+    const poller = createStatusPoller({ isActive: () => true, timers: clock.timers, random: () => 0.5,
+      refresh: async () => { calls++; return false } })
+    poller.wake()
+    await clock.advance(200_000) // Failing long enough to reach the 60 s cap.
+    assert.equal(calls, 6)
+    await clock.advance(1_000)
+    leave(poller)
+    await clock.advance(1_000)
+    assert.equal(calls, 6, 'leaving does not itself poll')
+    back(poller)
+    await clock.flush()
+    assert.equal(calls, 7, 'returning polls immediately instead of waiting out the backoff')
+    back(poller) // A repeated signal without a transition does not poll again.
+    await clock.flush()
+    assert.equal(calls, 7)
+    poller.stop()
+  })
+}
