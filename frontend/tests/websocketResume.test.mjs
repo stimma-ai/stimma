@@ -184,3 +184,17 @@ test('a browser on another machine is a remote connection even when its server i
   local.sockets.at(-1).drop()
   assert.deepEqual(local.clock.pending(), [500])
 })
+
+test('without a recovery machine, transport-resumed still replaces the socket and counts as a gap', () => {
+  const { api, sockets, window } = websocketHarness()
+  let gaps = 0, reconnects = 0
+  api.on('websocket_disconnected', () => gaps++)
+  api.on('websocket_reconnected', () => reconnects++)
+  sockets[0].open()
+  window.dispatchEvent(new Event('stimma:transport-resumed'))
+  assert.equal(sockets[0].closed, true)
+  assert.equal(sockets.length, 2)
+  assert.equal(gaps, 1)
+  sockets[1].open()
+  assert.equal(reconnects, 2)
+})

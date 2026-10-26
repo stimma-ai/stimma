@@ -444,6 +444,11 @@ export function useWebSocket() {
       if (wasConnected) handleMessage({ event: 'websocket_disconnected', data: {} })
       connect()
     })
+    // Off the phone shells there is no recovery machine; a transport-resumed
+    // event (an embedding shell resuming its transport) still replaces the socket.
+    if (!mobileRecoveryEnabled && typeof window !== 'undefined') {
+      window.addEventListener('stimma:transport-resumed', replaceAfterResume)
+    }
     // Admitted again without a recovery to announce (e.g. an older shell's
     // connection state): reconnect a dropped socket, keep a live one.
     stopTransportAdmit = onMobileTransportAdmit(() => { if (!isLive(ws.value) && !reconnectTimeout) connect() })
@@ -521,10 +526,20 @@ export function useWebSocket() {
     off,
     send,
     wake,
+    /** The socket was replaced without a close event: events from the gap may be missing. */
+    notifyGap: () => handleMessage({ event: 'websocket_disconnected', data: {} }),
   }
 }
 
 let stopTransportReady = () => {}
+
+function replaceAfterResume() {
+  const socket = useWebSocket()
+  const wasConnected = socket.connected.value
+  socket.disconnect()
+  if (wasConnected) socket.notifyGap()
+  socket.wake()
+}
 let stopTransportAdmit = () => {}
 
 function onVisible() {
@@ -553,6 +568,7 @@ if (import.meta.hot) {
 
   import.meta.hot.dispose((data) => {
     stopTransportReady()
+    window.removeEventListener('stimma:transport-resumed', replaceAfterResume)
     stopTransportAdmit()
     window.removeEventListener('online', wake)
     document.removeEventListener('visibilitychange', onVisible)

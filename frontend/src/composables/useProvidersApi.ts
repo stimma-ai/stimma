@@ -10,6 +10,7 @@ import { ref, computed, toRaw } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { toolProviderDisplayName } from '../utils/stimmaCloud'
 import { useWebSocket } from './useWebSocket'
+import { onMobileTransportReady } from './useMobileRecovery.js'
 import { getCurrentProfileId } from './useProfile'
 import { getReadDeadlineMs } from '../utils/readDeadline'
 
@@ -476,6 +477,9 @@ window.addEventListener('stimma:transport-resumed', () => {
   console.log('[ProvidersApi] Transport resumed, clearing tools cache')
   clearToolsCache()
 })
+// Phone shells that publish recovery phases announce one ready per recovery
+// (whether or not they also send transport-resumed for older packages).
+onMobileTransportReady(() => clearToolsCache())
 
 export function useProvidersApi() {
   // The socket is opened by its first user; install the change bridge then
