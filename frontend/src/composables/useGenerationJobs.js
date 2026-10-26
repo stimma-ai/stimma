@@ -318,7 +318,12 @@ export function useGenerationJobs(options = {}) {
   let dismissFailuresOnLoad = false
 
   // Load jobs from API
-  async function loadJobs(quiet = false) {
+  /**
+   * `share` names a refresh many strips start together (one reconnect): they
+   * join one request. Any other read, such as a confirmation reload meant to
+   * supersede a read already in flight, always goes to the network.
+   */
+  async function loadJobs(quiet = false, { share = null } = {}) {
     const sequence = ++jobLoadSequence
     const profileId = getCurrentProfileId()
     // A full load hides failures from previous sessions. A quiet reload that
@@ -344,8 +349,8 @@ export function useGenerationJobs(options = {}) {
         url += `&generator_instance_id=${generatorInstanceId}`
       }
 
-      // Every job strip refreshes on the same reconnect; strips reading the same list share one request.
-      const data = await sharedRead(`generation-jobs:${profileId}:${url}`, async () => (await axios.get(url)).data)
+      const read = async () => (await axios.get(url)).data
+      const data = share ? await sharedRead(`generation-jobs:${share}:${profileId}:${url}`, read) : await read()
       if (sequence !== jobLoadSequence || profileId !== getCurrentProfileId()) return
       let jobsList = structuredClone(data?.jobs || [])
 
@@ -828,10 +833,11 @@ export function useGenerationJobs(options = {}) {
   }
 
   // Restore in-flight/paused chain runs after a reload
-  async function loadChainRuns() {
+  async function loadChainRuns({ share = null } = {}) {
     try {
       const url = `${getAPIBase()}/postprocessing/runs?status=running,paused`
-      const data = await sharedRead(`chain-runs:${getCurrentProfileId()}:${url}`, async () => (await axios.get(url)).data)
+      const read = async () => (await axios.get(url)).data
+      const data = share ? await sharedRead(`chain-runs:${share}:${getCurrentProfileId()}:${url}`, read) : await read()
       for (const run of structuredClone(data?.runs || [])) {
         trackChainRun(run)
       }
@@ -1233,7 +1239,11 @@ export function useGenerationJobs(options = {}) {
 
     // Reconcile with the server after every reconnect: phones retain remote
     // work through suspension, and desktop dropped its running jobs on disconnect.
-    unsubscribers.push(onWebSocketEvent('websocket_reconnected', () => loadJobs(true).then(() => loadChainRuns())))
+    // Every job strip refreshes on the same reconnect; strips reading the same list share one request.
+    unsubscribers.push(onWebSocketEvent('websocket_reconnected', data => {
+      const share = `reconnect-${data?.generation ?? 0}`
+      return loadJobs(true, { share }).then(() => loadChainRuns({ share }))
+    }))
     unsubscribers.push(onWebSocketEvent('websocket_disconnected', () => {
       if (mobileRecoveryEnabled) return
       const deadStatuses = ['queued', 'assigned', 'processing']
