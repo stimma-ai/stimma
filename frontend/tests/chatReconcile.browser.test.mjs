@@ -462,15 +462,20 @@ test('reconciling 2,000 items stays cheap on a throttled CPU', async t => {
   assert.ok(timings.unchanged.ms < 250 && timings.oneEdit.ms < 250, JSON.stringify(timings))
 })
 
-test('the open chat is read only once a scoped server follows it, and a reconnect restores that', async t => {
+
+// A current server: applies the connect-time scope, echoes it in the
+// welcome, and acknowledges scope changes, holding acks while `holdAcks`.
+async function openScopedChat(t, { holdAcks = false } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const server = { urls: [], socket: null, scopes: [], holdAck: true, pendingAck: null, itemReads: 0 }
-  // A current server: applies the connect-time scope, echoes it in the
-  // welcome, and acknowledges scope changes (the first one held).
+  const server = { urls: [], socket: null, scopes: [], holdAcks, heldAcks: [], reads: [], items: { 1: [user(1), user(2), user(3)], 2: [user(50)] } }
+  server.releaseAcks = () => {
+    server.holdAcks = false
+    for (const ack of server.heldAcks.splice(0)) ack()
+  }
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
     const url = new URL(ws.url())
     server.urls.push(url)
@@ -483,7 +488,7 @@ test('the open chat is read only once a scoped server follows it, and a reconnec
       if (event !== 'realtime_scope') return
       server.scopes.push(data)
       const ack = () => ws.send(JSON.stringify({ event: 'realtime_scope_applied', data }))
-      if (server.holdAck) server.pendingAck = ack
+      if (server.holdAcks) server.heldAcks.push(ack)
       else ack()
     })
   })
@@ -491,10 +496,12 @@ test('the open chat is read only once a scoped server follows it, and a reconnec
     const request = route.request()
     const path = new URL(request.url()).pathname
     if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="app" style="height:650px;display:flex;flex-direction:column"></div></body></html>' })
-    if (/^\/api\/chats\/\d+$/.test(path)) return route.fulfill({ json: { id: 1, name: 'Scoped test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
-    if (path.endsWith('/items') && request.method() === 'GET') {
-      server.itemReads++
-      return route.fulfill({ json: { items: [user(3), user(2), user(1)], has_more: false } })
+    const chat = path.match(/^\/api\/chats\/(\d+)$/)
+    if (chat) return route.fulfill({ json: { id: Number(chat[1]), name: 'Scoped test', model_slug: 'test', generation_settings: { auto_delete_duration: 'never' } } })
+    const items = path.match(/^\/api\/chats\/(\d+)\/items$/)
+    if (items && request.method() === 'GET') {
+      server.reads.push(Number(items[1]))
+      return route.fulfill({ json: { items: [...server.items[items[1]]].reverse(), has_more: false } })
     }
     if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
     if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
@@ -502,29 +509,74 @@ test('the open chat is read only once a scoped server follows it, and a reconnec
   })
   await page.goto('http://chat-reconcile.test/')
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
+  return {
+    page, server, errors,
+    reads: chatId => server.reads.filter(id => id === chatId).length,
+    ids: () => page.evaluate(() => window.reconcileView.items.value.map(i => i.id)),
+  }
+}
 
+test('the open chat is read only once a scoped server follows it, and a reconnect restores that', async t => {
+  const { page, server, errors, reads, ids } = await openScopedChat(t, { holdAcks: true })
   // The open chat is followed; its transcript is not read until the server
   // confirms, so nothing broadcast in between can be missed.
   await expect.poll(() => server.scopes.length).toBe(1)
   assert.deepEqual(server.scopes[0].topics, ['chat:1'])
   assert.equal(server.urls[0].searchParams.get('realtime'), '1')
   await page.waitForTimeout(300)
-  assert.equal(server.itemReads, 0)
-  server.holdAck = false
-  server.pendingAck()
-  await expect.poll(() => server.itemReads).toBe(1)
-  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.map(i => i.id))).toEqual([1, 2, 3])
+  assert.equal(reads(1), 0)
+  server.releaseAcks()
+  await expect.poll(() => reads(1)).toBe(1)
+  await expect.poll(ids).toEqual([1, 2, 3])
 
   // Detail for the open chat is applied live.
   server.socket.send(JSON.stringify({ event: 'chat_item_created', data: { chat_id: 1, item: user(4) } }))
-  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.length)).toBe(4)
+  await expect.poll(async () => (await ids()).length).toBe(4)
 
   // A reconnect carries the subscription in its URL and resynchronizes at
   // once, without another scope round trip.
   server.socket.close()
   await expect.poll(() => server.urls.length).toBe(2)
   assert.deepEqual(server.urls[1].searchParams.getAll('topic'), ['chat:1'])
-  await expect.poll(() => server.itemReads).toBe(2)
+  await expect.poll(() => reads(1)).toBe(2)
   assert.equal(server.scopes.length, 1)
+  assert.deepEqual(errors, [])
+})
+
+test('returning to a chat before its re-subscription is acknowledged waits for that acknowledgement', async t => {
+  const { page, server, errors, reads, ids } = await openScopedChat(t)
+  await expect.poll(ids).toEqual([1, 2, 3])
+  assert.equal(reads(1), 1)
+
+  // Leave chat 1 and come straight back while the server sits on the acks.
+  // The last acknowledged scope still lists chat 1, but its unsubscribe and
+  // resubscribe are in flight: reading now could miss its changes.
+  server.holdAcks = true
+  await page.evaluate(() => window.chatRouter.push('/chat/2'))
+  await expect.poll(() => server.scopes.at(-1).topics).toEqual(['chat:2'])
+  await page.evaluate(() => window.chatRouter.push('/chat/1'))
+  await expect.poll(() => server.scopes.at(-1).topics).toEqual(['chat:1'])
+  await page.waitForTimeout(300)
+  assert.equal(reads(1), 1, 'no read of chat 1 on a stale acknowledgement')
+
+  server.releaseAcks()
+  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(ids).toEqual([1, 2, 3])
+  assert.deepEqual(errors, [])
+})
+
+test('a slow acknowledgement reads provisionally, then reconciles when the server confirms', async t => {
+  const { server, errors, reads, ids } = await openScopedChat(t, { holdAcks: true })
+  await expect.poll(() => server.scopes.length).toBe(1)
+  // The wait gives up after its bound and shows the transcript anyway.
+  await expect.poll(() => reads(1), { timeout: 5000 }).toBe(1)
+  await expect.poll(ids).toEqual([1, 2, 3])
+
+  // Not yet followed, so the server sends nothing when item 4 is created.
+  server.items[1] = [user(1), user(2), user(3), user(4)]
+  server.releaseAcks()
+  // Confirmation triggers a reconcile that picks up what was missed.
+  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(ids).toEqual([1, 2, 3, 4])
   assert.deepEqual(errors, [])
 })

@@ -6,11 +6,13 @@ import { realtimeScope } from './realtimeScope.js'
 import { useProfile } from './useProfile'
 import { mobilePlatform } from '../desktop/mobileNative.ts'
 
-// A phone on a cellular link gets at most this many preview images per second
-// per job, and none larger than this. The numeric progress still arrives with
-// every tick, so the job never looks stalled.
+// A phone on a cellular link gets at most this many preview images per
+// second and bytes per second across all jobs, and no image larger than this.
+// The numeric progress still arrives with every tick, so a job never looks
+// stalled.
 const MOBILE_PREVIEW_MAX_FPS = 2
 const MOBILE_PREVIEW_MAX_BYTES = 256 * 1024
+const MOBILE_PREVIEW_MAX_BYTES_PER_SECOND = 256 * 1024
 
 let installed = false
 
@@ -29,7 +31,11 @@ export function installRealtimeScope() {
     watch(currentProfileId, id => realtimeScope.setProfile(id), { immediate: true, flush: 'sync' })
   })
   if (mobilePlatform()) {
-    realtimeScope.setPreviewPolicy({ maxFps: MOBILE_PREVIEW_MAX_FPS, maxBytes: MOBILE_PREVIEW_MAX_BYTES })
+    realtimeScope.setPreviewPolicy({
+      maxFps: MOBILE_PREVIEW_MAX_FPS,
+      maxBytes: MOBILE_PREVIEW_MAX_BYTES,
+      maxBytesPerSecond: MOBILE_PREVIEW_MAX_BYTES_PER_SECOND,
+    })
   }
   if (typeof document !== 'undefined') {
     const sync = () => realtimeScope.setPreviewsVisible(document.visibilityState !== 'hidden')
@@ -43,18 +49,30 @@ export function acquireRealtimeTopic(topic) {
   return realtimeScope.acquire(topic)
 }
 
-/** Resolves once the server delivers `topic` (bounded wait). */
+/**
+ * Resolves once the server delivers `topic` (bounded wait): true when
+ * confirmed, false when the read that follows is provisional.
+ */
 export function realtimeTopicReady(topic) {
   return realtimeScope.ready(topic)
+}
+
+/** Call `reconcile` when `topic`, read provisionally, is later confirmed. */
+export function onRealtimeTopicConfirmed(topic, reconcile) {
+  return realtimeScope.onLateConfirm(confirmedTopic => {
+    if (confirmedTopic === topic) reconcile()
+  })
 }
 
 /**
  * Follow the topic returned by `getter` while the calling component is
  * mounted and (under KeepAlive) active. A null/empty topic follows nothing.
  * Changes apply synchronously, so a view can switch entities and then await
- * `ready()` before reading the new entity's state.
+ * `ready()` before reading the new entity's state. If that wait times out,
+ * the view reads provisionally and `onLateConfirm` runs once the server
+ * confirms the topic, so the view can reconcile.
  */
-export function useRealtimeTopic(getter) {
+export function useRealtimeTopic(getter, { onLateConfirm = null } = {}) {
   let active = true
   let current = null
   let release = null
@@ -70,10 +88,13 @@ export function useRealtimeTopic(getter) {
 
   watch(getter, sync, { flush: 'sync' })
   sync()
+  const stopLate = onLateConfirm
+    ? realtimeScope.onLateConfirm(topic => { if (topic === current) onLateConfirm(topic) })
+    : null
   if (getCurrentInstance()) {
     onActivated(() => { active = true; sync() })
     onDeactivated(() => { active = false; sync() })
-    onBeforeUnmount(() => { active = false; sync() })
+    onBeforeUnmount(() => { active = false; sync(); stopLate?.() })
   }
 
   return {

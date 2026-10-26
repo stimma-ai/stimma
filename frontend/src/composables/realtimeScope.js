@@ -15,7 +15,8 @@
  * Protocol (client -> server; each acknowledged with `realtime_scope_applied`
  * carrying the resulting scope, or `realtime_scope_rejected`):
  *
- *   connect      /ws?realtime=1&profile=P&topic=T...&previews=0|1&preview_fps=F&preview_bytes=N
+ *   connect      /ws?realtime=1&profile=P&topic=T...&previews=0|1
+ *                &preview_fps=F&preview_bytes=N&preview_bps=R
  *                The server applies this before the first broadcast; the
  *                `connected` welcome echoes it as `realtime`. A welcome
  *                without `realtime` means an older server that sends
@@ -24,14 +25,23 @@
  *   realtime_subscribe    {topics, seq}
  *   realtime_unsubscribe  {topics, seq}
  *
+ * The preview budget (fps, bytes per image, bytes per second) is per socket,
+ * across every job it follows.
+ *
  * This client always sends its complete desired state with `realtime_scope`,
  * so a reconnect restores everything from the connect URL alone. The scope
  * lives with the connection on the server.
  *
- * `ready(topic)` resolves once the server is known to deliver the topic.
- * A view that reads state over HTTP after subscribing awaits it first;
- * otherwise an event broadcast between the HTTP snapshot and the server
- * applying the subscription would be lost.
+ * `ready(topic)` resolves once the server is known to deliver the topic:
+ * every scope change sent so far is acknowledged, and the acknowledged scope
+ * has this window's profile and the topic. A view that reads state over HTTP
+ * after subscribing awaits it first; otherwise an event broadcast between
+ * the HTTP snapshot and the server applying the subscription would be lost.
+ * It resolves `true` when that is confirmed (or nothing needs confirming)
+ * and `false` when it gave up waiting. A view that read provisionally is
+ * told through `onLateConfirm` once the topic is confirmed, and reconciles
+ * then. `onProfileConfirmed` fires when the server starts filtering for a
+ * new profile, so state read during the switch can be reconciled.
  */
 
 export const REALTIME_PROTOCOL = 1
@@ -46,18 +56,25 @@ export function createRealtimeScope({
   const counts = new Map()
   let profileId = null
   let previewsVisible = true
-  let previewPolicy = { maxFps: null, maxBytes: null }
+  let previewPolicy = { maxFps: null, maxBytes: null, maxBytesPerSecond: null }
 
   let send = null
   // offline | connecting | scoped | legacy
   let mode = 'offline'
   let connecting = null
-  // Topics the server is known to deliver on the current socket.
-  let applied = new Set()
+  // What the server last acknowledged on this socket, and for which message.
+  let appliedProfile = null
+  let appliedTopics = new Set()
+  let sentSeq = 0
+  let ackedSeq = 0
   let lastSent = null
-  let seq = 0
+  let rejectedKey = null
   let flushQueued = false
   const waiters = new Set()
+  // Topics a view read without confirmation (its wait timed out).
+  const provisional = new Set()
+  const lateConfirmListeners = new Set()
+  const profileListeners = new Set()
 
   function desired() {
     return {
@@ -67,17 +84,40 @@ export function createRealtimeScope({
         enabled: previewsVisible,
         max_fps: previewPolicy.maxFps,
         max_bytes: previewPolicy.maxBytes,
+        max_bytes_per_second: previewPolicy.maxBytesPerSecond,
       },
     }
   }
 
-  function settle(all = false) {
+  /** The server delivers `topic` for this window's profile, nothing pending. */
+  function confirmed(topic) {
+    if (mode === 'legacy') return true
+    if (!send) return false
+    if (flushQueued || JSON.stringify(desired()) !== lastSent) return false
+    if (ackedSeq !== sentSeq) return false
+    return appliedProfile === profileId && appliedTopics.has(topic)
+  }
+
+  // Nothing to wait for: no socket (the reconnect resynchronizes every
+  // view), an older server (it sends everything), or the topic is gone.
+  function moot(topic) {
+    return !topic || mode === 'offline' || mode === 'legacy' || !counts.has(topic)
+  }
+
+  function settle() {
     for (const waiter of [...waiters]) {
-      if (all || mode === 'offline' || mode === 'legacy'
-        || applied.has(waiter.topic) || !counts.has(waiter.topic)) {
+      if (moot(waiter.topic) || confirmed(waiter.topic)) {
         waiters.delete(waiter)
         clearTimer(waiter.timer)
-        waiter.resolve()
+        waiter.resolve(true)
+      }
+    }
+    for (const topic of [...provisional]) {
+      if (!counts.has(topic)) {
+        provisional.delete(topic)
+      } else if (confirmed(topic)) {
+        provisional.delete(topic)
+        for (const listener of [...lateConfirmListeners]) listener(topic)
       }
     }
   }
@@ -86,10 +126,10 @@ export function createRealtimeScope({
     if (mode !== 'scoped' || !send) return
     const state = desired()
     const key = JSON.stringify(state)
-    if (key === lastSent) return
-    const next = seq + 1
+    if (key === lastSent || key === rejectedKey) return
+    const next = sentSeq + 1
     if (send('realtime_scope', { ...state, seq: next })) {
-      seq = next
+      sentSeq = next
       lastSent = key
     }
   }
@@ -100,6 +140,7 @@ export function createRealtimeScope({
     schedule(() => {
       flushQueued = false
       flush()
+      settle()
     })
   }
 
@@ -123,18 +164,28 @@ export function createRealtimeScope({
   }
 
   function ready(topic, timeoutMs = READY_TIMEOUT_MS) {
-    if (!topic || mode === 'offline' || mode === 'legacy' || applied.has(topic) || !counts.has(topic)) {
-      return Promise.resolve()
-    }
+    if (moot(topic) || confirmed(topic)) return Promise.resolve(true)
     return new Promise(resolve => {
       const waiter = { topic, resolve, timer: null }
-      // Never stall a view on a lost acknowledgement.
+      // Never stall a view on a slow or lost acknowledgement: it reads
+      // provisionally and reconciles once the topic is confirmed.
       waiter.timer = setTimer(() => {
         waiters.delete(waiter)
-        resolve()
+        provisional.add(topic)
+        resolve(false)
       }, timeoutMs)
       waiters.add(waiter)
     })
+  }
+
+  function onLateConfirm(listener) {
+    lateConfirmListeners.add(listener)
+    return () => lateConfirmListeners.delete(listener)
+  }
+
+  function onProfileConfirmed(listener) {
+    profileListeners.add(listener)
+    return () => profileListeners.delete(listener)
   }
 
   function setProfile(id) {
@@ -151,9 +202,10 @@ export function createRealtimeScope({
     requestFlush()
   }
 
-  function setPreviewPolicy({ maxFps = null, maxBytes = null } = {}) {
-    if (previewPolicy.maxFps === maxFps && previewPolicy.maxBytes === maxBytes) return
-    previewPolicy = { maxFps, maxBytes }
+  function setPreviewPolicy({ maxFps = null, maxBytes = null, maxBytesPerSecond = null } = {}) {
+    if (previewPolicy.maxFps === maxFps && previewPolicy.maxBytes === maxBytes
+      && previewPolicy.maxBytesPerSecond === maxBytesPerSecond) return
+    previewPolicy = { maxFps, maxBytes, maxBytesPerSecond }
     requestFlush()
   }
 
@@ -167,19 +219,28 @@ export function createRealtimeScope({
     params.set('previews', state.previews.enabled ? '1' : '0')
     if (state.previews.max_fps) params.set('preview_fps', String(state.previews.max_fps))
     if (state.previews.max_bytes) params.set('preview_bytes', String(state.previews.max_bytes))
-    connecting = { key: JSON.stringify(state), topics: new Set(state.topics) }
+    if (state.previews.max_bytes_per_second) {
+      params.set('preview_bps', String(state.previews.max_bytes_per_second))
+    }
+    connecting = { key: JSON.stringify(state), profile: state.profile_id, topics: new Set(state.topics) }
     mode = 'connecting'
     send = null
-    applied = new Set()
+    appliedProfile = null
+    appliedTopics = new Set()
+    sentSeq = 0
+    ackedSeq = 0
     lastSent = null
+    rejectedKey = null
     return params.toString()
   }
 
   function socketOpened(sendFn) {
     send = sendFn
-    // Topics in the connect URL are delivered whatever the server is: a
-    // current server applied them before accepting, an older one sends all.
-    applied = new Set(connecting?.topics || [])
+    // The connect URL's scope is delivered whatever the server is: a
+    // current server applied it before accepting, an older one sends all.
+    appliedProfile = connecting?.profile ?? null
+    appliedTopics = new Set(connecting?.topics || [])
+    lastSent = connecting?.key ?? null
     settle()
   }
 
@@ -187,10 +248,11 @@ export function createRealtimeScope({
     send = null
     mode = 'offline'
     connecting = null
-    applied = new Set()
+    appliedTopics = new Set()
     lastSent = null
-    // Nothing to wait for: the reconnect resynchronizes every view.
-    settle(true)
+    // The reconnect resynchronizes every view, provisional reads included.
+    provisional.clear()
+    settle()
   }
 
   /** Inspect a server message; returns true for scope protocol messages. */
@@ -198,8 +260,8 @@ export function createRealtimeScope({
     if (event === 'connected') {
       if (data && data.realtime && mode === 'connecting') {
         mode = 'scoped'
-        applied = new Set(data.realtime.topics || [])
-        lastSent = connecting?.key ?? null
+        appliedProfile = data.realtime.profile_id ?? null
+        appliedTopics = new Set(data.realtime.topics || [])
         flush()
       } else {
         mode = 'legacy'
@@ -208,26 +270,36 @@ export function createRealtimeScope({
       return false
     }
     if (event === 'realtime_scope_applied') {
-      applied = new Set(data?.topics || [])
+      if (typeof data?.seq === 'number') ackedSeq = Math.max(ackedSeq, data.seq)
+      const previousProfile = appliedProfile
+      appliedProfile = data?.profile_id ?? null
+      appliedTopics = new Set(data?.topics || [])
       settle()
+      if (appliedProfile !== previousProfile && ackedSeq === sentSeq && appliedProfile === profileId) {
+        for (const listener of [...profileListeners]) listener(appliedProfile)
+      }
       return true
     }
     if (event === 'realtime_scope_rejected') {
       warn('[Realtime] scope rejected', { seq: data?.seq, reason: data?.reason })
-      lastSent = null
-      settle(true)
+      if (typeof data?.seq === 'number') ackedSeq = Math.max(ackedSeq, data.seq)
+      // Never resend the same state. Waiters fall back to their timeout and
+      // reconcile if a later scope confirms their topic.
+      rejectedKey = lastSent
       return true
     }
     return false
   }
 
   function snapshot() {
-    return { mode, ...desired(), applied: [...applied].sort() }
+    return { mode, ...desired(), applied: [...appliedTopics].sort(), sentSeq, ackedSeq }
   }
 
   return {
     acquire,
     ready,
+    onLateConfirm,
+    onProfileConfirmed,
     setProfile,
     setPreviewsVisible,
     setPreviewPolicy,

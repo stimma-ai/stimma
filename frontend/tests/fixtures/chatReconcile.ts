@@ -11,6 +11,7 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
 ] })
 const app = createApp({ render: () => h(RouterView) })
 app.use(router)
+window.chatRouter = router
 initApiConfig().then(() => {
   useWebSocket().connect()
   return router.push('/chat/1')

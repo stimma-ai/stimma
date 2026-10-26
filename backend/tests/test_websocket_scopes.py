@@ -279,6 +279,87 @@ async def test_per_client_preview_cadence_does_not_affect_other_clients():
     assert all("preview_mime" not in p for p in phone.of("generation_job_progress") if "preview_b64" not in p)
 
 
+def _progress(job_id, size, generator=DESKTOP_GENERATOR):
+    import base64
+    return {
+        "job_id": job_id, "generator_instance_id": generator, "profile_id": "A",
+        "progress": 0.5, "preview_b64": base64.b64encode(b"z" * size).decode(),
+    }
+
+
+async def test_preview_budget_is_per_client_across_concurrent_jobs():
+    """Several jobs streaming at once must not multiply a client's budget."""
+    clock = Clock()
+    manager = WebSocketManager()
+    phone, desktop = Socket(), Socket()
+    topics = (f"generator:{DESKTOP_GENERATOR}", f"previews:{DESKTOP_GENERATOR}")
+    manager.attach(phone, scoped("A", *topics, clock=clock, max_fps=1))
+    manager.attach(desktop, scoped("A", *topics, clock=clock))
+    # Three jobs, each sending a frame every 0.3 s, for 3 s.
+    for step in range(10):
+        clock.now = 1000.0 + step * 0.3
+        for job_id in (1, 2, 3):
+            await manager.broadcast("generation_job_progress", _progress(job_id, 1500))
+            await manager.drain()
+    images = [p["job_id"] for p in phone.of("generation_job_progress") if "preview_b64" in p]
+    # At most one image per second for the whole socket (t = 0, 1.2, 2.4).
+    assert len(images) == 3
+    assert len([p for p in desktop.of("generation_job_progress") if "preview_b64" in p]) == 30
+    # Every tick still reports progress.
+    assert len(phone.of("generation_job_progress")) == 30
+
+
+async def test_preview_byte_rate_is_per_client():
+    clock = Clock()
+    manager = WebSocketManager()
+    phone = Socket()
+    manager.attach(phone, scoped(
+        "A", f"generator:{DESKTOP_GENERATOR}", f"previews:{DESKTOP_GENERATOR}",
+        clock=clock, max_bytes_per_second=10_000,
+    ))
+    sent_bytes = 0
+    for step in range(40):  # 4 s, two jobs, ~4 KB base64 frames every 0.1 s
+        clock.now = 1000.0 + step * 0.1
+        for job_id in (1, 2):
+            await manager.broadcast("generation_job_progress", _progress(job_id, 3000))
+            await manager.drain()
+    for p in phone.of("generation_job_progress"):
+        if "preview_b64" in p:
+            sent_bytes += len(p["preview_b64"])
+    # One second of burst plus the steady rate over the window.
+    assert 0 < sent_bytes <= 10_000 + 4 * 10_000
+
+
+async def test_slow_budgeted_client_holds_only_the_latest_preview():
+    """Delayed delivery must not burst queued images, whichever job sent them."""
+    clock = Clock()
+    manager = WebSocketManager()
+
+    class Held(Socket):
+        def __init__(self):
+            super().__init__()
+            self.gate = asyncio.Event()
+
+        async def send_text(self, message):
+            await self.gate.wait()
+            await super().send_text(message)
+
+    phone = Held()
+    manager.attach(phone, scoped(
+        "A", f"generator:{DESKTOP_GENERATOR}", f"previews:{DESKTOP_GENERATOR}",
+        clock=clock, max_fps=1,
+    ))
+    await manager.broadcast("media_added", {"media_id": 0}, include_profile=False)
+    for step in range(6):  # admitted at 0, 1, 2, 3, 4, 5 s, alternating jobs
+        clock.now = 1000.0 + step
+        await manager.broadcast("generation_job_progress", _progress(1 + step % 2, 1000))
+    pending = [f for f in manager.client_for(phone).pending_frames() if f.preview_bytes]
+    assert len(pending) == 1 and '"job_id": 2' in pending[0].text
+    phone.gate.set()
+    await manager.drain()
+    assert len([p for p in phone.of("generation_job_progress") if "preview_b64" in p]) == 1
+
+
 async def test_preview_size_cap_and_offscreen_previews():
     manager = WebSocketManager()
     capped, hidden, offscreen = Socket(), Socket(), Socket()
@@ -398,7 +479,8 @@ def test_endpoint_negotiates_scope_and_restores_it_on_reconnect(monkeypatch):
                 ack = phone.receive_json()
                 assert ack == {"event": "realtime_scope_applied", "data": {
                     "seq": 3, "protocol": 1, "profile_id": "A", "topics": ["chat:7", "chat:8"],
-                    "previews": {"enabled": True, "max_fps": 2.0, "max_bytes": None},
+                    "previews": {"enabled": True, "max_fps": 2.0, "max_bytes": None,
+                                 "max_bytes_per_second": None},
                 }}
                 broadcast("chat_item_created", {"chat_id": 8, "profile_id": "A", "item": {"id": 3}})
                 assert phone.receive_json()["data"]["item"]["id"] == 3

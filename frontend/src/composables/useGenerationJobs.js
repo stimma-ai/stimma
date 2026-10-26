@@ -2,7 +2,7 @@ import { mobileRecoveryEnabled } from './useMobileRecovery.js'
 import { ref, computed, unref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
-import { acquireRealtimeTopic, realtimeTopicReady } from './useRealtimeTopic'
+import { acquireRealtimeTopic, realtimeTopicReady, onRealtimeTopicConfirmed } from './useRealtimeTopic'
 import { useMediaApi } from './useMediaApi'
 import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
@@ -1203,7 +1203,13 @@ export function useGenerationJobs(options = {}) {
     // This feed's jobs arrive in full (other clients get summaries) for as
     // long as the feed exists, including while its view is cached offscreen.
     const generatorTopic = generatorInstanceId ? `generator:${generatorInstanceId}` : null
-    if (generatorTopic) unsubscribers.push(acquireRealtimeTopic(generatorTopic))
+    if (generatorTopic) {
+      unsubscribers.push(acquireRealtimeTopic(generatorTopic))
+      // Jobs read before the server confirmed this feed are read again then.
+      unsubscribers.push(onRealtimeTopicConfirmed(generatorTopic, () => {
+        void loadJobs(true).then(() => loadChainRuns())
+      }))
+    }
 
     // Then load initial data (chain runs after jobs — loadJobs resets the
     // chain-run state, so populating must come second)

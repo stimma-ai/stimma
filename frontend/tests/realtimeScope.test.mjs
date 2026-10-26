@@ -51,12 +51,12 @@ test('a current server gets the full scope after each change and acknowledges it
   assert.equal(sent[0].event, 'realtime_scope')
   assert.deepEqual(sent[0].data, {
     profile_id: 'a', topics: ['chat:7'],
-    previews: { enabled: true, max_fps: null, max_bytes: null }, seq: 1,
+    previews: { enabled: true, max_fps: null, max_bytes: null, max_bytes_per_second: null }, seq: 1,
   })
   // A view reads chat 7 over HTTP only once the server follows it for us.
   const ready = scope.ready('chat:7')
   assert.equal(await settled(ready), false)
-  scope.handleServerMessage('realtime_scope_applied', { seq: 1, topics: ['chat:7'] })
+  scope.handleServerMessage('realtime_scope_applied', { seq: 1, profile_id: 'a', topics: ['chat:7'] })
   assert.equal(await settled(ready), true)
 
   // A second view of the same chat shares the subscription.
@@ -145,6 +145,79 @@ test('reconnecting restores every followed topic and the profile', () => {
   scope.socketOpened(send)
   scope.handleServerMessage('connected', { realtime: { topics: ['chat:5', 'generator:tool-y@@g'] } })
   assert.equal(sent.length, before, 'the URL already restored the scope')
+})
+
+function scopedHarness() {
+  const h = harness()
+  h.scope.connectQuery('a')
+  h.scope.socketOpened(h.send)
+  h.scope.handleServerMessage('connected', { realtime: { profile_id: 'a', topics: [] } })
+  h.ack = (index = h.sent.length - 1) => {
+    const { data } = h.sent[index]
+    h.scope.handleServerMessage('realtime_scope_applied', { seq: data.seq, profile_id: data.profile_id, topics: data.topics })
+  }
+  return h
+}
+
+test('an acknowledgement for an older scope does not make a topic ready', async () => {
+  const { scope, sent, ack } = scopedHarness()
+  let release = scope.acquire('chat:7')
+  ack()
+  assert.equal(await settled(scope.ready('chat:7')), true)
+  // Leave the chat and come back before either change is acknowledged.
+  release()
+  release = scope.acquire('chat:7')
+  assert.deepEqual(sent.map(m => m.data.topics), [['chat:7'], [], ['chat:7']])
+  const ready = scope.ready('chat:7')
+  assert.equal(await settled(ready), false, 'still subscribed in the stale ack, but a removal is in flight')
+  ack(1)
+  assert.equal(await settled(ready), false, 'the unsubscribe was applied; the resubscribe is pending')
+  ack(2)
+  assert.equal(await settled(ready), true)
+})
+
+test('a profile change waits for the server to filter for the new profile', async () => {
+  const { scope, sent, ack } = scopedHarness()
+  scope.acquire('generator:tool-z@@g')
+  ack()
+  const confirmedProfiles = []
+  scope.onProfileConfirmed(id => confirmedProfiles.push(id))
+  scope.setProfile('b')
+  const ready = scope.ready('generator:tool-z@@g')
+  assert.equal(await settled(ready), false)
+  assert.equal(sent.at(-1).data.profile_id, 'b')
+  ack()
+  assert.equal(await settled(ready), true)
+  assert.deepEqual(confirmedProfiles, ['b'])
+})
+
+test('a timed-out wait reads provisionally and is reconciled on confirmation', async () => {
+  const { scope, ack, fireTimers } = scopedHarness()
+  const late = []
+  scope.onLateConfirm(topic => late.push(topic))
+  scope.acquire('chat:3')
+  const ready = scope.ready('chat:3')
+  fireTimers()
+  assert.equal(await ready, false, 'provisional')
+  assert.deepEqual(late, [])
+  ack()
+  assert.deepEqual(late, ['chat:3'])
+  ack()
+  assert.deepEqual(late, ['chat:3'], 'reconciled once')
+})
+
+test('a reconnect replaces pending provisional reconciliation', async () => {
+  const { scope, send, fireTimers } = scopedHarness()
+  const late = []
+  scope.onLateConfirm(topic => late.push(topic))
+  scope.acquire('chat:3')
+  const ready = scope.ready('chat:3')
+  fireTimers()
+  await ready
+  scope.socketClosed()
+  scope.connectQuery('a')
+  scope.socketOpened(send)
+  assert.deepEqual(late, [], 'the reconnect resync covers it')
 })
 
 // The real useWebSocket singleton with a controlled socket.

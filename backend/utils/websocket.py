@@ -218,8 +218,6 @@ REALTIME_MAX_TOPIC_LENGTH = 256
 REALTIME_MAX_PROFILE_LENGTH = 128
 PREVIEW_MIN_FPS = 0.1
 PREVIEW_MAX_FPS = 60.0
-# Cadence bookkeeping per client is bounded; old jobs fall out first.
-_PREVIEW_CADENCE_ENTRIES = 256
 
 _JOB_LIFECYCLE_EVENTS = frozenset({
     "generation_job_queued",
@@ -347,11 +345,12 @@ def _parse_previews(value: Any) -> dict:
                 raise ValueError("previews.max_fps must be a positive number or null")
             fps = min(max(float(fps), PREVIEW_MIN_FPS), PREVIEW_MAX_FPS)
         parsed["max_fps"] = fps
-    if "max_bytes" in value:
-        limit = value["max_bytes"]
-        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
-            raise ValueError("previews.max_bytes must be a positive integer or null")
-        parsed["max_bytes"] = limit
+    for name in ("max_bytes", "max_bytes_per_second"):
+        if name in value:
+            limit = value[name]
+            if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
+                raise ValueError(f"previews.{name} must be a positive integer or null")
+            parsed[name] = limit
     return parsed
 
 
@@ -370,11 +369,16 @@ class RealtimeScope:
         self.profile_id: Optional[str] = None
         self.topics: set = set()
         self.previews_enabled = True
+        # The preview budget is per connection, across every job it follows:
+        # at most max_fps images per second, max_bytes_per_second on average
+        # (one second of burst), and no single image over max_bytes.
         self.preview_max_fps: Optional[float] = None
         self.preview_max_bytes: Optional[int] = None
+        self.preview_max_bytes_per_second: Optional[int] = None
         self._clock = clock
-        # (profile, job) -> when this client last got a preview image for it
-        self._last_preview: "OrderedDict[tuple, float]" = OrderedDict()
+        self._last_preview_at: Optional[float] = None
+        self._preview_tokens = 0.0
+        self._tokens_at: Optional[float] = None
 
     def update(self, kind: str, payload: Any) -> None:
         """Apply a scope message atomically; ValueError leaves it unchanged.
@@ -396,13 +400,14 @@ class RealtimeScope:
         profile_id = _parse_profile(payload["profile_id"]) if "profile_id" in payload else self.profile_id
         topics = _parse_topics(payload["topics"]) if "topics" in payload else self.topics
         previews = _parse_previews(payload["previews"]) if "previews" in payload else {}
-        if profile_id != self.profile_id:
-            self._last_preview.clear()
         self.profile_id = profile_id
         self.topics = topics
         self.previews_enabled = previews.get("enabled", self.previews_enabled)
         self.preview_max_fps = previews.get("max_fps", self.preview_max_fps)
         self.preview_max_bytes = previews.get("max_bytes", self.preview_max_bytes)
+        self.preview_max_bytes_per_second = previews.get(
+            "max_bytes_per_second", self.preview_max_bytes_per_second
+        )
 
     def describe(self) -> dict:
         return {
@@ -413,26 +418,40 @@ class RealtimeScope:
                 "enabled": self.previews_enabled,
                 "max_fps": self.preview_max_fps,
                 "max_bytes": self.preview_max_bytes,
+                "max_bytes_per_second": self.preview_max_bytes_per_second,
             },
         }
+
+    @property
+    def preview_budgeted(self) -> bool:
+        return bool(self.preview_max_fps or self.preview_max_bytes_per_second)
 
     def _allows_preview(self, frame: OutboundFrame) -> bool:
         if not self.previews_enabled:
             return False
         if frame.preview_topics is not None and self.topics.isdisjoint(frame.preview_topics):
             return False
-        if self.preview_max_bytes is not None and frame.preview_bytes > self.preview_max_bytes:
+        size = frame.preview_bytes
+        if self.preview_max_bytes is not None and size > self.preview_max_bytes:
             return False
-        if self.preview_max_fps:
-            key = frame.delivery.key[:3] if frame.delivery.key else (frame.event, frame.profile_id)
-            now = self._clock()
-            last = self._last_preview.get(key)
-            if last is not None and now - last < 1.0 / self.preview_max_fps:
+        now = self._clock()
+        if self.preview_max_fps and self._last_preview_at is not None:
+            if now - self._last_preview_at < 1.0 / self.preview_max_fps:
                 return False
-            self._last_preview[key] = now
-            self._last_preview.move_to_end(key)
-            while len(self._last_preview) > _PREVIEW_CADENCE_ENTRIES:
-                self._last_preview.popitem(last=False)
+        rate = self.preview_max_bytes_per_second
+        if rate:
+            # Token bucket holding at most one second of budget.
+            if self._tokens_at is None:
+                self._preview_tokens = float(rate)
+            else:
+                self._preview_tokens = min(
+                    float(rate), self._preview_tokens + (now - self._tokens_at) * rate
+                )
+            self._tokens_at = now
+            if size > self._preview_tokens:
+                return False
+            self._preview_tokens -= size
+        self._last_preview_at = now
         return True
 
     def select(self, frame: OutboundFrame) -> Optional[OutboundFrame]:
@@ -454,7 +473,7 @@ class RealtimeScope:
 def scope_from_query(params) -> Optional[RealtimeScope]:
     """Build the initial scope from connect-time query parameters.
 
-    ``/ws?realtime=1&profile=P&topic=T&topic=U&previews=0&preview_fps=2&preview_bytes=N``.
+    ``/ws?realtime=1&profile=P&topic=T&topic=U&previews=0&preview_fps=2&preview_bytes=N&preview_bps=R``.
     Applying it before the socket is registered closes the gap between
     connecting and subscribing. Returns None for a legacy client.
     """
@@ -471,6 +490,8 @@ def scope_from_query(params) -> Optional[RealtimeScope]:
             previews["max_fps"] = float(params.get("preview_fps"))
         if params.get("preview_bytes"):
             previews["max_bytes"] = int(params.get("preview_bytes"))
+        if params.get("preview_bps"):
+            previews["max_bytes_per_second"] = int(params.get("preview_bps"))
     except ValueError:
         raise ValueError("invalid preview policy")
     if previews:
@@ -534,6 +555,9 @@ class ClientConnection:
         self.shed = 0
         # None until the client declares the realtime capability.
         self.scope: Optional[RealtimeScope] = None
+        # A budgeted client holds at most one unsent preview image: a newer
+        # image (any job) replaces it, so a slow link never drains a burst.
+        self._pending_preview: Optional[_Entry] = None
 
     @property
     def queued_frames(self) -> int:
@@ -591,7 +615,18 @@ class ClientConnection:
             self._make_room(frame.size, self.soft_max_frames, self.soft_max_bytes)
             if not self._make_room(frame.size, self.hard_max_frames, self.hard_max_bytes):
                 return False
+        latest_preview = (
+            frame.preview_bytes > 0
+            and frame.preview_topics is not None
+            and self.scope is not None
+            and self.scope.preview_budgeted
+        )
+        if latest_preview and self._pending_preview is not None:
+            self._discard(self._pending_preview)
+            self.coalesced += 1
         entry = _Entry(frame)
+        if latest_preview:
+            self._pending_preview = entry
         self._queue.append(entry)
         self._live += 1
         self._queued_bytes += frame.size
@@ -612,6 +647,8 @@ class ClientConnection:
         key = entry.frame.delivery.key
         if key is not None and self._replaceable.get(key) is entry:
             del self._replaceable[key]
+        if self._pending_preview is entry:
+            self._pending_preview = None
         self._sheddable.pop(id(entry), None)
 
     def _discard(self, entry: _Entry) -> None:
@@ -704,6 +741,7 @@ class ClientConnection:
             self._queue.clear()
             self._replaceable.clear()
             self._sheddable.clear()
+            self._pending_preview = None
             self._live = self._tombstones = self._queued_bytes = 0
             self._idle.set()
         return undelivered

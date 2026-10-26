@@ -263,6 +263,11 @@ export function useWebSocket() {
   if (!isInitialized) {
     isInitialized = true
     installRealtimeScope()
+    // Once the server filters for a newly selected profile, reconcile what
+    // was read for it while the old profile's filter was still in force.
+    realtimeScope.onProfileConfirmed(() => {
+      handleMessage({ event: 'websocket_reconnected', data: { reason: 'profile_scope' } })
+    })
     connect()
     console.log('[WebSocket] Singleton instance initialized')
 

@@ -1610,8 +1610,12 @@ let steerRetryTimer = null // Retries steers the server refused because its run 
 const { on: onWsEvent, connected: wsConnected } = useWebSocket()
 const wsUnsubscribes = [] // Store unsubscribe functions for cleanup
 // Chat item detail is only sent for chats a client has open. Follows the
-// same lifetime as the handlers below (mounted and active).
-const chatTopic = useRealtimeTopic(() => (chatId.value ? `chat:${chatId.value}` : null))
+// same lifetime as the handlers below (mounted and active). A transcript read
+// before the server confirmed the chat (slow acknowledgement) is reconciled
+// once it does.
+const chatTopic = useRealtimeTopic(() => (chatId.value ? `chat:${chatId.value}` : null), {
+  onLateConfirm: () => resyncItems(),
+})
 
 // Agent status computed
 const agentStatus = computed(() => {
