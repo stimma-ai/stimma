@@ -54,8 +54,10 @@ SECRET_BEARING_PREFIXES = (
     "/api/provider-manage",
     "/api/multi-device",
     "/api/mcp",
+    "/api/headless",  # Includes /api/headless/mcp, which mints MCP connection credentials.
     "/api/share",
     "/multi-device",
+    "/mcp",  # The mounted MCP gateway: capability URLs, profile and workspace details.
 )
 
 
@@ -150,21 +152,23 @@ def _compressed_headers(headers: list, length: int) -> list:
     return out
 
 
-def _not_modified_headers(headers: list, if_none_match: bytes) -> list:
-    """Give a 304 the validator and Vary its compressed 200 carried.
+def _not_modified_headers(headers: list, if_none_match: bytes | None) -> list:
+    """Give a 304 the validator and Vary its 200 carried.
 
-    The client names the representation it holds: a weak tag we produced by
-    weakening a strong one means it holds the compressed body.
+    A 304 has no body to judge eligibility by, so on this surface every 304
+    carries Vary: Accept-Encoding (harmless where the 200 never varied, and
+    required where it did, whichever representation the client revalidated).
+    The validator follows the representation the client names: a weak tag
+    we produced by weakening a strong one means it holds the compressed body.
     """
     if _no_transform(headers):
         return headers
     etag = _header(headers, b"etag")
-    if etag is None or etag.startswith(b"W/"):
-        return headers
-    held = [token.strip() for token in if_none_match.split(b",")]
-    if b"W/" + etag not in held:
-        return headers
-    return _with_vary(_weak_etag(headers))
+    if etag is not None and not etag.startswith(b"W/") and if_none_match is not None:
+        held = [token.strip() for token in if_none_match.split(b",")]
+        if b"W/" + etag in held:
+            headers = _weak_etag(headers)
+    return _with_vary(headers)
 
 
 class JsonCompression:
@@ -197,7 +201,7 @@ class JsonCompression:
                 return
             kind = message["type"]
             if kind == "http.response.start":
-                if message.get("status") == 304 and if_none_match is not None:
+                if message.get("status") == 304:
                     message = {**message, "headers": _not_modified_headers(list(message.get("headers", [])), if_none_match)}
                 if _eligible(message):
                     held = message

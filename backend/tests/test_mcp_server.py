@@ -1488,3 +1488,24 @@ async def test_package_recipe_roundtrip(mcp_http):
         'expected_current_revision': done['result']['revision_ref'], 'runs': [{'rerun': run['id']}],
         'request_key': 'palette-rerun'})))
     assert revised['state'] == 'succeeded', revised
+
+
+async def test_mcp_responses_are_never_compressed_on_the_remote_listener(mcp_app, mcp_http, monkeypatch):
+    """MCP results carry capability URLs and workspace details; the remote
+    listener's negotiated gzip must leave them alone (BREACH hygiene)."""
+    from multi_device import server
+
+    monkeypatch.setattr(server, "verify_session", lambda token: token == "device-session")
+    gate = server.ServingGate(mcp_app, lambda: "server-device")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=gate),
+        base_url="https://test",
+        headers={**dict(mcp_http.headers), "X-Stimma-Device-Session": "device-session", "Accept-Encoding": "gzip"},
+    ) as remote:
+        payload = {"jsonrpc": "2.0", "id": "1", "method": "tools/call", "params": {"name": "workspace_get", "arguments": {}}}
+        async with remote.stream("POST", "/mcp/profiles/default", json=payload) as response:
+            raw = b"".join([chunk async for chunk in response.aiter_raw()])
+        assert response.status_code == 200
+        assert "content-encoding" not in response.headers
+        assert len(raw) >= 1400  # Large enough that it would otherwise have been compressed.
+        assert "result" in json.loads(raw)

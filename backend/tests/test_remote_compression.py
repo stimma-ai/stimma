@@ -40,6 +40,13 @@ def _fixture_router(tmp_path) -> APIRouter:
     async def small():
         return {"ok": True}
 
+    @router.get("/weak")
+    async def weak(request: Request):
+        headers = {"ETag": 'W/"weak-v1"', "Vary": "Origin"}
+        if request.headers.get("if-none-match") == 'W/"weak-v1"':
+            return Response(status_code=304, headers=headers)
+        return JSONResponse(BIG, headers=headers)
+
     @router.get("/catalog")
     async def catalog(request: Request):
         headers = {"ETag": ETAG, "Vary": "Origin"}
@@ -287,8 +294,22 @@ async def test_conditional_requests_keep_the_negotiated_metadata(remote):
     # A client holding the identity representation revalidates against the strong tag.
     identity, body = await _raw(remote, "GET", f"{FIXTURE}/catalog", **{"accept-encoding": "identity"})
     assert identity.headers["etag"] == ETAG and body == BIG_BYTES
+    assert [token.strip() for token in identity.headers["vary"].split(",")] == vary
     strong, _ = await _raw(remote, "GET", f"{FIXTURE}/catalog", **{"accept-encoding": "identity", "if-none-match": ETAG})
     assert strong.status_code == 304 and strong.headers["etag"] == ETAG
+    assert [token.strip() for token in strong.headers["vary"].split(",")] == vary
+
+
+async def test_a_route_with_a_weak_validator_keeps_vary_on_its_304(remote):
+    response, _ = await _raw(remote, "GET", f"{FIXTURE}/weak", **{"accept-encoding": "gzip"})
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.headers["etag"] == 'W/"weak-v1"'
+    assert [token.strip() for token in response.headers["vary"].split(",")] == ["Origin", "Accept-Encoding"]
+    for accept in ("gzip", "identity"):
+        revalidated, body = await _raw(remote, "GET", f"{FIXTURE}/weak", **{"accept-encoding": accept, "if-none-match": 'W/"weak-v1"'})
+        assert revalidated.status_code == 304 and body == b""
+        assert revalidated.headers["etag"] == 'W/"weak-v1"'
+        assert [token.strip() for token in revalidated.headers["vary"].split(",")] == ["Origin", "Accept-Encoding"]
 
 
 async def test_unauthenticated_responses_are_unchanged(remote):
