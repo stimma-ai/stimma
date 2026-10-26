@@ -83,3 +83,20 @@ test('a newer scope makes the older load obsolete', async () => {
   assert.equal(calls, 1)
   assert.equal(partial(), false)
 })
+
+test('a stalled load is not joined forever; its late result is ignored', async () => {
+  let clock = 0
+  const loads = createScopedLoad({ freshMs: 1000, maxWaitMs: 500, now: () => clock })
+  const shown: string[] = []
+  const stalled = deferred()
+  void loads.request('a', async isCurrent => { await stalled.promise; if (isCurrent()) shown.push('stalled') })
+  clock = 100
+  let joined = 0
+  void loads.request('a', async () => { joined++ })
+  assert.equal(joined, 0)
+  clock = 600
+  await loads.request('a', async isCurrent => { if (isCurrent()) shown.push('retry') })
+  stalled.resolve()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(shown, ['retry'])
+})

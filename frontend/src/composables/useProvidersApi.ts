@@ -10,6 +10,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../apiConfig'
 import { toolProviderDisplayName } from '../utils/stimmaCloud'
 import { useWebSocket } from './useWebSocket'
+import { getCurrentProfileId } from './useProfile'
 
 function getToolsAPIBase() {
   return `${getApiBase()}/tools`
@@ -90,6 +91,13 @@ const providersCache = ref<Provider[]>([])
 const toolsCache = ref<ProviderTool[]>([])
 const lastFetchTime = ref<number>(0)
 const CACHE_TTL = 30000 // 30 seconds
+// Server + profile the cache belongs to. Catalogs are per profile, so a reply
+// that arrives after a switch must not be cached for (or served to) the next.
+let cacheScope: string | null = null
+
+function catalogScope() {
+  return JSON.stringify([getApiBase() ?? null, getCurrentProfileId() ?? null])
+}
 
 function normalizeProvider<T extends { provider_id?: string | null; provider_name?: string | null }>(provider: T): T {
   return {
@@ -103,6 +111,7 @@ function clearToolsCache() {
   providersCache.value = []
   toolsCache.value = []
   lastFetchTime.value = 0
+  cacheScope = null
 }
 
 // Listen for tools-changed browser event (dispatched by useWebSocket)
@@ -137,9 +146,10 @@ export function useProvidersApi() {
    * List all registered providers
    */
   async function listProviders(): Promise<Provider[]> {
+    const scope = catalogScope()
     const response = await axios.get(`${getToolsAPIBase()}/providers`)
     const providers = response.data.map(normalizeProvider)
-    providersCache.value = providers
+    if (scope === catalogScope()) providersCache.value = providers
     return providers
   }
 
@@ -155,10 +165,14 @@ export function useProvidersApi() {
    * List all tools from all providers
    */
   async function listAllTools(): Promise<ProviderTool[]> {
+    const scope = catalogScope()
     const response = await axios.get(`${getToolsAPIBase()}/providers/tools`)
     const tools = response.data.map(normalizeProvider)
-    toolsCache.value = tools
-    lastFetchTime.value = Date.now()
+    if (scope === catalogScope()) {
+      toolsCache.value = tools
+      lastFetchTime.value = Date.now()
+      cacheScope = scope
+    }
     return tools
   }
 
@@ -184,7 +198,7 @@ export function useProvidersApi() {
     tools: ProviderTool[]
   }> {
     const now = Date.now()
-    if (!forceRefresh && lastFetchTime.value > 0 && now - lastFetchTime.value < CACHE_TTL) {
+    if (!forceRefresh && lastFetchTime.value > 0 && cacheScope === catalogScope() && now - lastFetchTime.value < CACHE_TTL) {
       return {
         providers: providersCache.value,
         tools: toolsCache.value,

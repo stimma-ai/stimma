@@ -4,6 +4,7 @@ import HomeView from '../../src/views/HomeView.vue'
 import { initApiConfig } from '../../src/apiConfig'
 import { setCurrentProfileId } from '../../src/composables/useProfile'
 import { useAvailableModels } from '../../src/composables/useAvailableModels'
+import { recordEntityVisit } from '../../src/composables/useRecentEntities'
 import '../../src/style.css'
 
 // A scripted server socket: the test pushes broadcasts and drops the
@@ -39,6 +40,7 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
   router,
   models: useAvailableModels(),
   setProfile: setCurrentProfileId,
+  recordToolVisit: (id: string, name: string) => recordEntityVisit('tool', id, name),
   serverEvent(event: string, data = {}) {
     sockets[sockets.length - 1]?.onmessage?.({ data: JSON.stringify({ event, data }) })
   },

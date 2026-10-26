@@ -21,13 +21,19 @@ type Loader = (isCurrent: () => boolean) => Promise<boolean | void>
 
 export interface ScopedLoadOptions {
   freshMs: number
+  /**
+   * A load still running after this long is treated as stalled: the next
+   * request starts over instead of joining it, and the stalled one's results
+   * are ignored.
+   */
+  maxWaitMs?: number
   now?: () => number
 }
 
-export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions) {
+export function createScopedLoad({ freshMs, maxWaitMs = Infinity, now = Date.now }: ScopedLoadOptions) {
   let generation = 0
   let activeKey: string | null = null
-  let inflight: { key: string; promise: Promise<boolean> } | null = null
+  let inflight: { key: string; promise: Promise<boolean>; startedAt: number } | null = null
   let freshKey: string | null = null
   let freshAt = 0
   let changes = 0
@@ -45,6 +51,7 @@ export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions)
      * when this call (or the load it joined) actually ran the loader.
      */
     request(key: string, load: Loader, { force = false } = {}): Promise<boolean> {
+      if (inflight && now() - inflight.startedAt >= maxWaitMs) inflight = null
       if (inflight && inflight.key === key && !force) return inflight.promise
       if (!force && !inflight && isFresh(key)) return Promise.resolve(false)
       const mine = ++generation
@@ -64,7 +71,7 @@ export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions)
           if (inflight?.promise === promise) inflight = null
         }
       })()
-      inflight = { key, promise }
+      inflight = { key, promise, startedAt: now() }
       return promise
     },
 

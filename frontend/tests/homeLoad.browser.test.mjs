@@ -237,3 +237,73 @@ test('a model read for one profile is never shared with or applied to another', 
   await page.waitForTimeout(300)
   assert.deepEqual(await page.evaluate(() => window.homeLoadTest.models.models.value.map(model => model.name)), ['Profile B model'])
 })
+
+test('a stalled tool catalog does not hold up refreshing recents', async t => {
+  const { page, counts, push } = await openHome(t, {
+    respond: path => (path.startsWith('/api/tools/providers') ? hang() : undefined),
+  })
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  await push('/elsewhere')
+  await page.evaluate(() => window.homeLoadTest.serverEvent('chat_created', {}))
+  await push('/')
+  await expect.poll(() => counts.get('/api/chats/previews')).toBe(2)
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+})
+
+test("a late tool catalog from the previous profile never replaces the new profile's tools", async t => {
+  let releaseA
+  const gateA = new Promise(resolve => { releaseA = resolve })
+  const tool = (id, name) => ({ full_tool_id: id, tool_id: id, provider_id: 'p', name, availability: 'available' })
+  const { page, push } = await openHome(t, {
+    start: '/elsewhere',
+    respond: async (path, query, headers) => {
+      const profile = headers['x-profile-id']
+      if (path === '/api/chats/previews') return { items: [chat(4, `Chat for ${profile}`)], total: 1 }
+      if (!path.startsWith('/api/tools/providers')) return
+      if (profile === 'a') await gateA
+      if (path === '/api/tools/providers') return []
+      return profile === 'a' ? [tool('p:private-a', 'Private tool A')] : [tool('p:tool-b', 'Tool B')]
+    },
+  })
+  await expect(page.locator('#elsewhere')).toBeVisible()
+  await page.evaluate(() => {
+    const test = window.homeLoadTest
+    // Both tools are recent in B's own history, so a leaked A catalog would show.
+    test.setProfile('b')
+    test.recordToolVisit('p:private-a', 'Private tool A')
+    test.recordToolVisit('p:tool-b', 'Tool B')
+    test.setProfile('a')
+  })
+  await push('/')
+  await expect(page.getByText('Chat for a')).toBeVisible()
+  await page.waitForTimeout(200)
+  await page.evaluate(() => window.homeLoadTest.setProfile('b'))
+  await expect(page.getByText('Chat for b')).toBeVisible()
+  await expect(page.getByText('Tool B')).toBeVisible()
+  releaseA()
+  await page.waitForTimeout(400)
+  await expect(page.getByText('Tool B')).toBeVisible()
+  await expect(page.getByText('Private tool A')).toHaveCount(0)
+})
+
+test('a late "no chat model" answer does not take away a composer the user typed into', async t => {
+  let releaseModels
+  const modelsGate = new Promise(resolve => { releaseModels = resolve })
+  const { page } = await openHome(t, {
+    respond: async path => {
+      if (path !== '/api/models/available') return
+      await modelsGate
+      return { models: [], global_default: 'auto', llm_configured: false }
+    },
+  })
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  await composer(page).fill('my draft')
+  releaseModels()
+  await expect(page.getByText('Stimma needs AI to work')).toBeVisible()
+  await expect(page.getByText('Chat is available once you')).toHaveCount(0)
+  // An untouched composer does give way to the tools hero.
+  const fresh = await openHome(t, {
+    respond: path => (path === '/api/models/available' ? { models: [], global_default: 'auto', llm_configured: false } : undefined),
+  })
+  await expect(fresh.page.getByText('Chat is available once you')).toBeVisible()
+})

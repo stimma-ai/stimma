@@ -29,7 +29,7 @@
                  door to what works. The cutoff is one quiet footnote line.
                  A configured-but-broken model keeps the composer (and its
                  louder card) below — that user opted in and wants the remedy. -->
-            <template v-if="llmUnconfigured">
+            <template v-if="showToolHero">
               <StarterToolGrid v-if="heroToolPicks.length > 0" :picks="heroToolPicks" @open="openToolById" />
               <div class="flex justify-center" :class="heroToolPicks.length > 0 ? 'mt-4' : ''">
                 <router-link
@@ -74,7 +74,7 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!llmUnconfigured && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4 compact:hidden">
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4 compact:hidden">
               <button
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
@@ -98,7 +98,7 @@
           <!-- First run: recommended starting points instead of empty sections.
                Skipped when no chat model is configured — the hero grid above
                already fills this role. -->
-          <div v-if="!llmUnconfigured && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
+          <div v-if="!showToolHero && isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
             <div class="flex items-center gap-4 mb-4">
               <div class="h-px flex-1 bg-edge-subtle"></div>
               <span class="text-xs font-semibold text-content-secondary">Or start with a tool</span>
@@ -365,6 +365,10 @@ const newChatImageUnsupported = computed(() => {
   return `${model.name} can't use images. Remove the image or choose another model.`
 })
 const submitting = ref(false)
+// No chat model configured puts tools in the hero slot. A composer the user
+// has already typed into stays put when that answer arrives late.
+const composerDirty = computed(() => inputText.value.trim() !== '' || inputAttachments.value.length > 0)
+const showToolHero = computed(() => llmUnconfigured.value && !composerDirty.value)
 const recentChats = ref([])
 const recentMedia = ref([])
 const recentBoards = ref([])
@@ -434,14 +438,36 @@ const greetingParts = computed(() => {
 const toolsList = ref([])
 const recentToolEntities = ref([])
 
-async function loadTools() {
-  try {
-    const { tools } = await fetchProvidersAndTools()
-    toolsList.value = tools.filter(t => !t.metadata?.agent_only)
-  } catch (err) {
-    console.error('Failed to load tools:', err)
+// The tool catalog belongs to the server and profile (not the project) and
+// has its own load policy, so a slow catalog never holds up recents. A read
+// that has not answered after LOAD_STALL_MS is abandoned on the next request.
+const LOAD_STALL_MS = 15_000
+const toolLoads = createScopedLoad({ freshMs: 30_000, maxWaitMs: LOAD_STALL_MS })
+
+function toolScope() {
+  return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId())
+}
+
+function loadTools({ force = false } = {}) {
+  const key = toolScope()
+  // Never show one profile's tools under another.
+  if (toolLoads.activeKey !== null && toolLoads.activeKey !== key) {
+    toolsList.value = []
+    recentToolEntities.value = []
   }
-  recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
+  return toolLoads.request(key, async (isCurrent) => {
+    try {
+      const { tools } = await fetchProvidersAndTools(force)
+      if (!isCurrent()) return
+      toolsList.value = tools.filter(t => !t.metadata?.agent_only)
+      return true
+    } catch (err) {
+      console.error('Failed to load tools:', err)
+      return false
+    } finally {
+      if (isCurrent()) recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
+    }
+  }, { force })
 }
 
 const availableTools = computed(() => toolsList.value.filter(t => t.availability === 'available'))
@@ -1007,7 +1033,7 @@ watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 // change events mark it stale so the next visit reloads. Home does not
 // reload live while it is on screen.
 const HOME_FRESH_MS = 30_000
-const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS })
+const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS, maxWaitMs: LOAD_STALL_MS })
 // Every server broadcast that can change a chat preview (name, count,
 // snippet, cover), a board or flow card, or the recent-assets strip.
 const HOME_CHANGE_EVENTS = [
@@ -1045,7 +1071,6 @@ function refreshHome({ force = false } = {}) {
   if (homeLoads.activeKey !== null && homeLoads.activeKey !== key) resetHomeData()
   return homeLoads.request(key, async (isCurrent) => {
     if (recentsState.value === 'error') recentsState.value = 'loading'
-    const tools = loadTools()
     const sections = [
       ['chats', loadRecentChats(isCurrent)],
       ['assets', loadRecentMedia(isCurrent)],
@@ -1058,7 +1083,6 @@ function refreshHome({ force = false } = {}) {
       failedRecents.value = failed
       recentsState.value = failed.length === 0 ? 'ready' : 'error'
     }
-    await tools
     return failed.length === 0
   }, { force })
 }
@@ -1101,6 +1125,8 @@ function activate() {
   active = true
   setupResizeObserver()
   void refreshHome()
+  void loadTools()
+  recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
   void checkModels()
   revealHeroSoon()
   checkPendingMedia()
@@ -1110,6 +1136,7 @@ function activate() {
 function handleProfileChanged() {
   if (!active) return
   void refreshHome()
+  void loadTools()
   void checkModels()
 }
 
@@ -1129,7 +1156,7 @@ watch(projectId, () => {
 
 onMounted(() => {
   activate()
-  unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
+  unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools({ force: true }))
   for (const event of HOME_CHANGE_EVENTS) {
     unsubscribeFromServerEvents.push(onServerEvent(event, invalidateHome))
   }
