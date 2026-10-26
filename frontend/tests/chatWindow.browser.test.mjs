@@ -100,7 +100,7 @@ function subset(all, only, { before, limit }, scanCap, unfiltered = false) {
   return { items: found, has_more: source.some(i => i.id < cursor), next_before_id: cursor }
 }
 
-async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [], initScript = null } = {}) {
+async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = [], initScript = null, holdOlder = false } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
@@ -109,7 +109,7 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
   page.on('request', request => { if (/before_id=.*display_limit/.test(request.url())) page.__pagesIssued = (page.__pagesIssued || 0) + 1 })
   // `hold` holds the next display-window request until `held()` is called;
   // it answers with the server state from when it arrived.
-  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000, mediaUnfiltered: false, holdMedia: false, heldMedia: null, holdPrompts: false, heldPrompts: null }
+  const server = { items: initial, requests: [], other: [], socket: null, skills, rawCap, reachCap, hold: false, held: null, holdPlain: false, heldPlain: null, mediaScanCap: 1000, mediaUnfiltered: false, holdMedia: false, heldMedia: null, holdPrompts: false, heldPrompts: null, holdOlder, olderWaiters: [] }
   // The server greets each socket; realtime scopes are ready once it has.
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { server.sockets = (server.sockets || 0) + 1; server.socket = ws; ws.send(JSON.stringify({ event: 'connected', data: {} })) })
   await page.route('**/*', async route => {
@@ -160,6 +160,10 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
         server.hold = false
         await new Promise(resolve => { server.held = resolve })
       }
+      // `holdOlder` holds every older page until releaseOlder().
+      if (request.before != null && server.holdOlder) {
+        await new Promise(resolve => { server.olderWaiters.push(resolve) })
+      }
       return route.fulfill({ json: { ...json, invoked_skills: skillsNow } })
     }
     if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
@@ -176,6 +180,10 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
   return {
     page, server, errors,
     ids: () => page.evaluate(() => window.reconcileView.items.value.map(i => i.id)),
+    releaseOlder() {
+      server.holdOlder = false
+      for (const resolve of server.olderWaiters.splice(0)) resolve()
+    },
     send: (event, data) => server.socket.send(JSON.stringify({ event, data: { chat_id: 1, ...data } })),
     // Scroll to the top until the whole history is loaded, as a reader would.
     // Bounded by time rather than a count of scrolls, so a slow runner that
@@ -257,23 +265,23 @@ test('an activity group split by the raw cap is marked and stays expanded as its
   // the window cap (100), so only it is split.
   const all = turn(1, 0, 150)
   all.at(-1).message_text = Array.from({ length: 40 }, (_, i) => `Paragraph ${i}`).join('\n\n')
-  const view = await openChat(t, all, { rawCap: 100 })
+  // Older pages are held while the partial group is inspected: the view may
+  // legitimately page (the transcript can be shorter than the view while it
+  // first lays out, and clicking the group scrolls the sentinel into view).
+  const view = await openChat(t, all, { rawCap: 100, holdOlder: true })
   const { page } = view
+  assert.equal(view.server.requests[0].returned, 100)
   const ids = await view.ids()
   assert.equal(ids.length, 100)
   assert.notEqual(ids[0], 1)
   // The partial group says older steps exist.
   await expect(page.locator('[data-partial-group]')).toHaveText('earlier steps not loaded')
-  // Expand the partial group and read it from the top. Clicking scrolls the
-  // group, and the sentinel above it, into view, so hold the older page that
-  // triggers until the partial group has been counted.
-  view.server.hold = true
+  // Expand the partial group and read it from the top.
   const group = page.locator('.activity-summary').first()
   await group.click()
   const partial = await page.locator('[data-scroll-anchor^="step:"]').count()
   assert.ok(partial > 0 && partial < 150, `partial group shows ${partial} steps`)
-  view.server.hold = false
-  view.server.held?.()
+  view.releaseOlder()
   await view.scrollToStart()
   assert.deepEqual(await view.ids(), all.map(i => i.id))
   // The completed group keeps its expansion though its first item changed.

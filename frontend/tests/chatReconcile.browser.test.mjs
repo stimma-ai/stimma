@@ -416,7 +416,17 @@ test('reading inside an expanded activity group stays put when steps change', as
       if (container.scrollHeight === height) return
     }
   })
-  const before = await topOf()
+  // Measure only once the parked position has stopped moving: on a loaded
+  // runner late layout (offscreen items taking their real size) can still
+  // shift it after the scroll height settles, and that shift is not the
+  // resync's doing.
+  let before = await topOf()
+  for (let i = 0; i < 100; i++) {
+    await page.waitForTimeout(100)
+    const now = await topOf()
+    if (Math.abs(now - before) < 0.5) break
+    before = now
+  }
   assert.ok(before > 0 && before < 200, `reader parked at ${before}`)
   // While disconnected: steps above and all steps below are removed and the
   // answer is rewritten.
@@ -426,10 +436,11 @@ test('reading inside an expanded activity group stays put when steps change', as
     ...steps.filter(step => step.id < 12 || (step.id >= 20 && step.id < 80)),
     { ...answer, message_text: longText('All done, rewritten') },
   ]
+  const atClose = await topOf()
   view.server.socket.close()
   await expect.poll(async () => (await view.items()).at(-1).text).toMatch(/^All done, rewritten/)
   await expect(page.locator('[data-scroll-anchor^="step:"]')).toHaveCount(31)
-  assert.ok(Math.abs(await topOf() - before) <= 2, `reading position moved from ${before} to ${await topOf()}`)
+  assert.ok(Math.abs(await topOf() - before) <= 2, `reading position moved from ${before} (${atClose} at disconnect) to ${await topOf()}`)
   assert.deepEqual(view.errors, [])
 })
 
