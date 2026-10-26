@@ -6,7 +6,7 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 const instrument = { name: 'chat-reconcile-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, messageInput, sending, modelsFetched, messagesContainer, sendMessage, loadMore, reloadAll }; defineExpose({})\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, messageInput, sending, modelsFetched, messagesContainer, sendMessage, loadMore, reloadAll, hasMore }; defineExpose({})\n</script>')
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -252,6 +252,63 @@ test('a snapshot far past the loaded history replaces it instead of leaving an u
   assert.deepEqual(view.errors, [])
 })
 
+// Page back until the transcript starts at item 1 (bounded).
+async function pageToStart(page) {
+  for (let i = 0; i < 20; i++) {
+    const first = await page.evaluate(async () => {
+      await window.reconcileView.loadMore()
+      return window.reconcileView.items.value[0].id
+    })
+    if (first === 1) return
+  }
+}
+
+test('a second reconnect before the first resync lands cannot recreate the gap', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3)])
+  const { page } = view
+  view.server.items = Array.from({ length: 400 }, (_, i) => user(i + 1))
+  view.server.window = 200
+  await view.reconnectHeld()
+  const firstHeld = view.server.held
+  // Item 400 arrives live, then the socket drops again before the first
+  // resync answers. The live item must not pass for continuity with 201..400.
+  view.send('chat_item_created', { item: user(400) })
+  await expect.poll(async () => (await view.items()).map(i => i.id)).toEqual([1, 2, 3, 400])
+  const previous = view.server.socket
+  previous.close()
+  await expect.poll(async () => (await view.items())[0].id).toBe(201)
+  assert.equal((await view.items()).length, 200)
+  assert.equal(await page.evaluate(() => window.reconcileView.hasMore.value), true)
+  // The superseded first resync answers late and changes nothing.
+  firstHeld()
+  await page.waitForTimeout(300)
+  assert.equal((await view.items())[0].id, 201)
+  await pageToStart(page)
+  assert.deepEqual((await view.items()).map(i => i.id), Array.from({ length: 400 }, (_, i) => i + 1))
+  assert.deepEqual(view.errors, [])
+})
+
+test('a live delete of the snapshot\'s first item still enables paging', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3)])
+  const { page } = view
+  view.server.items = Array.from({ length: 400 }, (_, i) => user(i + 1))
+  view.server.window = 200
+  await view.reconnectHeld()
+  assert.equal(await page.evaluate(() => window.reconcileView.hasMore.value), false)
+  // The held snapshot still starts at 201, but 201 is deleted live.
+  view.server.items = view.server.items.filter(i => i.id !== 201)
+  view.send('chat_item_deleted', { item_id: 201 })
+  view.server.held()
+  await expect.poll(async () => (await view.items())[0].id).toBe(202)
+  assert.equal(await page.evaluate(() => window.reconcileView.hasMore.value), true)
+  // Paging from the oldest surviving item reaches the beginning.
+  view.server.requests.length = 0
+  await pageToStart(page)
+  assert.equal(view.server.requests[0], 202)
+  assert.deepEqual((await view.items()).map(i => i.id), Array.from({ length: 400 }, (_, i) => i + 1).filter(id => id !== 201))
+  assert.deepEqual(view.errors, [])
+})
+
 test('reading inside an expanded activity group stays put when steps change', async t => {
   const steps = []
   for (let n = 0; n < 60; n++) {
@@ -316,7 +373,7 @@ test('reconciling 2,000 items stays cheap on a throttled CPU', async t => {
     const before = new Set(current.map(item => item.id))
     const run = fresh => {
       const start = performance.now()
-      const result = window.reconcileChatItems(current, fresh, { hasMore: false, before, journal: new Map() })
+      const result = window.reconcileChatItems(current, fresh, { hasMore: false, before, journal: new Map(), coveredThrough: 2000 })
       return { ms: performance.now() - start, changed: result.changed }
     }
     run(same)

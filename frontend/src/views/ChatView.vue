@@ -2947,6 +2947,8 @@ async function loadItems(beforeId = null) {
       // Prepend older messages (API returns newest-first, reverse for display order)
       items.value = [...data.items.reverse(), ...items.value]
     } else {
+      // A full load is contiguous server history through its newest item.
+      coveredThrough = data.items.length ? data.items[0].id : Number.NEGATIVE_INFINITY
       // Initial load - API returns newest first, reverse to show oldest-to-newest
       items.value = data.items.reverse()
     }
@@ -2993,6 +2995,11 @@ async function loadItems(beforeId = null) {
 let resyncGeneration = 0
 // Live changes recorded while the current resync's fetch is in flight.
 let resyncJournal = null
+// Newest item ID through which the transcript holds contiguous server
+// history. Only full loads and applied resyncs advance it; live appends
+// never do (a socket gap can hide items before them), and superseded
+// resyncs leave it alone. See utils/chatReconcile.
+let coveredThrough = Number.NEGATIVE_INFINITY
 
 function noteLiveChange(id, item) {
   resyncJournal?.set(id, item ? toRaw(item) : null)
@@ -3017,19 +3024,22 @@ async function resyncItems() {
     // A newer resync, a chat switch, or a full reload superseded this one.
     if (generation !== resyncGeneration || chatId.value !== requestChatId || loading.value) return
     const fresh = data.items.reverse()
-    const { items: merged, changed } = reconcileChatItems(toRaw(items.value).map(item => toRaw(item)), fresh, {
+    const result = reconcileChatItems(toRaw(items.value).map(item => toRaw(item)), fresh, {
       hasMore: data.has_more,
       before,
       journal,
+      coveredThrough,
     })
-    if (!changed) return
+    coveredThrough = result.coveredThrough
+    // The server's has_more describes the transcript's start unless older
+    // paged-in history survives beyond the snapshot (then paging state is
+    // that history's). A complete snapshot means nothing older exists.
+    if (!data.has_more || !result.olderSurvives) hasMore.value = data.has_more
+    if (!result.changed) return
     const container = messagesContainer.value
     const follow = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 80
     const anchor = follow ? null : captureScrollAnchor(container)
-    items.value = merged
-    // The snapshot's has_more only describes the transcript when no older
-    // history was paged in beyond it.
-    if (merged.length === 0 || merged[0].id === fresh[0]?.id) hasMore.value = data.has_more
+    items.value = result.items
     await nextTick()
     if (follow) scrollToBottom()
     // If everything the reader was looking at is gone (deleted, or a stale

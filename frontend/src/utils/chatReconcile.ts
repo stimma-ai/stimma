@@ -9,8 +9,8 @@
 // The snapshot covers only the newest window of the chat, so absence from it
 // proves deletion only inside that window. Older history loaded by paging is
 // kept as-is; deletions there are not detected (no tombstones exist yet).
-// When the loaded history does not reach the snapshot window at all, it is
-// dropped instead, so no unpageable hole is left between the two.
+// When the history known to be contiguous (see coveredThrough) does not reach
+// the snapshot window, it is dropped instead, so no unpageable hole is left.
 //
 // The fetch races live updates. The caller records every live change made
 // while the fetch is in flight in a journal (an item, or null for a
@@ -30,11 +30,21 @@ export interface ReconcileOptions<T extends ChatItemLike> {
   before: Set<number>
   // Live changes since the fetch was issued: the newest item, or null if deleted.
   journal: LiveJournal<T>
+  // Coverage: the newest item ID the transcript is known to hold contiguous
+  // server history up to. Only server responses (the initial load, applied
+  // snapshots) advance it; live appends never do, because a socket gap can
+  // hide items before them. -Infinity when nothing is covered.
+  coveredThrough: number
 }
 
 export interface ReconcileResult<T> {
   items: T[]
   changed: boolean
+  // Coverage after applying this snapshot.
+  coveredThrough: number
+  // Whether any history older than the snapshot's first item remains. If not,
+  // the server's has_more describes the transcript's start.
+  olderSurvives: boolean
 }
 
 // Field-wise comparison with early exit. Most fields are primitives; only
@@ -72,28 +82,21 @@ function insertById<T extends ChatItemLike>(list: T[], item: T) {
 export function reconcileChatItems<T extends ChatItemLike>(
   current: T[],
   fresh: T[],
-  { hasMore, before, journal }: ReconcileOptions<T>,
+  { hasMore, before, journal, coveredThrough }: ReconcileOptions<T>,
 ): ReconcileResult<T> {
   // A partial snapshot with no items says nothing about what exists.
-  if (hasMore && fresh.length === 0) return { items: current, changed: false }
+  if (hasMore && fresh.length === 0) return { items: current, changed: false, coveredThrough, olderSurvives: true }
 
   const windowStart = hasMore ? fresh[0].id : Number.NEGATIVE_INFINITY
   const freshById = new Map<number, T>()
   for (const item of fresh) freshById.set(item.id, item)
 
-  // The transcript is a contiguous run of history. If none of it reaches into
-  // a partial snapshot, the snapshot may begin far past it (history grew a
-  // lot while away), and keeping both would leave a hole that paging, which
-  // only fetches before the oldest loaded item, could never fill. Drop the
-  // stale older run; the snapshot becomes the transcript's new start.
-  let reachesWindow = false
-  let olderThanWindow = false
-  for (const item of current) {
-    if (!before.has(item.id)) continue
-    if (item.id >= windowStart) reachesWindow = true
-    else olderThanWindow = true
-  }
-  const disjoint = hasMore && olderThanWindow && !reachesWindow
+  // If covered history does not reach a partial snapshot, the snapshot may
+  // begin far past it (history grew a lot while away). Keeping both would
+  // leave a hole that paging, which only fetches before the oldest loaded
+  // item, could never fill. Drop everything older than the snapshot; it
+  // becomes the transcript's new start and paging continues from there.
+  const disjoint = hasMore && coveredThrough < windowStart
 
   let changed = false
   const merged: T[] = []
@@ -142,5 +145,16 @@ export function reconcileChatItems<T extends ChatItemLike>(
     changed = true
   }
 
-  return changed ? { items: merged, changed } : { items: current, changed }
+  // The snapshot is contiguous through its newest item, and joins covered
+  // history unless it was disjoint (then the older run is gone).
+  const snapshotEnd = fresh.length ? fresh[fresh.length - 1].id : Number.NEGATIVE_INFINITY
+  const covered = disjoint || !hasMore ? snapshotEnd : Math.max(coveredThrough, snapshotEnd)
+  const freshStart = fresh.length ? fresh[0].id : Number.POSITIVE_INFINITY
+  const result = changed ? merged : current
+  return {
+    items: result,
+    changed,
+    coveredThrough: covered,
+    olderSurvives: result.length > 0 && result[0].id < freshStart,
+  }
 }
