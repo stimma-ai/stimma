@@ -1,0 +1,231 @@
+"""GET /api/chats/{chat_id}/items?display_limit=N: bounded transcript windows.
+
+A display window holds N visible top-level items (subagent children do not
+count) and extends back to a turn start, so a window or page boundary does
+not split an activity group. Without display_limit the
+endpoint behaves as before, for older clients.
+"""
+
+import json
+
+import pytest
+
+from database import ChatItem
+from routes.chats import DISPLAY_WINDOW_RAW_CAP, DISPLAY_WINDOW_REACH_CAP
+
+WINDOW = 40
+
+
+async def _create_chat(client) -> int:
+    response = await client.post("/api/chats", json={})
+    assert response.status_code == 200
+    return response.json()["id"]
+
+
+def _turn(chat_id: int, n: int, steps: int = 7) -> list[ChatItem]:
+    """One agent turn shaped like a real one: question, thinking, tool steps
+    with results, a shown image, and an answer."""
+    items = [
+        ChatItem(chat_id=chat_id, item_type="user_message", message_text=f"Turn {n}: " + "please make it bluer " * 10),
+        ChatItem(chat_id=chat_id, item_type="assistant_message", message_text="", item_metadata=json.dumps({
+            "thinking_status": "completed", "thinking_duration_seconds": 2.5,
+            "thinking_content": "Considering the request. " * 30,
+        })),
+    ]
+    for s in range(steps):
+        call_id = f"call-{n}-{s}"
+        items.append(ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="run_code", tool_call_id=call_id,
+                              tool_args=json.dumps({"code": f"print('step {s}')\n" * 12})))
+        items.append(ChatItem(chat_id=chat_id, item_type="tool_result", tool_call_id=call_id,
+                              tool_result=json.dumps({"output": "result line\n" * 80, "exit_code": 0})))
+    items.append(ChatItem(chat_id=chat_id, item_type="media_display", item_metadata=json.dumps({
+        "display_data": {"rows": [{"label": "Result", "output": {"status": "completed"}}]},
+    })))
+    items.append(ChatItem(chat_id=chat_id, item_type="assistant_message", message_text="Here is the result. " * 30))
+    return items
+
+
+async def _seed(db_session, chat_id: int, items: list[ChatItem]) -> list[int]:
+    async with db_session() as session:
+        for item in items:
+            session.add(item)
+            await session.flush()
+        await session.commit()
+        return [item.id for item in items]
+
+
+async def _long_chat(client, db_session, total: int = 600) -> tuple[int, list[int]]:
+    chat_id = await _create_chat(client)
+    items: list[ChatItem] = []
+    n = 0
+    while len(items) < total:
+        items.extend(_turn(chat_id, n))
+        n += 1
+    return chat_id, await _seed(db_session, chat_id, items[:total])
+
+
+def _page_boundary_ok(page: list[dict]) -> bool:
+    # Newest first: the page's oldest item starts a turn.
+    return page[-1]["item_type"] == "user_message"
+
+
+@pytest.mark.anyio
+async def test_long_chat_opens_with_a_bounded_window(client, db_session):
+    chat_id, ids = await _long_chat(client, db_session)
+
+    legacy = await client.get(f"/api/chats/{chat_id}/items?visible_limit=500")
+    window = await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}&visible_limit=500")
+    assert legacy.status_code == window.status_code == 200
+    legacy_items = legacy.json()["items"]
+    body = window.json()
+    print(f"\n600-item chat: visible_limit=500 -> {len(legacy_items)} items, {len(legacy.content)} bytes; "
+          f"display_limit={WINDOW} -> {len(body['items'])} items, {len(window.content)} bytes")
+
+    # Today's window returns (nearly) the whole chat; the display window a slice.
+    assert len(legacy_items) == 600
+    assert len(body["items"]) < 120
+    assert len(window.content) < len(legacy.content) / 5
+    assert body["has_more"] is True
+    # Newest first, contiguous by id, ending at a turn start.
+    returned = [item["id"] for item in body["items"]]
+    assert returned == sorted(ids, reverse=True)[: len(returned)]
+    assert _page_boundary_ok(body["items"])
+
+
+@pytest.mark.anyio
+async def test_pages_cover_everything_once_without_splitting_turns(client, db_session):
+    chat_id, ids = await _long_chat(client, db_session)
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}")).json()
+    pages = [body["items"]]
+    while body["has_more"]:
+        before = pages[-1][-1]["id"]
+        body = (await client.get(f"/api/chats/{chat_id}/items?limit=50&before_id={before}&display_limit={WINDOW}")).json()
+        assert body["items"], "has_more promised another page"
+        pages.append(body["items"])
+        assert len(pages) < 50
+    seen = [item["id"] for page in pages for item in page]
+    assert seen == sorted(ids, reverse=True)
+    # Every boundary falls on a turn start, so no activity group straddles one.
+    # (The very first item of the chat is a user message too.)
+    for page in pages:
+        assert _page_boundary_ok(page)
+
+
+@pytest.mark.anyio
+async def test_window_extends_to_the_turn_start_and_ignores_subagent_steps(client, db_session):
+    chat_id = await _create_chat(client)
+    seed = []
+    for n in range(4):
+        seed.extend(_turn(chat_id, n, steps=1))
+    # The newest turn delegates: one parent call with 150 child items, then
+    # 50 more steps and an answer.
+    seed.append(ChatItem(chat_id=chat_id, item_type="user_message", message_text="delegate it"))
+    ids = await _seed(db_session, chat_id, seed)
+    parent = ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="delegate", tool_call_id="d1", tool_args="{}")
+    [parent_id] = await _seed(db_session, chat_id, [parent])
+    children = [
+        ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="bash", tool_call_id=f"c{i}",
+                 tool_args="{}", parent_item_id=parent_id)
+        for i in range(150)
+    ]
+    await _seed(db_session, chat_id, children)
+    steps = [ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="bash", tool_call_id=f"g{i}", tool_args="{}")
+             for i in range(50)]
+    steps.append(ChatItem(chat_id=chat_id, item_type="assistant_message", message_text="done"))
+    await _seed(db_session, chat_id, steps)
+
+    # Five visible items are reached inside the newest activity group; the
+    # window still extends to its turn's start, so the group is whole.
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit=5")).json()
+    returned = body["items"]
+    assert returned[-1]["id"] == ids[-1]
+    assert len(returned) == 1 + 1 + 150 + 51
+    assert body["has_more"] is True
+
+    # The newest turn has 53 visible top-level items and the previous one 5.
+    # Had the 150 children counted, 56 would be reached inside the newest
+    # turn; they don't, so the window takes the previous turn too.
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit=56")).json()
+    assert body["items"][-1]["message_text"].startswith("Turn 3")
+
+
+@pytest.mark.anyio
+async def test_one_enormous_turn_is_capped(client, db_session):
+    chat_id = await _create_chat(client)
+    seed = [ChatItem(chat_id=chat_id, item_type="user_message", message_text="go")]
+    seed += [ChatItem(chat_id=chat_id, item_type="tool_call", tool_name="bash", tool_call_id=f"t{i}", tool_args="{}")
+             for i in range(DISPLAY_WINDOW_RAW_CAP + 50)]
+    ids = await _seed(db_session, chat_id, seed)
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}")).json()
+    assert len(body["items"]) == DISPLAY_WINDOW_RAW_CAP
+    assert body["has_more"] is True
+    # The rest of the turn pages in below it.
+    rest = (await client.get(
+        f"/api/chats/{chat_id}/items?before_id={body['items'][-1]['id']}&display_limit={WINDOW}"
+    )).json()
+    assert [i["id"] for i in body["items"] + rest["items"]] == sorted(ids, reverse=True)
+    assert rest["has_more"] is False
+
+
+@pytest.mark.anyio
+async def test_reach_id_extends_the_window_to_loaded_history(client, db_session):
+    chat_id, ids = await _long_chat(client, db_session)
+    plain = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}")).json()["items"]
+    reach = ids[200]
+    assert reach < plain[-1]["id"]
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}&reach_id={reach}")).json()
+    returned = [item["id"] for item in body["items"]]
+    assert returned == sorted(ids, reverse=True)[: len(returned)]
+    assert returned[-1] <= reach
+    assert _page_boundary_ok(body["items"])
+
+    # A deleted reach item still yields overlap: the window reaches below it.
+    async with db_session() as session:
+        await session.delete(await session.get(ChatItem, reach))
+        await session.commit()
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}&reach_id={reach}")).json()
+    assert body["items"][-1]["id"] < reach
+
+
+@pytest.mark.anyio
+async def test_reach_is_capped_for_long_outages(client, db_session):
+    chat_id = await _create_chat(client)
+    seed = [ChatItem(chat_id=chat_id, item_type="user_message", message_text=f"m{i}")
+            for i in range(DISPLAY_WINDOW_REACH_CAP + 100)]
+    ids = await _seed(db_session, chat_id, seed)
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit={WINDOW}&reach_id={ids[0]}")).json()
+    assert len(body["items"]) == DISPLAY_WINDOW_REACH_CAP
+    # The window does not reach the client's history: the client sees a
+    # disjoint snapshot and replaces the stale run (no unpageable hole).
+    assert body["items"][-1]["id"] > ids[0]
+    assert body["has_more"] is True
+
+
+@pytest.mark.anyio
+async def test_window_reports_skills_invoked_outside_it(client, db_session):
+    chat_id = await _create_chat(client)
+    seed = [ChatItem(chat_id=chat_id, item_type="user_message", message_text="use the skill"),
+            ChatItem(chat_id=chat_id, item_type="stimpack_injection", message_text="skill body",
+                     item_metadata=json.dumps({"skill_name": "app-icons"})),
+            ChatItem(chat_id=chat_id, item_type="stimpack_injection", message_text="legacy",
+                     item_metadata=json.dumps({"stimpack_name": "legacy-pack"}))]
+    for n in range(20):
+        seed.extend(_turn(chat_id, n, steps=1))
+    await _seed(db_session, chat_id, seed)
+    body = (await client.get(f"/api/chats/{chat_id}/items?display_limit=5")).json()
+    assert all(item["item_type"] != "stimpack_injection" for item in body["items"])
+    assert body["invoked_skills"] == ["app-icons", "legacy-pack"]
+
+
+@pytest.mark.anyio
+async def test_requests_without_display_limit_keep_their_behavior(client, db_session):
+    chat_id, ids = await _long_chat(client, db_session)
+    default = (await client.get(f"/api/chats/{chat_id}/items")).json()
+    assert [i["id"] for i in default["items"]] == sorted(ids, reverse=True)[:50]
+    assert default["has_more"] is True
+    assert default.get("invoked_skills") is None
+    page = (await client.get(f"/api/chats/{chat_id}/items?limit=50&before_id={ids[100]}")).json()
+    assert [i["id"] for i in page["items"]] == sorted(ids[:100], reverse=True)[:50]
+    legacy = (await client.get(f"/api/chats/{chat_id}/items?visible_limit=500")).json()
+    assert len(legacy["items"]) == 600
+    assert legacy.get("invoked_skills") is None

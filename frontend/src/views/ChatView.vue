@@ -2181,9 +2181,15 @@ const topLevelItems = computed(() => {
 // Skills menu on the chat input — the one place skills are seen/activated.
 // Regular chats list chat-eligible skills; embedded (flow) chats list
 // flow-eligible ones. Activation state comes from stimpack_injection items
-// (legacy items carry stimpack_* metadata keys).
+// (legacy items carry stimpack_* metadata keys). The loaded window may not
+// reach the turn that invoked a skill, so the server also reports every
+// skill invoked in the chat.
+const serverInvokedSkills = ref({ chatId: null, names: [] })
 const invokedSkillKeySet = computed(() => {
   const keys = new Set()
+  if (serverInvokedSkills.value.chatId === chatId.value) {
+    for (const name of serverInvokedSkills.value.names) keys.add(name)
+  }
   for (const item of items.value) {
     if (item.item_type !== 'stimpack_injection') continue
     const meta = item.item_metadata || {}
@@ -2363,15 +2369,32 @@ function isFirstInActivityGroup(itemId) {
   return group && group.firstId === itemId
 }
 
+// A group is named after its first loaded item. When a page boundary split
+// it, the older page that completes it renames it, so expansion recorded
+// under any member's name still applies.
+const expandedGroupIds = computed(() => {
+  const open = new Set()
+  if (!expandedActivityGroups.value.size) return open
+  for (const [itemId, group] of activityGroupInfo.value) {
+    if (expandedActivityGroups.value.has(`ag-${itemId}`)) open.add(group.id)
+  }
+  return open
+})
+
 function toggleActivityGroup(groupId) {
   const s = new Set(expandedActivityGroups.value)
-  if (s.has(groupId)) s.delete(groupId)
-  else s.add(groupId)
+  if (expandedGroupIds.value.has(groupId)) {
+    const group = activityGroupInfo.value.get(Number(groupId.slice(3)))
+    s.delete(groupId)
+    for (const item of group?.items || []) s.delete(`ag-${item.id}`)
+  } else {
+    s.add(groupId)
+  }
   expandedActivityGroups.value = s
 }
 
 function isActivityGroupExpanded(groupId) {
-  return expandedActivityGroups.value.has(groupId)
+  return expandedGroupIds.value.has(groupId)
 }
 
 function toolCallHasExpandableContent(actItem) {
@@ -2934,6 +2957,17 @@ async function updateAutoDeleteDuration(_duration) {
   }
 }
 
+// Transcript windows (the initial load, resyncs, older pages) hold about
+// this many visible items and end at a turn start, so a window boundary
+// splits an activity group only inside an enormous turn. visible_limit is
+// what servers without display windows answer instead.
+const CHAT_WINDOW_VISIBLE = 40
+const CHAT_WINDOW_QUERY = `display_limit=${CHAT_WINDOW_VISIBLE}&visible_limit=500`
+
+function applyServerInvokedSkills(requestChatId, data) {
+  if (Array.isArray(data.invoked_skills)) serverInvokedSkills.value = { chatId: requestChatId, names: data.invoked_skills }
+}
+
 // Load chat items
 // Full load of the newest window. Older history is paged in by loadMore().
 async function loadItems() {
@@ -2941,19 +2975,19 @@ async function loadItems() {
   // flight was computed against the old one and must not land after it.
   cancelPendingResync()
   const epoch = ++historyEpoch
+  const requestChatId = chatId.value
   fullLoadsInFlight++
   try {
     // Read the snapshot only once the server sends this chat's live items.
     await chatTopic.ready()
     if (epoch !== historyEpoch) return
-    // Request enough items to have 500 VISIBLE items. The backend keeps
-    // fetching until it has 500 visible items (filters out tool_call, etc.)
-    const response = await fetch(`/api/chats/${chatId.value}/items?visible_limit=500`)
+    const response = await fetch(`/api/chats/${requestChatId}/items?${CHAT_WINDOW_QUERY}`)
     if (!response.ok) {
       throw new Error('Failed to load chat items')
     }
 
     const data = await response.json()
+    applyServerInvokedSkills(requestChatId, data)
 
     // Debug: log loaded items summary
     console.log(`Loaded ${data.items.length} items, hasMore: ${data.has_more}`)
@@ -2964,6 +2998,7 @@ async function loadItems() {
     pageCursor = data.items.length ? data.items[data.items.length - 1].id : null
     items.value = data.items.reverse()
 
+    const positioning = ++initialPositioning
     hasMore.value = data.has_more
     loading.value = false
 
@@ -2979,7 +3014,13 @@ async function loadItems() {
     await nextTick()
     scrollToBottom()
     // Also scroll after a short delay as a fallback (images might load)
-    setTimeout(scrollToBottom, 100)
+    setTimeout(() => {
+      scrollToBottom()
+      if (positioning !== initialPositioning) return
+      initialPositioning = 0
+      // Now a visible sentinel means the window is shorter than the view.
+      if (hasMore.value && loadMoreSentinel.value) setupLoadMoreObserver()
+    }, 100)
   } catch (error) {
     console.error('Error loading chat items:', error)
     loading.value = false
@@ -2993,6 +3034,11 @@ async function loadItems() {
     }
   }
 }
+
+// Nonzero while a full load is still scrolling to the newest messages. Until
+// then the freshly rendered transcript can sit at the top, where the
+// sentinel looks visible and would page in history nobody scrolled to.
+let initialPositioning = 0
 
 // Reconcile the transcript with server truth after a gap in WebSocket
 // coverage (KeepAlive deactivation, socket reconnect). Broadcasts from the
@@ -3037,16 +3083,21 @@ async function resyncItems() {
   const journal = new Map()
   resyncJournal = journal
   const before = new Set(toRaw(items.value).map(item => item.id))
+  // The window reaches back to covered history, so after a short outage it
+  // overlaps what is loaded and repairs it in place. After a long one (past
+  // the server's cap) it is disjoint and replaces it, as reconcile requires.
+  const reach = Number.isFinite(coveredThrough) ? `&reach_id=${coveredThrough}` : ''
   try {
     // Changes broadcast before the server follows this chat for us would
     // otherwise fall between the snapshot and the live stream.
     await chatTopic.ready()
     if (generation !== resyncGeneration || chatId.value !== requestChatId) return
-    const response = await fetch(`/api/chats/${requestChatId}/items?visible_limit=500`)
+    const response = await fetch(`/api/chats/${requestChatId}/items?${CHAT_WINDOW_QUERY}${reach}`)
     if (!response.ok) return
     const data = await response.json()
     // A newer resync, a chat switch, or a full reload superseded this one.
     if (generation !== resyncGeneration || chatId.value !== requestChatId || loading.value) return
+    applyServerInvokedSkills(requestChatId, data)
     const fresh = data.items.reverse()
     const result = reconcileChatItems(toRaw(items.value).map(item => toRaw(item)), fresh, {
       hasMore: data.has_more,
@@ -3135,7 +3186,7 @@ async function loadMore() {
   let rearm = false
 
   try {
-    const response = await fetch(`/api/chats/${requestChatId}/items?limit=50&before_id=${cursor}`)
+    const response = await fetch(`/api/chats/${requestChatId}/items?limit=50&before_id=${cursor}&display_limit=${CHAT_WINDOW_VISIBLE}`)
     if (!response.ok) throw new Error('Failed to load older chat items')
     const data = await response.json()
     // A full load or a resync replaced the history's older boundary while
@@ -3188,7 +3239,7 @@ function setupLoadMoreObserver() {
 
   loadMoreObserver.value = new IntersectionObserver(
     (entries) => {
-      if (entries[0].isIntersecting && hasMore.value) {
+      if (entries[0].isIntersecting && hasMore.value && !initialPositioning) {
         loadMore()
       }
     },
@@ -4676,6 +4727,7 @@ async function clearChat() {
     if (response.ok) {
       // Clear local items array
       items.value = []
+      serverInvokedSkills.value = { chatId: null, names: [] }
     }
   } catch (error) {
     console.error('Error clearing chat:', error)
