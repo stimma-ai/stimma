@@ -128,7 +128,7 @@ jobs:
       matrix:
         lane: [desktop, phone-1, phone-2]
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-latest"') }}
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -165,8 +165,8 @@ jobs:
       - name: Install FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends ffmpeg
+            sudo apt-get -o Acquire::Retries=3 update
+            sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg
           fi
           ffmpeg -version
           ffprobe -version
