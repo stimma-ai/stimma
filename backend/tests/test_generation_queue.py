@@ -660,6 +660,101 @@ class TestClientCleanup:
         assert client not in generation_queue._forever_mode_clients.get("backend-a", {})
         assert client not in generation_queue._forever_mode_clients.get("backend-b", {})
 
+    async def test_cleanup_for_a_re_registered_instance_is_a_no_op(
+        self, generation_queue, generation_db_session
+    ):
+        """An older connection's cleanup must not touch the session that has
+        since re-registered the same instance ID."""
+        _reset_queue_state(generation_queue)
+        client = "test-cleanup-superseded"
+        generation_queue._forever_mode_clients["test"] = {client: 1}
+        async with generation_db_session() as session:
+            job = await create_generation_job(session, generator_instance_id=client, status="queued")
+            job_id = job.id
+
+        await generation_queue.cleanup_disconnected_client(client, still_abandoned=lambda: False)
+
+        assert generation_queue._forever_mode_clients["test"] == {client: 1}
+        async with generation_db_session() as session:
+            assert (await session.get(GenerationJob, job_id)).status == "queued"
+        await generation_queue.unregister_forever_mode(client, "test")
+
+    async def test_cleanup_never_cancels_jobs_submitted_after_the_disconnect(
+        self, generation_queue, generation_db_session, mock_ws
+    ):
+        """The page can re-register and submit while an older cleanup is still
+        cancelling; only the departed connection's jobs are cancelled, and the
+        new session's warm pool is left alone."""
+        _reset_queue_state(generation_queue)
+        client = "test-cleanup-reregistered-midway"
+        async with generation_db_session() as session:
+            old = await create_generation_job(session, generator_instance_id=client, status="queued")
+            new = await create_generation_job(session, generator_instance_id=client, status="queued")
+            new.created_at = datetime.utcnow() + timedelta(minutes=1)
+            await session.commit()
+            old_id, new_id = old.id, new.id
+
+        checks = iter([True, False])  # re-registered while jobs were cancelled
+        with patch.object(generation_queue, "teardown_prompt_warm_pool") as teardown:
+            await generation_queue.cleanup_disconnected_client(
+                client, still_abandoned=lambda: next(checks)
+            )
+        teardown.assert_not_called()
+
+        async with generation_db_session() as session:
+            assert (await session.get(GenerationJob, old_id)).status == "cancelled"
+            assert (await session.get(GenerationJob, new_id)).status == "queued"
+            await generation_queue.cancel_queued_jobs_for_instance(client)
+
+    async def test_cleanup_refills_released_slots_for_remaining_clients(
+        self, generation_queue, mock_ws
+    ):
+        """Disconnect cleanup releases the departed client's reservations and
+        offers those slots to clients still connected, in one batch."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        departed, remaining = "test-refill-departed", "test-refill-remaining"
+        await generation_queue.register_forever_mode(departed, "test", max_concurrency=1)
+        reservation = mock_ws.get_broadcasts("generation_request_work")[0][1]["reservation_id"]
+        on_undelivered = mock_ws.undelivered_callback_for(
+            mock_ws.get_broadcasts("generation_request_work")[0][1]
+        )
+        generation_queue._forever_mode_clients["test"][remaining] = 1
+        mock_ws.clear()
+
+        await generation_queue.cleanup_disconnected_client(departed)
+        refills = mock_ws.get_broadcasts("generation_request_work")
+        assert reservation not in generation_queue._work_reservations
+        assert [d["generator_instance_id"] for _, d in refills] == [remaining]
+
+        # The unwritten request's late callback finds nothing to release and
+        # must not request a second refill.
+        mock_ws.clear()
+        await on_undelivered()
+        assert mock_ws.get_broadcasts("generation_request_work") == []
+        await generation_queue.unregister_forever_mode(remaining, "test")
+
+    async def test_claimed_reservation_is_not_refilled_by_a_late_callback(
+        self, generation_queue, mock_ws
+    ):
+        """The frame was written (transport still draining), the client claimed
+        its reservation, then the socket was torn down: nothing to re-offer."""
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+        client = "test-claimed-then-dropped"
+        await generation_queue.register_forever_mode(client, "test", max_concurrency=1)
+        request = mock_ws.get_broadcasts("generation_request_work")[0][1]
+        on_undelivered = mock_ws.undelivered_callback_for(request)
+        assert await generation_queue.claim_work_reservation(
+            request["reservation_id"], client, "test"
+        ) is True
+        mock_ws.clear()
+
+        await on_undelivered()
+
+        assert mock_ws.get_broadcasts("generation_request_work") == []
+        await generation_queue.unregister_forever_mode(client, "test")
+
     async def test_cancel_queued_jobs_returns_count(
         self, generation_queue, generation_db_session, mock_ws
     ):

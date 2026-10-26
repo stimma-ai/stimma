@@ -368,7 +368,7 @@ async def test_stalled_client_drop_uses_ordinary_disconnect_semantics():
     manager = WebSocketManager(hard_max_frames=4)
     abandoned = []
 
-    async def on_generator_disconnect(generator_instance_id):
+    async def on_generator_disconnect(generator_instance_id, **_):
         abandoned.append(generator_instance_id)
 
     manager.set_on_generator_disconnect(on_generator_disconnect)
@@ -393,7 +393,7 @@ async def test_half_open_socket_is_closed_by_the_send_deadline(monkeypatch):
     manager = WebSocketManager(send_timeout=0.05)
     abandoned = []
 
-    async def on_generator_disconnect(generator_instance_id):
+    async def on_generator_disconnect(generator_instance_id, **_):
         abandoned.append(generator_instance_id)
 
     manager.set_on_generator_disconnect(on_generator_disconnect)
@@ -417,7 +417,7 @@ async def test_unwritten_direct_frames_report_undelivered_after_instance_cleanup
     manager = WebSocketManager(send_timeout=0.05)
     order = []
 
-    async def on_generator_disconnect(generator_instance_id):
+    async def on_generator_disconnect(generator_instance_id, **_):
         order.append(("abandon", generator_instance_id))
 
     manager.set_on_generator_disconnect(on_generator_disconnect)
@@ -448,7 +448,7 @@ async def test_request_stranded_on_superseded_socket_is_released():
     manager = WebSocketManager()
     events = []
 
-    async def on_generator_disconnect(generator_instance_id):
+    async def on_generator_disconnect(generator_instance_id, **_):
         events.append(("abandon", generator_instance_id))
 
     async def released():
@@ -477,7 +477,7 @@ async def test_racing_disconnects_clean_up_exactly_once():
     manager = WebSocketManager()
     calls = []
 
-    async def on_generator_disconnect(generator_instance_id):
+    async def on_generator_disconnect(generator_instance_id, **_):
         calls.append(("abandon", generator_instance_id))
         await asyncio.sleep(0)
 
@@ -544,6 +544,76 @@ async def test_coalescing_on_a_stalled_client_keeps_the_queue_bounded():
     assert client.queued_frames <= client.soft_max_frames
     assert len(client._queue) <= 2 * client.queued_frames + 65
     await manager.disconnect(stalled)
+
+
+async def test_tombstones_retain_no_payload():
+    """Replaced or shed frames must be released at once, not held by their
+    tombstones until compaction: bytes retained must match bytes accounted."""
+    import gc
+    import weakref
+
+    from utils.websocket import OutboundFrame, _delivery_policy
+
+    manager = WebSocketManager(soft_max_bytes=1024 * 1024)
+    stalled = Gated()
+    client = manager.attach(stalled)
+    await _hold(manager, stalled)
+    # A durable backlog keeps the live count high, so count-based compaction
+    # would never run for these tombstones.
+    for i in range(100):
+        client.enqueue(manager_frame(i))
+
+    refs = []
+    preview = "P" * 100_000
+    for i in range(60):
+        data = {"job_id": 1, "progress": i, "preview_b64": preview}
+        frame = OutboundFrame(
+            event="generation_job_progress",
+            text=json.dumps({"event": "generation_job_progress", "data": data}) + str(i),
+            delivery=_delivery_policy("generation_job_progress", data),
+        )
+        refs.append(weakref.ref(frame))
+        client.enqueue(frame)
+        del frame
+    gc.collect()
+
+    alive = [ref for ref in refs if ref() is not None]
+    assert len(alive) == 1  # only the newest preview is still queued
+    assert client.queued_bytes < 200_000
+    await manager.disconnect(stalled)
+
+
+async def test_re_registration_during_cleanup_keeps_the_new_session():
+    """The page re-registers its generator instance on a new socket while the
+    old socket's cleanup is still running; the cleanup must see that it no
+    longer owns the instance, and the new mapping must survive."""
+    manager = WebSocketManager()
+    gate = asyncio.Event()
+    observed = []
+
+    async def on_generator_disconnect(generator_instance_id, *, still_abandoned):
+        observed.append(still_abandoned())
+        await gate.wait()  # e.g. cancelling jobs in the database
+        observed.append(still_abandoned())
+
+    manager.set_on_generator_disconnect(on_generator_disconnect)
+    old, new = Gated(), Healthy()
+    manager.attach(old)
+    await _hold(manager, old)
+    manager.register_generator_instance(old, "gen")
+
+    cleanup = asyncio.create_task(manager.disconnect(old))
+    await asyncio.sleep(0)
+    manager.attach(new)
+    manager.register_generator_instance(new, "gen")
+    gate.set()
+    await cleanup
+
+    assert observed == [True, False]
+    assert await manager.send_to_generator_instance("gen", "generation_request_work", {}) is True
+    await manager.drain()
+    assert new.events() == ["generation_request_work"]
+    await manager.disconnect(new)
 
 
 def manager_frame(i):

@@ -8,7 +8,7 @@ import time
 import asyncio
 import functools
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable
 from sqlalchemy import select, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -494,19 +494,42 @@ class GenerationQueue:
         # exist - stopping it (for any backend) tears the pool down immediately.
         self.teardown_prompt_warm_pool(generator_instance_id)
 
-    async def cleanup_disconnected_client(self, generator_instance_id: str):
+    async def cleanup_disconnected_client(
+        self,
+        generator_instance_id: str,
+        *,
+        still_abandoned: Optional[Callable[[], bool]] = None,
+    ):
         """
         Clean up when a generator instance disconnects.
         - Unregister from all backends' forever mode
         - Cancel all queued jobs for this instance across all profile databases
+        - Offer the released forever-mode slots to the clients still connected
+
+        ``still_abandoned`` reports whether the instance is still without an
+        owner. When the page re-registers the same instance on a newer
+        connection, this (older) cleanup must not touch the new session: it
+        stops, and it never cancels jobs submitted after it began.
         """
+        if still_abandoned is None:
+            still_abandoned = lambda: True  # noqa: E731
+        if not still_abandoned():
+            log.info(f"Skipping cleanup for re-registered client: {generator_instance_id}")
+            return
         log.info(f"Cleaning up disconnected client: {generator_instance_id}")
+        disconnected_at = datetime.utcnow()
 
         # Unregister from all backends' forever mode and release pending request reservations
+        released_backends = {
+            reservation['backend_name']
+            for reservation in self._work_reservations.values()
+            if reservation['generator_instance_id'] == generator_instance_id
+        }
         client_pending_count = len(self._pending_work_requests_per_client.get(generator_instance_id, []))
         for backend_name in list(self._forever_mode_clients.keys()):
             if generator_instance_id in self._forever_mode_clients[backend_name]:
                 self._forever_mode_clients[backend_name].pop(generator_instance_id, None)
+                released_backends.add(backend_name)
                 # Release all pending request reservations for this client from the backend list
                 if client_pending_count > 0 and backend_name in self._pending_work_requests:
                     self._pending_work_requests[backend_name] = self._pending_work_requests[backend_name][client_pending_count:]
@@ -520,12 +543,23 @@ class GenerationQueue:
             if reservation['generator_instance_id'] != generator_instance_id
         }
 
-        # Cancel all queued jobs for this instance
-        await self.cancel_queued_jobs_for_instance(generator_instance_id, error_message='Client disconnected')
+        # Cancel the queued jobs this connection left behind. Jobs created
+        # after the disconnect belong to whichever session owns the ID now.
+        await self.cancel_queued_jobs_for_instance(
+            generator_instance_id,
+            error_message='Client disconnected',
+            created_before=disconnected_at,
+        )
 
         # A dropped connection means there's no one left to consume warm prompts
         # or refresh the intent - tear it down rather than let it idle to TTL.
-        self.teardown_prompt_warm_pool(generator_instance_id)
+        if still_abandoned():
+            self.teardown_prompt_warm_pool(generator_instance_id)
+
+        # The departed client's slots are free; offer them to the others.
+        for backend_name in sorted(released_backends):
+            if backend_name in self._forever_mode_clients:
+                await self._fill_available_slots(backend_name)
 
     # --- Prompt warm pool ---------------------------------------------------
     #
@@ -767,15 +801,18 @@ class GenerationQueue:
     ) -> None:
         """A work request was queued but its socket closed before it was written.
 
-        Disconnect cleanup normally releases the instance's reservations
-        already; this also covers a request stranded on a superseded socket.
-        Either way the slot is offered to the clients still connected.
+        This covers a request stranded on a socket the page already replaced.
+        Refill only when this call released the reservation: if the client
+        already claimed it (the frame was written after all), or disconnect
+        cleanup released it (and refilled in one batch), there is nothing to
+        re-offer.
         """
-        await self.claim_work_reservation(reservation_id, generator_instance_id, backend_name)
-        await self._fill_available_slots(backend_name)
+        if await self.claim_work_reservation(reservation_id, generator_instance_id, backend_name):
+            await self._fill_available_slots(backend_name)
 
     async def cancel_queued_jobs_for_instance(self, generator_instance_id: str,
-                                               error_message: str = 'Cancelled - cleanup') -> int:
+                                               error_message: str = 'Cancelled - cleanup',
+                                               created_before: Optional[datetime] = None) -> int:
         """
         Cancel all queued jobs for a specific generator instance across all profile databases.
         Returns the number of jobs cancelled.
@@ -784,12 +821,13 @@ class GenerationQueue:
 
         for profile_id, db in self._get_all_jobs_dbs():
             async with db.async_session_maker() as session:
-                result = await session.execute(
-                    select(GenerationJob).where(
-                        GenerationJob.generator_instance_id == generator_instance_id,
-                        GenerationJob.status == 'queued'
-                    )
+                query = select(GenerationJob).where(
+                    GenerationJob.generator_instance_id == generator_instance_id,
+                    GenerationJob.status == 'queued'
                 )
+                if created_before is not None:
+                    query = query.where(GenerationJob.created_at <= created_before)
+                result = await session.execute(query)
                 queued_jobs = result.scalars().all()
 
                 if not queued_jobs:

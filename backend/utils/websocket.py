@@ -1,5 +1,6 @@
 """WebSocket connection management for real-time updates."""
 import asyncio
+import functools
 import json
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -163,11 +164,12 @@ class OutboundFrame:
 
 class _Entry:
     """A queue slot. Replaced or shed entries become tombstones in place, so
-    removing one never scans the queue."""
+    removing one never scans the queue. A tombstone drops its frame at once,
+    so discarded payloads never outlive the byte accounting."""
 
     __slots__ = ("frame", "alive")
 
-    def __init__(self, frame: OutboundFrame):
+    def __init__(self, frame: Optional[OutboundFrame]):
         self.frame = frame
         self.alive = True
 
@@ -293,6 +295,7 @@ class ClientConnection:
     def _discard(self, entry: _Entry) -> None:
         """Drop a still-queued entry, leaving a tombstone in place."""
         self._unindex(entry)
+        entry.frame = None
         self._tombstones += 1
         if self._tombstones > 64 and self._tombstones > self._live:
             # Amortized compaction keeps tombstones bounded by the live count.
@@ -409,6 +412,9 @@ class WebSocketManager:
         )
         # Track generator_instance_id -> websocket mapping for cleanup on disconnect
         self._generator_instance_websockets: Dict[str, WebSocket] = {}
+        # generator_instance_id -> registration generation (ownership token)
+        self._generator_registrations: Dict[str, int] = {}
+        self._registration_seq = 0
         # Callback for when a generator instance disconnects
         self._on_generator_disconnect: Optional[Callable[[str], Awaitable[None]]] = None
         # Strong references to in-flight client drops.
@@ -426,8 +432,13 @@ class WebSocketManager:
     def client_for(self, websocket: WebSocket) -> Optional[ClientConnection]:
         return self._clients.get(id(websocket))
 
-    def set_on_generator_disconnect(self, callback: Callable[[str], Awaitable[None]]):
-        """Set callback to be called when a generator instance disconnects."""
+    def set_on_generator_disconnect(self, callback: Callable[..., Awaitable[None]]):
+        """Set the cleanup called when a generator instance's socket goes away.
+
+        Called as ``callback(generator_instance_id, still_abandoned=predicate)``;
+        the cleanup must stop touching the instance once ``predicate()`` is
+        False (the page re-registered it on a newer connection).
+        """
         self._on_generator_disconnect = callback
 
     async def connect(self, websocket: WebSocket):
@@ -445,7 +456,13 @@ class WebSocketManager:
         return client
 
     def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str):
-        """Associate a generator instance ID with a WebSocket connection."""
+        """Associate a generator instance ID with a WebSocket connection.
+
+        Each registration is a new ownership generation: cleanup for an older
+        connection must never touch a session that registered after it.
+        """
+        self._registration_seq += 1
+        self._generator_registrations[generator_instance_id] = self._registration_seq
         self._generator_instance_websockets[generator_instance_id] = websocket
         log.info(f"Registered generator instance {generator_instance_id} with WebSocket")
 
@@ -463,16 +480,30 @@ class WebSocketManager:
         ]
         for gid in disconnected_instances:
             del self._generator_instance_websockets[gid]
+        owned = {
+            gid: self._generator_registrations.get(gid) for gid in disconnected_instances
+        }
 
-        undelivered = await client.stop() if client is not None else []
-
-        for gid in disconnected_instances:
+        # Instance cleanup first, before this coroutine yields for the sender
+        # shutdown. The cleanup itself awaits, so it is also told whether the
+        # instance is still abandoned: a page that re-registers the same ID
+        # meanwhile owns it, and an older disconnect must leave it alone.
+        for gid, generation in owned.items():
             log.info(f"Generator instance {gid} disconnected")
             if self._on_generator_disconnect:
                 try:
-                    await self._on_generator_disconnect(gid)
+                    await self._on_generator_disconnect(
+                        gid,
+                        still_abandoned=functools.partial(
+                            self._generator_still_abandoned, gid, generation
+                        ),
+                    )
                 except Exception as e:
                     log.error(f"Error in generator disconnect callback: {e}")
+            if self._generator_still_abandoned(gid, generation):
+                self._generator_registrations.pop(gid, None)
+
+        undelivered = await client.stop() if client is not None else []
 
         # After instance cleanup, so a released reservation is refilled only
         # by instances that are still connected.
@@ -485,6 +516,12 @@ class WebSocketManager:
 
         if client is not None:
             log.info(f"WebSocket disconnected. Total connections: {len(self._clients)}")
+
+    def _generator_still_abandoned(self, generator_instance_id: str, generation: Optional[int]) -> bool:
+        return (
+            generator_instance_id not in self._generator_instance_websockets
+            and self._generator_registrations.get(generator_instance_id) == generation
+        )
 
     def _client_failed(self, client: ClientConnection, reason: str) -> None:
         """Drop a client that is stalled or dead, as a network drop would."""
