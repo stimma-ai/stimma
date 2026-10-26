@@ -230,7 +230,8 @@ export function startServerUpdater(): Promise<void> {
     window.removeEventListener(SERVER_UPDATE_CHECK_STARTED, onCheckStarted)
   })
   // A server restart drops and re-opens the app socket on every client.
-  stopWatches.push(useWebSocket().on('websocket_reconnected', () => statusPoller.wake()))
+  // Optional: runs after the active screen has refreshed.
+  stopWatches.push(useWebSocket().on('websocket_reconnected', () => statusPoller.wake(), { optional: true }))
   stopWatches.push(watch([serverBusy, operation], () => statusPoller.reschedule()))
   stopWatches.push(watch(device.activeDeviceId, () => { server.value = null; error.value = ''; statusPoller.wake() }))
   stopWatches.push(watch(device.connectionState, state => {

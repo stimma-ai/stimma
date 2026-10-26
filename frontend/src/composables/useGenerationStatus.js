@@ -23,7 +23,7 @@ let pendingWorkEpoch = 0
 let jobEventEpoch = 0
 let recoverySequence = 0
 
-async function reconcileMobileJobs() {
+async function reconcileJobs(attempt = 0) {
   const sequence = ++recoverySequence
   const epoch = jobEventEpoch
   try {
@@ -39,7 +39,8 @@ async function reconcileMobileJobs() {
     }))
     if (sequence !== recoverySequence) return
     // Do not overwrite events that arrived after this snapshot was requested.
-    if (epoch !== jobEventEpoch) { void reconcileMobileJobs(); return }
+    // Bounded: a busy server emits job events continuously, and a retry is three more reads.
+    if (epoch !== jobEventEpoch) { if (attempt < 3) void reconcileJobs(attempt + 1); return }
     const tasks = {}, instances = {}
     countedJobs.clear()
     for (const job of pages.flat()) {
@@ -190,12 +191,12 @@ export function useGenerationStatus() {
         activeJobsByTaskType.value = {}
         activeJobsByInstanceId.value = {}
       })
-      window.addEventListener('profile-changed', () => { void reconcileMobileJobs() })
+      window.addEventListener('profile-changed', () => { void reconcileJobs() })
     }
-    // Phone disconnections retain counts until the server can reconcile them.
-    onWebSocketEvent('websocket_reconnected', () => {
-      if (mobileRecoveryEnabled) void reconcileMobileJobs()
-    })
+    // Phone disconnections retain counts until the server can reconcile them;
+    // desktop clears them on disconnect. Either way the server's list of
+    // running jobs is the truth once the socket is back.
+    onWebSocketEvent('websocket_reconnected', () => { void reconcileJobs() })
     onWebSocketEvent('websocket_disconnected', () => {
       recoverySequence++
       if (mobileRecoveryEnabled) return

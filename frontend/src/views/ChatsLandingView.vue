@@ -554,19 +554,33 @@ function handleEmptyMenuClickOutside(event) {
   emptyContextMenuVisible.value = false
 }
 
+let chatsLoadSequence = 0
+let chatsLoaded = false
+
+/**
+ * Load the list. Once it has loaded, refreshes (events, reconnects,
+ * reactivation) keep it on screen: no spinner, and a failed refresh keeps
+ * the last list instead of replacing it with an error. Only the latest of
+ * overlapping reads lands.
+ */
 async function loadChats() {
-  loading.value = true
+  const sequence = ++chatsLoadSequence
+  const quiet = chatsLoaded
+  if (!quiet) loading.value = true
   loadError.value = false
   try {
     // The top level lists only chats with no project.
     const params = new URLSearchParams({ page: '1', page_size: '100' })
     const data = await fetchScopedJson('/api/chats/previews', params, props.projectId)
+    if (sequence !== chatsLoadSequence) return
     chats.value = data.items
+    chatsLoaded = true
   } catch (err) {
+    if (sequence !== chatsLoadSequence) return
     console.error('Failed to load chats:', err)
-    loadError.value = true
+    if (!quiet) loadError.value = true
   } finally {
-    loading.value = false
+    if (sequence === chatsLoadSequence) loading.value = false
   }
 }
 
@@ -658,10 +672,19 @@ function hasMedia(chat) {
 }
 
 // WebSocket listeners
-on('chat_created', () => loadChats())
-on('chat_updated', () => loadChats())
-on('chat_deleted', () => loadChats())
-on('chat_restored', () => loadChats())
+let chatsVisible = true
+const wsUnsubscribes = [
+  on('chat_created', () => loadChats()),
+  on('chat_updated', () => loadChats()),
+  on('chat_deleted', () => loadChats()),
+  on('chat_restored', () => loadChats()),
+  // Chats created, renamed or deleted while the socket was down were never
+  // broadcast. A cached, inactive list refreshes when it is shown again.
+  on('websocket_reconnected', () => {
+    if (!chatsVisible) return undefined // Reactivation reloads it.
+    return loadChats()
+  }),
+]
 
 onMounted(() => {
   loadChats()
@@ -669,6 +692,7 @@ onMounted(() => {
 })
 
 onActivated(() => {
+  chatsVisible = true
   loadChats()
   if (allowsAutofocus.value) searchInputRef.value?.focus()
   document.addEventListener('keydown', handleKeyDown)
@@ -676,6 +700,7 @@ onActivated(() => {
 })
 
 onDeactivated(() => {
+  chatsVisible = false
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleEmptyMenuClickOutside)
   emptyContextMenuVisible.value = false
@@ -683,6 +708,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(() => {
+  for (const unsubscribe of wsUnsubscribes) unsubscribe()
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleEmptyMenuClickOutside)
 })

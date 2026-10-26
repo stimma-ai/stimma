@@ -52,6 +52,68 @@ test('real fetch and Axios hold unsent writes, preserve abort, and expire withou
   assert.equal(sent.length, 2)
 })
 
+test('native recovery phases hold writes for their budgets, send them once, and never ask for sign-in', async t => {
+  const browser = await chromium.launch(); t.after(() => browser.close())
+  const page = await browser.newPage()
+  const sent = []
+  await page.route('http://recovery.test/**', route => {
+    const url = route.request().url()
+    if (!url.includes('/api/')) return route.fulfill({ contentType: 'text/html', body: '<div id="app"></div>' })
+    sent.push(`${route.request().method()} ${new URL(url).pathname}`)
+    // A device session the server's gate refused: the shell renews it, the account is still signed in.
+    if (url.endsWith('/api/auth/account')) return route.fulfill({ status: 401, headers: { 'X-Stimma-Session-Invalid': '1' }, contentType: 'application/json', body: '{"detail":"Multi-device session required"}' })
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('http://recovery.test/')
+  await page.evaluate(() => {
+    window.nativeState = { connectionState: 'ready', recovery: { generation: 1, phase: 'ready', budgetMs: 0 } }
+    window.webkit = { messageHandlers: { stimma: { postMessage: async () => window.nativeState } } }
+  })
+  await page.addScriptTag({ content: script })
+  const native = (generation, phase, budgetMs = 0) => page.evaluate(([generation, phase, budgetMs]) => {
+    window.nativeState = { connectionState: phase === 'ready' ? 'ready' : 'connecting', recovery: { generation, phase, budgetMs } }
+    window.dispatchEvent(new CustomEvent('stimma:transport-state', { detail: window.nativeState.recovery }))
+  }, [generation, phase, budgetMs])
+  await page.evaluate(() => {
+    window.authPrompts = 0
+    window.addEventListener('stimma-auth-required', () => authPrompts++)
+    window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: false }))
+  })
+  // Backgrounded: the shell marks the path suspect; on return it checks, then re-establishes the session.
+  await native(2, 'checking', 5000)
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('stimma:app-active', { detail: true }))
+    window.results = []
+    fetch('/api/chats/1/items', { method: 'POST', body: 'once' }).then(() => results.push('fetch'), e => results.push(e.message))
+    recovery.axios.post('/api/generate', 'once').then(() => results.push('axios'), e => results.push(e.message))
+  })
+  await page.waitForTimeout(2600)
+  assert.deepEqual(sent, [], 'held past the old two-second window because native recovery said it may take five')
+  assert.equal(await page.evaluate(() => recovery.status.value), 'reconnecting')
+  await native(2, 'reconnecting', 20000)
+  await page.waitForTimeout(300)
+  assert.deepEqual(sent, [])
+  await native(2, 'ready')
+  await page.evaluate(() => recovery.setMobileSocketReady(true))
+  await page.waitForFunction(() => results.length === 2)
+  assert.deepEqual((await page.evaluate(() => results)).sort(), ['axios', 'fetch'])
+  assert.deepEqual(sent.sort(), ['POST /api/chats/1/items', 'POST /api/generate'], 'each write sent exactly once')
+  assert.equal(await page.evaluate(() => recovery.visible.value), false)
+  // An expired device session read during recovery is not a signed-out account.
+  assert.equal(await page.evaluate(() => recovery.fetchCloudAccount().then(account => account)), null)
+  assert.equal(await page.evaluate(() => authPrompts), 0)
+  // A long outage: unavailable fails new writes at once, shows it, and sends nothing later.
+  await native(3, 'checking', 5000)
+  await native(3, 'reconnecting', 20000)
+  await native(3, 'unavailable')
+  assert.match(await page.evaluate(() => fetch('/api/boards', { method: 'POST' }).then(() => 'sent', e => e.message)), /Still reconnecting/)
+  assert.equal(await page.evaluate(() => recovery.status.value), 'unavailable')
+  await native(3, 'ready')
+  await page.waitForTimeout(200)
+  assert.equal(sent.filter(entry => entry === 'POST /api/boards').length, 0, 'a failed write is never replayed')
+  assert.equal(await page.evaluate(() => recovery.visible.value), false)
+})
+
 test('the installed Vite client reconnects without reloading an unchanged phone page', async t => {
   const server = await createServer({ configFile: false, root, logLevel: 'silent', plugins: [mobileDevReconnect()], server: { port: 0, host: '127.0.0.1' } })
   await server.listen(); t.after(() => server.close())

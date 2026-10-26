@@ -11,9 +11,9 @@
  * on). Reading it does not require offering this one, so a laptop that never
  * serves can still drive the studio machine.
  */
-import { ref, computed, readonly } from 'vue'
+import { ref, computed, readonly, watch } from 'vue'
 import { desktop, isDesktop } from '../desktop'
-import { useWebSocket } from './useWebSocket'
+import { setRemoteServerConnection, useWebSocket } from './useWebSocket'
 
 const LOCAL_DEVICE = 'local'
 
@@ -60,6 +60,10 @@ const selfServing = ref(false)
 // yet", not "nobody is serving" — the picker must not teach the feature to
 // someone whose servers simply have not loaded.
 const rosterLoaded = ref(false)
+
+// Another device's server is reached over the network: the app socket backs
+// off between reconnect attempts instead of retrying a local backend's pace.
+watch(activeDeviceId, id => setRemoteServerConnection(id !== LOCAL_DEVICE), { immediate: true })
 
 let unsubscribe = null
 

@@ -86,7 +86,7 @@ export function useDeleteOperations() {
     on('websocket_reconnected', () => {
       // Re-fetch server state in case we missed events while disconnected
       refreshActiveDeleteOperation()
-    })
+    }, { optional: true })
   }
 
   const hasActiveDeleteOperation = computed(() => {

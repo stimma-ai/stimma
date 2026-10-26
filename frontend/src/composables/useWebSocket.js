@@ -1,26 +1,89 @@
-import { ref } from 'vue'
-import { setMobileSocketReady } from './useMobileRecovery.js'
+import { ref, shallowRef } from 'vue'
+import {
+  mobileRecoveryEnabled,
+  mobileTransportAdmitsSocket,
+  mobileTransportEpoch,
+  onMobileTransportAdmit,
+  onMobileTransportReady,
+  setMobileSocketReady,
+} from './useMobileRecovery.js'
 import { getCurrentProfileId } from './useProfile'
 import { getWsBase, isInitialized as isApiInitialized } from '../apiConfig'
 import { addToast, removeToast } from './useToasts'
+import { createReconnectBackoff, LOCAL_RECONNECT, REMOTE_RECONNECT } from '../utils/reconnectBackoff.js'
 import { realtimeScope } from './realtimeScope.js'
 import { installRealtimeScope } from './useRealtimeTopic.js'
 
 /**
  * Singleton WebSocket connection shared across all components
  * Handles connection, reconnection, and event broadcasting
+ *
+ * Reconnection: a local backend is retried every half second so the app
+ * follows a restart at once. A remote server (phone shells, or a desktop
+ * pointed at another device) backs off exponentially with jitter up to 30 s,
+ * resetting after a stable connection, and retries at once when the network
+ * comes back or the phone's native recovery reports the path ready. On the
+ * phone shells no socket is attempted while native recovery says the path is
+ * unusable; its ready signal opens the socket exactly once per recovery.
+ *
+ * Every open emits `websocket_reconnected` with `{ generation }` (first
+ * connect included: the frontend may mount before the backend is ready).
+ * Handlers that return a promise are the active screen's reads; handlers
+ * registered with `{ optional: true }` (catalogs, status polls, artwork
+ * retries) run after those settle on a remote connection, so a constrained
+ * link spends itself on what is visible first.
  */
 
 // Shared state (singleton) - exists outside the composable function
-const ws = ref(null)
+// Shallow: handlers compare the live socket by identity, which a reactive proxy would break.
+const ws = shallowRef(null)
 const connected = ref(false)
 const reconnecting = ref(false)
 const reconnectAttempts = ref(0)
-const reconnectDelay = 500 // Fixed 0.5 second reconnect interval (local app, fast retry)
 const eventHandlers = new Map() // Map of event type -> array of handlers
+const OPTIONAL_SUFFIX = ':optional'
+/** Optional reconnect work waits for the active screen's reads, but never longer than this. */
+const OPTIONAL_DEFER_MAX_MS = 3000
+/** A remote socket silent for this long is asked to prove it is alive. */
+const LIVENESS_IDLE_MS = 25_000
+/** How long a liveness ping may go unanswered before the socket is treated as dead (half-open). */
+const LIVENESS_TIMEOUT_MS = 10_000
 
 let reconnectTimeout = null
 let isInitialized = false
+let remoteServer = false
+const backoff = createReconnectBackoff()
+let reconnectGeneration = 0
+let optionalTimer = null
+let optionalToken = 0
+let lastMessageAt = 0
+let livenessTimer = null
+let livenessDeadline = null
+
+function isRemote() {
+  return mobileRecoveryEnabled || remoteServer
+}
+
+/** The desktop app reports whether its active server is another device. */
+export function setRemoteServerConnection(remote) {
+  remoteServer = Boolean(remote)
+}
+
+function isLive(socket) {
+  return socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout)
+    reconnectTimeout = null
+  }
+}
+
+function stopLiveness() {
+  if (livenessTimer) { clearInterval(livenessTimer); livenessTimer = null }
+  if (livenessDeadline) { clearTimeout(livenessDeadline); livenessDeadline = null }
+}
 
 export function useWebSocket() {
 
@@ -28,7 +91,7 @@ export function useWebSocket() {
    * Connect to WebSocket server
    */
   function connect() {
-    if (ws.value?.readyState === WebSocket.OPEN || ws.value?.readyState === WebSocket.CONNECTING) {
+    if (isLive(ws.value)) {
       return
     }
 
@@ -36,6 +99,13 @@ export function useWebSocket() {
     if (!isApiInitialized()) {
       console.log('[WebSocket] Waiting for API config initialization...')
       setTimeout(connect, 100)
+      return
+    }
+
+    // The phone's native recovery owns the path; its ready signal connects.
+    if (!mobileTransportAdmitsSocket()) {
+      clearReconnectTimer()
+      reconnecting.value = true
       return
     }
 
@@ -56,31 +126,34 @@ export function useWebSocket() {
       wsUrl += (wsUrl.includes('?') ? '&' : '?') + realtimeScope.connectQuery(getCurrentProfileId())
 
       console.log('[WebSocket] Connecting to:', wsUrl.split('?')[0])
-      ws.value = new WebSocket(wsUrl)
+      const socket = new WebSocket(wsUrl)
+      socket.stimmaEpoch = mobileTransportEpoch()
+      ws.value = socket
 
-      ws.value.onopen = () => {
+      socket.onopen = () => {
         console.log('[WebSocket] Connected')
         connected.value = true
         setMobileSocketReady(true)
         reconnecting.value = false
         reconnectAttempts.value = 0
+        backoff.opened()
+        lastMessageAt = Date.now()
+        startLiveness(socket)
 
         // Clear any pending reconnect timeout
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout)
-          reconnectTimeout = null
-        }
+        clearReconnectTimer()
 
         realtimeScope.socketOpened(send)
 
         // Notify listeners so they can refresh state - on both first connect and reconnect.
         // On first launch the frontend may mount before the backend is ready, causing initial
         // data fetches to fail. Firing this on every connect ensures state gets populated.
-        handleMessage({ event: 'websocket_reconnected', data: {} })
-        window.dispatchEvent(new Event('stimma:media-reconnected'))
+        dispatchReconnect()
       }
 
-      ws.value.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        lastMessageAt = Date.now()
+        if (livenessDeadline) { clearTimeout(livenessDeadline); livenessDeadline = null }
         try {
           const message = JSON.parse(event.data)
           realtimeScope.handleServerMessage(message?.event, message?.data)
@@ -93,22 +166,13 @@ export function useWebSocket() {
         }
       }
 
-      ws.value.onerror = (error) => {
+      socket.onerror = (error) => {
         console.error('[WebSocket] Error:', error)
       }
 
-      ws.value.onclose = () => {
+      socket.onclose = () => {
         console.log('[WebSocket] Disconnected')
-        connected.value = false
-        setMobileSocketReady(false)
-        ws.value = null
-        realtimeScope.socketClosed()
-
-        // Lost contact does not imply that remote jobs have stopped.
-        handleMessage({ event: 'websocket_disconnected', data: {} })
-
-        // Auto-reconnect with fixed interval
-        scheduleReconnect()
+        lost(socket)
       }
     } catch (error) {
       console.error('[WebSocket] Connection failed:', error)
@@ -116,8 +180,25 @@ export function useWebSocket() {
     }
   }
 
+  /** A socket ended, by close event or because it stopped answering. */
+  function lost(socket) {
+    if (ws.value !== socket) return
+    backoff.closed()
+    stopLiveness()
+    connected.value = false
+    setMobileSocketReady(false)
+    ws.value = null
+    realtimeScope.socketClosed()
+
+    // Lost contact does not imply that remote jobs have stopped.
+    handleMessage({ event: 'websocket_disconnected', data: {} })
+
+    scheduleReconnect()
+  }
+
   /**
-   * Schedule reconnection with fixed interval
+   * Schedule the next attempt: quick for a local backend, backing off for a
+   * remote server, and not at all while native recovery holds the path.
    */
   function scheduleReconnect() {
     if (reconnectTimeout) {
@@ -126,23 +207,60 @@ export function useWebSocket() {
 
     reconnecting.value = true
     reconnectAttempts.value++
+    if (!mobileTransportAdmitsSocket()) return
 
-    console.log(`[WebSocket] Reconnecting in ${reconnectDelay}ms (attempt ${reconnectAttempts.value})`)
+    const delay = backoff.next(isRemote() ? REMOTE_RECONNECT : LOCAL_RECONNECT)
+    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value})`)
 
     reconnectTimeout = setTimeout(() => {
       reconnectTimeout = null
       connect()
-    }, reconnectDelay)
+    }, delay)
+  }
+
+  /** The network or app came back: skip any remaining backoff. */
+  function wake() {
+    if (isLive(ws.value)) return
+    clearReconnectTimer()
+    backoff.reset()
+    connect()
+  }
+
+  /**
+   * A remote socket can stay OPEN with nothing behind it (a dropped NAT
+   * mapping, a server that vanished without closing). When it has been
+   * silent for a while, ping; no answer means it is dead.
+   */
+  function startLiveness(socket) {
+    stopLiveness()
+    if (!isRemote()) return
+    livenessTimer = setInterval(() => {
+      if (ws.value !== socket || socket.readyState !== WebSocket.OPEN || livenessDeadline) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      if (Date.now() - lastMessageAt < LIVENESS_IDLE_MS) return
+      send('ping', {})
+      livenessDeadline = setTimeout(() => {
+        livenessDeadline = null
+        if (ws.value !== socket) return
+        console.warn('[WebSocket] No answer to liveness ping; replacing the socket')
+        abandon(socket)
+      }, LIVENESS_TIMEOUT_MS)
+    }, LIVENESS_IDLE_MS / 5)
+  }
+
+  /** Drop a dead socket without waiting for a close handshake that will never complete. */
+  function abandon(socket) {
+    socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null
+    try { socket.close() } catch { /* Already gone. */ }
+    lost(socket)
   }
 
   /**
    * Disconnect from WebSocket server
    */
   function disconnect() {
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout)
-      reconnectTimeout = null
-    }
+    clearReconnectTimer()
+    stopLiveness()
 
     if (ws.value) {
       const previous = ws.value
@@ -160,6 +278,29 @@ export function useWebSocket() {
   }
 
   /**
+   * One refresh sequence per open: the active screen first, optional work
+   * after its reads settle (remote only), and nothing from a superseded open.
+   */
+  function dispatchReconnect(extra = {}) {
+    const generation = ++reconnectGeneration
+    const data = { ...extra, generation }
+    const results = handleMessage({ event: 'websocket_reconnected', data })
+    const token = ++optionalToken
+    if (optionalTimer) { clearTimeout(optionalTimer); optionalTimer = null }
+    const runOptional = () => {
+      if (token !== optionalToken) return
+      optionalToken++
+      if (optionalTimer) { clearTimeout(optionalTimer); optionalTimer = null }
+      handleMessage({ event: `websocket_reconnected${OPTIONAL_SUFFIX}`, data })
+      window.dispatchEvent(new Event('stimma:media-reconnected'))
+    }
+    const reads = results.filter(result => typeof result?.then === 'function')
+    if (!isRemote() || reads.length === 0) { runOptional(); return }
+    optionalTimer = setTimeout(runOptional, OPTIONAL_DEFER_MAX_MS)
+    Promise.allSettled(reads).then(runOptional)
+  }
+
+  /**
    * Handle incoming WebSocket message
    */
   function handleMessage(message) {
@@ -169,7 +310,7 @@ export function useWebSocket() {
       console.warn('[WebSocket] Received message without event type', {
         dataKeys: data && typeof data === 'object' ? Object.keys(data) : []
       })
-      return
+      return []
     }
 
     // Filter by profile_id if present - this prevents cross-profile event pollution
@@ -180,7 +321,7 @@ export function useWebSocket() {
       if (data.profile_id !== currentProfile) {
         // Ignore events from other profiles
         console.debug(`[WebSocket] Dropping ${event} - profile mismatch (${data.profile_id} !== ${currentProfile})`)
-        return
+        return []
       }
     }
 
@@ -192,11 +333,15 @@ export function useWebSocket() {
       console.log(`[WebSocket] ${event}: ${handlers.length} handler(s), job_id=${data?.job?.id}, generator_instance_id=${data?.generator_instance_id}`)
     }
 
-    handlers.forEach(handler => {
+    return [...handlers].map(handler => {
       try {
-        handler(data)
+        const result = handler(data)
+        // A failed refresh keeps what is already shown; it must not surface as an unhandled rejection.
+        if (typeof result?.then === 'function') return result.catch(error => console.error(`[WebSocket] Handler for '${event}' failed:`, error))
+        return result
       } catch (error) {
         console.error(`[WebSocket] Error in handler for event '${event}':`, error)
+        return undefined
       }
     })
   }
@@ -205,18 +350,21 @@ export function useWebSocket() {
    * Subscribe to a specific event type
    * @param {string} event - Event type to listen for
    * @param {function} handler - Callback function to handle the event
+   * @param {{ optional?: boolean }} [options] - For `websocket_reconnected`:
+   *   optional work runs after the active screen's reads on a remote connection.
    * @returns {function} Unsubscribe function
    */
-  function on(event, handler) {
-    if (!eventHandlers.has(event)) {
-      eventHandlers.set(event, [])
+  function on(event, handler, options = {}) {
+    const key = options.optional && event === 'websocket_reconnected' ? `${event}${OPTIONAL_SUFFIX}` : event
+    if (!eventHandlers.has(key)) {
+      eventHandlers.set(key, [])
     }
 
-    eventHandlers.get(event).push(handler)
+    eventHandlers.get(key).push(handler)
 
     // Return unsubscribe function
     return () => {
-      const handlers = eventHandlers.get(event)
+      const handlers = eventHandlers.get(key)
       if (handlers) {
         const index = handlers.indexOf(handler)
         if (index > -1) {
@@ -232,11 +380,13 @@ export function useWebSocket() {
    * @param {function} handler - Handler to remove
    */
   function off(event, handler) {
-    const handlers = eventHandlers.get(event)
-    if (handlers) {
-      const index = handlers.indexOf(handler)
-      if (index > -1) {
-        handlers.splice(index, 1)
+    for (const key of [event, `${event}${OPTIONAL_SUFFIX}`]) {
+      const handlers = eventHandlers.get(key)
+      if (handlers) {
+        const index = handlers.indexOf(handler)
+        if (index > -1) {
+          handlers.splice(index, 1)
+        }
       }
     }
   }
@@ -264,12 +414,37 @@ export function useWebSocket() {
     isInitialized = true
     installRealtimeScope()
     // Once the server filters for a newly selected profile, reconcile what
-    // was read for it while the old profile's filter was still in force.
-    realtimeScope.onProfileConfirmed(() => {
-      handleMessage({ event: 'websocket_reconnected', data: { reason: 'profile_scope' } })
-    })
+    // was read for it while the old profile's filter was still in force,
+    // through the same ordered refresh as a reconnect (screen first, then
+    // optional work).
+    realtimeScope.onProfileConfirmed(() => dispatchReconnect({ reason: 'profile_scope' }))
     connect()
     console.log('[WebSocket] Singleton instance initialized')
+
+    // Native recovery finished: replace a socket from before the disruption
+    // (WebKit can report a suspended socket as OPEN) or open one now.
+    // onopen performs the normal data resynchronization.
+    stopTransportReady = onMobileTransportReady(epoch => {
+      backoff.reset()
+      const socket = ws.value
+      if (socket?.readyState === WebSocket.OPEN && socket.stimmaEpoch >= epoch) return
+      const wasConnected = connected.value
+      disconnect()
+      // The replaced socket may have missed events; consumers treat this like any gap.
+      if (wasConnected) handleMessage({ event: 'websocket_disconnected', data: {} })
+      connect()
+    })
+    // Admitted again without a recovery to announce (e.g. an older shell's
+    // connection state): reconnect a dropped socket, keep a live one.
+    stopTransportAdmit = onMobileTransportAdmit(() => { if (!isLive(ws.value) && !reconnectTimeout) connect() })
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', wake)
+      // A desktop browser or laptop waking from sleep; the phone shells use native recovery.
+      if (!mobileRecoveryEnabled && typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', onVisible)
+      }
+      window.addEventListener('profile-will-change', cancelOptional)
+    }
 
     // Register global handler for toast notifications from backend
     on('toast_notification', (data) => {
@@ -334,20 +509,26 @@ export function useWebSocket() {
     disconnect,
     on,
     off,
-    send
+    send,
+    wake,
   }
 }
 
-// Native transport recovery can leave WebKit reporting a suspended socket as
-// OPEN. Replace it explicitly; onopen performs the normal data resynchronization.
-function handleTransportResumed() {
-  if (!isInitialized) return
-  const socket = useWebSocket()
-  socket.disconnect()
-  socket.connect()
+let stopTransportReady = () => {}
+let stopTransportAdmit = () => {}
+
+function onVisible() {
+  if (document.visibilityState === 'visible') useWebSocket().wake()
 }
-if (typeof window !== 'undefined') {
-  window.addEventListener('stimma:transport-resumed', handleTransportResumed)
+
+function wake() {
+  useWebSocket().wake()
+}
+
+/** Optional reconnect work for the previous profile is obsolete. */
+function cancelOptional() {
+  optionalToken++
+  if (optionalTimer) { clearTimeout(optionalTimer); optionalTimer = null }
 }
 
 // HMR handling - preserve handlers across module reload
@@ -361,7 +542,11 @@ if (import.meta.hot) {
   }
 
   import.meta.hot.dispose((data) => {
-    window.removeEventListener('stimma:transport-resumed', handleTransportResumed)
+    stopTransportReady()
+    stopTransportAdmit()
+    window.removeEventListener('online', wake)
+    document.removeEventListener('visibilitychange', onVisible)
+    window.removeEventListener('profile-will-change', cancelOptional)
     // Save handlers for the next module version
     data.eventHandlers = eventHandlers
 
@@ -372,6 +557,7 @@ if (import.meta.hot) {
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout)
     }
+    stopLiveness()
     isInitialized = false
   })
 }

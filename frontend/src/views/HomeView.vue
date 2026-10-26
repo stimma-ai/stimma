@@ -1238,12 +1238,16 @@ onMounted(() => {
     compactRecentsUnsupported.clear()
     invalidateHome()
   }))
-  // Retry right away only when the last load failed; otherwise the next
-  // visit reloads.
+  // Home on screen refreshes once the socket is back after a gap (or after a
+  // failed load), keeping its cards visible meanwhile; a cached, inactive Home
+  // reloads on its next visit. Returning the read lets optional reconnect
+  // work wait for it.
   unsubscribeFromServerEvents.push(onServerEvent('websocket_reconnected', () => {
-    if (socketWasDown) invalidateHome()
+    const missedEvents = socketWasDown
+    if (missedEvents) invalidateHome()
     socketWasDown = false
-    if (active && recentsState.value === 'error') void refreshHome()
+    if (active && (missedEvents || recentsState.value === 'error')) return refreshHome()
+    return undefined
   }))
   for (const event of HOME_LOCAL_CHANGE_EVENTS) window.addEventListener(event, invalidateHome)
   window.addEventListener('stimma:transport-resumed', invalidateHome)

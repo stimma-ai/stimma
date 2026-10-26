@@ -344,7 +344,7 @@
 
 <script setup>
 import { consumeEscape, hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
-import { computed, nextTick, onMounted, onUnmounted, onActivated, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, onActivated, onDeactivated, reactive, ref, watch } from 'vue'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
 import { useViewport } from '../composables/useViewport'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
@@ -632,19 +632,26 @@ const slideshowItems = computed(() => (
   })))
 ))
 
+let boardLoadSequence = 0
+
 async function loadBoard() {
   // Only show loading spinner on initial load, not on refreshes
   const isInitialLoad = !board.value
   if (isInitialLoad) loading.value = true
+  // Events, reconnects and route changes can overlap; only the latest read may land,
+  // so a slow reply for the previous board never replaces the one now open.
+  const sequence = ++boardLoadSequence
   try {
-    board.value = await getBoard(Number(route.params.id))
+    const next = await getBoard(Number(route.params.id))
+    if (sequence !== boardLoadSequence) return
+    board.value = next
     editedName.value = board.value.name || ''
     isEditingBoardName.value = false
     for (const section of board.value.sections || []) {
       sectionNames[section.id] = section.name || ''
     }
   } finally {
-    loading.value = false
+    if (sequence === boardLoadSequence) loading.value = false
   }
 }
 
@@ -1897,6 +1904,22 @@ const unsubMediaUpdated = on('assets_updated', (data) => {
   loadBoard()
 })
 
+// Changes made while the socket was down were never broadcast to this view.
+// The board stays on screen while it refreshes; a failed refresh keeps it.
+// A cached, inactive board defers its refresh until it is shown again.
+let boardVisible = true
+let boardStale = false
+const unsubReconnected = on('websocket_reconnected', () => {
+  if (!board.value) return undefined
+  if (!boardVisible) { boardStale = true; return undefined }
+  return loadBoard()
+})
+onActivated(() => {
+  boardVisible = true
+  if (boardStale) { boardStale = false; void loadBoard().catch(() => {}) }
+})
+onDeactivated(() => { boardVisible = false })
+
 onMounted(async () => {
   await loadBoard()
   markersData.value = await getMarkers()
@@ -1911,6 +1934,7 @@ onUnmounted(() => {
   unsubBoardChanged()
   unsubBoardUpdated()
   unsubMediaUpdated()
+  unsubReconnected()
   stopAutoScroll()
   if (pendingSectionFallbackCommit) {
     clearTimeout(pendingSectionFallbackCommit)

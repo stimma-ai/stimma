@@ -5902,9 +5902,11 @@ function setupWebSocketSubscriptions() {
   // Socket dropped and came back: broadcasts from the gap are gone for good,
   // so reconcile the transcript and agent state with the backend. (Also fires
   // on first connect, where resyncItems no-ops behind the loading guard.)
+  // The read is returned so optional reconnect work waits for the transcript.
   wsUnsubscribes.push(onWsEvent('websocket_reconnected', () => {
-    resyncItems()
+    const transcript = resyncItems()
     syncAgentStatus()
+    return transcript
   }))
 }
 

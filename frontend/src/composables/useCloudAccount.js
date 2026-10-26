@@ -9,6 +9,7 @@
 import { ref, readonly } from 'vue'
 import { useSettingsApi } from './useSettingsApi'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
+import { isDeviceSessionRejection } from '../utils/proxyFailure'
 
 // Default fallback URL
 const DEFAULT_CLOUD_BASE_URL = 'https://stimma.ai'
@@ -102,10 +103,23 @@ export function applyCloudAccount(data) {
   cloudError.value = null
 }
 
+/** The account last read or pushed, or null when signed out or not yet known. */
+export function getCloudUser() {
+  return cloudUser.value
+}
+
+let accountRead = null
+
 /**
  * Fetch user info via backend proxy which calls stimma.cloud.
+ * Concurrent callers (focus sync, a reconnect, readiness) share one read.
  */
-export async function fetchCloudAccount() {
+export function fetchCloudAccount() {
+  accountRead ??= readCloudAccount().finally(() => { accountRead = null })
+  return accountRead
+}
+
+async function readCloudAccount() {
   if (isPrivacyLockdownActive()) {
     cloudUser.value = null
     cloudError.value = {
@@ -124,7 +138,9 @@ export async function fetchCloudAccount() {
     if (!response.ok) {
       const error = await readAccountError(response)
       cloudError.value = error
-      if (response.status === 401) {
+      // A remote server refusing this device's session is a connection
+      // problem the native shell repairs, not a signed-out account.
+      if (response.status === 401 && !isDeviceSessionRejection(response)) {
         cloudUser.value = null
         notifyAuthRequired(error)
         return null

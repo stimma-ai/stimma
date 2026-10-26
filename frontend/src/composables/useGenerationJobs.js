@@ -1,4 +1,5 @@
 import { mobileRecoveryEnabled } from './useMobileRecovery.js'
+import { sharedRead } from '../utils/sharedRead.js'
 import { ref, computed, unref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
@@ -343,9 +344,10 @@ export function useGenerationJobs(options = {}) {
         url += `&generator_instance_id=${generatorInstanceId}`
       }
 
-      const response = await axios.get(url)
+      // Every job strip refreshes on the same reconnect; strips reading the same list share one request.
+      const data = await sharedRead(`generation-jobs:${profileId}:${url}`, async () => (await axios.get(url)).data)
       if (sequence !== jobLoadSequence || profileId !== getCurrentProfileId()) return
-      let jobsList = response.data.jobs || []
+      let jobsList = structuredClone(data?.jobs || [])
 
       // Filter by task type if specified
       if (taskType) {
@@ -828,8 +830,9 @@ export function useGenerationJobs(options = {}) {
   // Restore in-flight/paused chain runs after a reload
   async function loadChainRuns() {
     try {
-      const response = await axios.get(`${getAPIBase()}/postprocessing/runs?status=running,paused`)
-      for (const run of response.data?.runs || []) {
+      const url = `${getAPIBase()}/postprocessing/runs?status=running,paused`
+      const data = await sharedRead(`chain-runs:${getCurrentProfileId()}:${url}`, async () => (await axios.get(url)).data)
+      for (const run of structuredClone(data?.runs || [])) {
         trackChainRun(run)
       }
     } catch (err) {
@@ -1228,10 +1231,9 @@ export function useGenerationJobs(options = {}) {
     ])
     await loadChainRuns()
 
-    // Retain remote work through phone suspension and reconcile on return.
-    unsubscribers.push(onWebSocketEvent('websocket_reconnected', () => {
-      if (mobileRecoveryEnabled) void loadJobs(true).then(() => loadChainRuns())
-    }))
+    // Reconcile with the server after every reconnect: phones retain remote
+    // work through suspension, and desktop dropped its running jobs on disconnect.
+    unsubscribers.push(onWebSocketEvent('websocket_reconnected', () => loadJobs(true).then(() => loadChainRuns())))
     unsubscribers.push(onWebSocketEvent('websocket_disconnected', () => {
       if (mobileRecoveryEnabled) return
       const deadStatuses = ['queued', 'assigned', 'processing']

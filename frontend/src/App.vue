@@ -11,7 +11,7 @@
     <!-- Toast notifications -->
     <ToastContainer />
     <div v-if="mobileRecoveryVisible && !showConnectionScreen" class="fixed inset-x-0 top-0 pt-safe z-toast flex justify-center pointer-events-none" role="status">
-      <span class="rounded-md bg-surface-overlay px-3 py-2 text-xs text-content-secondary shadow-lg">Reconnecting…</span>
+      <span class="rounded-md bg-surface-overlay px-3 py-2 text-xs text-content-secondary shadow-lg">{{ mobileRecoveryStatus === 'unavailable' ? 'Can’t reach the server. Retrying…' : 'Reconnecting…' }}</span>
     </div>
 
     <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
@@ -273,7 +273,7 @@
 </template>
 
 <script setup>
-import { mobileRecoveryVisible } from './composables/useMobileRecovery.js'
+import { mobileRecoveryStatus, mobileRecoveryVisible } from './composables/useMobileRecovery.js'
 
 import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'

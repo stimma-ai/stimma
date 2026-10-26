@@ -27,6 +27,18 @@ export function connectionFailure(response: ResponseLike): ConnectionFailure | n
   return CONNECTION_FAILURES[response.status] ?? null
 }
 
+/**
+ * A remote server's session gate refused this device's session (it expired
+ * or was revoked). The native shell renews it from the stored sign-in; the
+ * account itself is still signed in, so this is never a reason to ask the
+ * user to sign in again.
+ */
+export const DEVICE_SESSION_INVALID_HEADER = 'X-Stimma-Session-Invalid'
+
+export function isDeviceSessionRejection(response: { status: number; headers?: { get(name: string): string | null } }): boolean {
+  return response.status === 401 && response.headers?.get(DEVICE_SESSION_INVALID_HEADER) === '1'
+}
+
 /** Error text for a failed PIN verification response. */
 export function pinVerificationError(response: ResponseLike, detail: unknown, deviceName = 'the server'): string {
   const failure = connectionFailure(response)

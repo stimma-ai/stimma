@@ -12,7 +12,7 @@
  */
 import { ref, readonly } from 'vue'
 import { useWebSocket } from './useWebSocket'
-import { applyCloudAccount } from './useCloudAccount'
+import { applyCloudAccount, fetchCloudAccount, getCloudUser } from './useCloudAccount'
 import { refreshAvailableModels } from './useAvailableModels'
 import { useReadiness } from './useReadiness'
 import { isDesktop } from '../apiConfig'
@@ -32,6 +32,16 @@ export function initAccountEvents() {
     refreshAvailableModels()
     await useReadiness().refreshReadiness()
   })
+
+  // Account changes pushed while the socket was down were missed; read the
+  // current state once it is back. Optional: after the active screen. Only an
+  // account already known is refreshed, so a signed-out app is not asked to sign in.
+  on('websocket_reconnected', async () => {
+    if (!getCloudUser()) return
+    await fetchCloudAccount()
+    refreshAvailableModels()
+    await useReadiness().refreshReadiness()
+  }, { optional: true })
 
   on('balance_added', async (data) => {
     celebration.value = {

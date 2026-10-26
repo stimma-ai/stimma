@@ -184,10 +184,11 @@ export function useFlowCounts() {
       }
     }))
     // A full reconnect may have dropped deltas; re-prime from the source.
+    // Optional: sidebar counts refresh after the active screen.
     unsubs.push(on('websocket_reconnected', () => {
       primed = false
       prime()
-    }))
+    }, { optional: true }))
   }
 
   onMounted(() => {
