@@ -94,6 +94,19 @@ class TransportRecovery(
         set(RecoveryState(state.generation + 1, RecoveryPhase.READY, 0), resumed = false)
     }
 
+    /**
+     * The page's own socket just upgraded through the WebView path (local
+     * listener, proxy, pinned upstream, session gate) to the current server:
+     * that is the same proof the check is looking for, so a check still in
+     * progress ends ready now instead of after its own round trips. Only a
+     * check is cut short; re-establishing a session always confirms itself.
+     */
+    fun pathProven() = synchronized(lock) {
+        if (state.phase != RecoveryPhase.CHECKING) return@synchronized
+        job?.cancel(); job = null
+        set(RecoveryState(state.generation, RecoveryPhase.READY, 0), resumed = true)
+    }
+
     /** Stop without changing what the UI was told (an explicit operation takes over). */
     fun cancel() = synchronized(lock) { job?.cancel(); job = null }
 
@@ -113,12 +126,13 @@ class TransportRecovery(
     private suspend fun check(generation: Int, disrupted: Boolean) {
         val health = withTimeoutOrNull(probeBudgetMillis) { probe() } ?: PathHealth.UNREACHABLE
         if (health == PathHealth.HEALTHY) {
-            synchronized(lock) { if (current(generation) && (disrupted || state.phase != RecoveryPhase.READY)) set(RecoveryState(generation, RecoveryPhase.READY, 0), resumed = true) }
+            // Already ready means the page's own socket proved the path first (pathProven).
+            synchronized(lock) { if (current(generation) && state.phase != RecoveryPhase.READY) set(RecoveryState(generation, RecoveryPhase.READY, 0), resumed = true) }
             return
         }
         // A routine check that failed is a disruption of its own.
         val recovering = synchronized(lock) {
-            if (!current(generation)) return
+            if (!current(generation) || disrupted && state.phase == RecoveryPhase.READY) return
             val next = if (disrupted) generation else generation + 1
             set(RecoveryState(next, RecoveryPhase.RECONNECTING, reconnectBudgetMillis), resumed = false)
             next

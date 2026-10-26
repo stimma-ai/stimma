@@ -65,6 +65,14 @@ export function createTransportRecovery({
 
   function connectionReady() { return native ? native.phase === 'ready' && !confirming : httpReady }
 
+  /**
+   * The socket may also open while the shell checks the path: its upgrade
+   * goes through that same path, so it overlaps the check instead of waiting
+   * for it (and a shell that sees it succeed ends the check early). Not while
+   * re-establishing a session or unavailable: those would only fail.
+   */
+  function socketAdmissible() { return connectionReady() || native?.phase === 'checking' && !confirming }
+
   function stopConfirming() { confirming = false; cancel(confirmTimer); confirmTimer = null }
 
   function notify(listeners, value) {
@@ -74,7 +82,7 @@ export function createTransportRecovery({
   }
 
   function present() {
-    const admits = foreground && connectionReady()
+    const admits = foreground && socketAdmissible()
     if (admits !== admitted) { admitted = admits; if (admits) notify(admitListeners) }
     const settled = connectionReady() && socketReady
     if (!foreground || settled) {
@@ -176,7 +184,7 @@ export function createTransportRecovery({
       return () => admitListeners.delete(listener)
     },
     /** Whether a socket may be opened now: foreground, and the shell says the path is usable. */
-    get admitsSocket() { return foreground && connectionReady() },
+    get admitsSocket() { return foreground && socketAdmissible() },
     get native() { return native !== null },
     /** The current disruption epoch; a socket opened in an earlier one is suspect. */
     get epoch() { return epoch },

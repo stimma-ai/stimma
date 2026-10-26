@@ -46,6 +46,8 @@ const OPTIONAL_SUFFIX = ':optional'
 const OPTIONAL_DEFER_MAX_MS = 3000
 /** A remote socket silent for this long is asked to prove it is alive. */
 const LIVENESS_IDLE_MS = 25_000
+/** How long a remote upgrade may take before the attempt is abandoned. */
+const CONNECT_TIMEOUT_MS = 10_000
 /** How long a liveness ping may go unanswered before the socket is treated as dead (half-open). */
 const LIVENESS_TIMEOUT_MS = 10_000
 
@@ -87,6 +89,12 @@ function clearReconnectTimer() {
     clearTimeout(reconnectTimeout)
     reconnectTimeout = null
   }
+}
+
+let connectWatchdog = null
+
+function stopConnectWatchdog() {
+  if (connectWatchdog) { clearTimeout(connectWatchdog); connectWatchdog = null }
 }
 
 function stopLiveness() {
@@ -138,10 +146,22 @@ export function useWebSocket() {
       console.log('[WebSocket] Connecting to:', wsUrl.split('?')[0])
       const socket = new WebSocket(wsUrl)
       socket.stimmaEpoch = mobileTransportEpoch()
+      // A remote upgrade that neither opens nor fails (a half-open path) must not hold the slot forever.
+      stopConnectWatchdog()
+      if (isRemote()) {
+        connectWatchdog = setTimeout(() => {
+          connectWatchdog = null
+          if (ws.value === socket && socket.readyState === WebSocket.CONNECTING) {
+            console.warn('[WebSocket] Upgrade did not complete; retrying')
+            abandon(socket)
+          }
+        }, CONNECT_TIMEOUT_MS)
+      }
       ws.value = socket
 
       socket.onopen = () => {
         console.log('[WebSocket] Connected')
+        stopConnectWatchdog()
         connected.value = true
         setMobileSocketReady(true)
         reconnecting.value = false
@@ -193,6 +213,7 @@ export function useWebSocket() {
   /** A socket ended, by close event or because it stopped answering. */
   function lost(socket) {
     if (ws.value !== socket) return
+    stopConnectWatchdog()
     backoff.closed()
     stopLiveness()
     connected.value = false
@@ -270,6 +291,7 @@ export function useWebSocket() {
    */
   function disconnect() {
     clearReconnectTimer()
+    stopConnectWatchdog()
     stopLiveness()
 
     if (ws.value) {
@@ -437,7 +459,8 @@ export function useWebSocket() {
     stopTransportReady = onMobileTransportReady(epoch => {
       backoff.reset()
       const socket = ws.value
-      if (socket?.readyState === WebSocket.OPEN && socket.stimmaEpoch >= epoch) return
+      // A socket opened during this recovery's check (open or still opening) is already the replacement.
+      if (isLive(socket) && socket.stimmaEpoch >= epoch) return
       const wasConnected = connected.value
       disconnect()
       // The replaced socket may have missed events; consumers treat this like any gap.

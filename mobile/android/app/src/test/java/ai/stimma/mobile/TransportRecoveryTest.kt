@@ -355,6 +355,71 @@ class TransportRecoveryTest {
         }
     }
 
+    @Test fun thePagesOwnUpgradeEndsACheckEarlyAndReadyStillComesOnce() = runBlocking {
+        val recorder = Recorder()
+        val probeFinished = AtomicInteger()
+        val health = AtomicReference(PathHealth.HEALTHY)
+        val subject = recovery(recorder, { delay(150); probeFinished.incrementAndGet(); health.get() })
+        subject.disrupted()
+        subject.pathProven()
+        assertEquals(RecoveryPhase.READY, subject.state.phase)
+        delay(300)
+        assertEquals("the slower check was cancelled", 0, probeFinished.get())
+        assertEquals(listOf(RecoveryPhase.CHECKING, RecoveryPhase.READY), recorder.phases)
+        assertEquals(1, recorder.resumed)
+        // Outside a check it changes nothing: ready stays ready, reconnecting confirms itself.
+        subject.pathProven()
+        health.set(PathHealth.SESSION_EXPIRED)
+        subject.disrupted()
+        waitFor { subject.state.phase == RecoveryPhase.RECONNECTING }
+        val before = recorder.states.size
+        subject.pathProven()
+        assertEquals(RecoveryPhase.RECONNECTING, subject.state.phase)
+        assertEquals(before, recorder.states.size)
+    }
+
+    @Test fun aCheckThatFinishesAfterTheUpgradeProvedThePathIsIgnored() {
+        val recorder = Recorder()
+        val release = java.util.concurrent.CountDownLatch(1)
+        // A check that will come back failed after the page's socket already proved the path.
+        val subject = recovery(recorder, { kotlinx.coroutines.runInterruptible { release.await() }; PathHealth.UNREACHABLE })
+        subject.disrupted()
+        Thread.sleep(50)
+        subject.pathProven()
+        release.countDown()
+        Thread.sleep(200)
+        assertEquals(listOf(RecoveryPhase.CHECKING, RecoveryPhase.READY), recorder.phases)
+    }
+
+    @Test fun aSuccessfulUpgradeThroughTheProxyReportsThePathProven() {
+        val upstream = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
+        val executor = Executors.newSingleThreadExecutor()
+        val proven = AtomicInteger()
+        transport.tunnelOpened = { proven.incrementAndGet() }
+        try {
+            transport.target = PinnedServer("127.0.0.1", upstream.localPort, null, "native-session", true)
+            for (status in listOf("401 Unauthorized", "101 Switching Protocols")) {
+                val serverSide = executor.submit {
+                    upstream.accept().use { socket ->
+                        socket.soTimeout = 5000
+                        HttpHead.read(socket.getInputStream().buffered())
+                        socket.getOutputStream().write("HTTP/1.1 $status\r\n${if (status.startsWith("101")) "Upgrade: websocket\r\nConnection: Upgrade\r\n" else "Content-Length: 0\r\n"}\r\n".toByteArray())
+                        socket.getOutputStream().flush()
+                        Thread.sleep(200)
+                    }
+                }
+                Socket("127.0.0.1", transport.port).use { socket ->
+                    socket.soTimeout = 5000
+                    socket.getOutputStream().write(("GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: ${transport.cookie.substringBefore(';')}\r\n" +
+                        "Origin: ${transport.origin}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n").toByteArray())
+                    assertEquals(status.substringBefore(' '), HttpHead.read(socket.getInputStream().buffered()).target)
+                }
+                serverSide.get(5, TimeUnit.SECONDS)
+                assertEquals(if (status.startsWith("101")) 1 else 0, proven.get())
+            }
+        } finally { upstream.close(); executor.shutdownNow() }
+    }
+
     @Test fun nativeTimingMatchesTheSharedContract() {
         val contract = JSONObject(javaClass.getResourceAsStream("/transport-recovery.json")!!.reader().readText())
         assertEquals(HEALTH_PATH, contract.getString("healthPath"))

@@ -81,6 +81,66 @@ async def test_processing_monitor_broadcasts_enabled_changes_without_counter_cha
     assert snapshots[1]["clip"]["enabled"] is True
 
 
+async def test_processing_monitor_sends_each_profile_its_own_snapshot():
+    """Connected clients update from the event instead of re-reading
+    /processing/stats on every change; each profile's event carries that
+    profile's snapshot and is tagged so scoped sockets get only their own."""
+    import asyncio
+    from contextlib import asynccontextmanager
+    from utils.background_tasks import monitor_processing_stats
+
+    settings = SimpleNamespace(
+        profiles=[SimpleNamespace(id="alpha"), SimpleNamespace(id="beta"), SimpleNamespace(id="gone")],
+        clip=SimpleNamespace(enabled=True),
+        face_detection=SimpleNamespace(enabled=False),
+        captioning=SimpleNamespace(enabled=False),
+    )
+
+    class Row:
+        def __getattr__(self, _name):
+            return 1
+
+    class Result:
+        def one(self):
+            return Row()
+
+    @asynccontextmanager
+    async def session_maker():
+        yield SimpleNamespace(execute=AsyncMock(return_value=Result()))
+
+    registry = MagicMock()
+    registry.has_profile.side_effect = lambda profile_id: profile_id != "gone"
+    registry.get_database.return_value = SimpleNamespace(async_session_maker=session_maker)
+    seen_profiles = []
+
+    async def compute(_session):
+        from core.profile_context import get_current_profile
+        seen_profiles.append(get_current_profile())
+        return {"clip": {"pending": len(seen_profiles)}}
+
+    ticks = 0
+
+    async def tick(_seconds):
+        nonlocal ticks
+        ticks += 1
+        if ticks == 2:
+            raise asyncio.CancelledError
+
+    ws = SimpleNamespace(broadcast=AsyncMock())
+    with patch("utils.background_tasks.get_settings", return_value=settings), patch(
+        "utils.background_tasks.get_database_registry", return_value=registry
+    ), patch("utils.background_tasks.asyncio.sleep", side_effect=tick), patch(
+        "routes.processing.compute_processing_stats", side_effect=compute
+    ):
+        await monitor_processing_stats(ws)
+
+    stats_events = [call for call in ws.broadcast.call_args_list if call.args[0] == "processing_stats"]
+    assert [call.args[1]["profile_id"] for call in stats_events] == ["alpha", "beta"]
+    assert [call.args[1]["profile_phase_stats"] for call in stats_events] == [{"clip": {"pending": 1}}, {"clip": {"pending": 2}}]
+    assert seen_profiles == ["alpha", "beta"], "each snapshot is read in its own profile"
+    assert all("phase_stats" in call.args[1] for call in stats_events), "older clients keep the aggregate"
+
+
 class TestEnabledFlagChecks:
     """Tests for enabled flag checks in ingestion processing phases.
 

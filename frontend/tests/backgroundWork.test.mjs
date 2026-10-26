@@ -60,3 +60,39 @@ test('disabled analysis backlog stays idle and enabling a phase updates the pane
     await browser.close()
   }
 })
+
+test('a stats event carrying the profile snapshot is applied without re-reading the endpoint', async () => {
+  const built = await build({
+    configFile: false,
+    plugins: [vue()],
+    logLevel: 'error',
+    define: { 'process.env.NODE_ENV': JSON.stringify('production'), __STIMMA_DISTRIBUTION__: JSON.stringify('dev'), __STIMMA_COMMIT__: JSON.stringify('test') },
+    build: { write: false, minify: false, lib: { entry: 'tests/fixtures/backgroundWork.js', name: 'BackgroundWorkTest', formats: ['iife'] } },
+  })
+  const bundle = (Array.isArray(built) ? built[0] : built).output.find(item => item.type === 'chunk').code
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage()
+    let statsReads = 0
+    const phase = pending => ({ enabled: true, pending, completed: 0, failed: 0, processing: 0 })
+    await page.route('http://localhost/**', route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<div id="app"></div>' })
+      if (path === '/api/processing/stats') { statsReads++; return route.fulfill({ json: { phase_stats: { metadata: phase(7) } } }) }
+      return route.fulfill({ json: {} })
+    })
+    await page.goto('http://localhost/')
+    await page.addScriptTag({ content: bundle })
+    const before = statsReads
+    await page.evaluate(snapshot => window.applyStatsEvent({ phase_stats: {}, profile_id: 'p', profile_phase_stats: snapshot }), { metadata: phase(3) })
+    await page.waitForTimeout(200)
+    assert.equal(statsReads, before, 'no read when the event carries the snapshot')
+    assert.equal(await page.evaluate(() => window.backgroundWork.stats.value.metadata.pending), 3)
+    // An older server's aggregate-only event is still a cue to re-read.
+    await page.evaluate(() => window.applyStatsEvent({ phase_stats: {} }))
+    assert.equal(statsReads, before + 1)
+    assert.equal(await page.evaluate(() => window.backgroundWork.stats.value.metadata.pending), 7)
+  } finally {
+    await browser.close()
+  }
+})

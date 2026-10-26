@@ -1,7 +1,8 @@
 import { createApp, h } from 'vue'
 import BackgroundWorkPanel from '../../src/components/BackgroundWorkPanel.vue'
 import BackgroundWorkIndicator from '../../src/components/BackgroundWorkIndicator.vue'
-import { useBackgroundWork } from '../../src/composables/useBackgroundWork'
+import { applyStatsEvent, useBackgroundWork } from '../../src/composables/useBackgroundWork'
+window.applyStatsEvent = applyStatsEvent
 
 createApp({
   setup() {

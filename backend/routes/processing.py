@@ -197,6 +197,17 @@ async def get_stats(session: AsyncSession = Depends(get_db_session)):
 async def get_processing_stats(session: AsyncSession = Depends(get_db_session)):
     """
     Get processing statistics for each phase.
+
+    Clients read this once and on reconnect; while connected, each profile's
+    `processing_stats` broadcast carries the same snapshot as
+    `profile_phase_stats` (see compute_processing_stats).
+    """
+    return {"phase_stats": await compute_processing_stats(session)}
+
+
+async def compute_processing_stats(session: AsyncSession) -> dict:
+    """
+    Processing statistics for each phase of the session's profile.
     Returns counts of pending/processing/completed/failed for each phase.
     Also includes slot utilization information.
     Excludes trashed items (deleted_at is not None).
@@ -300,7 +311,7 @@ async def get_processing_stats(session: AsyncSession = Depends(get_db_session)):
 
         stats[phase] = phase_stats
 
-    return {"phase_stats": stats}
+    return stats
 
 
 @router.get("/processing/failed/{phase}")

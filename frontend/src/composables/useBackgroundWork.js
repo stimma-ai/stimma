@@ -52,6 +52,17 @@ async function fetchStats() {
   }
 }
 
+/** A `processing_stats` event: use its profile snapshot, or re-read when it has none. */
+export function applyStatsEvent(data, read = fetchStats) {
+  const snapshot = data?.profile_phase_stats
+  if (snapshot && typeof snapshot === 'object') {
+    stats.value = snapshot
+    statsLoading.value = false
+    return
+  }
+  return read()
+}
+
 async function fetchPauseStatus() {
   try {
     const response = await axios.get(`${API_URL}/api/processing/status`)
@@ -276,9 +287,10 @@ export function useBackgroundWork() {
     fetchPauseStatus()
     del.refreshActiveDeleteOperation()
     fetchSystemWarnings()
-    // The broadcast aggregates across profiles; use it as a trigger to
-    // re-fetch profile-specific stats.
-    wsOn('processing_stats', () => fetchStats())
+    // Current servers send each profile its own snapshot with the event (and
+    // the socket drops other profiles' events). Older servers only send the
+    // cross-profile aggregate, which is just a cue to re-read.
+    wsOn('processing_stats', (data) => applyStatsEvent(data))
     wsOn('system_warning', (data) => addSystemWarning(data))
     wsOn('system_warning_cleared', (data) => {
       systemWarnings.value = systemWarnings.value.filter((w) => w.type !== data.type)

@@ -329,6 +329,8 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         coroutineContext.ensureActive()
         val next = MobileTransport(report = ::logProxyFailure) { getApplication<Application>().assets.open(it) }
         next.directory = directory; next.target = remote
+        // The page's socket upgrading through this transport proves the path; recovery need not wait for its own check.
+        next.tunnelOpened = { viewModelScope.launch { if (main === next) recovery.pathProven() } }
         next.setForeground(appActive)
         val previous = main
         main = next; activeHash = directory.parentFile!!.name

@@ -361,6 +361,37 @@ async def cleanup_empty_unnamed_entities(ws_manager):
             await asyncio.sleep(3600)
 
 
+async def _broadcast_processing_stats(ws_manager, settings, registry, phase_stats):
+    """
+    One `processing_stats` event per profile, carrying that profile's full
+    snapshot (what GET /processing/stats returns) as `profile_phase_stats`,
+    so connected clients update from the event instead of each re-reading
+    the endpoint on every change. The cross-profile `phase_stats` stays for
+    older clients. Profile-tagged, so a scoped socket gets only its own
+    profile's event. With no profiles, the plain global event is sent.
+    """
+    from core.profile_context import ProfileScope
+    from routes.processing import compute_processing_stats
+
+    sent = False
+    for profile in settings.profiles:
+        if not registry.has_profile(profile.id):
+            continue
+        payload = {'phase_stats': phase_stats, 'profile_id': profile.id}
+        try:
+            with ProfileScope(profile.id):
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    payload['profile_phase_stats'] = await compute_processing_stats(session)
+        except Exception as e:
+            # The event still tells the client to re-read; it just cannot carry the snapshot.
+            log.warning(f"PROCESSING STATS MONITOR: per-profile stats failed: {e}")
+        await ws_manager.broadcast('processing_stats', payload, include_profile=False)
+        sent = True
+    if not sent:
+        await ws_manager.broadcast('processing_stats', {'phase_stats': phase_stats}, include_profile=False)
+
+
 async def monitor_processing_stats(ws_manager):
     """
     Background task to monitor processing stats and broadcast via WebSocket.
@@ -434,10 +465,7 @@ async def monitor_processing_stats(ws_manager):
                     else 0
                 )
                 metadata_completed = phase_stats['metadata']['completed']
-                await ws_manager.broadcast(
-                    'processing_stats', {'phase_stats': phase_stats},
-                    include_profile=False,
-                )
+                await _broadcast_processing_stats(ws_manager, settings, registry, phase_stats)
                 # Metadata completion materializes Source files as Assets in
                 # the ingestion subprocess. Bridge that cross-process change
                 # back to Asset views, which otherwise remain empty/stale

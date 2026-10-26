@@ -474,6 +474,12 @@ class MobileTransport(
     @Volatile internal var beforeUpstream: (() -> Unit)? = null
     /** Test seam: runs once a proxied response has been read completely from the server, before its last bytes go to the WebView. Debug builds only. */
     @Volatile internal var upstreamComplete: (() -> Unit)? = null
+    /**
+     * Called when a WebSocket upgrade through this proxy succeeded against
+     * the current session: the whole WebView path works. Runs on a proxy
+     * worker thread.
+     */
+    @Volatile var tunnelOpened: (() -> Unit)? = null
     /** Test seam: stop accepting local connections while keeping the session attached, as a dead listener would. */
     internal fun stopListening() { listener.close() }
     internal val availablePermits get() = permits.availablePermits()
@@ -778,6 +784,7 @@ class MobileTransport(
                     destination.flush()
                 }
                 if (upgraded) {
+                    if (target === remote && !suspended) runCatching { tunnelOpened?.invoke() }
                     local.soTimeout = 0; upstream.soTimeout = 0
                     executor.execute { try { input.copyTo(output) } catch (_: Exception) { } finally { upstream.close(); local.close() } }
                 }

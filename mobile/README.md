@@ -78,8 +78,11 @@ and check again (20 s budget). An expired session is renewed with the stored
 account sign-in, never by sending the user to sign in; only a revoked account
 sign-in stops recovery and opens the connection screen. One default-network
 watcher handles all of this: a change evicts idle pooled connections, then ends
-WebSocket tunnels, then starts a generation. Each generation ends
-ready exactly once, which is when the page replaces its socket and refreshes, or
+WebSocket tunnels, then starts a generation. The page opens its socket while
+the check runs rather than after it; that upgrade crosses the same path, so when
+it succeeds the check ends ready at once. Each generation ends
+ready exactly once, which is when the page replaces any socket from before the
+disruption and refreshes, or
 unavailable, after which recovery retries with bounded, jittered backoff (1–20 s) until
 it succeeds or the app is backgrounded. The shell publishes the generation,
 phase and budget to the page as `stimma:transport-state` (also in `getState`),
