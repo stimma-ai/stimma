@@ -84,19 +84,37 @@ test('a newer scope makes the older load obsolete', async () => {
   assert.equal(partial(), false)
 })
 
-test('a stalled load is not joined forever; its late result is ignored', async () => {
+test('a slow load is joined by every later request and its result is used', async () => {
   let clock = 0
-  const loads = createScopedLoad({ freshMs: 1000, maxWaitMs: 500, now: () => clock })
+  const loads = createScopedLoad({ freshMs: 1000, now: () => clock })
+  const slow = deferred()
   const shown: string[] = []
-  const stalled = deferred()
-  void loads.request('a', async isCurrent => { await stalled.promise; if (isCurrent()) shown.push('stalled') })
-  clock = 100
-  let joined = 0
-  void loads.request('a', async () => { joined++ })
-  assert.equal(joined, 0)
-  clock = 600
-  await loads.request('a', async isCurrent => { if (isCurrent()) shown.push('retry') })
-  stalled.resolve()
-  await new Promise(resolve => setTimeout(resolve, 0))
-  assert.deepEqual(shown, ['retry'])
+  let calls = 0
+  const load = async (isCurrent: () => boolean) => { calls++; await slow.promise; if (isCurrent()) shown.push('slow') }
+  const first = loads.request('a', load)
+  // Repeated visits long after it started still wait for the same read.
+  for (const at of [16_000, 32_000, 60_000]) {
+    clock = at
+    assert.equal(loads.request('a', load), first)
+  }
+  slow.resolve()
+  await first
+  assert.equal(calls, 1)
+  assert.deepEqual(shown, ['slow'])
+  assert.equal(await loads.request('a', load), false)
+})
+
+test('a forced retry does not throw away the first reply for the same scope', async () => {
+  const loads = createScopedLoad({ freshMs: 1000 })
+  const slow = deferred()
+  const retry = deferred()
+  const shown: string[] = []
+  const first = loads.request('a', async isCurrent => { await slow.promise; if (isCurrent()) shown.push('first') })
+  const second = loads.request('a', async isCurrent => { await retry.promise; if (isCurrent()) shown.push('retry') }, { force: true })
+  slow.resolve()
+  await first
+  assert.deepEqual(shown, ['first'])
+  retry.resolve()
+  await second
+  assert.deepEqual(shown, ['first', 'retry'])
 })

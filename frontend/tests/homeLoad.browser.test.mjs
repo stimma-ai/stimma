@@ -307,3 +307,53 @@ test('a late "no chat model" answer does not take away a composer the user typed
   })
   await expect(fresh.page.getByText('Chat is available once you')).toBeVisible()
 })
+
+test('a slow recents read is waited for across repeated visits, never restarted', async t => {
+  let releaseChats
+  const chatsGate = new Promise(resolve => { releaseChats = resolve })
+  const { page, counts, push } = await openHome(t, {
+    respond: async path => {
+      if (path === '/api/chats/previews') { await chatsGate; return { items: [chat(5, 'Slow but sure')], total: 1 } }
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  for (let visit = 0; visit < 3; visit++) {
+    await push('/elsewhere')
+    await page.evaluate(() => window.homeLoadTest.serverEvent('chat_created', {}))
+    await push('/')
+    await expect(composer(page)).toBeVisible()
+  }
+  await page.waitForTimeout(300)
+  assert.equal(counts.get('/api/chats/previews'), 1)
+  releaseChats()
+  await expect(page.getByText('Slow but sure')).toBeVisible()
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+})
+
+test('a catalog read that predates a tool change never refills the shared cache', async t => {
+  let releaseOld
+  const oldGate = new Promise(resolve => { releaseOld = resolve })
+  let toolReads = 0
+  const tool = (id, name) => ({ full_tool_id: id, tool_id: id, provider_id: 'p', name, availability: 'available' })
+  const { page, counts } = await openHome(t, {
+    respond: async path => {
+      if (path === '/api/tools/providers') return []
+      if (path !== '/api/tools/providers/tools') return
+      toolReads++
+      if (toolReads === 1) { await oldGate; return [tool('p:old', 'Old tool')] }
+      return [tool('p:new', 'New tool')]
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await expect.poll(() => toolReads).toBe(1)
+  // The server reports a tool change; Home rereads and the new read lands first.
+  await page.evaluate(() => window.homeLoadTest.serverEvent('tools_updated', {}))
+  await expect.poll(() => toolReads).toBe(2)
+  await page.waitForTimeout(200)
+  releaseOld()
+  await page.waitForTimeout(300)
+  const before = counts.get('/api/tools/providers/tools')
+  const names = await page.evaluate(async () => (await window.homeLoadTest.catalog.fetchProvidersAndTools()).tools.map(item => item.name))
+  assert.deepEqual(names, ['New tool'])
+  assert.equal(counts.get('/api/tools/providers/tools'), before, 'served from the cache')
+})

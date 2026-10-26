@@ -439,10 +439,8 @@ const toolsList = ref([])
 const recentToolEntities = ref([])
 
 // The tool catalog belongs to the server and profile (not the project) and
-// has its own load policy, so a slow catalog never holds up recents. A read
-// that has not answered after LOAD_STALL_MS is abandoned on the next request.
-const LOAD_STALL_MS = 15_000
-const toolLoads = createScopedLoad({ freshMs: 30_000, maxWaitMs: LOAD_STALL_MS })
+// has its own load policy, so a slow catalog never holds up recents.
+const toolLoads = createScopedLoad({ freshMs: 30_000 })
 
 function toolScope() {
   return scopeKey(getBackendOrigin() || window.location.origin, getCurrentProfileId())
@@ -1033,7 +1031,7 @@ watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 // change events mark it stale so the next visit reloads. Home does not
 // reload live while it is on screen.
 const HOME_FRESH_MS = 30_000
-const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS, maxWaitMs: LOAD_STALL_MS })
+const homeLoads = createScopedLoad({ freshMs: HOME_FRESH_MS })
 // Every server broadcast that can change a chat preview (name, count,
 // snippet, cover), a board or flow card, or the recent-assets strip.
 const HOME_CHANGE_EVENTS = [

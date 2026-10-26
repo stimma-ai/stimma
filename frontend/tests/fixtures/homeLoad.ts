@@ -5,6 +5,7 @@ import { initApiConfig } from '../../src/apiConfig'
 import { setCurrentProfileId } from '../../src/composables/useProfile'
 import { useAvailableModels } from '../../src/composables/useAvailableModels'
 import { recordEntityVisit } from '../../src/composables/useRecentEntities'
+import { useProvidersApi } from '../../src/composables/useProvidersApi'
 import '../../src/style.css'
 
 // A scripted server socket: the test pushes broadcasts and drops the
@@ -39,6 +40,8 @@ const router = createRouter({ history: createMemoryHistory(), routes: [
 ;(window as any).homeLoadTest = {
   router,
   models: useAvailableModels(),
+  // Another consumer of the shared tool catalog cache.
+  catalog: useProvidersApi(),
   setProfile: setCurrentProfileId,
   recordToolVisit: (id: string, name: string) => recordEntityVisit('tool', id, name),
   serverEvent(event: string, data = {}) {

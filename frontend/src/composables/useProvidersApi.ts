@@ -99,6 +99,25 @@ function catalogScope() {
   return JSON.stringify([getApiBase() ?? null, getCurrentProfileId() ?? null])
 }
 
+// Request ordering for cache publication. A reply may fill the cache only if
+// its request started after the last invalidation and after the request whose
+// reply is already cached — an older read landing late never replaces newer
+// data or revives a catalog that was cleared while it was in flight.
+let catalogRequestSeq = 0
+let catalogClearedAtSeq = 0
+const publishedSeq = { providers: 0, tools: 0 }
+
+function beginCatalogRead() {
+  return { seq: ++catalogRequestSeq, scope: catalogScope() }
+}
+
+function mayPublish(read: { seq: number; scope: string }, kind: keyof typeof publishedSeq) {
+  if (read.scope !== catalogScope()) return false
+  if (read.seq <= catalogClearedAtSeq || read.seq <= publishedSeq[kind]) return false
+  publishedSeq[kind] = read.seq
+  return true
+}
+
 function normalizeProvider<T extends { provider_id?: string | null; provider_name?: string | null }>(provider: T): T {
   return {
     ...provider,
@@ -112,6 +131,7 @@ function clearToolsCache() {
   toolsCache.value = []
   lastFetchTime.value = 0
   cacheScope = null
+  catalogClearedAtSeq = catalogRequestSeq
 }
 
 // Listen for tools-changed browser event (dispatched by useWebSocket)
@@ -146,10 +166,10 @@ export function useProvidersApi() {
    * List all registered providers
    */
   async function listProviders(): Promise<Provider[]> {
-    const scope = catalogScope()
+    const read = beginCatalogRead()
     const response = await axios.get(`${getToolsAPIBase()}/providers`)
     const providers = response.data.map(normalizeProvider)
-    if (scope === catalogScope()) providersCache.value = providers
+    if (mayPublish(read, 'providers')) providersCache.value = providers
     return providers
   }
 
@@ -165,13 +185,13 @@ export function useProvidersApi() {
    * List all tools from all providers
    */
   async function listAllTools(): Promise<ProviderTool[]> {
-    const scope = catalogScope()
+    const read = beginCatalogRead()
     const response = await axios.get(`${getToolsAPIBase()}/providers/tools`)
     const tools = response.data.map(normalizeProvider)
-    if (scope === catalogScope()) {
+    if (mayPublish(read, 'tools')) {
       toolsCache.value = tools
       lastFetchTime.value = Date.now()
-      cacheScope = scope
+      cacheScope = read.scope
     }
     return tools
   }
@@ -281,9 +301,7 @@ export function useProvidersApi() {
    * Clear the cache to force fresh data on next fetch
    */
   function clearCache() {
-    providersCache.value = []
-    toolsCache.value = []
-    lastFetchTime.value = 0
+    clearToolsCache()
   }
 
   /**

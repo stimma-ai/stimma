@@ -3,13 +3,18 @@
  * profile, project, ...). Mount and reactivation both call `request`; the
  * coordinator decides whether that needs a network load:
  *
- * - A request for the scope already loading joins the in-flight load.
+ * - A request for the scope already loading joins the in-flight load, however
+ *   long it takes. A slow read on a poor connection is never abandoned and
+ *   restarted; that would only add competing reads for the same data.
  * - A completed load stays fresh for `freshMs` unless `invalidate()` marks it
  *   stale (a change event, a reconnect). A change seen while a load is in
  *   flight keeps the result stale, because that response may predate it.
- * - A request for a different scope supersedes the previous one. Loaders get
- *   an `isCurrent()` guard and must drop their results once it turns false,
- *   so a late response can never replace the newer scope's data.
+ * - A forced request (an explicit retry or a known change) starts a new read
+ *   even while one is in flight. Both belong to the same scope, so whichever
+ *   answers first is used.
+ * - A request for a different scope makes every earlier read obsolete.
+ *   Loaders get an `isCurrent()` guard and must drop their results once it
+ *   turns false, so a late response can never replace another scope's data.
  */
 export type ScopeKeyPart = string | number | null | undefined
 
@@ -21,19 +26,15 @@ type Loader = (isCurrent: () => boolean) => Promise<boolean | void>
 
 export interface ScopedLoadOptions {
   freshMs: number
-  /**
-   * A load still running after this long is treated as stalled: the next
-   * request starts over instead of joining it, and the stalled one's results
-   * are ignored.
-   */
-  maxWaitMs?: number
   now?: () => number
 }
 
-export function createScopedLoad({ freshMs, maxWaitMs = Infinity, now = Date.now }: ScopedLoadOptions) {
-  let generation = 0
+export function createScopedLoad({ freshMs, now = Date.now }: ScopedLoadOptions) {
+  // Bumped whenever the requested scope changes; reads from an earlier epoch
+  // are obsolete.
+  let epoch = 0
   let activeKey: string | null = null
-  let inflight: { key: string; promise: Promise<boolean>; startedAt: number } | null = null
+  let inflight: { key: string; promise: Promise<boolean> } | null = null
   let freshKey: string | null = null
   let freshAt = 0
   let changes = 0
@@ -51,14 +52,17 @@ export function createScopedLoad({ freshMs, maxWaitMs = Infinity, now = Date.now
      * when this call (or the load it joined) actually ran the loader.
      */
     request(key: string, load: Loader, { force = false } = {}): Promise<boolean> {
-      if (inflight && now() - inflight.startedAt >= maxWaitMs) inflight = null
-      if (inflight && inflight.key === key && !force) return inflight.promise
-      if (!force && !inflight && isFresh(key)) return Promise.resolve(false)
-      const mine = ++generation
+      if (key !== activeKey) {
+        epoch++
+        activeKey = key
+        inflight = null
+        freshKey = null
+      }
+      if (inflight && !force) return inflight.promise
+      if (!force && isFresh(key)) return Promise.resolve(false)
+      const mine = epoch
       const startedAt = changes
-      activeKey = key
-      if (freshKey !== key) freshKey = null
-      const isCurrent = () => mine === generation
+      const isCurrent = () => mine === epoch
       const promise = (async () => {
         try {
           const ok = await load(isCurrent)
@@ -71,14 +75,14 @@ export function createScopedLoad({ freshMs, maxWaitMs = Infinity, now = Date.now
           if (inflight?.promise === promise) inflight = null
         }
       })()
-      inflight = { key, promise, startedAt: now() }
+      inflight = { key, promise }
       return promise
     },
 
     /** A guard for a partial reload of the current scope. */
     guard(): () => boolean {
-      const mine = generation
-      return () => mine === generation
+      const mine = epoch
+      return () => mine === epoch
     },
 
     /** Mark the current data stale; the next request reloads it. */
