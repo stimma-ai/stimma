@@ -186,6 +186,22 @@ async def _legacy_home_bytes(client, project_id):
     return total
 
 
+@pytest.fixture
+def fresh_flow_caches(monkeypatch):
+    """Start with no live runtimes or cached load errors.
+
+    Both caches are process-wide, keyed by (profile, flow id). Earlier test
+    modules recreate the database under the same `default` profile and reuse
+    flow ids, so their leftovers would make this module's new flows look
+    busy. Swap in empty caches for the test; the real accessors still run.
+    """
+    import flow_lifecycle
+    import flow_registry
+
+    monkeypatch.setattr(flow_registry, "_RUNTIMES", {})
+    monkeypatch.setattr(flow_lifecycle, "_last_load_errors", {})
+
+
 class TestHomeFlowCards:
     async def test_flow_previews_skip_media_that_cannot_be_shown(self, client, db_session, monkeypatch):
         project_id = await _project(client, "Home hidden outputs")
@@ -213,11 +229,7 @@ class TestHomeFlowCards:
         assert [ref["media_id"] for ref in flow["preview_media"]] == [ids[4], ids[5]]
         assert all(ref["file_hash"] for ref in flow["preview_media"])
 
-    async def test_a_named_flow_behind_many_stray_flows_still_shows(self, client, db_session, monkeypatch):
-        # Runtime and load-error caches are process-wide and keyed by flow id;
-        # ids from earlier test modules must not make these strays look busy.
-        monkeypatch.setattr(flow_routes.flow_registry, "get_runtime", lambda _flow_id: None)
-        monkeypatch.setattr(flow_routes.flow_lifecycle, "get_cached_load_error", lambda _flow_id: None)
+    async def test_a_named_flow_behind_many_stray_flows_still_shows(self, client, db_session, fresh_flow_caches):
         project_id = await _project(client, "Home stray flows")
         named = await _flow(client, db_session, project_id, "Real work", minutes=0)
         for i in range(60):
@@ -225,7 +237,7 @@ class TestHomeFlowCards:
         body = (await _recents(client, project_id)).json()
         assert [(item["type"], item["flow"]["id"]) for item in body["items"]] == [("flow", named)]
 
-    async def test_an_unnamed_flow_with_program_state_outranks_older_named_ones(self, client, db_session):
+    async def test_an_unnamed_flow_with_program_state_outranks_older_named_ones(self, client, db_session, fresh_flow_caches):
         project_id = await _project(client, "Home unnamed flow")
         older = [await _flow(client, db_session, project_id, f"Named {i}", minutes=i) for i in range(3)]
         unnamed = await _flow(client, db_session, project_id, "", minutes=20)
