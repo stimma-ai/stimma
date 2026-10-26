@@ -1614,8 +1614,15 @@ const wsUnsubscribes = [] // Store unsubscribe functions for cleanup
 // before the server confirmed the chat (slow acknowledgement) is reconciled
 // once it does.
 const chatTopic = useRealtimeTopic(() => (chatId.value ? `chat:${chatId.value}` : null), {
-  onLateConfirm: () => resyncItems(),
+  onLateConfirm: () => {
+    // A full load still in flight read before confirmation and would
+    // overwrite (or block) a resync started now: reconcile after it lands.
+    if (fullLoadsInFlight > 0) reconcileAfterLoad = chatId.value
+    else resyncItems()
+  },
 })
+let fullLoadsInFlight = 0
+let reconcileAfterLoad = null
 
 // Agent status computed
 const agentStatus = computed(() => {
@@ -2934,6 +2941,7 @@ async function loadItems() {
   // flight was computed against the old one and must not land after it.
   cancelPendingResync()
   const epoch = ++historyEpoch
+  fullLoadsInFlight++
   try {
     // Read the snapshot only once the server sends this chat's live items.
     await chatTopic.ready()
@@ -2975,6 +2983,14 @@ async function loadItems() {
   } catch (error) {
     console.error('Error loading chat items:', error)
     loading.value = false
+  } finally {
+    // The chat was confirmed while this read was in flight: reconcile now,
+    // unless the view has moved to another chat (which loads afresh).
+    if (--fullLoadsInFlight === 0 && reconcileAfterLoad !== null) {
+      const target = reconcileAfterLoad
+      reconcileAfterLoad = null
+      if (target === chatId.value) resyncItems()
+    }
   }
 }
 

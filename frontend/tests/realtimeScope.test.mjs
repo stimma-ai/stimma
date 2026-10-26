@@ -191,6 +191,28 @@ test('a profile change waits for the server to filter for the new profile', asyn
   assert.deepEqual(confirmedProfiles, ['b'])
 })
 
+test('overlapping scope changes still reconcile a profile switch exactly once', () => {
+  const { scope, sent, ack } = scopedHarness()
+  const confirmedProfiles = []
+  scope.onProfileConfirmed(id => confirmedProfiles.push(id))
+  // Profile B as seq 1, a topic change as seq 2, neither acknowledged yet.
+  scope.setProfile('b')
+  scope.acquire('chat:9')
+  assert.deepEqual(sent.map(m => [m.data.seq, m.data.profile_id, m.data.topics]), [
+    [1, 'b', []], [2, 'b', ['chat:9']],
+  ])
+  ack(0)
+  assert.deepEqual(confirmedProfiles, [], 'a later change is still in flight')
+  ack(1)
+  assert.deepEqual(confirmedProfiles, ['b'])
+  ack(1)
+  assert.deepEqual(confirmedProfiles, ['b'], 'once')
+  // A later topic-only change does not reconcile the profile again.
+  scope.acquire('chat:11')
+  ack()
+  assert.deepEqual(confirmedProfiles, ['b'])
+})
+
 test('a timed-out wait reads provisionally and is reconciled on confirmation', async () => {
   const { scope, ack, fireTimers } = scopedHarness()
   const late = []

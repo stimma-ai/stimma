@@ -501,7 +501,13 @@ async function openScopedChat(t, { holdAcks = false } = {}) {
     const items = path.match(/^\/api\/chats\/(\d+)\/items$/)
     if (items && request.method() === 'GET') {
       server.reads.push(Number(items[1]))
-      return route.fulfill({ json: { items: [...server.items[items[1]]].reverse(), has_more: false } })
+      // The snapshot is taken when the request arrives, like a real read.
+      const json = { items: [...server.items[items[1]]].reverse(), has_more: false }
+      if (server.holdNextRead) {
+        server.holdNextRead = false
+        await new Promise(resolve => { server.releaseRead = resolve })
+      }
+      return route.fulfill({ json })
     }
     if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
     if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
@@ -576,6 +582,24 @@ test('a slow acknowledgement reads provisionally, then reconciles when the serve
   server.items[1] = [user(1), user(2), user(3), user(4)]
   server.releaseAcks()
   // Confirmation triggers a reconcile that picks up what was missed.
+  await expect.poll(() => reads(1)).toBe(2)
+  await expect.poll(ids).toEqual([1, 2, 3, 4])
+  assert.deepEqual(errors, [])
+})
+
+test('confirmation that arrives while the provisional read is in flight still reconciles after it', async t => {
+  const { server, errors, reads, ids } = await openScopedChat(t, { holdAcks: true })
+  server.holdNextRead = true
+  await expect.poll(() => server.scopes.length).toBe(1)
+  // The wait times out and the provisional read captures [1, 2, 3] ...
+  await expect.poll(() => reads(1), { timeout: 5000 }).toBe(1)
+  // ... item 4 is created before the subscription applies (nothing is sent),
+  // and the server confirms while that read is still in flight.
+  server.items[1] = [user(1), user(2), user(3), user(4)]
+  server.releaseAcks()
+  await expect.poll(() => typeof server.releaseRead).toBe('function')
+  server.releaseRead()
+  // The reconcile waits for the initial load to land, then runs.
   await expect.poll(() => reads(1)).toBe(2)
   await expect.poll(ids).toEqual([1, 2, 3, 4])
   assert.deepEqual(errors, [])

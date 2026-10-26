@@ -70,6 +70,10 @@ export function createRealtimeScope({
   let lastSent = null
   let rejectedKey = null
   let flushQueued = false
+  // The profile in the last scope sent, and whether a profile change sent on
+  // this socket still awaits a fully caught-up acknowledgement.
+  let sentProfile = null
+  let profileReconcilePending = false
   const waiters = new Set()
   // Topics a view read without confirmation (its wait timed out).
   const provisional = new Set()
@@ -131,6 +135,8 @@ export function createRealtimeScope({
     if (send('realtime_scope', { ...state, seq: next })) {
       sentSeq = next
       lastSent = key
+      if (state.profile_id !== sentProfile) profileReconcilePending = true
+      sentProfile = state.profile_id
     }
   }
 
@@ -231,6 +237,9 @@ export function createRealtimeScope({
     ackedSeq = 0
     lastSent = null
     rejectedKey = null
+    sentProfile = state.profile_id
+    // A new connection resynchronizes every view itself.
+    profileReconcilePending = false
     return params.toString()
   }
 
@@ -271,11 +280,15 @@ export function createRealtimeScope({
     }
     if (event === 'realtime_scope_applied') {
       if (typeof data?.seq === 'number') ackedSeq = Math.max(ackedSeq, data.seq)
-      const previousProfile = appliedProfile
       appliedProfile = data?.profile_id ?? null
       appliedTopics = new Set(data?.topics || [])
       settle()
-      if (appliedProfile !== previousProfile && ackedSeq === sentSeq && appliedProfile === profileId) {
+      // Fire once per profile change, when the server has caught up with
+      // everything sent and filters for this window's current profile, even
+      // if later scope changes overlapped the one that switched profiles.
+      if (profileReconcilePending && !flushQueued && ackedSeq === sentSeq
+        && appliedProfile === profileId && sentProfile === profileId) {
+        profileReconcilePending = false
         for (const listener of [...profileListeners]) listener(appliedProfile)
       }
       return true
