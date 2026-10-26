@@ -242,13 +242,18 @@ export function useProvidersApi() {
     if (config.signal?.aborted) both.abort()
     config.signal?.addEventListener('abort', abortBoth)
     try {
-      const failFast = <T>(read: Promise<T>) => read.catch((error) => { both.abort(); throw error })
+      // Report the failure that caused the abort, not the sibling's AbortError.
+      let firstError: unknown = null
+      const failFast = <T>(read: Promise<T>) => read.catch((error) => {
+        firstError ??= error
+        both.abort()
+        throw error
+      })
       const [providers, tools] = await Promise.allSettled([
         failFast(listProviders({ signal: both.signal })),
         failFast(listAllTools({ signal: both.signal })),
       ])
-      if (providers.status === 'rejected') throw providers.reason
-      if (tools.status === 'rejected') throw tools.reason
+      if (providers.status === 'rejected' || tools.status === 'rejected') throw firstError
       return { providers: providers.value, tools: tools.value }
     } finally {
       config.signal?.removeEventListener('abort', abortBoth)
