@@ -1626,6 +1626,16 @@ def flow_output_media_ids(flow_id: int) -> list[int]:
     return output_media_ids_from_equations(equations)
 
 
+def equation_key_order(key: str) -> tuple[bytes, bytes]:
+    """Sort key matching the frontend's ``compareEquationKeys``.
+
+    Case-insensitive, then exact, both by UTF-16 code unit (big-endian
+    UTF-16 bytes compare in code-unit order), so the order doesn't depend
+    on a locale. Shared cases: tests/fixtures/flow_output_vectors.json.
+    """
+    return key.lower().encode("utf-16-be"), key.encode("utf-16-be")
+
+
 def output_media_ids_from_equations(equations: list[FlowEquationResponse]) -> list[int]:
     by_key = {eq.equation_key: eq for eq in equations}
     out: list[int] = []
@@ -1647,7 +1657,7 @@ def output_media_ids_from_equations(equations: list[FlowEquationResponse]) -> li
                     and w.control_kind == "foreach_iteration"
                     and w.equation_key.startswith(prefix)
                 ),
-                key=lambda w: w.equation_key,
+                key=lambda w: equation_key_order(w.equation_key),
             )
             for wrapper in wrappers:
                 mirror = by_key.get(wrapper.result_from) if wrapper.result_from else None

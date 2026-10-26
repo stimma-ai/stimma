@@ -22,8 +22,9 @@ export interface HomeRecents {
 }
 
 /**
- * Read the cards for `projectId` (null = top level). Resolves null when the
- * server predates this read, so the caller can use the general lists.
+ * Read the cards for `projectId` (null = top level). Resolves null only when
+ * the server predates this read (404/405), so the caller can use the general
+ * lists; any other failure, including a malformed reply, throws.
  */
 export async function fetchHomeRecents(
   projectId: number | null | undefined,
@@ -34,6 +35,7 @@ export async function fetchHomeRecents(
   if (response.status === 404 || response.status === 405) return null
   if (!response.ok) throw new Error(`Request failed: ${response.status}`)
   const data = await response.json()
-  if (!data || !Array.isArray(data.items)) return null
+  // A server that has this read but answers oddly is failing, not old.
+  if (!data || !Array.isArray(data.items)) throw new Error('Malformed recents response')
   return data
 }

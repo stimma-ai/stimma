@@ -1,0 +1,53 @@
+{
+  "description": "Shared cases for picking a flow's surfaced output media. Read by backend/tests/test_home_recents.py (output_media_ids_from_equations) and frontend/src/composables/useFlowOutputs.test.ts (computeFlowOutputs); both must produce `expected`.",
+  "cases": [
+    {
+      "name": "surfaced leaves and a foreach, skipping scaffolding and duplicates",
+      "equations": [
+        { "equation_key": "a", "equation_type": "tool_call", "is_output": true, "result_media_ids": [1, 2] },
+        { "equation_key": "b", "equation_type": "tool_call", "result_media_ids": [3] },
+        { "equation_key": "c", "equation_type": "tool_call", "is_output": true, "is_scaffolding": true, "result_media_ids": [4] },
+        { "equation_key": "f", "equation_type": "control", "control_kind": "foreach", "is_output": true },
+        { "equation_key": "f/it:1", "equation_type": "control", "control_kind": "foreach_iteration", "result_from": "f/it:1/tool", "result_media_ids": [9] },
+        { "equation_key": "f/it:1/tool", "equation_type": "tool_call", "result_media_ids": [9] },
+        { "equation_key": "f/it:0", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [8] },
+        { "equation_key": "f/it:0/tool", "equation_type": "tool_call", "result_media_ids": [7] },
+        { "equation_key": "d", "equation_type": "tool_call", "is_output": true, "result_media_ids": [2, 5] }
+      ],
+      "expected": [1, 2, 7, 9, 5]
+    },
+    {
+      "name": "keyed iterations order case-insensitively, then exactly",
+      "equations": [
+        { "equation_key": "f", "equation_type": "control", "control_kind": "foreach", "is_output": true },
+        { "equation_key": "f/it:Z", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [1] },
+        { "equation_key": "f/it:a", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [2] },
+        { "equation_key": "f/it:B", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [3] },
+        { "equation_key": "f/it:b", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [4] }
+      ],
+      "expected": [2, 3, 4, 1]
+    },
+    {
+      "name": "positional iterations order as text, not as numbers",
+      "equations": [
+        { "equation_key": "f", "equation_type": "control", "control_kind": "foreach", "is_output": true },
+        { "equation_key": "f/it:2", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [20] },
+        { "equation_key": "f/it:10", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [100] },
+        { "equation_key": "f/it:1", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [10] }
+      ],
+      "expected": [10, 100, 20]
+    },
+    {
+      "name": "non-ASCII keys order by UTF-16 code unit, not by locale or code point",
+      "equations": [
+        { "equation_key": "f", "equation_type": "control", "control_kind": "foreach", "is_output": true },
+        { "equation_key": "f/it:é", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [1] },
+        { "equation_key": "f/it:f", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [2] },
+        { "equation_key": "f/it:E", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [3] },
+        { "equation_key": "f/it:Ａ", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [4] },
+        { "equation_key": "f/it:😀", "equation_type": "control", "control_kind": "foreach_iteration", "result_media_ids": [5] }
+      ],
+      "expected": [3, 2, 1, 5, 4]
+    }
+  ]
+}

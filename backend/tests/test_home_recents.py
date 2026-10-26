@@ -1,12 +1,15 @@
 """Tests for Home's compact recents read model (GET /api/home/recents)."""
 
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 import routes.flows as flow_routes
-from database import Board, Chat, ChatItem, Flow
+from asset_service import trash_asset
+from database import Asset, AssetRevision, Board, Chat, ChatItem, Flow, MediaItem
 from flow_runtime import create_flow_state_db, get_flow_state_db_path, graph_db
 from flow_runtime.graph import Equation, EquationStatus, EquationType
 from models.api_models import FlowEquationResponse
@@ -183,30 +186,61 @@ async def _legacy_home_bytes(client, project_id):
     return total
 
 
-def _eq(key, *, kind="tool_call", control_kind=None, media=(), output=False, result_from=None, scaffolding=False):
-    return FlowEquationResponse(
-        equation_key=key,
-        equation_type=kind,
-        status="completed",
-        result_media_ids=list(media),
-        is_output=output,
-        control_kind=control_kind,
-        result_from=result_from,
-        is_scaffolding=scaffolding,
-    )
+class TestHomeFlowCards:
+    async def test_flow_previews_skip_media_that_cannot_be_shown(self, client, db_session, monkeypatch):
+        project_id = await _project(client, "Home hidden outputs")
+        async with db_session() as session:
+            media = await create_test_media(session, count=6)
+        ids = [m.id for m in media]
+        flow_id = await _flow(client, db_session, project_id, "Outputs")
+        # Outputs in order: a missing id, then six real media.
+        _seed_equations(flow_id, [_tool_eq("r/tool$0", [999_999_999, *ids])])
+        monkeypatch.setattr(flow_routes, "_output_name_by_key_for_flow", lambda _flow_id: {"r/tool$0": "out"})
+        async with db_session() as session:
+            now = datetime.utcnow()
+            await session.execute(update(MediaItem).where(MediaItem.id == ids[0]).values(deleted_at=now))
+            await session.execute(update(MediaItem).where(MediaItem.id == ids[1]).values(file_unavailable=True))
+            await session.execute(update(MediaItem).where(MediaItem.id == ids[2]).values(deletion_pending_at=now))
+            asset_id = await session.scalar(
+                select(Asset.id)
+                .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                .where(AssetRevision.primary_media_id == ids[3])
+            )
+            await trash_asset(session, asset_id=asset_id)
+            await session.commit()
+
+        flow = (await _recents(client, project_id)).json()["items"][0]["flow"]
+        assert [ref["media_id"] for ref in flow["preview_media"]] == [ids[4], ids[5]]
+        assert all(ref["file_hash"] for ref in flow["preview_media"])
+
+    async def test_a_named_flow_behind_many_stray_flows_still_shows(self, client, db_session, monkeypatch):
+        # Runtime and load-error caches are process-wide and keyed by flow id;
+        # ids from earlier test modules must not make these strays look busy.
+        monkeypatch.setattr(flow_routes.flow_registry, "get_runtime", lambda _flow_id: None)
+        monkeypatch.setattr(flow_routes.flow_lifecycle, "get_cached_load_error", lambda _flow_id: None)
+        project_id = await _project(client, "Home stray flows")
+        named = await _flow(client, db_session, project_id, "Real work", minutes=0)
+        for i in range(60):
+            await _flow(client, db_session, project_id, "", minutes=10 + i)
+        body = (await _recents(client, project_id)).json()
+        assert [(item["type"], item["flow"]["id"]) for item in body["items"]] == [("flow", named)]
+
+    async def test_an_unnamed_flow_with_program_state_outranks_older_named_ones(self, client, db_session):
+        project_id = await _project(client, "Home unnamed flow")
+        older = [await _flow(client, db_session, project_id, f"Named {i}", minutes=i) for i in range(3)]
+        unnamed = await _flow(client, db_session, project_id, "", minutes=20)
+        _seed_equations(unnamed, [_tool_eq("r/tool$0", [])])
+        await _flow(client, db_session, project_id, "", minutes=30)  # stray
+        body = (await _recents(client, project_id)).json()
+        assert [item["flow"]["id"] for item in body["items"]] == [unnamed, older[2], older[1]]
 
 
-def test_flow_outputs_follow_the_delivery_panel():
+_VECTORS = json.loads((Path(__file__).parent / "fixtures" / "flow_output_vectors.json").read_text())
+
+
+@pytest.mark.parametrize("vector", _VECTORS["cases"], ids=lambda vector: vector["name"])
+def test_flow_outputs_match_the_shared_vectors(vector):
     equations = [
-        _eq("a", media=[1, 2], output=True),
-        _eq("b", media=[3]),  # not surfaced
-        _eq("c", media=[4], output=True, scaffolding=True),
-        _eq("f", kind="control", control_kind="foreach", output=True),
-        _eq("f/it:1", kind="control", control_kind="foreach_iteration", media=[9], result_from="f/it:1/tool"),
-        _eq("f/it:1/tool", media=[9]),
-        _eq("f/it:0", kind="control", control_kind="foreach_iteration", media=[8]),
-        _eq("f/it:0/tool", media=[7]),
-        _eq("d", media=[2, 5], output=True),
+        FlowEquationResponse(status="completed", **eq) for eq in vector["equations"]
     ]
-    assert flow_routes.output_media_ids_from_equations(equations) == [1, 2, 7, 9, 5]
-
+    assert flow_routes.output_media_ids_from_equations(equations) == vector["expected"]

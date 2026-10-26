@@ -665,6 +665,22 @@ test('compact recents: a failed read keeps the composer usable and a retry recov
   assert.deepEqual(boardReads(counts), [])
 })
 
+test('compact recents: a malformed reply is a load failure, not an old server', async t => {
+  let malformed = true
+  const { page, counts } = await openHome(t, {
+    respond: path => {
+      if (path === '/api/home/recents') return malformed ? { unexpected: true } : compactRecents()
+    },
+  })
+  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible()
+  assert.equal(counts.get('/api/chats/previews'), undefined)
+  assert.deepEqual(boardReads(counts), [])
+  malformed = false
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Compact board')).toBeVisible()
+  assert.equal(counts.get('/api/home/recents'), 2)
+})
+
 test('compact recents: a stalled read is aborted at its deadline and a retry recovers', async t => {
   let reads = 0
   const { page } = await openHome(t, {

@@ -27,6 +27,20 @@ function isIterationWrapper(eq: FlowEquation): boolean {
   return eq.equation_type === 'control' && eq.control_kind === 'foreach_iteration'
 }
 
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+/**
+ * Order of iterations within a foreach: case-insensitive, then exact, both
+ * by UTF-16 code unit. Locale-independent so the server's Home previews
+ * (backend `output_media_ids_from_equations`) pick the same outputs; the
+ * shared cases live in backend/tests/fixtures/flow_output_vectors.json.
+ */
+export function compareEquationKeys(a: string, b: string): number {
+  return compareCodeUnits(a.toLowerCase(), b.toLowerCase()) || compareCodeUnits(a, b)
+}
+
 export function computeFlowOutputs(
   equationsByKey: Map<string, FlowEquation>,
 ): OutputMediaItem[] {
@@ -60,7 +74,7 @@ export function computeFlowOutputs(
         .filter((w) => isIterationWrapper(w) && w.equation_key.startsWith(prefix))
         // Stable order — use equation_key (iteration suffix encodes position
         // for KEYED sources and literal index for POSITIONAL).
-        .sort((a, b) => a.equation_key.localeCompare(b.equation_key))
+        .sort((a, b) => compareEquationKeys(a.equation_key, b.equation_key))
       for (let i = 0; i < wrappers.length; i++) {
         const w = wrappers[i]
         // Find the child equation that actually produced media inside this

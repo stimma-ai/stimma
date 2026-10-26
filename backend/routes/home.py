@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from board_service import board_asset_count_column, board_preview_items, board_summaries_query
 from core.dependencies import get_db_session
-from database import Board, Chat, ChatItem, Flow, MediaItem
+from database import Asset, AssetRevision, Board, Chat, ChatItem, Flow, MediaItem
 from project_service import PROJECT_NONE, parse_project_filter
 from routes.chats import ChatPreview, build_chat_previews
 from routes.flows import _serialize as serialize_flow, flow_output_media_ids
@@ -33,9 +33,10 @@ BOARD_PREVIEW_ITEMS = 6
 FLOW_PREVIEW_MEDIA = 3
 CHAT_PREVIEW_MEDIA = 1
 CHAT_SNIPPET_CHARS = 240
-# Unnamed flows with no program state are skipped; stop looking after this
-# many so a scope full of stray flows can't make the read unbounded.
-FLOW_SCAN_LIMIT = 50
+# Unnamed idle flows are read in batches of this many to find the ones with
+# program state; output media are checked for visibility in batches too.
+FLOW_BATCH = 100
+MEDIA_CHECK_BATCH = 500
 
 
 class HomeBoardPreviewItem(BaseModel):
@@ -152,18 +153,42 @@ async def _chat_candidates(session, project_filter, limit):
 
 
 async def _flow_candidates(session, project_filter, limit):
-    query = _scoped(
-        select(Flow).where(Flow.deleted_at.is_(None)), Flow.project_id, project_filter,
-    ).order_by(desc(Flow.updated_at), desc(Flow.id)).limit(FLOW_SCAN_LIMIT)
-    picked = []
-    for flow in (await session.execute(query)).scalars().all():
-        serialized = serialize_flow(flow)
-        if _flow_is_empty(serialized):
-            continue
-        picked.append((flow.updated_at, "flow", serialized))
-        if len(picked) >= limit:
+    """The newest ``limit`` non-empty flows.
+
+    Named flows and flows with pending tasks always qualify, so SQL picks
+    those directly. An unnamed idle flow qualifies only if it has program
+    state or a load error, which lives outside the database; only unnamed
+    flows newer than the last named pick can make the cut, and they are
+    checked newest first until enough qualify.
+    """
+    base = _scoped(select(Flow).where(Flow.deleted_at.is_(None)), Flow.project_id, project_filter)
+    order = (desc(Flow.updated_at), desc(Flow.id))
+    named = func.coalesce(Flow.name, "") != ""
+    pending = func.coalesce(Flow.pending_task_count, 0) > 0
+    sure = (await session.execute(base.where(or_(named, pending)).order_by(*order).limit(limit))).scalars().all()
+    picked = [(flow.updated_at, flow.id, serialize_flow(flow)) for flow in sure]
+
+    unnamed = base.where(~named, ~pending).order_by(*order)
+    if len(sure) >= limit:
+        unnamed = unnamed.where(Flow.updated_at >= sure[-1].updated_at)
+    found = 0
+    offset = 0
+    while found < limit:
+        batch = (await session.execute(unnamed.offset(offset).limit(FLOW_BATCH))).scalars().all()
+        if not batch:
             break
-    return picked
+        offset += len(batch)
+        for flow in batch:
+            serialized = serialize_flow(flow)
+            if _flow_is_empty(serialized):
+                continue
+            picked.append((flow.updated_at, flow.id, serialized))
+            found += 1
+            if found >= limit:
+                break
+
+    picked.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    return [(updated_at, "flow", serialized) for updated_at, _, serialized in picked[:limit]]
 
 
 async def _scope_has_entities(session, project_filter) -> bool:
@@ -182,16 +207,45 @@ async def _scope_has_entities(session, project_filter) -> bool:
     return False
 
 
-async def _flow_preview_media(session, flow_id: int) -> list[HomeMediaRef]:
-    media_ids = flow_output_media_ids(flow_id)[:FLOW_PREVIEW_MEDIA]
-    if not media_ids:
-        return []
-    hashes = dict(
-        (await session.execute(
-            select(MediaItem.id, MediaItem.file_hash).where(MediaItem.id.in_(media_ids))
-        )).all()
+def _shown_media_conditions():
+    """Media a cover may show: present, not deleted or being deleted, with
+    its file available, and not the current payload of a trashed or deleted
+    Asset."""
+    hidden_by_asset = (
+        select(Asset.id)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            or_(Asset.state != "active", Asset.deleted_at.isnot(None)),
+        )
+        .exists()
     )
-    return [HomeMediaRef(media_id=mid, file_hash=hashes.get(mid)) for mid in media_ids]
+    return (
+        MediaItem.deleted_at.is_(None),
+        MediaItem.deletion_pending_at.is_(None),
+        or_(MediaItem.file_unavailable.is_(False), MediaItem.file_unavailable.is_(None)),
+        ~hidden_by_asset,
+    )
+
+
+async def _flow_preview_media(session, flow_id: int) -> list[HomeMediaRef]:
+    """The first few outputs that can still be shown, in output order."""
+    output_ids = flow_output_media_ids(flow_id)
+    picked: list[HomeMediaRef] = []
+    for start in range(0, len(output_ids), MEDIA_CHECK_BATCH):
+        batch = output_ids[start:start + MEDIA_CHECK_BATCH]
+        shown = dict(
+            (await session.execute(
+                select(MediaItem.id, MediaItem.file_hash)
+                .where(MediaItem.id.in_(batch), *_shown_media_conditions())
+            )).all()
+        )
+        for mid in batch:
+            if mid in shown:
+                picked.append(HomeMediaRef(media_id=mid, file_hash=shown[mid]))
+                if len(picked) >= FLOW_PREVIEW_MEDIA:
+                    return picked
+    return picked
 
 
 @router.get("/recents", response_model=HomeRecentsResponse)
