@@ -63,6 +63,17 @@ class MainActivity : ComponentActivity() {
     private var recreatingRenderer = false
     private var showingConnections = true
     private var transportRevision = -1
+    /**
+     * Older UI packages answer a return to the foreground by asking getState,
+     * and replace their socket themselves if it says "ready". Native recovery
+     * also sends transport-resumed when it finishes. If it finished first,
+     * the first answer after returning says "connecting" (and a fresh
+     * connection-state "ready" follows), so exactly one of them replaces the
+     * socket. Current packages read the recovery phase instead.
+     */
+    private var resumeAnswerPending = false
+    private var revisionAtResume = -1
+    private var publishedRecovery: RecoveryState? = null
     private var foreground = false
     private var slideshowActive = false
     private var keepAwake = false
@@ -198,6 +209,7 @@ class MainActivity : ComponentActivity() {
             mainView = if (mainDevOrigin != null) createWebView(model.setup, "/", mainDevOrigin)
                 else model.main?.let { createWebView(it, "/") }
             mainView?.let { root.addView(it, 0, fullSize()) }
+            publishedRecovery = null
         }
         if (showingConnections != model.showConnections) {
             showingConnections = model.showConnections
@@ -210,6 +222,12 @@ class MainActivity : ComponentActivity() {
         val visible = if (model.showConnections) setupView else mainView
         if (model.restoring || visible !in ready) showCover()
         else { cover.visibility = View.GONE; coverEpoch += 1 }
+        // Current UI packages follow this one event; the two after it remain for older packages.
+        val recovery = model.recovery.state
+        if (recovery != publishedRecovery) {
+            publishedRecovery = recovery
+            mainView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('stimma:transport-state',{detail:${recovery.toJson()}}))", null)
+        }
         mainView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('stimma:connection-state',{detail:${JSONObject.quote(model.connectionState)}}))", null)
         if (transportRevision != model.transportRevision) {
             transportRevision = model.transportRevision
@@ -339,7 +357,8 @@ class MainActivity : ComponentActivity() {
         "logout" -> { model.logout(); null }
         "disconnect" -> { model.disconnect(); null }
         "getState" -> JSONObject().put("activeDeviceId", model.selected?.optString("deviceId") ?: "none")
-            .put("connectionState", model.connectionState).put("localDeviceId", model.clientId).put("devices", model.devices)
+            .put("connectionState", legacyConnectionAnswer(view)).put("localDeviceId", model.clientId).put("devices", model.devices)
+            .put("recovery", model.recovery.state.toJson())
         "authStatus" -> JSONObject().put("ok", true).put("status", 200).put("data", JSONObject()
             .put("authenticated", model.auth.user != null).put("privacy_lockdown", false).put("user", model.auth.user ?: JSONObject.NULL))
         "openExternal" -> { openExternal(args.getString("url")); null }
@@ -392,9 +411,21 @@ class MainActivity : ComponentActivity() {
         mainView?.evaluateJavascript(script, null)
     }
 
+    private fun legacyConnectionAnswer(view: WebView): String {
+        val state = model.connectionState
+        if (!resumeAnswerPending || view !== mainView) return state
+        resumeAnswerPending = false
+        if (state != "ready" || model.transportRevision == revisionAtResume) return state
+        // transport-resumed already went out for this return; re-send the ready state after this answer.
+        lifecycleScope.launch { model.changed() }
+        return "connecting"
+    }
+
     override fun onResume() {
         super.onResume()
         foreground = true
+        resumeAnswerPending = true
+        revisionAtResume = model.transportRevision
         if (::setupView.isInitialized) setupView.onResume()
         mainView?.onResume()
         mainView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('stimma:app-active',{detail:${!model.showConnections}}))", null)

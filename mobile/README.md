@@ -66,6 +66,26 @@ response has started, a failure resets the stream instead of appending a second
 response. Logs record only the category, whether the response had started, and
 the exception type.
 
+Android connection checks go through the WebView's own path: the local listener
+and capability cookie, the proxy, the session's pooled pinned upstream, and the
+server's session gate, using the small `/api/multi-device/health` answer (older
+servers without it are checked through `/api/profiles`). A direct request to the
+server proves none of the local pieces, so it is never used to declare the page
+connected. Foregrounding, a default-network change (including losing it with no successor, and its return), or a failed 20-second
+routine check opens one recovery generation: check (5 s budget), then, on a
+network failure or an expired device session, re-establish the session in place
+and check again (20 s budget). An expired session is renewed with the stored
+account sign-in, never by sending the user to sign in; only a revoked account
+sign-in stops recovery and opens the connection screen. One default-network
+watcher handles all of this: a change evicts idle pooled connections, then ends
+WebSocket tunnels, then starts a generation. Each generation ends
+ready exactly once, which is when the page replaces its socket and refreshes, or
+unavailable, after which recovery retries with bounded, jittered backoff (1–20 s) until
+it succeeds or the app is backgrounded. The shell publishes the generation,
+phase and budget to the page as `stimma:transport-state` (also in `getState`),
+following `contract/transport-recovery.json`; older UI packages keep using
+`stimma:connection-state` and `stimma:transport-resumed`.
+
 The phone stays in portrait outside slideshow. Slideshow allows sensor rotation
 without recreating the activity or WebView. System bars, display cutouts, and the
 keyboard reserve space around the interface. Playing slideshows keep the display

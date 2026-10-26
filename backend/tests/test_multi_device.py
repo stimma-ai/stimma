@@ -883,3 +883,31 @@ def test_docker_bridges_do_not_crowd_out_host_interfaces(monkeypatch):
     refreshed = registry.build_routes(9193)
     assert refreshed[0]['host'] == '192.168.50.3'
     assert all(route['host'] != '192.168.50.2' for route in refreshed)
+
+
+# --- connection health ---------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_health_is_small_and_only_answers_behind_a_valid_session(monkeypatch):
+    """Phones probe this on every resume: it must prove the session and the
+    app together, and stay tiny regardless of library size."""
+    import httpx
+    from fastapi import FastAPI
+    from routes import multi_device as multi_device_routes
+
+    app = FastAPI()
+    app.include_router(multi_device_routes.router)
+    monkeypatch.setattr(
+        server, "verify_session", lambda token: {"ok": True} if token == "device-session" else None
+    )
+    gate = server.ServingGate(app, lambda: "server-device")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=gate), base_url="https://server") as client:
+        healthy = await client.get("/api/multi-device/health", headers={"Authorization": "Bearer device-session"})
+        assert healthy.status_code == 200
+        assert healthy.json() == {"status": "ok"}
+        assert len(healthy.content) < 64
+
+        expired = await client.get("/api/multi-device/health", headers={"Authorization": "Bearer stale"})
+        assert expired.status_code == 401
+        assert expired.headers.get("x-stimma-session-invalid") == "1"

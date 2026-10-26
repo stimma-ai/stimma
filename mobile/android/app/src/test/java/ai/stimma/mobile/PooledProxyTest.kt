@@ -741,7 +741,7 @@ class PooledProxyTest {
         assertEquals(0, server.takeRequest().sequenceNumber)
     }
 
-    @Test fun onlyADifferentOrLostDefaultNetworkCountsAsAChange() {
+    @Test fun onlyADifferentLostOrReturningDefaultNetworkCountsAsAChange() {
         var changes = 0
         val tracker = NetworkChangeTracker<String> { changes++ }
         tracker.available("wifi")          // Registration reports the current network: not a change.
@@ -754,8 +754,10 @@ class PooledProxyTest {
         assertEquals(1, changes)
         tracker.lost("cellular")           // Losing the default.
         assertEquals(2, changes)
-        tracker.available("wifi")          // Back from no network: a fresh start, already evicted.
-        assertEquals(2, changes)
+        tracker.available("wifi")          // Back from no network: recovery checks the path now, not at its next retry.
+        assertEquals(3, changes)
+        tracker.available("wifi")
+        assertEquals(3, changes)
     }
 
     @Test fun onlyAVerifiedRouteMayAdvertise() {

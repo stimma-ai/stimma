@@ -61,8 +61,10 @@ class ReadinessTest {
         stimmaAndroid.onmessage=e=>{const r=JSON.parse(e.data);replies[r.id]=r};
         window.native=(method,args={})=>{const id=++sequence;stimmaAndroid.postMessage(JSON.stringify({id,method,args}));return id};
         window.events=[];
-        for(const name of ['app-active','media-interruption','transport-resumed'])
+        for(const name of ['app-active','media-interruption','transport-resumed','transport-state'])
           window.addEventListener('stimma:'+name,e=>events.push([name,e.detail]));
+        // An older UI package's resume handler: it asks getState and replaces its socket itself on "ready".
+        window.addEventListener('stimma:app-active',e=>{if(!e.detail)return;const id=native('getState');const t=setInterval(()=>{const r=replies[id];if(!r)return;clearInterval(t);if(r.result&&r.result.connectionState==='ready')events.push(['transport-resumed','synthesized'])},5)});
         native('interfaceReady');
         </script></body>
     """.trimIndent()
@@ -79,6 +81,7 @@ class ReadinessTest {
                     request.path?.startsWith("/api/mobile-ui/packages/") == true -> MockResponse().setBody(Buffer().write(archive))
                     request.path == "/api/provider-manage/test/" -> MockResponse().addHeader("Content-Type", "text/html").setBody(panel)
                     request.path == "/api/profiles" -> MockResponse().setBody("[]")
+                    request.path == "/api/multi-device/health" -> MockResponse().setBody("{\"status\":\"ok\"}")
                     else -> MockResponse().setResponseCode(404)
                 }
             }
@@ -140,6 +143,13 @@ class ReadinessTest {
         scenario.onActivity { assertEquals(0, it.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
         scenario.moveToState(Lifecycle.State.RESUMED)
         eventually { evaluate(scenario, "pauses>0 && events.some(e=>e[0]==='app-active'&&e[1]===false) && events.some(e=>e[0]==='app-active'&&e[1]===true)") == "true" }
+        // One recovery generation: checked through the page's own path, then ready exactly once, and one
+        // socket replacement in total from native transport-resumed and the older UI's own getState handler.
+        val states = "events.filter(e=>e[0]==='transport-state').map(e=>e[1])"
+        eventually { evaluate(scenario, "(()=>{const s=$states;const i=s.findLastIndex(x=>x.phase==='checking');return i>=0&&s.at(-1).phase==='ready'&&s.at(-1).generation===s[i].generation})()") == "true" }
+        Thread.sleep(500)
+        assertEquals("1", evaluate(scenario, "events.filter(e=>e[0]==='transport-resumed').length"))
+        assertEquals("\"ready\"", evaluate(scenario, "$states.at(-1).phase"))
         assertEquals("\"kept\"", evaluate(scenario, "draft"))
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         eventually { evaluate(scenario, "drawer") == "false" }

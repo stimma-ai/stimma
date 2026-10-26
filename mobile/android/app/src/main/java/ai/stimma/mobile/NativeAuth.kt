@@ -102,7 +102,7 @@ class NativeAuth(context: Context) {
     suspend fun validToken(): String = mutex.withLock {
         if (token != null && user != null && expiresAt > System.currentTimeMillis() + 120000) return@withLock token!!
         val epoch = generation
-        val refresh = credentials.read() ?: error("Please sign in.")
+        val refresh = credentials.read() ?: throw NativeAuthError("Please sign in.")
         val tokens = request("https://securetoken.googleapis.com/v1/token?key=$FIREBASE_KEY",
             FormBody.Builder().add("grant_type", "refresh_token").add("refresh_token", refresh).build())
         coroutineContext.ensureActive()

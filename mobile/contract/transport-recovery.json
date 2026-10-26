@@ -1,0 +1,12 @@
+{
+  "event": "stimma:transport-state",
+  "healthPath": "/api/multi-device/health",
+  "legacyHealthPath": "/api/profiles",
+  "phases": {
+    "checking": { "connectionState": "connecting", "holdRequests": true },
+    "reconnecting": { "connectionState": "connecting", "holdRequests": true },
+    "ready": { "connectionState": "ready", "holdRequests": false },
+    "unavailable": { "connectionState": "unreachable", "holdRequests": false }
+  },
+  "budgetsMs": { "checking": 5000, "reconnecting": 20000 }
+}

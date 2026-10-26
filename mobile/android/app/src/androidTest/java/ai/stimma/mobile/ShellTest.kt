@@ -26,7 +26,7 @@ class ShellTest {
     @Test fun downloadedInterfaceOpensLibraryAndKeepsPageOnResume() {
         val port = InstrumentationRegistry.getArguments().getString("localBackendPort")?.toIntOrNull()
         assumeTrue("Supply an isolated backend with --local-backend-port", port != null)
-        runBlocking { PinnedServer("127.0.0.1", port!!, null, debugLoopback = true).checkConnection() }
+        runBlocking { PinnedServer("127.0.0.1", port!!, null, debugLoopback = true).asyncBytes("/api/profiles", 1024 * 1024, timeoutSeconds = 5) }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val intent = Intent(context, MainActivity::class.java).putExtra("localBackendPort", port!!)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->

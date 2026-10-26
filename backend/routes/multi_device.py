@@ -24,6 +24,19 @@ class RenameRequest(BaseModel):
     name: str
 
 
+@router.get("/health")
+async def get_health():
+    """A deliberately tiny liveness answer for connected phones.
+
+    On the remote surface the serving gate verifies the device session before
+    any route runs, so a 200 here proves the whole path a phone's WebView
+    uses: route, pinned TLS, session and a responsive app. Clients probe it on
+    every resume and network change, which is why it does not return the
+    profile roster or anything else that grows with the library.
+    """
+    return {"status": "ok"}
+
+
 @router.get("/status")
 async def get_status():
     """This device's own identity and serving state."""

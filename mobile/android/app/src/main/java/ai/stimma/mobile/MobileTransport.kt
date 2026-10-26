@@ -329,7 +329,8 @@ class PinnedServer(
         return bytes
     }
     suspend fun asyncJson(path: String, body: RequestBody? = null, timeoutSeconds: Long = 20) = JSONObject(asyncBytes(path, 16384, body, timeoutSeconds).toString(Charsets.UTF_8))
-    suspend fun checkConnection() { asyncBytes("/api/profiles", 1024 * 1024, timeoutSeconds = 5) }
+    /** Set once this server answered the health path with 404: an older server, checked through the profile list instead. */
+    @Volatile internal var legacyHealth = false
     fun socket(): Socket {
         val plain = Socket()
         try {
@@ -435,6 +436,13 @@ private val REQUEST_EXCLUDED = setOf("host", "authorization", "cookie", "origin"
 private val RESPONSE_EXCLUDED = setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials",
     "connection", "keep-alive", "proxy-connection", "te", "trailer", "transfer-encoding", "upgrade")
 
+/** Small authenticated answer on current servers; see the server's multi-device routes. */
+const val HEALTH_PATH = "/api/multi-device/health"
+/** Present on every server, but returns the profile list: used only when [HEALTH_PATH] is missing. */
+const val LEGACY_HEALTH_PATH = "/api/profiles"
+/** Set by the server's session gate when the device session itself was refused. */
+private const val SESSION_INVALID_HEADER = "x-stimma-session-invalid"
+
 class MobileTransport(
     private val report: (ProxyFailureReport) -> Unit = {},
     private val assets: (String) -> InputStream,
@@ -448,6 +456,8 @@ class MobileTransport(
     private val executor = Executors.newCachedThreadPool()
     private val permits = Semaphore(32)
     private val sockets = Collections.synchronizedSet(mutableSetOf<Socket>())
+    /** Upstream WebSocket connections: long-lived, so the first to go stale when the network changes. */
+    private val tunnels = Collections.synchronizedSet(mutableSetOf<Socket>())
     private val calls = Collections.synchronizedSet(mutableSetOf<Call>())
     /** The server session WebView traffic goes to. Replacing it retires the previous session's calls and connections. */
     @Volatile var target: PinnedServer? = null
@@ -462,6 +472,8 @@ class MobileTransport(
     @Volatile internal var beforeUpstream: (() -> Unit)? = null
     /** Test seam: runs once a proxied response has been read completely from the server, before its last bytes go to the WebView. Debug builds only. */
     @Volatile internal var upstreamComplete: (() -> Unit)? = null
+    /** Test seam: stop accepting local connections while keeping the session attached, as a dead listener would. */
+    internal fun stopListening() { listener.close() }
     internal val availablePermits get() = permits.availablePermits()
     internal val openSockets get() = sockets.size
     internal val inFlightCalls get() = calls.size
@@ -732,7 +744,7 @@ class MobileTransport(
     private fun tunnel(local: Socket, input: InputStream, destination: OutputStream, request: HttpHead, remote: PinnedServer) {
         require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
         fromServer(remote) { remote.socket() }.use { upstream ->
-            sockets.add(upstream)
+            sockets.add(upstream); tunnels.add(upstream)
             try {
                 if (suspended || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
                 val output = fromServer(remote) { upstream.getOutputStream() }
@@ -774,7 +786,53 @@ class MobileTransport(
                     toClient { destination.write(buffer, 0, count) }
                 }
                 toClient { destination.flush() }
-            } finally { sockets.remove(upstream) }
+            } finally { sockets.remove(upstream); tunnels.remove(upstream) }
+        }
+    }
+
+    /**
+     * Check the path a WebView request takes, end to end: this listener and
+     * its capability check, the proxy, the session's pooled pinned upstream,
+     * the server's session gate and the app behind it. A direct request to
+     * the server could succeed while any of the first three is broken.
+     * Servers without the small health route answer 404 once; they are then
+     * checked through the profile list, which every server has.
+     */
+    suspend fun checkConnection(timeoutMillis: Int = TransportRecovery.PROBE_BUDGET_MILLIS.toInt()): PathHealth {
+        val remote = target ?: return PathHealth.UNREACHABLE
+        if (!remote.legacyHealth) {
+            val health = checkPath(HEALTH_PATH, timeoutMillis)
+            if (health != PathHealth.MISSING) return health
+            remote.legacyHealth = true
+        }
+        return checkPath(LEGACY_HEALTH_PATH, timeoutMillis).let { if (it == PathHealth.MISSING) PathHealth.UNREACHABLE else it }
+    }
+
+    internal suspend fun checkPath(path: String, timeoutMillis: Int): PathHealth = suspendCancellableCoroutine { continuation ->
+        val socket = Socket()
+        // Blocking socket I/O ignores coroutine cancellation; closing the socket ends it at once.
+        continuation.invokeOnCancellation { runCatching { socket.close() } }
+        val check = Runnable {
+            val health = try { socket.use { checkPath(it, path, timeoutMillis) } } catch (_: Exception) { PathHealth.UNREACHABLE }
+            if (continuation.isActive) continuation.resume(health)
+        }
+        try { executor.execute(check) } catch (_: Exception) { socket.close(); continuation.resume(PathHealth.UNREACHABLE) }
+    }
+
+    private fun checkPath(socket: Socket, path: String, timeoutMillis: Int): PathHealth {
+        socket.connect(InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), timeoutMillis)
+        socket.soTimeout = timeoutMillis
+        socket.getOutputStream().write(("GET $path HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nCookie: $cookieName=$capability\r\n" +
+            "Sec-Fetch-Site: same-origin\r\nAccept: application/json\r\n\r\n").toByteArray(Charsets.ISO_8859_1))
+        val head = HttpHead.read(socket.getInputStream().buffered())
+        val status = head.target.toIntOrNull() ?: return PathHealth.UNREACHABLE
+        return when {
+            // Answered by this proxy, not the server: the server was not reached.
+            head.single(ProxyFailure.HEADER.lowercase()) != null -> PathHealth.UNREACHABLE
+            status in 200..299 -> PathHealth.HEALTHY
+            status == 401 && head.single(SESSION_INVALID_HEADER) == "1" -> PathHealth.SESSION_EXPIRED
+            status == 404 -> PathHealth.MISSING
+            else -> PathHealth.UNREACHABLE
         }
     }
 
@@ -788,11 +846,14 @@ class MobileTransport(
      * calls it). Other reactions to a network change belong here too.
      *
      * Idle pooled connections were made on the old network and may be dead
-     * without either side knowing, so none is reused. Requests in flight are
-     * left to finish or fail on their own.
+     * without either side knowing, so none is reused. WebSocket tunnels may be
+     * bound to that network and would sit silent until a timeout, so they end
+     * now; the page reconnects its socket when recovery reports the new path
+     * ready. Requests in flight are left to finish or fail on their own.
      */
     fun networkChanged() {
         target?.evictIdle()
+        synchronized(tunnels) { tunnels.toList() }.forEach { runCatching { it.close() } }
     }
     fun disconnect() { target = null; interruptConnections() }
     override fun close() { listener.close(); disconnect(); executor.shutdownNow() }
@@ -800,14 +861,21 @@ class MobileTransport(
 
 /**
  * Reports a change of default network: a different network becoming the
- * default, or the default being lost. The first network seen is the
+ * default, the default being lost with no successor, or a network returning
+ * after the default was lost (sockets from before the loss are suspect, and
+ * recovery should not wait for its next retry). The first network seen is the
  * starting point, not a change. Generic so the decision is testable without
  * Android's network types.
  */
 class NetworkChangeTracker<T : Any>(private val changed: () -> Unit) {
     private var current: T? = null
-    @Synchronized fun available(network: T) { val previous = current; current = network; if (previous != null && previous != network) changed() }
-    @Synchronized fun lost(network: T) { if (network == current) { current = null; changed() } }
+    private var lost = false
+    @Synchronized fun available(network: T) {
+        val change = lost || current != null && current != network
+        current = network; lost = false
+        if (change) changed()
+    }
+    @Synchronized fun lost(network: T) { if (network == current) { current = null; lost = true; changed() } }
 }
 
 /** Watches the system default network for [NetworkChangeTracker]; unregister with [close]. */

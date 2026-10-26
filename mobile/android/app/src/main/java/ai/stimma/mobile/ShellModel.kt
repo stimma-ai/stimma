@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -36,7 +37,17 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     var main: MobileTransport? = null
         private set
     /** Pooled connections belong to the network they were made on; drop idle ones when it changes. */
-    private val networkChanges = DefaultNetworkChanges(application) { main?.networkChanged() }
+    /**
+     * The one default-network watcher. A handoff, losing the default network
+     * with no successor, or the network returning drops what the old network
+     * carried (idle pooled connections, then WebSocket tunnels) and, in the
+     * foreground, starts a recovery generation so the page finds out now
+     * rather than when a stale socket times out.
+     */
+    private val networkChanges = DefaultNetworkChanges(application) {
+        main?.networkChanged()
+        viewModelScope.launch { if (appActive && recoverable) recovery.disrupted() }
+    }
     var devServerURL: String? = null
         private set
     var devices = JSONArray()
@@ -54,13 +65,24 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         private set
     private var operation: Job? = null
     private var health: Job? = null
+    /** Bumped once per recovery generation that ends ready; the WebView replaces its socket and refreshes. */
     var transportRevision = 0
         private set
+    /**
+     * The single recovery sequence for the WebView's connection. Its state is
+     * published to the page so request admission, socket replacement and the
+     * visible reconnecting state all follow the same generation and budgets.
+     */
+    val recovery = TransportRecovery(viewModelScope,
+        probe = { main?.checkConnection() ?: PathHealth.UNREACHABLE },
+        reconnect = { recoverSession() },
+        publish = { state, resumed, failure -> recoveryChanged(state, resumed, failure) },
+        // A revoked sign-in cannot recover by retrying; the connection screen asks to sign in.
+        terminal = { failure -> failure is NativeAuthError && !auth.hasSession })
     private var generation = 0
     private var started = false
     private var appActive = false
     private val discoveryMutex = Mutex()
-    private val healthMutex = Mutex()
     private var activeHash: String? = null
     var callback: AuthCallback? = null
         private set
@@ -83,6 +105,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         main?.close(); main = null; activeHash = null
         devServerURL = url
         selected = JSONObject().put("deviceId", "dev:$url").put("name", "Dev server")
+        recovery.reset()
         preferences.edit().putString("devServerAddress", url).apply()
         connectionState = "ready"; message = null; showConnections = false
         changed()
@@ -97,6 +120,8 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
                 val remote = PinnedServer("127.0.0.1", debugPort, null, debugLoopback = true)
                 install(remote)
                 selected = JSONObject().put("deviceId", "emulator").put("name", "Emulator test library")
+                // After the selection: publishing renders, and the new page needs to know its server.
+                recovery.reset()
                 connectionState = "ready"
                 showConnections = false
             } else if (auth.hasSession) {
@@ -109,7 +134,8 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun launchOperation(restore: Boolean = false, recovering: Boolean = false, holdRestore: Boolean = false, work: suspend () -> Unit) {
+    private fun launchOperation(restore: Boolean = false, holdRestore: Boolean = false, work: suspend () -> Unit) {
+        recovery.cancel()
         generation += 1
         val epoch = generation
         operation?.cancel()
@@ -120,14 +146,9 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
             catch (error: CancellationException) { throw error }
             catch (error: Exception) {
                 if (epoch == generation) {
-                    message = when {
-                        error is NativeAuthError -> error.message
-                        error is UIPackageError -> error.message
-                        error is RemoteHttpError && error.status == 404 -> "This server does not provide a mobile interface. Update your Stimma Server and try again."
-                        else -> "Could not connect. Check your sign-in, server sharing, and network, then try again."
-                    }
+                    message = failureMessage(error)
                     connectionState = "unreachable"
-                    if (!recovering || main == null) showConnections = true
+                    showConnections = true
                 }
             } finally {
                 if (epoch == generation) {
@@ -140,6 +161,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cancelRestore() {
+        recovery.cancel()
         generation += 1
         operation?.cancel(); callback?.close(); callback = null
         busy = false; restoring = false; showConnections = true; changed()
@@ -203,12 +225,19 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun connect(initial: JSONObject, recovering: Boolean) {
-        connectionState = "connecting"; changed()
+        if (!recovering) { connectionState = "connecting"; changed() }
         var device = initial
         if (recovering) {
-            val refreshed = try { refreshDevices(); true }
+            // Optional: the cached roster still names the routes and pin. Bounded so a slow
+            // account service cannot consume the recovery budget the page is waiting on.
+            val refreshed = try { withTimeoutOrNull(DISCOVERY_REFRESH_MILLIS) { refreshDevices() } != null }
             catch (error: CancellationException) { throw error }
-            catch (_: Exception) { coroutineContext.ensureActive(); false }
+            catch (error: Exception) {
+                coroutineContext.ensureActive()
+                // A network failure leaves the cached roster usable; a revoked sign-in does not.
+                if (error is NativeAuthError && !auth.hasSession) throw error
+                false
+            }
             if (refreshed) device = roster().firstOrNull { it.getString("deviceId") == initial.getString("deviceId") } ?: error("Server no longer shared.")
         }
         val pin = device.getString("certFingerprint")
@@ -242,14 +271,48 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         check(session.getString("deviceId") == identity)
         val remote = reachable.withSession(session.getString("session"))
         if (recovering && main != null && activeHash != null && selected?.getString("deviceId") == identity) {
+            // Recovery confirms the new session through the WebView's own path before it reports ready.
             main!!.interruptConnections()
             main!!.target = remote
-            transportRevision += 1
-        } else install(remote)
+            selected = device
+            preferences.edit().putString("selected", identity).apply()
+            return
+        }
+        install(remote)
         devServerURL = null
         selected = device
         preferences.edit().putString("selected", identity).apply()
-        connectionState = "ready"; if (!recovering) showConnections = false; message = null; changed()
+        // After the selection: publishing renders, and the new page needs to know its server.
+        recovery.reset()
+        connectionState = "ready"; showConnections = false; message = null; changed()
+    }
+
+    /** Re-establish the session in place for [recovery]; the page, package and local address stay. */
+    private suspend fun recoverSession() {
+        val device = selected ?: error("No server selected.")
+        check(devServerURL == null && device.optString("deviceId") != "emulator" && main != null) { "Nothing to recover." }
+        connect(device, recovering = true)
+    }
+
+    private fun recoveryChanged(state: RecoveryState, resumed: Boolean, failure: Exception?) {
+        connectionState = state.phase.connectionState
+        when (state.phase) {
+            RecoveryPhase.READY -> { message = null; if (resumed) transportRevision += 1 }
+            RecoveryPhase.UNAVAILABLE -> {
+                message = failureMessage(failure)
+                // Only a sign-in that is genuinely gone needs the connection screen; a network failure keeps the page.
+                if (failure is NativeAuthError && !auth.hasSession) showConnections = true
+            }
+            else -> {}
+        }
+        changed()
+    }
+
+    private fun failureMessage(error: Exception?) = when {
+        error is NativeAuthError -> error.message
+        error is UIPackageError -> error.message
+        error is RemoteHttpError && error.status == 404 -> "This server does not provide a mobile interface. Update your Stimma Server and try again."
+        else -> "Could not connect. Check your sign-in, server sharing, and network, then try again."
     }
 
     private suspend fun install(remote: PinnedServer) {
@@ -272,29 +335,23 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         previous?.close()
     }
 
+    /** Recovery applies to an established in-app connection, not dev-server pages or a connection still being made. */
+    private val recoverable get() = main?.target != null && devServerURL == null && !busy
+
     fun foreground(active: Boolean) {
         appActive = active
         main?.setForeground(active)
         health?.cancel(); health = null
-        if (!active) return
+        if (!active) {
+            // Sockets close while backgrounded; the page must not treat the connection as ready until it is checked again.
+            if (recoverable) recovery.suspend()
+            return
+        }
+        if (recoverable) recovery.disrupted()
         health = viewModelScope.launch {
-            var resumed = false
             while (true) {
-                val remote = main?.target
-                if (!busy && remote != null) {
-                    try {
-                        healthMutex.withLock { remote.checkConnection() }
-                        if (!resumed) { resumed = true; transportRevision += 1; changed() }
-                        if (connectionState != "ready") { connectionState = "ready"; changed() }
-                    } catch (error: CancellationException) { throw error }
-                    catch (_: Exception) {
-                        coroutineContext.ensureActive()
-                        if (!busy && main?.target === remote && selected?.optString("deviceId") != "emulator") {
-                            selected?.let { device -> launchOperation(recovering = true) { connect(device, true) } }
-                        }
-                    }
-                }
-                delay(20000)
+                delay(ROUTINE_CHECK_MILLIS)
+                if (recoverable) recovery.routine()
             }
         }
     }
@@ -305,4 +362,10 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() { networkChanges.close(); callback?.close(); setup.close(); main?.close() }
+
+    companion object {
+        /** Cadence of the silent check that catches a server that went away while the app sat in the foreground. */
+        const val ROUTINE_CHECK_MILLIS = 20000L
+        const val DISCOVERY_REFRESH_MILLIS = 4000L
+    }
 }

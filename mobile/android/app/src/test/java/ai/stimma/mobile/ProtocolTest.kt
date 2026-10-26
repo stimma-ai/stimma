@@ -22,24 +22,6 @@ import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 
 class ProtocolTest {
-    @Test fun connectionMonitorChecksAuthenticatedProfiles() = runBlocking {
-        val certificate = HeldCertificate.Builder().commonName("localhost").build()
-        MockWebServer().use { server ->
-            server.useHttps(HandshakeCertificates.Builder().heldCertificate(certificate).build().sslSocketFactory(), false)
-            server.enqueue(MockResponse().setBody("[]"))
-            server.enqueue(MockResponse().setResponseCode(401))
-            server.start()
-            val remote = PinnedServer("127.0.0.1", server.port, sha256(certificate.certificate.encoded), "monitor-session")
-            remote.checkConnection()
-            val request = server.takeRequest()
-            assertEquals("/api/profiles", request.path)
-            assertEquals("Bearer monitor-session", request.getHeader("Authorization"))
-            try {
-                remote.checkConnection()
-                fail("An invalid session must trigger recovery")
-            } catch (error: RemoteHttpError) { assertEquals(401, error.status) }
-        }
-    }
     @Test fun cancellingNativeRequestsStopsTheirNetworkCalls() = runBlocking {
         val certificate = HeldCertificate.Builder().commonName("localhost").build()
         MockWebServer().use { server ->
