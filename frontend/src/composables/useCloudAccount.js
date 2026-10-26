@@ -69,7 +69,7 @@ async function ensureCloudBaseUrl() {
   // Try to fetch from settings
   try {
     const { fetchSettings } = useSettingsApi()
-    const settings = await fetchSettings()
+    const settings = await fetchSettings({ reuse: true })
     if (settings.cloud_base_url) {
       cloudBaseUrl.value = settings.cloud_base_url
     }

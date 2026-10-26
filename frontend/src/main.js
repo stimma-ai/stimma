@@ -3,7 +3,8 @@ import { initApiConfig, isDesktop, setStartupStatusCallback, startedWithUnreacha
 import { initConsoleBridge, installVueConsoleHandlers } from './consoleBridge'
 // Import useProfile early to set up the global fetch interceptor before any API calls
 import './composables/useProfile'
-import { initializeCurrentProfile } from './composables/useProfile'
+import { getCurrentProfileId, initializeCurrentProfile, initWindowProfile } from './composables/useProfile'
+import { invalidateSettingsSnapshots, readSettings } from './composables/useBootstrapSnapshot'
 import router from './router'
 import App from './App.vue'
 import './style.css'
@@ -109,13 +110,26 @@ if (isDesktop()) {
   setStartupStatusCallback(updateLoadingStatus)
 }
 
+// Resolve the profile roster before mounting. Settings almost always belong
+// to the profile this window used last, so request them alongside the roster
+// instead of one round trip later; App reads them from the shared snapshot.
+// A guess that is refused (locked profile) is never stored, and one for a
+// profile the roster no longer selects is discarded.
+async function bootstrapProfile() {
+  await initWindowProfile()
+  const guess = getCurrentProfileId()
+  if (guess) readSettings(guess).catch(() => {})
+  const profileId = await initializeCurrentProfile()
+  if (guess && guess !== profileId) invalidateSettingsSnapshots(profileId)
+}
+
 // Initialize API config (handles Tauri port detection) before mounting
 initApiConfig().then(() => {
   // Profiles live on the active device. If it is unreachable there is nothing
   // to resolve them against — mount anyway so ConnectionScreen can explain
   // the situation and offer another server.
   if (startedWithUnreachableDevice()) return null
-  return initializeCurrentProfile()
+  return bootstrapProfile()
 }).then(() => {
   const app = createApp(App)
   app.use(router)

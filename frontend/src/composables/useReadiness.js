@@ -33,10 +33,10 @@ const forceShowForDev = ref(false)
 /**
  * Refetch settings and update the cached readiness value.
  */
-async function refreshReadiness() {
+async function refreshReadiness({ reuse = false } = {}) {
   try {
     const { fetchSettings } = useSettingsApi()
-    const settings = await fetchSettings()
+    const settings = await fetchSettings({ reuse })
     if (settings.readiness) {
       readiness.value = settings.readiness
     }
@@ -79,7 +79,8 @@ async function handleLoginChoice() {
  * instead, never this).
  */
 async function checkStartupReadiness() {
-  await refreshReadiness()
+  // Startup has just read settings; readiness is part of that snapshot.
+  await refreshReadiness({ reuse: true })
   return readiness.value
 }
 

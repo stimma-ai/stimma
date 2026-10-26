@@ -3,6 +3,12 @@
  */
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import { readSettings } from './useBootstrapSnapshot'
+import { getCurrentProfileId } from './useProfile'
+
+// Startup consumers (app identity, readiness gate, cloud URL) may share one
+// settings read this recent instead of each asking the server.
+const SETTINGS_REUSE_MAX_AGE_MS = 30_000
 
 function getAPIBase() {
   return getApiBase()
@@ -12,10 +18,13 @@ export function useSettingsApi() {
   /**
    * Fetch all settings for the UI.
    * Returns profile-scoped settings for the current profile and global settings.
+   *
+   * By default this asks the server (and refreshes the shared snapshot).
+   * `reuse: true` accepts the current profile's shared snapshot when recent,
+   * or joins its request in flight. Each caller gets its own copy.
    */
-  async function fetchSettings() {
-    const response = await axios.get(`${getAPIBase()}/settings`)
-    return response.data
+  async function fetchSettings({ reuse = false } = {}) {
+    return readSettings(getCurrentProfileId(), reuse ? { maxAgeMs: SETTINGS_REUSE_MAX_AGE_MS } : { fresh: true })
   }
 
   /**

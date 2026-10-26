@@ -366,6 +366,7 @@ import { useStimpacksApi } from './composables/useStimpacksApi'
 import { makeGlobalKey } from './utils/storageKeys'
 import { adoptLegacyAcceptance } from './utils/terms'
 import { updateCheckIntervalMs } from './utils/updateCheckSchedule'
+import { scheduleMaintenance, markStartupUsable } from './utils/startupMaintenance'
 import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
 const route = useRoute()
@@ -922,7 +923,7 @@ async function submitLockScreenPin() {
       } catch (e) {
         console.warn('[App] Failed to reload settings after PIN unlock:', e)
       }
-      void syncMarketplaceStimpacks()
+      scheduleMarketplaceSync()
     } else {
       // The local proxy answers 502/503/504 itself when the active device is
       // gone, unreachable or slow. That is a connection problem, not a PIN
@@ -995,7 +996,9 @@ async function switchToProfileFromLockScreen(profile) {
 // "PIN required", so this must re-run once the PIN is entered or
 // settings-derived state (wildcards, segments, theme, etc.) stays empty.
 async function loadAppSettings() {
-  const settings = await fetchSettings()
+  // The shared snapshot: main.js requested it alongside the roster. Locking
+  // discards it, so after an unlock this is a fresh, authorized read.
+  const settings = await fetchSettings({ reuse: true })
   setAppModifier(settings.bundle_id, settings.sandbox)
   // App modifier is now set, so localStorage key prefix is stable — purge
   // legacy masks/paint (now in IndexedDB) and the old tool-descriptor cache.
@@ -1017,11 +1020,12 @@ async function loadAppSettings() {
   // Sidebar "finished while away" dots must track even when the sidebar
   // itself is unmounted (mobile, closed), so the singleton starts here.
   useUnseenActivity()
-  // Auto update checks start only once Privacy Lockdown state is known.
-  void startUpdaterLoop(privacyLockdown)
+  // Auto update checks start only once Privacy Lockdown state is known, and
+  // after the UI is usable: neither is needed to work.
+  void scheduleMaintenance('app-updater', () => startUpdaterLoop(privacyLockdown))
   // What's New pill: fetch this version's release notes (same host as the
   // updater), once lockdown state is known.
-  void initReleaseNotes(privacyLockdown)
+  void scheduleMaintenance('release-notes', () => initReleaseNotes(privacyLockdown))
   // Sync theme from backend config (backend is source of truth,
   // localStorage is used for instant flash prevention on load)
   if (settings.theme) {
@@ -1063,32 +1067,39 @@ async function checkStartupPin() {
     // Fire-and-forget auth init (login is optional, not blocking)
     initAuth()
 
-    await loadProfiles()
+    // main.js resolved the roster moments ago; validate this window's
+    // (possibly pinned) profile against that same snapshot.
+    await loadProfiles({ reuse: true })
 
     // Record where this window landed so the window registry can restore it
     // on relaunch (covers the bootstrap window, which has no pinned profile).
     void reportWindowProfile(currentProfileId.value)
 
+    // The PIN requirement is roster metadata: known without another request.
+    const profileId = currentProfileId.value
+    const requiresPin = await profileRequiresPin(profileId)
+    const startLocked = requiresPin && !hasCachedPin(profileId)
+
     // Load settings to get bundle_id/sandbox for localStorage key namespacing.
-    // If the current profile is PIN-locked this is rejected ("PIN required");
-    // loadAppSettings() is retried after unlock in submitLockScreenPin().
-    try {
-      await loadAppSettings()
-    } catch (e) {
-      console.warn('[App] Failed to load app identity from settings:', e)
+    // A locked profile's settings are refused ("PIN required"), so they are
+    // not requested until submitLockScreenPin() unlocks it. The project list
+    // does not depend on settings, so it is requested alongside them.
+    if (!startLocked) {
+      workingContext.prefetchProjects()
+      try {
+        await loadAppSettings()
+      } catch (e) {
+        console.warn('[App] Failed to load app identity from settings:', e)
+      }
     }
 
     // Start persisting route changes
     setupPersistence()
 
-    const profileId = currentProfileId.value
-    const requiresPin = await profileRequiresPin(profileId)
-    const startLocked = requiresPin && !hasCachedPin(profileId)
-
-    // Marketplace maintenance is not required to render the saved workspace.
-    // Let it overlap first paint; completion already announces live changes
+    // Marketplace maintenance is not required to render the saved workspace;
+    // it runs after first paint, and completion announces live changes
     // through the stimpacks-changed event. A locked profile syncs on unlock.
-    if (!startLocked) void syncMarketplaceStimpacks()
+    if (!startLocked) scheduleMarketplaceSync()
 
     if (startLocked) {
       isLocked.value = true
@@ -1129,6 +1140,8 @@ async function checkStartupPin() {
     await initMultiDevice()
     startupPending.value = false
     await nextTick()
+    // The shell (or lock screen) is usable: optional maintenance may begin.
+    markStartupUsable()
     void revealMobileInterface()
     if (isLocked.value) {
       await nextTick()
@@ -1157,7 +1170,7 @@ watch(isLocked, async (locked, wasLocked) => {
 
 watch(currentProfileId, (profileId, previousProfileId) => {
   if (profileId && profileId !== previousProfileId) {
-    void syncMarketplaceStimpacks(profileId)
+    scheduleMarketplaceSync(profileId)
   }
 })
 
@@ -1179,6 +1192,9 @@ watch([currentProfileId, profiles], async ([profileId]) => {
 // first navigation. Reconcile explicit destinations against the final key so
 // an old project link cannot leave a Library picker above a project browser.
 async function syncWorkingContext() {
+  // Until settings supply the storage prefix the working-context key is
+  // provisional; loadAppSettings() runs this once it is final.
+  if (!isSettingsLoaded()) return
   await workingContext.refreshProjects()
   const name = String(route.name || '')
   const explicitId = name.startsWith('project-')
@@ -1234,6 +1250,13 @@ let updateIntervalId = null
 let updaterLoopStarted = false
 const syncedMarketplaceStimpackProfiles = new Set()
 const marketplaceStimpackSyncByProfile = new Map()
+
+// Queued behind the usable UI with the rest of optional maintenance. The
+// lock and lockdown checks below run when the task does, not when queued.
+function scheduleMarketplaceSync(profileId = currentProfileId.value) {
+  if (!profileId) return
+  void scheduleMaintenance(`marketplace:${profileId}`, () => syncMarketplaceStimpacks(profileId))
+}
 
 async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
   if (isPrivacyLockdownActive()) return
@@ -1333,8 +1356,11 @@ function handleOpenSettings(e) {
   openSettings(e.detail || 'folders')
 }
 
+let appMounted = false
 onMounted(async () => {
-  startServerUpdater()
+  appMounted = true
+  // Server update status is optional chrome; keep it off the startup path.
+  void scheduleMaintenance('server-updater', () => { if (appMounted) startServerUpdater() })
   // Guard the root scrolling element the same way as the shell divs.
   const rootGuard = () => {
     const d = document.scrollingElement || document.documentElement
@@ -1368,6 +1394,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  appMounted = false
   stopIdleTracking()
   stopServerUpdater()
   window.removeEventListener('keydown', handleKeydown)

@@ -417,7 +417,8 @@ onMounted(() => {
     navHistory.value.push(route.fullPath)
     navIndex.value = 0
   }
-  loadProfiles()
+  // Startup just loaded the roster; reuse it rather than asking again.
+  loadProfiles({ reuse: true })
   backgroundWork.start()
 })
 

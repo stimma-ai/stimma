@@ -1062,6 +1062,7 @@ import EditorShelf from './EditorShelf.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'
 import DeviceChip from './DeviceChip.vue'
+import { scheduleMaintenance } from '../utils/startupMaintenance'
 
 const props = defineProps({
   isOpen: {
@@ -1114,8 +1115,10 @@ const accountBalance = computed(() =>
   cloudUser.value ? formatBalance(cloudUser.value.credits) : ''
 )
 
+// The balance is optional chrome: refresh it with other background
+// maintenance (promptly once startup is done) rather than during startup.
 watch(isAuthenticated, (signedIn) => {
-  if (signedIn) fetchCloudAccount()
+  if (signedIn) void scheduleMaintenance('cloud-account', fetchCloudAccount)
 }, { immediate: true })
 
 function openAccountSettings() {
@@ -2717,7 +2720,8 @@ async function handleProfileChanged() {
 }
 
 onMounted(() => {
-  refreshProjects()
+  // Startup has usually just loaded the project list for this scope.
+  refreshProjects({ maxAgeMs: 30_000 })
   loadSavedViews()
   loadPinnedTools()
   loadToolAvailability()

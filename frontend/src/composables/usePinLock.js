@@ -10,6 +10,7 @@ import { getCurrentProfileId } from './useProfile'
 import { getApiBase } from '../apiConfig'
 import { makeGlobalKey } from '../utils/storageKeys'
 import { connectionFailure, pinVerificationError } from '../utils/proxyFailure.ts'
+import { invalidateSettingsSnapshots, readProfiles } from './useBootstrapSnapshot'
 
 // PIN cache storage key (global, not per-profile — PIN cache spans profiles)
 function getPinCacheStorageKey() {
@@ -111,6 +112,7 @@ function expirePin(profileId, cached, now = Date.now()) {
   if (now - cached.lastActivity < cached.timeoutMinutes * 60 * 1000) return false
   pinCache.delete(profileId)
   persistPinCache()
+  invalidateSettingsSnapshots()
   if (profileId === getCurrentProfileId()) {
     coverPrivateContent()
     window.dispatchEvent(new CustomEvent('pin-auto-locked', { detail: { profileId } }))
@@ -257,20 +259,27 @@ async function checkIdleTimeouts() {
   }
 }
 
+// The roster is shared pre-unlock metadata. The periodic idle check accepts
+// one only slightly younger than its own interval, so it still notices a
+// limit changed elsewhere; one roster read serves every cached profile.
+const PIN_POLICY_MAX_AGE_MS = IDLE_CHECK_INTERVAL_MS / 2
+const PIN_REQUIREMENT_MAX_AGE_MS = 30_000
+
 /**
  * Get the PIN idle timeout for a profile (in minutes).
  * Returns null if profile has no PIN configured.
  */
 async function getProfilePinTimeout(profileId) {
+  let timer
   try {
-    const response = await fetch(`${getApiBase()}/profiles`, { signal: AbortSignal.timeout(5000) })
-    if (!response.ok) return null
-
-    const data = await response.json()
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), 5000) })
+    const data = await Promise.race([readProfiles({ maxAgeMs: PIN_POLICY_MAX_AGE_MS }), timeout])
     const profile = data.profiles?.find(p => p.id === profileId)
     return profile?.has_pin ? (profile.pin_idle_timeout_minutes || 30) : null
   } catch {
     return null
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -279,10 +288,7 @@ async function getProfilePinTimeout(profileId) {
  */
 async function profileRequiresPin(profileId) {
   try {
-    const response = await fetch(`${getApiBase()}/profiles`)
-    if (!response.ok) return false
-
-    const data = await response.json()
+    const data = await readProfiles({ maxAgeMs: PIN_REQUIREMENT_MAX_AGE_MS })
     const profile = data.profiles?.find(p => p.id === profileId)
     return profile?.has_pin === true
   } catch {
@@ -331,6 +337,7 @@ function cachePin(profileId, pin) {
 function clearCachedPin(profileId) {
   pinCache.delete(profileId)
   persistPinCache()
+  invalidateSettingsSnapshots()
   scheduleIdleDeadline()
 }
 
@@ -340,6 +347,7 @@ function clearCachedPin(profileId) {
 function clearAllCachedPins() {
   pinCache.clear()
   persistPinCache()
+  invalidateSettingsSnapshots()
   scheduleIdleDeadline()
 }
 

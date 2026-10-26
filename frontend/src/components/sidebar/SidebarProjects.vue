@@ -41,7 +41,8 @@ const collapsed = computed(() => isCollapsed('projects'))
 const recent = computed(() => orderedProjects.value.slice(0, RECENT_LIMIT))
 const busyBeyondRecent = computed(() => orderedProjects.value.slice(RECENT_LIMIT).some(p => isBusy(p.id)))
 
-onMounted(() => { refreshProjects() })
+// Startup (or a sibling view) has usually just loaded this list.
+onMounted(() => { refreshProjects({ maxAgeMs: 30_000 }) })
 
 async function enter(project: WorkingProject) {
   if (await switchContext(project.id)) emit('selected')

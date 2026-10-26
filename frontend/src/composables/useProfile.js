@@ -6,9 +6,10 @@
  */
 import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
-import { getApiBase, rewriteUrl, isDesktop } from '../apiConfig'
+import { rewriteUrl, isDesktop } from '../apiConfig'
 import { desktop } from '../desktop'
 import { getCachedPin, syncPinTimeouts } from './usePinLock'
+import { readProfiles } from './useBootstrapSnapshot'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
@@ -145,33 +146,38 @@ async function closeWindowForDeletedProfile() {
   }
 }
 
+// How old a shared roster may be for callers that only need "the current
+// one" during startup or a remount, rather than a confirmed re-read.
+const PROFILES_REUSE_MAX_AGE_MS = 30_000
+
 /**
  * Load available profiles from the API.
+ *
+ * `reuse: true` accepts the shared startup roster (or joins its request) when
+ * it is recent; the default asks the server, as callers reacting to a change
+ * need. Either way the result goes through the same validation below.
  */
-export async function loadProfiles() {
+export async function loadProfiles({ reuse = false } = {}) {
   isLoadingProfiles.value = true
   try {
-    const response = await apiFetch(`${getApiBase()}/profiles`)
-    if (response.ok) {
-      const data = await response.json()
-      profiles.value = data.profiles || []
-      syncPinTimeouts(profiles.value)
+    const data = await readProfiles(reuse ? { maxAgeMs: PROFILES_REUSE_MAX_AGE_MS } : { fresh: true })
+    profiles.value = data.profiles || []
+    syncPinTimeouts(profiles.value)
 
-      // If current profile ID is null or doesn't match any loaded profile,
-      // set it to the first profile's ID
-      const currentId = currentProfileId.value
-      const exists = profiles.value.some(p => p.id === currentId)
-      // A pinned profile that vanished means it was deleted: this window
-      // closes rather than silently becoming another profile's window. The
-      // last window can't close, so it falls through to the fallback below.
-      if (currentId && !exists && profiles.value.length > 0) {
-        if (await closeWindowForDeletedProfile()) return
-      }
-      if ((!currentId || !exists) && profiles.value.length > 0) {
-        currentProfileId.value = profiles.value[0].id
-        localStorage.setItem('profileId', profiles.value[0].id)
-        void reportWindowProfile(profiles.value[0].id)
-      }
+    // If current profile ID is null or doesn't match any loaded profile,
+    // set it to the first profile's ID
+    const currentId = currentProfileId.value
+    const exists = profiles.value.some(p => p.id === currentId)
+    // A pinned profile that vanished means it was deleted: this window
+    // closes rather than silently becoming another profile's window. The
+    // last window can't close, so it falls through to the fallback below.
+    if (currentId && !exists && profiles.value.length > 0) {
+      if (await closeWindowForDeletedProfile()) return
+    }
+    if ((!currentId || !exists) && profiles.value.length > 0) {
+      currentProfileId.value = profiles.value[0].id
+      localStorage.setItem('profileId', profiles.value[0].id)
+      void reportWindowProfile(profiles.value[0].id)
     }
   } catch (error) {
     console.error('Failed to load profiles:', error)
@@ -188,7 +194,8 @@ export async function initializeCurrentProfile() {
   return currentProfileId.value
 }
 
-// Listen for profiles-changed browser event (dispatched by useWebSocket)
+// Listen for profiles-changed browser event (dispatched by useWebSocket).
+// The fresh read below replaces the shared roster for everyone.
 window.addEventListener('profiles-changed', async () => {
   console.log('[Profile] Received profiles-changed, reloading profiles')
   await loadProfiles()

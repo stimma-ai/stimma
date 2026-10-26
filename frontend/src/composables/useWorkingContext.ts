@@ -30,6 +30,14 @@ let scopeKey = ''
 let request: Promise<void> | null = null
 // A change announced mid-request must not be lost to the in-flight response.
 let stale = false
+// When this scope's list last arrived, so remounting views can reuse it.
+let loadedAt = 0
+// Startup requests the list alongside settings, before the storage scope
+// (which settings complete) is known. Only that profile's next load adopts it.
+let prefetched: { profileId: string | null, at: number, list: Promise<WorkingProject[]> } | null = null
+const PREFETCH_MAX_AGE_MS = 10_000
+// Protected content requested before a lock is not handed out after it.
+if (typeof window !== 'undefined') window.addEventListener('pin-auto-locked', () => { prefetched = null })
 
 function storageKey() {
   return makeStorageKey('working_context', getCurrentProfileId() || 'default')
@@ -42,6 +50,7 @@ function hydrate() {
   projects.value = []
   request = null
   stale = false
+  loadedAt = 0
   error.value = ''
   loading.value = false
   try {
@@ -66,17 +75,42 @@ function selectProject(id: number | null) {
   } catch { /* Storage may be unavailable; in-window navigation still works. */ }
 }
 
-async function refreshProjects() {
+/** Start the project list request early; the next load for this profile uses it. */
+function prefetchProjects() {
+  const list = useMediaApi().getProjects() as Promise<WorkingProject[]>
+  list.catch(() => {})
+  prefetched = { profileId: getCurrentProfileId(), at: Date.now(), list }
+}
+
+function takePrefetched(): Promise<WorkingProject[]> | null {
+  const taken = prefetched
+  prefetched = null
+  if (!taken || taken.profileId !== getCurrentProfileId() || Date.now() - taken.at > PREFETCH_MAX_AGE_MS) return null
+  // A refused or failed early request is retried rather than reported.
+  return taken.list.catch(() => useMediaApi().getProjects())
+}
+
+/**
+ * Reload the project list. Mounting views pass `maxAgeMs` to accept a list
+ * this scope loaded that recently (or the request already in flight) instead
+ * of asking again; change notifications omit it and always reload.
+ */
+async function refreshProjects({ maxAgeMs }: { maxAgeMs?: number } = {}) {
   hydrate()
+  if (maxAgeMs !== undefined) {
+    if (request) return request
+    if (loadedAt && Date.now() - loadedAt <= maxAgeMs) return
+  }
   if (request) { stale = true; return request }
   const key = scopeKey
   loading.value = true
   error.value = ''
   const pending = (async () => {
     try {
-      const list = await useMediaApi().getProjects()
+      const list = await (takePrefetched() ?? useMediaApi().getProjects())
       if (key !== scopeKey) return
       projects.value = list
+      loadedAt = Date.now()
       if (activeProjectId.value != null && !list.some((p: WorkingProject) => p.id === activeProjectId.value)) {
         selectProject(null)
       }
@@ -109,7 +143,7 @@ export function useWorkingContext() {
     activeProjectId: readonly(activeProjectId),
     activeProject: computed(() => projects.value.find(p => p.id === activeProjectId.value) ?? (activeProjectId.value == null ? null : { id: activeProjectId.value, name: null })),
     projects: readonly(projects), orderedProjects, loading: readonly(loading), error: readonly(error),
-    selectProject, refreshProjects, rememberProject,
+    selectProject, refreshProjects, prefetchProjects, rememberProject,
   }
 }
 
