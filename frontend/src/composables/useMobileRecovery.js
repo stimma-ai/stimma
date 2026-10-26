@@ -13,8 +13,19 @@ export function setMobileSocketReady(ready) {
   if (!mobileRecoveryEnabled) return
   recovery.socket(ready)
 }
-export function waitForMobileTransport(signal) {
-  return mobileRecoveryEnabled ? recovery.wait(signal) : Promise.resolve()
+/**
+ * Hold a backend request while native recovery restores the path. Reads wait
+ * transparently. Writes (anything but GET/HEAD/OPTIONS) wait only while the
+ * page that started them is still shown; navigating away rejects them unsent.
+ */
+export function waitForMobileTransport(signal, method = 'GET') {
+  if (!mobileRecoveryEnabled) return Promise.resolve()
+  const write = !['GET', 'HEAD', 'OPTIONS'].includes(String(method || 'GET').toUpperCase())
+  return recovery.wait(signal, { write })
+}
+/** The router moved to another page. */
+export function mobilePageChanged() {
+  if (mobileRecoveryEnabled) recovery.navigated()
 }
 /** Whether the app socket may connect now. Always true off the phone shells. */
 export function mobileTransportAdmitsSocket() {

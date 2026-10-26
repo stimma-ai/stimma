@@ -28,6 +28,7 @@ import { useTelemetry } from '../composables/useTelemetry'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { assetLinkContext, contextRoute, contextSection, entityFallbackSection, projectIdFrom } from '../utils/workingContext'
 import { addToast } from '../composables/useToasts'
+import { mobilePageChanged } from '../composables/useMobileRecovery.js'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
@@ -342,6 +343,12 @@ router.afterEach((to, _from, failure) => {
   const screen = typeof to.name === 'string' ? to.name : null
   if (!screen || screen.startsWith('dev-')) return
   trackNav('screen_viewed', { screen }, 'navigation')
+})
+
+// A write held while the phone reconnects belongs to the page that sent it;
+// leaving that page rejects it unsent rather than letting it land later.
+router.afterEach((to, from, failure) => {
+  if (!failure && to.path !== from.path) mobilePageChanged()
 })
 
 export default router

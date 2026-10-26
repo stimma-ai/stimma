@@ -12,6 +12,8 @@
 export function createRecoveryWindow({ delay = 2000, changed = () => {}, schedule = setTimeout, cancel = clearTimeout } = {}) {
   let foreground = true, ready = true, expired = false, timer = null, budget = delay
   const waiting = new Set()
+  // Held writes, settled separately when the page that started them goes away.
+  const writes = new Set()
   const unavailable = () => new Error('Still reconnecting. Please try again.')
   function publish() { changed({ ready, foreground, expired, visible: foreground && !ready && expired }) }
   function settle(error) { for (const finish of [...waiting]) finish(error) }
@@ -46,14 +48,23 @@ export function createRecoveryWindow({ delay = 2000, changed = () => {}, schedul
       publish()
     },
     invalidate() { settle(new Error('The active workspace changed. Please try again.')) },
-    wait(signal) {
+    /**
+     * The user left the page that started any held write. It is rejected
+     * before dispatch: a write must never land after its screen is gone.
+     */
+    cancelWrites() {
+      const error = new Error('Not sent: the page changed while reconnecting.')
+      for (const finish of [...writes]) finish(error)
+    },
+    wait(signal, { write = false } = {}) {
       if (signal?.aborted) return Promise.reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
       if (ready) return Promise.resolve()
       if (!foreground || expired) return Promise.reject(unavailable())
       return new Promise((resolve, reject) => {
         const abort = () => finish(signal.reason ?? new DOMException('Aborted', 'AbortError'))
-        const finish = error => { waiting.delete(finish); signal?.removeEventListener('abort', abort); error ? reject(error) : resolve() }
+        const finish = error => { waiting.delete(finish); writes.delete(finish); signal?.removeEventListener('abort', abort); error ? reject(error) : resolve() }
         waiting.add(finish)
+        if (write) writes.add(finish)
         signal?.addEventListener('abort', abort, { once: true })
       })
     },

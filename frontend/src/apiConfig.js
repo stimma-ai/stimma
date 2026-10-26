@@ -76,7 +76,7 @@ function installSessionHeaderInterceptors() {
     const isAbsolute = /^https?:/i.test(url)
     const fullUrl = isAbsolute ? url : `${config.baseURL || ''}${url}`
     if (isSidecarUrl(fullUrl)) {
-      if (isBackendRequest(fullUrl)) await waitForMobileTransport(config.signal)
+      if (isBackendRequest(fullUrl)) await waitForMobileTransport(config.signal, config.method)
       const sid = currentSessionId()
       if (sid) {
         config.headers = config.headers || {}
@@ -96,7 +96,7 @@ function installSessionHeaderInterceptors() {
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url
     if (isSidecarUrl(url)) {
-      if (isBackendRequest(url)) await waitForMobileTransport(init.signal ?? input?.signal)
+      if (isBackendRequest(url)) await waitForMobileTransport(init.signal ?? input?.signal, init.method ?? input?.method)
       const sid = currentSessionId()
       if (sid) {
         const headers = new Headers(

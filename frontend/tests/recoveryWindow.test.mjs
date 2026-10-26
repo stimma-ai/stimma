@@ -56,3 +56,17 @@ test('abort, profile change, and a second sleep cancel unsent work', async () =>
   f.gate.resume(); f.gate.setReady(true)
   await f.gate.wait()
 })
+
+test('leaving the page rejects held writes unsent and keeps held reads', async () => {
+  const f = fixture()
+  f.gate.hold(5000)
+  const write = assert.rejects(f.gate.wait(undefined, { write: true }), /page changed/)
+  let read = false
+  const held = f.gate.wait().then(() => { read = true })
+  f.gate.cancelWrites()
+  await write
+  assert.equal(read, false)
+  f.gate.setReady(true)
+  await held
+  assert.equal(read, true)
+})

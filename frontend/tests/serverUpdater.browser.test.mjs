@@ -35,6 +35,10 @@ async function fixture(t, { desktop = false } = {}) {
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
     server.sockets.add(ws)
     ws.onClose(() => server.sockets.delete(ws))
+    // Like the real server: a remote client's liveness ping is answered.
+    ws.onMessage(message => {
+      try { if (JSON.parse(message).event === 'ping') ws.send(JSON.stringify({ event: 'pong', data: {} })) } catch { /* Not JSON. */ }
+    })
   })
   await page.route('**/*', async route => {
     const url = new URL(route.request().url())

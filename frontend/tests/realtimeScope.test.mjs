@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { websocketHarness } from './fixtures/websocketHarness.mjs'
 import { createRealtimeScope } from '../src/composables/realtimeScope.js'
 
 function harness() {
@@ -258,26 +259,8 @@ test('a reconnect replaces pending provisional reconciliation', async () => {
 
 // The real useWebSocket singleton with a controlled socket.
 function socketFixture(before = () => {}) {
-  const source = readFileSync(new URL('../src/composables/useWebSocket.js', import.meta.url), 'utf8')
-    .replace(/^import .*$/gm, '').replace('export function', 'function').replaceAll('import.meta.hot', 'false')
-  const sockets = []
-  class Socket {
-    static OPEN = 1
-    static CONNECTING = 0
-    readyState = 0
-    sent = []
-    constructor(url) { this.url = url; sockets.push(this) }
-    send(text) { this.sent.push(JSON.parse(text)) }
-    close() { this.closed = true }
-    open() { this.readyState = 1; this.onopen?.() }
-    receive(event, data) { this.onmessage?.({ data: JSON.stringify({ event, data }) }) }
-  }
-  const scope = createRealtimeScope({ schedule: fn => fn() })
-  before(scope)
-  const create = new Function('ref', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast', 'window', 'WebSocket', 'setTimeout', 'clearTimeout', 'realtimeScope', 'installRealtimeScope', `const setMobileSocketReady = () => {}; ${source}; return useWebSocket`)
-  const useSocket = create(value => ({ value }), () => 'profile-a', () => 'ws://server/ws', () => true,
-    () => {}, () => {}, new EventTarget(), Socket, () => 0, () => {}, scope, () => {})
-  return { api: useSocket(), sockets, scope }
+  const { api, sockets, scope } = websocketHarness({ profile: 'profile-a', url: 'ws://server/ws', before })
+  return { api, sockets, scope }
 }
 
 test('the socket connects with the scope and keeps the server in step', () => {

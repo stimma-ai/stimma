@@ -20,12 +20,21 @@ const foreverModeByInstanceId = ref({})
 const countedJobs = new Map()
 let initialized = false
 let pendingWorkEpoch = 0
-let jobEventEpoch = 0
 let recoverySequence = 0
+// Job events seen while a reconcile snapshot is being read, in order. The
+// snapshot is applied with these replayed on top, so a busy server's events
+// never invalidate it and none are lost.
+let journal = null
 
-async function reconcileJobs(attempt = 0) {
+function bucketFor(job) {
+  const instanceId = job?.generator_instance_id
+  return instanceId?.startsWith('tool-') ? { instanceId } : { taskType: job?.task_type || 'text-to-image' }
+}
+
+async function reconcileJobs() {
   const sequence = ++recoverySequence
-  const epoch = jobEventEpoch
+  const events = []
+  journal = events
   try {
     const pages = await Promise.all(['queued', 'assigned', 'processing'].map(async status => {
       const jobs = []
@@ -38,26 +47,24 @@ async function reconcileJobs(attempt = 0) {
       }
     }))
     if (sequence !== recoverySequence) return
-    // Do not overwrite events that arrived after this snapshot was requested.
-    // Bounded: a busy server emits job events continuously, and a retry is three more reads.
-    if (epoch !== jobEventEpoch) { if (attempt < 3) void reconcileJobs(attempt + 1); return }
+    const active = new Map()
+    for (const job of pages.flat()) if (!active.has(job.id)) active.set(job.id, bucketFor(job))
+    // Replay by job id: idempotent whether or not the snapshot already saw an event.
+    for (const event of events) {
+      if (event.type === 'queued') { if (!active.has(event.id)) active.set(event.id, event.bucket) }
+      else active.delete(event.id)
+    }
     const tasks = {}, instances = {}
     countedJobs.clear()
-    for (const job of pages.flat()) {
-      if (countedJobs.has(job.id)) continue
-      const instanceId = job.generator_instance_id
-      if (instanceId?.startsWith('tool-')) {
-        countedJobs.set(job.id, { instanceId })
-        instances[instanceId] = (instances[instanceId] || 0) + 1
-      } else {
-        const taskType = job.task_type || 'text-to-image'
-        countedJobs.set(job.id, { taskType })
-        tasks[taskType] = (tasks[taskType] || 0) + 1
-      }
+    for (const [id, bucket] of active) {
+      countedJobs.set(id, bucket)
+      if (bucket.instanceId) instances[bucket.instanceId] = (instances[bucket.instanceId] || 0) + 1
+      else tasks[bucket.taskType] = (tasks[bucket.taskType] || 0) + 1
     }
     activeJobsByTaskType.value = tasks
     activeJobsByInstanceId.value = instances
   } catch { /* Retain the last known state until contact is restored. */ }
+  finally { if (journal === events) journal = null }
 }
 
 function incrementInstanceCount(counts, instanceId) {
@@ -113,8 +120,8 @@ export function useGenerationStatus() {
 
     // Listen for job queue/start events (increment)
     onWebSocketEvent('generation_job_queued', (data) => {
-      jobEventEpoch++
       const jobId = data?.job?.id
+      if (jobId != null) journal?.push({ type: 'queued', id: jobId, bucket: bucketFor({ ...data.job, generator_instance_id: data?.job?.generator_instance_id || data?.generator_instance_id }) })
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
       const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id
@@ -148,8 +155,8 @@ export function useGenerationStatus() {
     // settle event for a job whose queue event we never saw (queued before
     // connect, or dropped) must not eat another job's count.
     const onJobSettled = (label) => (data) => {
-      jobEventEpoch++
       const jobId = data?.job?.id
+      if (jobId != null) journal?.push({ type: 'settled', id: jobId })
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
       const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id

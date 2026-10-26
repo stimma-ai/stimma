@@ -102,13 +102,31 @@ test('native recovery phases hold writes for their budgets, send them once, and 
   // An expired device session read during recovery is not a signed-out account.
   assert.equal(await page.evaluate(() => recovery.fetchCloudAccount().then(account => account)), null)
   assert.equal(await page.evaluate(() => authPrompts), 0)
+  // Leaving the page while a write is held rejects it unsent; held reads still go out.
+  await native(4, 'checking', 5000)
+  await page.evaluate(async () => {
+    window.navResults = []
+    fetch('/api/chats/7/items', { method: 'POST', body: 'hello' }).then(() => navResults.push('post sent'), e => navResults.push(e.message))
+    recovery.axios.delete('/api/boards/3').then(() => navResults.push('delete sent'), e => navResults.push(e.message))
+    fetch('/api/settings').then(() => navResults.push('read'), e => navResults.push(e.message))
+    // The user then taps elsewhere; the router reports a new page (router/index.js afterEach).
+    await new Promise(resolve => setTimeout(resolve, 50))
+    recovery.pageChanged()
+  })
+  await page.waitForFunction(() => navResults.length === 2)
+  for (const result of await page.evaluate(() => navResults)) assert.match(result, /page changed/)
+  await native(4, 'ready')
+  await page.waitForFunction(() => navResults.length === 3)
+  await page.waitForTimeout(200)
+  assert.equal(sent.filter(entry => entry === 'POST /api/chats/7/items' || entry === 'DELETE /api/boards/3').length, 0, 'no write is dispatched after navigation')
+  assert.equal(sent.filter(entry => entry === 'GET /api/settings').length, 1)
   // A long outage: unavailable fails new writes at once, shows it, and sends nothing later.
-  await native(3, 'checking', 5000)
-  await native(3, 'reconnecting', 20000)
-  await native(3, 'unavailable')
+  await native(5, "checking", 5000)
+  await native(5, "reconnecting", 20000)
+  await native(5, "unavailable")
   assert.match(await page.evaluate(() => fetch('/api/boards', { method: 'POST' }).then(() => 'sent', e => e.message)), /Still reconnecting/)
   assert.equal(await page.evaluate(() => recovery.status.value), 'unavailable')
-  await native(3, 'ready')
+  await native(5, "ready")
   await page.waitForTimeout(200)
   assert.equal(sent.filter(entry => entry === 'POST /api/boards').length, 0, 'a failed write is never replayed')
   assert.equal(await page.evaluate(() => recovery.visible.value), false)

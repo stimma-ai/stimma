@@ -161,8 +161,11 @@ export function createTransportRecovery({
       socketReady = ready
       present()
     },
-    wait(signal) { return requests.wait(signal) },
+    /** Hold a request until the path is usable. `write` marks a mutation, which navigation cancels. */
+    wait(signal, options) { return requests.wait(signal, options) },
     invalidate() { requests.invalidate() },
+    /** The page that started any held write is gone; reject those writes unsent. */
+    navigated() { requests.cancelWrites() },
     onReady(listener) {
       readyListeners.add(listener)
       return () => readyListeners.delete(listener)

@@ -19,8 +19,8 @@ import { installRealtimeScope } from './useRealtimeTopic.js'
  * Handles connection, reconnection, and event broadcasting
  *
  * Reconnection: a local backend is retried every half second so the app
- * follows a restart at once. A remote server (phone shells, or a desktop
- * pointed at another device) backs off exponentially with jitter up to 30 s,
+ * follows a restart at once. A remote server (phone shells, a desktop
+ * pointed at another device, or a browser on another machine) backs off exponentially with jitter up to 30 s,
  * resetting after a stable connection, and retries at once when the network
  * comes back or the phone's native recovery reports the path ready. On the
  * phone shells no socket is attempted while native recovery says the path is
@@ -60,8 +60,17 @@ let lastMessageAt = 0
 let livenessTimer = null
 let livenessDeadline = null
 
+// Whether the socket's own address is another machine (a browser on a
+// headless server, say). Loopback backends keep the quick local retry.
+let remoteAddress = false
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+export function isLoopbackSocketUrl(url) {
+  try { return LOOPBACK_HOSTS.has(new URL(url).hostname) } catch { return false }
+}
+
 function isRemote() {
-  return mobileRecoveryEnabled || remoteServer
+  return mobileRecoveryEnabled || remoteServer || remoteAddress
 }
 
 /** The desktop app reports whether its active server is another device. */
@@ -125,6 +134,7 @@ export function useWebSocket() {
       // connection. Older servers ignore the query and send everything.
       wsUrl += (wsUrl.includes('?') ? '&' : '?') + realtimeScope.connectQuery(getCurrentProfileId())
 
+      remoteAddress = !isLoopbackSocketUrl(wsUrl)
       console.log('[WebSocket] Connecting to:', wsUrl.split('?')[0])
       const socket = new WebSocket(wsUrl)
       socket.stimmaEpoch = mobileTransportEpoch()

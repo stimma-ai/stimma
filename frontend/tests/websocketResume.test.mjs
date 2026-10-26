@@ -1,81 +1,12 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { createReconnectBackoff, LOCAL_RECONNECT, REMOTE_RECONNECT } from '../src/utils/reconnectBackoff.js'
-import { createTransportRecovery } from '../src/utils/transportRecovery.js'
+import { createReconnectBackoff, REMOTE_RECONNECT } from '../src/utils/reconnectBackoff.js'
+import { websocketHarness } from './fixtures/websocketHarness.mjs'
 
-// Exercise the real singleton with controlled sockets, timers and the real
-// recovery state machine. No server is needed to reproduce WebKit retaining
-// an OPEN socket across suspension, a half-open socket, or a server outage.
-
-function createClock() {
-  let now = 0, id = 0
-  const timers = new Map()
-  return {
-    now: () => now,
-    setTimeout: (fn, ms = 0) => { timers.set(++id, { fn, at: now + ms }); return id },
-    clearTimeout: handle => { timers.delete(handle) },
-    setInterval: (fn, ms) => { timers.set(++id, { fn, at: now + ms, every: ms }); return id },
-    clearInterval: handle => { timers.delete(handle) },
-    advance(ms) {
-      const end = now + ms
-      for (;;) {
-        const next = [...timers].filter(([, timer]) => timer.at <= end).sort((a, b) => a[1].at - b[1].at)[0]
-        if (!next) break
-        const [handle, timer] = next
-        now = timer.at
-        if (timer.every) timer.at += timer.every
-        else timers.delete(handle)
-        timer.fn()
-      }
-      now = end
-    },
-    /** Delays of pending one-shot timers. */
-    pending: () => [...timers.values()].filter(timer => !timer.every).map(timer => timer.at - now),
-  }
-}
-
+// The real useWebSocket singleton with controlled sockets, timers and the
+// real recovery state machine (see fixtures/websocketHarness.mjs).
 const flush = () => new Promise(resolve => setImmediate(resolve))
-const quiet = { log() {}, warn() {}, error() {}, debug() {} }
-
-function fixture({ mobile = true, remote = false } = {}) {
-  const source = readFileSync(new URL('../src/composables/useWebSocket.js', import.meta.url), 'utf8')
-    .replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*$/gm, '')
-    .replaceAll('export function', 'function').replaceAll('import.meta.hot', 'false')
-  const clock = createClock()
-  const sockets = []
-  class Socket {
-    static OPEN = 1
-    static CONNECTING = 0
-    readyState = 0
-    sent = []
-    constructor() { sockets.push(this) }
-    close() { this.closed = true }
-    send(text) { this.sent.push(JSON.parse(text)) }
-    open() { this.readyState = 1; this.onopen?.() }
-    message(event, data = {}) { this.onmessage?.({ data: JSON.stringify({ event, data }) }) }
-    drop() { this.readyState = 3; this.onclose?.() }
-  }
-  const window = new EventTarget()
-  const document = Object.assign(new EventTarget(), { visibilityState: 'visible' })
-  const recovery = createTransportRecovery({ schedule: clock.setTimeout, cancel: clock.clearTimeout })
-  const names = ['ref', 'shallowRef', 'getCurrentProfileId', 'getWsBase', 'isApiInitialized', 'addToast', 'removeToast',
-    'window', 'document', 'WebSocket', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'console',
-    'mobileRecoveryEnabled', 'mobileTransportAdmitsSocket', 'mobileTransportEpoch', 'onMobileTransportAdmit',
-    'onMobileTransportReady', 'setMobileSocketReady', 'createReconnectBackoff', 'LOCAL_RECONNECT', 'REMOTE_RECONNECT']
-  const create = new Function(...names, `${source}; return { useWebSocket, setRemoteServerConnection }`)
-  const module = create(value => ({ value }), value => ({ value }), () => 'test', () => 'ws://localhost/ws', () => true, () => {}, () => {},
-    window, document, Socket, clock.setTimeout, clock.clearTimeout, clock.setInterval, clock.clearInterval,
-    { now: clock.now }, quiet,
-    mobile, () => !mobile || recovery.admitsSocket, () => (mobile ? recovery.epoch : 0),
-    listener => (mobile ? recovery.onAdmit(listener) : () => {}), listener => (mobile ? recovery.onReady(listener) : () => {}),
-    ready => { if (mobile) recovery.socket(ready) },
-    () => createReconnectBackoff({ random: () => 1, now: clock.now }), LOCAL_RECONNECT, REMOTE_RECONNECT)
-  module.setRemoteServerConnection(remote)
-  const api = module.useWebSocket()
-  const native = (generation, phase, budgetMs = 0) => recovery.nativeState({ generation, phase, budgetMs })
-  return { api, sockets, clock, window, document, recovery, native }
-}
+const fixture = ({ mobile = true, remote = false } = {}) => websocketHarness({ mobile, remoteDevice: remote })
 
 test('native recovery replaces an apparently OPEN socket once and refreshes through the normal reconnect event', () => {
   const { api, sockets, recovery, native } = fixture()
@@ -230,4 +161,26 @@ test('a local backend runs reconnect work without deferral', async () => {
   api.on('websocket_reconnected', () => order.push('optional'), { optional: true })
   sockets[0].open()
   assert.deepEqual(order, ['screen', 'optional'])
+})
+
+test('a browser on another machine is a remote connection even when its server is "local"', () => {
+  const { sockets, clock } = websocketHarness({ url: 'ws://studio.example:9191/ws' })
+  sockets[0].open()
+  clock.advance(30_000)
+  assert.ok(sockets[0].sent.some(message => message.event === 'ping'), 'liveness runs')
+  sockets[0].message('pong')
+  sockets[0].drop()
+  const delays = []
+  for (let attempt = 0; attempt < 4; attempt++) {
+    delays.push(clock.pending()[0])
+    clock.advance(delays.at(-1))
+    sockets.at(-1).drop()
+  }
+  assert.deepEqual(delays, [500, 1000, 2000, 4000])
+  // A backend reached through loopback keeps the quick retry.
+  const local = websocketHarness({ url: 'ws://127.0.0.1:9192/ws' })
+  local.sockets[0].drop()
+  local.clock.advance(500)
+  local.sockets.at(-1).drop()
+  assert.deepEqual(local.clock.pending(), [500])
 })
