@@ -401,7 +401,7 @@ test('a schema read is cancelled once every caller waiting on it gives up, and o
   assert.equal(app.schemaReads('p:paint'), 1, 'both callers shared one read')
 })
 
-test('a newer catalog retires a full tool it disagrees with, and explicit reads are fresh', async t => {
+test('a newer catalog retires full tools read before it, and explicit reads are fresh', async t => {
   let current = versioned(1, 'disconnected')
   const app = await openApp(t, {
     start: '/elsewhere',
@@ -424,7 +424,7 @@ test('a newer catalog retires a full tool it disagrees with, and explicit reads 
     return { listed, opened: opened.availability, steps: opened.parameter_schema.properties.steps.default }
   })
   assert.deepEqual(result, { listed: 'available', opened: 'available', steps: 20 })
-  // A full tool the catalog agrees with is kept, unless the caller asks fresh.
+  // A full tool read after the catalog is kept, unless the caller asks fresh.
   const reads = app.schemaReads('p:paint')
   await app.page.evaluate(() => window.toolCatalogTest.catalog.getProviderTool('p:paint'))
   assert.equal(app.schemaReads('p:paint'), reads)
@@ -453,4 +453,57 @@ test('a socket reconnect after an outage rereads the catalog and the tools it ma
   assert.equal(app.catalogReads(), 2, 'one shared reread')
   const steps = await app.page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).parameter_schema.properties.steps.default)
   assert.equal(steps, 20)
+})
+
+test('a native transport resume rereads the catalog and every tool schema', async t => {
+  let current = versioned(1)
+  const app = await openApp(t, {
+    respond: path => {
+      if (path === '/api/tools/provider-tool/p:paint') return current
+    },
+  })
+  await expect(composer(app.page)).toBeVisible()
+  await app.page.waitForTimeout(1500)
+  assert.equal(app.catalogReads(), 1)
+  await app.page.evaluate(() => window.toolCatalogTest.catalog.getProviderTool('p:paint'))
+  current = versioned(2, 'disconnected')
+  // The app was suspended; the native shell resumes the transport, which
+  // replaces the socket without ever reporting it lost.
+  const sockets = await app.page.evaluate(() => window.toolCatalogTest.socketCount())
+  const right = await app.page.evaluate(async () => {
+    window.dispatchEvent(new Event('stimma:transport-resumed'))
+    const tool = await window.toolCatalogTest.catalog.getProviderTool('p:paint')
+    return { steps: tool.parameter_schema.properties.steps.default, availability: tool.availability }
+  })
+  assert.deepEqual(right, { steps: 20, availability: 'disconnected' }, 'nothing read before the suspension is served after it')
+  await expect.poll(() => app.page.evaluate(() => window.toolCatalogTest.socketCount())).toBeGreaterThan(sockets)
+  await expect.poll(app.catalogReads).toBe(2)
+  await app.page.waitForTimeout(800)
+  assert.equal(app.catalogReads(), 2, 'one shared reread')
+})
+
+test('a schema read that keeps being overtaken fails as retryable instead of returning an obsolete schema', async t => {
+  let overtake = true
+  let schemaReads = 0
+  let page
+  const app = await openApp(t, {
+    start: '/elsewhere',
+    respond: async path => {
+      if (path !== '/api/tools/provider-tool/p:paint') return
+      schemaReads++
+      // A tool change lands while every read is in flight.
+      if (overtake) await page.evaluate(() => window.toolCatalogTest.serverEvent('tools_updated', {}))
+      return versioned(schemaReads)
+    },
+  })
+  page = app.page
+  await expect(page.locator('#elsewhere')).toBeVisible()
+  const outcome = await page.evaluate(() =>
+    window.toolCatalogTest.catalog.getProviderTool('p:paint').then(tool => `resolved v${tool.parameter_schema.properties.steps.default / 10}`, error => error.name))
+  assert.equal(outcome, 'ToolSchemaChangedError')
+  assert.equal(schemaReads, 3)
+  // Once things settle, the same call succeeds.
+  overtake = false
+  const steps = await page.evaluate(async () => (await window.toolCatalogTest.catalog.getProviderTool('p:paint')).parameter_schema.properties.steps.default)
+  assert.equal(steps, 40)
 })

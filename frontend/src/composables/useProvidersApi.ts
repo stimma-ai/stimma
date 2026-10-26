@@ -170,9 +170,9 @@ function normalizeProvider<T extends { provider_id?: string | null; provider_nam
 // entry and read belongs to a scope and carries the request sequence number
 // it started at. A full tool is current only if its read started at or after
 // `fullToolFloor`: an invalidation (tools or provider changed, profile
-// changed, socket recovery, explicit clear) raises the floor to "now", so a
-// schema is never served across a change it may predate. A newer catalog
-// revalidates full tools read before it (see revalidateFullTools), so a fresh
+// changed, socket reconnect or native resume, explicit clear) raises the
+// floor to "now", so a schema is never served across a change it may predate.
+// A newer catalog raises it to when that catalog's read started, so a fresh
 // catalog never sits next to an older full tool.
 let fullToolFloor = 0
 const fullTools = new Map<string, { tool: ProviderTool; seq: number }>()
@@ -188,22 +188,11 @@ function retireFullToolsBefore(seq: number) {
   for (const [key, read] of fullToolReads) if (read.seq < fullToolFloor) fullToolReads.delete(key)
 }
 
-// What the catalog and a full tool both say about a tool. A full tool read
-// before the current catalog that disagrees with it on any of these is older
-// than the catalog (a change whose event was missed, say).
-const CATALOG_FIELDS = ['name', 'availability', 'task_type', 'task_types', 'provider_name', 'model', 'model_vendor', 'preview_frames'] as const
-
-function agreesWithCatalog(tool: ProviderTool) {
-  const listed = toolsCache.value.find(t => t.full_tool_id === tool.full_tool_id)
-  if (!listed) return false
-  return CATALOG_FIELDS.every(field => JSON.stringify(listed[field] ?? null) === JSON.stringify(tool[field] ?? null))
-}
-
-// A newer catalog keeps the full tools it agrees with; the rest are read
-// again when next asked.
-function revalidateFullTools(catalogSeq: number) {
-  for (const [key, entry] of fullTools) {
-    if (entry.seq < catalogSeq && !agreesWithCatalog(entry.tool)) fullTools.delete(key)
+/** A schema read kept being overtaken by changes; reading again later succeeds. */
+export class ToolSchemaChangedError extends Error {
+  constructor() {
+    super('The tool changed while it was loading')
+    this.name = 'ToolSchemaChangedError'
   }
 }
 
@@ -271,7 +260,9 @@ async function readToolSummaries(config: { signal?: AbortSignal } = {}): Promise
     toolsCache.value = tools
     lastFetchTime.value = Date.now()
     cacheScope = read.scope
-    revalidateFullTools(read.seq)
+    // Full tools read before this catalog may be older than it (a change
+    // whose event was missed): read them again when next asked.
+    retireFullToolsBefore(read.seq)
   } else if (supersededInCache(read, 'tools')) {
     return toolsCache.value
   }
@@ -462,37 +453,45 @@ async function readFullTool(
   }
   const tool = await waitForShared(read, signal)
   if (read.scope !== catalogScope()) return tool  // the caller's scope is gone; never cached
-  // A change landed while this was in flight, or a newer catalog disagrees
-  // with the answer: it may predate either, so read again.
-  const overtaken = read.seq < fullToolFloor
-    || (cacheScope === read.scope && publishedSeq.tools > read.seq && !agreesWithCatalog(tool))
-  if (overtaken) {
+  // A change or a newer catalog landed while this was in flight: the answer
+  // may predate it, so read again. Never hand out a known-obsolete schema.
+  if (read.seq < fullToolFloor) {
     if (attempts > 1) return readFullTool(fullToolId, false, signal, attempts - 1)
-    return tool
+    throw new ToolSchemaChangedError()
   }
   const current = fullTools.get(key)
   if (!current || current.seq < read.seq) fullTools.set(key, { tool, seq: read.seq })
   return tool
 }
 
-// Events can be missed only while the socket is down, so a reconnect after a
-// disconnect counts as a change: the catalog and every full tool are read
-// again. The first connect is not one.
-let socketWasDown = false
+// Events can be missed whenever there was no live socket, so every socket
+// connection after the first (a reconnect, or a native transport resume)
+// counts as a change: the catalog and every full tool are read again.
+let socketConnections = 0
+
+// A native resume (the app was suspended) replaces the socket. Retire what
+// was read before the suspension at once, so nothing reads it while the new
+// socket opens; its connection then notifies subscribers.
+window.addEventListener('stimma:transport-resumed', () => {
+  console.log('[ProvidersApi] Transport resumed, clearing tools cache')
+  clearToolsCache()
+})
 
 export function useProvidersApi() {
   // The socket is opened by its first user; install the change bridge then
   // rather than at import.
-  const { on } = useWebSocket()
+  const { on, connected } = useWebSocket()
   if (!catalogEventsInstalled) {
     catalogEventsInstalled = true
+    // Installed after the first connection: the next one is a reconnect.
+    if (connected.value) socketConnections = 1
     on('tools_updated', handleCatalogChange)
     on('provider_status_changed', handleCatalogChange)
-    on('websocket_disconnected', () => { socketWasDown = true })
-    on('websocket_reconnected', () => {
-      if (!socketWasDown) return
-      socketWasDown = false
-      handleCatalogChange({})
+    on('websocket_reconnected', (data: { reason?: string } | undefined) => {
+      // A profile-scope confirmation is not a new socket; the profile change
+      // itself already cleared the catalog.
+      if (data?.reason === 'profile_scope') return
+      if (++socketConnections > 1) handleCatalogChange({})
     })
   }
 
