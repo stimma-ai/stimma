@@ -3096,6 +3096,12 @@ async function loadMore() {
   const cursor = pageCursor
   const epoch = historyEpoch
   const requestChatId = chatId.value
+  // Whether to look at the sentinel again once this request settles. The
+  // observer only fires on intersection changes, so a sentinel that stayed
+  // visible while this request was busy (or after a page too short to push
+  // it away) would otherwise never trigger another load. Not set on errors
+  // or a page that made no progress, so those cannot spin.
+  let rearm = false
 
   try {
     const response = await fetch(`/api/chats/${requestChatId}/items?limit=50&before_id=${cursor}`)
@@ -3103,7 +3109,10 @@ async function loadMore() {
     const data = await response.json()
     // A full load or a resync replaced the history's older boundary while
     // this page was in flight; prepending it would leave a hole.
-    if (epoch !== historyEpoch || chatId.value !== requestChatId || pageCursor !== cursor) return
+    if (epoch !== historyEpoch || chatId.value !== requestChatId || pageCursor !== cursor) {
+      rearm = true
+      return
+    }
 
     // Save scroll position so we can restore it after prepending
     const container = messagesContainer.value
@@ -3113,7 +3122,10 @@ async function loadMore() {
     const present = new Set(items.value.map(item => item.id))
     const older = data.items.reverse().filter(item => !present.has(item.id))
     if (older.length) items.value = [...older, ...items.value]
-    if (data.items.length) pageCursor = data.items[0].id
+    if (data.items.length) {
+      pageCursor = data.items[0].id
+      rearm = true
+    }
     hasMore.value = data.has_more
 
     // Restore scroll position after prepend
@@ -3126,6 +3138,13 @@ async function loadMore() {
     console.error('Error loading older chat items:', error)
   } finally {
     loadingMore = false
+    // Re-observing reports the sentinel's current intersection, which loads
+    // the next page if it is still in view.
+    if (rearm && hasMore.value) {
+      nextTick(() => {
+        if (hasMore.value && loadMoreSentinel.value && !loadingMore) setupLoadMoreObserver()
+      })
+    }
   }
 }
 

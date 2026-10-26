@@ -334,6 +334,35 @@ test('an older page that answers after a resync replaced the boundary is discard
   assert.deepEqual(view.errors, [])
 })
 
+test('scrolling keeps paging after a discarded page, even with an empty transcript', async t => {
+  // Driven only by scrolling and the real IntersectionObserver.
+  const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+  const view = await openChat(t, range(1, 400).map(id => user(id)), { window: 200 })
+  const { page } = view
+  await page.waitForTimeout(300)
+  // Scroll to the top; the sentinel asks for the page below 201, held.
+  view.server.hold = true
+  view.server.held = null
+  await page.evaluate(() => { window.reconcileView.messagesContainer.value.scrollTop = 0 })
+  await expect.poll(() => Boolean(view.server.held)).toBe(true)
+  const heldPage = view.server.held
+  // A reconnect replaces the transcript with 601..800, then every one of
+  // those is deleted live: the transcript is empty but older history exists.
+  view.server.items = range(1, 800).map(id => user(id))
+  view.server.socket.close()
+  await expect.poll(async () => (await view.items())[0]?.id).toBe(601)
+  view.server.items = range(1, 600).map(id => user(id))
+  for (let id = 601; id <= 800; id++) view.send('chat_item_deleted', { item_id: id })
+  await expect.poll(async () => (await view.items()).length).toBe(0)
+  await expect(page.getByText('Loading older messages...')).toBeVisible()
+  // The obsolete page answers and is discarded; paging must pick up again
+  // from the visible sentinel without any further scrolling.
+  heldPage()
+  await expect.poll(async () => (await view.items()).map(i => i.id).includes(600), { timeout: 10000 }).toBe(true)
+  assert.ok(!(await view.items()).some(i => i.id < 551 && i.id > 200), 'no stale page from the old boundary')
+  assert.deepEqual(view.errors, [])
+})
+
 test('deleting every snapshot item still leaves older history reachable', async t => {
   const view = await openChat(t, [user(1), user(2), user(3)])
   const { page } = view
