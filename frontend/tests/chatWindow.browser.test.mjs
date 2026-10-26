@@ -6,9 +6,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
-import { chromium, expect } from '@playwright/test'
+import { chromium, expect as baseExpect } from '@playwright/test'
 import config from '../vite.config.js'
 import { collectChatMedia } from '../src/utils/chatMedia.js'
+
+// These tests wait on real conditions (items applied, a reconnect's resync
+// landed), never on fixed delays. Applying hundreds of live items or
+// reconnecting can take several seconds on a loaded CI runner, so allow far
+// more than Playwright's 5 s default; a passing wait still returns at once.
+const expect = baseExpect.configure({ timeout: 30_000 })
+const CONDITION_TIMEOUT = 30_000
 
 const instrument = { name: 'chat-window-fixture', enforce: 'pre', transform(source, id) {
   if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.reconcileView = { items, modelsFetched, messagesContainer, loadMore, hasMore, invokedSkillKeySet, messageInput, messageInputRef, liveChatMediaIds, openSlideshow, onSlideshowIndex, slideshowState, exitSlideshow, copyAllRawMessages, devModeRef }; defineExpose({})\n</script>')
@@ -169,8 +176,11 @@ async function openChat(t, initial, { rawCap = 300, reachCap = 1500, skills = []
     ids: () => page.evaluate(() => window.reconcileView.items.value.map(i => i.id)),
     send: (event, data) => server.socket.send(JSON.stringify({ event, data: { chat_id: 1, ...data } })),
     // Scroll to the top until the whole history is loaded, as a reader would.
+    // Bounded by time rather than a count of scrolls, so a slow runner that
+    // takes longer per page still gets there.
     async scrollToStart() {
-      for (let i = 0; i < 60; i++) {
+      const deadline = Date.now() + CONDITION_TIMEOUT
+      while (Date.now() < deadline) {
         if (!await page.evaluate(() => window.reconcileView.hasMore.value)) return
         await page.evaluate(() => { window.reconcileView.messagesContainer.value.scrollTop = 0 })
         await page.waitForTimeout(100)
