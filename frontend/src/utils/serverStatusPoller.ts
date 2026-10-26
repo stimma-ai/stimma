@@ -6,22 +6,37 @@
  * events (reconnects, returning to the foreground, explicit checks). Idle
  * polling stops while the app is backgrounded or the device is offline, and a
  * single refresh runs when it returns. An operation in flight is not optional
- * and keeps its cadence.
+ * and keeps its cadence, backing off while the server cannot be reached.
  */
 export const ACTIVE_STATUS_POLL_MS = 3_000
 export const IDLE_STATUS_POLL_MS = 10 * 60_000
 /** Keep the fast cadence briefly after a command, before the server reports it. */
 export const COMMAND_BURST_MS = 15_000
+/** Cap for the active cadence while status requests keep failing. */
+export const MAX_RETRY_POLL_MS = 60_000
+
+/**
+ * Active cadence after `failures` consecutive failed requests: 3 s, then
+ * doubling to a 60 s cap, with ±20% jitter so clients do not retry in step.
+ */
+export function activePollDelay(failures: number, random: () => number = Math.random): number {
+  if (failures <= 0) return ACTIVE_STATUS_POLL_MS
+  const base = Math.min(MAX_RETRY_POLL_MS, ACTIVE_STATUS_POLL_MS * 2 ** failures)
+  return Math.round(base * (0.8 + 0.4 * random()))
+}
 
 export interface PollConditions {
   active: boolean
   foreground: boolean
   online: boolean
+  /** Consecutive failed status requests. */
+  failures?: number
 }
 
 /** Milliseconds until the next status refresh, or null while polling is suspended. */
-export function statusPollDelay({ active, foreground, online }: PollConditions): number | null {
-  if (active) return ACTIVE_STATUS_POLL_MS
+export function statusPollDelay({ active, foreground, online, failures = 0 }: PollConditions,
+  random: () => number = Math.random): number | null {
+  if (active) return activePollDelay(failures, random)
   return foreground && online ? IDLE_STATUS_POLL_MS : null
 }
 
@@ -41,8 +56,10 @@ export interface StatusPoller {
 }
 
 export function createStatusPoller(options: {
-  refresh: () => Promise<void>
+  /** Resolves false when the server could not be reached. */
+  refresh: () => Promise<boolean | undefined | void>
   isActive: () => boolean
+  random?: () => number
   foreground?: boolean
   online?: boolean
   timers?: PollTimers
@@ -57,6 +74,7 @@ export function createStatusPoller(options: {
   let running = false
   let again = false
   let stopped = false
+  let failures = 0
 
   const suspended = () => (!foreground || !online) && !options.isActive()
   function clear() {
@@ -66,7 +84,7 @@ export function createStatusPoller(options: {
   function reschedule() {
     clear()
     if (stopped || running) return
-    const delay = statusPollDelay({ active: options.isActive(), foreground, online })
+    const delay = statusPollDelay({ active: options.isActive(), foreground, online, failures }, options.random)
     if (delay !== null) timer = timers.set(wake, delay)
   }
   function wake() {
@@ -75,7 +93,10 @@ export function createStatusPoller(options: {
     if (running) { again = true; return }
     clear()
     running = true
-    void options.refresh().catch(() => { /* Status is best-effort. */ }).finally(() => {
+    // Events (reconnect, online, foreground) still refresh immediately; only
+    // the timer backs off while requests fail.
+    void options.refresh().then(result => { failures = result === false ? failures + 1 : 0 },
+      () => { failures++ }).finally(() => {
       running = false
       if (again && !stopped) { again = false; wake(); return }
       reschedule()

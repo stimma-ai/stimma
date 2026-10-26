@@ -4,6 +4,8 @@ import test from 'node:test'
 import {
   ACTIVE_STATUS_POLL_MS,
   IDLE_STATUS_POLL_MS,
+  MAX_RETRY_POLL_MS,
+  activePollDelay,
   createStatusPoller,
   statusPollDelay,
   type PollTimers,
@@ -73,6 +75,7 @@ test('an active update polls quickly through a restart and settles back to idle'
   const poller = createStatusPoller({
     isActive: () => op !== null,
     timers: clock.timers,
+    random: () => 0.5,
     refresh: async () => {
       calls++
       const status = timeline.find(step => clock.now < step.until)!.status
@@ -83,7 +86,9 @@ test('an active update polls quickly through a restart and settles back to idle'
     },
   })
   poller.wake()
-  await clock.advance(30_000)
+  // Polls at 3 s, then backs off while the server is down (12 s, 18 s) and
+  // confirms the new version at 30 s.
+  await clock.advance(40_000)
   assert.equal(op, null, 'the update reached its terminal state')
   const activeCalls = calls
   assert.ok(activeCalls >= 7, `polled quickly while active (${activeCalls})`)
@@ -223,5 +228,34 @@ test('a wake during an in-flight refresh runs one follow-up instead of overlappi
   release()
   await clock.flush()
   assert.equal(calls, 2)
+  poller.stop()
+})
+
+test('failed requests back off from 3 s doubling to a 60 s cap with jitter', () => {
+  const mid = () => 0.5
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 10].map(n => activePollDelay(n, mid)),
+    [3_000, 6_000, 12_000, 24_000, 48_000, 60_000, 60_000, 60_000])
+  assert.equal(activePollDelay(0, () => 0), ACTIVE_STATUS_POLL_MS, 'no jitter on the normal cadence')
+  assert.equal(activePollDelay(1, () => 0), 4_800)
+  assert.equal(activePollDelay(10, () => 1), MAX_RETRY_POLL_MS * 1.2)
+})
+
+test('the poller backs off while the server is unreachable and resets on an answer', async () => {
+  const clock = virtualClock()
+  const at: number[] = []
+  let reachable = false
+  const poller = createStatusPoller({ isActive: () => true, timers: clock.timers, random: () => 0.5,
+    refresh: async () => { at.push(clock.now); return reachable } })
+  poller.wake()
+  await clock.advance(200_000)
+  assert.deepEqual(at, [0, 6_000, 18_000, 42_000, 90_000, 150_000])
+  // An event (socket reconnect, online, foreground) retries immediately.
+  reachable = true
+  const before = at.length
+  poller.wake()
+  await clock.flush()
+  assert.equal(at.length, before + 1)
+  await clock.advance(ACTIVE_STATUS_POLL_MS)
+  assert.equal(at.length, before + 2, 'back to the 3 s cadence after an answer')
   poller.stop()
 })

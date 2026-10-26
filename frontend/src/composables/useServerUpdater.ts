@@ -90,7 +90,8 @@ async function resumeMachine(op: ServerOperation) {
   try { await app.checkForUpdates('manual') } finally { checkingMachine = false }
 }
 
-async function refresh() {
+/** Resolves false when the server could not be reached, so polling can back off. */
+async function refresh(): Promise<boolean | undefined> {
   now.value = Date.now()
   if (polling || !connected.value || privacyLockdownActive.value) return
   polling = true
@@ -100,7 +101,7 @@ async function refresh() {
     const response = await fetch(`${getApiBase()}/headless/status`, { signal: AbortSignal.timeout(10_000) })
     if (id !== device.activeDeviceId.value) return
     if (response.status === 404) { server.value = null; return }
-    if (!response.ok) return
+    if (!response.ok) return false
     const data: ServerStatus = await response.json()
     if (id !== device.activeDeviceId.value) return
     answered = true
@@ -122,7 +123,10 @@ async function refresh() {
       if (op.updateMachine) { op.serverFinished = true; op.serverFinishedAt = Date.now(); persist(); await resumeMachine(op) }
       else clearOperation()
     } else if (result === 'unchanged') clearOperation() // The ordinary update pill remains available.
-  } catch { /* Status is unavailable during restarts; keep the operation across reconnects. */ }
+  } catch {
+    // Status is unavailable during restarts; keep the operation across reconnects.
+    return false
+  }
   finally {
     polling = false
     // Give up only after the server answered; a failed request (app still

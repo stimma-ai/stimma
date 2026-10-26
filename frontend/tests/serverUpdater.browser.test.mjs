@@ -128,8 +128,11 @@ test('an update polls through the restart to completion, then goes quiet', async
   await advance(page, 20_000)
   assert.ok((await snapshot()).pending, 'a disconnect is not completion')
 
+  // Back up; failed requests have been backing off, so allow one full retry.
   server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
-  await advance(page, 4_000)
+  const down = server.statusRequests
+  await advance(page, 35_000)
+  assert.ok(server.statusRequests - down <= 3, 'retries backed off')
   await page.waitForFunction(() => window.serverUpdater.snapshot().pending === null)
   const done = await snapshot()
   assert.equal(done.version, '1.1.0')
@@ -283,11 +286,12 @@ test('a hidden operation keeps polling while minimized and runs the client stage
   await advance(page, 11 * 60_000)
   assert.equal((await snapshot()).pending, null, 'hidden once past the grace')
   const hidden = server.statusRequests
-  await advance(page, 30_000)
-  assert.ok(server.statusRequests > hidden, 'still polling for the answer that resolves it')
+  await advance(page, 3 * 60_000)
+  const retries = server.statusRequests - hidden
+  assert.ok(retries >= 2 && retries <= 4, `backed-off retries for the answer that resolves it (${retries})`)
   // Recovery while still minimized: the server finished the update.
   server.status = { ...READY, version: '1.1.0', serverStartedAt: 11 }
-  await advance(page, 4_000)
+  await advance(page, 75_000)
   assert.equal((await snapshot()).pending?.serverFinished, true)
   assert.ok((await page.evaluate(() => window.ownerMessages)).includes('check'), 'client stage ran without foregrounding')
 })
