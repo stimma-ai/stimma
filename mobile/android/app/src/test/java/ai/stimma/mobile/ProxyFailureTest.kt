@@ -20,7 +20,11 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.security.cert.CertificateException
 import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 
 class ProxyFailureTest {
     private val reports = LinkedBlockingQueue<ProxyFailureReport>()
@@ -68,7 +72,9 @@ class ProxyFailureTest {
         assertEquals(ProxyFailure.UPSTREAM_TIMEOUT, ProxyFailure.upstream(IOException("wrapped", SocketTimeoutException())))
         assertEquals(ProxyFailure.UPSTREAM_UNREACHABLE, ProxyFailure.upstream(ConnectException("refused")))
         assertEquals(ProxyFailure.UPSTREAM_UNREACHABLE, ProxyFailure.upstream(SocketException("Connection reset")))
-        assertEquals(ProxyFailure.UPSTREAM_UNREACHABLE, ProxyFailure.upstream(SSLHandshakeException("pin mismatch")))
+        assertEquals(ProxyFailure.UPSTREAM_UNREACHABLE, ProxyFailure.upstream(SSLHandshakeException("handshake failed")))
+        assertEquals(ProxyFailure.UPSTREAM_IDENTITY, ProxyFailure.upstream(SSLHandshakeException("pin").apply { initCause(CertificateException()) }))
+        assertEquals(ProxyFailure.UPSTREAM_IDENTITY, ProxyFailure.upstream(SSLPeerUnverifiedException("hostname verifier")))
         assertEquals(ProxyFailure.UPSTREAM_PROTOCOL, ProxyFailure.upstream(IllegalArgumentException("bad status line")))
         assertEquals(ProxyFailure.UNAVAILABLE, ProxyFailure.upstream(ProxyException(ProxyFailure.UNAVAILABLE)))
     }
@@ -108,6 +114,39 @@ class ProxyFailureTest {
                 assertEquals(ProxyFailure.UNAVAILABLE, nextReport().failure)
             }
         } finally { silent.close() }
+    }
+
+    @Test fun pinMismatchIsRefusedAsAWrongServerNotAnAccessFailure() {
+        val certificate = HeldCertificate.Builder().commonName("localhost").build()
+        MockWebServer().use { server ->
+            server.useHttps(HandshakeCertificates.Builder().heldCertificate(certificate).build().sslSocketFactory(), false)
+            server.start()
+            transport().use { transport ->
+                transport.target = PinnedServer("127.0.0.1", server.port, "0".repeat(64), "native")
+                assertEquals("502 upstream-identity", statusAndMarker(exchange(transport)))
+                assertEquals(ProxyFailure.UPSTREAM_IDENTITY, nextReport().failure)
+                assertEquals(0, server.requestCount)
+            }
+        }
+    }
+
+    @Test fun socketsClosedBeforeTheirWorkerRunsReleaseCapacity() {
+        MockWebServer().use { upstream ->
+            upstream.start()
+            transport().use { transport ->
+                transport.target = PinnedServer("127.0.0.1", upstream.port, null, "native", true)
+                // Backgrounding wins the race against every worker: more sockets than permits.
+                transport.beforeServe = { transport.interruptConnections() }
+                repeat(40) { exchange(transport) }
+                transport.beforeServe = null
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                while ((transport.availablePermits != 32 || transport.openSockets != 0) && System.nanoTime() < deadline) Thread.sleep(10)
+                assertEquals(32, transport.availablePermits)
+                assertEquals(0, transport.openSockets)
+                upstream.enqueue(MockResponse().setBody("[]").setSocketPolicy(SocketPolicy.DISCONNECT_AT_END))
+                assertEquals("200", statusAndMarker(exchange(transport)))
+            }
+        }
     }
 
     @Test fun genuineAccessFailuresKeepTheirStatus() {

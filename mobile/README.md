@@ -57,7 +57,8 @@ is not a background-transfer service.
 
 Requests the Android proxy cannot complete are answered with the statuses in
 `contract/proxy-failures.json`: 403 only for capability/origin/framing policy
-rejections, 502 when the server is unreachable or answers unforwardably, 504 on
+rejections, 502 when the server is unreachable, fails the certificate pin
+(category `upstream-identity`) or answers unforwardably, 504 on
 timeout, and 503 while there is no attached or foreground connection. These
 responses carry `X-Stimma-Proxy-Failure` with the category; the UI treats
 502/503/504 as connection problems, never as a wrong PIN or sign-in. Once a

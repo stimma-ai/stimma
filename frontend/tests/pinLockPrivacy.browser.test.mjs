@@ -199,6 +199,7 @@ test('a proxy connection failure during PIN entry is not reported as a wrong PIN
       unreachable: () => new Response('Request unavailable', { status: 502, headers: { 'X-Stimma-Proxy-Failure': 'upstream-unreachable' } }),
       timeout: () => new Response('Request unavailable', { status: 504, headers: { 'X-Stimma-Proxy-Failure': 'upstream-timeout' } }),
       unavailable: () => new Response('Request unavailable', { status: 503, headers: { 'X-Stimma-Proxy-Failure': 'unavailable' } }),
+      reset: () => { throw new TypeError('Failed to fetch') },
       wrong: () => new Response(JSON.stringify({ detail: 'Invalid PIN' }), { status: 401 }),
     }
     for (const [name, respond] of Object.entries(responses)) {
@@ -214,6 +215,7 @@ test('a proxy connection failure during PIN entry is not reported as a wrong PIN
     unreachable: 'Lost connection to the server',
     timeout: 'No response from the server',
     unavailable: 'Lost connection to the server',
+    reset: 'Could not reach the server',
     wrong: 'Invalid PIN',
   })
 })

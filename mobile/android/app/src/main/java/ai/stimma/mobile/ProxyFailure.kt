@@ -3,6 +3,8 @@ package ai.stimma.mobile
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.SocketTimeoutException
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLPeerUnverifiedException
 
 /**
  * Every way the local WebView proxy can fail a request it answers itself.
@@ -18,8 +20,14 @@ enum class ProxyFailure(val status: Int, val reason: String, val category: Strin
     REJECTED(403, "Forbidden", "rejected"),
     /** No server is attached, the app is in the background, or the connection is being replaced. */
     UNAVAILABLE(503, "Service Unavailable", "unavailable"),
-    /** The server could not be reached, failed the TLS pin, or dropped the connection. */
+    /** The server could not be reached or dropped the connection. */
     UPSTREAM_UNREACHABLE(502, "Bad Gateway", "upstream-unreachable"),
+    /**
+     * The server's certificate did not match the registry pin. Refused like any
+     * unreachable route (native recovery rechecks pin and identity), but kept
+     * distinct so logs can tell a wrong server from a dead one.
+     */
+    UPSTREAM_IDENTITY(502, "Bad Gateway", "upstream-identity"),
     /** The server answered with something the proxy will not forward (malformed head, disallowed redirect). */
     UPSTREAM_PROTOCOL(502, "Bad Gateway", "upstream-protocol"),
     /** The server did not connect or answer in time. */
@@ -37,6 +45,7 @@ enum class ProxyFailure(val status: Int, val reason: String, val category: Strin
             if (error is ProxyException) return error.failure
             val chain = generateSequence(error) { it.cause }.take(8).toList()
             return when {
+                chain.any { it is CertificateException || it is SSLPeerUnverifiedException } -> UPSTREAM_IDENTITY
                 chain.any { it is SocketTimeoutException || it is InterruptedIOException && it.message == "timeout" } -> UPSTREAM_TIMEOUT
                 chain.any { it is IOException } -> UPSTREAM_UNREACHABLE
                 else -> UPSTREAM_PROTOCOL

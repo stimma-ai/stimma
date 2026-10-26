@@ -397,7 +397,8 @@ async function submitPin(pin) {
       pinModalError.value = pinVerificationError(response, data.detail)
     }
   } catch (error) {
-    pinModalError.value = 'Failed to verify PIN'
+    // A reset or refused connection rejects the fetch itself.
+    pinModalError.value = 'Could not reach the server'
     console.error('[PinLock] PIN verification error:', error)
   }
 }
