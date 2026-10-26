@@ -1624,6 +1624,10 @@ async def list_chat_items(
 
     If visible_limit is provided, keeps fetching until we have that many
     visible items (filtering out tool_call, tool_result, etc.).
+
+    Items are ordered by id (newest first), the same key before_id pages on,
+    so pages and snapshots never overlap or skip when created_at timestamps
+    are out of order. Clients reconcile and paginate by id.
     """
     # Verify chat exists
     result = await session.execute(
@@ -1646,7 +1650,7 @@ async def list_chat_items(
             query = select(ChatItem).where(ChatItem.chat_id == chat_id)
             if current_before_id:
                 query = query.where(ChatItem.id < current_before_id)
-            query = query.order_by(desc(ChatItem.created_at)).limit(batch_size)
+            query = query.order_by(desc(ChatItem.id)).limit(batch_size)
 
             result = await session.execute(query)
             batch = list(result.scalars().all())
@@ -1691,7 +1695,7 @@ async def list_chat_items(
     if before_id:
         query = query.where(ChatItem.id < before_id)
 
-    query = query.order_by(desc(ChatItem.created_at)).limit(limit + 1)
+    query = query.order_by(desc(ChatItem.id)).limit(limit + 1)
 
     result = await session.execute(query)
     items = result.scalars().all()

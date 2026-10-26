@@ -49,11 +49,13 @@
       </div>
 
       <template v-else>
-        <div v-if="items.length === 0" class="text-content-tertiary text-center mt-8">
+        <div v-if="items.length === 0 && !hasMore" class="text-content-tertiary text-center mt-8">
           Start a conversation...
         </div>
 
-      <div v-if="items.length > 0">
+      <!-- Also shown when only older history remains (e.g. every recent item
+           was deleted), so the load-more sentinel can still reach it. -->
+      <div v-if="items.length > 0 || hasMore">
         <!-- Load more trigger (scroll-based) -->
         <div v-if="hasMore" ref="loadMoreSentinel" class="text-center mb-4 py-2">
           <span class="text-content-tertiary text-sm">Loading older messages...</span>
@@ -2918,22 +2920,16 @@ async function updateAutoDeleteDuration(_duration) {
 }
 
 // Load chat items
-async function loadItems(beforeId = null) {
-  // A full load replaces the transcript; a resync already in flight was
-  // computed against the old one and must not land after it.
-  if (!beforeId) cancelPendingResync()
+// Full load of the newest window. Older history is paged in by loadMore().
+async function loadItems() {
+  // A full load replaces the transcript; a resync or older page already in
+  // flight was computed against the old one and must not land after it.
+  cancelPendingResync()
+  historyEpoch++
   try {
-    let url
-    if (beforeId) {
-      // Pagination: load older items
-      url = `/api/chats/${chatId.value}/items?limit=50&before_id=${beforeId}`
-    } else {
-      // Initial load: request enough items to have 500 VISIBLE items
-      // Backend will keep fetching until it has 500 visible items (filters out tool_call, etc.)
-      url = `/api/chats/${chatId.value}/items?visible_limit=500`
-    }
-
-    const response = await fetch(url)
+    // Request enough items to have 500 VISIBLE items. The backend keeps
+    // fetching until it has 500 visible items (filters out tool_call, etc.)
+    const response = await fetch(`/api/chats/${chatId.value}/items?visible_limit=500`)
     if (!response.ok) {
       throw new Error('Failed to load chat items')
     }
@@ -2943,37 +2939,28 @@ async function loadItems(beforeId = null) {
     // Debug: log loaded items summary
     console.log(`Loaded ${data.items.length} items, hasMore: ${data.has_more}`)
 
-    if (beforeId) {
-      // Prepend older messages (API returns newest-first, reverse for display order)
-      items.value = [...data.items.reverse(), ...items.value]
-    } else {
-      // A full load is contiguous server history through its newest item.
-      coveredThrough = data.items.length ? data.items[0].id : Number.NEGATIVE_INFINITY
-      // Initial load - API returns newest first, reverse to show oldest-to-newest
-      items.value = data.items.reverse()
-    }
+    // A full load is contiguous server history through its newest item, and
+    // the next older page starts below its oldest (API returns newest first).
+    coveredThrough = data.items.length ? data.items[0].id : Number.NEGATIVE_INFINITY
+    pageCursor = data.items.length ? data.items[data.items.length - 1].id : null
+    items.value = data.items.reverse()
 
     hasMore.value = data.has_more
     loading.value = false
 
-    // Initialize message history from existing user messages (on initial load).
+    // Initialize message history from existing user messages.
     // Strip any baked-in flow-reference headers so arrow-up navigation
     // surfaces the user's pristine text rather than the transport markdown.
-    if (!beforeId) {
-      const userMessages = data.items
-        .filter(item => item.item_type === 'user_message' && item.message_text)
-        .map(item => parseMessageReferences(item.message_text).text || item.message_text)
-      messageHistory.value = userMessages
-    }
+    messageHistory.value = data.items
+      .filter(item => item.item_type === 'user_message' && item.message_text)
+      .map(item => parseMessageReferences(item.message_text).text || item.message_text)
 
-    // Scroll to bottom on initial load - use multiple nextTicks to ensure render completes
-    if (!beforeId) {
-      await nextTick()
-      await nextTick()
-      scrollToBottom()
-      // Also scroll after a short delay as a fallback (images might load)
-      setTimeout(scrollToBottom, 100)
-    }
+    // Scroll to bottom - use multiple nextTicks to ensure render completes
+    await nextTick()
+    await nextTick()
+    scrollToBottom()
+    // Also scroll after a short delay as a fallback (images might load)
+    setTimeout(scrollToBottom, 100)
   } catch (error) {
     console.error('Error loading chat items:', error)
     loading.value = false
@@ -3000,6 +2987,12 @@ let resyncJournal = null
 // never do (a socket gap can hide items before them), and superseded
 // resyncs leave it alone. See utils/chatReconcile.
 let coveredThrough = Number.NEGATIVE_INFINITY
+// before_id for the next older page. Kept apart from the loaded items so
+// paging still works when every item at the boundary has been deleted.
+let pageCursor = null
+// Bumped whenever the history's older boundary is replaced (full load,
+// resync that resets the cursor); an older page from before is discarded.
+let historyEpoch = 0
 
 function noteLiveChange(id, item) {
   resyncJournal?.set(id, item ? toRaw(item) : null)
@@ -3034,7 +3027,17 @@ async function resyncItems() {
     // The server's has_more describes the transcript's start unless older
     // paged-in history survives beyond the snapshot (then paging state is
     // that history's). A complete snapshot means nothing older exists.
-    if (!data.has_more || !result.olderSurvives) hasMore.value = data.has_more
+    if (!data.has_more || !result.olderSurvives) {
+      hasMore.value = data.has_more
+      // Paging now continues below the snapshot's first item, even if live
+      // deletes removed it (or every snapshot item): before_id is an id
+      // bound, not a lookup. An older page in flight is for the old boundary.
+      const cursor = fresh.length ? fresh[0].id : null
+      if (cursor !== pageCursor) {
+        pageCursor = cursor
+        historyEpoch++
+      }
+    }
     if (!result.changed) return
     const container = messagesContainer.value
     const follow = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 80
@@ -3088,16 +3091,30 @@ function restoreScrollAnchor(container, anchors) {
 // Load more messages
 let loadingMore = false
 async function loadMore() {
-  if (items.value.length === 0 || loadingMore) return
+  if (pageCursor == null || loadingMore) return
   loadingMore = true
+  const cursor = pageCursor
+  const epoch = historyEpoch
+  const requestChatId = chatId.value
 
   try {
+    const response = await fetch(`/api/chats/${requestChatId}/items?limit=50&before_id=${cursor}`)
+    if (!response.ok) throw new Error('Failed to load older chat items')
+    const data = await response.json()
+    // A full load or a resync replaced the history's older boundary while
+    // this page was in flight; prepending it would leave a hole.
+    if (epoch !== historyEpoch || chatId.value !== requestChatId || pageCursor !== cursor) return
+
     // Save scroll position so we can restore it after prepending
     const container = messagesContainer.value
     const scrollHeightBefore = container ? container.scrollHeight : 0
 
-    const oldestId = items.value[0].id
-    await loadItems(oldestId)
+    // API returns newest first; reverse for display order.
+    const present = new Set(items.value.map(item => item.id))
+    const older = data.items.reverse().filter(item => !present.has(item.id))
+    if (older.length) items.value = [...older, ...items.value]
+    if (data.items.length) pageCursor = data.items[0].id
+    hasMore.value = data.has_more
 
     // Restore scroll position after prepend
     if (container) {
@@ -3105,6 +3122,8 @@ async function loadMore() {
       const scrollHeightAfter = container.scrollHeight
       container.scrollTop += scrollHeightAfter - scrollHeightBefore
     }
+  } catch (error) {
+    console.error('Error loading older chat items:', error)
   } finally {
     loadingMore = false
   }

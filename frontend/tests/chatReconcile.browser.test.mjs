@@ -132,13 +132,13 @@ test('reconnect repairs changed and deleted items without moving the reader, the
 // A chat whose item list is a mutable server copy, with the ability to hold
 // the next list request until the test releases it. A held request answers
 // with the server state as of when it arrived, like a real snapshot.
-async function openChat(t, initial, { hasMore = false } = {}) {
+async function openChat(t, initial, { hasMore = false, window: initialWindow = null } = {}) {
   const browser = await chromium.launch()
   t.after(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const server = { items: initial, window: null, requests: [], hold: false, held: null, socket: null }
+  const server = { items: initial, window: initialWindow, requests: [], hold: false, held: null, socket: null }
   await page.routeWebSocket(/\/ws$/, ws => { server.socket = ws })
   await page.route('**/*', async route => {
     const request = route.request()
@@ -170,7 +170,7 @@ async function openChat(t, initial, { hasMore = false } = {}) {
   await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
   await expect.poll(() => page.evaluate(() => window.reconcileView?.modelsFetched.value)).toBe(true)
   await expect.poll(() => Boolean(server.socket)).toBe(true)
-  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.length)).toBe(initial.length)
+  await expect.poll(() => page.evaluate(() => window.reconcileView.items.value.length)).toBe(Math.min(initial.length, initialWindow ?? Infinity))
   return {
     page, server, errors,
     items: () => page.evaluate(() => window.reconcileView.items.value.map(i => ({ id: i.id, text: i.message_text }))),
@@ -301,11 +301,56 @@ test('a live delete of the snapshot\'s first item still enables paging', async t
   view.server.held()
   await expect.poll(async () => (await view.items())[0].id).toBe(202)
   assert.equal(await page.evaluate(() => window.reconcileView.hasMore.value), true)
-  // Paging from the oldest surviving item reaches the beginning.
+  // Paging continues below the snapshot's first id (201, now deleted; the
+  // endpoint bounds by id) and reaches the beginning.
   view.server.requests.length = 0
   await pageToStart(page)
-  assert.equal(view.server.requests[0], 202)
+  assert.equal(view.server.requests.find(id => id !== null), 201)
   assert.deepEqual((await view.items()).map(i => i.id), Array.from({ length: 400 }, (_, i) => i + 1).filter(id => id !== 201))
+  assert.deepEqual(view.errors, [])
+})
+
+test('an older page that answers after a resync replaced the boundary is discarded', async t => {
+  const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+  const view = await openChat(t, range(1, 400).map(id => user(id)), { window: 200 })
+  const { page } = view
+  assert.equal((await view.items())[0].id, 201)
+  // Ask for the page below 201 and hold it.
+  view.server.hold = true
+  view.server.held = null
+  void page.evaluate(() => window.reconcileView.loadMore())
+  await expect.poll(() => Boolean(view.server.held)).toBe(true)
+  const heldPage = view.server.held
+  // The chat grows to 800 and a reconnect replaces the transcript with 601..800.
+  view.server.items = range(1, 800).map(id => user(id))
+  view.server.socket.close()
+  await expect.poll(async () => (await view.items())[0].id).toBe(601)
+  // The page for the old boundary (151..200) answers late and is dropped.
+  heldPage()
+  await page.waitForTimeout(300)
+  assert.equal((await view.items())[0].id, 601)
+  await pageToStart(page)
+  assert.deepEqual((await view.items()).map(i => i.id), range(1, 800))
+  assert.deepEqual(view.errors, [])
+})
+
+test('deleting every snapshot item still leaves older history reachable', async t => {
+  const view = await openChat(t, [user(1), user(2), user(3)])
+  const { page } = view
+  view.server.items = Array.from({ length: 400 }, (_, i) => user(i + 1))
+  view.server.window = 200
+  await view.reconnectHeld()
+  // Every item in the held snapshot (201..400) is deleted live.
+  for (let id = 201; id <= 400; id++) view.send('chat_item_deleted', { item_id: id })
+  view.server.items = view.server.items.filter(i => i.id <= 200)
+  await expect.poll(async () => (await view.items()).map(i => i.id)).toEqual([1, 2, 3])
+  view.server.requests.length = 0
+  view.server.held()
+  await expect.poll(() => page.evaluate(() => window.reconcileView.hasMore.value)).toBe(true)
+  await expect(page.getByText('Loading older messages...')).toBeAttached()
+  await pageToStart(page)
+  assert.equal(view.server.requests.find(id => id !== null), 201)
+  assert.deepEqual((await view.items()).map(i => i.id), Array.from({ length: 200 }, (_, i) => i + 1))
   assert.deepEqual(view.errors, [])
 })
 
