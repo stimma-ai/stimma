@@ -116,7 +116,18 @@ class PooledProxyTest {
         val sequence = (0 until 7).map { server.takeRequest().sequenceNumber }
         assertEquals((0 until 7).toList(), sequence)
         assertEquals(1, transport.target!!.pooledConnections)
-        assertEquals(0, transport.inFlightCalls)
+        waitFor { transport.inFlightCalls == 0 }
+    }
+
+    @Test fun aWebViewHangingUpAfterTheLastByteKeepsTheConnectionPooled() {
+        // The browser closes its socket as soon as a response is complete; that must not cancel a
+        // call whose upstream connection already went back to the pool.
+        val server = tlsServer()
+        attach(server)
+        val rounds = 40
+        repeat(rounds) { server.enqueue(if (it % 2 == 0) MockResponse().setBody("fixed") else MockResponse().setChunkedBody("chunked", 3)) }
+        repeat(rounds) { get("/api/media/$it/thumbnail") }
+        assertEquals((0 until rounds).toList(), (0 until rounds).map { server.takeRequest().sequenceNumber })
     }
 
     @Test fun headersAreIsolatedAndEncodingIsUntouched() {
@@ -317,7 +328,7 @@ class PooledProxyTest {
     }
 
     /** A raw upstream that reads one request, never answers, and reports when the proxy hangs up. */
-    private fun silentUpstream(): Pair<ServerSocket, java.util.concurrent.Future<Boolean>> {
+    private fun silentUpstream(): Triple<ServerSocket, CountDownLatch, java.util.concurrent.Future<Boolean>> {
         val raw = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         val received = CountDownLatch(1)
         val closed = executor.submit<Boolean> {
@@ -329,14 +340,14 @@ class PooledProxyTest {
             }
         }
         transport.target = PinnedServer("127.0.0.1", raw.localPort, null, "native", true)
-        return raw to executor.submit<Boolean> { assertTrue(received.await(5, TimeUnit.SECONDS)); closed.get(6, TimeUnit.SECONDS) }
+        return Triple(raw, received, closed)
     }
 
     @Test fun closingTheWebViewSocketCancelsTheUpstreamCall() {
-        val (raw, upstreamClosed) = silentUpstream()
+        val (raw, received, upstreamClosed) = silentUpstream()
         try {
             val socket = open("GET", "/api/media/1/thumbnail")
-            waitFor { transport.inFlightCalls == 1 }
+            assertTrue(received.await(5, TimeUnit.SECONDS)) // The server is holding the request.
             socket.close() // An aborted fetch.
             assertTrue(upstreamClosed.get(6, TimeUnit.SECONDS))
             waitFor { transport.inFlightCalls == 0 && transport.availablePermits == 32 }
@@ -344,10 +355,10 @@ class PooledProxyTest {
     }
 
     @Test fun backgroundingCancelsInFlightCalls() {
-        val (raw, upstreamClosed) = silentUpstream()
+        val (raw, received, upstreamClosed) = silentUpstream()
         try {
             val socket = open("GET", "/api/media/1/thumbnail")
-            waitFor { transport.inFlightCalls == 1 }
+            assertTrue(received.await(5, TimeUnit.SECONDS)) // The server is holding the request.
             transport.setForeground(false)
             assertTrue(upstreamClosed.get(6, TimeUnit.SECONDS))
             waitFor { transport.inFlightCalls == 0 }
@@ -396,7 +407,7 @@ class PooledProxyTest {
         // A request still waiting on the old server when the switch happens.
         first.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         val stranded = open("GET", "/api/media/1/thumbnail")
-        waitFor { transport.inFlightCalls == 1 }
+        waitFor { first.requestCount == 2 } // The old server is holding it.
 
         val bravo = attach(second, "bravo-session")
         val reply = read(stranded)
@@ -413,6 +424,52 @@ class PooledProxyTest {
 
         transport.disconnect() // Logout and server removal retire the pool too.
         waitFor { bravo.pooledConnections == 0 }
+    }
+
+    @Test fun aRequestAdmittedJustBeforeASwitchNeverReachesTheOldServer() {
+        val first = tlsServer()
+        val second = tlsServer()
+        attach(first, "alpha-session")
+        first.enqueue(MockResponse().setBody("must not run"))
+        val admitted = CountDownLatch(1)
+        val resume = CountDownLatch(1)
+        // Pause the worker after it passed the target check but before the call went upstream.
+        transport.beforeUpstream = { admitted.countDown(); resume.await(5, TimeUnit.SECONDS) }
+        val socket = open("POST", "/api/generate", contentLength = 2).also { it.getOutputStream().write("{}".toByteArray()) }
+        assertTrue(admitted.await(5, TimeUnit.SECONDS))
+        transport.beforeUpstream = null
+        attach(second, "bravo-session")
+        resume.countDown()
+        val reply = read(socket)
+        assertEquals("503", reply.status)
+        assertEquals(ProxyFailure.UNAVAILABLE.category, reply.header("x-stimma-proxy-failure"))
+        assertEquals(0, first.requestCount) // The old server never saw the mutation or the old bearer.
+        assertEquals(0, second.requestCount)
+        waitFor { transport.inFlightCalls == 0 }
+    }
+
+    @Test fun aSwitchCutsAResponseThatIsStillStreaming() {
+        val first = tlsServer()
+        val second = tlsServer()
+        attach(first)
+        val size = 200_000
+        // Headers arrive at once; the body trickles in for about 20 seconds.
+        first.enqueue(MockResponse().setBody(Buffer().write(ByteArray(size) { 3 })).throttleBody(1024, 100, TimeUnit.MILLISECONDS))
+        open("GET", "/api/media/1/file").use { socket ->
+            val input = socket.getInputStream().buffered()
+            assertEquals(size.toString(), HttpHead.read(input).single("content-length"))
+            assertTrue(input.read() >= 0) // The body has started.
+            attach(second)
+            val started = System.nanoTime()
+            var received = 1
+            try {
+                val buffer = ByteArray(8192)
+                while (true) { val count = input.read(buffer); if (count < 0) break; received += count }
+            } catch (_: SocketException) { } // A reset: the response was cut, not completed.
+            assertTrue("the old response kept streaming", received < size)
+            assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 3000)
+        }
+        waitFor { transport.inFlightCalls == 0 }
     }
 
     @Test fun sessionReusesTheConnectionThatDiscoveredIt() {

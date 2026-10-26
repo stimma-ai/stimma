@@ -136,8 +136,9 @@ class PinnedServer(
             }
             // The server speaks HTTP/1.1; one protocol keeps every caller on the same pooled connections.
             .protocols(listOf(Protocol.HTTP_1_1))
-            // Idle connections retire before the server's own 5 second keep-alive closes them,
-            // so a request is never written onto a connection the server is about to drop.
+            // Idle connections retire well before the server's own 5 second keep-alive closes them,
+            // which makes writing a request onto a connection the server is dropping unlikely.
+            // Client and server clocks start at different moments, so it is a margin, not a guarantee.
             .connectionPool(ConnectionPool(8, IDLE_KEEP_ALIVE_MILLIS, TimeUnit.MILLISECONDS))
             .cookieJar(CookieJar.NO_COOKIES).cache(null)
             .connectTimeout(4, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS).build()
@@ -165,8 +166,25 @@ class PinnedServer(
     /** Close idle connections, e.g. before they cross a background period or network change. */
     fun evictIdle() { retirement.execute { client.connectionPool.evictAll() } }
 
-    /** This session is finished: cancel every call it is making and close its connections. */
+    private val proxyCalls = mutableSetOf<Call>()
+    private var retired = false
+
+    /**
+     * Register a proxied call for this session's lifetime, from before its
+     * final admission check until its response is closed. False once the
+     * session is retired, so a call can never start after retirement.
+     */
+    internal fun admit(call: Call): Boolean = synchronized(proxyCalls) { if (retired) false else proxyCalls.add(call) }
+    internal fun release(call: Call) { synchronized(proxyCalls) { proxyCalls.remove(call) } }
+
+    /**
+     * This session is finished: cancel every call it is making, including
+     * proxied responses still streaming (OkHttp's dispatcher only tracks a
+     * synchronous call until its headers arrive), and close its connections.
+     */
     fun retire() {
+        val active = synchronized(proxyCalls) { retired = true; proxyCalls.toList().also { proxyCalls.clear() } }
+        active.forEach { it.cancel() }
         client.dispatcher.cancelAll()
         evictIdle()
     }
@@ -299,6 +317,8 @@ class MobileTransport(
         }
     /** Test seam: runs on the worker before it touches the accepted socket. Debug builds only. */
     @Volatile internal var beforeServe: ((Socket) -> Unit)? = null
+    /** Test seam: runs after a proxied call passes admission, just before it goes upstream. Debug builds only. */
+    @Volatile internal var beforeUpstream: (() -> Unit)? = null
     internal val availablePermits get() = permits.availablePermits()
     internal val openSockets get() = sockets.size
     internal val inFlightCalls get() = calls.size
@@ -470,7 +490,9 @@ class MobileTransport(
             .tag(ProxiedRequest::class.java, ProxiedRequest(request.single("user-agent") != null)).build())
         calls.add(call)
         try {
-            if (suspended || target !== remote || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            // Registered with the session before the final check: a session retired after this point cancels the call.
+            if (!remote.admit(call) || suspended || target !== remote || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            if (BuildConfig.DEBUG) beforeUpstream?.invoke()
             watchForClose(input, bodySent, finished, localGone, call)
             fromServer(remote, localGone) { call.execute() }.use { response ->
                 val locations = response.headers("Location")
@@ -488,6 +510,9 @@ class MobileTransport(
                 // OkHttp has removed the upstream framing. A known length is kept; anything else is
                 // re-chunked so the WebView can still tell a complete body from a truncated one.
                 val fixedLength = bodiless || response.header("Transfer-Encoding") == null && declaredLength != null
+                // Mark the exchange complete before the WebView can see its last byte: a WebView that hangs up
+                // right after must not cancel a call whose connection has already gone back to the pool.
+                if (bodiless) finished.set(true)
                 toClient {
                     destination.write(buildString {
                         append("HTTP/1.1 ${response.code} ${response.message}\r\n")
@@ -506,10 +531,14 @@ class MobileTransport(
                 if (!bodiless) {
                     val source = response.body!!.byteStream()
                     val buffer = ByteArray(65536)
+                    val expected = if (fixedLength) declaredLength?.toLongOrNull() else null
+                    var total = 0L
                     while (true) {
                         val count = fromServer(remote, localGone) { source.read(buffer) }
-                        if (count < 0) break
+                        if (count < 0) { finished.set(true); break }
                         if (count == 0) continue
+                        total += count
+                        if (total == expected) finished.set(true)
                         toClient {
                             if (!fixedLength) destination.write("${count.toString(16)}\r\n".toByteArray())
                             destination.write(buffer, 0, count)
@@ -522,9 +551,10 @@ class MobileTransport(
                 finished.set(true)
             }
         } catch (error: Throwable) {
-            finished.set(true); call.cancel(); throw error
+            if (!finished.getAndSet(true)) call.cancel()
+            throw error
         } finally {
-            finished.set(true); bodySent.countDown(); calls.remove(call)
+            finished.set(true); bodySent.countDown(); calls.remove(call); remote.release(call)
         }
     }
 
