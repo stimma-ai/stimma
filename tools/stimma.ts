@@ -1564,6 +1564,9 @@ async function appBuildElectron(polishedInstaller: boolean, channel: string): Pr
       version,
       productName,
       stimmaBundleId: bundleId,
+      // Build distribution, read by the shell at runtime (see identity.ts).
+      // Only release CI sets STIMMA_DISTRIBUTION=official; local builds stay dev.
+      ...(Deno.env.get("STIMMA_DISTRIBUTION") === "official" ? { stimmaDistribution: "official" } : {}),
       ...(backendResources.pythonRuntimeArchive
         ? { stimmaPythonRuntimeArchive: backendResources.pythonRuntimeArchive.split(/[\\/]/).pop() }
         : {}),

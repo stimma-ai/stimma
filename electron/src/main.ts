@@ -45,6 +45,7 @@ if (process.argv.includes('--stimma-render-worker')) {
 function startShell() {
 const pkg = readPackagedMetadata(app.getAppPath())
 const PACKAGED_BUNDLE_ID = pkg.stimmaBundleId || 'ai.stimma.stimma.debug'
+const PACKAGED_DISTRIBUTION = pkg.stimmaDistribution
 
 // Chromium does not recognize several Linux compositors and otherwise falls
 // back to basic_text, which cannot securely persist remote sessions. Preserve
@@ -54,7 +55,7 @@ if (process.platform === 'linux' && !app.commandLine.hasSwitch('password-store')
   app.commandLine.appendSwitch('password-store', 'gnome-libsecret')
 }
 
-const identity = resolveIdentity(PACKAGED_BUNDLE_ID)
+const identity = resolveIdentity(PACKAGED_BUNDLE_ID, PACKAGED_DISTRIBUTION)
 
 // The Chromium profile lives inside the sandbox data dir. All windows share
 // the default session (one sandbox = one session; profile windows do NOT get
@@ -62,7 +63,7 @@ const identity = resolveIdentity(PACKAGED_BUNDLE_ID)
 app.setPath('userData', path.join(identity.dataDir, 'chromium'))
 
 initLog(identity.dataDir)
-log.info('stimma', `Starting Electron shell (bundle=${identity.bundleId}, sandbox=${identity.sandbox}, dev=${identity.dev})`)
+log.info('stimma', `Starting Electron shell (bundle=${identity.bundleId}, sandbox=${identity.sandbox}, dev=${identity.dev}, distribution=${identity.distribution})`)
 
 // The NSIS installer invokes the freshly installed executable in this hidden
 // mode so Python extraction is part of installation rather than first launch.

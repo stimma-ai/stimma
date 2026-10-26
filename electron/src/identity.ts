@@ -23,6 +23,7 @@ export interface PackagedMetadata {
   stimmaBundleId?: string
   stimmaUpdateUrl?: string
   stimmaPythonRuntimeArchive?: string
+  stimmaDistribution?: string
 }
 
 export function readPackagedMetadata(appPath: string): PackagedMetadata {
@@ -66,9 +67,19 @@ function defaultDirs(bundleId: string, sandbox: string): { dataDir: string; cach
   }
 }
 
-export function resolveIdentity(packagedBundleId: string): AppIdentity {
+export function resolveIdentity(
+  packagedBundleId: string,
+  packagedDistribution?: string,
+): AppIdentity {
   const dev = !!process.env.STIMMA_DEV
   const bundleId = process.env.STIMMA_BUNDLE_ID || packagedBundleId
+  // The distribution is stamped into the packaged package.json by release CI
+  // (electron-builder extraMetadata), like the bundle id. A packaged app has
+  // no STIMMA_DISTRIBUTION in its environment, so reading only the env made
+  // every official build report itself as a source build (branch "dev",
+  // telemetry permanently off). The env var remains as a dev override.
+  const distributionRaw = process.env.STIMMA_DISTRIBUTION || packagedDistribution
+  const distribution: 'official' | 'dev' = distributionRaw === 'official' ? 'official' : 'dev'
   const sandboxRaw = process.env.STIMMA_SANDBOX
   const sandbox = sandboxRaw && sandboxRaw.trim() ? sandboxRaw : 'default'
 
@@ -80,7 +91,7 @@ export function resolveIdentity(packagedBundleId: string): AppIdentity {
     bundleId,
     sandbox,
     dev,
-    distribution: process.env.STIMMA_DISTRIBUTION === 'official' ? 'official' : 'dev',
+    distribution,
     dataDir,
     cacheDir,
     devBackendPort: Number.parseInt(process.env.STIMMA_BACKEND_PORT || '9191', 10),
