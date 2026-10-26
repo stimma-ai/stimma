@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from core.logging import get_logger
 from typing import List, Dict, Optional, Callable, Awaitable
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 from core.profile_context import get_current_profile
 
@@ -418,6 +418,7 @@ class WebSocketManager:
         self._dropping: set[asyncio.Task] = set()
         # Strong references to running disconnect teardowns.
         self._teardowns: set[asyncio.Task] = set()
+        self._closing = False
 
     @property
     def active_connections(self) -> List[WebSocket]:
@@ -441,7 +442,9 @@ class WebSocketManager:
         self._on_generator_disconnect = callback
 
     async def connect(self, websocket: WebSocket):
-        """Accept a new WebSocket connection."""
+        """Accept a new WebSocket connection (refused once shutdown began)."""
+        if self._closing:
+            raise WebSocketDisconnect(code=1001)
         await websocket.accept()
         self.attach(websocket)
         log.info(f"WebSocket connected. Total connections: {len(self._clients)}")
@@ -510,7 +513,12 @@ class WebSocketManager:
     async def _teardown(
         self, client: Optional[ClientConnection], owned: Dict[str, Optional[int]]
     ) -> None:
-        """Release one claimed connection. Runs exactly once per disconnect."""
+        """Release one claimed connection. Runs exactly once per disconnect.
+
+        If this task is cancelled (shutdown deadline), the bookkeeping in the
+        finally block still runs: registrations are released, the sender is
+        stopped and unwritten requests are reported.
+        """
         try:
             # Instance cleanup first. The cleanup itself awaits, so it is also
             # told whether the instance is still abandoned: a page that
@@ -528,24 +536,52 @@ class WebSocketManager:
                         )
                     except Exception as e:
                         log.error(f"Error in generator disconnect callback: {e}")
+        finally:
+            for gid, generation in owned.items():
                 if self._generator_still_abandoned(gid, generation):
                     self._generator_registrations.pop(gid, None)
-        finally:
-            # Whatever happened above, the sender is stopped and the queue
-            # released; the frames it never wrote are reported below.
             undelivered = await client.stop() if client is not None else []
+            # After instance cleanup, so a released reservation is refilled
+            # only by instances that are still connected.
+            for frame in undelivered:
+                if frame.on_undelivered is not None:
+                    try:
+                        await frame.on_undelivered()
+                    except Exception as e:
+                        log.error(f"Error releasing undelivered {frame.event}: {e}")
+            if client is not None:
+                log.info(f"WebSocket disconnected. Total connections: {len(self._clients)}")
 
-        # After instance cleanup, so a released reservation is refilled only
-        # by instances that are still connected.
-        for frame in undelivered:
-            if frame.on_undelivered is not None:
-                try:
-                    await frame.on_undelivered()
-                except Exception as e:
-                    log.error(f"Error releasing undelivered {frame.event}: {e}")
+    async def shutdown(self, timeout: float = 5.0) -> None:
+        """Disconnect every client and settle teardowns, within ``timeout``.
 
-        if client is not None:
-            log.info(f"WebSocket disconnected. Total connections: {len(self._clients)}")
+        Call before the resources teardown uses (generation queue, databases)
+        are stopped. New connections are refused from here on. Teardowns
+        still running at the deadline are cancelled; their finally blocks
+        complete the bookkeeping.
+        """
+        self._closing = True
+        try:
+            for client in list(self._clients.values()):
+                # Hands each teardown off without waiting on it here.
+                task = asyncio.create_task(self.disconnect(client.websocket))
+                self._dropping.add(task)
+                task.add_done_callback(self._dropping.discard)
+            # Let each disconnect claim its client and start its teardown.
+            await asyncio.sleep(0)
+            pending = {*self._dropping, *self._teardowns}
+            if not pending:
+                return
+            _, still_running = await asyncio.wait(pending, timeout=timeout)
+            if still_running:
+                log.warning("WebSocket teardowns did not finish in time; cancelling")
+                for task in still_running:
+                    task.cancel()
+                await asyncio.wait(still_running, timeout=CLIENT_CLOSE_TIMEOUT_SECONDS)
+        finally:
+            # Admission reopens only for an app that starts serving again
+            # in the same process (tests); the server has stopped by now.
+            self._closing = False
 
     def _generator_still_abandoned(self, generator_instance_id: str, generation: Optional[int]) -> bool:
         return (

@@ -1441,6 +1441,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    # Settle WebSocket disconnect teardowns while the generation queue and
+    # databases they use are still available.
+    try:
+        await ws_manager.shutdown()
+    except Exception:
+        log.exception("error shutting down WebSocket clients")
+
     # Stop generation workers (with timeout to avoid blocking shutdown)
     if generation_queue is not None:
         try:

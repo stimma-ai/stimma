@@ -588,6 +588,60 @@ async def test_already_cancelled_endpoint_still_tears_down_in_finally():
     await manager.disconnect(new)
 
 
+async def test_shutdown_settles_teardowns_and_completes_bookkeeping_at_deadline():
+    """A teardown stuck in generator cleanup past the shutdown deadline is
+    cancelled, but registrations are still released, the sender stopped and
+    unwritten requests reported; connections are refused meanwhile."""
+    from starlette.websockets import WebSocketDisconnect
+
+    manager = WebSocketManager()
+    calls = []
+
+    async def stuck_cleanup(generator_instance_id, **_):
+        calls.append("abandon-start")
+        try:
+            await manager.connect(Healthy())
+        except WebSocketDisconnect:
+            calls.append("connect-refused")
+        await asyncio.Event().wait()  # e.g. a database that never answers
+
+    async def released():
+        calls.append("undelivered")
+
+    manager.set_on_generator_disconnect(stuck_cleanup)
+    socket, idle = Gated(), Healthy()
+    client = manager.attach(socket)
+    manager.attach(idle)
+    await _hold(manager, socket)
+    sender = client.sender_task
+    manager.register_generator_instance(socket, "gen")
+    await manager.send_to_generator_instance(
+        "gen", "generation_request_work", {"reservation_id": "r1"}, on_undelivered=released
+    )
+
+    await asyncio.wait_for(manager.shutdown(timeout=0.1), 5)
+
+    assert calls == ["abandon-start", "connect-refused", "undelivered"]
+    assert manager.clients == []
+    assert "gen" not in manager._generator_registrations
+    assert sender.done() and client.queued_frames == 0
+    assert not manager._teardowns and not manager._dropping
+
+
+def test_lifespan_settles_websockets_before_stopping_generation_workers():
+    """Teardowns use the generation queue and databases, so the app's
+    shutdown must settle them before stopping either."""
+    import inspect
+
+    from core import app as app_module
+
+    source = inspect.getsource(app_module.lifespan)
+    shutdown_section = source[source.index("# === SHUTDOWN ==="):]
+    ws = shutdown_section.index("await ws_manager.shutdown()")
+    assert ws < shutdown_section.index("generation_queue.stop_workers()")
+    assert ws < shutdown_section.index("stop_delete_worker()")
+
+
 async def test_enqueue_cost_is_bounded_with_a_large_durable_backlog():
     """Past the soft budget with nothing sheddable, each durable enqueue must
     not rescan the backlog (that was quadratic: ~15 s for 50k frames)."""
