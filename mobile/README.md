@@ -55,6 +55,16 @@ checks pause while backgrounded. Existing streams close and new upstream request
 are blocked until foregrounding; the page and local address remain intact. This
 is not a background-transfer service.
 
+Requests the Android proxy cannot complete are answered with the statuses in
+`contract/proxy-failures.json`: 403 only for capability/origin/framing policy
+rejections, 502 when the server is unreachable or answers unforwardably, 504 on
+timeout, and 503 while there is no attached or foreground connection. These
+responses carry `X-Stimma-Proxy-Failure` with the category; the UI treats
+502/503/504 as connection problems, never as a wrong PIN or sign-in. Once a
+response has started, a failure resets the stream instead of appending a second
+response. Logs record only the category, whether the response had started, and
+the exception type.
+
 The phone stays in portrait outside slideshow. Slideshow allows sensor rotation
 without recreating the activity or WebView. System bars, display cutouts, and the
 keyboard reserve space around the interface. Playing slideshows keep the display

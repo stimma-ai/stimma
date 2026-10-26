@@ -295,6 +295,7 @@ import FitToSpace from './components/FitToSpace.vue'
 import { useViewport } from './composables/useViewport'
 import { isDrawerEdgeTouch } from './utils/drawerGesture'
 import { makeProfileKey } from './utils/storageKeys'
+import { connectionFailure, pinVerificationError } from './utils/proxyFailure'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
 import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
@@ -922,15 +923,12 @@ async function submitLockScreenPin() {
         console.warn('[App] Failed to reload settings after PIN unlock:', e)
       }
       void syncMarketplaceStimpacks()
-    } else if (response.status === 502 || response.status === 503) {
-      // The local proxy answers these itself when the active device is gone
-      // or unreachable. That is a connection problem, not a PIN problem; the
-      // connection screen takes over once main reports the drop.
-      lockScreenError.value = `Lost connection to ${activeDeviceName.value}`
-      lockScreenPin.value = ''
     } else {
-      const data = await response.json().catch(() => ({}))
-      lockScreenError.value = data.detail || 'Invalid PIN'
+      // The local proxy answers 502/503/504 itself when the active device is
+      // gone, unreachable or slow. That is a connection problem, not a PIN
+      // problem; the connection screen takes over once the drop is reported.
+      const data = connectionFailure(response) ? {} : await response.json().catch(() => ({}))
+      lockScreenError.value = pinVerificationError(response, data.detail, activeDeviceName.value)
       lockScreenPin.value = ''
     }
   } catch (error) {

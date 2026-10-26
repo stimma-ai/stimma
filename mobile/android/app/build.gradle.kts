@@ -17,6 +17,9 @@ android {
     }
     buildFeatures { buildConfig = true }
     sourceSets.getByName("androidTest").kotlin.srcDir("src/test/java")
+    // The proxy failure table, shared with the UI tests.
+    sourceSets.getByName("test").resources.srcDir("../../contract")
+    sourceSets.getByName("androidTest").resources.srcDir("../../contract")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -196,10 +196,12 @@ class ProtocolTest {
                 fun request(): String = Socket("127.0.0.1", transport.port).use { socket ->
                     socket.soTimeout = 3000
                     socket.getOutputStream().write("GET /api/profiles HTTP/1.1\r\nHost: 127.0.0.1:${transport.port}\r\nCookie: ${transport.cookie.substringBefore(';')}\r\n\r\n".toByteArray())
-                    "HTTP/1.1 ${HttpHead.read(socket.getInputStream()).target}"
+                    val head = HttpHead.read(socket.getInputStream())
+                    "HTTP/1.1 ${head.target} ${head.single("x-stimma-proxy-failure").orEmpty()}"
                 }
                 transport.setForeground(false)
-                repeat(2) { assertTrue(request().startsWith("HTTP/1.1 403")) }
+                // Backgrounded is a temporarily unavailable transport, not an access failure.
+                repeat(2) { assertEquals("HTTP/1.1 503 unavailable", request()) }
                 assertEquals(0, upstream.requestCount)
                 assertSame(remote, transport.target)
                 transport.setForeground(true)

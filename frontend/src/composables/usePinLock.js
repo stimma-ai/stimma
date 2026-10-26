@@ -9,6 +9,7 @@ import { ref, readonly, nextTick } from 'vue'
 import { getCurrentProfileId } from './useProfile'
 import { getApiBase } from '../apiConfig'
 import { makeGlobalKey } from '../utils/storageKeys'
+import { connectionFailure, pinVerificationError } from '../utils/proxyFailure.ts'
 
 // PIN cache storage key (global, not per-profile — PIN cache spans profiles)
 function getPinCacheStorageKey() {
@@ -391,8 +392,9 @@ async function submitPin(pin) {
         pinModalCallback.value = null
       }
     } else {
-      const data = await response.json().catch(() => ({}))
-      pinModalError.value = data.detail || 'Invalid PIN'
+      // A dropped or slow connection is not a wrong PIN.
+      const data = connectionFailure(response) ? {} : await response.json().catch(() => ({}))
+      pinModalError.value = pinVerificationError(response, data.detail)
     }
   } catch (error) {
     pinModalError.value = 'Failed to verify PIN'

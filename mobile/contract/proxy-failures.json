@@ -1,0 +1,10 @@
+{
+  "header": "X-Stimma-Proxy-Failure",
+  "failures": {
+    "rejected": { "status": 403, "connection": null },
+    "unavailable": { "status": 503, "connection": "unavailable" },
+    "upstream-unreachable": { "status": 502, "connection": "unreachable" },
+    "upstream-protocol": { "status": 502, "connection": "unreachable" },
+    "upstream-timeout": { "status": 504, "connection": "timeout" }
+  }
+}

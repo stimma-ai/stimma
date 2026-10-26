@@ -191,6 +191,33 @@ test('a second suspension cancels a pending reveal', async t => {
   assert.equal(await page.locator('#media').evaluate(el => getComputedStyle(el).visibility), 'hidden')
 })
 
+test('a proxy connection failure during PIN entry is not reported as a wrong PIN', async t => {
+  const page = await fixture(t)
+  const errors = await page.evaluate(async () => {
+    const results = {}
+    const responses = {
+      unreachable: () => new Response('Request unavailable', { status: 502, headers: { 'X-Stimma-Proxy-Failure': 'upstream-unreachable' } }),
+      timeout: () => new Response('Request unavailable', { status: 504, headers: { 'X-Stimma-Proxy-Failure': 'upstream-timeout' } }),
+      unavailable: () => new Response('Request unavailable', { status: 503, headers: { 'X-Stimma-Proxy-Failure': 'unavailable' } }),
+      wrong: () => new Response(JSON.stringify({ detail: 'Invalid PIN' }), { status: 401 }),
+    }
+    for (const [name, respond] of Object.entries(responses)) {
+      window.fetch = async () => respond()
+      pin.requestPin('protected').catch(() => {})
+      await pin.submitPin('1234')
+      results[name] = pin.pinModalError.value
+      pin.cancelPinEntry()
+    }
+    return results
+  })
+  assert.deepEqual(errors, {
+    unreachable: 'Lost connection to the server',
+    timeout: 'No response from the server',
+    unavailable: 'Lost connection to the server',
+    wrong: 'Invalid PIN',
+  })
+})
+
 test('shortening the configured limit applies immediately without a server round trip', async t => {
   const page = await fixture(t)
   await page.clock.runFor(30_000)

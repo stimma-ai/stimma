@@ -12,7 +12,9 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
+import java.io.FilterOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -99,7 +101,10 @@ data class HttpHead(val method: String, val target: String, val version: String,
 
 class RemoteHttpError(val status: Int) : Exception("The server request failed (HTTP $status).")
 
-class PinnedServer(val host: String, val port: Int, val pin: String?, val session: String = "", val debugLoopback: Boolean = false) {
+class PinnedServer(
+    val host: String, val port: Int, val pin: String?, val session: String = "", val debugLoopback: Boolean = false,
+    private val connectTimeoutMillis: Int = 4000, private val readTimeoutMillis: Int = 30000,
+) {
     private val trust = object : X509TrustManager {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) { throw CertificateException() }
@@ -145,15 +150,29 @@ class PinnedServer(val host: String, val port: Int, val pin: String?, val sessio
     fun socket(): Socket {
         val plain = Socket()
         try {
-            plain.connect(InetSocketAddress(host, port), 4000)
-            plain.soTimeout = 30000
+            plain.connect(InetSocketAddress(host, port), connectTimeoutMillis)
+            plain.soTimeout = readTimeoutMillis
             if (debugLoopback) return plain
             return (tls.socketFactory.createSocket(plain, host, port, true) as SSLSocket).apply { startHandshake() }
         } catch (error: Exception) { plain.close(); throw error }
     }
 }
 
-class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
+/** Records whether any byte of a response reached the WebView, after which no other response may follow. */
+private class ResponseStream(output: OutputStream) : FilterOutputStream(output) {
+    @Volatile var started = false
+        private set
+    override fun write(b: Int) { started = true; out.write(b) }
+    override fun write(b: ByteArray, off: Int, len: Int) { started = true; out.write(b, off, len) }
+}
+
+/** The WebView side of a request went away; there is nobody left to answer. */
+private class LocalClosed(cause: Throwable? = null) : Exception(cause)
+
+class MobileTransport(
+    private val report: (ProxyFailureReport) -> Unit = {},
+    private val assets: (String) -> InputStream,
+) : Closeable {
     private val listener = ServerSocket(0, 32, InetAddress.getByName("127.0.0.1"))
     val port = listener.localPort
     val origin = "http://127.0.0.1:$port"
@@ -188,8 +207,9 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
                 sockets.add(socket)
                 executor.execute {
                     socket.use {
-                        try { serve(socket) }
-                        catch (_: Exception) { runCatching { respond(socket, 403, "text/plain", "Request unavailable".byteInputStream(), 19) } }
+                        val output = ResponseStream(socket.getOutputStream())
+                        try { serve(socket, output) }
+                        catch (error: Exception) { fail(socket, output, error) }
                         finally { sockets.remove(socket); permits.release() }
                     }
                 }
@@ -215,7 +235,30 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
         if (request.method !in setOf("GET", "HEAD", "OPTIONS")) require(request.single("origin") == origin)
     }
 
-    private fun serve(socket: Socket) {
+    /**
+     * Answer a failed request once. Anything not explicitly classified is a
+     * local policy rejection. If the response already started, a second status
+     * line would be spliced into the body, so the stream is reset instead and
+     * the WebView sees a network error it can recover from.
+     */
+    private fun fail(socket: Socket, output: ResponseStream, error: Exception) {
+        if (error is LocalClosed || socket.isClosed) return
+        val failure = (error as? ProxyException)?.failure ?: ProxyFailure.REJECTED
+        runCatching { report(ProxyFailureReport(failure, output.started, (error.cause ?: error).javaClass.simpleName)) }
+        if (output.started) { runCatching { socket.setSoLinger(true, 0) }; return }
+        runCatching { respond(output, failure.status, "text/plain", "Request unavailable".byteInputStream(), 19, failure = failure) }
+    }
+
+    /** Run upstream I/O, classifying its failures. Interruptions caused by backgrounding or a target swap are unavailability. */
+    private inline fun <T> fromServer(remote: PinnedServer, block: () -> T): T = try { block() }
+        catch (error: ProxyException) { throw error }
+        catch (error: Exception) {
+            throw ProxyException(if (suspended || target !== remote) ProxyFailure.UNAVAILABLE else ProxyFailure.upstream(error), error)
+        }
+
+    private inline fun <T> toClient(block: () -> T): T = try { block() } catch (error: IOException) { throw LocalClosed(error) }
+
+    private fun serve(socket: Socket, output: ResponseStream) {
         socket.soTimeout = 30000
         val input = socket.getInputStream().buffered()
         val request = HttpHead.read(input)
@@ -224,8 +267,8 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
         require(path.split('/').none { it == ".." || it == "." } && '\\' !in path && path.none { it.code < 32 })
         val remote = target
         if (path == "/health" || path == "/api" || path.startsWith("/api/") || path == "/ws" || path.startsWith("/ws/")) {
-            check(remote != null && !suspended)
-            proxy(socket, input, request, remote)
+            if (remote == null || suspended) throw ProxyException(ProxyFailure.UNAVAILABLE)
+            proxy(socket, input, output, request, remote)
             return
         }
         require(request.method in setOf("GET", "HEAD"))
@@ -248,26 +291,27 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
             "json" -> "application/json"; "svg" -> "image/svg+xml"; "png" -> "image/png"
             "woff2" -> "font/woff2"; "wasm" -> "application/wasm"; else -> "application/octet-stream"
         }
-        body.use { respond(socket, 200, mime, it, size, request.method == "HEAD") }
+        body.use { respond(output, 200, mime, it, size, request.method == "HEAD") }
     }
 
     private val policy get() = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' $inlineScriptHashes; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' ws://127.0.0.1:$port; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
-    private fun respond(socket: Socket, status: Int, mime: String, body: InputStream, size: Long, head: Boolean = false) {
-        val output = socket.getOutputStream()
-        output.write(("HTTP/1.1 $status ${if (status == 200) "OK" else "Forbidden"}\r\nContent-Type: $mime\r\nContent-Length: $size\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Security-Policy: $policy\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n\r\n").toByteArray())
+    private fun respond(output: OutputStream, status: Int, mime: String, body: InputStream, size: Long, head: Boolean = false, failure: ProxyFailure? = null) {
+        val marker = failure?.let { "${ProxyFailure.HEADER}: ${it.category}\r\n" }.orEmpty()
+        output.write(("HTTP/1.1 $status ${failure?.reason ?: "OK"}\r\nContent-Type: $mime\r\nContent-Length: $size\r\nConnection: close\r\nCache-Control: no-store\r\n${marker}Content-Security-Policy: $policy\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n\r\n").toByteArray())
         if (!head) body.copyTo(output)
         output.flush()
     }
 
-    private fun proxy(local: Socket, input: InputStream, request: HttpHead, remote: PinnedServer) {
-        remote.socket().use { upstream ->
+    private fun proxy(local: Socket, input: InputStream, destination: OutputStream, request: HttpHead, remote: PinnedServer) {
+        val websocket = request.single("upgrade")?.lowercase() == "websocket"
+        if (websocket) require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
+        val providerPanel = URI(request.target).path.startsWith("/api/provider-manage/")
+        fromServer(remote) { remote.socket() }.use { upstream ->
             sockets.add(upstream)
             try {
-                check(!suspended && !local.isClosed)
-                val websocket = request.single("upgrade")?.lowercase() == "websocket"
-                if (websocket) require(request.method == "GET" && request.single("origin") == origin && request.single("content-length").let { it == null || it == "0" })
-                val output = upstream.getOutputStream()
+                if (suspended || local.isClosed) throw ProxyException(ProxyFailure.UNAVAILABLE)
+                val output = fromServer(remote) { upstream.getOutputStream() }
                 val excluded = setOf("host", "authorization", "cookie", "origin", "connection", "proxy-connection", "proxy-authorization", "forwarded", "referer", "upgrade", "accept-encoding")
                 val headers = request.fields.filter { it.first !in excluded && !it.first.startsWith("sec-fetch-") && !it.first.startsWith("x-forwarded-") }
                 val text = buildString {
@@ -278,42 +322,49 @@ class MobileTransport(private val assets: (String) -> InputStream) : Closeable {
                     for ((name, value) in headers) append("$name: $value\r\n")
                     append("\r\n")
                 }
-                output.write(text.toByteArray(Charsets.ISO_8859_1))
+                fromServer(remote) { output.write(text.toByteArray(Charsets.ISO_8859_1)) }
                 var remaining = request.single("content-length")?.toLong() ?: 0
                 val buffer = ByteArray(65536)
                 while (remaining > 0) {
-                    val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-                    require(count > 0)
-                    output.write(buffer, 0, count); remaining -= count
+                    val count = toClient { input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt()) }
+                    if (count <= 0) throw LocalClosed()
+                    fromServer(remote) { output.write(buffer, 0, count) }; remaining -= count
                 }
-                output.flush()
-                val responseInput = upstream.getInputStream().buffered()
-                val response = HttpHead.read(responseInput)
-                require(response.method == "HTTP/1.1" && response.target.toInt() in 100..599)
-                val providerPanel = URI(request.target).path.startsWith("/api/provider-manage/")
-                val localRedirect = response.single("location")?.let { value ->
-                    val uri = URI(value)
-                    !uri.isAbsolute && uri.rawAuthority == null && uri.path.startsWith("/api/provider-manage/") &&
-                        uri.path.split('/').none { it == "." || it == ".." } && '\\' !in value
-                } == true
-                require(response.target.toInt() !in 300..399 || response.target == "304" || providerPanel && localRedirect)
-                val destination = local.getOutputStream()
-                destination.write(buildString {
-                    append("${response.method} ${response.target} ${response.version}\r\n")
-                    for ((name, value) in response.fields) if (name !in setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials", "connection")) append("$name: $value\r\n")
-                    append("Connection: ${if (websocket && response.target == "101") "Upgrade" else "close"}\r\n")
-                    val responsePolicy = if (providerPanel)
-                        "sandbox allow-scripts allow-same-origin allow-forms; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
-                        else "sandbox; default-src 'none'"
-                    append("Content-Security-Policy: $responsePolicy\r\nX-Content-Type-Options: nosniff\r\n\r\n")
-                }.toByteArray(Charsets.ISO_8859_1))
-                destination.flush()
+                fromServer(remote) { output.flush() }
+                val responseInput = fromServer(remote) { upstream.getInputStream().buffered() }
+                val response = fromServer(remote) {
+                    val head = HttpHead.read(responseInput)
+                    require(head.method == "HTTP/1.1" && head.target.toInt() in 100..599)
+                    val localRedirect = head.single("location")?.let { value ->
+                        val uri = URI(value)
+                        !uri.isAbsolute && uri.rawAuthority == null && uri.path.startsWith("/api/provider-manage/") &&
+                            uri.path.split('/').none { it == "." || it == ".." } && '\\' !in value
+                    } == true
+                    require(head.target.toInt() !in 300..399 || head.target == "304" || providerPanel && localRedirect)
+                    head
+                }
+                toClient {
+                    destination.write(buildString {
+                        append("${response.method} ${response.target} ${response.version}\r\n")
+                        for ((name, value) in response.fields) if (name !in setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials", "connection")) append("$name: $value\r\n")
+                        append("Connection: ${if (websocket && response.target == "101") "Upgrade" else "close"}\r\n")
+                        val responsePolicy = if (providerPanel)
+                            "sandbox allow-scripts allow-same-origin allow-forms; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+                            else "sandbox; default-src 'none'"
+                        append("Content-Security-Policy: $responsePolicy\r\nX-Content-Type-Options: nosniff\r\n\r\n")
+                    }.toByteArray(Charsets.ISO_8859_1))
+                    destination.flush()
+                }
                 if (websocket && response.target == "101") {
                     local.soTimeout = 0; upstream.soTimeout = 0
                     executor.execute { try { input.copyTo(output) } catch (_: Exception) { } finally { upstream.close(); local.close() } }
                 }
-                responseInput.copyTo(destination)
-                destination.flush()
+                while (true) {
+                    val count = fromServer(remote) { responseInput.read(buffer) }
+                    if (count < 0) break
+                    toClient { destination.write(buffer, 0, count) }
+                }
+                toClient { destination.flush() }
             } finally { sockets.remove(upstream) }
         }
     }

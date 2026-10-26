@@ -1,6 +1,7 @@
 package ai.stimma.mobile
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -261,7 +262,7 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
             }
         }
         coroutineContext.ensureActive()
-        val next = MobileTransport { getApplication<Application>().assets.open(it) }
+        val next = MobileTransport(report = ::logProxyFailure) { getApplication<Application>().assets.open(it) }
         next.directory = directory; next.target = remote
         next.setForeground(appActive)
         val previous = main
@@ -294,6 +295,11 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
                 delay(20000)
             }
         }
+    }
+
+    /** Category-only diagnostics: a dropped route must be distinguishable from a rejected request in logs. */
+    private fun logProxyFailure(report: ProxyFailureReport) {
+        if (report.failure == ProxyFailure.REJECTED) Log.i("StimmaProxy", report.toString()) else Log.w("StimmaProxy", report.toString())
     }
 
     override fun onCleared() { callback?.close(); setup.close(); main?.close() }
