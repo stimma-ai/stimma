@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import type { ProviderTool } from '../composables/useProvidersApi'
+import type { ProviderToolSummary } from '../composables/useProvidersApi'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import ToolIcon from './tools/ToolIcon.vue'
@@ -186,7 +186,7 @@ const RECENT_STORAGE_KEY = 'send-to-tool' as const
 const MAX_RECENT = 5
 
 interface Props {
-  tools: ProviderTool[]
+  tools: ProviderToolSummary[]
   mediaType?: MediaType | null
   mediaTypes?: MediaType[]
   selectionCount?: number
@@ -209,8 +209,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  (e: 'select', tool: ProviderTool, taskType: string, event?: MouseEvent): void
-  (e: 'select-instance', tab: WorkspaceTab, tool: ProviderTool, taskType: string, event?: MouseEvent): void
+  (e: 'select', tool: ProviderToolSummary, taskType: string, event?: MouseEvent): void
+  (e: 'select-instance', tab: WorkspaceTab, tool: ProviderToolSummary, taskType: string, event?: MouseEvent): void
 }>()
 
 const searchQuery = ref('')
@@ -256,7 +256,7 @@ const eligibleTools = computed(() => {
 
 // Group tools by task type, sorted within each group
 const groupedTools = computed(() => {
-  const groups: Record<string, ProviderTool[]> = {}
+  const groups: Record<string, ProviderToolSummary[]> = {}
   const sorted = [...eligibleTools.value].sort((a, b) => {
     // Pinned first if available, then alphabetical
     const aPinned = (a as any).pinned ? 1 : 0
@@ -277,7 +277,7 @@ const groupedTools = computed(() => {
       groups[taskType].push(tool)
     }
   }
-  const ordered: Record<string, ProviderTool[]> = {}
+  const ordered: Record<string, ProviderToolSummary[]> = {}
   for (const taskType of TASK_TYPE_ORDER) {
     if (groups[taskType]) ordered[taskType] = groups[taskType]
   }
@@ -328,7 +328,7 @@ const recentToolsForSelectedTaskType = computed(() => {
   const toolById = new Map(toolList.map(tool => [tool.full_tool_id, tool]))
   return getRecentToolsByTaskType(taskType)
     .map(id => toolById.get(id))
-    .filter((tool): tool is ProviderTool => !!tool)
+    .filter((tool): tool is ProviderToolSummary => !!tool)
 })
 
 const allToolsForSelectedTaskType = computed(() => {
@@ -370,12 +370,12 @@ const showAllToolsHeader = computed(() =>
   props.showOpenInstances && !selectedTaskType.value && filteredOpenInstances.value.length > 0
 )
 
-function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }, event?: MouseEvent) {
+function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderToolSummary }, event?: MouseEvent) {
   emit('select-instance', row.tab, row.tool, getToolPrimaryTaskType(row.tool), event)
 }
 
 // Get the first eligible task type for a tool (used in flat search results)
-function getToolPrimaryTaskType(tool: ProviderTool): string {
+function getToolPrimaryTaskType(tool: ProviderToolSummary): string {
   const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
   if (effectiveMediaTypes.value.length === 0) return toolTaskTypes[0] || tool.task_type || ''
   return planToolHandoff({
@@ -389,7 +389,7 @@ function selectTaskType(taskType: string) {
   selectedTaskType.value = taskType
 }
 
-function handleToolClick(tool: ProviderTool, taskType: string, event?: MouseEvent) {
+function handleToolClick(tool: ProviderToolSummary, taskType: string, event?: MouseEvent) {
   if (taskType) {
     addRecentToolForTaskType(taskType, tool.full_tool_id)
   }

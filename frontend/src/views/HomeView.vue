@@ -462,7 +462,10 @@ function loadTools({ force = false } = {}) {
   }
   return toolLoads.request(key, async (isCurrent) => {
     try {
-      const { tools } = await withReadDeadline(signal => fetchProvidersAndTools(force, { signal }))
+      // The shared catalog, not a forced read: a tool or provider change has
+      // already cleared it, and the sidebar reacting to the same change
+      // joins this read instead of starting its own.
+      const { tools } = await withReadDeadline(signal => fetchProvidersAndTools(false, { signal }))
       if (!isCurrent()) return
       toolsList.value = tools.filter(t => !t.metadata?.agent_only)
       return true

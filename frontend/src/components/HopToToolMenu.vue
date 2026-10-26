@@ -118,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../composables/useProvidersApi'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
@@ -142,8 +142,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'hop', tool: ProviderTool): void
-  (e: 'hop-instance', tab: WorkspaceTab, tool: ProviderTool): void
+  (e: 'hop', tool: ProviderToolSummary): void
+  (e: 'hop-instance', tab: WorkspaceTab, tool: ProviderToolSummary): void
   (e: 'rename', name: string | null): void
 }>()
 
@@ -151,7 +151,7 @@ const { listAvailableTools } = useProvidersApi()
 
 const showMenu = ref(false)
 const loadingTools = ref(false)
-const tools = ref<ProviderTool[]>([])
+const tools = ref<ProviderToolSummary[]>([])
 const containerRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
 
@@ -167,7 +167,7 @@ const menuStyle = computed(() => ({
 // Tools with multiple task_types appear in multiple groups
 // Only shows task types that the source tool supports
 const groupedTools = computed(() => {
-  const groups: Record<string, ProviderTool[]> = {}
+  const groups: Record<string, ProviderToolSummary[]> = {}
   const sourceTypes = new Set(props.sourceTaskTypes)
 
   // Sort tools alphabetically by name, excluding current tool
@@ -189,7 +189,7 @@ const groupedTools = computed(() => {
   }
 
   // Order groups by TASK_TYPE_ORDER
-  const orderedGroups: Record<string, ProviderTool[]> = {}
+  const orderedGroups: Record<string, ProviderToolSummary[]> = {}
   for (const taskType of TASK_TYPE_ORDER) {
     if (groups[taskType]) {
       orderedGroups[taskType] = groups[taskType]
@@ -226,12 +226,12 @@ async function toggleMenu() {
   }
 }
 
-function hopToTool(tool: ProviderTool) {
+function hopToTool(tool: ProviderToolSummary) {
   showMenu.value = false
   emit('hop', tool)
 }
 
-function hopToInstance(row: { tab: WorkspaceTab; tool: ProviderTool }) {
+function hopToInstance(row: { tab: WorkspaceTab; tool: ProviderToolSummary }) {
   showMenu.value = false
   emit('hop-instance', row.tab, row.tool)
 }

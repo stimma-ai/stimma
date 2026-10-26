@@ -79,7 +79,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import ToolConfigRow from './ToolConfigRow.vue'
 import TextEditorModal from './TextEditorModal.vue'
 import { useAgentPresetsApi, type AgentSettings, type ToolConfig } from '../../composables/useAgentPresetsApi'
-import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../composables/useProvidersApi'
 import { useWebSocket } from '../../composables/useWebSocket'
 import StimpackEditorModal from '../settings/StimpackEditorModal.vue'
 import { useStimpacksApi, type StimpackDetail } from '../../composables/useStimpacksApi'
@@ -102,7 +102,7 @@ const { getStimpack: getStimpackApi, updateStimpack: updateStimpackApi } = useSt
 
 // State
 const settings = ref<AgentSettings | null>(null)
-const allTools = ref<ProviderTool[]>([])
+const allTools = ref<ProviderToolSummary[]>([])
 const loadingTools = ref(false)
 
 // Local state for editing (to avoid constant API calls)

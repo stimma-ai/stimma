@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { Router } from 'vue-router'
-import { useProvidersApi, type ProviderTool } from './useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from './useProvidersApi'
 import { frecencyFor } from './useRecentEntities'
 import { useWorkspaceTabs, toolInstanceRoute, type WorkspaceTab } from './useWorkspaceTabs'
 import { getMediaType, type MediaType } from '../utils/mediaTypes'
@@ -179,7 +179,7 @@ export function useGlobalSearch() {
    * match across name AND provider ("ltx comfy" → LTX tools on ComfyUI —
    * both are visible on the result row, so both are fair game).
    */
-  async function searchTools(q: string, limit = 6): Promise<ProviderTool[]> {
+  async function searchTools(q: string, limit = 6): Promise<ProviderToolSummary[]> {
     if (!q.trim()) return []
     const { tools } = await fetchProvidersAndTools()
     return rankNameMatches(

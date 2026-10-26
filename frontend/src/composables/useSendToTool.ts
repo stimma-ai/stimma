@@ -11,6 +11,7 @@ import { makeToolDbKey } from '../utils/storageKeys'
 import { getMediaType } from '../utils/mediaTypes'
 import { planToolHandoff, ToolHandoffError } from '../utils/toolHandoff'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from './useWorkspaceTabs'
+import { useProvidersApi } from './useProvidersApi'
 
 interface MediaEntry {
   mediaId?: number
@@ -95,14 +96,15 @@ export function useSendToTool() {
       mediaItems = [await fetchItem(mediaIdOrItems)]
     }
 
-    // Some callers (e.g. the sidebar tab map) pass a lightweight tool object
-    // without parameter_schema. Batch detection needs the schema to see the
-    // media slot, so fetch the full tool when it's missing.
+    // Menus and the sidebar pass catalog summaries, which carry no
+    // parameter_schema. Batch detection needs the schema to see the media
+    // slot, so use the full tool (read once per catalog generation). The
+    // caller's object is a shared catalog entry: never write into it.
     if (!tool.parameter_schema?.properties) {
       try {
-        const { data } = await axios.get(`/api/tools/provider-tool/${encodeURIComponent(tool.full_tool_id)}`)
-        if (data?.parameter_schema) {
-          ;(tool as any).parameter_schema = data.parameter_schema
+        const full = await useProvidersApi().getProviderTool(tool.full_tool_id)
+        if (full?.parameter_schema) {
+          tool = { ...tool, parameter_schema: full.parameter_schema }
         }
       } catch (e) {
         console.warn('Failed to fetch tool schema for send-to-tool:', e)

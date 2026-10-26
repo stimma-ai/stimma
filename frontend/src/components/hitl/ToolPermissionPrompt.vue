@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../composables/useProvidersApi'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 
@@ -175,7 +175,7 @@ const emit = defineEmits<{
 const { listAllTools } = useProvidersApi()
 
 // State
-const allTools = ref<ProviderTool[]>([])
+const allTools = ref<ProviderToolSummary[]>([])
 const loadingTools = ref(false)
 const selectedToolId = ref<string | null>(props.suggestedToolId)
 const dropdownOpen = ref(false)
@@ -234,7 +234,7 @@ function formatTaskType(taskType: string): string {
   return formatTaskTypeLabel(taskType)
 }
 
-function isStimmaCloud(tool: ProviderTool): boolean {
+function isStimmaCloud(tool: ProviderToolSummary): boolean {
   return isStimmaCloudTool(tool)
 }
 

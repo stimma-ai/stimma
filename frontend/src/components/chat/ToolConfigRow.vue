@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ProviderTool } from '../../composables/useProvidersApi'
+import type { ProviderToolSummary } from '../../composables/useProvidersApi'
 import type { ToolConfig } from '../../composables/useAgentPresetsApi'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { bgClass, textClass } from '../../utils/statusColors'
@@ -86,7 +86,7 @@ import Tooltip from '../ui/Tooltip.vue'
 type ToolState = 'neutral' | 'allowed' | 'denied'
 
 const props = withDefaults(defineProps<{
-  tool: ProviderTool
+  tool: ProviderToolSummary
   config: ToolConfig | null
   showNeutral?: boolean
   showBorder?: boolean

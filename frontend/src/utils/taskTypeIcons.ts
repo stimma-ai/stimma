@@ -1,5 +1,6 @@
 import { h } from 'vue'
 import type { MediaType } from './mediaTypes'
+import { toolParameterProperties, type ToolSchemaSource } from './toolSchemaUtils.ts'
 
 /**
  * Centralized task type icons and labels
@@ -259,6 +260,8 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
 
 // Media-input parameter slots → the media type they default to. A tool can
 // narrow/override this per slot with `x-accept-media: ['image'|'video'|'audio', ...]`.
+// The catalog summary's parameter outline keeps these slots (backend
+// OUTLINE_PARAMETER_NAMES; a backend test holds the two together).
 const MEDIA_INPUT_SLOT_DEFAULTS: Record<string, 'image' | 'video' | 'audio'> = {
   input_images: 'image',
   input_image: 'image',
@@ -284,9 +287,11 @@ const MEDIA_VALUES = new Set(['image', 'video', 'audio'])
  * fall back to the task-type defaults in TASK_INPUT_MEDIA.
  */
 export function getToolDeclaredAcceptMedia(
-  tool: { parameter_schema?: Record<string, any> }
+  tool: ToolSchemaSource
 ): Set<'image' | 'video' | 'audio'> | null {
-  const props = tool?.parameter_schema?.properties
+  // A catalog summary's outline keeps exactly these slots, so it answers the
+  // same as the full schema.
+  const props = toolParameterProperties(tool)
   if (!props || typeof props !== 'object') return null
   const accepted = new Set<'image' | 'video' | 'audio'>()
   for (const [slot, defaultType] of Object.entries(MEDIA_INPUT_SLOT_DEFAULTS)) {
@@ -313,7 +318,7 @@ export function getToolDeclaredAcceptMedia(
  * (we grab a frame), matching the MediaPicker's behavior.
  */
 export function isToolCompatibleWithMediaType(
-  tool: { task_type?: string; task_types?: string[]; parameter_schema?: Record<string, any> },
+  tool: { task_type?: string; task_types?: string[] } & ToolSchemaSource,
   mediaType: MediaType | null
 ): { compatible: boolean; reason?: string } {
   // Grids, sprites and packages cannot be sent to any tool

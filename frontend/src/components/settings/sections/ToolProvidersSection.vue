@@ -1992,7 +1992,7 @@ async function fetchTools() {
   if (!toolsModal.value.provider) return
 
   try {
-    const response = await fetch(`/api/tools/providers/tools?provider_id=${encodeURIComponent(toolsModal.value.provider.id)}`)
+    const response = await fetch(`/api/tools/providers/tools?view=summary&provider_id=${encodeURIComponent(toolsModal.value.provider.id)}`)
     if (response.ok) {
       const data = await response.json()
       // Sort tools by name

@@ -727,7 +727,9 @@ async function loadProviders() {
   loading.value = true
   loadError.value = false
   try {
-    const result = await fetchProvidersAndTools(true)
+    // The shared catalog: fresh entries, or the read already in flight. Tool
+    // and provider changes clear it before this reloads, so no force needed.
+    const result = await fetchProvidersAndTools()
     providers.value = result.providers
     // Filter out agent-only tools (not for direct user interaction)
     tools.value = result.tools.filter(t => !t.metadata?.agent_only)

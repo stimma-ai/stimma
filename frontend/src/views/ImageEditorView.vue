@@ -85,7 +85,7 @@ import {
   headCacheImageRef,
 } from '../imageEditor/stack/headCache'
 import { applyAdjust, applyAnnotations } from '../imageEditor/stack/opExecutors'
-import { useProvidersApi } from '../composables/useProvidersApi'
+import { useProvidersApi, isFullTool } from '../composables/useProvidersApi'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { useMarkers } from '../composables/useMarkers'
@@ -607,6 +607,7 @@ const {
   getProviderTool,
   refreshProviderTools,
   uploadToTool,
+  subscribeToProviderChanges,
 } = useProvidersApi()
 const loraPool = useLoraPool()
 const { availableMarkers, init: initMarkers } = useMarkers()
@@ -748,8 +749,39 @@ const activeReferenceLimits = computed(() =>
     : modelReferenceLimits(activeTool.value)
 )
 
+/**
+ * The catalog lists tool summaries; a tool's schema (its parameters, limits
+ * and defaults) is read when the editor actually uses that tool, and merged
+ * into its entry in `tools`. Returns the full tool, or null if it is not in
+ * the catalog or could not be read.
+ */
+async function ensureFullTool(fullToolId: string | null | undefined): Promise<any | null> {
+  if (!fullToolId) return null
+  const listed = tools.value.find(tool => tool.full_tool_id === fullToolId)
+  if (!listed) return null
+  if (isFullTool(listed)) return listed
+  try {
+    const full = await getProviderTool(fullToolId)
+    let merged: any = null
+    tools.value = tools.value.map(tool => {
+      if (tool.full_tool_id !== fullToolId) return tool
+      merged = isFullTool(tool) ? tool : { ...tool, ...full }
+      return merged
+    })
+    return merged
+  } catch (toolError) {
+    console.warn('[imageStack] could not read tool schema', fullToolId, toolError)
+    return null
+  }
+}
+
 function ensureModelToolParams(tool: any) {
   if (!tool?.full_tool_id || modelToolParams.value[tool.full_tool_id]) return
+  // Defaults come from the schema: seed them once the full tool is read.
+  if (!isFullTool(tool)) {
+    void ensureFullTool(tool.full_tool_id).then(full => { if (full) ensureModelToolParams(full) })
+    return
+  }
   modelToolParams.value = {
     ...modelToolParams.value,
     [tool.full_tool_id]: modelToolDefaults(tool),
@@ -2801,7 +2833,7 @@ async function run() {
           ? 'expand'
           : 'cutout'
     const toolId = activeToolId.value!
-    const tool = activeTool.value
+    const tool = await ensureFullTool(toolId)
     if (!tool) throw new Error('That tool is no longer in the catalog.')
     const toolParams = sanitizeModelToolParams(tool, {
       ...activeToolParamValues.value,
@@ -3038,7 +3070,7 @@ async function resample(opId: string) {
 
   const index = doc.edits.findIndex(o => o.id === opId)
   const inputHash = stackHashes(doc).inputs[index]
-  const tool = tools.value.find(t => t.full_tool_id === op.exec.tool_id)
+  const tool = await ensureFullTool(op.exec.tool_id)
   if (!tool) {
     error.value = 'That tool is no longer in the catalog.'
     return
@@ -8298,7 +8330,7 @@ async function applyOutputStage(flattened: HTMLCanvasElement): Promise<HTMLCanva
   const target = outputDimensions(output, withoutVectors.width, withoutVectors.height)
 
   let scaled: HTMLCanvasElement
-  const tool = tools.value.find(t => t.full_tool_id === output.tool_id)
+  const tool = output.method === 'resample' ? null : await ensureFullTool(output.tool_id)
   if (output.method === 'resample' || !tool) {
     if (output.method === 'photo' && !tool) {
       throw new Error('The upscale tool is no longer in the catalog.')
@@ -8552,17 +8584,36 @@ async function refreshToolCatalog() {
   }
 }
 
+let unsubscribeToolCatalog: (() => void) | null = null
+
 function attachToolCatalogListener() {
   if (!editorActive.value || toolCatalogListenerAttached) return
-  window.addEventListener('tools-changed', refreshToolCatalog)
+  unsubscribeToolCatalog = subscribeToProviderChanges(() => { void refreshToolCatalog() })
   toolCatalogListenerAttached = true
 }
 
 function detachToolCatalogListener() {
   if (!toolCatalogListenerAttached) return
-  window.removeEventListener('tools-changed', refreshToolCatalog)
+  unsubscribeToolCatalog?.()
+  unsubscribeToolCatalog = null
   toolCatalogListenerAttached = false
 }
+
+// The tools in use (the active family's pick, the selected step's tool, the
+// output upscaler) carry their full schemas: their parameter panels, limits
+// and defaults read them. Re-checked whenever the catalog list is replaced.
+watch(
+  () => [
+    activeToolId.value,
+    selectedModelOp.value?.exec.tool_id,
+    outputStage.value.tool_id,
+    tools.value,
+  ] as const,
+  ([active, selected, output]) => {
+    for (const id of new Set([active, selected, output])) void ensureFullTool(id)
+  },
+  { immediate: true },
+)
 
 async function hydrateEditorExtras() {
   // The compact header names the document; desktop only needs this on Info.

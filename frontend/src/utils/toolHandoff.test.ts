@@ -131,3 +131,54 @@ test('converts hopped masks between provider mask formats', () => {
     [...whiteBlack],
   )
 })
+
+// A catalog summary carries the media parameters' structural keys instead of
+// the full schema (backend summarize_provider_tool). Every send-to decision
+// must come out the same from either.
+function summaryOf(full: ReturnType<typeof tool>) {
+  const keep = ['type', 'minItems', 'maxItems', 'x-min-items', 'x-max-items', 'x-control', 'x-accept-media']
+  const media = new Set(['input_images', 'input_image', 'start_image', 'source_image', 'image', 'input_videos', 'input_video', 'input_audios', 'input_audio', 'mask'])
+  const { parameter_schema, output_schema, ...rest } = full as any
+  const properties = parameter_schema?.properties
+  if (!properties) return { ...rest, parameter_outline: {} }
+  const outline: Record<string, any> = {}
+  for (const [name, schema] of Object.entries<any>(properties)) {
+    if (media.has(name) || 'x-accept-media' in schema) {
+      outline[name] = Object.fromEntries(Object.entries(schema).filter(([key]) => keep.includes(key)))
+    }
+  }
+  return { ...rest, parameter_outline: { properties: outline } }
+}
+
+test('a catalog summary decides send-to eligibility exactly like the full tool', () => {
+  const tools = [
+    tool(),
+    tool({ parameter_schema: { properties: { prompt: { type: 'string', default: 'x' }, input_images: { type: 'array', minItems: 2, maxItems: 3 } } } }),
+    tool({ task_types: ['filter'], task_type: 'filter', parameter_schema: { properties: { input_images: { type: 'array', 'x-accept-media': ['video'] }, strength: { type: 'number' } } } }),
+    tool({ task_types: ['image-to-video'], task_type: 'image-to-video', parameter_schema: { properties: { start_image: { type: 'string' }, duration: { type: 'number', default: 5 } } } }),
+    tool({ task_types: ['inpaint-image'], task_type: 'inpaint-image', parameter_schema: { properties: { input_images: { type: 'array' }, mask: { type: 'string', 'x-mask-format': 'alpha' } } } }),
+    tool({ task_types: ['text-to-audio'], task_type: 'text-to-audio', parameter_schema: { properties: { prompt: { type: 'string' } } } }),
+    tool({ task_types: ['text-to-audio'], task_type: 'text-to-audio', parameter_schema: { properties: { input_audios: { type: 'array', 'x-max-items': 1 } } } }),
+    tool({ task_types: ['video-to-video'], task_type: 'video-to-video', parameter_schema: { properties: { input_images: { type: 'array', 'x-control': 'video_frame_picker' } } } }),
+    tool({ parameter_schema: {} }),
+  ]
+  const selections: Array<[string[], number]> = [
+    [['image'], 1], [['image'], 2], [['image'], 4], [['video'], 1], [['video'], 3],
+    [['audio'], 1], [['set'], 1], [['image', 'video'], 2],
+  ]
+  let ineligible = 0
+  for (const full of tools) {
+    const summary = summaryOf(full)
+    for (const [mediaTypes, count] of selections) {
+      const fromFull = planToolHandoff({ tool: full, mediaTypes: mediaTypes as any, count })
+      if (!fromFull.eligible) ineligible++
+      assert.deepEqual(
+        planToolHandoff({ tool: summary as any, mediaTypes: mediaTypes as any, count }),
+        fromFull,
+        `${JSON.stringify(full.parameter_schema)} ${mediaTypes} x${count}`,
+      )
+    }
+  }
+  // The cases exercise both outcomes.
+  assert.ok(ineligible > 0 && ineligible < tools.length * selections.length)
+})

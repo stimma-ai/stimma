@@ -88,7 +88,7 @@ import ChainStepCard from './ChainStepCard.vue'
 import ChainStepSettings from './ChainStepSettings.vue'
 import AddStepMenu from './AddStepMenu.vue'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
-import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../../composables/useProvidersApi'
 import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import {
   CHAIN_TOOL_TASK_TYPES,
@@ -127,8 +127,8 @@ const emit = defineEmits<{
 
 // --- Candidate steps for the Add menu --------------------------------------
 
-const { fetchProvidersAndTools } = useProvidersApi()
-const allTools = ref<ProviderTool[]>([])
+const { fetchProvidersAndTools, getProviderTool } = useProvidersApi()
+const allTools = ref<ProviderToolSummary[]>([])
 const toolsLoaded = ref(false)
 
 onMounted(async () => {
@@ -142,7 +142,7 @@ onMounted(async () => {
   }
 })
 
-function toolById(fullToolId?: string): ProviderTool | undefined {
+function toolById(fullToolId?: string): ProviderToolSummary | undefined {
   if (!fullToolId) return undefined
   return allTools.value.find(t => t.full_tool_id === fullToolId)
 }
@@ -247,7 +247,7 @@ function toggleAddMenu() {
 
 // Resolve the chain task type a tool step should run as — prefer one whose
 // input type has a stage in the chain.
-function chainTaskTypeFor(tool: ProviderTool): string {
+function chainTaskTypeFor(tool: ProviderToolSummary): string {
   const tts = (tool.task_types?.length ? tool.task_types : [tool.task_type])
     .filter(tt => (CHAIN_TOOL_TASK_TYPES as readonly string[]).includes(tt))
   return tts.find(tt => stageTypes.value.has(stepInputMedia(tt, 'tool'))) || tts[0]
@@ -267,8 +267,16 @@ function insertStep(step: ChainStep) {
   expandStep(step.id)
 }
 
-function addToolStep(tool: ProviderTool) {
+async function addToolStep(summary: ProviderToolSummary) {
   addMenuOpen.value = false
+  // The menu lists catalog summaries; the seeded settings come from the
+  // tool's schema, so read the full tool (once per catalog generation).
+  let tool: ProviderToolSummary = summary
+  try {
+    tool = await getProviderTool(summary.full_tool_id)
+  } catch (err) {
+    console.warn('Could not read the tool schema for a new chain step:', err)
+  }
   insertStep({
     id: newStepId(),
     kind: 'tool',

@@ -79,7 +79,7 @@
 <script setup lang="ts">
 import { useViewport } from '../../../composables/useViewport'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { ProviderTool } from '../../../composables/useProvidersApi'
+import type { ProviderToolSummary } from '../../../composables/useProvidersApi'
 import type { ChainFilterDef } from '../../../utils/filterDefs'
 import ToolIcon from '../../tools/ToolIcon.vue'
 import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
@@ -89,7 +89,7 @@ const { allowsAutofocus } = useViewport()
 
 const props = defineProps<{
   /** Candidate STP tool steps (already filtered to chain-compatible task types). */
-  tools: ProviderTool[]
+  tools: ProviderToolSummary[]
   /** Built-in filter defs offered for the current running media type. */
   filters: ChainFilterDef[]
   /** Trigger rect (viewport coords) — the menu teleports to body and anchors
@@ -113,7 +113,7 @@ const menuStyle = computed(() => {
 })
 
 const emit = defineEmits<{
-  (e: 'add-tool', tool: ProviderTool): void
+  (e: 'add-tool', tool: ProviderToolSummary): void
   (e: 'add-filter', filter: ChainFilterDef): void
   (e: 'close'): void
 }>()
@@ -141,7 +141,7 @@ const filteredFilters = computed(() => {
 })
 
 // The chain-relevant task type, for the standard task-type icon treatment.
-function chainTaskType(tool: ProviderTool): string {
+function chainTaskType(tool: ProviderToolSummary): string {
   const chainTypes = new Set<string>(CHAIN_TOOL_TASK_TYPES)
   const tts = tool.task_types?.length ? tool.task_types : [tool.task_type]
   return tts.find(tt => chainTypes.has(tt)) || tool.task_type
@@ -159,8 +159,8 @@ const TOOL_CATEGORIES: { label: string; taskTypes: string[] }[] = [
 ]
 
 const toolGroups = computed(() => {
-  const buckets = TOOL_CATEGORIES.map(c => ({ label: c.label, tools: [] as ProviderTool[] }))
-  const other = { label: 'Other', tools: [] as ProviderTool[] }
+  const buckets = TOOL_CATEGORIES.map(c => ({ label: c.label, tools: [] as ProviderToolSummary[] }))
+  const other = { label: 'Other', tools: [] as ProviderToolSummary[] }
   for (const tool of filteredTools.value) {
     const tt = chainTaskType(tool)
     // No filter-task skip here: the caller already drops the image-editor

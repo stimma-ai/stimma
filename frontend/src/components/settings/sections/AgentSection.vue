@@ -99,7 +99,7 @@ import { getApiBase } from '../../../apiConfig'
 import RoleModelRows from '../RoleModelRows.vue'
 import ToolConfigRow from '../../chat/ToolConfigRow.vue'
 import type { ToolConfig } from '../../../composables/useAgentPresetsApi'
-import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../../composables/useProvidersApi'
 import { useProfile } from '../../../composables/useProfile'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 
@@ -129,7 +129,7 @@ const { fetchModels } = useAvailableModels()
 const loading = ref(false)
 const loadingTools = ref(false)
 const settings = ref<ProfileAgentSettings | null>(null)
-const allTools = ref<ProviderTool[]>([])
+const allTools = ref<ProviderToolSummary[]>([])
 
 // Local editing state
 const localInstructions = ref('')

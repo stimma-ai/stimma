@@ -920,7 +920,7 @@ import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBri
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
-import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../composables/useProvidersApi'
 import { useSendToTool } from '../../composables/useSendToTool'
 import { getCurrentProfileId } from '../../composables/useProfile'
 import TagPickerPopover from '../TagPickerPopover.vue'
@@ -1083,7 +1083,7 @@ const mediaFaces = ref<any[]>([])
 
 // Tools data
 const loadingTools = ref(false)
-const tools = ref<ProviderTool[]>([])
+const tools = ref<ProviderToolSummary[]>([])
 const loadingGenerateTools = ref(false)
 const generateMoreTools = ref<GenerateMoreTool[]>([])
 
@@ -2002,7 +2002,7 @@ function sendToGenerateToolInstance(row: { tab: WorkspaceTab; tool: GenerateMore
 
 // Shift-click adds to the tool's existing inputs; plain click replaces them
 // (mirrors shift-drop on the sidebar).
-function handleToolSelect(tool: ProviderTool, targetTaskType: string, event?: MouseEvent) {
+function handleToolSelect(tool: ProviderToolSummary, targetTaskType: string, event?: MouseEvent) {
   contextMenu.hide()
   activeSubmenu.value = null
 
@@ -2019,7 +2019,7 @@ function handleToolSelect(tool: ProviderTool, targetTaskType: string, event?: Mo
     .catch(error => addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning'))
 }
 
-function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetTaskType: string, event?: MouseEvent) {
+function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderToolSummary, targetTaskType: string, event?: MouseEvent) {
   contextMenu.hide()
   activeSubmenu.value = null
 

@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
 import type { WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
@@ -70,7 +70,7 @@ const { sendToTool } = useSendToTool()
 
 const showMenu = ref(false)
 const loading = ref(false)
-const tools = ref<ProviderTool[]>([])
+const tools = ref<ProviderToolSummary[]>([])
 const containerRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
 const toolListRef = ref<InstanceType<typeof TaskTypeToolList> | null>(null)
@@ -116,7 +116,7 @@ async function toggleMenu() {
 
 // Shift-click adds to the tool's existing inputs; plain click replaces them
 // (mirrors shift-drop on the sidebar).
-async function handleSelect(tool: ProviderTool, taskType: string, event?: MouseEvent) {
+async function handleSelect(tool: ProviderToolSummary, taskType: string, event?: MouseEvent) {
   showMenu.value = false
   try {
     await sendToTool(props.mediaItem as any, tool, taskType, undefined, undefined, { add: event?.shiftKey === true })
@@ -127,7 +127,7 @@ async function handleSelect(tool: ProviderTool, taskType: string, event?: MouseE
 }
 
 // Instance rows target that exact tab (its project scope rides along).
-async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderTool, taskType: string, event?: MouseEvent) {
+async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderToolSummary, taskType: string, event?: MouseEvent) {
   showMenu.value = false
   try {
     await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })

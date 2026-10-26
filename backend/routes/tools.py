@@ -8,7 +8,7 @@ Provider tools are the source of truth. This file provides:
 import json
 import uuid
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import List, Literal, Optional, Dict, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel, ConfigDict
@@ -90,6 +90,104 @@ class ProviderToolResponse(BaseModel):
     # Provider streams in-flight preview frames (tools.progress previews) —
     # drives the live-tile treatment in the generation strip.
     preview_frames: bool = False
+
+
+# Tool metadata keys that catalog surfaces (launcher, pickers, search, menus,
+# the All Tools page) render or filter on. Everything else in metadata —
+# layouts, agent instructions, provider internals — is only needed once a tool
+# is opened, so the summary view leaves it out.
+SUMMARY_METADATA_KEYS = (
+    "description",
+    "display_price",
+    "badges",
+    "agent_only",
+    "user_tool_id",
+)
+
+
+# The parameters and schema keys that decide where media can be sent: which
+# media slots a tool has, how many items each takes, and what media it
+# accepts. The names are the media slots the frontend's send-to checks read
+# (MEDIA_INPUT_SLOT_DEFAULTS in utils/taskTypeIcons.ts, plus `mask`); any
+# parameter declaring `x-accept-media` is a media slot too. Defaults, enums,
+# descriptions, other parameters and layout stay with the full tool.
+OUTLINE_PARAMETER_NAMES = frozenset({
+    "input_images",
+    "input_image",
+    "start_image",
+    "source_image",
+    "image",
+    "input_videos",
+    "input_video",
+    "input_audios",
+    "input_audio",
+    "mask",
+})
+PARAMETER_OUTLINE_KEYS = (
+    "type",
+    "minItems",
+    "maxItems",
+    "x-min-items",
+    "x-max-items",
+    "x-control",
+    "x-accept-media",
+)
+
+
+class ProviderToolSummaryResponse(BaseModel):
+    """A catalog entry without the tool's schemas (``view=summary``).
+
+    Launcher and picker surfaces render only this; the full tool, schemas
+    included, comes from ``/provider-tool/{full_tool_id}`` when it is opened.
+    ``parameter_outline`` keeps the tool's media parameters with only the
+    structural keys send-to menus check (``PARAMETER_OUTLINE_KEYS``), shaped
+    like a parameter schema: ``{"properties": {name: {...}}}``.
+    """
+    model_config = ConfigDict(protected_namespaces=())
+
+    full_tool_id: str
+    tool_id: str
+    name: str
+    task_type: Optional[str]
+    task_types: List[str] = []
+    provider_id: str
+    provider_name: str
+    metadata: Dict = {}
+    subtitle: Optional[str] = None
+    model_vendor: Optional[str] = None
+    model: Optional[str] = None
+    availability: str = "available"
+    preview_frames: bool = False
+    parameter_outline: Dict = {}
+
+
+def summarize_provider_tool(tool: ProviderToolResponse) -> ProviderToolSummaryResponse:
+    """Project a full catalog entry onto what catalog surfaces render."""
+    properties = (tool.parameter_schema or {}).get("properties")
+    outline = {}
+    if isinstance(properties, dict):
+        for name, schema in properties.items():
+            schema = schema if isinstance(schema, dict) else {}
+            if name in OUTLINE_PARAMETER_NAMES or "x-accept-media" in schema:
+                outline[name] = {key: schema[key] for key in PARAMETER_OUTLINE_KEYS if key in schema}
+    metadata = tool.metadata or {}
+    return ProviderToolSummaryResponse(
+        full_tool_id=tool.full_tool_id,
+        tool_id=tool.tool_id,
+        name=tool.name,
+        task_type=tool.task_type,
+        task_types=tool.task_types,
+        provider_id=tool.provider_id,
+        provider_name=tool.provider_name,
+        metadata={key: metadata[key] for key in SUMMARY_METADATA_KEYS if key in metadata},
+        subtitle=tool.subtitle,
+        model_vendor=tool.model_vendor,
+        model=tool.model,
+        availability=tool.availability,
+        preview_frames=tool.preview_frames,
+        # No properties at all (as opposed to no media ones) stays distinguishable.
+        parameter_outline={"properties": outline} if isinstance(properties, dict) else {},
+    )
 
 
 class PinnedToolResponse(BaseModel):
@@ -279,11 +377,15 @@ async def test_connection(request: TestConnectionRequest):
     )
 
 
-@router.get("/providers/tools", response_model=List[ProviderToolResponse])
+@router.get(
+    "/providers/tools",
+    response_model=Union[List[ProviderToolResponse], List[ProviderToolSummaryResponse]],
+)
 async def list_provider_tools(
     task_type: Optional[str] = Query(None, description="Filter by task type. Use 'utility' for tools without a task type. Tool matches if ANY of its task_types match."),
     provider_id: Optional[str] = Query(None, description="Filter by provider ID"),
     include_unavailable: bool = Query(True, description="Include tools from disconnected providers"),
+    view: Literal["full", "summary"] = Query("full", description="'summary' omits the tools' schemas and layouts; fetch a full tool from /provider-tool/{full_tool_id}"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """List all tools from all providers.
@@ -291,7 +393,20 @@ async def list_provider_tools(
     Use task_type="utility" to get tools without a declared task_type (utility tools).
     When filtering by task_type, tools match if ANY of their task_types match the filter.
     When include_unavailable=True, also includes cached tools from disconnected providers.
+    With view="summary", each entry is a ProviderToolSummaryResponse.
     """
+    tools = await _list_provider_tools(task_type, provider_id, include_unavailable, session)
+    if view == "summary":
+        return [summarize_provider_tool(tool) for tool in tools]
+    return tools
+
+
+async def _list_provider_tools(
+    task_type: Optional[str],
+    provider_id: Optional[str],
+    include_unavailable: bool,
+    session: AsyncSession,
+) -> List[ProviderToolResponse]:
     from providers import ProviderRegistry
     from database import CachedProviderTool
 

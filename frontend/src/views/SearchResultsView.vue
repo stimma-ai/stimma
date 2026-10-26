@@ -338,7 +338,7 @@ import {
   type EntitySearchHit,
   type MediaSearchHit,
   type SearchResultKind, assetDisplayTitle, type AssetGroup } from '../composables/useGlobalSearch'
-import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../composables/useProvidersApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { formatRelativeTime } from '../utils/timeFormat'
@@ -393,7 +393,7 @@ function clearScope() {
 const loading = ref(false)
 const showSkeleton = computed(() => loading.value && totalCount.value === 0)
 const entityResults = ref<EntitySearchResults | null>(null)
-const toolResults = ref<ProviderTool[]>([])
+const toolResults = ref<ProviderToolSummary[]>([])
 const assetGroups = ref<AssetGroup[]>([])
 // Flat view of every grouped text match: the slideshow walks this list.
 const promptResults = computed<MediaSearchHit[]>(() => assetGroups.value.flatMap(group => group.items))

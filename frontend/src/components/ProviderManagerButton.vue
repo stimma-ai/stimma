@@ -110,7 +110,7 @@ type ManagedProvider = Provider
 
 defineProps<{ showSeparator?: boolean }>()
 
-const { listProviders, cachedProviders, subscribeToProviderChanges } = useProvidersApi()
+const { listProviders, fetchProvidersAndTools, cachedProviders, subscribeToProviderChanges } = useProvidersApi()
 const { on, off } = useWebSocket()
 const { resolvedTheme } = useTheme()
 const { isCompact } = useViewport()
@@ -197,8 +197,13 @@ function frameSrc(p: ManagedProvider) {
   return `${base}/provider-manage/${encodeURIComponent(p.provider_id)}/?theme=${theme}${anchor.value ? '#' + anchor.value : ''}`
 }
 
-async function refresh() {
-  try { providers.value = (await listProviders()) as ManagedProvider[] } catch { /* keep last */ }
+// Mount and provider changes share the app's catalog read; a provider this
+// list has never seen reads the providers afresh.
+async function refresh({ fresh = false } = {}) {
+  try {
+    const list = fresh ? await listProviders() : (await fetchProvidersAndTools()).providers
+    providers.value = list as ManagedProvider[]
+  } catch { /* keep last */ }
 }
 function toggle(id: string, tab?: string) {
   if (openId.value === id && !tab) { openId.value = null; return }
@@ -232,7 +237,7 @@ function handleStateChanged(data: { provider_id: string; state: string; summary?
     p.state_summary = data.summary ?? null
     p.attention = data.attention ?? null
   }
-  else refresh()
+  else refresh({ fresh: true })
 }
 function handleNotification(data: { provider_id: string; provider_name?: string; level: string; title: string; body?: string | null; action?: string | null; anchor?: string | null }) {
   const type = data.level === 'error' ? 'error' : data.level === 'warning' ? 'warning' : 'info'

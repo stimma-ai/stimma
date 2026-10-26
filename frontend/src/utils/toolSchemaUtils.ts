@@ -3,8 +3,28 @@
  * Used by send-to functionality to filter tools based on selection count.
  */
 
-import type { ProviderTool } from '../composables/useProvidersApi'
 import type { MediaType } from './mediaTypes'
+
+/** A full tool, or a catalog summary that carries only its parameter outline. */
+export interface ToolSchemaSource {
+  parameter_schema?: Record<string, any>
+  parameter_outline?: { properties?: Record<string, any> }
+}
+
+/**
+ * A tool's parameter properties: from its full schema, else from a catalog
+ * summary's outline. The outline keeps only the media slots and the keys
+ * send-to checks read (type, item limits, x-control, x-accept-media), so it
+ * answers these media questions the way the full schema would — and nothing
+ * else (no defaults, enums or other parameters). Null when neither exists.
+ */
+export function toolParameterProperties(tool: ToolSchemaSource | null | undefined): Record<string, any> | null {
+  const full = tool?.parameter_schema?.properties
+  if (full && typeof full === 'object') return full
+  if (tool?.parameter_schema) return null
+  const outline = tool?.parameter_outline?.properties
+  return outline && typeof outline === 'object' ? outline : null
+}
 
 export interface MultiInputInfo {
   supportsMultiInput: boolean
@@ -22,10 +42,8 @@ export interface MultiInputInfo {
  * 1. Array-type properties (input_images, input_videos) with minItems/maxItems
  * 2. Multiple separate image/video input properties (start_image, end_image, etc.)
  */
-export function analyzeToolMultiInputCapability(tool: ProviderTool): MultiInputInfo {
-  const schema = tool.parameter_schema
-  const properties = schema?.properties || {}
-  const required = schema?.required || []
+export function analyzeToolMultiInputCapability(tool: ToolSchemaSource): MultiInputInfo {
+  const properties = toolParameterProperties(tool) || {}
 
   // Pattern 1: Check for array-type input properties. Visual inputs are matched
   // before audio so avatar/lip-sync (visual + audio) report their visual input.
@@ -65,8 +83,8 @@ export function analyzeToolMultiInputCapability(tool: ProviderTool): MultiInputI
  * Whether the tool requires a mask input (inpaint-style). Mask tools are
  * excluded from simple batch mode until there is a per-item mask design.
  */
-export function toolRequiresMask(tool: ProviderTool): boolean {
-  const props = tool.parameter_schema?.properties || {}
+export function toolRequiresMask(tool: ToolSchemaSource): boolean {
+  const props = toolParameterProperties(tool) || {}
   return 'mask' in props
 }
 
@@ -74,14 +92,14 @@ export function toolRequiresMask(tool: ProviderTool): boolean {
  * Field names the current media-batch MVP can execute as the batched slot.
  * Keep this narrow so send-to eligibility matches ToolView and backend support.
  */
-export function getBatchableMediaField(tool: ProviderTool): 'input_images' | 'input_videos' | null {
-  const props = tool.parameter_schema?.properties || {}
+export function getBatchableMediaField(tool: ToolSchemaSource): 'input_images' | 'input_videos' | null {
+  const props = toolParameterProperties(tool) || {}
   if ('input_videos' in props) return 'input_videos'
   if ('input_images' in props && props.input_images?.['x-control'] !== 'video_frame_picker') return 'input_images'
   return null
 }
 
-export function getBatchableMediaType(tool: ProviderTool): 'image' | 'video' | null {
+export function getBatchableMediaType(tool: ToolSchemaSource): 'image' | 'video' | null {
   const field = getBatchableMediaField(tool)
   if (field === 'input_videos') return 'video'
   if (field === 'input_images') return 'image'
@@ -92,8 +110,8 @@ export function getBatchableMediaType(tool: ProviderTool): 'image' | 'video' | n
  * The media type a single-input tool accepts, inferred from its schema.
  * Returns null when undetermined.
  */
-export function getSingleInputMediaType(tool: ProviderTool): 'image' | 'video' | null {
-  const props = tool.parameter_schema?.properties || {}
+export function getSingleInputMediaType(tool: ToolSchemaSource): 'image' | 'video' | null {
+  const props = toolParameterProperties(tool) || {}
   if ('input_videos' in props || 'input_video' in props) return 'video'
   if ('input_images' in props || 'input_image' in props || 'start_image' in props || 'source_image' in props || 'image' in props) {
     return 'image'
@@ -114,7 +132,7 @@ export function getSingleInputMediaType(tool: ProviderTool): 'image' | 'video' |
  * @returns Object with valid boolean and optional reason string
  */
 export function isSelectionValidForTool(
-  tool: ProviderTool,
+  tool: ToolSchemaSource,
   selectedCount: number,
   mediaType: MediaType
 ): { valid: boolean; reason?: string } {
@@ -175,7 +193,7 @@ export function isSelectionValidForTool(
  * Get a human-readable hint about a tool's multi-input constraints.
  * Returns null for single-input tools.
  */
-export function getMultiInputHint(tool: ProviderTool): string | null {
+export function getMultiInputHint(tool: ToolSchemaSource): string | null {
   const info = analyzeToolMultiInputCapability(tool)
   if (!info.supportsMultiInput) return null
 

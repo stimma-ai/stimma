@@ -257,7 +257,7 @@ import { recentEntities, type RecentEntity } from '../../composables/useRecentEn
 import { useWorkingContext } from '../../composables/useWorkingContext'
 import { countOutside, outsideLabel, recentsInScope, type OutsideCount } from '../../utils/searchScope'
 import { toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
-import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { useProvidersApi, type ProviderToolSummary } from '../../composables/useProvidersApi'
 import { supported as voiceSupported } from '../../composables/useVoiceInput'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
@@ -344,12 +344,12 @@ const injectedProjectScope = inject<ComputedRef<{ id: number; name: string } | n
 const scopeProject = ref<{ id: number; name: string } | null>(null)
 
 const entityResults = ref<EntitySearchResults | null>(null)
-const toolResults = ref<ProviderTool[]>([])
+const toolResults = ref<ProviderToolSummary[]>([])
 const openInstanceResults = ref<WorkspaceTab[]>([])
 const assetGroupResults = ref<AssetGroup[]>([])
 const visualMediaResults = ref<MediaSearchHit[]>([])
 const contextualMediaResults = ref<Array<MediaSearchHit & { root_kind: string; root_id: string }>>([])
-const toolById = ref<Map<string, ProviderTool>>(new Map())
+const toolById = ref<Map<string, ProviderToolSummary>>(new Map())
 const recents = ref<RecentEntity[]>([])
 const outside = ref<OutsideCount | null>(null)
 
@@ -664,7 +664,7 @@ function toolForIcon(item: SelectableItem): any {
   const id = item.kind === 'tool-instance' ? item.data?.entityId : item.data?.full_tool_id
   const catalogTool = id ? toolById.value.get(id) : undefined
   if (catalogTool) return catalogTool
-  if (item.data?.provider_id) return item.data // search results carry the full ProviderTool
+  if (item.data?.provider_id) return item.data // search results are catalog summaries
   return { id, full_tool_id: id, task_types: [] }
 }
 
