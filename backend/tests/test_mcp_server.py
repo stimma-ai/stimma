@@ -806,7 +806,8 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
                     )
                 )
 
-    manager.active_connections.append(Receiver())
+    receiver = Receiver()
+    manager.attach(receiver)
 
     async def change(session):
         board = Board(name="Committed before broadcast")
@@ -818,6 +819,8 @@ async def test_atomic_mutation_broadcasts_only_after_commit(mcp_http):
 
     with ProfileScope("default"):
         await mutate(caller, "test_broadcast", "receipt-with-broadcast", {}, change)
+        await manager.drain()
+    await manager.disconnect(receiver)
     assert delivered == ["Committed before broadcast"]
 
 

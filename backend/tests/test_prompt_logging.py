@@ -16,7 +16,7 @@ async def test_websocket_broadcast_logs_payload_shape_without_content():
     secret_prompt = "PRIVATE PROMPT sentinel-broadcast-93817"
     manager = WebSocketManager()
     socket = AsyncMock()
-    manager.active_connections.append(socket)
+    manager.attach(socket)
 
     with patch("utils.websocket.log") as mock_log:
         await manager.broadcast(
@@ -31,6 +31,8 @@ async def test_websocket_broadcast_logs_payload_shape_without_content():
             },
             include_profile=False,
         )
+        await manager.drain()
+    await manager.disconnect(socket)
 
     assert secret_prompt not in _logged_text(mock_log)
     mock_log.info.assert_called_once_with(

@@ -34,9 +34,11 @@ async def test_send_to_logs_without_shadowing_structlogs_event_field():
 async def test_broadcast_logs_without_shadowing_structlogs_event_field():
     manager = WebSocketManager()
     ws = FakeWebSocket()
-    manager.active_connections.append(ws)
+    manager.attach(ws)
 
     await manager.broadcast("media_added", {"media_id": 1})
+    await manager.drain()
+    await manager.disconnect(ws)
 
     assert len(ws.sent) == 1
     assert '"event": "media_added"' in ws.sent[0]

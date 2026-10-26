@@ -13,12 +13,16 @@ async def test_generator_message_is_sent_only_to_registered_socket():
     manager = WebSocketManager()
     socket_a = _Socket()
     socket_b = _Socket()
-    manager.active_connections.extend([socket_a, socket_b])
+    manager.attach(socket_a)
+    manager.attach(socket_b)
     manager.register_generator_instance(socket_a, "generator-a")
     manager.register_generator_instance(socket_b, "generator-b")
 
     assert await manager.send_to_generator_instance(
         "generator-b", "generation_request_work", {"reservation_id": "one"}
     ) is True
+    await manager.drain()
     assert socket_a.messages == []
     assert len(socket_b.messages) == 1
+    await manager.disconnect(socket_a)
+    await manager.disconnect(socket_b)

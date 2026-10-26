@@ -807,9 +807,11 @@ class TestProjectActivity:
                 pass
 
         manager = WebSocketManager()
-        manager.active_connections.append(_Socket())
+        socket = _Socket()
+        manager.attach(socket)
         await manager.broadcast("media_added", {})
         assert calls == []
         for event in ("generation_job_started", "agent_stopped", "flow_equation_updated"):
             await manager.broadcast(event, {})
         assert len(calls) == 3
+        await manager.disconnect(socket)
