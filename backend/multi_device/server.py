@@ -29,6 +29,7 @@ import app_dirs
 from core.logging import get_logger
 
 from .auth import AuthError, ensure_own_account_uid, issue_session, verify_firebase_token, verify_session
+from .compression import JsonCompression
 
 log = get_logger(__name__)
 
@@ -124,7 +125,8 @@ class ServingGate:
     """ASGI wrapper enforcing session auth on every request and socket."""
 
     def __init__(self, app, device_id_provider):
-        self.app = app
+        # Remote links pay for every byte; loopback stays uncompressed.
+        self.app = JsonCompression(app)
         self.device_id_provider = device_id_provider
 
     async def __call__(self, scope, receive, send):

@@ -140,10 +140,12 @@ class PooledProxyTest {
         val recorded = server.takeRequest()
         assertEquals("/api/settings?x=1&y=%20", recorded.path)
         assertEquals("Bearer alpha-session", recorded.getHeader("Authorization"))
-        for (name in listOf("Cookie", "Origin", "Referer", "Sec-Fetch-Site", "X-Forwarded-For", "X-Private", "TE", "User-Agent", "Accept-Encoding")) {
+        for (name in listOf("Cookie", "Origin", "Referer", "Sec-Fetch-Site", "X-Forwarded-For", "X-Private", "TE", "User-Agent")) {
             assertNull(name, recorded.getHeader(name))
         }
         assertEquals("application/json", recorded.getHeader("Accept"))
+        // Content coding is the WebView's to negotiate; the proxy forwards its offer unchanged.
+        assertEquals("gzip, deflate, br", recorded.getHeader("Accept-Encoding"))
         // Compressed bytes pass through untouched: OkHttp did not decode them, and the encoding header survives.
         assertEquals("gzip", reply.header("content-encoding"))
         assertArrayEquals(gzipped, reply.body)
@@ -193,6 +195,112 @@ class PooledProxyTest {
         assertEquals("chunked", reply.header("transfer-encoding"))
         assertNull(reply.header("content-length"))
         assertEquals("x".repeat(100000), reply.body.toString(Charsets.UTF_8))
+    }
+
+    private fun gzip(bytes: ByteArray) = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
+    private fun gunzip(bytes: ByteArray) = java.util.zip.GZIPInputStream(bytes.inputStream()).readBytes()
+
+    /**
+     * A server that negotiates like the remote listener: complete JSON is
+     * gzipped only for a client that offers gzip, with Vary and a weakened
+     * validator; ranges, media and streams stay identity.
+     */
+    private fun negotiatingServer(json: ByteArray, media: ByteArray) = tlsServer().also { server ->
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val offer = request.getHeader("Accept-Encoding").orEmpty()
+                val gzipOk = offer.split(',').any { it.trim().substringBefore(';').trim() == "gzip" && !it.replace(" ", "").contains("q=0") }
+                return when (request.path) {
+                    "/api/chats/1/items" -> when {
+                        request.getHeader("If-None-Match") == "W/\"items-v1\"" -> MockResponse().setResponseCode(304).setHeader("ETag", "W/\"items-v1\"").setHeader("Vary", "Accept-Encoding")
+                        gzipOk -> MockResponse().setBody(Buffer().write(gzip(json))).setHeader("Content-Type", "application/json")
+                            .setHeader("Content-Encoding", "gzip").setHeader("Vary", "Accept-Encoding").setHeader("ETag", "W/\"items-v1\"")
+                        else -> MockResponse().setBody(Buffer().write(json)).setHeader("Content-Type", "application/json")
+                            .setHeader("Vary", "Accept-Encoding").setHeader("ETag", "\"items-v1\"")
+                    }
+                    "/api/media/1/file" -> {
+                        val range = request.getHeader("Range")
+                        if (range == "bytes=10-19") MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 10-19/${media.size}")
+                            .setHeader("Content-Type", "video/mp4").setBody(Buffer().write(media.copyOfRange(10, 20)))
+                        else MockResponse().setHeader("Content-Type", "video/mp4").setHeader("Accept-Ranges", "bytes").setBody(Buffer().write(media))
+                    }
+                    "/api/export" -> MockResponse().setHeader("Content-Type", "application/json").setChunkedBody(Buffer().write(json), 1024)
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+    }
+
+    @Test fun compressedJsonReachesTheWebViewEncodedAndCorrectlyFramed() {
+        val json = ("""{"items":[""" + (0 until 600).joinToString(",") { """{"id":$it,"text":"a repetitive chat body"}""" } + "]}").toByteArray()
+        val media = ByteArray(4096) { (it * 31).toByte() }
+        val server = negotiatingServer(json, media)
+        attach(server)
+        val chromium = "Accept-Encoding: gzip, deflate, br, zstd\r\n"
+
+        // The WebView offers gzip: the compressed body arrives byte for byte, framed by its own
+        // length, with the encoding and validator that describe those bytes. The WebView decodes it.
+        val compressed = get("/api/chats/1/items", chromium)
+        assertEquals("200", compressed.status)
+        assertEquals("gzip, deflate, br, zstd", server.takeRequest().getHeader("Accept-Encoding"))
+        assertEquals("gzip", compressed.header("content-encoding"))
+        assertEquals(compressed.body.size.toString(), compressed.header("content-length"))
+        assertNull(compressed.header("transfer-encoding"))
+        assertTrue(compressed.body.size < json.size / 5)
+        assertArrayEquals(json, gunzip(compressed.body))
+        assertEquals("Accept-Encoding", compressed.header("vary"))
+        assertEquals("W/\"items-v1\"", compressed.header("etag"))
+
+        // Revalidation with that validator is a bodiless 304 that leaves the connection reusable.
+        val revalidated = get("/api/chats/1/items", "${chromium}If-None-Match: W/\"items-v1\"\r\n")
+        assertEquals("304", revalidated.status)
+        assertNull(revalidated.header("content-encoding"))
+        assertEquals(0, revalidated.body.size)
+        server.takeRequest()
+
+        // A request without an offer is identity on the wire: OkHttp neither asks for gzip nor decodes.
+        val plain = get("/api/chats/1/items")
+        assertEquals("identity", server.takeRequest().getHeader("Accept-Encoding"))
+        assertNull(plain.header("content-encoding"))
+        assertArrayEquals(json, plain.body)
+        assertEquals(json.size.toString(), plain.header("content-length"))
+
+        // Media ranges keep Chromium's identity-only offer and their exact bytes.
+        val range = get("/api/media/1/file", "Accept-Encoding: identity;q=1, *;q=0\r\nRange: bytes=10-19\r\n")
+        val rangeRequest = server.takeRequest()
+        assertEquals("identity;q=1, *;q=0", rangeRequest.getHeader("Accept-Encoding"))
+        assertEquals("bytes=10-19", rangeRequest.getHeader("Range"))
+        assertEquals("206", range.status)
+        assertEquals("bytes 10-19/4096", range.header("content-range"))
+        assertNull(range.header("content-encoding"))
+        assertArrayEquals(media.copyOfRange(10, 20), range.body)
+        val whole = get("/api/media/1/file", chromium)
+        server.takeRequest()
+        assertNull(whole.header("content-encoding"))
+        assertArrayEquals(media, whole.body)
+
+        // A streamed body is still re-chunked, not decoded or buffered.
+        val streamed = get("/api/export", chromium)
+        server.takeRequest()
+        assertEquals("chunked", streamed.header("transfer-encoding"))
+        assertNull(streamed.header("content-encoding"))
+        assertArrayEquals(json, streamed.body)
+
+        // Every exchange shared the one pooled connection.
+        assertEquals(1, transport.target!!.pooledConnections)
+        waitFor { transport.inFlightCalls == 0 }
+    }
+
+    @Test fun nativeCallsDecodeCompressedResponsesTransparently() {
+        // The shell's own reads (manifest, profiles) use OkHttp's negotiation; size limits apply to decoded bytes.
+        val server = tlsServer()
+        val json = """{"profiles":[${(0 until 200).joinToString(",") { """{"id":"p$it"}""" }}]}""".toByteArray()
+        server.enqueue(MockResponse().setBody(Buffer().write(gzip(json))).setHeader("Content-Encoding", "gzip"))
+        server.enqueue(MockResponse().setBody(Buffer().write(gzip(json))).setHeader("Content-Encoding", "gzip"))
+        val session = PinnedServer("127.0.0.1", server.port, pin, "s")
+        assertArrayEquals(json, session.bytes("/api/profiles", json.size))
+        assertEquals("gzip", server.takeRequest().getHeader("Accept-Encoding"))
+        assertThrows(IllegalArgumentException::class.java) { session.bytes("/api/profiles", json.size - 1) }
     }
 
     @Test fun redirectsAreNeverFollowedAndOnlyProviderPanelsMayRedirectLocally() {

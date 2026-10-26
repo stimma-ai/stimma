@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import net from 'node:net'
 import path from 'node:path'
+import zlib from 'node:zlib'
 
 import { DEVICE_SESSION_HEADER, forwardHeaders, getProxyPort, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
 import { makeScratchDir } from './scratch.mjs'
@@ -160,6 +161,57 @@ test('forwards method, path, headers, and ranged responses', async () => {
   assert.equal(res.status, 206)
   assert.equal(res.headers['content-range'], 'bytes 0-3/1024')
   assert.equal(res.body, 'abcd')
+
+  stopProxy()
+  await closeUpstream(up)
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('passes negotiated compression through byte for byte', async () => {
+  // Remote servers gzip substantial JSON for clients that offer it. The
+  // renderer negotiates and decodes; the proxy must forward its offer and the
+  // encoded bytes with the headers that describe them.
+  const dir = tmpDir()
+  const json = Buffer.from(JSON.stringify({ items: Array.from({ length: 300 }, (_, id) => ({ id, text: 'repetitive chat body' })) }))
+  const gzipped = zlib.gzipSync(json)
+  const offers: (string | undefined)[] = []
+  const up = await upstream((req, res) => {
+    offers.push(req.headers['accept-encoding'])
+    const gzipOk = /\bgzip\b/.test(req.headers['accept-encoding'] ?? '')
+    const body = gzipOk ? gzipped : json
+    res.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': String(body.length),
+      vary: 'Accept-Encoding',
+      ...(gzipOk ? { 'content-encoding': 'gzip' } : {}),
+    })
+    res.end(body)
+  })
+
+  const port = await startProxy(dir)
+  setProxyTarget({ host: '127.0.0.1', port: up.port })
+
+  const fetchRaw = (headers: Record<string, string>) => new Promise<{ headers: http.IncomingHttpHeaders; body: Buffer }>((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/chats/1/items', headers }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+
+  const compressed = await fetchRaw({ 'accept-encoding': 'gzip, deflate, br' })
+  assert.equal(offers[0], 'gzip, deflate, br')
+  assert.equal(compressed.headers['content-encoding'], 'gzip')
+  assert.equal(compressed.headers['content-length'], String(gzipped.length))
+  assert.equal(compressed.headers.vary, 'Accept-Encoding')
+  assert.deepEqual(compressed.body, gzipped)
+  assert.deepEqual(zlib.gunzipSync(compressed.body), json)
+
+  const plain = await fetchRaw({ 'accept-encoding': 'identity' })
+  assert.equal(plain.headers['content-encoding'], undefined)
+  assert.deepEqual(plain.body, json)
 
   stopProxy()
   await closeUpstream(up)

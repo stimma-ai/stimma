@@ -287,17 +287,16 @@ private class LocalUploadAborted(cause: Throwable? = null) : IOException(cause)
 private class ProxiedRequest(val userAgent: Boolean)
 
 /**
- * Keeps the proxied wire request what the proxy asked for. The proxy sets
- * `Accept-Encoding: identity` only so OkHttp neither adds gzip nor decodes
- * transparently; the header itself is removed, as the proxy has always done.
- * OkHttp's default User-Agent is removed when the WebView sent none.
+ * Keeps the proxied wire request what the WebView asked for: OkHttp's default
+ * User-Agent is removed when the WebView sent none. Accept-Encoding is always
+ * set explicitly by the proxy (see [MobileTransport]), so OkHttp never adds
+ * gzip of its own and never decodes a body behind the WebView's back.
  */
 internal object ProxyWireHeaders : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val tag = chain.request().tag(ProxiedRequest::class.java) ?: return chain.proceed(chain.request())
-        val request = chain.request().newBuilder().removeHeader("Accept-Encoding")
-        if (!tag.userAgent) request.removeHeader("User-Agent")
-        return chain.proceed(request.build())
+        if (tag.userAgent) return chain.proceed(chain.request())
+        return chain.proceed(chain.request().newBuilder().removeHeader("User-Agent").build())
     }
 }
 
@@ -326,7 +325,7 @@ private class UploadBody(private val input: InputStream, private val length: Lon
 private val CRLF = "\r\n".toByteArray()
 /** Never forwarded upstream: browser credentials and context, hop-by-hop fields, and framing OkHttp writes itself. */
 private val REQUEST_EXCLUDED = setOf("host", "authorization", "cookie", "origin", "proxy-connection", "proxy-authorization", "forwarded", "referer",
-    "accept-encoding", "connection", "keep-alive", "te", "trailer", "transfer-encoding", "upgrade", "content-length")
+    "connection", "keep-alive", "te", "trailer", "transfer-encoding", "upgrade", "content-length")
 /** Never forwarded to the WebView: server cookies and policy the proxy sets itself, and hop-by-hop fields. */
 private val RESPONSE_EXCLUDED = setOf("set-cookie", "content-security-policy", "access-control-allow-origin", "access-control-allow-credentials",
     "connection", "keep-alive", "proxy-connection", "te", "trailer", "transfer-encoding", "upgrade")
@@ -521,7 +520,12 @@ class MobileTransport(
             headers.addUnsafeNonAscii(name, value.toByteArray(Charsets.ISO_8859_1).toString(Charsets.UTF_8))
         }
         if (remote.session.isNotEmpty()) headers.set("Authorization", "Bearer ${remote.session}")
-        headers.set("Accept-Encoding", "identity")
+        // Content coding is negotiated end to end between the WebView and the server, and encoded
+        // bytes pass through as they are: the WebView decodes them, so Content-Encoding,
+        // Content-Length and ETag stay true of the bytes it receives, and ranged media keeps the
+        // identity coding the WebView asks for. OkHttp only decodes transparently when it chose the
+        // coding itself; an explicit header (identity when the WebView sent none) rules that out.
+        if (request.fields.none { it.first == "accept-encoding" }) headers.set("Accept-Encoding", "identity")
         val url = remote.base.newBuilder().encodedPath(request.target.substringBefore('?'))
             .encodedQuery(if ('?' in request.target) request.target.substringAfter('?') else null).build()
         val call = remote.proxyClient.newCall(Request.Builder().url(url).headers(headers.build())
