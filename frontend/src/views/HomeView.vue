@@ -180,20 +180,21 @@
                   </div>
                   <!-- Flow: filmstrip of surfaced output media -->
                   <div
-                    v-else-if="item.type === 'flow' && getFlowPreviewMediaIds(item.id).length > 0"
+                    v-else-if="item.type === 'flow' && getFlowPreviewMedia(item.id).length > 0"
                     class="flex w-full h-full gap-0.5"
                   >
                     <div
-                      v-for="mid in getFlowPreviewMediaIds(item.id)"
-                      :key="`${item.id}-${mid}`"
+                      v-for="media in getFlowPreviewMedia(item.id)"
+                      :key="`${item.id}-${media.media_id}`"
                       class="flex-1 min-w-0 h-full overflow-hidden"
                     >
                       <MediaImage
-                        :media-id="mid"
+                        :media-id="media.media_id"
+                        :file-hash="media.file_hash || undefined"
                         :thumbnail="true"
                         :thumbnail-size="256"
                         thumbnail-mode="fit"
-                        :object-position="faceObjectPosition(mid)"
+                        :object-position="faceObjectPosition(media.media_id)"
                         :draggable="false"
                         :enable-context-menu="false"
                         container-class="w-full h-full"
@@ -287,6 +288,7 @@
 <script setup>
 import { useEntityMove } from '../composables/useEntityMove'
 import { fetchScopedJson } from '../utils/scopedList'
+import { fetchHomeRecents } from '../utils/homeRecents'
 import { useViewport } from '../composables/useViewport'
 import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -374,8 +376,11 @@ const recentChats = ref([])
 const recentMedia = ref([])
 const recentBoards = ref([])
 const recentFlows = ref([])
-const flowOutputMedia = ref(new Map()) // flow_id -> [media_id, ...] newest-first
+const flowOutputMedia = ref(new Map()) // flow_id -> [{ media_id, file_hash? }, ...]
 const boardDetails = ref(new Map())
+// The scope has boards, flows, or chats even though none made a card (the
+// compact read skips empty ones), so this is not a first run.
+const scopeHasEntities = ref(false)
 // 'loading' until the recent chats/boards/flows/assets lists settle, then
 // 'ready', or 'error' when any of them failed. Artwork is not part of it.
 const recentsState = ref('loading')
@@ -419,6 +424,7 @@ function hasChatMedia(chat) {
 // flows, or library media — i.e. a fresh install right after onboarding.
 const isFirstRun = computed(() =>
   recentsState.value === 'ready'
+  && !scopeHasEntities.value
   && recentChats.value.length === 0
   && recentBoards.value.length === 0
   && recentFlows.value.length === 0
@@ -661,14 +667,85 @@ async function loadFlowArtwork(flows, isCurrent) {
     if (result.status !== 'fulfilled') return
     const byKey = new Map()
     for (const eq of result.value) byKey.set(eq.equation_key, eq)
-    next.set(flows[index].id, computeFlowOutputs(byKey).map((o) => o.mediaId))
+    next.set(flows[index].id, computeFlowOutputs(byKey).map((o) => ({ media_id: o.mediaId })))
   })
   flowOutputMedia.value = next
-  requestFaceFocalPoints([...next.values()].flatMap((ids) => ids.slice(0, 3)))
+  requestFaceFocalPoints([...next.values()].flatMap((media) => media.slice(0, 3).map((m) => m.media_id)))
 }
 
-function getFlowPreviewMediaIds(flowId) {
+function getFlowPreviewMedia(flowId) {
   return (flowOutputMedia.value.get(flowId) || []).slice(0, 3)
+}
+
+// ==================== Compact recents ====================
+
+// Cards "Jump back in" can show at once (three wide, two on phones).
+const JUMP_BACK_IN_LIMIT = 3
+// Servers (by origin) that predate the compact read; Home uses the general
+// lists there. Forgotten when the connection drops, since a server can be
+// updated while it is away.
+const compactRecentsUnsupported = new Set()
+
+function backendKey() {
+  return getBackendOrigin() || window.location.origin
+}
+
+// The newest boards, flows, and chats with just their card artwork, chosen
+// by the server. Resolves null when the server lacks this read.
+async function loadCompactRecents(isCurrent) {
+  try {
+    const data = await withReadDeadline(signal => fetchHomeRecents(projectId.value, { limit: JUMP_BACK_IN_LIMIT, signal }))
+    if (data === null) return null
+    if (!isCurrent()) return true
+    const boards = []
+    const flows = []
+    const chats = []
+    const flowMedia = new Map()
+    for (const item of data.items) {
+      if (item.type === 'board' && item.board) boards.push(item.board)
+      else if (item.type === 'flow' && item.flow) {
+        flows.push(item.flow)
+        flowMedia.set(item.flow.id, item.flow.preview_media || [])
+      } else if (item.type === 'chat' && item.chat) chats.push(item.chat)
+    }
+    recentBoards.value = boards
+    recentFlows.value = flows
+    recentChats.value = chats
+    boardDetails.value = new Map()
+    flowOutputMedia.value = flowMedia
+    scopeHasEntities.value = !!data.has_entities
+    requestFaceFocalPoints([
+      ...boards.flatMap((board) => (board.preview_items || []).map((it) => mediaIdOf(it))),
+      ...[...flowMedia.values()].flatMap((media) => media.map((m) => m.media_id)),
+      ...chats.map((chat) => chat.recent_media?.[0]?.media_id),
+    ])
+    return true
+  } catch (err) {
+    console.error('Failed to load recents:', err)
+    return false
+  }
+}
+
+// Loads the "Jump back in" lists and resolves the names of any that failed.
+async function loadJumpBackIn(isCurrent) {
+  const origin = backendKey()
+  if (!compactRecentsUnsupported.has(origin)) {
+    const loaded = await loadCompactRecents(isCurrent)
+    if (loaded !== null) return loaded ? [] : ['chats', 'boards', 'flows']
+    compactRecentsUnsupported.add(origin)
+  }
+  if (isCurrent()) scopeHasEntities.value = false
+  const names = ['chats', 'boards', 'flows']
+  const results = await Promise.all([loadRecentChats(isCurrent), loadRecentBoards(isCurrent), loadRecentFlows(isCurrent)])
+  return names.filter((_, index) => !results[index])
+}
+
+// Reload the cards after this window changed one of them.
+function reloadJumpBackIn(kind) {
+  if (!compactRecentsUnsupported.has(backendKey())) return loadJumpBackIn(homeLoads.guard())
+  if (kind === 'board') return loadRecentBoards()
+  if (kind === 'flow') return loadRecentFlows()
+  return loadRecentChats()
 }
 
 async function loadRecentMedia(isCurrent = homeLoads.guard()) {
@@ -841,9 +918,7 @@ const moveEntityToProject = useEntityMove()
 async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
   if (!['board', 'flow', 'chat'].includes(entityType)) return
   if (!await moveEntityToProject(entityType, entityId, projectId)) return
-  if (entityType === 'board') await loadRecentBoards()
-  else if (entityType === 'flow') await loadRecentFlows()
-  else await loadRecentChats()
+  await reloadJumpBackIn(entityType)
 }
 
 function handleContextMenuDelete(entityType, entityId) {
@@ -955,13 +1030,14 @@ async function handleBoardDrop(boardId, event) {
   try {
     if (assetIds.length > 0) await addAssetsToBoard(boardId, assetIds)
     else await addMediaToBoard(boardId, mediaIds)
-    await loadRecentBoards()
+    await reloadJumpBackIn('board')
   } catch (err) {
     console.error('Failed to add media to board:', err)
   }
 }
 
 function getBoardPreviewItems(board) {
+  if (board.preview_items) return board.preview_items.slice(0, 6)
   const detail = boardDetails.value.get(board.id)
   if (!detail?.sections) return []
 
@@ -1060,6 +1136,7 @@ function resetHomeData() {
   recentFlows.value = []
   flowOutputMedia.value = new Map()
   boardDetails.value = new Map()
+  scopeHasEntities.value = false
   recentsState.value = 'loading'
   failedRecents.value = []
 }
@@ -1070,14 +1147,8 @@ function refreshHome({ force = false } = {}) {
   if (homeLoads.activeKey !== null && homeLoads.activeKey !== key) resetHomeData()
   return homeLoads.request(key, async (isCurrent) => {
     if (recentsState.value === 'error') recentsState.value = 'loading'
-    const sections = [
-      ['chats', loadRecentChats(isCurrent)],
-      ['assets', loadRecentMedia(isCurrent)],
-      ['boards', loadRecentBoards(isCurrent)],
-      ['flows', loadRecentFlows(isCurrent)],
-    ]
-    const results = await Promise.all(sections.map(([, loaded]) => loaded))
-    const failed = sections.filter((_, index) => !results[index]).map(([name]) => name)
+    const [failedLists, assetsLoaded] = await Promise.all([loadJumpBackIn(isCurrent), loadRecentMedia(isCurrent)])
+    const failed = assetsLoaded ? failedLists : [...failedLists, 'assets']
     if (isCurrent()) {
       failedRecents.value = failed
       recentsState.value = failed.length === 0 ? 'ready' : 'error'
@@ -1161,6 +1232,7 @@ onMounted(() => {
   }
   unsubscribeFromServerEvents.push(onServerEvent('websocket_disconnected', () => {
     socketWasDown = true
+    compactRecentsUnsupported.clear()
     invalidateHome()
   }))
   // Retry right away only when the last load failed; otherwise the next

@@ -1591,6 +1591,12 @@ async def list_equations(
             r for r in rows
             if (r.get("phase_path") or [])[: len(prefix)] == prefix
         ]
+    return _equation_responses(flow_id, rows)
+
+
+def _equation_responses(
+    flow_id: int, rows: list[dict[str, Any]],
+) -> list[FlowEquationResponse]:
     output_name_by_key = _output_name_by_key_for_flow(flow_id)
     output_type_by_key = _output_type_by_key_for_flow(flow_id)
     return [
@@ -1603,6 +1609,62 @@ async def list_equations(
         )
         for r in rows
     ]
+
+
+def flow_output_media_ids(flow_id: int) -> list[int]:
+    """Media a flow surfaces as outputs, in the order its delivery panel shows.
+
+    Reads the same equation projection as ``GET /flows/{id}/equations`` and
+    picks outputs like the frontend's ``computeFlowOutputs``: surfaced
+    non-scaffolding equations with media, and for a surfaced ``foreach`` the
+    media of each iteration's producing child (the iteration wrappers only
+    mirror it).
+    """
+    equations = _equation_responses(
+        flow_id, _apply_runtime_overlay(_load_equations_for_flow(flow_id), flow_id),
+    )
+    return output_media_ids_from_equations(equations)
+
+
+def output_media_ids_from_equations(equations: list[FlowEquationResponse]) -> list[int]:
+    by_key = {eq.equation_key: eq for eq in equations}
+    out: list[int] = []
+    seen: set[int] = set()
+
+    def push(media_ids) -> None:
+        for mid in media_ids or []:
+            if mid not in seen:
+                seen.add(mid)
+                out.append(mid)
+
+    for eq in by_key.values():
+        if eq.equation_type == "control" and eq.control_kind == "foreach" and eq.is_output:
+            prefix = eq.equation_key + "/"
+            wrappers = sorted(
+                (
+                    w for w in by_key.values()
+                    if w.equation_type == "control"
+                    and w.control_kind == "foreach_iteration"
+                    and w.equation_key.startswith(prefix)
+                ),
+                key=lambda w: w.equation_key,
+            )
+            for wrapper in wrappers:
+                mirror = by_key.get(wrapper.result_from) if wrapper.result_from else None
+                source = mirror if mirror is not None and mirror.result_media_ids else next(
+                    (
+                        c for c in by_key.values()
+                        if c.equation_key.startswith(wrapper.equation_key + "/")
+                        and c.result_media_ids
+                    ),
+                    None,
+                )
+                push(source.result_media_ids if source is not None else wrapper.result_media_ids)
+            continue
+        if eq.is_scaffolding or not eq.result_media_ids or not eq.is_output:
+            continue
+        push(eq.result_media_ids)
+    return out
 
 
 # ----- Trace (prompt/response inspection) ----------------------------------

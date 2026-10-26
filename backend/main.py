@@ -140,6 +140,7 @@ from routes import (
     filesystem,
     flags,
     generation,
+    home,
     image_stack,
     keywords,
     markers,
@@ -196,6 +197,7 @@ app.include_router(auth.router)
 app.include_router(provider_manage.router)
 app.include_router(assets.router)
 app.include_router(boards.router)
+app.include_router(home.router)
 app.include_router(cloud.router)
 app.include_router(media.router)
 app.include_router(models.router)

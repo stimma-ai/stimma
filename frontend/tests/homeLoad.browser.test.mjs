@@ -38,6 +38,9 @@ async function openHome(t, { start = '/', respond = () => undefined, deadline = 
     let answer = await respond(path, url.searchParams, route.request().headers())
     if (typeof answer === 'number') return route.fulfill({ status: answer, json: { detail: 'unavailable' } }).catch(() => {})
     if (answer === undefined) {
+      // Home's compact recents read is answered only by tests that opt in;
+      // everywhere else Home talks to a server that predates it.
+      if (path === '/api/home/recents') return route.fulfill({ status: 404, json: { detail: 'Not Found' } }).catch(() => {})
       if (path === '/api/models/available') answer = { models: [{ slug: 'test', name: 'Test', available: true, selectable: true }], global_default: 'test', llm_configured: true }
       else if (path === '/api/chats/previews' || path === '/api/assets/browse') answer = { items: [], total: 0 }
       else answer = []
@@ -551,4 +554,174 @@ for (const failing of ['/api/tools/providers', '/api/tools/providers/tools']) {
     assert.equal(siblingCancelled, 1)
   })
 }
+
+// ==================== Compact recents ====================
+
+const thumbnailPaths = counts => [...counts.keys()].filter(path => path.includes('/thumbnail'))
+const boardReads = counts => [...counts.keys()].filter(path => path.startsWith('/api/boards'))
+const flowReads = counts => [...counts.keys()].filter(path => path.startsWith('/api/flows/'))
+
+function compactRecents({ project = null, tag = '' } = {}) {
+  return {
+    items: [
+      { type: 'chat', chat: { ...chat(31, `Compact chat${tag}`), project_id: project, updated_at: '2026-03-03T00:00:00', recent_media: [{ media_id: 301, file_hash: 'chathash' }], last_message: 'hi' } },
+      { type: 'flow', flow: { id: 41, name: `Compact flow${tag}`, project_id: project, execution_state: 'idle', pending_task_count: 0, root_status_summary: { completed: 2 }, has_load_error: false, updated_at: '2026-03-02T00:00:00', preview_media: [{ media_id: 401, file_hash: 'flowhash1' }, { media_id: 402, file_hash: 'flowhash2' }] } },
+      { type: 'board', board: { id: 51, name: `Compact board${tag}`, project_id: project, asset_count: 5000, updated_at: '2026-03-01T00:00:00', preview_items: [
+        { id: 501, asset_id: 501, media_id: 601, file_hash: 'boardhash1', file_format: 'png', width: 100, height: 100 },
+        { id: 502, asset_id: 502, media_id: 602, file_hash: 'boardhash2', file_format: 'png', width: 200, height: 100 },
+      ] } },
+    ],
+    has_entities: true,
+  }
+}
+
+test('Home reads its cards in one compact read, with no board or flow detail reads', async t => {
+  const { page, counts, errors, push } = await openHome(t, {
+    respond: (path, query) => {
+      if (path === '/api/home/recents') {
+        assert.equal(query.get('project_id'), 'none')
+        assert.equal(query.get('limit'), '3')
+        return compactRecents()
+      }
+    },
+  })
+  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(page.getByText('Compact flow')).toBeVisible()
+  await expect(page.getByText('Compact chat')).toBeVisible()
+  await expect(page.getByText(/5000 items/)).toBeVisible()
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  // Artwork comes from the compact read, by content hash.
+  await expect.poll(() => thumbnailPaths(counts).filter(path => /boardhash|flowhash|chathash/.test(path)).length).toBe(5)
+  assert.equal(counts.get('/api/home/recents'), 1)
+  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(flowReads(counts), [])
+  assert.equal(counts.get('/api/chats/previews'), undefined)
+  assert.equal(counts.get('/api/assets/browse'), 1)
+
+  await push('/elsewhere')
+  await push('/')
+  await page.waitForTimeout(300)
+  assert.equal(counts.get('/api/home/recents'), 1, 'not reread while fresh')
+  assert.deepEqual(errors, [])
+})
+
+test('compact recents: change events make the next visit reload, and a scope switch drops late replies', async t => {
+  let releaseFirst
+  const firstGate = new Promise(resolve => { releaseFirst = resolve })
+  let firstDone
+  const firstSettled = new Promise(resolve => { firstDone = resolve })
+  let firstProjectReads = 0
+  const { page, counts, push } = await openHome(t, {
+    start: '/projects/1',
+    respond: async (path, query) => {
+      if (path !== '/api/home/recents') return
+      const project = Number(query.get('project_id'))
+      if (project === 1 && ++firstProjectReads === 1) {
+        await firstGate
+        firstDone()
+      }
+      return compactRecents({ project, tag: project === 1 ? ' one' : ' two' })
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await push('/projects/2')
+  await expect(page.getByText('Compact board two')).toBeVisible()
+  releaseFirst()
+  await firstSettled
+  await page.waitForTimeout(300)
+  await expect(page.getByText('Compact board two')).toBeVisible()
+  await expect(page.getByText('Compact board one')).toHaveCount(0)
+
+  const reads = () => counts.get('/api/home/recents')
+  for (const event of ['board_items_changed', 'flow_equation_updated', 'chat_item_created']) {
+    const before = reads()
+    await push('/elsewhere')
+    await page.evaluate(name => window.homeLoadTest.serverEvent(name, {}), event)
+    await push('/projects/2')
+    await expect.poll(reads).toBe(before + 1)
+    await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  }
+  assert.deepEqual(boardReads(counts), [])
+  assert.deepEqual(flowReads(counts), [])
+})
+
+test('compact recents: a failed read keeps the composer usable and a retry recovers', async t => {
+  let fail = true
+  const { page, counts } = await openHome(t, {
+    respond: path => {
+      if (path === '/api/home/recents') return fail ? 503 : compactRecents()
+    },
+  })
+  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible()
+  await composer(page).fill('still typing')
+  fail = false
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Compact board')).toBeVisible()
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  await expect(composer(page)).toHaveValue('still typing')
+  assert.equal(counts.get('/api/home/recents'), 2)
+  // A server error is not an old server: no fallback to the full lists.
+  assert.equal(counts.get('/api/chats/previews'), undefined)
+  assert.deepEqual(boardReads(counts), [])
+})
+
+test('compact recents: a stalled read is aborted at its deadline and a retry recovers', async t => {
+  let reads = 0
+  const { page } = await openHome(t, {
+    deadline: 1500,
+    respond: path => {
+      if (path !== '/api/home/recents') return
+      reads++
+      return reads === 1 ? hang() : compactRecents()
+    },
+  })
+  await expect(composer(page)).toBeVisible()
+  await expect(page.getByText("Couldn't load recent chats, boards and flows.")).toBeVisible({ timeout: 5000 })
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Compact board')).toBeVisible()
+  assert.equal(reads, 2)
+})
+
+test('an old server gets the full lists, each board and flow read once per load, and is asked again after a reconnect', async t => {
+  const { page, counts, push } = await openHome(t, {
+    respond: path => {
+      if (path === '/api/chats/previews') return { items: [{ ...chat(61, 'Legacy chat'), updated_at: '2026-02-03T00:00:00Z' }], total: 1 }
+      if (path === '/api/boards') return [
+        { id: 5, name: 'Legacy board', asset_count: 1, updated_at: '2026-02-02T00:00:00Z' },
+        { id: 6, name: 'Other board', asset_count: 1, updated_at: '2025-12-01T00:00:00Z' },
+      ]
+      if (path === '/api/boards/5' || path === '/api/boards/6') return { id: Number(path.split('/').pop()), sections: [{ items: [{ id: 1, media_id: 1, file_hash: 'legacyhash', width: 1, height: 1 }] }] }
+      if (path === '/api/flows') return [{ id: 7, name: 'Legacy flow', updated_at: '2026-01-15T00:00:00Z' }]
+    },
+  })
+  await expect(page.getByText('Legacy board')).toBeVisible()
+  await expect(page.getByText('Legacy flow')).toBeVisible()
+  await expect(page.getByText('Legacy chat')).toBeVisible()
+  await expect(recents(page)).toHaveAttribute('data-recents-state', 'ready')
+  await page.waitForTimeout(300)
+  const once = { '/api/home/recents': 1, '/api/chats/previews': 1, '/api/boards': 1, '/api/boards/5': 1, '/api/boards/6': 1, '/api/flows/7/equations': 1 }
+  for (const [path, count] of Object.entries(once)) assert.equal(counts.get(path), count, `${path} once`)
+
+  // The next load goes straight to the lists, still one detail read each.
+  await push('/elsewhere')
+  await page.evaluate(() => window.homeLoadTest.serverEvent('board_items_changed', {}))
+  await push('/')
+  await expect.poll(() => counts.get('/api/chats/previews')).toBe(2)
+  await page.waitForTimeout(300)
+  assert.equal(counts.get('/api/home/recents'), 1, 'not asked again')
+  assert.equal(counts.get('/api/boards/5'), 2)
+  assert.equal(counts.get('/api/boards/6'), 2)
+  assert.equal(counts.get('/api/flows/7/equations'), 2)
+
+  // The server may have been updated while the connection was down.
+  await push('/elsewhere')
+  await page.evaluate(async () => {
+    const sockets = window.homeLoadTest.socketCount()
+    window.homeLoadTest.dropSocket()
+    while (window.homeLoadTest.socketCount() === sockets) await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 50))
+  })
+  await push('/')
+  await expect.poll(() => counts.get('/api/home/recents')).toBe(2)
+})
 

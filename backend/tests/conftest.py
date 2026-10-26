@@ -260,6 +260,8 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(sprite_media.router)
         app.include_router(package_media.router)
         app.include_router(boards.router)
+        from routes import home as home_routes
+        app.include_router(home_routes.router)
         app.include_router(chats.router)
         app.include_router(generation.router)
         app.include_router(image_stack.router)

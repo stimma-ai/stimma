@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from board_service import serialize_board
+from board_service import board_summaries_query, serialize_board
 from core.dependencies import get_db_session
 from core.logging import get_logger
 from database import (
@@ -159,46 +159,7 @@ async def get_boards(
     project_id: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
-    query = (
-        select(
-            Board,
-            func.count(func.distinct(MediaItem.id)).label("asset_count"),
-        )
-        .outerjoin(BoardSection, and_(BoardSection.board_id == Board.id, BoardSection.deleted_at.is_(None)))
-        .outerjoin(
-            BoardAssetItem,
-            and_(
-                BoardAssetItem.board_section_id == BoardSection.id,
-                BoardAssetItem.deleted_at.is_(None),
-            ),
-        )
-        .outerjoin(
-            Asset,
-            and_(
-                Asset.id == BoardAssetItem.asset_id,
-                Asset.state == "active",
-                Asset.deleted_at.is_(None),
-            ),
-        )
-        .outerjoin(
-            AssetRevision,
-            AssetRevision.id == Asset.current_revision_id,
-        )
-        .outerjoin(
-            MediaItem,
-            and_(
-                MediaItem.id == AssetRevision.primary_media_id,
-                MediaItem.deleted_at.is_(None),
-                or_(
-                    MediaItem.file_unavailable.is_(False),
-                    MediaItem.file_unavailable.is_(None),
-                ),
-            ),
-        )
-        .where(Board.deleted_at.is_(None))
-        .group_by(Board.id)
-        .order_by(Board.updated_at.desc())
-    )
+    query = board_summaries_query().order_by(Board.updated_at.desc())
     # No project_id (back-compat) and project_id=none both mean unscoped boards.
     project_filter = parse_project_filter(project_id)
     if project_filter is None or project_filter == PROJECT_NONE:

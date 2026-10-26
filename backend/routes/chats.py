@@ -711,38 +711,27 @@ async def list_chats(
     )
 
 
-@router.get("/previews", response_model=ChatPreviewListResponse)
-async def list_chat_previews(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100),
-    project_id: Optional[str] = Query(None),
-    flow_id: Optional[int] = Query(None),
-    session: AsyncSession = Depends(get_db_session)
-):
-    """List chats with message counts and recent generated media for the landing page."""
-    project_filter = parse_project_filter(project_id)
-    # Get paginated chats
-    query = select(Chat).where(Chat.deleted_at.is_(None))
-    count_query = select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
-    if flow_id is None:
-        query = query.where(Chat.flow_id.is_(None))
-        count_query = count_query.where(Chat.flow_id.is_(None))
-    query = _apply_chat_project_filter(query, project_filter)
-    count_query = _apply_chat_project_filter(count_query, project_filter)
-    if flow_id is not None:
-        query = query.where(Chat.flow_id == flow_id)
-        count_query = count_query.where(Chat.flow_id == flow_id)
-    query = query.order_by(desc(Chat.updated_at))
+def _clip(text: str, limit: Optional[int]) -> str:
+    if limit is None or len(text) <= limit:
+        return text
+    return text[:limit]
 
-    total_result = await session.execute(count_query)
-    total = total_result.scalar()
 
-    query = query.offset((page - 1) * page_size).limit(page_size)
-    result = await session.execute(query)
-    chats = result.scalars().all()
+async def build_chat_previews(
+    session: AsyncSession,
+    chats: list,
+    *,
+    media_limit: int = 10,
+    last_message_chars: Optional[int] = None,
+) -> List[ChatPreview]:
+    """Preview rows for chats, in the order given.
 
+    Each carries message and generated-media counts, the newest
+    ``media_limit`` media, and the last message (clipped to
+    ``last_message_chars`` when set).
+    """
     if not chats:
-        return ChatPreviewListResponse(items=[], total=total, page=page, page_size=page_size)
+        return []
 
     chat_ids = [c.id for c in chats]
 
@@ -791,10 +780,10 @@ async def list_chat_previews(
         # Filter to existing (non-deleted) media
         valid_mids = [mid for mid in mids if mid in media_info]
         gen_counts[chat_id_val] = len(valid_mids)
-        # Take most recent 10 for the strip
+        # Most recent first, for the strip
         recent_by_chat[chat_id_val] = [
             MediaPreview(media_id=mid, file_hash=media_info[mid])
-            for mid in valid_mids[:10]
+            for mid in valid_mids[:media_limit]
         ]
 
     # Build response
@@ -809,9 +798,43 @@ async def list_chat_previews(
             message_count=msg_counts.get(chat.id, 0),
             generated_count=gen_counts.get(chat.id, 0),
             recent_media=recent_by_chat.get(chat.id, []),
-            last_message=last_messages.get(chat.id, ''),
+            last_message=_clip(last_messages.get(chat.id, ''), last_message_chars),
         ))
 
+    return items
+
+
+@router.get("/previews", response_model=ChatPreviewListResponse)
+async def list_chat_previews(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    project_id: Optional[str] = Query(None),
+    flow_id: Optional[int] = Query(None),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """List chats with message counts and recent generated media for the landing page."""
+    project_filter = parse_project_filter(project_id)
+    # Get paginated chats
+    query = select(Chat).where(Chat.deleted_at.is_(None))
+    count_query = select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
+    if flow_id is None:
+        query = query.where(Chat.flow_id.is_(None))
+        count_query = count_query.where(Chat.flow_id.is_(None))
+    query = _apply_chat_project_filter(query, project_filter)
+    count_query = _apply_chat_project_filter(count_query, project_filter)
+    if flow_id is not None:
+        query = query.where(Chat.flow_id == flow_id)
+        count_query = count_query.where(Chat.flow_id == flow_id)
+    query = query.order_by(desc(Chat.updated_at))
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar()
+
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await session.execute(query)
+    chats = result.scalars().all()
+
+    items = await build_chat_previews(session, chats)
     return ChatPreviewListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
