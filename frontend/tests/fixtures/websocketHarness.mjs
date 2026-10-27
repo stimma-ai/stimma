@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { createReconnectBackoff, LOCAL_RECONNECT, REMOTE_RECONNECT } from '../../src/utils/reconnectBackoff.js'
 import { createTransportRecovery } from '../../src/utils/transportRecovery.js'
-import { createRealtimeScope } from '../../src/composables/realtimeScope.js'
+import { createRealtimeScope, PIN_REJECTED_CLOSE_CODE } from '../../src/composables/realtimeScope.js'
 
 /**
  * The real useWebSocket singleton with controlled sockets, timers, the real
@@ -38,7 +38,7 @@ export function createClock() {
 
 const quiet = { log() {}, warn() {}, error() {}, debug() {} }
 
-export function websocketHarness({ mobile = false, remoteDevice = false, profile = 'test', url = 'ws://localhost/ws', location = { protocol: 'http:', host: 'localhost:9192', hostname: 'localhost' }, before = () => {} } = {}) {
+export function websocketHarness({ mobile = false, remoteDevice = false, profile = 'test', url = 'ws://localhost/ws', location = { protocol: 'http:', host: 'localhost:9192', hostname: 'localhost' }, pins = new Map(), before = () => {} } = {}) {
   const source = readFileSync(new URL('../../src/composables/useWebSocket.js', import.meta.url), 'utf8')
     .replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*$/gm, '')
     .replaceAll('export function', 'function').replaceAll('import.meta.hot', 'false')
@@ -55,7 +55,14 @@ export function websocketHarness({ mobile = false, remoteDevice = false, profile
     open() { this.readyState = 1; this.onopen?.() }
     message(event, data = {}) { this.onmessage?.({ data: JSON.stringify({ event, data }) }) }
     receive(event, data) { this.message(event, data) }
-    drop() { this.readyState = 3; this.onclose?.() }
+    drop(code) { this.readyState = 3; this.onclose?.(code === undefined ? undefined : { code }) }
+  }
+  // The PIN lock's cache: profile -> PIN. Rejections are recorded.
+  const rejectedPins = []
+  const getCachedPin = profileId => pins.get(profileId) ?? null
+  const rejectCachedPin = (profileId, pin) => {
+    rejectedPins.push([profileId, pin])
+    if (pins.get(profileId) === pin) pins.delete(profileId)
   }
   const window = Object.assign(new EventTarget(), { location })
   const document = Object.assign(new EventTarget(), { visibilityState: 'visible' })
@@ -66,7 +73,7 @@ export function websocketHarness({ mobile = false, remoteDevice = false, profile
     'window', 'document', 'WebSocket', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'console',
     'mobileRecoveryEnabled', 'mobileTransportAdmitsSocket', 'mobileTransportEpoch', 'onMobileTransportAdmit',
     'onMobileTransportReady', 'setMobileSocketReady', 'createReconnectBackoff', 'LOCAL_RECONNECT', 'REMOTE_RECONNECT',
-    'realtimeScope', 'installRealtimeScope']
+    'realtimeScope', 'installRealtimeScope', 'getCachedPin', 'rejectCachedPin', 'PIN_REJECTED_CLOSE_CODE']
   const create = new Function(...names, `${source}; return { useWebSocket, setRemoteServerConnection }`)
   const module = create(value => ({ value }), value => ({ value }), () => profile, () => url, () => true, () => {}, () => {},
     window, document, Socket, clock.setTimeout, clock.clearTimeout, clock.setInterval, clock.clearInterval,
@@ -75,9 +82,9 @@ export function websocketHarness({ mobile = false, remoteDevice = false, profile
     listener => (mobile ? recovery.onAdmit(listener) : () => {}), listener => (mobile ? recovery.onReady(listener) : () => {}),
     ready => { if (mobile) recovery.socket(ready) },
     () => createReconnectBackoff({ random: () => 1, now: clock.now }), LOCAL_RECONNECT, REMOTE_RECONNECT,
-    scope, () => {})
+    scope, () => {}, getCachedPin, rejectCachedPin, PIN_REJECTED_CLOSE_CODE)
   module.setRemoteServerConnection(remoteDevice)
   const api = module.useWebSocket()
   const native = (generation, phase, budgetMs = 0) => recovery.nativeState({ generation, phase, budgetMs })
-  return { api, sockets, clock, window, document, recovery, native, scope }
+  return { api, sockets, clock, window, document, recovery, native, scope, pins, rejectedPins }
 }

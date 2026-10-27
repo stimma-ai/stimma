@@ -372,6 +372,14 @@ function stripHopByHop(headers: http.IncomingHttpHeaders): http.OutgoingHttpHead
 export const DEVICE_SESSION_HEADER = 'x-stimma-device-session'
 
 /**
+ * A request URL fit for the log. WebSocket and <img> requests carry the
+ * profile PIN in the query (browsers cannot set headers on them).
+ */
+export function loggableUrl(url: string | undefined): string {
+  return (url ?? '').replace(/([?&]pin=)[^&#]*/gi, '$1[redacted]')
+}
+
+/**
  * Strip hop-by-hop headers and anything named by Connection, then re-point
  * Host at the upstream. Everything else (Range, X-Profile-ID, X-Profile-PIN,
  * Origin, Authorization, conditional-request headers) passes through untouched.
@@ -478,12 +486,12 @@ function forwardRequest(
 
   proxied.on('error', (err) => {
     if (retryable && !res.headersSent && target === upstream && isStalePooledSocket(proxied, err)) {
-      log.info('proxy', `Retrying ${req.method} ${req.url} on a fresh connection (pooled socket was closed)`)
+      log.info('proxy', `Retrying ${req.method} ${loggableUrl(req.url)} on a fresh connection (pooled socket was closed)`)
       forwardRequest(req, res, upstream, false)
       return
     }
     reportUpstreamFailure(upstream, err)
-    log.warn('proxy', `Upstream error for ${req.method} ${req.url}: ${err}`)
+    log.warn('proxy', `Upstream error for ${req.method} ${loggableUrl(req.url)}: ${err}`)
     if (res.headersSent) {
       // Mid-stream: a JSON tail glued onto half an image is worse than a
       // truncated response the renderer can detect.
@@ -583,7 +591,7 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
 
   proxied.on('error', (err) => {
     reportUpstreamFailure(upstream, err)
-    log.warn('proxy', `Upgrade failed for ${req.url}: ${err}`)
+    log.warn('proxy', `Upgrade failed for ${loggableUrl(req.url)}: ${err}`)
     socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n')
   })
 

@@ -6,7 +6,7 @@ import net from 'node:net'
 import path from 'node:path'
 import zlib from 'node:zlib'
 
-import { DEVICE_SESSION_HEADER, forwardHeaders, getProxyPort, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
+import { DEVICE_SESSION_HEADER, forwardHeaders, getProxyPort, loggableUrl, setProxyTarget, startProxy, stopProxy } from '../src/proxy.ts'
 import { makeScratchDir } from './scratch.mjs'
 
 const scratchCleanups = new Set<() => void>()
@@ -116,6 +116,13 @@ test('forwardHeaders carries the device session separately and keeps the caller\
   const local = forwardHeaders({ host: '127.0.0.1:1111', authorization: 'Bearer mcp-key' }, { host: '127.0.0.1', port: 4242 })
   assert.equal(local[DEVICE_SESSION_HEADER], undefined)
   assert.equal(local.authorization, 'Bearer mcp-key')
+})
+
+test('logged request URLs never carry a profile PIN', () => {
+  assert.equal(loggableUrl('/ws?realtime=1&profile=p&pin=1234&topic=chat:7'), '/ws?realtime=1&profile=p&pin=[redacted]&topic=chat:7')
+  assert.equal(loggableUrl('/api/media/1/thumb?PIN=99'), '/api/media/1/thumb?PIN=[redacted]')
+  assert.equal(loggableUrl('/api/spin=1?x=1'), '/api/spin=1?x=1')
+  assert.equal(loggableUrl(undefined), '')
 })
 
 test('503s with no target rather than failing the connection', async () => {

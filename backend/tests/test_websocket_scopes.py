@@ -481,6 +481,7 @@ def test_endpoint_negotiates_scope_and_restores_it_on_reconnect(monkeypatch):
                     "seq": 3, "protocol": 1, "profile_id": "A", "topics": ["chat:7", "chat:8"],
                     "previews": {"enabled": True, "max_fps": 2.0, "max_bytes": None,
                                  "max_bytes_per_second": None},
+                    "authorized": True,
                 }}
                 broadcast("chat_item_created", {"chat_id": 8, "profile_id": "A", "item": {"id": 3}})
                 assert phone.receive_json()["data"]["item"]["id"] == 3

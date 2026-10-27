@@ -7,7 +7,14 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 
 from ingestion import get_ingestion
-from utils.websocket import REALTIME_PROTOCOL, scope_from_query, ws_manager
+from utils.websocket import (
+    PIN_REJECTED_CLOSE_CODE,
+    PIN_REJECTED_REASON,
+    REALTIME_PROTOCOL,
+    PinRejected,
+    scope_from_query,
+    ws_manager,
+)
 from agent_state import agent_state_manager
 
 router = APIRouter(tags=["realtime"])
@@ -49,7 +56,7 @@ async def _handle_scope_message(websocket: WebSocket, message: dict) -> None:
     data = message.get("data")
     seq = data.get("seq") if isinstance(data, dict) else None
     try:
-        applied = ws_manager.update_scope(websocket, _SCOPE_MESSAGES[message["event"]], data)
+        applied = await ws_manager.apply_scope_message(websocket, _SCOPE_MESSAGES[message["event"]], data)
     except ValueError as e:
         await ws_manager.send_to(websocket, "realtime_scope_rejected", {"seq": seq, "reason": str(e)})
         return
@@ -70,6 +77,10 @@ async def websocket_endpoint(websocket: WebSocket):
     Clients that declare the realtime capability (``?realtime=1``, see
     ``utils.websocket``) receive only their profile's events and per-entity
     detail for what they subscribe to; others receive every broadcast.
+    Either way, events of a PIN-protected profile are delivered only once
+    the socket proves its PIN (``?profile=P&pin=...``, or ``pin`` on a
+    ``realtime_scope`` message). A wrong PIN on connect closes the socket
+    with ``PIN_REJECTED_CLOSE_CODE``.
     """
     try:
         scope = scope_from_query(websocket.query_params)
@@ -77,7 +88,17 @@ async def websocket_endpoint(websocket: WebSocket):
         # Unusable scope: fall back to the legacy stream rather than refuse.
         log.warning("Ignoring invalid realtime scope on connect", error=str(e))
         scope = None
-    await ws_manager.connect(websocket, scope)
+    try:
+        pin_proof = await ws_manager.prove_pin(
+            websocket.query_params.get("profile"), websocket.query_params.get("pin")
+        )
+    except PinRejected:
+        # Accept first so the browser sees the close code; a refused
+        # handshake surfaces only as an anonymous connection failure.
+        await websocket.accept()
+        await websocket.close(code=PIN_REJECTED_CLOSE_CODE, reason=PIN_REJECTED_REASON)
+        return
+    await ws_manager.connect(websocket, scope, pin_proof)
 
     try:
         # Send welcome message
@@ -86,8 +107,9 @@ async def websocket_endpoint(websocket: WebSocket):
             "timestamp": datetime.now().isoformat(),
             "realtime_protocol": REALTIME_PROTOCOL,
         }
-        if scope is not None:
-            welcome["realtime"] = scope.describe()
+        client = ws_manager.client_for(websocket)
+        if scope is not None and client is not None:
+            welcome["realtime"] = ws_manager.describe_scope(client)
         await ws_manager.send_to(websocket, "connected", welcome)
 
         # Keep connection alive and handle incoming messages
@@ -129,7 +151,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             generator_instance_id
                         )
 
-                # Handle agent control messages
+                # Handle agent control messages. These only set flags that no
+                # agent run reads, and a chat id alone does not name a profile
+                # (ids are per-profile), so they carry no PIN check.
                 elif message.get("event") == "agent_pause":
                     chat_id = message.get("data", {}).get("chat_id")
                     if chat_id:

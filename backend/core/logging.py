@@ -1,6 +1,7 @@
 """Structured logging configuration using structlog."""
 import logging
 import os
+import re
 import sys
 import structlog
 from logging.handlers import RotatingFileHandler
@@ -9,6 +10,35 @@ from pathlib import Path
 # Track if we've already set up logging
 _logging_configured = False
 _file_handler = None
+
+
+_PIN_QUERY = re.compile(r"([?&]pin=)[^&\s\"']*", re.IGNORECASE)
+
+
+def redact_pin_query(text: str) -> str:
+    """Mask a profile PIN carried in a URL query (``?pin=`` / ``&pin=``)."""
+    return _PIN_QUERY.sub(r"\1[redacted]", text)
+
+
+class RedactPinQueryFilter(logging.Filter):
+    """Keep profile PINs out of logs.
+
+    Browsers cannot set headers on a WebSocket or an <img>, so those carry
+    the PIN in the query string, and uvicorn logs each WebSocket handshake
+    with its full path and query.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str) and "pin=" in record.msg.lower():
+            record.msg = redact_pin_query(record.msg)
+        if isinstance(record.args, tuple) and record.args:
+            record.args = tuple(
+                redact_pin_query(arg) if isinstance(arg, str) else arg for arg in record.args
+            )
+        return True
+
+
+_redact_pin_query_filter = RedactPinQueryFilter()
 
 
 class StimmaRotatingFileHandler(RotatingFileHandler):
@@ -124,6 +154,7 @@ def setup_logging(log_level: str = "INFO", log_dir: Path = None) -> None:
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setFormatter(console_formatter)
     console_handler.setLevel(logging.DEBUG)
+    console_handler.addFilter(_redact_pin_query_filter)
     root_logger.addHandler(console_handler)
 
     # Add file handler if log_dir is specified
@@ -137,6 +168,7 @@ def setup_logging(log_level: str = "INFO", log_dir: Path = None) -> None:
             )
             _file_handler.setFormatter(file_formatter)
             _file_handler.setLevel(logging.DEBUG)
+            _file_handler.addFilter(_redact_pin_query_filter)
             root_logger.addHandler(_file_handler)
 
             # Log startup marker
@@ -189,6 +221,12 @@ def _configure_log_levels():
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
     logging.getLogger("uvicorn").setLevel(logging.INFO)
+    # Handshake lines carry the request query; mask PINs at the source too,
+    # whichever handlers end up attached.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        if _redact_pin_query_filter not in uvicorn_logger.filters:
+            uvicorn_logger.addFilter(_redact_pin_query_filter)
 
 
 def reconfigure_logging():

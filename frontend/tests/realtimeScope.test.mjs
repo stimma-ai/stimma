@@ -289,3 +289,76 @@ test('the socket connects with the scope and keeps the server in step', () => {
   sockets[0].receive('media_added', { media_id: 2, profile_id: 'profile-a' })
   assert.deepEqual(media, [2])
 })
+
+test('the cached PIN rides the connect URL and scope messages, never the snapshot', () => {
+  const { scope, sent, send } = harness()
+  const pins = new Map([['locked', '1234']])
+  scope.setPinSource(id => pins.get(id) ?? null)
+
+  const open = new URLSearchParams(scope.connectQuery('open'))
+  assert.equal(open.get('pin'), null, 'an open profile sends no PIN')
+  const params = new URLSearchParams(scope.connectQuery('locked'))
+  assert.equal(params.get('profile'), 'locked')
+  assert.equal(params.get('pin'), '1234')
+  assert.equal(scope.presentedPin('locked'), '1234')
+
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { protocol: 1, profile_id: 'locked', topics: [], authorized: true } })
+  scope.acquire('chat:1')
+  assert.equal(sent.at(-1).data.pin, '1234')
+  scope.setProfile('open')
+  assert.equal('pin' in sent.at(-1).data, false)
+  assert.equal(scope.presentedPin('locked'), null, 'the socket is scoped to another profile now')
+  assert.equal(JSON.stringify(scope.snapshot()).includes('1234'), false)
+})
+
+test('a scope message refused for its PIN is reported once, with the PIN it carried', () => {
+  const { scope, send } = harness()
+  const pins = new Map([['locked', '0000']])
+  scope.setPinSource(id => pins.get(id) ?? null)
+  const rejected = []
+  scope.onPinRejected((profile, pin) => rejected.push([profile, pin]))
+  scope.connectQuery('open')
+  scope.socketOpened(send)
+  scope.handleServerMessage('connected', { realtime: { protocol: 1, profile_id: 'open', topics: [] } })
+  scope.setProfile('locked')
+  scope.handleServerMessage('realtime_scope_rejected', { seq: 1, reason: 'invalid_pin' })
+  scope.handleServerMessage('realtime_scope_rejected', { seq: 1, reason: 'invalid_pin' })
+  scope.handleServerMessage('realtime_scope_rejected', { seq: 9, reason: 'invalid topic' })
+  assert.deepEqual(rejected, [['locked', '0000']])
+})
+
+test('a wrong PIN on connect is forgotten and the socket reconnects without it', () => {
+  const pins = new Map([['profile-a', '0000']])
+  const { sockets, clock, rejectedPins } = websocketHarness({ profile: 'profile-a', url: 'ws://server/ws', pins })
+  assert.equal(new URL(sockets[0].url).searchParams.get('pin'), '0000')
+  sockets[0].open()
+  sockets[0].drop(4403)
+  assert.deepEqual(rejectedPins, [['profile-a', '0000']])
+  clock.advance(1000)
+  assert.equal(sockets.length, 2, 'reconnects as after any drop')
+  assert.equal(new URL(sockets[1].url).searchParams.get('pin'), null)
+})
+
+test('entering a PIN replaces a socket that did not present it, once', () => {
+  const pins = new Map()
+  const { sockets, window } = websocketHarness({ profile: 'profile-a', url: 'ws://server/ws', pins })
+  sockets[0].open()
+  sockets[0].receive('connected', { realtime: { protocol: 1, profile_id: 'profile-a', topics: [], authorized: false } })
+
+  // Another profile's PIN changes nothing here.
+  pins.set('profile-b', '9999')
+  window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-b' } }))
+  assert.equal(sockets.length, 1)
+
+  pins.set('profile-a', '1234')
+  window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-a' } }))
+  assert.equal(sockets.length, 2)
+  assert.equal(sockets[0].closed, true)
+  assert.equal(new URL(sockets[1].url).searchParams.get('pin'), '1234')
+
+  // Re-entering the same PIN (unlocking after an idle lock) keeps the socket.
+  sockets[1].open()
+  window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-a' } }))
+  assert.equal(sockets.length, 2)
+})

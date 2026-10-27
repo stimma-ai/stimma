@@ -9,7 +9,7 @@ from collections import OrderedDict, deque
 from copy import deepcopy
 from dataclasses import dataclass, field
 from core.logging import get_logger
-from typing import Any, List, Dict, Optional, Callable, Awaitable
+from typing import Any, List, Dict, Optional, Callable, Awaitable, Tuple
 from fastapi import WebSocket, WebSocketDisconnect
 
 from core.profile_context import get_current_profile
@@ -84,6 +84,11 @@ CLIENT_SEND_TIMEOUT_SECONDS = 20.0
 CLIENT_CLOSE_TIMEOUT_SECONDS = 2.0
 # "Try again later": the client should reconnect.
 OVERFLOW_CLOSE_CODE = 1013
+# The PIN offered on connect is wrong: the client treats this like an HTTP
+# PIN 403 (forget the cached PIN, lock) and reconnects without one.
+PIN_REJECTED_CLOSE_CODE = 4403
+PIN_REJECTED_REASON = "invalid_pin"
+REALTIME_MAX_PIN_LENGTH = 128
 
 # Post-processing chain states that are still in motion. Any other status
 # (completed, paused with an error, failed, cancelled) is a terminal or error
@@ -197,7 +202,9 @@ class OutboundFrame:
 # A client that declares the realtime capability (``?realtime=1`` on connect,
 # or any ``realtime_*`` message) gets a scope: its profile, the entities it
 # is looking at (topics) and its preview policy. A client that never declares
-# it is a legacy client and receives every broadcast exactly as before.
+# it is a legacy client and receives every broadcast exactly as before,
+# except frames of a PIN-protected profile it has not proven (see Profile
+# PINs below; that applies to every client).
 #
 # For a scoped client:
 # - Frames tagged with another profile are not delivered. Untagged (global)
@@ -501,6 +508,34 @@ def scope_from_query(params) -> Optional[RealtimeScope]:
     return scope
 
 
+# --- Profile PINs ---------------------------------------------------------
+#
+# A frame tagged with a PIN-protected profile reaches only a socket that
+# proved that profile's PIN (``?profile=P&pin=...`` on connect, or ``pin`` on
+# a ``realtime_scope`` message). Profiles without a PIN are open. A proof is
+# bound to the PIN hash it was checked against and compared with the current
+# hash at delivery, so changing, adding or removing a PIN takes effect for
+# every socket at the next broadcast. Untagged (global) frames are unaffected.
+
+
+class PinRejected(ValueError):
+    """A PIN was offered for a protected profile and did not match."""
+
+    def __init__(self):
+        super().__init__(PIN_REJECTED_REASON)
+
+
+# The PIN requirement could not be read: withhold the profile's frames (fail
+# closed). Never equal to any recorded proof.
+_PIN_UNKNOWN = object()
+
+
+def _settings_pin_hash(profile_id: str) -> Optional[str]:
+    from config import get_settings
+    profile = get_settings().get_profile(profile_id)
+    return profile.pin_hash if profile is not None else None
+
+
 class _Entry:
     """A queue slot. Replaced or shed entries become tombstones in place, so
     removing one never scans the queue. A tombstone drops its frame at once,
@@ -555,6 +590,8 @@ class ClientConnection:
         self.shed = 0
         # None until the client declares the realtime capability.
         self.scope: Optional[RealtimeScope] = None
+        # profile_id -> the PIN hash this socket proved a PIN against.
+        self.pin_proofs: Dict[str, str] = {}
         # A budgeted client holds at most one unsent preview image: a newer
         # image (any job) replaces it, so a slow link never drains a burst.
         self._pending_preview: Optional[_Entry] = None
@@ -578,12 +615,26 @@ class ClientConnection:
     def pending_frames(self) -> List[OutboundFrame]:
         return [entry.frame for entry in self._queue if entry.alive]
 
-    def frame_for(self, frame: OutboundFrame) -> Optional[OutboundFrame]:
+    def authorized_for(self, profile_id: Optional[str], required_pin_hash: Any) -> bool:
+        """Whether this socket may receive frames tagged with ``profile_id``.
+
+        ``required_pin_hash`` is the profile's current PIN hash (None when it
+        has no PIN). A proof made against an older hash no longer counts.
+        """
+        if profile_id is None or required_pin_hash is None:
+            return True
+        return self.pin_proofs.get(profile_id) == required_pin_hash
+
+    def frame_for(self, frame: OutboundFrame, required_pin_hash: Any = None) -> Optional[OutboundFrame]:
         """The form of a broadcast frame this client receives, if any.
 
-        A legacy client (no realtime scope) receives every broadcast as is
-        and filters by profile itself.
+        A frame tagged with a PIN-protected profile is withheld unless this
+        socket proved that PIN (``required_pin_hash`` is that profile's
+        current hash). Otherwise a legacy client (no realtime scope) receives
+        every broadcast as is and filters by profile itself.
         """
+        if not self.authorized_for(frame.profile_id, required_pin_hash):
+            return None
         if self.scope is None:
             return frame
         return self.scope.select(frame)
@@ -758,8 +809,11 @@ class WebSocketManager:
         hard_max_frames: int = CLIENT_HARD_MAX_FRAMES,
         hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
+        pin_hash_for: Callable[[str], Optional[str]] = _settings_pin_hash,
     ):
         self._clients: Dict[int, ClientConnection] = {}
+        # profile_id -> its current PIN hash, or None for an open profile.
+        self._pin_hash_for = pin_hash_for
         self._client_limits = dict(
             soft_max_frames=soft_max_frames,
             soft_max_bytes=soft_max_bytes,
@@ -801,22 +855,32 @@ class WebSocketManager:
         """
         self._on_generator_disconnect = callback
 
-    async def connect(self, websocket: WebSocket, scope: Optional[RealtimeScope] = None):
+    async def connect(
+        self,
+        websocket: WebSocket,
+        scope: Optional[RealtimeScope] = None,
+        pin_proof: Optional[Tuple[str, str]] = None,
+    ):
         """Accept a new WebSocket connection (refused once shutdown began).
 
-        A connect-time ``scope`` is in force before the first broadcast can
-        reach this client.
+        A connect-time ``scope`` and PIN proof are in force before the first
+        broadcast can reach this client.
         """
         if self._closing:
             raise WebSocketDisconnect(code=1001)
         await websocket.accept()
-        self.attach(websocket, scope)
+        self.attach(websocket, scope, pin_proof)
         log.info(
             f"WebSocket connected. Total connections: {len(self._clients)}",
             scoped=scope is not None,
         )
 
-    def attach(self, websocket: WebSocket, scope: Optional[RealtimeScope] = None) -> ClientConnection:
+    def attach(
+        self,
+        websocket: WebSocket,
+        scope: Optional[RealtimeScope] = None,
+        pin_proof: Optional[Tuple[str, str]] = None,
+    ) -> ClientConnection:
         """Register an already-accepted socket for delivery."""
         client = self._clients.get(id(websocket))
         if client is None:
@@ -824,15 +888,62 @@ class WebSocketManager:
             self._clients[id(websocket)] = client
         if scope is not None:
             client.scope = scope
+        if pin_proof is not None:
+            client.pin_proofs[pin_proof[0]] = pin_proof[1]
         return client
 
-    def update_scope(self, websocket: WebSocket, kind: str, payload: Any) -> Optional[dict]:
+    def required_pin_hash(self, profile_id: Optional[str]) -> Any:
+        """The PIN hash a socket must have proven to receive frames tagged
+        with ``profile_id``: None for an open profile or an untagged frame."""
+        if profile_id is None:
+            return None
+        try:
+            return self._pin_hash_for(profile_id) or None
+        except Exception as e:
+            log.warning("Could not read a profile's PIN requirement", error_type=type(e).__name__)
+            return _PIN_UNKNOWN
+
+    async def prove_pin(self, profile_id: Any, pin: Any) -> Optional[Tuple[str, str]]:
+        """Check a PIN offered for ``profile_id``.
+
+        Returns the proof to record, or None when there is nothing to prove
+        (no PIN offered, or the profile is open). Raises PinRejected for a
+        wrong PIN. The bcrypt check runs off the event loop.
+        """
+        if pin is None or pin == "":
+            return None
+        if not isinstance(pin, str) or len(pin) > REALTIME_MAX_PIN_LENGTH:
+            raise PinRejected()
+        if not isinstance(profile_id, str) or not profile_id or len(profile_id) > REALTIME_MAX_PROFILE_LENGTH:
+            return None
+        pin_hash = self.required_pin_hash(profile_id)
+        if pin_hash is None or pin_hash is _PIN_UNKNOWN:
+            return None
+        from core.middleware import verify_pin
+        if not await asyncio.to_thread(verify_pin, profile_id, pin, pin_hash):
+            raise PinRejected()
+        return (profile_id, pin_hash)
+
+    def describe_scope(self, client: ClientConnection) -> dict:
+        """The client's scope, and whether it receives its profile's frames."""
+        described = client.scope.describe()
+        profile_id = client.scope.profile_id
+        described["authorized"] = client.authorized_for(profile_id, self.required_pin_hash(profile_id))
+        return described
+
+    def update_scope(
+        self,
+        websocket: WebSocket,
+        kind: str,
+        payload: Any,
+        pin_proof: Optional[Tuple[str, str]] = None,
+    ) -> Optional[dict]:
         """Apply a realtime scope message from a client and describe the result.
 
         The first such message opts a legacy connection in. Takes effect for
         every broadcast after it; nothing already queued is withdrawn. Raises
-        ValueError (scope unchanged) for an invalid message; returns None for a
-        socket that is no longer attached.
+        ValueError (scope unchanged, no proof recorded) for an invalid
+        message; returns None for a socket that is no longer attached.
         """
         client = self._clients.get(id(websocket))
         if client is None or client.closed:
@@ -840,7 +951,27 @@ class WebSocketManager:
         scope = client.scope if client.scope is not None else RealtimeScope()
         scope.update(kind, payload)
         client.scope = scope
-        return scope.describe()
+        if pin_proof is not None:
+            client.pin_proofs[pin_proof[0]] = pin_proof[1]
+        return self.describe_scope(client)
+
+    async def apply_scope_message(self, websocket: WebSocket, kind: str, payload: Any) -> Optional[dict]:
+        """``update_scope`` for a client message, checking any PIN it carries.
+
+        A ``scope`` message may carry ``pin`` for the profile it names (or its
+        current profile). A wrong PIN raises PinRejected and leaves the scope
+        as it was; without one the scope applies with ``authorized`` false
+        for a protected profile, whose frames stay withheld.
+        """
+        proof = None
+        if kind == "scope" and isinstance(payload, dict) and "pin" in payload:
+            if "profile_id" in payload:
+                target = payload["profile_id"]
+            else:
+                client = self._clients.get(id(websocket))
+                target = client.scope.profile_id if client is not None and client.scope is not None else None
+            proof = await self.prove_pin(target, payload["pin"])
+        return self.update_scope(websocket, kind, payload, proof)
 
     def register_generator_instance(self, websocket: WebSocket, generator_instance_id: str) -> bool:
         """Associate a generator instance ID with a WebSocket connection.
@@ -1073,8 +1204,9 @@ class WebSocketManager:
                     **_payload_log_metadata(data),
                 )
 
+        required = self.required_pin_hash(frame.profile_id)
         for client in list(self._clients.values()):
-            selected = client.frame_for(frame)
+            selected = client.frame_for(frame, required)
             if selected is not None:
                 self._deliver(client, selected)
         frame.seal()
@@ -1089,21 +1221,28 @@ class WebSocketManager:
         Every client receives ``data`` exactly as a global broadcast would
         send it. A client that declared a realtime scope for a profile in
         ``details`` instead receives ``data`` merged with that profile's
-        detail and tagged with its ``profile_id``. Legacy clients and scoped
-        clients without a profile never see any profile's detail.
+        detail and tagged with its ``profile_id``. Legacy clients, scoped
+        clients without a profile, and clients that have not proven their
+        profile's PIN never see any profile's detail.
         """
         if not self._clients:
             return
         shared = build_frame(event, data)
+        shared_required = self.required_pin_hash(shared.profile_id)
         tailored: Dict[str, OutboundFrame] = {}
+        required: Dict[str, Any] = {}
         for client in list(self._clients.values()):
             profile = client.scope.profile_id if client.scope is not None else None
-            frame = shared
+            frame, frame_required = shared, shared_required
             if profile is not None and profile in details:
-                frame = tailored.get(profile)
-                if frame is None:
-                    frame = tailored[profile] = build_frame(event, {**data, **details[profile], "profile_id": profile})
-            selected = client.frame_for(frame)
+                if profile not in required:
+                    required[profile] = self.required_pin_hash(profile)
+                if client.authorized_for(profile, required[profile]):
+                    frame_required = required[profile]
+                    frame = tailored.get(profile)
+                    if frame is None:
+                        frame = tailored[profile] = build_frame(event, {**data, **details[profile], "profile_id": profile})
+            selected = client.frame_for(frame, frame_required)
             if selected is not None:
                 self._deliver(client, selected)
         shared.seal()

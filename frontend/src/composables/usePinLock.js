@@ -327,6 +327,10 @@ function cachePin(profileId, pin) {
   persistPinCache()
   scheduleIdleDeadline()
   if (profileId === getCurrentProfileId() && !contentVisible()) coverPrivateContent()
+  // The live-update socket proves the PIN too; it reconnects with this one.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId } }))
+  }
 }
 
 /**
@@ -337,6 +341,24 @@ function clearCachedPin(profileId) {
   persistPinCache()
   invalidateSettingsSnapshots()
   scheduleIdleDeadline()
+}
+
+/**
+ * The server refused `pin` for a profile (it changed elsewhere): forget it
+ * and lock, as an expired PIN does. A different PIN cached since is kept.
+ */
+function rejectCachedPin(profileId, pin) {
+  const cached = pinCache.get(profileId)
+  if (!cached || (pin != null && cached.pin !== pin)) return
+  pinCache.delete(profileId)
+  persistPinCache()
+  invalidateSettingsSnapshots()
+  scheduleIdleDeadline()
+  if (profileId === getCurrentProfileId()) {
+    coverPrivateContent()
+    window.dispatchEvent(new CustomEvent('pin-auto-locked', { detail: { profileId } }))
+    void revealPrivateContent()
+  }
 }
 
 /**
@@ -489,6 +511,7 @@ export {
   getCachedPin,
   cachePin,
   clearCachedPin,
+  rejectCachedPin,
   clearAllCachedPins,
   profileRequiresPin,
   ensurePinForProfile,

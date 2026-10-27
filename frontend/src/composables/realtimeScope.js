@@ -21,9 +21,17 @@
  *                `connected` welcome echoes it as `realtime`. A welcome
  *                without `realtime` means an older server that sends
  *                everything, which is also safe.
- *   realtime_scope        {profile_id?, topics?, previews?, seq} replace fields
+ *   realtime_scope        {profile_id?, topics?, previews?, pin?, seq} replace fields
  *   realtime_subscribe    {topics, seq}
  *   realtime_unsubscribe  {topics, seq}
+ *
+ * PIN-protected profiles: their events reach only a socket that proved the
+ * PIN. The cached PIN rides the connect URL (`&pin=`) and each scope
+ * message. A wrong PIN closes the connecting socket with 4403, or rejects
+ * the scope message with reason `invalid_pin` (scope unchanged); both are
+ * handled like an HTTP PIN 403. Without a PIN the scope applies with
+ * `authorized: false` and the profile's events are withheld until the
+ * socket reconnects with one.
  *
  * The preview budget (fps, bytes per image, bytes per second) is per socket,
  * across every job it follows.
@@ -46,6 +54,10 @@
  */
 
 export const REALTIME_PROTOCOL = 1
+/** Close code for a wrong PIN on connect (treated like an HTTP PIN 403). */
+export const PIN_REJECTED_CLOSE_CODE = 4403
+/** `realtime_scope_rejected` reason for a wrong PIN in a scope message. */
+export const PIN_REJECTED_REASON = 'invalid_pin'
 const READY_TIMEOUT_MS = 2000
 
 export function createRealtimeScope({
@@ -80,6 +92,21 @@ export function createRealtimeScope({
   const provisional = new Set()
   const lateConfirmListeners = new Set()
   const profileListeners = new Set()
+  // PIN-protected profiles: the server delivers a profile's events only to a
+  // socket that proved its PIN. `pinFor(profileId)` returns the cached PIN
+  // (or null); it rides the connect URL and every scope message. The PIN
+  // presented for the profile this socket is scoped to is remembered, so a
+  // newly entered PIN can be told apart from the one already proven.
+  let pinFor = () => null
+  let presented = { profile: null, pin: null }
+  // seq -> { profile, pin }, for scope messages that carried a PIN.
+  const pinSeqs = new Map()
+  const pinRejectedListeners = new Set()
+
+  function pinOf(profile) {
+    if (!profile) return null
+    try { return pinFor(profile) || null } catch { return null }
+  }
 
   function desired() {
     return {
@@ -133,7 +160,11 @@ export function createRealtimeScope({
     const key = JSON.stringify(state)
     if (key === lastSent || key === rejectedKey) return
     const next = sentSeq + 1
-    if (send('realtime_scope', { ...state, seq: next })) {
+    const pin = pinOf(state.profile_id)
+    const message = pin ? { ...state, pin, seq: next } : { ...state, seq: next }
+    if (send('realtime_scope', message)) {
+      if (pin) pinSeqs.set(next, { profile: state.profile_id, pin })
+      presented = { profile: state.profile_id, pin }
       sentSeq = next
       lastSent = key
       if (state.profile_id !== sentProfile) profileReconcilePending = true
@@ -236,6 +267,10 @@ export function createRealtimeScope({
     const state = desired()
     const params = new URLSearchParams({ realtime: '1' })
     if (state.profile_id) params.set('profile', state.profile_id)
+    const pin = pinOf(state.profile_id)
+    if (pin) params.set('pin', pin)
+    presented = { profile: state.profile_id, pin }
+    pinSeqs.clear()
     for (const topic of state.topics) params.append('topic', topic)
     params.set('previews', state.previews.enabled ? '1' : '0')
     if (state.previews.max_fps) params.set('preview_fps', String(state.previews.max_fps))
@@ -298,6 +333,7 @@ export function createRealtimeScope({
     }
     if (event === 'realtime_scope_applied') {
       if (typeof data?.seq === 'number') ackedSeq = Math.max(ackedSeq, data.seq)
+      pinSeqs.delete(data?.seq)
       appliedProfile = data?.profile_id ?? null
       appliedTopics = new Set(data?.topics || [])
       settle()
@@ -317,9 +353,30 @@ export function createRealtimeScope({
       // Never resend the same state. Waiters fall back to their timeout and
       // reconcile if a later scope confirms their topic.
       rejectedKey = lastSent
+      const offered = pinSeqs.get(data?.seq)
+      pinSeqs.delete(data?.seq)
+      // The server refused the cached PIN, as an HTTP PIN 403 would.
+      if (data?.reason === PIN_REJECTED_REASON && offered) {
+        for (const listener of [...pinRejectedListeners]) listener(offered.profile, offered.pin)
+      }
       return true
     }
     return false
+  }
+
+  /** Where the PIN for a profile comes from (the PIN lock's cache). */
+  function setPinSource(source) {
+    pinFor = typeof source === 'function' ? source : () => null
+  }
+
+  /** The PIN this socket presented for `profileId`, or null if none or another profile is scoped. */
+  function presentedPin(profileId) {
+    return presented.profile === (profileId || null) ? presented.pin : null
+  }
+
+  function onPinRejected(listener) {
+    pinRejectedListeners.add(listener)
+    return () => pinRejectedListeners.delete(listener)
   }
 
   function snapshot() {
@@ -332,6 +389,9 @@ export function createRealtimeScope({
     markProvisional,
     onLateConfirm,
     onProfileConfirmed,
+    setPinSource,
+    presentedPin,
+    onPinRejected,
     setProfile,
     setPreviewsVisible,
     setPreviewPolicy,

@@ -8,10 +8,11 @@ import {
   setMobileSocketReady,
 } from './useMobileRecovery.js'
 import { getCurrentProfileId } from './useProfile'
+import { getCachedPin, rejectCachedPin } from './usePinLock'
 import { getWsBase, isInitialized as isApiInitialized } from '../apiConfig'
 import { addToast, removeToast } from './useToasts'
 import { createReconnectBackoff, LOCAL_RECONNECT, REMOTE_RECONNECT } from '../utils/reconnectBackoff.js'
-import { realtimeScope } from './realtimeScope.js'
+import { PIN_REJECTED_CLOSE_CODE, realtimeScope } from './realtimeScope.js'
 import { installRealtimeScope } from './useRealtimeTopic.js'
 
 /**
@@ -140,12 +141,15 @@ export function useWebSocket() {
       // Declare the realtime capability and restore this window's scope
       // (profile, followed topics, preview policy) atomically with the
       // connection. Older servers ignore the query and send everything.
-      wsUrl += (wsUrl.includes('?') ? '&' : '?') + realtimeScope.connectQuery(getCurrentProfileId())
+      // The query carries this profile's cached PIN: never log it.
+      const profileId = getCurrentProfileId()
+      wsUrl += (wsUrl.includes('?') ? '&' : '?') + realtimeScope.connectQuery(profileId)
 
       remoteAddress = !isLoopbackSocketUrl(wsUrl)
       console.log('[WebSocket] Connecting to:', wsUrl.split('?')[0])
       const socket = new WebSocket(wsUrl)
       socket.stimmaEpoch = mobileTransportEpoch()
+      socket.stimmaPin = { profileId, pin: realtimeScope.presentedPin(profileId) }
       // A remote upgrade that neither opens nor fails (a half-open path) must not hold the slot forever.
       stopConnectWatchdog()
       if (isRemote()) {
@@ -200,8 +204,14 @@ export function useWebSocket() {
         console.error('[WebSocket] Error:', error)
       }
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         console.log('[WebSocket] Disconnected')
+        if (event?.code === PIN_REJECTED_CLOSE_CODE && ws.value === socket && socket.stimmaPin.pin) {
+          // The server refused the PIN this socket offered, as an HTTP PIN
+          // 403 would: forget it and lock. The reconnect goes without one.
+          console.warn('[WebSocket] Profile PIN rejected')
+          rejectCachedPin(socket.stimmaPin.profileId, socket.stimmaPin.pin)
+        }
         lost(socket)
       }
     } catch (error) {
@@ -445,6 +455,10 @@ export function useWebSocket() {
   if (!isInitialized) {
     isInitialized = true
     installRealtimeScope()
+    // A PIN-protected profile's events reach only a socket that proved its
+    // PIN: the cached PIN rides the connect URL and scope messages.
+    realtimeScope.setPinSource(getCachedPin)
+    realtimeScope.onPinRejected((profileId, pin) => rejectCachedPin(profileId, pin))
     // Once the server filters for a newly selected profile, reconcile what
     // was read for it while the old profile's filter was still in force,
     // through the same ordered refresh as a reconnect (screen first, then
@@ -482,6 +496,7 @@ export function useWebSocket() {
         document.addEventListener('visibilitychange', onVisible)
       }
       window.addEventListener('profile-will-change', cancelOptional)
+      window.addEventListener('pin-cached', reconnectWithNewPin)
     }
 
     // Register global handler for toast notifications from backend
@@ -573,6 +588,21 @@ function wake() {
   useWebSocket().wake()
 }
 
+/**
+ * A PIN was entered (unlock, or set/changed in settings) for this window's
+ * profile. A socket that presented no PIN or another one is not receiving
+ * the profile's events: replace it, and the reconnect resynchronizes views.
+ */
+function reconnectWithNewPin(event) {
+  const profileId = getCurrentProfileId()
+  if (!profileId || event?.detail?.profileId !== profileId) return
+  const socket = ws.value
+  if (!isLive(socket)) return
+  const pin = getCachedPin(profileId)
+  if (!pin || realtimeScope.presentedPin(profileId) === pin) return
+  replaceAfterResume()
+}
+
 /** Optional reconnect work for the previous profile is obsolete. */
 function cancelOptional() {
   optionalToken++
@@ -596,6 +626,7 @@ if (import.meta.hot) {
     window.removeEventListener('online', wake)
     document.removeEventListener('visibilitychange', onVisible)
     window.removeEventListener('profile-will-change', cancelOptional)
+    window.removeEventListener('pin-cached', reconnectWithNewPin)
     // Save handlers for the next module version
     data.eventHandlers = eventHandlers
 
