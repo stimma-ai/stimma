@@ -408,18 +408,82 @@ final class MobileTransport: @unchecked Sendable {
         }
     }
 
-    /// Exercise the SAME listener, pinned upstream and session as the WebView.
-    /// A direct server probe cannot detect a dead local listener or peer pool.
-    func checkConnection() async throws -> Bool {
-        try Task.checkCancellation()
-        let address = try await start()
-        try Task.checkCancellation()
-        var request = URLRequest(url: address.appendingPathComponent("api/profiles"))
-        request.setValue("\(cookieName)=\(cookieValue)", forHTTPHeaderField: "Cookie")
-        let (_, response) = try await PinnedHTTP.boundedRequest(request, fingerprint: nil,
-            maximumResponseBytes: 1_048_576, timeout: 5)
-        return response.statusCode == 200 && response.value(forHTTPHeaderField: ProxyFailure.header) == nil
+    /// Check the path a WebView request takes, end to end: this listener and
+    /// its capability check, the proxy, the session's pooled pinned upstream,
+    /// the server's session gate and the app behind it. A direct request to
+    /// the server could succeed while any of the first three is broken.
+    /// Servers without the small health route answer 404 once; they are then
+    /// checked through the profile list, which every server has.
+    func checkConnection(timeout: TimeInterval = TransportRecovery.probeBudget) async -> PathHealth {
+        guard let pool = queue.sync(execute: { self.pool }) else { return .unreachable }
+        if !queue.sync(execute: { pool.legacyHealth }) {
+            let health = await checkPath(Self.healthPath, timeout: timeout)
+            if health != .missing { return health }
+            queue.sync { pool.legacyHealth = true }
+        }
+        let health = await checkPath(Self.legacyHealthPath, timeout: timeout)
+        return health == .missing ? .unreachable : health
     }
+
+    /// Small authenticated answer on current servers; see the server's multi-device routes.
+    static let healthPath = "/api/multi-device/health"
+    /// Present on every server, but returns the profile list: used only when `healthPath` is missing.
+    static let legacyHealthPath = "/api/profiles"
+    /// Set by the server's session gate when the device session itself was refused.
+    static let sessionInvalidHeader = "X-Stimma-Session-Invalid"
+
+    private func checkPath(_ path: String, timeout: TimeInterval) async -> PathHealth {
+        do {
+            let address = try await start()
+            try Task.checkCancellation()
+            var request = URLRequest(url: URL(string: address.absoluteString + path)!)
+            request.setValue("\(cookieName)=\(cookieValue)", forHTTPHeaderField: "Cookie")
+            request.setValue("same-origin", forHTTPHeaderField: "Sec-Fetch-Site")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            // The answer is read to its end before hanging up. Closing early looks
+            // like an abandoned request, which would discard its pooled connection.
+            let (_, response) = try await PinnedHTTP.boundedRequest(request, fingerprint: nil,
+                maximumResponseBytes: 1_048_576, timeout: timeout)
+            // Answered by this proxy, not the server: the server was not reached.
+            if response.value(forHTTPHeaderField: ProxyFailure.header) != nil { return .unreachable }
+            switch response.statusCode {
+            case 200..<300: return .healthy
+            case 401 where response.value(forHTTPHeaderField: Self.sessionInvalidHeader) == "1": return .sessionExpired
+            case 404: return .missing
+            default: return .unreachable
+            }
+        } catch { return .unreachable }
+    }
+
+    /// The generation recovery is in, as last published. Read when a page
+    /// socket upgrades, so its proof is tied to the check it happened during.
+    func setRecoveryGeneration(_ generation: Int) { queue.async { self.recoveryGeneration = generation } }
+    private var recoveryGeneration = 0
+
+    /// Called on the transport queue when a WebSocket upgrade through this
+    /// proxy succeeded against the current session: the whole WebView path
+    /// works. Receives that session and the recovery generation at the time.
+    func onTunnelOpened(_ handler: ((UpstreamPool, Int) -> Void)?) { queue.sync { tunnelOpened = handler } }
+    private var tunnelOpened: ((UpstreamPool, Int) -> Void)?
+
+    /// Whether `session` is still the one WebView traffic goes to.
+    func isCurrent(_ session: UpstreamPool) -> Bool { queue.sync { pool === session } }
+
+    /// A change of default network. Idle pooled connections were made on the
+    /// old network and may be dead without either side knowing, so none is
+    /// reused. WebSocket tunnels may be bound to that network and would sit
+    /// silent until a timeout, so they end now; the page reconnects its socket
+    /// when recovery reports the new path ready. Requests in flight are left to
+    /// finish or fail on their own.
+    func networkChanged() {
+        queue.sync {
+            pool?.evictIdle()
+            for peer in Array(peers.values) where peer.tunnel != nil { peer.close() }
+        }
+    }
+
+    /// Test seam: the number of open WebSocket tunnels.
+    var openTunnels: Int { queue.sync { peers.values.filter { $0.tunnel != nil }.count } }
 
     func stop() {
         queue.sync {
@@ -856,6 +920,9 @@ final class MobileTransport: @unchecked Sendable {
                     }
                     self.timer?.cancel(); self.timer = nil
                     self.responseStarted = true
+                    if let pool = self.pool, pool === self.owner.pool, self.owner.listener != nil {
+                        self.owner.tunnelOpened?(pool, self.owner.recoveryGeneration)
+                    }
                     self.local.send(content: buffer, completion: .contentProcessed { [weak self] error in
                         guard let self else { return }
                         if error != nil { self.close(); return }

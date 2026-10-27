@@ -76,14 +76,18 @@ struct StimmaWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {
         context.coordinator.restoreTerminatedPageIfReady()
         context.coordinator.publishConnectionInfo()
-        if context.coordinator.lastTransportRevision != model.transportRevision {
-            context.coordinator.lastTransportRevision = model.transportRevision
-            uiView.evaluateJavaScript("window.dispatchEvent(new Event('stimma:transport-resumed'))")
+        // Current UI packages follow this one event; the two after it remain for older packages.
+        if !connectionScreen, context.coordinator.lastRecovery != model.recoveryState {
+            context.coordinator.lastRecovery = model.recoveryState
+            context.coordinator.dispatch("stimma:transport-state", detail: model.recoveryState.json)
         }
         if context.coordinator.lastState != model.connectionState {
             context.coordinator.lastState = model.connectionState
-            let state = ["ready", "connecting", "unreachable"].contains(model.connectionState) ? model.connectionState : "unreachable"
-            uiView.evaluateJavaScript("window.dispatchEvent(new CustomEvent('stimma:connection-state', {detail:'\(state)'}))")
+            context.coordinator.publishConnectionState(model.connectionState)
+        }
+        if context.coordinator.lastTransportRevision != model.transportRevision {
+            context.coordinator.lastTransportRevision = model.transportRevision
+            uiView.evaluateJavaScript("window.dispatchEvent(new Event('stimma:transport-resumed'))")
         }
     }
 
@@ -96,8 +100,38 @@ struct StimmaWebView: UIViewRepresentable {
         private let connectionScreen: Bool
         private var pageNeedsReload = false
         var lastState = "ready"
-        var lastTransportRevision = 0
+        var lastTransportRevision: Int
+        var lastRecovery: RecoveryState?
         private var lastConnectionInfo: Data?
+        /**
+         * Older UI packages answer a return to the foreground by asking
+         * getState, and replace their socket themselves if it says "ready".
+         * Native recovery also sends transport-resumed when it finishes. If it
+         * finished first, the first answer after returning says "connecting"
+         * (and a fresh connection-state "ready" follows), so exactly one of them
+         * replaces the socket. Current packages read the recovery phase instead.
+         */
+        private var resumeAnswerPending = false
+        private var revisionAtResume = 0
+
+        func dispatch(_ event: String, detail: Any) {
+            guard let data = try? JSONSerialization.data(withJSONObject: detail, options: [.sortedKeys, .fragmentsAllowed]) else { return }
+            webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(event)',{detail:\(String(decoding: data, as: UTF8.self))}))")
+        }
+
+        func publishConnectionState(_ value: String) {
+            let state = ["ready", "connecting", "unreachable"].contains(value) ? value : "unreachable"
+            dispatch("stimma:connection-state", detail: state)
+        }
+
+        /// The connection state for getState, as `resumeAnswerPending` describes.
+        private func legacyConnectionAnswer() -> (state: String, resend: Bool) {
+            let state = model.connectionState
+            guard resumeAnswerPending, !connectionScreen else { return (state, false) }
+            resumeAnswerPending = false
+            guard state == "ready", model.transportRevision != revisionAtResume else { return (state, false) }
+            return ("connecting", true)
+        }
 
         func publishConnectionInfo() {
             guard let info = try? connectionInfo(),
@@ -109,6 +143,8 @@ struct StimmaWebView: UIViewRepresentable {
         init(model: ShellModel, origin: URL, connectionScreen: Bool) {
             self.model = model; self.origin = origin
             self.connectionScreen = connectionScreen
+            // A new page starts from the current revision; only later recoveries are news to it.
+            self.lastTransportRevision = model.transportRevision
             if !connectionScreen, let server = model.selected {
                 let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("local-preferences")
@@ -128,6 +164,8 @@ struct StimmaWebView: UIViewRepresentable {
         }
 
         @objc private func resumeInterface() {
+            resumeAnswerPending = true
+            revisionAtResume = model.transportRevision
             restoreTerminatedPageIfReady()
             webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('stimma:app-active', {detail:true}))")
         }
@@ -199,10 +237,18 @@ struct StimmaWebView: UIViewRepresentable {
                         result = try connectionInfo()
                     case "closeConnections": model.showConnections = false; result = NSNull()
                     case "getState":
+                        let legacy = legacyConnectionAnswer()
                         result = ["activeDeviceId": model.selected?.deviceId ?? "none",
-                                  "connectionState": model.connectionState,
+                                  "connectionState": legacy.state,
                                   "localDeviceId": model.clientID,
-                                  "devices": try object(model.devices)]
+                                  "devices": try object(model.devices),
+                                  "recovery": model.recoveryState.json]
+                        if legacy.resend {
+                            // transport-resumed already went out for this return; send the ready state after this answer.
+                            replyHandler(result, nil)
+                            publishConnectionState(model.connectionState)
+                            return
+                        }
                     case "authStatus":
                         var data: [String: Any] = ["authenticated": model.auth.user != nil, "privacy_lockdown": false]
                         if let user = model.auth.user { data["user"] = try object(user) }

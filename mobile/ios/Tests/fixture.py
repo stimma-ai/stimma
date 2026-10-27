@@ -44,7 +44,7 @@ class Handler(socketserver.BaseRequestHandler):
                 self.stream = connection.makefile("rb")
                 while self.serve_one():
                     pass
-        except (ssl.SSLError, ConnectionError, TimeoutError, socket.timeout, OSError):
+        except (ssl.SSLError, ConnectionError, TimeoutError, socket.timeout, OSError, IndexError):
             pass  # Expected when the client rejects our certificate pin or hangs up.
 
     def count(self, key):
@@ -93,6 +93,10 @@ class Handler(socketserver.BaseRequestHandler):
         target = urlsplit(raw_target)
         path = target.path
         query = parse_qs(target.query)
+        if path == "/fixture-control":
+            with self.server.lock:
+                self.server.health = query["health"][0]
+            return self.send("200 OK", b"ok", keep=False)
         if path == "/fixture-stats":
             with self.server.lock:
                 payload = json.dumps({f"{m} {p}": n for (m, p), n in self.server.counts.items()}).encode()
@@ -114,6 +118,18 @@ class Handler(socketserver.BaseRequestHandler):
             with self.server.lock:
                 payload = json.dumps({"cancelled": self.server.counts[("cancelled", "probe")]}).encode()
             return self.send("200 OK", payload, keep=False)
+        if path == "/api/multi-device/health":
+            with self.server.lock:
+                health = self.server.health
+            if health == "hang":
+                return self.wait_for_client_close(("closed", path))
+            if health == "missing":
+                return self.send("404 Not Found", b'{"detail":"Not Found"}')
+            if health == "expired" or headers.get("authorization") != "Bearer fixture-session":
+                return self.send("401 Unauthorized", b'{"detail":"Multi-device session required"}', [("X-Stimma-Session-Invalid", "1")])
+            if health == "rejected":
+                return self.send("401 Unauthorized", b'{"detail":"PIN required"}')
+            return self.send("200 OK", b'{"ok":true}', [("Content-Type", "application/json")])
         assert headers.get("authorization") == "Bearer fixture-session", headers.get("authorization")
         for private in ("cookie", "origin", "referer", "x-forwarded-for", "x-private", "sec-fetch-site", "proxy-authorization"):
             assert private not in headers, private
@@ -215,6 +231,7 @@ def main():
         fingerprint = hashlib.sha256(ssl.PEM_cert_to_DER_cert(certificate.read_text())).hexdigest()
         with Server(("127.0.0.1", 0), Handler) as server:
             server.counts = collections.Counter()
+            server.health = "ok"
             server.seen = set()
             server.connection_ids = itertools.count(1)
             server.lock = threading.Lock()

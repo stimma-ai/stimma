@@ -163,6 +163,8 @@ final class UpstreamPool {
     private var idle: [UpstreamConnection] = []
     private var connecting: [ObjectIdentifier: NWConnection] = [:]
     private(set) var retired = false
+    /// Set once this server answered the health path with 404: an older server, checked through the profile list instead.
+    var legacyHealth = false
     /// Test seam: how many connections this pool has opened.
     private(set) var opened = 0
     var connectTimeout: TimeInterval = 4

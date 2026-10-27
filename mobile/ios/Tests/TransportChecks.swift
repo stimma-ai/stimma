@@ -121,6 +121,13 @@ final class Reports: @unchecked Sendable {
     var text: String { lock.withLock { items.map(\.description).joined(separator: "\n") } }
 }
 
+final class Proofs: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [(UpstreamPool, Int)] = []
+    func add(_ session: UpstreamPool, _ generation: Int) { lock.withLock { items.append((session, generation)) } }
+    var last: (UpstreamPool, Int)? { lock.withLock { items.last } }
+}
+
 @main
 struct TransportChecks {
     static func main() async throws {
@@ -290,8 +297,8 @@ struct TransportChecks {
         let resumedOrigin = try await transport.start()
         precondition(resumedOrigin == origin)
         do { _ = try await socket.receive(); fatalError("Suspended tunnel stayed open") } catch {}
-        let healthy = try await transport.checkConnection()
-        precondition(healthy, "Resume probe must traverse the local proxy")
+        let healthy = await transport.checkConnection()
+        precondition(healthy == .healthy, "Resume probe must traverse the local proxy")
         let (resumed, resumedResponse) = try await client.data(for: request)
         precondition((resumedResponse as! HTTPURLResponse).statusCode == 200 && String(data: resumed, encoding: .utf8) == "fixture-ok")
         let resumedSocket = client.webSocketTask(with: websocketRequest)
@@ -301,6 +308,7 @@ struct TransportChecks {
         guard case .string("after-resume") = try await resumedSocket.receive() else { fatalError("Resumed WebSocket duplex failed") }
         resumedSocket.cancel(with: .normalClosure, reason: nil)
 
+        try await checkHealth(origin: origin, transport: transport, port: port, fingerprint: fingerprint, client: client, websocket: websocketRequest)
         try await checkFailures(origin: origin, transport: transport, port: port, fingerprint: fingerprint)
         let logged = reports.text
         // Diagnostics name categories and exception types only, never request content.
@@ -453,6 +461,65 @@ struct TransportChecks {
         suspended.close()
         _ = try await transport.start()
         print("Pooled upstream reuse, keep-alive limits, mutation safety, streaming and HTTP semantics passed")
+    }
+
+    /// The recovery probe crosses the WebView's own path and tells a healthy
+    /// path, an expired session and a network failure apart.
+    static func checkHealth(origin: URL, transport: MobileTransport, port: Int, fingerprint: String,
+                            client: URLSession, websocket: URLRequest) async throws {
+        func control(_ health: String) async throws {
+            _ = try await PinnedHTTP.request(url: URL(string: "https://127.0.0.1:\(port)/fixture-control?health=\(health)")!, fingerprint: fingerprint)
+        }
+        func count(_ key: String) async throws -> Int { try await stats(port, fingerprint)[key] ?? 0 }
+        transport.connect(host: "127.0.0.1", port: port, fingerprint: fingerprint, session: "fixture-session", keepAlive: 30)
+        let checks = try await count("GET /api/multi-device/health")
+        require(await transport.checkConnection() == .healthy)
+        require(try await count("GET /api/multi-device/health") == checks + 1, "The check did not use the health path")
+        require(transport.idleUpstreamConnections >= 1, "A check must leave its pooled connection reusable")
+        try await control("expired")
+        require(await transport.checkConnection() == .sessionExpired, "An expired device session must be told apart")
+        try await control("rejected")
+        require(await transport.checkConnection() == .unreachable, "An ordinary 401 is not an expired device session")
+        try await control("hang")
+        let started = Date()
+        require(await transport.checkConnection(timeout: 0.5) == .unreachable)
+        require(Date().timeIntervalSince(started) < 2, "A hung check must end with its budget")
+        // An older server without the health route is checked through the profile list, from then on.
+        try await control("missing")
+        let profiles = try await count("GET /api/profiles")
+        require(await transport.checkConnection() == .healthy)
+        let afterFallback = try await count("GET /api/multi-device/health")
+        require(await transport.checkConnection() == .healthy)
+        require(try await count("GET /api/multi-device/health") == afterFallback, "The missing health route was asked again")
+        require(try await count("GET /api/profiles") == profiles + 2)
+        try await control("ok")
+        // A failure the proxy answered itself means the server was not reached.
+        transport.connect(host: "127.0.0.1", port: port, fingerprint: String(repeating: "0", count: 64), session: "fixture-session")
+        require(await transport.checkConnection() == .unreachable)
+        transport.connect(host: "127.0.0.1", port: port, fingerprint: fingerprint, session: "fixture-session", keepAlive: 30)
+
+        // A successful page upgrade reports the session and the generation it happened in.
+        let proofs = Proofs()
+        transport.setRecoveryGeneration(7)
+        transport.onTunnelOpened(proofs.add)
+        let socket = client.webSocketTask(with: websocket)
+        socket.resume()
+        guard case .string("ok") = try await socket.receive() else { fatalError("WebSocket greeting failed") }
+        require(try await waitFor { proofs.last != nil }, "The upgrade was not reported")
+        let proof = proofs.last!
+        require(proof.1 == 7 && transport.isCurrent(proof.0))
+        require(transport.openTunnels == 1)
+        _ = try await RawClient.exchange(origin, "GET /api/test HTTP/1.1\r\nHost: 127.0.0.1:\(origin.port!)\r\nCookie: \(transport.cookieName)=\(transport.cookieValue)\r\n\r\n")
+        require(transport.idleUpstreamConnections >= 1)
+        // A network change ends tunnels at once and drops idle connections; requests still work after.
+        transport.networkChanged()
+        require(transport.idleUpstreamConnections == 0 && transport.openTunnels == 0)
+        do { _ = try await socket.receive(); fatalError("A tunnel survived a network change") } catch {}
+        require(try await RawClient.exchange(origin, "GET /api/test HTTP/1.1\r\nHost: 127.0.0.1:\(origin.port!)\r\nCookie: \(transport.cookieName)=\(transport.cookieValue)\r\n\r\n").text == "fixture-ok")
+        transport.connect(host: "127.0.0.1", port: port, fingerprint: fingerprint, session: "fixture-session", keepAlive: 30)
+        require(!transport.isCurrent(proof.0), "A replaced session must no longer count as current")
+        transport.onTunnelOpened(nil)
+        print("Path health checks, upgrade proof and network change handling passed")
     }
 
     static func checkFailures(origin: URL, transport: MobileTransport, port: Int, fingerprint: String) async throws {

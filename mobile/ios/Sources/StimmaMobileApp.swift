@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import OSLog
+import Network
 
 @main
 struct StimmaMobileApp: App {
@@ -15,7 +16,7 @@ struct StimmaMobileApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     model.setAppActive(phase == .active)
                     if phase == .background { model.suspendConnection() }
-                    if phase == .active { Task { await model.checkConnection() } }
+                    if phase == .active { model.resumeConnection() }
                 }
         }
     }
@@ -43,10 +44,7 @@ final class ShellModel: ObservableObject {
         let localOrigin = try await next.start()
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
-        connectionProbe?.cancel(); connectionProbe = nil
-        monitor?.cancel(); monitor = nil
-        checkingConnection = false
-        resumePending = false
+        recovery.cancel()
         activeRoute = nil; activeSession = nil; activeUIHash = nil
         // Keep the bundled connection screen available on its own loopback origin.
         transport?.stop()
@@ -63,6 +61,7 @@ final class ShellModel: ObservableObject {
         connectionState = "ready"
         showConnections = false
         revision = UUID()
+        recovery.reset()
     }
     #endif
     @Published var message: String?
@@ -75,7 +74,11 @@ final class ShellModel: ObservableObject {
     private var appActive = true
     @Published var revision = UUID()
     @Published var connectionState = "ready"
+    /// Bumped once per recovery generation that ends ready after a disruption;
+    /// older UI packages replace their socket and refresh on it.
     @Published var transportRevision = 0
+    /// The recovery generation, phase and budget published to the page.
+    @Published private(set) var recoveryState = RecoveryState(generation: 0, phase: .ready, budget: 0)
     @Published var restoring = true
     @Published var interfaceReady = false
     private(set) var transport: MobileTransport?
@@ -84,11 +87,62 @@ final class ShellModel: ObservableObject {
     private var activeRoute: MobileRoute?
     private var activeSession: String?
     private var connectionGeneration = UUID()
-    private var monitor: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
-    private var checkingConnection = false
-    private var connectionProbe: Task<Bool, Error>?
-    private var resumePending = false
+    private var routineChecks: Task<Void, Never>?
+    /// The single recovery sequence for the WebView's connection. Its state is
+    /// published to the page so request admission, socket replacement and the
+    /// visible reconnecting state all follow the same generation and budgets.
+    private(set) lazy var recovery = TransportRecovery(
+        probe: { [weak self] in await self?.transport?.checkConnection() ?? .unreachable },
+        reconnect: { [weak self] in
+            guard let self else { throw CancellationError() }
+            try await self.recoverSession()
+        },
+        publish: { [weak self] state, resumed, failure in self?.recoveryChanged(state, resumed: resumed, failure: failure) },
+        // A revoked sign-in cannot recover by retrying; the connection screen asks to sign in.
+        terminal: { [weak self] _ in self?.signInRevoked ?? true })
+    /// The one default-network watcher (see `networkChanged`).
+    private let pathMonitor = NWPathMonitor()
+    private lazy var networkChanges = NetworkChangeTracker<String> { [weak self] in self?.networkChanged() }
+
+    init() {
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let network = path.status == .satisfied ? Self.defaultNetwork(path) : nil
+            // In order, on the main actor: each update is compared with the last.
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.pathChanged(network) } }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "ai.stimma.mobile.network"))
+    }
+
+    /// The physical network carrying the default path. A VPN such as Tailscale
+    /// stays first across a Wi-Fi/cellular handoff, so it does not identify it.
+    nonisolated static func defaultNetwork(_ path: NWPath) -> String {
+        let interfaces = path.availableInterfaces
+        let physical = interfaces.first { [.wifi, .cellular, .wiredEthernet].contains($0.type) }
+        return (physical ?? interfaces.first)?.name ?? "default"
+    }
+
+    private func pathChanged(_ network: String?) {
+        if let network { networkChanges.available(network) } else { networkChanges.unavailable() }
+    }
+
+    /// A handoff, losing the default network with no successor, or the
+    /// network returning drops what the old network carried (idle pooled
+    /// connections, then WebSocket tunnels) and, in the foreground, starts a
+    /// recovery generation so the page finds out now rather than when a stale
+    /// socket times out.
+    private func networkChanged() {
+        transport?.networkChanged()
+        if appActive && recoverable { recovery.disrupted() }
+    }
+
+    /// Recovery applies to an established in-app connection, not dev-server pages or a connection still being made.
+    private var recoverable: Bool {
+        transport != nil && selected != nil && devServerURL == nil && !busy && activeUIHash != nil
+    }
+
+    /// The account sign-in behind a remote connection is gone; only the user can fix that.
+    private var signInRevoked: Bool { activeRoute != nil && !auth.hasSavedSession }
     func setSlideshowActive(_ active: Bool) {
         slideshowActive = active
         updateOrientation()
@@ -219,11 +273,12 @@ final class ShellModel: ObservableObject {
                 let preview = MobileTransport(frontend: package.directory, shellFrontend: frontend)
                 let url = try await preview.start()
                 preview.connectLocal(port: port)
+                watchTunnels(preview)
                 transport = preview
                 selected = MobileDevice(deviceId: "simulator", name: "Simulator test library", routes: [], certFingerprint: nil, serving: false)
                 origin = url
                 activeUIHash = package.hash
-                startMonitor()
+                recovery.reset()
                 message = nil
             } catch {
                 message = error.localizedDescription
@@ -256,6 +311,7 @@ final class ShellModel: ObservableObject {
 
     func cancelRestore() {
         guard restoring else { return }
+        recovery.cancel()
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
         restoring = false
@@ -293,14 +349,14 @@ final class ShellModel: ObservableObject {
         startPresence()
     }
 
-    func connect(_ device: MobileDevice, recovering: Bool = false) async {
-        connectionProbe?.cancel(); connectionProbe = nil
-        checkingConnection = false
+    func connect(_ device: MobileDevice) async {
+        // An explicit operation takes over from any recovery in progress.
+        recovery.cancel()
         connectionTask?.cancel()
         let generation = UUID()
         connectionGeneration = generation
         busy = true
-        let task = Task { await self.performConnect(device, recovering: recovering, generation: generation) }
+        let task = Task { await self.performConnect(device, generation: generation) }
         connectionTask = task
         await withTaskCancellationHandler {
             await task.value
@@ -308,78 +364,87 @@ final class ShellModel: ObservableObject {
         if connectionGeneration == generation { connectionTask = nil; busy = false }
     }
 
-    private func performConnect(_ initialDevice: MobileDevice, recovering: Bool, generation: UUID) async {
-        guard connectionGeneration == generation, !Task.isCancelled else { return }
+    private struct EstablishedSession {
+        let device: MobileDevice
+        let route: MobileRoute
+        let pin: String
+        let session: String
+        let keepAlive: Int?
+    }
+
+    /// Find a verified route to `initialDevice` and open a device session on it.
+    /// Recovery first refreshes the device's addresses and certificate, bounded
+    /// so a slow account service cannot consume the recovery budget; a network
+    /// failure there leaves the remembered roster usable, a revoked sign-in does not.
+    private func establishSession(_ initialDevice: MobileDevice, recovering: Bool, generation: UUID) async throws -> EstablishedSession {
+        func checkCurrent() throws {
+            guard connectionGeneration == generation, !Task.isCancelled else { throw CancellationError() }
+        }
         var device = initialDevice
+        if recovering {
+            var roster: [MobileDevice]?
+            do { roster = try await withBudget(Self.discoveryRefresh) { @MainActor in try await self.auth.devices() } }
+            catch {
+                try checkCurrent()
+                if !auth.hasSavedSession { throw error }
+            }
+            try checkCurrent()
+            if let roster {
+                devices = roster
+                guard let latest = roster.first(where: { $0.deviceId == device.deviceId }) else {
+                    throw ShellError.message("This server is no longer shared with your account.")
+                }
+                device = latest
+            }
+        }
+        try checkCurrent()
+        guard let pin = device.certFingerprint, !pin.isEmpty else {
+            throw ShellError.message("This server has no verified certificate. Refresh your servers and try again.")
+        }
+        let candidates: [(MobileRoute, URL)] = device.routes.compactMap { route in
+            var address = URLComponents()
+            address.scheme = "https"; address.host = route.host; address.port = route.port
+            address.path = "/multi-device/ping"
+            return address.url.map { (route, $0) }
+        }
+        let (reachable, keepAlive) = try await PinnedHTTP.firstReachableRoute(urls: candidates.map { $0.1 }, fingerprint: pin, deviceID: device.deviceId)
+        try checkCurrent()
+        guard let route = candidates.first(where: { $0.1 == reachable })?.0 else {
+            throw ShellError.message("No reachable server route. Check that Stimma and Tailscale are running.")
+        }
+        let idToken = try await auth.validIDToken()
+        try checkCurrent()
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = route.host
+        components.port = route.port
+        components.path = "/multi-device/session"
+        guard let url = components.url else { throw ShellError.message("Invalid server route") }
+        let body = try JSONSerialization.data(withJSONObject: ["idToken": idToken, "deviceId": clientID])
+        let (data, response) = try await PinnedHTTP.request(url: url, fingerprint: pin, method: "POST", body: body, session: nil)
+        try checkCurrent()
+        guard response.statusCode == 200,
+              let result = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let session = result["session"] as? String,
+              result["deviceId"] as? String == device.deviceId else {
+            throw ShellError.message("The server refused this account or its identity changed.")
+        }
+        return EstablishedSession(device: device, route: route, pin: pin, session: session, keepAlive: keepAlive)
+    }
+
+    private func performConnect(_ device: MobileDevice, generation: UUID) async {
+        guard connectionGeneration == generation, !Task.isCancelled else { return }
         connectionState = "connecting"
         message = "Connecting to \(device.name)…"
         defer { if connectionGeneration == generation { busy = false } }
-        if recovering {
-            // Refresh addresses/certificate after a server restart. A cloud outage
-            // must not prevent reconnecting over a previously verified route.
-            if let roster = try? await auth.devices() {
-                guard connectionGeneration == generation, !Task.isCancelled else { return }
-                devices = roster
-                if let latest = roster.first(where: { $0.deviceId == device.deviceId }) { device = latest }
-            }
-        }
-        guard connectionGeneration == generation, !Task.isCancelled else { return }
-        guard let pin = device.certFingerprint, !pin.isEmpty else {
-            message = "This server has no verified certificate. Refresh your servers and try again."
-            connectionState = "unreachable"
-            return
-        }
         do {
-            let candidates: [(MobileRoute, URL)] = device.routes.compactMap { route in
-                var address = URLComponents()
-                address.scheme = "https"; address.host = route.host; address.port = route.port
-                address.path = "/multi-device/ping"
-                return address.url.map { (route, $0) }
-            }
-            let (reachable, keepAlive) = try await PinnedHTTP.firstReachableRoute(urls: candidates.map { $0.1 }, fingerprint: pin, deviceID: device.deviceId)
-            guard connectionGeneration == generation else { return }
-            guard let route = candidates.first(where: { $0.1 == reachable })?.0 else {
-                throw ShellError.message("No reachable server route. Check that Stimma and Tailscale are running.")
-            }
-            let idToken = try await auth.validIDToken()
-            guard connectionGeneration == generation else { return }
-            var components = URLComponents()
-            components.scheme = "https"
-            components.host = route.host
-            components.port = route.port
-            components.path = "/multi-device/session"
-            guard let url = components.url else { throw ShellError.message("Invalid server route") }
-            let body = try JSONSerialization.data(withJSONObject: ["idToken": idToken, "deviceId": clientID])
-            let (data, response) = try await PinnedHTTP.request(url: url, fingerprint: pin, method: "POST", body: body, session: nil)
-            guard connectionGeneration == generation else { return }
-            guard response.statusCode == 200,
-                  let result = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let session = result["session"] as? String,
-                  result["deviceId"] as? String == device.deviceId else {
-                throw ShellError.message("The server refused this account or its identity changed.")
-            }
-            // A network interruption must not reset the page, drafts, or scroll.
-            // Resolve package updates on explicit selection or the next app launch.
-            if recovering, selected?.deviceId == device.deviceId, let transport, activeUIHash != nil {
-                transport.connect(host: route.host, port: route.port, fingerprint: pin, session: session, keepAlive: keepAlive)
-                guard try await transport.checkConnection() else {
-                    throw ShellError.message("The local connection could not reach the server.")
-                }
-                guard connectionGeneration == generation, !Task.isCancelled else { return }
-                selected = device
-                activeRoute = route
-                activeSession = session
-                message = nil
-                connectionState = "ready"
-                resumePending = false
-                transportRevision += 1
-                return
-            }
+            let established = try await establishSession(device, recovering: false, generation: generation)
+            let route = established.route
             let package = try await resolveUI { path, limit in
                 var address = URLComponents()
                 address.scheme = "https"; address.host = route.host; address.port = route.port; address.path = path
                 guard let url = address.url else { throw ShellError.message("Invalid server route") }
-                return try self.checkedPackageResponse(await PinnedHTTP.request(url: url, fingerprint: pin, session: session, maximumResponseBytes: limit))
+                return try self.checkedPackageResponse(await PinnedHTTP.request(url: url, fingerprint: established.pin, session: established.session, maximumResponseBytes: limit))
             }
             guard connectionGeneration == generation else { return }
             guard let frontend = Bundle.main.url(forResource: "Frontend", withExtension: nil) else {
@@ -388,24 +453,25 @@ final class ShellModel: ObservableObject {
             let next = MobileTransport(frontend: package.directory, shellFrontend: frontend)
             let localOrigin = try await next.start()
             guard connectionGeneration == generation else { next.stop(); return }
-            next.connect(host: route.host, port: route.port, fingerprint: pin, session: session, keepAlive: keepAlive)
+            next.connect(host: route.host, port: route.port, fingerprint: established.pin, session: established.session, keepAlive: established.keepAlive)
+            watchTunnels(next)
             transport?.stop()
             transport = next
             resetPresentation()
             interfaceReady = false
             devServerURL = nil
             activeUIHash = package.hash
-            selected = device
+            selected = established.device
             activeRoute = route
-            activeSession = session
+            activeSession = established.session
             origin = localOrigin
             revision = UUID()
-            UserDefaults.standard.set(device.deviceId, forKey: "mobile.selectedServer")
+            UserDefaults.standard.set(established.device.deviceId, forKey: "mobile.selectedServer")
             showConnections = false
             message = nil
             connectionState = "ready"
-            startMonitor()
-            return
+            // After the selection: publishing renders, and the new page needs to know its server.
+            recovery.reset()
         } catch {
             if connectionGeneration == generation && !Task.isCancelled {
                 message = "Could not connect to \(device.name). \(error.localizedDescription)"
@@ -414,66 +480,88 @@ final class ShellModel: ObservableObject {
         }
     }
 
-    func retry() async {
-        if let selected, activeRoute != nil { await connect(selected, recovering: true) }
-        else { revision = UUID() }
+    /// Re-establish the session in place for `recovery`: the page, package,
+    /// local address and drafts stay. Recovery confirms the new session through
+    /// the WebView's own path before it reports ready.
+    private func recoverSession() async throws {
+        guard let device = selected, devServerURL == nil, let transport, activeUIHash != nil, activeRoute != nil else {
+            throw ShellError.message("Nothing to recover.")
+        }
+        let established = try await establishSession(device, recovering: true, generation: connectionGeneration)
+        guard self.transport === transport, selected?.deviceId == established.device.deviceId else { throw CancellationError() }
+        transport.connect(host: established.route.host, port: established.route.port, fingerprint: established.pin,
+                          session: established.session, keepAlive: established.keepAlive)
+        selected = established.device
+        activeRoute = established.route
+        activeSession = established.session
+        UserDefaults.standard.set(established.device.deviceId, forKey: "mobile.selectedServer")
     }
 
-    private func startMonitor() {
-        guard monitor == nil else { return }
-        monitor = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(20))
-                guard !Task.isCancelled else { return }
-                await self?.checkConnection()
+    /// The page's socket upgrading through this transport proves the path;
+    /// recovery need not wait for its own check.
+    private func watchTunnels(_ next: MobileTransport) {
+        next.onTunnelOpened { [weak self, weak next] session, generation in
+            // Captured when the upgrade succeeded; by the time this runs a newer check or session may have taken over.
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, let next, self.transport === next, next.isCurrent(session) else { return }
+                    self.recovery.pathProven(generation: generation)
+                }
             }
         }
     }
 
+    private func recoveryChanged(_ state: RecoveryState, resumed: Bool, failure: Error?) {
+        recoveryState = state
+        transport?.setRecoveryGeneration(state.generation)
+        connectionState = state.phase.connectionState
+        switch state.phase {
+        case .ready:
+            message = nil
+            if resumed { transportRevision += 1 }
+        case .unavailable:
+            let name = selected?.name ?? "your Stimma Server"
+            message = failure.map { "Could not connect to \(name). \($0.localizedDescription)" }
+                ?? "Could not connect to \(name). Check your sign-in, server sharing, and network, then try again."
+            // Only a sign-in that is genuinely gone needs the connection screen; a network failure keeps the page.
+            if failure != nil && signInRevoked { showConnections = true }
+        case .checking, .reconnecting: break
+        }
+    }
+
+    /// Cadence of the silent check that catches a server that went away while the app sat in the foreground.
+    static let routineCheck: Duration = .seconds(20)
+    /// How long recovery waits for a fresh server list before using the remembered one.
+    static let discoveryRefresh: TimeInterval = 4
+
+    /// The page's "retry": start a recovery generation now.
+    func retry() async {
+        if recoverable { recovery.disrupted() }
+        else if selected == nil || activeRoute == nil { revision = UUID() }
+    }
+
+    /// Sockets close while backgrounded; the page must not treat the connection as ready until it is checked again.
     func suspendConnection() {
+        routineChecks?.cancel(); routineChecks = nil
         guard selected != nil, devServerURL == nil else { return }
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
-        connectionProbe?.cancel(); connectionProbe = nil
-        checkingConnection = false
         busy = false
-        resumePending = true
-        connectionState = "connecting"
+        if recoverable { recovery.suspend() } else { recovery.cancel() }
         transport?.suspend()
     }
 
-    func checkConnection() async {
-        guard devServerURL == nil, !busy, !checkingConnection, UIApplication.shared.applicationState == .active,
-              let selected, let transport else { return }
-        let generation = connectionGeneration
-        checkingConnection = true
-        defer {
-            if generation == connectionGeneration {
-                checkingConnection = false
-                connectionProbe = nil
+    /// Foreground: check the path now, then routinely while active.
+    func resumeConnection() {
+        if recoverable { recovery.disrupted() }
+        routineChecks?.cancel()
+        routineChecks = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.routineCheck)
+                guard !Task.isCancelled, let self else { return }
+                if self.recoverable { self.recovery.routine() }
             }
         }
-        let probe = Task { try await transport.checkConnection() }
-        connectionProbe = probe
-        do {
-            let ready = try await withTaskCancellationHandler {
-                try await probe.value
-            } onCancel: { probe.cancel() }
-            guard generation == connectionGeneration, !Task.isCancelled else { return }
-            if ready {
-                message = nil
-                connectionState = "ready"
-                if resumePending { resumePending = false; transportRevision += 1 }
-                return
-            }
-        } catch { if generation != connectionGeneration { return } }
-        connectionState = "unreachable"
-        guard !Task.isCancelled else { return }
-        transport.suspend()
-        // Release the probe gate before connect() changes the generation.
-        checkingConnection = false
-        connectionProbe = nil
-        if activeRoute != nil { await connect(selected, recovering: true) }
     }
 
     func logout() {
@@ -489,12 +577,9 @@ final class ShellModel: ObservableObject {
         resetPresentation()
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
+        recovery.cancel()
         restoring = false
         interfaceReady = false
-        connectionProbe?.cancel(); connectionProbe = nil
-        checkingConnection = false
-        resumePending = false
-        monitor?.cancel(); monitor = nil
         activeRoute = nil; activeSession = nil; activeUIHash = nil
         busy = false
         transport?.stop()

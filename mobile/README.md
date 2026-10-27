@@ -161,6 +161,22 @@ being delivered. WebSocket upgrades keep their own raw pinned connection.
 Failures use the same `contract/proxy-failures.json` statuses and
 `X-Stimma-Proxy-Failure` marker as Android, with category-only logs.
 
+iOS connection recovery matches Android's. Checks cross the WebView's own path
+(listener, capability cookie, proxy, pooled upstream, session gate) using
+`/api/multi-device/health`, or `/api/profiles` on older servers. Returning to
+the foreground, a default-network change (`NWPathMonitor`: a different physical
+network, losing it with no successor, or its return), a page retry, or a failed
+20-second routine check opens one numbered generation: check (5 s), then
+re-establish the session in place and check again (20 s), retrying unavailable
+generations with jittered 1–20 s backoff. An expired device session is renewed
+from the stored sign-in; only a revoked sign-in opens the connection screen. A
+network change first drops idle pooled connections and WebSocket tunnels. A
+page socket upgrade through the proxy during a check proves the path and ends
+that generation's check early. The shell publishes `stimma:transport-state`
+(and `recovery` in `getState`) per `contract/transport-recovery.json`, so the
+page holds and replays requests on the same generations as on Android; older
+UI packages still get exactly one `stimma:transport-resumed` per recovery.
+
 Backgrounding or an interruption pauses audio/video; returning does not restart
 sound until the user plays it. Image slideshows freeze their remaining dwell time
 while hidden or reconnecting. Active slideshow playback keeps the phone awake;
