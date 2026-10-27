@@ -1083,6 +1083,34 @@ class WebSocketManager:
         # queue before its sender ever runs. This never waits on a socket.
         await asyncio.sleep(0)
 
+    async def broadcast_profile_details(self, event: str, data: dict, details: Dict[str, dict]):
+        """Broadcast a global event, with per-profile detail only where it belongs.
+
+        Every client receives ``data`` exactly as a global broadcast would
+        send it. A client that declared a realtime scope for a profile in
+        ``details`` instead receives ``data`` merged with that profile's
+        detail and tagged with its ``profile_id``. Legacy clients and scoped
+        clients without a profile never see any profile's detail.
+        """
+        if not self._clients:
+            return
+        shared = build_frame(event, data)
+        tailored: Dict[str, OutboundFrame] = {}
+        for client in list(self._clients.values()):
+            profile = client.scope.profile_id if client.scope is not None else None
+            frame = shared
+            if profile is not None and profile in details:
+                frame = tailored.get(profile)
+                if frame is None:
+                    frame = tailored[profile] = build_frame(event, {**data, **details[profile], "profile_id": profile})
+            selected = client.frame_for(frame)
+            if selected is not None:
+                self._deliver(client, selected)
+        shared.seal()
+        for frame in tailored.values():
+            frame.seal()
+        await asyncio.sleep(0)
+
     async def send_to(
         self,
         websocket: WebSocket,

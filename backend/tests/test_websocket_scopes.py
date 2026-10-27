@@ -516,3 +516,31 @@ def test_invalid_connect_scope_falls_back_to_the_legacy_stream(monkeypatch):
             assert "realtime" not in socket.receive_json()["data"]
             test_client.portal.call(manager.broadcast, "media_added", {"media_id": 1, "profile_id": "B"}, False)
             assert socket.receive_json()["data"]["media_id"] == 1
+
+
+async def test_profile_details_reach_only_clients_scoped_to_that_profile():
+    """Per-profile detail (processing stats) rides a global event without
+    leaking: legacy and profile-less clients get exactly the aggregate."""
+    manager = WebSocketManager()
+    legacy, unscoped, alpha, beta = Socket(), Socket(), Socket(), Socket()
+    manager.attach(legacy)
+    manager.attach(unscoped, RealtimeScope())
+    manager.attach(alpha, scoped("A"))
+    manager.attach(beta, scoped("B"))
+    aggregate = {"phase_stats": {"clip": {"pending": 9}}}
+    await manager.broadcast_profile_details("processing_stats", aggregate, {
+        "A": {"profile_phase_stats": {"clip": {"pending": 4}}},
+        "B": {"profile_phase_stats": {"clip": {"pending": 5}}},
+    })
+    await manager.drain()
+    assert legacy.of("processing_stats") == [aggregate]
+    assert unscoped.of("processing_stats") == [aggregate]
+    assert alpha.of("processing_stats") == [{**aggregate, "profile_phase_stats": {"clip": {"pending": 4}}, "profile_id": "A"}]
+    assert beta.of("processing_stats") == [{**aggregate, "profile_phase_stats": {"clip": {"pending": 5}}, "profile_id": "B"}]
+    # A profile without detail (its snapshot failed) gets the aggregate, which tells it to re-read.
+    gamma = Socket()
+    manager.attach(gamma, scoped("C"))
+    await manager.broadcast_profile_details("processing_stats", aggregate, {"A": {"profile_phase_stats": {}}})
+    await manager.drain()
+    assert gamma.of("processing_stats") == [aggregate]
+    assert beta.of("processing_stats")[-1] == aggregate

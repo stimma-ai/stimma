@@ -361,19 +361,25 @@ class TransportRecoveryTest {
         val health = AtomicReference(PathHealth.HEALTHY)
         val subject = recovery(recorder, { delay(150); probeFinished.incrementAndGet(); health.get() })
         subject.disrupted()
-        subject.pathProven()
+        subject.pathProven(subject.state.generation)
         assertEquals(RecoveryPhase.READY, subject.state.phase)
         delay(300)
         assertEquals("the slower check was cancelled", 0, probeFinished.get())
         assertEquals(listOf(RecoveryPhase.CHECKING, RecoveryPhase.READY), recorder.phases)
         assertEquals(1, recorder.resumed)
+        // Proof captured during an earlier generation's check does not end a newer one.
+        val stale = subject.state.generation
+        subject.disrupted()
+        subject.pathProven(stale)
+        assertEquals(RecoveryPhase.CHECKING, subject.state.phase)
+        waitFor { subject.state.phase == RecoveryPhase.READY }
         // Outside a check it changes nothing: ready stays ready, reconnecting confirms itself.
-        subject.pathProven()
+        subject.pathProven(subject.state.generation)
         health.set(PathHealth.SESSION_EXPIRED)
         subject.disrupted()
         waitFor { subject.state.phase == RecoveryPhase.RECONNECTING }
         val before = recorder.states.size
-        subject.pathProven()
+        subject.pathProven(subject.state.generation)
         assertEquals(RecoveryPhase.RECONNECTING, subject.state.phase)
         assertEquals(before, recorder.states.size)
     }
@@ -385,7 +391,7 @@ class TransportRecoveryTest {
         val subject = recovery(recorder, { kotlinx.coroutines.runInterruptible { release.await() }; PathHealth.UNREACHABLE })
         subject.disrupted()
         Thread.sleep(50)
-        subject.pathProven()
+        subject.pathProven(subject.state.generation)
         release.countDown()
         Thread.sleep(200)
         assertEquals(listOf(RecoveryPhase.CHECKING, RecoveryPhase.READY), recorder.phases)
@@ -395,7 +401,7 @@ class TransportRecoveryTest {
         val upstream = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         val executor = Executors.newSingleThreadExecutor()
         val proven = AtomicInteger()
-        transport.tunnelOpened = { proven.incrementAndGet() }
+        transport.tunnelOpened = { session -> if (session === transport.target) proven.incrementAndGet() }
         try {
             transport.target = PinnedServer("127.0.0.1", upstream.localPort, null, "native-session", true)
             for (status in listOf("401 Unauthorized", "101 Switching Protocols")) {

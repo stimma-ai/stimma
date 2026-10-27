@@ -69,13 +69,13 @@ async def test_processing_monitor_broadcasts_enabled_changes_without_counter_cha
         if ticks == 4:
             raise asyncio.CancelledError
 
-    ws = SimpleNamespace(broadcast=AsyncMock())
+    ws = SimpleNamespace(broadcast=AsyncMock(), broadcast_profile_details=AsyncMock())
     with patch("utils.background_tasks.get_settings", return_value=settings), patch(
         "utils.background_tasks.get_database_registry"
     ), patch("utils.background_tasks.asyncio.sleep", side_effect=tick):
         await monitor_processing_stats(ws)
 
-    snapshots = [call.args[1]["phase_stats"] for call in ws.broadcast.call_args_list]
+    snapshots = [call.args[1]["phase_stats"] for call in ws.broadcast_profile_details.call_args_list]
     assert len(snapshots) == 2  # The unchanged second poll stays quiet.
     assert snapshots[0]["clip"]["enabled"] is False
     assert snapshots[1]["clip"]["enabled"] is True
@@ -83,8 +83,9 @@ async def test_processing_monitor_broadcasts_enabled_changes_without_counter_cha
 
 async def test_processing_monitor_sends_each_profile_its_own_snapshot():
     """Connected clients update from the event instead of re-reading
-    /processing/stats on every change; each profile's event carries that
-    profile's snapshot and is tagged so scoped sockets get only their own."""
+    /processing/stats on every change. One global event goes out; each
+    profile's snapshot is handed over as detail for that profile's scoped
+    clients only (delivery is covered in test_websocket_scopes)."""
     import asyncio
     from contextlib import asynccontextmanager
     from utils.background_tasks import monitor_processing_stats
@@ -126,7 +127,7 @@ async def test_processing_monitor_sends_each_profile_its_own_snapshot():
         if ticks == 2:
             raise asyncio.CancelledError
 
-    ws = SimpleNamespace(broadcast=AsyncMock())
+    ws = SimpleNamespace(broadcast=AsyncMock(), broadcast_profile_details=AsyncMock())
     with patch("utils.background_tasks.get_settings", return_value=settings), patch(
         "utils.background_tasks.get_database_registry", return_value=registry
     ), patch("utils.background_tasks.asyncio.sleep", side_effect=tick), patch(
@@ -134,11 +135,16 @@ async def test_processing_monitor_sends_each_profile_its_own_snapshot():
     ):
         await monitor_processing_stats(ws)
 
-    stats_events = [call for call in ws.broadcast.call_args_list if call.args[0] == "processing_stats"]
-    assert [call.args[1]["profile_id"] for call in stats_events] == ["alpha", "beta"]
-    assert [call.args[1]["profile_phase_stats"] for call in stats_events] == [{"clip": {"pending": 1}}, {"clip": {"pending": 2}}]
+    assert [call.args[0] for call in ws.broadcast.call_args_list if call.args[0] == "processing_stats"] == []
+    (call,) = ws.broadcast_profile_details.call_args_list
+    event, data, details = call.args
+    assert event == "processing_stats"
+    assert set(data) == {"phase_stats"}, "the shared event carries only the aggregate"
+    assert details == {
+        "alpha": {"profile_phase_stats": {"clip": {"pending": 1}}},
+        "beta": {"profile_phase_stats": {"clip": {"pending": 2}}},
+    }
     assert seen_profiles == ["alpha", "beta"], "each snapshot is read in its own profile"
-    assert all("phase_stats" in call.args[1] for call in stats_events), "older clients keep the aggregate"
 
 
 class TestEnabledFlagChecks:

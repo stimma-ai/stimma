@@ -101,8 +101,9 @@ class TransportRecovery(
      * progress ends ready now instead of after its own round trips. Only a
      * check is cut short; re-establishing a session always confirms itself.
      */
-    fun pathProven() = synchronized(lock) {
-        if (state.phase != RecoveryPhase.CHECKING) return@synchronized
+    fun pathProven(generation: Int) = synchronized(lock) {
+        // Proof from a socket that opened during another generation's check says nothing about this one.
+        if (state.phase != RecoveryPhase.CHECKING || state.generation != generation) return@synchronized
         job?.cancel(); job = null
         set(RecoveryState(state.generation, RecoveryPhase.READY, 0), resumed = true)
     }

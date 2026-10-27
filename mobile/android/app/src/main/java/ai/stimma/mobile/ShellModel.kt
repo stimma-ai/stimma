@@ -330,7 +330,11 @@ class ShellModel(application: Application) : AndroidViewModel(application) {
         val next = MobileTransport(report = ::logProxyFailure) { getApplication<Application>().assets.open(it) }
         next.directory = directory; next.target = remote
         // The page's socket upgrading through this transport proves the path; recovery need not wait for its own check.
-        next.tunnelOpened = { viewModelScope.launch { if (main === next) recovery.pathProven() } }
+        next.tunnelOpened = { session ->
+            // Captured when the upgrade succeeded; by the time this runs a newer check or session may have taken over.
+            val generation = recovery.state.generation
+            viewModelScope.launch { if (main === next && next.target === session) recovery.pathProven(generation) }
+        }
         next.setForeground(appActive)
         val previous = main
         main = next; activeHash = directory.parentFile!!.name

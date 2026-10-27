@@ -363,33 +363,30 @@ async def cleanup_empty_unnamed_entities(ws_manager):
 
 async def _broadcast_processing_stats(ws_manager, settings, registry, phase_stats):
     """
-    One `processing_stats` event per profile, carrying that profile's full
-    snapshot (what GET /processing/stats returns) as `profile_phase_stats`,
-    so connected clients update from the event instead of each re-reading
-    the endpoint on every change. The cross-profile `phase_stats` stays for
-    older clients. Profile-tagged, so a scoped socket gets only its own
-    profile's event. With no profiles, the plain global event is sent.
+    One global `processing_stats` event, as before. A client that declared a
+    realtime scope for a profile also gets that profile's full snapshot (what
+    GET /processing/stats returns) as `profile_phase_stats`, so it updates
+    from the event instead of re-reading the endpoint on every change.
+    Legacy clients and scoped clients without a profile get exactly the
+    aggregate-only event: no profile's detail ever reaches another profile.
     """
     from core.profile_context import ProfileScope
     from routes.processing import compute_processing_stats
 
-    sent = False
+    data = {'phase_stats': phase_stats}
+    details = {}
     for profile in settings.profiles:
         if not registry.has_profile(profile.id):
             continue
-        payload = {'phase_stats': phase_stats, 'profile_id': profile.id}
         try:
             with ProfileScope(profile.id):
                 db = registry.get_database(profile.id)
                 async with db.async_session_maker() as session:
-                    payload['profile_phase_stats'] = await compute_processing_stats(session)
+                    details[profile.id] = {'profile_phase_stats': await compute_processing_stats(session)}
         except Exception as e:
-            # The event still tells the client to re-read; it just cannot carry the snapshot.
+            # That profile's clients get the aggregate, which tells them to re-read.
             log.warning(f"PROCESSING STATS MONITOR: per-profile stats failed: {e}")
-        await ws_manager.broadcast('processing_stats', payload, include_profile=False)
-        sent = True
-    if not sent:
-        await ws_manager.broadcast('processing_stats', {'phase_stats': phase_stats}, include_profile=False)
+    await ws_manager.broadcast_profile_details('processing_stats', data, details)
 
 
 async def monitor_processing_stats(ws_manager):

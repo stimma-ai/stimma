@@ -479,7 +479,7 @@ class MobileTransport(
      * the current session: the whole WebView path works. Runs on a proxy
      * worker thread.
      */
-    @Volatile var tunnelOpened: (() -> Unit)? = null
+    @Volatile var tunnelOpened: ((PinnedServer) -> Unit)? = null
     /** Test seam: stop accepting local connections while keeping the session attached, as a dead listener would. */
     internal fun stopListening() { listener.close() }
     internal val availablePermits get() = permits.availablePermits()
@@ -784,7 +784,7 @@ class MobileTransport(
                     destination.flush()
                 }
                 if (upgraded) {
-                    if (target === remote && !suspended) runCatching { tunnelOpened?.invoke() }
+                    if (target === remote && !suspended) runCatching { tunnelOpened?.invoke(remote) }
                     local.soTimeout = 0; upstream.soTimeout = 0
                     executor.execute { try { input.copyTo(output) } catch (_: Exception) { } finally { upstream.close(); local.close() } }
                 }
