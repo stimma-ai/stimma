@@ -336,10 +336,10 @@ struct StimmaWebView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            if !connectionScreen, isCurrentOrigin { model.setSlideshowActive(false) }
+            if !connectionScreen, isCurrentOrigin { model.resetPresentation() }
         }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            if !connectionScreen, isCurrentOrigin { model.setSlideshowActive(false) }
+            if !connectionScreen, isCurrentOrigin { model.resetPresentation() }
             pageNeedsReload = true
             restoreTerminatedPageIfReady()
         }

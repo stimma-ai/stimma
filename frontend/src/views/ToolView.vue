@@ -1183,6 +1183,7 @@ import { useViewport } from '../composables/useViewport'
 import { claimCompactHeader, compactHeaderOwner, releaseCompactHeader, setCompactTitle } from '../composables/useCompactChrome'
 import ToolDrawer from '../components/compact/ToolDrawer.vue'
 import ToolRunControl from '../components/compact/ToolRunControl.vue'
+import { createMobileKeepAwakeLease } from '../desktop/mobileBridge'
 import { devModeRef, hidePricesRef } from '../appConfig'
 import { usePromptMiniAgent } from '../composables/usePromptMiniAgent'
 import { usePromptEditorUndo } from '../composables/usePromptEditorUndo'
@@ -2704,7 +2705,7 @@ const jobsManager = useGenerationJobs({
   generatorInstanceId: generatorInstanceId,
   activeCap: activeJobsCap
 })
-const { beginInstanceWork, setInstanceForeverMode } = useGenerationStatus()
+const { beginInstanceWork, setInstanceForeverMode, isInstanceActive } = useGenerationStatus()
 // Preview images are sent only while this tool is on screen (KeepAlive
 // active). The job feed itself stays followed while the view is cached.
 useRealtimeTopic(() => `previews:${generatorInstanceId}`)
@@ -2759,6 +2760,17 @@ watch(layoutMode, (mode) => {
 watch(
   () => uiState.value.generateForeverMode ?? false,
   (armed) => { setInstanceForeverMode(generatorInstanceId, armed) },
+  { immediate: true }
+)
+
+// Running jobs or armed forever mode keep the phone's screen on: the user is
+// watching results arrive, and the phone locking mid-run reads as the app
+// stopping. The instance id is this device's own, so jobs another device
+// started do not count.
+const updateGeneratingKeepAwake = createMobileKeepAwakeLease()
+watch(
+  () => isInstanceActive(generatorInstanceId),
+  (active) => { void updateGeneratingKeepAwake(active) },
   { immediate: true }
 )
 
@@ -7293,6 +7305,7 @@ onUnmounted(async () => {
   workRequestQueue.value = []
   foreverModeBatchSubmitInFlight.value = false
   setInstanceForeverMode(generatorInstanceId, false)
+  void updateGeneratingKeepAwake(false)
 
   // Clean up profile change listeners
   window.removeEventListener('profile-will-change', handleProfileWillChange)

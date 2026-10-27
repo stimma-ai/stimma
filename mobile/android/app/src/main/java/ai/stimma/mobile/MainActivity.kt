@@ -334,7 +334,6 @@ class MainActivity : ComponentActivity() {
         "setSlideshowActive" -> {
             require(view === mainView && !model.showConnections)
             slideshowActive = args.getBoolean("active")
-            if (!slideshowActive) keepAwake = false
             applyPresentationPolicy(); null
         }
         "setKeepAwake" -> {
@@ -400,7 +399,7 @@ class MainActivity : ComponentActivity() {
         val orientation = if (presenting && slideshowActive) ActivityInfo.SCREEN_ORIENTATION_SENSOR
             else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         if (requestedOrientation != orientation) requestedOrientation = orientation
-        if (foreground && presenting && slideshowActive && keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (foreground && presenting && keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 

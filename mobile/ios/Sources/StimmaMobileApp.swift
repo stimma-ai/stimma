@@ -52,7 +52,7 @@ final class ShellModel: ObservableObject {
         transport?.stop()
         transport = next
         origin = localOrigin
-        setSlideshowActive(false)
+        resetPresentation()
         devServerURL = url
         selected = MobileDevice(deviceId: "dev:" + url.absoluteString, name: "Dev server", routes: [], certFingerprint: nil, serving: false)
         UserDefaults.standard.set(url.absoluteString, forKey: "mobile.devServerAddress")
@@ -91,7 +91,13 @@ final class ShellModel: ObservableObject {
     private var resumePending = false
     func setSlideshowActive(_ active: Bool) {
         slideshowActive = active
-        if !active { keepAwakeRequested = false }
+        updateOrientation()
+    }
+
+    // A new page or server starts with no slideshow and no keep-awake.
+    func resetPresentation() {
+        slideshowActive = false
+        keepAwakeRequested = false
         updateOrientation()
     }
 
@@ -131,7 +137,7 @@ final class ShellModel: ObservableObject {
 
     private func updateOrientation() {
         MobileAppDelegate.setSlideshowActive(slideshowActive && selected != nil && !showConnections)
-        UIApplication.shared.isIdleTimerDisabled = keepAwakeRequested && slideshowActive && appActive && selected != nil && !showConnections
+        UIApplication.shared.isIdleTimerDisabled = keepAwakeRequested && appActive && selected != nil && !showConnections
     }
     let clientID: String = {
         if let saved = UserDefaults.standard.string(forKey: "mobile.clientID") { return saved }
@@ -385,7 +391,7 @@ final class ShellModel: ObservableObject {
             next.connect(host: route.host, port: route.port, fingerprint: pin, session: session)
             transport?.stop()
             transport = next
-            setSlideshowActive(false)
+            resetPresentation()
             interfaceReady = false
             devServerURL = nil
             activeUIHash = package.hash
@@ -480,7 +486,7 @@ final class ShellModel: ObservableObject {
     }
 
     func disconnect() {
-        setSlideshowActive(false)
+        resetPresentation()
         connectionGeneration = UUID()
         connectionTask?.cancel(); connectionTask = nil
         restoring = false

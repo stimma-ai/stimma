@@ -37,8 +37,9 @@ export async function setMobileKeepAwake(active: boolean): Promise<void> {
 }
 
 const wakeRequests = new Set<symbol>()
+/** One owner's vote to keep the phone's screen on; the screen stays on while any owner votes yes. */
 export function createMobileKeepAwakeLease(): (active: boolean) => Promise<void> {
-  const owner = Symbol('slideshow')
+  const owner = Symbol('keep-awake')
   return active => {
     if (active) wakeRequests.add(owner)
     else wakeRequests.delete(owner)

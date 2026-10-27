@@ -10,7 +10,8 @@
  * has no Run button of its own: it is settings, and Run is the control you
  * long-pressed. In the phone drawer it also carries the output settings
  * (auto-markers, auto-delete), which have no room beside the controls; a dot
- * on Run says one of them is on.
+ * on Run says one of them is on. Easter egg: a double tap starts Forever
+ * mode (the first tap has already run, so that batch still goes).
  */
 import { computed, ref } from 'vue'
 import Sheet from '../ui/Sheet.vue'
@@ -58,11 +59,22 @@ function onPointerDown() {
 function cancelPress() {
   if (pressTimer !== null) { window.clearTimeout(pressTimer); pressTimer = null }
 }
+const DOUBLE_TAP_MS = 300
+let lastRunTap = 0
+
 function onClick() {
   cancelPress()
   if (longPressed) { longPressed = false; return }
-  if (props.foreverActive) { emit('stopForever'); return }
-  if (props.canSubmit) emit('run')
+  if (props.foreverActive) { lastRunTap = 0; emit('stopForever'); return }
+  if (!props.canSubmit) return
+  const now = performance.now()
+  if (now - lastRunTap < DOUBLE_TAP_MS) {
+    lastRunTap = 0
+    emit('startForever', props.concurrency)
+    return
+  }
+  lastRunTap = now
+  emit('run')
 }
 
 const state = computed<'idle' | 'forever'>(() => (props.foreverActive ? 'forever' : 'idle'))
@@ -85,7 +97,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
   <button
     type="button"
     data-testid="tool-run-button"
-    class="relative w-11 h-11 rounded-[10px] flex items-center justify-center border-none transition-colors select-none"
+    class="relative w-11 h-11 rounded-[10px] flex items-center justify-center border-none transition-colors select-none touch-manipulation"
     :class="[
       state === 'forever' ? 'bg-live text-white' : 'bg-accent text-white',
       !canSubmit && state === 'idle' ? 'opacity-45' : '',
