@@ -100,3 +100,40 @@ for (const source of ['slideshow', 'selection']) for (const projectId of [null, 
   await expect(page.locator('[data-test-header]')).toBeVisible()
   assert.deepEqual(errors, [])
 })
+
+for (const projectId of [null, 9]) test(`phone menu renders from the caller's browser item, project ${projectId}`, async t => {
+  const browser = await chromium.launch()
+  t.after(() => browser.close())
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  page.setDefaultTimeout(5000)
+  const errors = []
+  const requests = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.route('**/*', route => {
+    const path = new URL(route.request().url()).pathname
+    requests.push(path)
+    if (path === '/') return route.fulfill({ contentType: 'text/html', body: '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div></body></html>' })
+    if (path.includes('/markers')) return route.fulfill({ json: [] })
+    if (path.endsWith('/projects')) return route.fulfill({ json: [] })
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('http://mobile-media-actions.test/?viewport=compact&pointer=coarse')
+  for (const asset of output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css'))) await page.addStyleTag({ content: String(asset.source) })
+  await page.addScriptTag({ content: output.find(item => item.type === 'chunk').code })
+  await page.evaluate(id => window.mobileMediaActions.setProject(id), projectId)
+  await page.evaluate(() => window.mobileMediaActions.openHeldMenu({
+    id: 7, asset_id: 7, media_id: 42, file_format: 'mp4', deleted_at: null,
+    has_clip_embedding: true, has_face_embeddings: true, markers: [], tags: [],
+  }))
+  const menu = page.locator('[data-context-menu]')
+  await expect(menu.getByRole('button', { name: 'Find Similar Faces' }).first()).toBeVisible()
+  await expect(menu.getByText('Loading...')).toHaveCount(0)
+  assert.ok(!requests.some(path => path.includes('/assets/item/7/browser') || path.includes('/faces')), 'held item needs no item or faces lookup')
+  const membershipLookups = () => requests.filter(path => path === '/api/assets/item/7/projects').length
+  // Memberships feed Remove from Project only when the menu acts in a project.
+  if (projectId == null) assert.equal(membershipLookups(), 0)
+  else await expect.poll(membershipLookups).toBe(1)
+  await page.getByRole('button', { name: 'Projects', exact: true }).tap()
+  await expect.poll(membershipLookups).toBe(1)
+  assert.deepEqual(errors, [])
+})

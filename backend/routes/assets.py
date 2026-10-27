@@ -35,6 +35,7 @@ from database import (
     BoardSection,
     Chat,
     ContainerMember,
+    Face,
     Marker,
     MediaItem,
     MediaOwner,
@@ -110,9 +111,21 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
     markers: dict[int, list[dict]] = defaultdict(list)
     tags: dict[int, list[dict]] = defaultdict(list)
     revision_counts: dict[int, int] = {}
-    implicit_markers = await implicit_markers_by_media(
-        session, [media.id for _, _, media in rows]
-    )
+    media_ids = [media.id for _, _, media in rows]
+    implicit_markers = await implicit_markers_by_media(session, media_ids)
+    # Lets the media menu offer Find Similar Faces without a faces lookup.
+    media_with_face_embeddings = set(
+        (
+            await session.execute(
+                select(Face.media_id)
+                .where(
+                    Face.media_id.in_(media_ids),
+                    Face.auraface_embedding.is_not(None),
+                )
+                .distinct()
+            )
+        ).scalars()
+    ) if media_ids else set()
     if asset_ids:
         revision_counts = dict(
             (
@@ -179,6 +192,7 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
                 "expires_at": asset.expires_at.isoformat() if asset.expires_at else None,
                 "markers": [*markers[asset.id], *implicit_markers[media.id]],
                 "tags": tags[asset.id],
+                "has_face_embeddings": media.id in media_with_face_embeddings,
             }
         )
         result.append(item)

@@ -939,7 +939,7 @@ import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { planToolHandoff } from '../../utils/toolHandoff'
-import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
+import { isImage as isImageType, isVideo as isVideoType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
 import { useWorkingContext } from '../../composables/useWorkingContext'
 import { announceProjectAssetsChanged, applyMembershipChange, canRemoveFromProject, countMemberships, projectListParam, resolveProjectId } from '../../utils/projectScope'
@@ -948,7 +948,7 @@ import { useViewport } from '../../composables/useViewport'
 import { openImageEditor } from '../../imageEditor/stack/openImageEditor'
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
-import { mediaIdOf } from '../../utils/assetIdentity'
+import { assetIdOf, hasAssetIdentity, mediaIdOf } from '../../utils/assetIdentity'
 import { useFlowsApi, type Flow } from '../../composables/useFlowsApi'
 import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField } from '../../utils/flowMediaInputs'
 
@@ -1188,14 +1188,16 @@ const isMultiple = computed(() => targetIds.value.length > 1)
 const targetCount = computed(() => targetIds.value.length)
 
 // Computed properties from mediaItem (fetched from API)
-const isVideo = computed(() => mediaItem.value?.is_video || false)
+const isVideo = computed(() => mediaItem.value ? isVideoType(mediaItem.value) : false)
 const isImage = computed(() => mediaItem.value ? isImageType(mediaItem.value) : false)
 const isTrashed = computed(() => !!mediaItem.value?.deleted_at)
 const hasClipEmbedding = computed(() => mediaItem.value?.has_clip_embedding || false)
+// Videos are face-detected on their first frame, so they qualify too. Browser
+// items carry the flag; bare Media falls back to a background faces lookup.
 const hasFaceEmbeddings = computed(() => (
-  isImage.value &&
+  (isImage.value || isVideo.value) &&
   !isMultiple.value &&
-  mediaFaces.value.some((face: any) => face.has_embedding)
+  (mediaItem.value?.has_face_embeddings ?? mediaFaces.value.some((face: any) => face.has_embedding))
 ))
 
 // Whether the explore group (find similar / faces / compare / lineage) has any
@@ -1228,6 +1230,7 @@ const currentProjectId = computed(() => resolveProjectId(contextMenu.state.value
 // unknown (loading, or too many targets to look up one by one).
 const MEMBERSHIP_LOOKUP_LIMIT = 100
 const projectMembership = ref<Map<number, number> | null>(null)
+const membershipWanted = ref(false)
 let membershipRequest = 0
 const showRemoveFromProject = computed(() => (
   currentProjectId.value != null && (
@@ -1504,34 +1507,67 @@ onUnmounted(() => {
   submenuResizeObserver = null
 })
 
-// Fetch media item when menu opens
+// The clicked item as the caller already holds it, when it carries every field
+// the menu reads. Grids, the slideshow and the selection bar hold live browser
+// items (kept current by realtime updates), so the menu renders from them at
+// once instead of waiting on a round trip.
+function callerItem() {
+  const { assetId, mediaId } = contextMenu.state.value
+  const item = selectedItems.value.find((candidate: any) => (
+    assetId != null
+      ? hasAssetIdentity(candidate) && assetIdOf(candidate) === assetId
+      : mediaId != null && mediaIdOf(candidate) === mediaId
+  ))
+  if (!item || typeof item.file_format !== 'string' || !('deleted_at' in item) ||
+      !('has_clip_embedding' in item) || !Array.isArray(item.markers) || !Array.isArray(item.tags)) return null
+  return item
+}
+
+// Resolve the clicked item when the menu opens. Only callers that hold just an
+// ID pay a round trip, and only they show the loading state.
+let mediaItemRequest = 0
 async function fetchMediaItem() {
+  const request = ++mediaItemRequest
   const assetId = contextMenu.state.value.assetId
   const mediaId = contextMenu.state.value.mediaId
+  mediaFaces.value = []
   if (!assetId && !mediaId) return
 
-  // Always refetch - item state (e.g. deleted_at) may have changed since last open
-  loadingItem.value = true
-  try {
-    // Include trashed items so we can show appropriate options
-    mediaItem.value = assetId
-      ? await getAssetBrowserItem(assetId, true)
-      : await getMediaItem(mediaId!, { includeTrashed: true })
-  } catch (err) {
-    console.error('Failed to load media item:', err)
-    mediaItem.value = null
-  } finally {
+  const held = callerItem()
+  if (held) {
+    // Copy: marker toggles edit the menu's item, not the caller's.
+    mediaItem.value = { ...held }
     loadingItem.value = false
+  } else {
+    loadingItem.value = true
+    try {
+      // Include trashed items so we can show appropriate options
+      const item = assetId
+        ? await getAssetBrowserItem(assetId, true)
+        : await getMediaItem(mediaId!, { includeTrashed: true })
+      if (request !== mediaItemRequest) return
+      mediaItem.value = item
+    } catch (err) {
+      if (request !== mediaItemRequest) return
+      console.error('Failed to load media item:', err)
+      mediaItem.value = null
+    } finally {
+      if (request === mediaItemRequest) loadingItem.value = false
+    }
+  }
+  // Bare Media lacks the browser face flag; look faces up without holding the menu.
+  if (mediaItem.value && mediaItem.value.has_face_embeddings == null && (isImage.value || isVideo.value)) {
+    fetchMediaFaces(request)
   }
 }
 
-async function fetchMediaFaces() {
+async function fetchMediaFaces(request: number) {
   const mediaId = contextMenu.state.value.mediaId
-  mediaFaces.value = []
   if (!mediaId || isMultiple.value) return
 
   try {
     const response = await getMediaFaces(mediaId)
+    if (request !== mediaItemRequest) return
     mediaFaces.value = response.faces || []
   } catch (err) {
     console.error('Failed to load media faces:', err)
@@ -1664,7 +1700,8 @@ function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pr
     boardSearchQuery.value = ''
     loadBoardsList()
   } else if (menu === 'project') {
-    // ProjectPickerSubmenu loads data internally
+    // ProjectPickerSubmenu loads the project list; its marks need memberships.
+    membershipWanted.value = true
   }
 }
 
@@ -1774,11 +1811,26 @@ watch(activeSubmenu, async (menu) => {
   }
 })
 
-// Fetch media item and markers when menu becomes visible
-// Membership is looked up per opening and per target set (a second right-click
-// while the menu is open retargets it without closing).
+// Resolve the item per opening and per target (a second right-click while the
+// menu is open retargets it without closing). Declared before the membership
+// watcher so it settles loadingItem first.
 watch(
   () => (contextMenu.state.value.visible && isRenderer.value
+    ? `${contextMenu.state.value.assetId ?? ''}|${contextMenu.state.value.mediaId ?? ''}`
+    : null),
+  (key) => {
+    if (key != null) fetchMediaItem()
+    else mediaItemRequest++
+  },
+)
+
+// Memberships only matter for Remove from Project (when the menu acts in a
+// project) and the Projects submenu's marks, so other openings skip the lookup.
+// It also waits for an ID-only item fetch, so it never competes with the
+// request the menu is waiting on.
+watch(
+  () => (contextMenu.state.value.visible && isRenderer.value && !loadingItem.value &&
+    (currentProjectId.value != null || membershipWanted.value)
     ? `${targetAssetIds.value.join(',')}|${targetMediaIds.value.join(',')}`
     : null),
   (key) => {
@@ -1789,10 +1841,9 @@ watch(
 
 watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
   if (visible) {
-    fetchMediaItem()
-    fetchMediaFaces()
     loadMarkers()
   } else {
+    membershipWanted.value = false
     activeSubmenu.value = null
     submenuTriggerRect.value = null
     generateSearchQuery.value = ''

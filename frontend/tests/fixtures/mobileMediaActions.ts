@@ -21,6 +21,7 @@ const slideshow = { setup() { useSlideshowPresence(); return () => h('div') } }
 window.mobileMediaActions = {
   openSlideshowMenu: () => { showingSlideshow.value = true; useMediaContextMenu().showAt({ x: 200, y: 200, mediaId: 42 }) },
   setProject: id => useWorkingContext().selectProject(id),
+  openHeldMenu: held => useMediaContextMenu().showAt({ x: 200, y: 200, assetId: held.asset_id, mediaId: held.media_id, selectedItems: [held] }),
   route: () => ({ name: router.currentRoute.value.name, params: router.currentRoute.value.params, query: router.currentRoute.value.query }),
 }
 const app = createApp({ render: () => h('div', [

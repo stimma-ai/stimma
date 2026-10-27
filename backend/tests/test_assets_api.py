@@ -240,6 +240,29 @@ async def test_asset_expiration_is_projected_to_browser_surfaces(client, db_sess
 
 
 @pytest.mark.asyncio
+async def test_browser_items_flag_media_with_face_embeddings(client, db_session):
+    from database import Face
+
+    async with db_session() as session:
+        assets = {}
+        for name in ("embedded", "unembedded", "faceless"):
+            media = await create_media_item(session)
+            assets[name] = (await create_asset_from_media(session, media_id=media.id)).id
+            if name != "faceless":
+                face = Face(media_id=media.id, bbox_x=0.1, bbox_y=0.1, bbox_width=0.2, bbox_height=0.2, confidence=0.9)
+                if name == "embedded":
+                    face.set_embedding(np.ones(4, dtype=np.float32))
+                session.add(face)
+        await session.commit()
+
+    browse = {item["asset_id"]: item for item in (await client.get("/api/assets/browse")).json()["items"]}
+    for name, expected in (("embedded", True), ("unembedded", False), ("faceless", False)):
+        assert browse[assets[name]]["has_face_embeddings"] is expected
+        detail = (await client.get(f"/api/assets/item/{assets[name]}/browser")).json()
+        assert detail["has_face_embeddings"] is expected
+
+
+@pytest.mark.asyncio
 async def test_asset_marker_clears_asset_and_media_expiration(
     client, db_session
 ):

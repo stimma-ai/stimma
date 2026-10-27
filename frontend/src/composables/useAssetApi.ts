@@ -11,6 +11,7 @@ export interface AssetBrowserItem {
   expires_at?: string | null
   file_hash: string
   file_format: string
+  has_face_embeddings?: boolean
   [key: string]: unknown
 }
 
