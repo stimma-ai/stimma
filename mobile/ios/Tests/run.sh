@@ -17,6 +17,8 @@ xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/MobileTransport.swif
 python3 "$mobile_tests_dir/fixture.py" "$mobile_test_build/transport-checks"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/MobileTransport.swift" "$mobile_tests_dir/../Sources/UpstreamPool.swift" "$mobile_tests_dir/../Sources/ProxyFailure.swift" "$mobile_tests_dir/../Sources/TransportRecovery.swift" "$mobile_tests_dir/RecoveryChecks.swift" -o "$mobile_test_build/recovery-checks"
 "$mobile_test_build/recovery-checks"
+xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/SharedTask.swift" "$mobile_tests_dir/../Sources/TransportRecovery.swift" "$mobile_tests_dir/SharedTaskChecks.swift" -o "$mobile_test_build/shared-task-checks"
+"$mobile_test_build/shared-task-checks"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/AuthCallbackListener.swift" "$mobile_tests_dir/AuthCallbackChecks.swift" -o "$mobile_test_build/auth-callback-checks"
 "$mobile_test_build/auth-callback-checks"
 xcrun swiftc -swift-version 5 "$mobile_tests_dir/../Sources/UIPackageCache.swift" "$mobile_tests_dir/UIPackageChecks.swift" -o "$mobile_test_build/ui-package-checks"

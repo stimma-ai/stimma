@@ -69,6 +69,7 @@ final class MobileAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     private var timeoutTask: Task<Void, Never>?
     private var state = ""
     private var refreshTask: Task<String, Error>?
+    private var refreshTaskID: UUID?
     private var authGeneration = UUID()
     private var loginInProgress = false
     private let logger = Logger(subsystem: "ai.stimma.mobile", category: "authentication")
@@ -85,6 +86,7 @@ final class MobileAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         authGeneration = UUID()
         refreshTask?.cancel()
         refreshTask = nil
+        refreshTaskID = nil
         error = nil
         status = "Opening sign in…"
         anchor = presentationAnchor
@@ -121,6 +123,7 @@ final class MobileAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         finishCallback(.failure(MobileAuthError.message("Sign in cancelled")))
         refreshTask?.cancel()
         refreshTask = nil
+        refreshTaskID = nil
         SecItemDelete(keychainQuery() as CFDictionary)
         idToken = nil
         expiry = .distantPast
@@ -131,46 +134,54 @@ final class MobileAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
 
     func validIDToken() async throws -> String {
         if let token = idToken, user != nil, expiry.timeIntervalSinceNow > 120 { return token }
-        if let task = refreshTask { return try await task.value }
+        // A waiter with a budget stops when cancelled; the shared refresh carries on.
+        if let task = refreshTask { return try await SharedTask.value(of: task) }
         guard let refresh = readRefreshToken() else { throw MobileAuthError.message("Please sign in") }
         let generation = authGeneration
+        let refreshID = UUID()
         let task = Task { @MainActor [self] () throws -> String in
-            var request = URLRequest(url: URL(string: "https://securetoken.googleapis.com/v1/token?key=\(firebaseKey)")!)
-            request.httpMethod = "POST"
-            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-            var form = URLComponents()
-            form.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token"), URLQueryItem(name: "refresh_token", value: refresh)]
-            request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
-            struct Tokens: Decodable { let id_token: String; let refresh_token: String; let expires_in: String; let user_id: String }
-            let tokens: Tokens = try await perform(request)
-            try Task.checkCancellation()
-            guard generation == authGeneration else { throw CancellationError() }
-            try saveRefreshToken(tokens.refresh_token)
-            idToken = tokens.id_token
-            expiry = Date().addingTimeInterval(Double(tokens.expires_in) ?? 3600)
-            if user == nil {
-                // Firebase user_id is not Stimma's database account id. Restore
-                // the account through the same authenticated cloud endpoint as desktop.
-                var accountRequest = URLRequest(url: cloudURL.appendingPathComponent("api/auth/me"))
-                accountRequest.setValue("Bearer \(tokens.id_token)", forHTTPHeaderField: "Authorization")
-                let account: MobileUser = try await perform(accountRequest)
-                try Task.checkCancellation()
-                guard generation == authGeneration else { throw CancellationError() }
-                user = account
+            // The refresh outlives any one waiter, so it clears itself and handles expiry once.
+            defer { if refreshTaskID == refreshID { refreshTask = nil; refreshTaskID = nil } }
+            do { return try await refreshTokens(refresh, generation: generation) }
+            catch MobileAuthError.sessionExpired {
+                if generation == authGeneration {
+                    logout()
+                    error = MobileAuthError.sessionExpired.localizedDescription
+                }
+                throw MobileAuthError.sessionExpired
             }
-            status = "Signed in"
-            return tokens.id_token
         }
         refreshTask = task
-        defer { if generation == authGeneration { refreshTask = nil } }
-        do { return try await task.value }
-        catch MobileAuthError.sessionExpired {
-            if generation == authGeneration {
-                logout()
-                error = MobileAuthError.sessionExpired.localizedDescription
-            }
-            throw MobileAuthError.sessionExpired
+        refreshTaskID = refreshID
+        return try await SharedTask.value(of: task)
+    }
+
+    private func refreshTokens(_ refresh: String, generation: UUID) async throws -> String {
+        var request = URLRequest(url: URL(string: "https://securetoken.googleapis.com/v1/token?key=\(firebaseKey)")!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        var form = URLComponents()
+        form.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token"), URLQueryItem(name: "refresh_token", value: refresh)]
+        request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
+        struct Tokens: Decodable { let id_token: String; let refresh_token: String; let expires_in: String; let user_id: String }
+        let tokens: Tokens = try await perform(request)
+        try Task.checkCancellation()
+        guard generation == authGeneration else { throw CancellationError() }
+        try saveRefreshToken(tokens.refresh_token)
+        idToken = tokens.id_token
+        expiry = Date().addingTimeInterval(Double(tokens.expires_in) ?? 3600)
+        if user == nil {
+            // Firebase user_id is not Stimma's database account id. Restore
+            // the account through the same authenticated cloud endpoint as desktop.
+            var accountRequest = URLRequest(url: cloudURL.appendingPathComponent("api/auth/me"))
+            accountRequest.setValue("Bearer \(tokens.id_token)", forHTTPHeaderField: "Authorization")
+            let account: MobileUser = try await perform(accountRequest)
+            try Task.checkCancellation()
+            guard generation == authGeneration else { throw CancellationError() }
+            user = account
         }
+        status = "Signed in"
+        return tokens.id_token
     }
 
     func devices() async throws -> [MobileDevice] {
