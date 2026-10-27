@@ -6,7 +6,7 @@
  */
 
 /**
- * Set by the Android proxy on responses it generated itself, carrying the
+ * Set by the native shells' proxies on responses they generated themselves, carrying the
  * failure category. Classification needs only the status; the header lets
  * diagnostics tell a proxy 502 from one the server returned.
  */

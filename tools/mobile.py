@@ -140,7 +140,13 @@ def main():
         android_main(args)
         return
     if args.action == 'lint':
-        parser.error('lint is currently available for Android only')
+        # Type-check the shell for the simulator in both configurations; any warning fails.
+        sources = sorted(str(path) for path in (IOS / 'Sources').glob('*.swift'))
+        for flags in (['-D', 'DEBUG'], []):
+            run(['xcrun', '--sdk', 'iphonesimulator', 'swiftc', '-typecheck', '-swift-version', '5',
+                 '-target', 'arm64-apple-ios17.0-simulator', '-warnings-as-errors', *flags, *sources], cwd=IOS)
+        print('iOS lint passed.')
+        return
     if args.unsigned_device and args.action != 'build':
         parser.error('--unsigned-device is only valid with build')
     if args.action == 'package':

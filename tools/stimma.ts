@@ -633,7 +633,7 @@ Commands:
                       audit for overflow + hit targets, screenshot per route
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   headless package|image|test|smoke|publish  Build and verify the headless distribution
-  mobile ios package|build|run|device|test|test-ui|doctor|screenshot  Build, run, and sign the iOS shell
+  mobile ios package|build|run|device|test|test-ui|lint|doctor|screenshot  Build, run, and sign the iOS shell
   mobile android doctor|build|run|test|test-ui|lint|screenshot  Build and run the Android shell
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload

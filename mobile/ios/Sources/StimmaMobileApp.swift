@@ -336,7 +336,7 @@ final class ShellModel: ObservableObject {
                 address.path = "/multi-device/ping"
                 return address.url.map { (route, $0) }
             }
-            let reachable = try await PinnedHTTP.firstReachable(urls: candidates.map { $0.1 }, fingerprint: pin, deviceID: device.deviceId)
+            let (reachable, keepAlive) = try await PinnedHTTP.firstReachableRoute(urls: candidates.map { $0.1 }, fingerprint: pin, deviceID: device.deviceId)
             guard connectionGeneration == generation else { return }
             guard let route = candidates.first(where: { $0.1 == reachable })?.0 else {
                 throw ShellError.message("No reachable server route. Check that Stimma and Tailscale are running.")
@@ -361,7 +361,7 @@ final class ShellModel: ObservableObject {
             // A network interruption must not reset the page, drafts, or scroll.
             // Resolve package updates on explicit selection or the next app launch.
             if recovering, selected?.deviceId == device.deviceId, let transport, activeUIHash != nil {
-                transport.connect(host: route.host, port: route.port, fingerprint: pin, session: session)
+                transport.connect(host: route.host, port: route.port, fingerprint: pin, session: session, keepAlive: keepAlive)
                 guard try await transport.checkConnection() else {
                     throw ShellError.message("The local connection could not reach the server.")
                 }
@@ -388,7 +388,7 @@ final class ShellModel: ObservableObject {
             let next = MobileTransport(frontend: package.directory, shellFrontend: frontend)
             let localOrigin = try await next.start()
             guard connectionGeneration == generation else { next.stop(); return }
-            next.connect(host: route.host, port: route.port, fingerprint: pin, session: session)
+            next.connect(host: route.host, port: route.port, fingerprint: pin, session: session, keepAlive: keepAlive)
             transport?.stop()
             transport = next
             resetPresentation()

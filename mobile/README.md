@@ -143,6 +143,24 @@ including navigation, open sheets, drafts, and scroll position. Connection statu
 remains available in the account/server controls while native recovery retries.
 Cold connections and explicit server changes still use the connection screen.
 
+The iOS proxy keeps one request per WebView connection but reuses long-lived
+pinned upstream connections per session (a small Network.framework pool, not
+URLSession: it gives exact control of idle limits, never decodes content behind
+the WebView's back, and never retries on its own). Safe reads reuse a connection
+idle for up to the keep-alive the verified route advertised, minus a margin and
+at most 25 s (3 s for servers that advertise nothing); anything else reuses one
+only within 3 s, so a mutation never rides a long-idle connection. An idle
+connection the server closes is noticed and dropped at once. A mutation whose
+outcome is unknown is never resent; only a bodiless safe read whose reused
+connection failed before any answer is retried, once, on a new connection.
+Bodies stream both ways; encoded responses, HEAD, ranges, and 304s pass through
+unchanged; redirects are refused except within provider panels. Closing the
+WebView socket cancels its exchange; backgrounding ends exchanges and drops idle
+connections; replacing the session retires its pool and cuts any response still
+being delivered. WebSocket upgrades keep their own raw pinned connection.
+Failures use the same `contract/proxy-failures.json` statuses and
+`X-Stimma-Proxy-Failure` marker as Android, with category-only logs.
+
 Backgrounding or an interruption pauses audio/video; returning does not restart
 sound until the user plays it. Image slideshows freeze their remaining dwell time
 while hidden or reconnecting. Active slideshow playback keeps the phone awake;
@@ -161,6 +179,7 @@ reports a successful export.
 tools/stimma mobile ios doctor
 tools/stimma mobile ios run --simulator 'iPhone 17 Pro'
 tools/stimma mobile ios test
+tools/stimma mobile ios lint
 ```
 
 The run command builds the shell frontend, generates the Xcode project, builds the
