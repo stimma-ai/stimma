@@ -239,7 +239,12 @@ async def set_pin(profile_id: str, request: SetPinRequest):
     if request.new_pin:
         if len(request.new_pin) < 4 or len(request.new_pin) > 20:
             raise HTTPException(status_code=400, detail="PIN must be 4-20 characters")
-        new_hash = bcrypt.hashpw(request.new_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        if profile_config.pin_hash and request.new_pin == request.current_pin:
+            # Same PIN (already verified above): keep the hash, so sessions
+            # that proved it (live-update sockets included) stay valid.
+            new_hash = profile_config.pin_hash
+        else:
+            new_hash = bcrypt.hashpw(request.new_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     # Update config.yaml
     yaml_parser = YAML()

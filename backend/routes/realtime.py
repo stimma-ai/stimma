@@ -61,7 +61,10 @@ async def _handle_scope_message(websocket: WebSocket, message: dict) -> None:
         await ws_manager.send_to(websocket, "realtime_scope_rejected", {"seq": seq, "reason": str(e)})
         return
     if applied is not None:
-        await ws_manager.send_to(websocket, "realtime_scope_applied", {"seq": seq, **applied})
+        # The acknowledgement names the profile but carries none of its data.
+        await ws_manager.send_to(
+            websocket, "realtime_scope_applied", {"seq": seq, **applied}, profile_scoped=False
+        )
 
 
 @router.websocket("/ws")

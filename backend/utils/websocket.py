@@ -564,8 +564,14 @@ class ClientConnection:
         hard_max_frames: int = CLIENT_HARD_MAX_FRAMES,
         hard_max_bytes: int = CLIENT_HARD_MAX_BYTES,
         send_timeout: float = CLIENT_SEND_TIMEOUT_SECONDS,
+        required_pin_hash: Optional[Callable[[str], Any]] = None,
     ):
         self.websocket = websocket
+        # profile_id -> the profile's current PIN hash (None when open).
+        # Rechecked just before each tagged frame is written, so a frame
+        # queued before a PIN was added or changed is never sent on a proof
+        # that no longer holds.
+        self._required_pin_hash = required_pin_hash
         self.soft_max_frames = soft_max_frames
         self.soft_max_bytes = soft_max_bytes
         self.hard_max_frames = hard_max_frames
@@ -742,6 +748,15 @@ class ClientConnection:
                 continue
             self._unindex(entry)
             frame = entry.frame
+            if not self._still_authorized(frame):
+                if frame.on_undelivered is not None:
+                    try:
+                        await frame.on_undelivered()
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        log.error(f"Error releasing withheld {frame.event}: {e}")
+                continue
             self._in_flight = frame
             try:
                 # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow
@@ -758,6 +773,13 @@ class ClientConnection:
                 self._fail("send_error")
                 return
             self._in_flight = None
+
+    def _still_authorized(self, frame: OutboundFrame) -> bool:
+        """Whether a queued frame may still be written: its profile's PIN may
+        have been added or changed since it was enqueued."""
+        if frame.profile_id is None or self._required_pin_hash is None:
+            return True
+        return self.authorized_for(frame.profile_id, self._required_pin_hash(frame.profile_id))
 
     def _fail(self, reason: str) -> None:
         if self.closed:
@@ -884,7 +906,10 @@ class WebSocketManager:
         """Register an already-accepted socket for delivery."""
         client = self._clients.get(id(websocket))
         if client is None:
-            client = ClientConnection(websocket, self._client_failed, **self._client_limits)
+            client = ClientConnection(
+                websocket, self._client_failed,
+                required_pin_hash=self.required_pin_hash, **self._client_limits,
+            )
             self._clients[id(websocket)] = client
         if scope is not None:
             client.scope = scope
@@ -1257,15 +1282,27 @@ class WebSocketManager:
         data: dict,
         *,
         on_undelivered: Optional[Callable[[], Awaitable[None]]] = None,
+        profile_scoped: bool = True,
     ) -> bool:
         """Send an event to a specific client.
 
         A registered client receives it through its ordered queue, so a direct
         reply never interleaves with, or races, a concurrent broadcast write.
         Returns whether the event was accepted for delivery. If it was, but
-        the connection is torn down before it is written, ``on_undelivered``
-        runs during disconnect cleanup.
+        the connection is torn down before it is written (or the profile's
+        PIN changes first), ``on_undelivered`` runs.
+
+        A payload carrying ``profile_id`` gets the same PIN check as a
+        broadcast: it is refused (False) for a client that has not proven
+        that profile's PIN. ``profile_scoped=False`` is for protocol replies
+        that merely name a profile (scope acknowledgements).
         """
+        profile_id = data.get("profile_id") if profile_scoped and isinstance(data, dict) else None
+        profile_id = profile_id if isinstance(profile_id, str) else None
+        client = self._clients.get(id(websocket))
+        if client is not None and not client.authorized_for(profile_id, self.required_pin_hash(profile_id)):
+            log.info("Withholding direct WebSocket event for an unproven profile", ws_event=event)
+            return False
         message = json.dumps({"event": event, "data": data})
         # Log outgoing message shape, never its content.
         if event != "pong":
@@ -1274,11 +1311,12 @@ class WebSocketManager:
                 ws_event=event,
                 **_payload_log_metadata(data),
             )
-        client = self._clients.get(id(websocket))
         if client is not None:
             return self._deliver(
                 client,
-                OutboundFrame(event=event, text=message, on_undelivered=on_undelivered),
+                OutboundFrame(
+                    event=event, text=message, profile_id=profile_id, on_undelivered=on_undelivered,
+                ),
             )
         # Not attached, or already detached by disconnect: never write to it
         # directly. A raw send could block, and its failure would re-enter

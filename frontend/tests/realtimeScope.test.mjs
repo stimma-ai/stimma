@@ -361,4 +361,10 @@ test('entering a PIN replaces a socket that did not present it, once', () => {
   sockets[1].open()
   window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-a' } }))
   assert.equal(sockets.length, 2)
+
+  // Saving the PIN in settings re-hashes it on the server: the socket
+  // re-proves it even though the digits are unchanged.
+  window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId: 'profile-a', reauthorize: true } }))
+  assert.equal(sockets.length, 3)
+  assert.equal(new URL(sockets[2].url).searchParams.get('pin'), '1234')
 })

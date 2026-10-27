@@ -592,6 +592,8 @@ function wake() {
  * A PIN was entered (unlock, or set/changed in settings) for this window's
  * profile. A socket that presented no PIN or another one is not receiving
  * the profile's events: replace it, and the reconnect resynchronizes views.
+ * After a PIN set or change (`reauthorize`) the server's hash is new even if
+ * the digits are not, so the socket re-proves it regardless.
  */
 function reconnectWithNewPin(event) {
   const profileId = getCurrentProfileId()
@@ -599,7 +601,8 @@ function reconnectWithNewPin(event) {
   const socket = ws.value
   if (!isLive(socket)) return
   const pin = getCachedPin(profileId)
-  if (!pin || realtimeScope.presentedPin(profileId) === pin) return
+  if (!pin) return
+  if (!event.detail.reauthorize && realtimeScope.presentedPin(profileId) === pin) return
   replaceAfterResume()
 }
 

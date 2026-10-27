@@ -191,6 +191,80 @@ async def test_proof_does_not_outlive_the_pin_it_was_checked_against():
     assert [d["media_id"] for d in socket.of("media_added")] == [1, 3, 5]
 
 
+class GatedSocket(Socket):
+    """A socket whose writes block until the test opens the gate, so frames
+    sit in the client's queue."""
+
+    def __init__(self):
+        super().__init__()
+        self.gate = asyncio.Event()
+        self.started = asyncio.Event()
+
+    async def send_text(self, message):
+        self.started.set()
+        await self.gate.wait()
+        await super().send_text(message)
+
+
+async def test_queued_frames_do_not_outlive_a_pin_added_or_changed():
+    """A frame accepted into a slow client's queue is rechecked when it is
+    written: adding or changing the PIN meanwhile withholds it."""
+    pins = Pins(locked="1234")
+    manager = WebSocketManager(pin_hash_for=pins)
+    legacy, proven = GatedSocket(), GatedSocket()
+    manager.attach(legacy)
+    manager.attach(proven, scoped("open"), await manager.prove_pin("locked", "1234"))
+
+    # Head-of-line frames hold both senders while the private frames queue.
+    await manager.broadcast("tools_updated", {}, include_profile=False)
+    await asyncio.wait_for(legacy.started.wait(), 1)
+    await asyncio.wait_for(proven.started.wait(), 1)
+    await manager.broadcast("chat_item_created", {"chat_id": 7, "profile_id": "open", "item": {"id": 1}})
+    await manager.broadcast("media_added", {"media_id": 1, "profile_id": "locked"})
+    pins.set("open", "4321")    # added
+    pins.set("locked", "5678")  # changed
+    legacy.gate.set()
+    proven.gate.set()
+    await manager.drain()
+
+    assert [m["event"] for m in legacy.messages] == ["tools_updated"]
+    assert [m["event"] for m in proven.messages] == ["tools_updated"]
+
+
+async def test_direct_sends_get_the_same_pin_check():
+    pins = Pins(locked="1234")
+    manager = WebSocketManager(pin_hash_for=pins)
+    stranger, owner = Socket(), Socket()
+    manager.attach(stranger, scoped("locked"))
+    manager.attach(owner, scoped("locked"), await manager.prove_pin("locked", "1234"))
+
+    assert await manager.send_to(stranger, "media_added", {"media_id": 1, "profile_id": "locked"}) is False
+    assert await manager.send_to(owner, "media_added", {"media_id": 1, "profile_id": "locked"}) is True
+    # Protocol replies that only name the profile are exempt; untagged ones pass.
+    assert await manager.send_to(stranger, "realtime_scope_applied", {"profile_id": "locked"}, profile_scoped=False)
+    assert await manager.send_to(stranger, "pong", {})
+    await manager.drain()
+    assert [m["event"] for m in stranger.messages] == ["realtime_scope_applied", "pong"]
+    assert [m["event"] for m in owner.messages] == ["media_added"]
+
+    # A queued direct frame withheld at write time releases what it reserved.
+    gated = GatedSocket()
+    manager.attach(gated, None, await manager.prove_pin("locked", "1234"))
+    released = []
+
+    async def release():
+        released.append(True)
+
+    await manager.send_to(gated, "pong", {})
+    await asyncio.wait_for(gated.started.wait(), 1)
+    assert await manager.send_to(gated, "work", {"profile_id": "locked"}, on_undelivered=release)
+    pins.set("locked", "5678")
+    gated.gate.set()
+    await manager.drain()
+    assert [m["event"] for m in gated.messages] == ["pong"]
+    assert released == [True]
+
+
 async def test_unreadable_pin_requirement_fails_closed():
     def broken(profile_id):
         raise RuntimeError("config unavailable")

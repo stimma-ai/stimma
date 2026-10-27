@@ -315,9 +315,11 @@ function getCachedPin(profileId) {
 }
 
 /**
- * Cache a PIN for a profile.
+ * Cache a PIN for a profile. `reauthorize` follows a PIN set or change on
+ * the server: the stored hash is new even if the digits are not, so the
+ * live-update socket re-proves it whatever it presented before.
  */
-function cachePin(profileId, pin) {
+function cachePin(profileId, pin, { reauthorize = false } = {}) {
   const previous = pinCache.get(profileId)
   pinCache.set(profileId, {
     pin,
@@ -329,7 +331,7 @@ function cachePin(profileId, pin) {
   if (profileId === getCurrentProfileId() && !contentVisible()) coverPrivateContent()
   // The live-update socket proves the PIN too; it reconnects with this one.
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId } }))
+    window.dispatchEvent(new CustomEvent('pin-cached', { detail: { profileId, reauthorize } }))
   }
 }
 

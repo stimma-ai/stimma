@@ -752,7 +752,7 @@ async function submitSetPin() {
 
     if (response.ok) {
       // Cache the PIN immediately so user doesn't get locked out
-      cachePin(pinSettingsProfile.value.id, newPin.value)
+      cachePin(pinSettingsProfile.value.id, newPin.value, { reauthorize: true })
       // Update local profile state
       pinSettingsProfile.value = { ...pinSettingsProfile.value, has_pin: true }
       // Emit update to refresh profiles list
@@ -793,7 +793,7 @@ async function submitChangePin() {
 
     if (response.ok) {
       // Cache the new PIN so user doesn't get locked out
-      cachePin(pinSettingsProfile.value.id, newPin.value)
+      cachePin(pinSettingsProfile.value.id, newPin.value, { reauthorize: true })
       resetPinForms()
     } else {
       const data = await response.json().catch(() => ({}))

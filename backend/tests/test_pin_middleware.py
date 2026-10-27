@@ -282,3 +282,16 @@ class TestPinMiddleware:
             headers={"X-Profile-ID": "protected"}
         )
         assert response.status_code == 401
+
+    async def test_saving_the_same_pin_keeps_its_hash(self, pin_client):
+        """Re-saving the current PIN must not re-hash it: proofs bound to the
+        hash (live-update sockets) would silently stop matching."""
+        from config import get_settings
+        before = get_settings().get_profile("protected").pin_hash
+        response = await pin_client.patch(
+            "/api/profiles/protected/pin",
+            json={"current_pin": TEST_PIN, "new_pin": TEST_PIN},
+            headers={"X-Profile-ID": "protected", "X-Profile-PIN": TEST_PIN},
+        )
+        assert response.status_code == 200
+        assert get_settings().get_profile("protected").pin_hash == before
