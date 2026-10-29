@@ -407,6 +407,31 @@ class TestRefreshTools:
         assert registry.get_tool("a:t1") is not None
         assert registry.get_tool("b:t2") is not None
 
+    async def test_tools_stay_visible_while_refresh_is_in_flight(self, registry):
+        provider = MockProvider("slow", tools=[_make_tool("gen")])
+        await registry.register(provider)
+
+        seen_during_fetch = []
+
+        async def slow_list_tools():
+            seen_during_fetch.append(registry.get_tool("slow:gen"))
+            return [_make_tool("gen")]
+
+        provider.list_tools = slow_list_tools
+        await registry.refresh_tools(provider_id="slow")
+
+        assert seen_during_fetch[0] is not None
+        assert registry.get_tool("slow:gen") is not None
+
+    async def test_failed_refresh_keeps_previous_tools(self, registry):
+        provider = MockProvider("flaky", tools=[_make_tool("gen")])
+        await registry.register(provider)
+
+        provider.list_tools = AsyncMock(side_effect=RuntimeError("timeout"))
+        await registry.refresh_tools(provider_id="flaky")
+
+        assert registry.get_tool("flaky:gen") is not None
+
 
 # ---------------------------------------------------------------------------
 # Shutdown

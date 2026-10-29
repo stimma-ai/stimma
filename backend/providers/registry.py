@@ -331,23 +331,23 @@ class ProviderRegistry:
             await self._cache_tools_to_db(provider, tools)
             return
 
-        # Clear existing tools for this provider
-        self._tools_cache = {
-            full_id: entry
-            for full_id, entry in self._tools_cache.items()
-            if entry[0] != provider
-        }
-
-        # Cache new tools
+        # Fetch before touching the cache: the round trip can take seconds on a
+        # busy remote provider, and lookups in that window must still find the
+        # old tools. A failed fetch keeps them too.
         try:
             if force_refresh:
                 # Trigger provider's refresh logic (e.g., re-discover LoRAs)
                 tools = await provider.refresh_tools()
             else:
                 tools = await provider.list_tools()
+            cache = {
+                full_id: entry
+                for full_id, entry in self._tools_cache.items()
+                if entry[0] != provider
+            }
             for tool in tools:
-                full_id = f"{provider.provider_id}:{tool.id}"
-                self._tools_cache[full_id] = (provider, tool)
+                cache[f"{provider.provider_id}:{tool.id}"] = (provider, tool)
+            self._tools_cache = cache
 
             # Update DB cache to match (removes tools no longer provided)
             try:
