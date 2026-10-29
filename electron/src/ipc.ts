@@ -15,6 +15,7 @@ import {
 import fs from 'node:fs'
 import path from 'node:path'
 import { waitForBackendPort } from './backend'
+import { cacheDragFile, pruneDragCache } from './dragCache'
 import { waitForProxyPort } from './proxy'
 import {
   LOCAL_DEVICE,
@@ -401,21 +402,18 @@ export function registerIpcHandlers(): void {
   })
 
   // ---- drag-out ------------------------------------------------------------
+  // OS temporary storage keeps exported copies out of Downloads.
+  let lastDragPrune = 0
+  const pruneDrags = () => {
+    lastDragPrune = Date.now()
+    void pruneDragCache(app.getPath('temp')).catch(() => {})
+  }
+  pruneDrags()
   handle('stimma:cache-remote-file', async (_event, filename: unknown, data: unknown) => {
-    const name = path.basename(requireString(filename, 'filename').replaceAll('\\', '/'))
-    if (!name || name === '.' || name === '..') throw new Error('Invalid filename')
+    const name = requireString(filename, 'filename')
     if (!(data instanceof Uint8Array)) throw new Error('Invalid file data')
-    // OS temporary storage keeps exported copies out of Downloads. A unique
-    // directory preserves filenames and prevents collisions between servers.
-    const directory = await fs.promises.mkdtemp(path.join(app.getPath('temp'), 'stimma-drag-'))
-    const target = path.join(directory, name)
-    try {
-      await fs.promises.writeFile(target, data)
-      return target
-    } catch (error) {
-      await fs.promises.rm(directory, { recursive: true, force: true })
-      throw error
-    }
+    if (Date.now() - lastDragPrune > 10 * 60 * 1000) pruneDrags()
+    return cacheDragFile(app.getPath('temp'), name, data)
   })
 
   handle('stimma:start-native-drag', (event, items: unknown, previewImage: unknown) => {
