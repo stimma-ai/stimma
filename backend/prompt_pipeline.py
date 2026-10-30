@@ -207,10 +207,12 @@ async def _improve_with_verbatim_protection(
     )
 
     failure_reason = "the rewrite did not preserve protected text"
+    failure_advice = _DEFAULT_FAILURE_ADVICE
+    retry_hint: Optional[str] = None
     for attempt in range(_MAX_LLM_RETRIES):
         request = ImprovePromptRequest(
             prompt=prompt_with_placeholders,
-            instructions=instructions or None,
+            instructions=_with_retry_hint(instructions, retry_hint),
             model=model or None,
             is_video=is_video,
             is_audio=is_audio,
@@ -231,21 +233,33 @@ async def _improve_with_verbatim_protection(
             candidate = (await improve_prompt(request, session)).improved_prompt
         if not candidate.strip():
             failure_reason = "the assistant returned an empty prompt"
+            failure_advice, retry_hint = _DEFAULT_FAILURE_ADVICE, None
             continue
-        if h3_task is not None and not _valid_h3_context_ir(
-            candidate,
-            h3_task,
-            h3_duration,
-            h3_reference_manifest,
-            source_prompt=prompt_with_placeholders,
-        ):
-            failure_reason = "the rewrite did not satisfy the required video prompt format"
+        problem = (
+            _h3_context_ir_problem(
+                candidate,
+                h3_task,
+                h3_duration,
+                h3_reference_manifest,
+                source_prompt=prompt_with_placeholders,
+            )
+            if h3_task is not None
+            else None
+        )
+        if problem is not None:
+            # Structure only: never log prompt or dialogue text.
             log.warning(
-                f"[prompt-pipeline] Improve attempt {attempt + 1}: invalid H3 Context-IR, retrying..."
+                f"[prompt-pipeline] Improve attempt {attempt + 1}: invalid H3 Context-IR "
+                f"reason={problem} task={h3_task} {_h3_dialogue_stats(candidate, prompt_with_placeholders)}, "
+                "retrying..."
+            )
+            failure_reason, failure_advice, retry_hint = _H3_PROBLEM_FEEDBACK.get(
+                problem, _H3_PROBLEM_FEEDBACK["format"]
             )
             continue
         if not _image_tags_in_range(candidate, input_image_count, prompt_with_placeholders):
             failure_reason = "the rewrite referenced an image that was not supplied"
+            failure_advice, retry_hint = _DEFAULT_FAILURE_ADVICE, None
             log.warning(
                 f"[prompt-pipeline] Improve attempt {attempt + 1}: referenced a missing <imageN>, retrying..."
             )
@@ -258,14 +272,81 @@ async def _improve_with_verbatim_protection(
             )
         log.warning(f"[prompt-pipeline] Improve attempt {attempt + 1}: verbatim placeholders dropped, retrying...")
         failure_reason = "the rewrite did not preserve protected text"
+        failure_advice, retry_hint = _DEFAULT_FAILURE_ADVICE, None
 
     from fastapi import HTTPException
 
     raise HTTPException(status_code=422, detail={
         "code": "prompt_enhancement_failed",
         "message": f"Prompt enhancement failed after {_MAX_LLM_RETRIES} attempts: {failure_reason}. "
-                   "Generation was not started. Retry or check the tool assistant model in Settings.",
+                   f"Generation was not started. {failure_advice}",
     })
+
+
+_DEFAULT_FAILURE_ADVICE = "Retry or check the tool assistant model in Settings."
+
+# problem -> (failure reason, advice for whoever wrote the prompt, hint for the
+# next enhancement attempt). Reasons and advice are plain language: they reach
+# the agent and the person, so they say what to change, not how we checked.
+_H3_PROBLEM_FEEDBACK: Dict[str, Tuple[str, str, str]] = {
+    "dialogue_changed": (
+        "the rewrite kept changing the words of a spoken line",
+        "Put each line the character should say in double quotes, written exactly as it should "
+        "be spoken, with delivery notes and speaker names outside the quotes. Then retry.",
+        "Your previous rewrite altered a spoken line. Copy every supplied line into its "
+        "<d>[Language] ...</d> block word for word, adding and removing nothing. Speaker IDs "
+        "such as (S1), delivery notes and stage directions go outside the <d> block.",
+    ),
+    "dialogue_missing": (
+        "the rewrite dropped the spoken lines",
+        "Put each line the character should say in double quotes, written exactly as it should "
+        "be spoken. Then retry.",
+        "Your previous rewrite dropped the spoken lines. Every line the user supplied must "
+        "appear word for word inside its own <d>[Language] ...</d> block.",
+    ),
+    "dialogue_invented": (
+        "the rewrite kept adding spoken lines that were not asked for",
+        "If the character should speak, put the exact words in double quotes. If not, describe "
+        "the action without words like says, speaks or asks. Then retry.",
+        "Your previous rewrite added spoken words the user did not supply. Use no <d> blocks "
+        "and no speaker IDs; describe only visible, nonverbal performance.",
+    ),
+    "missing_references": (
+        "the rewrite left out one of the reference inputs",
+        "Make sure the prompt says what each reference input is for. Then retry.",
+        "Your previous rewrite did not use every reference tag. Use each listed tag at least "
+        "once in integrated_multimodal_description.",
+    ),
+    "format": (
+        "the rewrite came back in the wrong layout for this video model",
+        "Retry. If it keeps failing, simplify the prompt to one clear shot.",
+        "Your previous rewrite did not follow the required layout. Begin with the exact "
+        "required opening line for this task, then integrated_multimodal_description:, "
+        "overall_soundscape: and non_diegetic_music:, in that order.",
+    ),
+}
+
+
+def _with_retry_hint(instructions: Optional[str], hint: Optional[str]) -> Optional[str]:
+    parts = [p for p in ((instructions or "").strip(), hint) if p]
+    return "\n\n".join(parts) or None
+
+
+def _h3_dialogue_stats(candidate: str, source_prompt: str) -> str:
+    """Counts for diagnosing dialogue failures without logging any text."""
+    blocks = _H3_DIALOGUE_CONTENT_RE.findall(candidate)
+    normalized_source = _normalized_h3_dialogue(source_prompt)
+    ungrounded = sum(
+        1 for block in blocks
+        if not (normalized := _normalized_h3_dialogue(block)) or normalized not in normalized_source
+    )
+    return (
+        f"dialogue_blocks={len(blocks)} ungrounded={ungrounded} "
+        f"source_quotes={len(_SOURCE_QUOTE_RE.findall(source_prompt))}"
+    )
+
+
+_SOURCE_QUOTE_RE = re.compile(r'["\u201c][^"\u201c\u201d]+["\u201d]')
 
 
 _IMAGE_TAG_RE = re.compile(r"<image(\d+)>", re.IGNORECASE)
@@ -289,7 +370,22 @@ def _valid_h3_context_ir(
     *,
     source_prompt: Optional[str] = None,
 ) -> bool:
-    """Cheap structural guardrail for the official H3 Base prompt schema."""
+    return _h3_context_ir_problem(
+        prompt, task, duration, reference_manifest, source_prompt=source_prompt
+    ) is None
+
+
+def _h3_context_ir_problem(
+    prompt: str,
+    task: str,
+    duration: Optional[float],
+    reference_manifest: Optional[List[Dict[str, Any]]] = None,
+    *,
+    source_prompt: Optional[str] = None,
+) -> Optional[str]:
+    """Cheap structural guardrail for the official H3 Base prompt schema.
+
+    Returns None when valid, else a key of _H3_PROBLEM_FEEDBACK."""
     fields = (
         "integrated_multimodal_description:",
         "overall_soundscape:",
@@ -297,42 +393,44 @@ def _valid_h3_context_ir(
     )
     positions = [prompt.find(field) for field in fields]
     if positions[0] < 0 or positions != sorted(positions):
-        return False
-    if source_prompt is not None and not _h3_dialogue_is_grounded(prompt, source_prompt):
-        return False
+        return "format"
+    if source_prompt is not None:
+        dialogue_problem = _h3_dialogue_problem(prompt, source_prompt)
+        if dialogue_problem:
+            return dialogue_problem
     stripped = prompt.strip()
     if task == "t2va":
-        return stripped.startswith(fields[0])
+        return None if stripped.startswith(fields[0]) else "format"
     if task == "ref2va":
         if not stripped.startswith(fields[0]):
-            return False
-        return all(
+            return "format"
+        return None if all(
             f"<{item.get('label')}>" in stripped
             for item in (reference_manifest or [])
             if item.get("label")
-        )
+        ) else "missing_references"
     if task == "i2va":
-        return stripped.startswith(
+        return None if stripped.startswith(
             "For the target video, at 0.00 seconds into the target video, <Picture 1> "
             "(from [Shot 1]) is fully referenced."
-        )
+        ) else "format"
     end_time = f"{max(0.0, float(duration or 0.0)):.2f}-second mark"
     if task == "fl2va":
-        return (
+        return None if (
             stripped.startswith("How the reference pictures align with the target video —")
             and "Picture 1 (from Shot 1)" in stripped
             and "Picture 2 (from Shot " in stripped
             and end_time in stripped
             and "Shot N" not in stripped
-        )
+        ) else "format"
     if task == "l2va":
-        return (
+        return None if (
             stripped.startswith("How the reference pictures align with the target video —")
             and "<Picture 1> (from [Shot " in stripped
             and end_time in stripped
             and "Shot N" not in stripped
-        )
-    return False
+        ) else "format"
+    return "format"
 
 
 _H3_DIALOGUE_CONTENT_RE = re.compile(r"<d>(.*?)</d>", re.IGNORECASE | re.DOTALL)
@@ -348,21 +446,26 @@ def _normalized_h3_dialogue(value: str) -> str:
 
 
 def _h3_dialogue_is_grounded(candidate: str, source_prompt: str) -> bool:
+    return _h3_dialogue_problem(candidate, source_prompt) is None
+
+
+def _h3_dialogue_problem(candidate: str, source_prompt: str) -> Optional[str]:
     """Reject H3 dialogue that is absent from or adds words to the user input."""
     from routes.prompt_enhancement import _h3_input_has_dialogue
 
     blocks = _H3_DIALOGUE_CONTENT_RE.findall(candidate)
     if not _h3_input_has_dialogue(source_prompt):
-        return not blocks
+        return "dialogue_invented" if blocks else None
     if not blocks:
-        return False
+        return "dialogue_missing"
 
     normalized_source = _normalized_h3_dialogue(source_prompt)
-    return all(
+    grounded = all(
         bool(normalized := _normalized_h3_dialogue(block))
         and normalized in normalized_source
         for block in blocks
     )
+    return None if grounded else "dialogue_changed"
 
 
 async def _translate_with_verbatim_protection(

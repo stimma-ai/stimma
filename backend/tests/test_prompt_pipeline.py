@@ -280,7 +280,11 @@ class TestRunPromptPipeline:
             )
         assert len(attempts) == 3
         assert exc.value.detail["code"] == "prompt_enhancement_failed"
-        assert "video prompt format" in exc.value.detail["message"]
+        assert "adding spoken lines" in exc.value.detail["message"]
+        assert "Settings" not in exc.value.detail["message"]
+        # Later attempts are told what went wrong.
+        assert attempts[0].instructions is None
+        assert "did not supply" in attempts[1].instructions
 
     async def test_h3_preserves_structure_but_unwraps_user_verbatim(
         self, generation_app, generation_db_session, monkeypatch
@@ -751,7 +755,7 @@ def test_image_tags_in_range_rejects_invented_references_only():
 @pytest.mark.parametrize(('candidate', 'source', 'context', 'reason'), [
     ('', 'a cat', {}, 'empty prompt'),
     ('   ', 'a cat', {}, 'empty prompt'),
-    ('a generic paragraph', 'a cyclist rides', {'h3_task': 't2va', 'is_video': True}, 'video prompt format'),
+    ('a generic paragraph', 'a cyclist rides', {'h3_task': 't2va', 'is_video': True}, 'wrong layout for this video model'),
     ('Use <image3>', 'edit the photo', {'input_image_count': 1}, 'image that was not supplied'),
 ])
 async def test_invalid_enhancement_blocks_submission(
@@ -804,3 +808,25 @@ async def test_unchanged_cached_rewrite_runs_live_enhancement(
     )
     assert result == 'A detailed portrait of Joshua.'
     improve.assert_awaited_once()
+
+
+def test_h3_problem_codes_and_text_free_stats():
+    body = (
+        "integrated_multimodal_description: [Shot 1] A baker (S1) says: <d>[English] {line}</d>\n\n"
+        "overall_soundscape: Room tone.\n\nnon_diegetic_music: N/A"
+    )
+    source = 'A baker says "Fresh bread, come and get it."'
+    assert pp._h3_context_ir_problem(
+        body.format(line="Fresh bread, come and get it."), "t2va", 5, source_prompt=source
+    ) is None
+    assert pp._h3_context_ir_problem(
+        body.format(line="Fresh warm bread, come and get it."), "t2va", 5, source_prompt=source
+    ) == "dialogue_changed"
+    assert pp._h3_context_ir_problem(
+        body.format(line="Hello."), "t2va", 5, source_prompt="a baker opens the shop"
+    ) == "dialogue_invented"
+    assert pp._h3_context_ir_problem("no fields here", "t2va", 5) == "format"
+
+    stats = pp._h3_dialogue_stats(body.format(line="Fresh warm bread."), source)
+    assert stats == "dialogue_blocks=1 ungrounded=1 source_quotes=1"
+    assert "bread" not in stats.lower()
