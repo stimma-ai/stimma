@@ -14,7 +14,7 @@ const observe = {
     // would never connect; let the test do it.
     if (id.endsWith('/src/apiConfig.js')) return `${source}\nwindow.__initApiConfig = initApiConfig\n`
     if (!id.endsWith('/src/views/ImageEditorView.vue')) return
-    return source.replace('</script>', 'defineExpose({ tools, modelToolParams, repaintToolId, defaultUpscaleToolId, loading, ensureFullTool })\n</script>')
+    return source.replace('</script>', 'defineExpose({ tools, modelToolParams, repaintToolId, defaultUpscaleToolId, loading, ensureFullTool, selection, selModel, onSelectionChange, selectFamily, selectSub })\n</script>')
   },
 }
 const base = config({})
@@ -116,6 +116,35 @@ async function openEditor(t, { catalog = () => CATALOG, schema = id => CATALOG.f
 }
 
 const schemaReadsOf = reads => reads.filter(read => read.path.startsWith('/api/tools/provider-tool/')).map(read => read.path.split('/').pop())
+
+for (const picker of ['model', 'advanced', 'save']) {
+  test(`dismissing the inpaint ${picker} picker on the matte preserves selection until the next click`, async t => {
+    const { page, errors } = await openEditor(t)
+    await page.evaluate(() => {
+      const editor = window.editorTest
+      editor.selectFamily('generate')
+      editor.selectSub('repaint')
+      const mask = document.createElement('canvas')
+      mask.width = 64; mask.height = 64
+      mask.getContext('2d').fillRect(8, 8, 32, 32)
+      editor.selModel.applyMaskCanvas(mask, 'new')
+      editor.onSelectionChange(mask)
+    })
+    await expect.poll(() => page.evaluate(() => !!window.editorTest.tools.find(tool => tool.full_tool_id === 'p:repaint')?.parameter_schema)).toBe(true)
+    const menu = picker === 'model' ? page.getByRole('button', { name: 'repaint-alt' })
+      : picker === 'advanced' ? page.locator('.editor-picker') : page.getByRole('button', { name: /Save as/ })
+    const trigger = { model: 'repaint', advanced: 'Advanced settings', save: 'More save options' }[picker]
+    await page.getByRole('button', { name: trigger, exact: true }).click()
+    await expect(menu).toBeVisible()
+    const matte = page.locator('[data-disable-long-press]')
+    await matte.click({ position: { x: 10, y: 200 } })
+    await expect(menu).toHaveCount(0)
+    assert.equal(await page.evaluate(() => !!window.editorTest.selection), true)
+    await matte.click({ position: { x: 10, y: 200 } })
+    assert.equal(await page.evaluate(() => !!window.editorTest.selection), false)
+    assert.deepEqual(errors, [])
+  })
+}
 
 test('the editor lists summaries and reads schemas only for the tools it uses', async t => {
   const { page, errors, reads } = await openEditor(t)

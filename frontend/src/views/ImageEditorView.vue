@@ -456,6 +456,7 @@ function scrubValueText(p: ActiveParam, v: number) {
   return (p.min < 0 && v > 0 ? '+' : '') + text
 }
 function onViewportPointerDown(event: PointerEvent) {
+  if (matteClickDismissesMenu) return
   if (scrub) {
     // A second finger: this is a pinch, not a scrub.
     scrub = null
@@ -1172,8 +1173,17 @@ function dismissCanvasFeedback() {
   disarmSelect()
 }
 
+// Remember before document capture handlers close their popovers. By click,
+// those menus may already be gone, but this gesture still belongs to them.
+let matteClickDismissesMenu = false
+function rememberMatteDismissal(event: PointerEvent) {
+  matteClickDismissesMenu = event.target === viewport.value
+    && (toolPickerOpen.value || saveMenuOpen.value || hasEscapeLayer())
+}
+
 function onViewportMatteClick(event: MouseEvent) {
   if (event.button !== 0) return
+  if (matteClickDismissesMenu) return
   if (annotateRef.value?.consumeCompletedGestureClick()) return
   // Empty matte means "nothing here". Give the click to the most visible
   // thing first: an existing pixel selection is deselected, without also
@@ -1194,6 +1204,7 @@ function onViewportMatteClick(event: MouseEvent) {
  * the image, while hit-testing counts every in-image shape the drag crosses.
  */
 function onViewportMatteMouseDown(event: MouseEvent) {
+  if (matteClickDismissesMenu) return
   if (event.button !== 0 || spacePanHeld.value || annotateTool.value !== 'select') return
   annotateRef.value?.startMarqueeSelection(event)
 }
@@ -8569,6 +8580,7 @@ function clearViewportGestureState() {
 }
 
 function addViewportPanListeners() {
+  window.addEventListener('pointerdown', rememberMatteDismissal, true)
   window.addEventListener('pointerdown', startMiddleMousePan, true)
   window.addEventListener('pointermove', moveMiddleMousePan, true)
   window.addEventListener('pointerup', endMiddleMousePan, true)
@@ -8577,6 +8589,7 @@ function addViewportPanListeners() {
 }
 
 function removeViewportPanListeners() {
+  window.removeEventListener('pointerdown', rememberMatteDismissal, true)
   window.removeEventListener('pointerdown', startMiddleMousePan, true)
   window.removeEventListener('pointermove', moveMiddleMousePan, true)
   window.removeEventListener('pointerup', endMiddleMousePan, true)
