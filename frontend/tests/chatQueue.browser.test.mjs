@@ -65,6 +65,7 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
   // Plain Enter while the agent runs steers straight into the turn, attachments and all.
   await send('Match the grade of these two', [{ media_id: 11 }, { media_id: 12 }])
   await expect.poll(queue).toEqual([{ text: 'Match the grade of these two', mode: 'steer', steering: true }])
+  await expect.poll(() => steers().length).toBe(1)
   assert.equal(steers()[0].body.message_text, 'Match the grade of these two')
   assert.deepEqual(steers()[0].body.selected_media_ids, [11, 12])
   await expect(page.getByText('Steering')).toBeVisible()

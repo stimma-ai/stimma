@@ -120,6 +120,9 @@ const schemaReadsOf = reads => reads.filter(read => read.path.startsWith('/api/t
 for (const picker of ['model', 'advanced', 'save']) {
   test(`dismissing the inpaint ${picker} picker on the matte preserves selection until the next click`, async t => {
     const { page, errors } = await openEditor(t)
+    // Tool discovery also restores the remembered family; let startup finish
+    // before choosing the mode this interaction exercises.
+    await expect.poll(() => page.evaluate(() => !!window.editorTest.tools.find(tool => tool.full_tool_id === 'p:repaint')?.parameter_schema)).toBe(true)
     await page.evaluate(() => {
       const editor = window.editorTest
       editor.selectFamily('generate')
@@ -130,7 +133,6 @@ for (const picker of ['model', 'advanced', 'save']) {
       editor.selModel.applyMaskCanvas(mask, 'new')
       editor.onSelectionChange(mask)
     })
-    await expect.poll(() => page.evaluate(() => !!window.editorTest.tools.find(tool => tool.full_tool_id === 'p:repaint')?.parameter_schema)).toBe(true)
     const menu = picker === 'model' ? page.getByRole('button', { name: 'repaint-alt' })
       : picker === 'advanced' ? page.locator('.editor-picker') : page.getByRole('button', { name: /Save as/ })
     const trigger = { model: 'repaint', advanced: 'Advanced settings', save: 'More save options' }[picker]
