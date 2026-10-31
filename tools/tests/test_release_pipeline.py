@@ -94,7 +94,7 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(jobs[name]['with']['ref'], '${{ needs.source.outputs.ref }}')
             self.assertEqual(jobs[name]['with']['wait_for_quality_gate'], '${{ !inputs.skip_quality_gate }}')
         self.assertNotIn('runs_on', workflow('ci.yml')['jobs']['quality-gate']['with'])
-        self.assertEqual(workflow('quality-gate.yml')['on']['workflow_call']['inputs']['runs_on']['default'], '"ubuntu-latest"')
+        self.assertEqual(workflow('quality-gate.yml')['on']['workflow_call']['inputs']['runs_on']['default'], '"ubuntu-24.04"')
 
     def test_headless_workers_have_separate_capability_and_unique_docker_images(self):
         job = workflow('headless-package.yml')['jobs']['package']
