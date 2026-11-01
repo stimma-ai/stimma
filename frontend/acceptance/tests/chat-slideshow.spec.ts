@@ -3,6 +3,10 @@ import { expect, test } from '../helpers/testbed';
 import { apiJSON, createChat, getMedia, waitForShell } from '../helpers/app';
 
 test('chat slideshow stays live and preserves the selected image across batches', async ({ page }, testInfo) => {
+  const keyWarnings: string[] = [];
+  page.on('console', message => {
+    if (message.text().includes('Duplicate keys found during update')) keyWarnings.push(message.text());
+  });
   await page.addInitScript(() => {
     const NativeWebSocket = window.WebSocket;
     window.WebSocket = class extends NativeWebSocket {
@@ -39,7 +43,7 @@ test('chat slideshow stays live and preserves the selected image across batches'
       item_metadata: JSON.stringify({ display_data: display([null, images[1].id]) }) },
   } as any);
   await page.goto(`/chat/${chat.id}`);
-  await expect(page.getByRole('button', { name: 'Option 1 · pending', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Option 1 · (pending|stopped)$/ })).toBeDisabled();
   const dismiss = page.getByTestId('readiness-dismiss');
   if (await dismiss.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
     await dismiss.click();
@@ -71,19 +75,81 @@ test('chat slideshow stays live and preserves the selected image across batches'
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await expect(page.getByText('Second batch · Option 1', { exact: true })).toBeVisible();
 
-  // A curated response neither duplicates nor reorders the slideshow.
+  // Curated results keep their own appearances, including repeats within the list.
   const response = await apiJSON<any>(page, `/api/chats/${chat.id}/items`, {
     method: 'POST', data: { item_type: 'media_display',
-      item_metadata: JSON.stringify({ display_data: { title: 'Favorites', rows: [images[2], images[0]].map((image, i) => ({
+      item_metadata: JSON.stringify({ display_data: { title: 'Favorites', rows: [images[2], images[0], images[2], images[1]].map((image, i) => ({
         id: i, input: { type: 'output_only' }, output: { status: 'complete', media_id: image.id },
       })) } }) },
   } as any);
-  await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeHidden();
+  await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeVisible();
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('Escape');
   await page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer`).first().click();
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
-  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[0].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
+  await page.keyboard.press('ArrowRight');
   await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
+  await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeHidden();
+  await page.keyboard.press('ArrowLeft');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
+  await page.keyboard.press('Escape');
+  // Click the second appearance of image 2 in this same favorites message.
+  await page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer`).nth(2).click();
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
+
+  const markdown = await apiJSON<any>(page, `/api/chats/${chat.id}/items`, {
+    method: 'POST', data: { item_type: 'assistant_message',
+      message_text: `Favorites again: ![](media:${images[2].id}) ![](media:${images[0].id}) ![](media:${images[2].id}) ![](media:${images[1].id})` },
+  } as any);
+  await page.keyboard.press('Escape');
+  await page.locator(`[data-item-id="${markdown.id}"] img`).nth(2).click();
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
+  await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeHidden();
+  const scored = await apiJSON<any>(page, `/api/chats/${chat.id}/items`, {
+    method: 'POST', data: { item_type: 'scored_results', item_metadata: JSON.stringify({
+      scored_data: { items: [images[0], images[2], images[0], images[1]].map((image, i) => ({
+        media_id: image.id, rank: i + 1, total_score: 0.9,
+      })) },
+    }) },
+  } as any);
+  await page.keyboard.press('Escape');
+  await page.locator(`[data-item-id="${scored.id}"] .scored-results .aspect-square`).nth(2).click();
+  await expect(hero).toHaveAttribute('src', new RegExp(images[0].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
+  await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeHidden();
+  // Reorder an earlier favorites list while the later repeated appearance stays selected.
+  await page.evaluate(payload => {
+    (window as any).__acceptanceChatSocket.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(payload) }));
+  }, { event: 'chat_item_updated', data: { chat_id: chat.id, item: {
+    ...response, item_metadata: JSON.stringify({ display_data: { title: 'Favorites',
+      rows: [images[1], images[2], images[0], images[2]].map((image, i) => ({
+        id: i, input: { type: 'output_only' }, output: { status: 'complete', media_id: image.id },
+      })),
+    } }),
+  } } });
+  await expect(page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer img`).first())
+    .toHaveAttribute('src', new RegExp(`/media/${images[1].id}/file`));
+  expect(keyWarnings).toEqual([]);
+  const strip = page.locator('.horizontal-virtual-scroller');
+  await expect(strip.locator('.scroll-item')).toHaveCount(15);
+  await expect(strip.locator('[title="Image 15"] .ring-selection')).toHaveCount(1);
+  // Each appearance must retain its own thumbnail node when duplicate images reconcile.
+  await strip.getByTitle('Image 13', { exact: true }).click();
+  await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[0].file_hash!));
+  await page.keyboard.press('ArrowRight');
+  await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
+  await expect(strip.locator('[title="Image 15"] .ring-selection')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath('live-chat-slideshow.png') });
 });
 

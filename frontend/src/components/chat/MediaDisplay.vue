@@ -13,14 +13,14 @@
     <!-- Rows: output-only batches use a bounded responsive gallery, everything else keeps the existing layouts -->
     <div :class="rowsContainerClass">
       <MediaDisplayRow
-        v-for="row in visibleRows"
+        v-for="(row, index) in visibleRows"
         :key="row.id"
         :row="row"
         :compact="shouldUseCompactLayout"
         :fill="isFillDisplay"
         :size="galleryTileSize"
         :library-mode="isLibraryMode"
-        @view-image="(mediaId) => $emit('view-image', mediaId)"
+        @view-image="(mediaId, slot) => $emit('view-image', mediaId, `row:${index}:${slot}`)"
         @retry="retryRow"
         @cancel="cancelRow"
         @show-job-info="(jobId) => $emit('show-job-info', jobId)"

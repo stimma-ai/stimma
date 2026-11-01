@@ -5,7 +5,7 @@
       <div
         v-if="row.output.status === 'complete' && row.output.media_id"
         class="w-16 h-16 rounded-media overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent-selection transition-colors flex-shrink-0"
-        @click="$emit('view-image', row.output.media_id)"
+        @click="$emit('view-image', row.output.media_id, 'output')"
       >
         <MediaImage
           :media-id="row.output.media_id"
@@ -22,7 +22,7 @@
         :row="row"
         :size="107"
         :use-thumbnail="false"
-        @view-image="(id) => $emit('view-image', id)"
+        @view-image="(id) => $emit('view-image', id, 'output')"
         @retry="(id) => $emit('retry', id)"
         @cancel="(id) => $emit('cancel', id)"
         @show-job-info="(jobId) => $emit('show-job-info', jobId)"
@@ -35,7 +35,7 @@
         :row="row"
         :size="134"
         :use-thumbnail="false"
-        @view-image="(id) => $emit('view-image', id)"
+        @view-image="(id) => $emit('view-image', id, 'output')"
         @retry="(id) => $emit('retry', id)"
         @cancel="(id) => $emit('cancel', id)"
         @show-job-info="(jobId) => $emit('show-job-info', jobId)"
@@ -51,7 +51,7 @@
           :size="size || (compact ? 134 : 160)"
           :fill="fill"
           :use-thumbnail="false"
-          @view-image="(id) => $emit('view-image', id)"
+          @view-image="(id) => $emit('view-image', id, 'output')"
           @retry="(id) => $emit('retry', id)"
           @cancel="(id) => $emit('cancel', id)"
           @show-job-info="(jobId) => $emit('show-job-info', jobId)"
@@ -69,7 +69,7 @@
       <div
         v-if="row.input.input_image"
         class="w-[160px] h-[160px] rounded-media overflow-hidden cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
-        @click="$emit('view-image', row.input.input_image.media_id)"
+        @click="$emit('view-image', row.input.input_image.media_id, 'input')"
       >
         <MediaImage
           :mediaId="row.input.input_image.media_id"
@@ -91,7 +91,7 @@
         :row="row"
         :size="160"
         :use-thumbnail="false"
-        @view-image="(id) => $emit('view-image', id)"
+        @view-image="(id) => $emit('view-image', id, 'output')"
         @retry="(id) => $emit('retry', id)"
         @cancel="(id) => $emit('cancel', id)"
         @show-job-info="(jobId) => $emit('show-job-info', jobId)"
@@ -118,7 +118,7 @@
               v-for="(ref, idx) in row.input.ref_images"
               :key="idx"
               class="w-[96px] h-[96px] rounded-media overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-              @click="$emit('view-image', ref.media_id)"
+              @click="$emit('view-image', ref.media_id, `ref:${idx}`)"
             >
               <MediaImage
                 :mediaId="ref.media_id"
@@ -149,7 +149,7 @@
         :row="row"
         :size="160"
         :use-thumbnail="false"
-        @view-image="(id) => $emit('view-image', id)"
+        @view-image="(id) => $emit('view-image', id, 'output')"
         @retry="(id) => $emit('retry', id)"
         @cancel="(id) => $emit('cancel', id)"
         @show-job-info="(jobId) => $emit('show-job-info', jobId)"

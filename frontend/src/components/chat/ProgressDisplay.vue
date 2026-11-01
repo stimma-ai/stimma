@@ -44,7 +44,7 @@
           :title="`Option ${tile.option}${tile.mediaId ? '' : ` · ${tile.status}`}`"
           :aria-label="`Option ${tile.option}${tile.mediaId ? '' : ` · ${tile.status}`}`"
           class="relative w-12 h-12 flex-shrink-0 rounded-media overflow-hidden bg-matte enabled:cursor-pointer enabled:hover:ring-2 enabled:hover:ring-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 transition-colors"
-          @click="$emit('view-image', tile.mediaId)"
+          @click="$emit('view-image', tile.mediaId, `preview:${tile.key}`)"
         >
           <MediaImage
             v-if="tile.mediaId"

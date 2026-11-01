@@ -1,3 +1,5 @@
+import { marked } from 'marked'
+
 // Stable request slots are supplied by new progress records. Older chats retain
 // their recorded preview order; there is no reliable way to infer request order.
 export function progressPreviewTiles(data) {
@@ -18,13 +20,14 @@ export function progressPreviewTiles(data) {
 
 export function collectChatMedia(items) {
   const entries = []
-  const seen = new Set()
-  const add = (id, label = '') => {
-    if (!id || seen.has(id)) return
-    seen.add(id)
-    entries.push({ id, label })
-  }
-  for (const item of items) {
+  // Identity belongs to an appearance, not the underlying media. Slot paths
+  // remain stable when a pending progress slot fills or older chat items load.
+  for (const [index, item] of items.entries()) {
+    const itemId = item.id ?? index
+    const add = (id, slot, label = '') => {
+      if (!id) return
+      entries.push({ id, itemId, slot, key: `${itemId}:${slot}:${id}`, label })
+    }
     let metadata = item.item_metadata || {}
     if (typeof metadata === 'string') {
       try { metadata = JSON.parse(metadata) } catch { metadata = {} }
@@ -32,24 +35,30 @@ export function collectChatMedia(items) {
     const data = metadata.display_data || {}
     if (item.item_type === 'progress_display') {
       for (const tile of progressPreviewTiles(data)) {
-        add(tile.mediaId, `${data.title || 'Batch'} · Option ${tile.option}`)
+        add(tile.mediaId, `preview:${tile.key}`, `${data.title || 'Batch'} · Option ${tile.option}`)
       }
     }
     if (item.item_type === 'media_display') {
-      for (const row of data.rows || []) {
-        add(row.input?.input_image?.media_id)
-        for (const reference of row.input?.ref_images || []) add(reference.media_id)
-        if (!row.output?.deleted && row.output?.status !== 'trashed') add(row.output?.media_id)
+      for (const [index, row] of (data.rows || []).entries()) {
+        add(row.input?.input_image?.media_id, `row:${index}:input`)
+        for (const [refIndex, reference] of (row.input?.ref_images || []).entries()) add(reference.media_id, `row:${index}:ref:${refIndex}`)
+        if (!row.output?.deleted && row.output?.status !== 'trashed') add(row.output?.media_id, `row:${index}:output`)
       }
     }
     if (item.item_type === 'scored_results') {
-      for (const result of metadata.scored_data?.items || []) add(result.media_id)
+      for (const [index, result] of (metadata.scored_data?.items || []).entries()) add(result.media_id, `scored:${index}`)
     }
-    if (item.item_type === 'analysis_result') add(metadata.analysis_data?.media_id)
-    if (item.item_type === 'grid_generation') add(data.grid_media_id)
+    if (item.item_type === 'analysis_result') add(metadata.analysis_data?.media_id, 'analysis')
+    if (item.item_type === 'grid_generation') add(data.grid_media_id, 'grid')
     if (item.item_type === 'assistant_message') {
-      const references = /!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)/g
-      for (const match of (item.message_text || '').matchAll(references)) add(Number(match[1]))
+      let index = 0
+      const text = (item.message_text || '').replace(/<think(?:ing)?>([\s\S]*?)(<\/think(?:ing)?>|$)/gi, '').trim()
+      // Match rendered Markdown images, excluding examples in code blocks.
+      marked.walkTokens(marked.lexer(text), token => {
+        if (token.type !== 'image') return
+        const match = token.href.match(/^media(?:_id=|:)(\d+)$/)
+        if (match) add(Number(match[1]), `message:${index++}`)
+      })
     }
   }
   return entries

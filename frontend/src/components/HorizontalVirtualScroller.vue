@@ -21,7 +21,7 @@
       >
         <div
           v-for="item in visibleItems"
-          :key="item.id"
+          :key="item._slideshowItemKey ?? item.id"
           class="scroll-item"
           :style="{
             position: 'absolute',

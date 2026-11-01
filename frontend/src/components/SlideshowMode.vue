@@ -105,9 +105,9 @@
     </button>
 
     <div
-      v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[currentPayloadId]"
+      v-if="!focusMode && !isViewingSet && !isViewingGrid && !isViewingSource && itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId]"
       class="app-no-drag absolute top-4 compact:top-[calc(var(--safe-top,0px)+68px)] left-1/2 -translate-x-1/2 z-chrome max-w-[50%] truncate rounded-md bg-matte/80 px-3 py-2 text-xs text-content-secondary"
-    >{{ itemLabels[currentPayloadId] }}</div>
+    >{{ itemLabels[displayItem?._slideshowItemKey ?? currentPayloadId] }}</div>
 
     <!-- Grid view title indicator (centered over image area, accounting for sidebar) -->
     <!-- Visible even in focus mode so user can see position and navigate back -->
@@ -3176,8 +3176,11 @@ function displayAnchorIndex() {
   if (isUserNavigating.value) return currentIndex.value
   if (props.items || props.mediaList || isRandomized.value) return currentIndex.value
   if (currentMediaId.value == null || localRemovedIds.value.size > 0) return currentIndex.value
+  const occurrenceKey = displayItem.value?._slideshowItemKey
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item && itemIdentity(item) === currentMediaId.value) return index
+    if (item && (occurrenceKey != null
+      ? item._slideshowItemKey === occurrenceKey
+      : itemIdentity(item) === currentMediaId.value)) return index
   }
   return currentIndex.value
 }

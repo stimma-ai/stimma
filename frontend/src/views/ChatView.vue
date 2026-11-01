@@ -611,7 +611,7 @@
                       :thumbnail-size="512"
                       container-class="w-[320px] h-[200px] rounded-lg overflow-hidden cursor-pointer my-2"
                       img-class="w-full h-full object-cover"
-                      @click="openSlideshow(seg.mediaId, 0)"
+                      @click="openSlideshow(seg.mediaId, item.id, `message:${seg.mediaIndex}`)"
                     />
                   </template>
                 </div>
@@ -955,7 +955,7 @@
                 :display-data="parseMediaDisplayData(item)"
                 :chat-item-id="item.id"
                 :show-role="item.show_role"
-                @view-image="(mediaId) => openFromMediaDisplay(item, mediaId)"
+                @view-image="(mediaId, slot) => openFromMediaDisplay(item, mediaId, slot)"
                 @show-job-info="showJobInfoById"
               />
             </ChatItemWrapper>
@@ -972,7 +972,7 @@
             >
               <ProgressDisplay
                 :display-data="parseProgressDisplayData(item)"
-                @view-image="openSlideshow"
+                @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
               />
             </ChatItemWrapper>
           </div>
@@ -989,8 +989,8 @@
               <GridGenerationDisplay
                 :display-data="parseGridGenerationData(item)"
                 :chat-item-id="item.id"
-                @view-image="openSlideshow"
-                @view-grid="openSlideshow"
+                @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
+                @view-grid="(mediaId) => openSlideshow(mediaId, item.id, 'grid')"
               />
             </ChatItemWrapper>
           </div>
@@ -1006,7 +1006,7 @@
             >
               <ScoredResultsDisplay
                 :scored-data="parseScoredResultsData(item)"
-                @view-image="openSlideshow"
+                @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
               />
             </ChatItemWrapper>
           </div>
@@ -1022,7 +1022,7 @@
             >
               <AnalysisResult
                 :analysis-data="parseAnalysisData(item)"
-                @view-image="openSlideshow"
+                @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
               />
             </ChatItemWrapper>
           </div>
@@ -1043,7 +1043,7 @@
                 :chat-id="chat?.id ?? chatId"
                 :action="parseHITLAction(item)"
                 @responded="handleHITLResponded"
-                @view-image="openSlideshow"
+                @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
               />
               <!-- Completed plan approval: show plan with approved status -->
               <div v-else-if="parseHITLAction(item)?.type === 'plan_approval'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
@@ -1068,7 +1068,7 @@
                   :action="parseHITLAction(item)"
                   :completed="true"
                   :response="findHITLResponse(item)"
-                  @view-image="openSlideshow"
+                  @view-image="(mediaId, slot) => openSlideshow(mediaId, item.id, slot)"
                 />
               </div>
             </ChatItemWrapper>
@@ -1328,7 +1328,7 @@
             @select-revision="artifactStage.viewRevision"
             @jump-newest="artifactStage.jumpToNewest"
             @set-latest="artifactStage.setAsLatest"
-            @open-slideshow="(mediaId) => openSlideshow(mediaId, 0)"
+            @open-slideshow="(mediaId) => openSlideshow(mediaId)"
           />
         </Transition>
       </template>
@@ -1339,7 +1339,7 @@
     <SlideshowMode
       v-if="slideshowState.active"
       :total-count="liveChatMediaIds.length"
-      :live-item-ids="liveChatMediaIds"
+      :live-item-ids="liveChatMediaEntries.map(entry => entry.key)"
       :item-labels="chatMediaLabels"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
@@ -1784,7 +1784,7 @@ function parseMediaDisplayData(item) {
 // from a chat message lands on the artifact stage for its Asset — the same
 // surface show(artifact=) opens — instead of the slideshow. Everything else
 // keeps the slideshow. Embedded chats have no stage, so they keep it too.
-async function openFromMediaDisplay(item, mediaId) {
+async function openFromMediaDisplay(item, mediaId, slot) {
   if (!props.embedded) {
     const row = (parseMediaDisplayData(item).rows || []).find(r => r?.output?.media_id === mediaId)
     const output = row?.output
@@ -1804,7 +1804,7 @@ async function openFromMediaDisplay(item, mediaId) {
       }
     }
   }
-  openSlideshow(mediaId)
+  openSlideshow(mediaId, item.id, slot)
 }
 
 // Artifact chip collapse: only in standalone chats, and only once this chat's
@@ -2872,15 +2872,19 @@ onUnmounted(cancelOlderChatMedia)
 function onSlideshowIndex(index) {
   if (index < 10) loadOlderChatMedia()
 }
-const chatMediaLabels = computed(() => Object.fromEntries(chatMediaEntries.value.map(entry => [entry.id, entry.label])))
-const liveChatMediaIds = computed(() => [...new Set([
-  ...chatMediaEntries.value.map(entry => entry.id), ...slideshowReferenceIds.value,
-])])
+const liveChatMediaEntries = computed(() => [
+  ...chatMediaEntries.value,
+  ...slideshowReferenceIds.value
+    .filter(id => !chatMediaEntries.value.some(entry => entry.id === id))
+    .map(id => ({ id, key: `reference:${id}`, label: '' })),
+])
+const chatMediaLabels = computed(() => Object.fromEntries(liveChatMediaEntries.value.map(entry => [entry.key, entry.label])))
+const liveChatMediaIds = computed(() => liveChatMediaEntries.value.map(entry => entry.id))
 
 // Watch for new media IDs and load their markers (only for non-trashed items)
 watch(liveChatMediaIds, async (newIds, oldIds) => {
   const oldSet = new Set(oldIds || [])
-  const newMediaIds = newIds.filter(id => !oldSet.has(id))
+  const newMediaIds = [...new Set(newIds.filter(id => !oldSet.has(id)))]
 
   // Batch load markers for new media items
   if (newMediaIds.length > 0) {
@@ -4065,7 +4069,7 @@ function addAttachmentFromMediaId(mediaId) {
 
 function openStripSlideshow(mediaId) {
   // Open slideshow at this media ID using all chat media
-  openSlideshow(mediaId, 0)
+  openSlideshow(mediaId)
 }
 
 function handleStripDragStart(mediaId) {
@@ -4417,9 +4421,9 @@ function renderHighlightedCodeUncached(code, language = 'text') {
 }
 
 // Render markdown to HTML, with media placeholders for inline media references
-const MEDIA_PLACEHOLDER_PREFIX = '<!--STIMMA_MEDIA:'
-const MEDIA_PLACEHOLDER_SUFFIX = '-->'
-const MEDIA_PLACEHOLDER_RE = /<!--STIMMA_MEDIA:(\d+)-->/g
+const MEDIA_PLACEHOLDER_PREFIX = '<span data-stimma-media="'
+const MEDIA_PLACEHOLDER_SUFFIX = '"></span>'
+const MEDIA_PLACEHOLDER_RE = /<span data-stimma-media="(\d+)"><\/span>/g
 
 function parseMediaIdFromHref(href) {
   if (!href) return null
@@ -4467,13 +4471,14 @@ function parseMarkdownSegmentsUncached(text) {
   const html = renderMarkdown(text)
   const segments = []
   let lastIndex = 0
+  let mediaIndex = 0
   let match
   MEDIA_PLACEHOLDER_RE.lastIndex = 0
   while ((match = MEDIA_PLACEHOLDER_RE.exec(html)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ type: 'html', content: html.slice(lastIndex, match.index) })
     }
-    segments.push({ type: 'media', mediaId: parseInt(match[1], 10) })
+    segments.push({ type: 'media', mediaId: parseInt(match[1], 10), mediaIndex: mediaIndex++ })
     lastIndex = match.index + match[0].length
   }
   if (lastIndex < html.length) {
@@ -4483,33 +4488,36 @@ function parseMarkdownSegmentsUncached(text) {
 }
 
 // Open slideshow at a specific media ID
-function openSlideshow(mediaId, indexInGrid) {
+function openSlideshow(mediaId, itemId = null, slot = null) {
   if (!mediaId) return
   loadOlderChatMedia()
   if (!liveChatMediaIds.value.includes(mediaId)) slideshowReferenceIds.value.push(mediaId)
 
-  // Find the index of this media ID - open immediately without validation
-  const index = liveChatMediaIds.value.indexOf(mediaId)
-  const startIndex = index !== -1 ? index : 0
+  // Select the clicked appearance, including repeated images in one message.
+  // Non-transcript entry points (e.g. the attachment strip) fall back to media ID.
+  const index = liveChatMediaEntries.value.findIndex(entry =>
+    entry.id === mediaId && (itemId == null || entry.itemId === itemId) && (slot == null || entry.slot === slot))
+  const startIndex = index !== -1 ? index : Math.max(0, liveChatMediaIds.value.indexOf(mediaId))
 
   // Create a page provider that references the reactive liveChatMediaIds
   // This way new images will be included as they complete
   const chatPageProvider = async (pageNumber, pageSize) => {
-    const allIds = liveChatMediaIds.value  // Get current value at fetch time
+    const allEntries = liveChatMediaEntries.value  // Get current value at fetch time
     const start = pageNumber * pageSize
-    const end = Math.min(start + pageSize, allIds.length)
-    const pageIds = allIds.slice(start, end)
+    const end = Math.min(start + pageSize, allEntries.length)
+    const pageEntries = allEntries.slice(start, end)
 
     // Fetch all items for this page in parallel (include trashed items)
-    const itemPromises = pageIds.map(async (id) => {
+    const itemPromises = pageEntries.map(async ({ id, key }) => {
       try {
-        return await getMediaItem(id, { includeTrashed: true })
+        return { ...await getMediaItem(id, { includeTrashed: true }), _slideshowItemKey: key }
       } catch (error) {
         // Return a placeholder for truly deleted items
         return {
           id: id,
           file_hash: null,
-          _placeholder: true
+          _placeholder: true,
+          _slideshowItemKey: key
         }
       }
     })

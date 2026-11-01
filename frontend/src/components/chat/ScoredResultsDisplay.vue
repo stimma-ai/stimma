@@ -12,8 +12,8 @@
     <!-- Grid of scored images -->
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
       <div
-        v-for="item in scoredData.items"
-        :key="item.media_id"
+        v-for="(item, index) in scoredData.items"
+        :key="index"
         class="relative group cursor-pointer"
       >
         <!-- Rank badge -->
@@ -36,7 +36,7 @@
             :thumbnail="true"
             :thumbnail-size="256"
             container-class="w-full h-full"
-            @click="$emit('view-image', item.media_id)"
+            @click="$emit('view-image', item.media_id, `scored:${index}`)"
           />
         </div>
 
