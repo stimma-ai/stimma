@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import { devModeRef } from '../appConfig'
+import { afterAgentTool, coEditedText, isPromptCleared, screenEditsSince, type CoEditedText, type ScreenEdit } from '../utils/promptAgentScreenEdits'
 
 /**
  * Prompt-editor mini-agent loop driver.
@@ -28,6 +29,8 @@ export interface AgentMessage {
   tool_call_id?: string
   /** Display-only reasoning trace; stripped before sending back to the model. */
   thinking?: string | null
+  /** On a user turn: what the user changed by hand since the agent last acted. */
+  screen_edits?: ScreenEdit[]
 }
 
 /** Dev-mode diagnostic trace attached to a failed/refused step (see backend
@@ -84,9 +87,15 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
   const pending: string[] = []
   let draining = false
 
+  // The co-edited text as the agent last knew it, so a turn can say what the
+  // user changed by hand in between. Null until there's a conversation to edit
+  // against.
+  let seenText: CoEditedText | null = null
+
   function clearHistory(): void {
     pending.length = 0
     messages.value = []
+    seenText = null
     error.value = null
     errorCode.value = null
     lastReply.value = ''
@@ -132,12 +141,30 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
     // and report them as "already set". Tools still operate on live state.
     const stateForTurn = ctx.getStateContext()
 
+    const seenBeforeTurn = seenText
+    const textForTurn = coEditedText(stateForTurn)
+    const screenEdits = seenBeforeTurn ? screenEditsSince(seenBeforeTurn, textForTurn) : []
+    seenText = textForTurn
+
+    // Emptying the prompt by hand is starting over, and the only copy of the old
+    // text left is in this conversation. Asking the model not to restore it isn't
+    // reliable, so don't send it. The turn still carries the edit: without it, a
+    // bare description in an empty conversation reads as a request to generate.
+    if (screenEdits.some(isPromptCleared)) {
+      messages.value = []
+      sessionId.value = newSessionId()
+    }
+
     // A transport failure must not become permanent conversation history. If
     // the provider rejects this turn (most notably for a stale context-window
     // setting), restore the pre-turn wire history so Retry is actually a retry
     // instead of making the oversized request larger every time.
     const turnStart = messages.value.length
-    messages.value.push({ role: 'user', content: text })
+    messages.value.push({
+      role: 'user',
+      content: text,
+      ...(screenEdits.length ? { screen_edits: screenEdits } : {}),
+    })
 
     try {
       for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
@@ -147,6 +174,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
           content: m.content,
           ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
           ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+          ...(m.screen_edits ? { screen_edits: m.screen_edits } : {}),
         }))
         const resp = await axios.post('/api/prompt/agent/step', {
           conversation_history: wireHistory,
@@ -189,6 +217,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
 
         for (const tc of toolCalls) {
           let result: string
+          const textBeforeTool = coEditedText(ctx.getStateContext())
           try {
             let args: any = {}
             if (tc.arguments) {
@@ -204,11 +233,13 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
             result = `Error: ${e?.message || String(e)}`
           }
           messages.value.push({ role: 'tool', tool_call_id: tc.id, content: result ?? 'ok' })
+          if (seenText) seenText = afterAgentTool(seenText, textBeforeTool, coEditedText(ctx.getStateContext()))
         }
       }
       lastReply.value = 'Stopped after too many steps. Try a more specific instruction.'
     } catch (e: any) {
       messages.value.splice(turnStart)
+      seenText = seenBeforeTurn
       lastDebugTrace.value = e?.response?.data?.detail?.debug || null
       errorCode.value = e?.response?.data?.detail?.code || null
       error.value =

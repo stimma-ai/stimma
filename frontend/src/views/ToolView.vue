@@ -6141,12 +6141,16 @@ async function runTool(name: string, args: any): Promise<string> {
       const oldStr = String(args.old_string ?? '')
       const newStr = String(args.new_string ?? '')
       const current = globalPrefs.value.prompt || ''
-      if (!oldStr || !current.includes(oldStr)) {
+      // On an empty prompt, the only edit that can match is writing the first text.
+      const writingEmpty = !oldStr && !current.trim()
+      if (!writingEmpty && (!oldStr || !current.includes(oldStr))) {
         return `old_string not found in the prompt. Current prompt: ${JSON.stringify(current)}`
       }
-      const updated = args.replace_all
-        ? current.split(oldStr).join(newStr)
-        : current.replace(oldStr, newStr)
+      const updated = writingEmpty
+        ? newStr
+        : args.replace_all
+          ? current.split(oldStr).join(newStr)
+          : current.replace(oldStr, newStr)
       globalPrefs.value.prompt = updated
       editor?.setPromptText?.(updated)
       return 'ok'

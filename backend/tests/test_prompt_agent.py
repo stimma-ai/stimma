@@ -181,6 +181,86 @@ def test_prompt_agent_volatile_state_stays_on_final_user_message():
     assert '"seed": 2' in second[-1]["content"]
 
 
+def _prepared_history(history):
+    from prompts import get_prompt
+    from routes.prompt_enhancement import _prepare_prompt_agent_request
+
+    messages, _ = _prepare_prompt_agent_request(
+        conversation_history=history,
+        system_prompt=get_prompt("prompt_enhancement", "agent_system_prompt"),
+        reminders=["<system-reminder>{}</system-reminder>"],
+        tools=TOOL_SCHEMAS,
+        max_context_tokens=128_000,
+    )
+    return messages[1:]
+
+
+def test_hand_edit_is_written_into_the_turn_it_preceded():
+    sent = _prepared_history([
+        {"role": "user", "content": "write a lighthouse"},
+        {"role": "assistant", "content": "wrote prompt"},
+        {
+            "role": "user",
+            "content": "make it dramatic",
+            "screen_edits": [{"field": "prompt", "before": "a lighthouse", "after": "a cat"}],
+        },
+    ])
+
+    last = sent[-1]["content"]
+    assert 'Before: "a lighthouse"' in last
+    assert 'Now: "a cat"' in last
+    assert last.endswith("make it dramatic")
+    # Providers reject unknown message fields.
+    assert all("screen_edits" not in message for message in sent)
+
+
+def test_clearing_the_prompt_tells_the_model_not_to_restore_it():
+    sent = _prepared_history([
+        {
+            "role": "user",
+            "content": "use soft morning light",
+            "screen_edits": [{"field": "prompt", "before": "a lighthouse", "after": ""}],
+        },
+    ])
+
+    note = sent[-1]["content"]
+    assert "emptied the prompt" in note
+    assert "Write only what this message asks for" in note
+    # Quoting the old text back would hand the model what it must not restore.
+    assert "a lighthouse" not in note
+
+
+def test_hand_edit_note_stays_on_its_turn_and_keeps_the_prefix_stable():
+    edited_turn = {
+        "role": "user",
+        "content": "second",
+        "screen_edits": [{"field": "instructions", "before": "warm", "after": "cold"}],
+    }
+    # The note was rendered under the live state on its own turn, so compare
+    # the two requests after that turn stops being the last one.
+    later = _prepared_history([
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "done"},
+        edited_turn,
+        {"role": "assistant", "content": "done"},
+        {"role": "user", "content": "third"},
+    ])
+    latest = _prepared_history([
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "done"},
+        edited_turn,
+        {"role": "assistant", "content": "done"},
+        {"role": "user", "content": "third"},
+        {"role": "assistant", "content": "done"},
+        {"role": "user", "content": "fourth"},
+    ])
+
+    assert later[:-1] == latest[:4]
+    assert 'Now: "cold"' in later[2]["content"]
+    assert "the Instructions" in later[2]["content"]
+    assert "<system-reminder>{}" not in later[2]["content"]
+
+
 async def test_agent_step_learns_provider_context_limit_and_retries():
     from routes.prompt_enhancement import (
         AgentStepRequest,

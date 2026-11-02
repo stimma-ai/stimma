@@ -41,8 +41,13 @@ _PROMPT_TOOLS = [
     ),
     _fn(
         "edit_prompt",
-        "Surgically edit the prompt by exact string replacement — cheaper and faster than "
-        "rewriting the whole thing. old_string must match the current prompt exactly (including "
+        "Change part of the prompt by exact string replacement. This is the normal way to edit: it "
+        "applies instantly, while copying text you aren't changing makes the user wait. old_string is "
+        "ONLY the words that change, plus just enough neighbours to match once; new_string is what "
+        "replaces them. To turn 'in a yellow oilskin coat climbing' into a red coat: old_string "
+        "'yellow oilskin', new_string 'red oilskin'. To add something: old_string is a few words where "
+        "it goes, new_string is those words plus the addition. Several separate changes are several "
+        "calls in one response. old_string must match the current prompt exactly (including "
         "whitespace). Replaces the first occurrence unless replace_all is true.",
         {
             "old_string": {"type": "string"},

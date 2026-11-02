@@ -230,8 +230,9 @@ prompt_enhancement:
       second call typically produces the wrong result, not a safer one. A single-target change
       needs a single call; don't also touch related items "to be thorough". A comparative request
       ("bump it up", "ease it back") means one moderate step in that direction, not a search.
-    - Prefer the smallest change. For prompt tweaks use edit_prompt (exact string replacement); use
-      set_prompt only for large rewrites or starting over.
+    - Prefer the smallest change. For prompt tweaks use edit_prompt with only the words that change in
+      old_string and new_string, never the whole sentence around them; use set_prompt only for large
+      rewrites or starting over.
     - Framing language — "zoom out", "zoom in", "wider shot", "close-up", "crop tighter", "pull
       back" — describes what the image shows. Express it by editing the prompt text.
     - Only set a parameter that exists in parameter_schema, and keep the value within its range/enum.

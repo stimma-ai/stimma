@@ -1858,7 +1858,7 @@ class AgentToolCall(BaseModel):
 
 class AgentStepRequest(BaseModel):
     # OpenAI-style message dicts the frontend maintains for the run:
-    #   {"role": "user", "content": str}
+    #   {"role": "user", "content": str, "screen_edits"?: [{field, before, after}]}
     #   {"role": "assistant", "content": str|None, "tool_calls": [...]}
     #   {"role": "tool", "tool_call_id": str, "content": str}
     conversation_history: List[dict] = []
@@ -1941,6 +1941,48 @@ def _prompt_agent_max_tokens(max_context_tokens: int) -> int:
     return min(max(reserve, 16_384), max(reserve, max_context_tokens // 4))
 
 
+_SCREEN_EDIT_LABELS = {"prompt": "prompt", "instructions": "Instructions"}
+
+
+def _render_screen_edits(message: dict) -> dict:
+    """Write the user's hand edits into their turn, as the model should read them.
+
+    The conversation otherwise records only the agent's own edits, so its old
+    tool calls are the most prominent copy of text the user has since replaced
+    or cleared. The note stays on this turn for the rest of the conversation
+    (deterministic, so the history prefix stays cache-stable).
+    """
+    rendered = dict(message)
+    edits = rendered.pop("screen_edits", None)
+    notes = []
+    for edit in edits or []:
+        label = _SCREEN_EDIT_LABELS.get(edit.get("field"))
+        if not label:
+            continue
+        before, after = edit.get("before", ""), edit.get("after", "")
+        if after.strip():
+            notes.append(
+                f"Since you last acted, the user changed the {label} themselves. That was "
+                f"deliberate. What's there now replaces every earlier version in this "
+                f"conversation: work from it, and don't bring back anything they removed "
+                f"unless they ask for it.\n"
+                f"Before: {json.dumps(before, ensure_ascii=False)}\n"
+                f"Now: {json.dumps(after, ensure_ascii=False)}"
+            )
+        else:
+            notes.append(
+                f"Since you last acted, the user emptied the {label} themselves. That was "
+                f"deliberate: the old text is gone, so don't copy any of it from earlier in "
+                f"this conversation. Write only what this message asks for into the {label}, "
+                f"even if that's just a fragment. They're drafting: writing it is the whole "
+                f"request, unless they say to generate."
+            )
+    if notes:
+        note = "\n\n".join(notes)
+        rendered["content"] = f"<system-reminder>\n{note}\n</system-reminder>\n\n{message.get('content') or ''}"
+    return rendered
+
+
 def _prepare_prompt_agent_request(
     *,
     conversation_history: List[dict],
@@ -1981,7 +2023,7 @@ def _prepare_prompt_agent_request(
     )
 
     messages = [{"role": "system", "content": system_prompt}]
-    messages += [dict(message) for message in conversation_history]
+    messages += [_render_screen_edits(message) for message in conversation_history]
     messages = _apply_token_budget_strict(messages, budget=history_budget)
     _inject_last_user_context(messages, reminders)
     return messages, max_tokens
