@@ -48,10 +48,11 @@ PYTHON_BIN="$OUTPUT_DIR/python/bin/python3"
 
 echo "Exporting backend runtime requirements..."
 cd "$BACKEND_SRC"
-uv export --no-hashes --no-dev --no-emit-project > "$OUTPUT_DIR/requirements.txt"
+uv export --locked --no-hashes --no-dev --no-emit-project > "$OUTPUT_DIR/requirements.txt"
 
 echo "Installing backend dependencies into portable Python..."
-uv pip install --python "$PYTHON_BIN" -r "$OUTPUT_DIR/requirements.txt"
+# Sync the resolved pins so pyproject dependency overrides survive packaging.
+uv pip sync --python "$PYTHON_BIN" "$OUTPUT_DIR/requirements.txt"
 
 # opencv-python-headless is pulled transitively today, but the packaged app
 # deliberately does not ship cv2/codec dylibs. The runtime-surface guard below

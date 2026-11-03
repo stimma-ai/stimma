@@ -174,7 +174,7 @@ license:
 | osam | 0.2.5 | MIT | https://github.com/wkentaro/osam |
 | packaging | 25.0 | Apache-2.0 | https://github.com/pypa/packaging |
 | piexif | 1.1.3 | MIT | https://github.com/hMatoba/Piexif |
-| pillow | 10.4.0 | HPND | https://python-pillow.org |
+| pillow | 13.0.0 | HPND | https://python-pillow.org |
 | primp | 1.1.3 | MIT License | https://github.com/deedy5/primp |
 | propcache | 0.4.1 | Apache-2.0 | https://github.com/aio-libs/propcache |
 | protobuf | 6.33.6 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |

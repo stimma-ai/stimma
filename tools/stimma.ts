@@ -1243,7 +1243,7 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   }
 
   console.log("Exporting backend runtime requirements...");
-  const requirements = await runCapture("uv", ["export", "--no-hashes", "--no-dev", "--no-emit-project"], { cwd: backendSrc });
+  const requirements = await runCapture("uv", ["export", "--locked", "--no-hashes", "--no-dev", "--no-emit-project"], { cwd: backendSrc });
   if (requirements.code !== 0) {
     console.error(requirements.stderr);
     Deno.exit(requirements.code);
@@ -1251,7 +1251,8 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   await Deno.writeTextFile(join(outputDir, "requirements.txt"), requirements.stdout);
 
   console.log("Installing backend dependencies into portable Python...");
-  await run("uv", ["pip", "install", "--python", pythonExe, "-r", join(outputDir, "requirements.txt")]);
+  // Sync the resolved pins so pyproject dependency overrides survive packaging.
+  await run("uv", ["pip", "sync", "--python", pythonExe, join(outputDir, "requirements.txt")]);
 
   const sitePackages = await findWindowsSitePackages(outputDir);
   console.log("Pruning cv2 and bundled codec libraries from portable Python...");
