@@ -413,13 +413,13 @@ class LightweightProvider(ToolProvider):
             return ExecutionResult(success=False, error=f"Filter '{filter_id}' does not support video input")
 
         def _apply_image() -> str:
-            from utils.image_ops import open_oriented
+            from utils.image_ops import open_oriented, png_compatible
             with open_oriented(image_path) as img:
                 out = apply_builtin_filter(filter_id, img, settings)
                 fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"filter_{filter_id}_")
                 import os
                 os.close(fd)
-                out.save(tmp_path, format="PNG")
+                png_compatible(out).save(tmp_path, format="PNG")
                 return tmp_path
 
         def _apply_video() -> str:

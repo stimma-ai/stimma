@@ -60,6 +60,7 @@ import PIL.ImageFilter
 import PIL.ImageFont
 import PIL.ImageOps
 from PIL import Image
+from utils.image_ops import png_compatible
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1030,7 +1031,7 @@ class StimmaLibraryAPI:
             digest = hashlib.sha1(item.tobytes()).hexdigest()[:10]
             fname = f"composed_{digest}.png"
             img_path = self._sdk.workspace_dir / fname
-            item.save(img_path, format="PNG")
+            png_compatible(item).save(img_path, format="PNG")
             item = str(img_path)
         provenance = None
         if isinstance(item, ToolResult):
@@ -2781,7 +2782,7 @@ class StimmaSDK:
         self._pil_save_counter = getattr(self, "_pil_save_counter", 0) + 1
         filename = f"_adjust_{self._pil_save_counter:04d}.png"
         path = self.workspace_dir / filename
-        img.save(path)
+        png_compatible(img).save(path)
         return str(path)
 
     def _normalize_show_inputs(

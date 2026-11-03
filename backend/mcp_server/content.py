@@ -68,7 +68,8 @@ async def update(caller, args, session, chat):
             elif action == "flip_vertical":
                 image = ImageOps.flip(image)
         path = folder / (uuid.uuid4().hex + ".png")
-        image.save(path)
+        from utils.image_ops import png_compatible
+        png_compatible(image).save(path)
     else:
         extension = {"svg": "svg", "markdown": "md", "layout": "stimmalayout"}[
             args["format"]

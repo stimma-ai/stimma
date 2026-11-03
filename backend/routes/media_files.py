@@ -3776,6 +3776,10 @@ def _convert_image(
 
     pil_format, media_type, ext = format_map.get(target_format, ('PNG', 'image/png', '.png'))
 
+    if pil_format == 'PNG':
+        from utils.image_ops import png_compatible
+        img = png_compatible(img)
+
     if pil_format in ('JPEG', 'WEBP'):
         save_kwargs['quality'] = options.quality or 85
 

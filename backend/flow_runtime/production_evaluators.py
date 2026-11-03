@@ -2527,6 +2527,9 @@ async def _save_pil_image_media(
         counter += 1
 
     save_kwargs: dict[str, Any] = {"format": fmt.upper()}
+    if fmt == "png":
+        from utils.image_ops import png_compatible
+        img = png_compatible(img)
     if fmt == "jpeg":
         save_kwargs["quality"] = 95
         if img.mode in ("RGBA", "LA", "P"):

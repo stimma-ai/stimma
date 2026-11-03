@@ -17,6 +17,44 @@ from database_registry import get_database_registry
 from tests.helpers.media import create_media_item, generate_test_image
 
 
+@pytest.mark.parametrize(
+    "mode,values,expected",
+    [
+        ("I", [0, 1024, 32768, 65535], [0, 1024, 32768, 65535]),
+        ("I", [-100000, 0, 100000, 200000], [0, 21845, 43690, 65535]),
+        ("F", [0.0, 0.25, 0.5, 1.0], [0, 16384, 32768, 65535]),
+    ],
+)
+def test_integer_tiff_png_transcode_and_export(tmp_path, mode, values, expected):
+    from agent.v2.code_runtime import StimmaSDK
+    from providers.jsonrpc import _transcode_image_to
+    from routes.media_files import ExportOptions, _convert_image
+
+    source = tmp_path / "integer.tiff"
+    image = Image.new(mode, (2, 2))
+    image.putdata(values)
+    image.save(source, format="TIFF")
+    with Image.open(source) as decoded:
+        assert decoded.mode == mode
+
+    transcoded = _transcode_image_to(source.read_bytes(), "image/png")
+    assert transcoded is not None
+    exported, _, mime = _convert_image(source, ExportOptions(format="png"))
+    assert mime == "image/png"
+    sdk = StimmaSDK(
+        session=None, chat_id=1, workspace_dir=tmp_path,
+        project_workspace_dir=None, interrupt_checker=None,
+    )
+    # A no-op adjustment retains the source mode until show() saves its PIL result.
+    paths, _ = sdk._normalize_show_inputs(sdk.adjust(source))
+    adjusted = (tmp_path / paths[0]).read_bytes()
+    for data in (transcoded, exported.getvalue(), adjusted):
+        with Image.open(io.BytesIO(data)) as result:
+            assert result.format == "PNG"
+            assert result.size == (2, 2)
+            assert list(result.getdata()) == expected
+
+
 @pytest.mark.asyncio
 async def test_known_thumbnail_cache_hit_avoids_sqlite_write(tmp_path):
     from routes.media_files import _record_thumbnail_cache, _recorded_thumbnail_cache_entries

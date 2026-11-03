@@ -13,6 +13,27 @@ from PIL import Image, ImageOps
 ResizeMode = Literal["nearest", "bilinear", "bicubic"]
 
 
+def png_compatible(img: Image.Image) -> Image.Image:
+    """Encode numeric source images as 16-bit grayscale, never clipped RGB.
+
+    Preserve integer samples already in PNG's unsigned 16-bit range. Scale
+    wider/signed integers and floating-point images across that range. Other
+    modes pass through unchanged; conversion happens only at PNG save sites.
+    """
+    if img.mode not in ("I", "F"):
+        return img
+    values = np.asarray(img, dtype=np.float64)
+    finite = values[np.isfinite(values)]
+    if finite.size:
+        low, high = finite.min(), finite.max()
+        if high > low and (img.mode == "F" or low < 0 or high > 65535):
+            values = (values - low) * (65535.0 / (high - low))
+    values = np.nan_to_num(values, nan=0, posinf=65535, neginf=0)
+    result = Image.fromarray(np.clip(values, 0, 65535).round().astype(np.uint16))
+    result.info = img.info.copy()
+    return result
+
+
 def has_alpha_channel(img: Image.Image) -> bool:
     """Whether the image's format declares an alpha channel.
 

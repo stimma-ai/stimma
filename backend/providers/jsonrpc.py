@@ -158,7 +158,8 @@ def _transcode_image_to(data: bytes, target_mime: str) -> Optional[bytes]:
         if target_mime == "image/jpeg":
             img.convert("RGB").save(buf, format="JPEG", quality=95)
         else:
-            img.save(buf, format="PNG")
+            from utils.image_ops import png_compatible
+            png_compatible(img).save(buf, format="PNG")
         return buf.getvalue()
     except Exception as e:
         log.warning(f"Image transcode to {target_mime} failed: {e}")
