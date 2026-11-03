@@ -22,6 +22,8 @@ from config import get_settings
 
 log = get_logger(__name__)
 
+_EXCLUSIVE_ACCESS_TIMEOUT_SECONDS = 10.0
+
 
 def get_alembic_config(db_path: str) -> AlembicConfig:
     """Create an Alembic config pointing to a specific database."""
@@ -37,7 +39,8 @@ def get_alembic_config(db_path: str) -> AlembicConfig:
 def _require_exclusive_access(path: Path, exclusive_access: bool) -> None:
     """Only startup, before application engines/services exist, may replace a DB.
 
-    Also reject an already open WAL connection, even if it has no transaction.
+    Allow brief readers to finish, but reject a persistent open WAL connection,
+    even if it has no transaction.
     Runtime callers cannot quiesce the other process and must defer to startup.
     """
     message = (
@@ -48,7 +51,7 @@ def _require_exclusive_access(path: Path, exclusive_access: bool) -> None:
     if not exclusive_access:
         raise RuntimeError(message)
     try:
-        with closing(sqlite3.connect(path, timeout=0)) as connection:
+        with closing(sqlite3.connect(path, timeout=_EXCLUSIVE_ACCESS_TIMEOUT_SECONDS)) as connection:
             connection.execute("PRAGMA locking_mode=EXCLUSIVE")
             connection.execute("BEGIN EXCLUSIVE")
             connection.rollback()

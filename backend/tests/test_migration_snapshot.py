@@ -2,6 +2,7 @@
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from threading import Timer
 
 import pytest
 from alembic import command
@@ -113,6 +114,7 @@ def test_failed_migration_restores_with_less_than_two_databases_free(tmp_path, m
 def test_held_wal_connection_prevents_migration_and_preserves_snapshot(tmp_path, monkeypatch, exclusive_access):
     import utils.migrations as migrations
 
+    monkeypatch.setattr(migrations, "_EXCLUSIVE_ACCESS_TIMEOUT_SECONDS", 0.05)
     path = tmp_path / "profile.db"
     with closing(sqlite3.connect(path)) as held:
         held.execute("PRAGMA journal_mode=WAL")
@@ -130,3 +132,41 @@ def test_held_wal_connection_prevents_migration_and_preserves_snapshot(tmp_path,
         assert held.execute("SELECT value FROM retained").fetchall() == [("still original",)]
         with closing(sqlite3.connect(snapshot)) as connection:
             assert connection.execute("SELECT value FROM retained").fetchall() == []
+
+
+def test_migration_waits_for_transient_wal_connection(tmp_path, monkeypatch):
+    import utils.migrations as migrations
+
+    path = tmp_path / "profile.db"
+    with closing(sqlite3.connect(path, check_same_thread=False)) as held:
+        held.execute("PRAGMA journal_mode=WAL")
+        held.execute("CREATE TABLE retained (value TEXT)")
+        held.execute("INSERT INTO retained VALUES ('original')")
+        held.commit()
+
+        release = Timer(0.1, held.close)
+        require_exclusive_access = migrations._require_exclusive_access
+
+        def wait_for_access(path, exclusive_access):
+            # Release only after the exclusive-access check starts, so an
+            # immediate refusal cannot pass by racing the snapshot backup.
+            release.start()
+            require_exclusive_access(path, exclusive_access)
+
+        def upgrade(config, revision):
+            with closing(sqlite3.connect(path)) as connection:
+                connection.execute("CREATE TABLE migrated (id INTEGER)")
+
+        monkeypatch.setattr(migrations, "_require_exclusive_access", wait_for_access)
+        monkeypatch.setattr(migrations.command, "upgrade", upgrade)
+        try:
+            run_migrations_for_profile("test", str(path), exclusive_access=True)
+        finally:
+            release.join()
+
+    with closing(sqlite3.connect(path)) as connection:
+        assert connection.execute("SELECT value FROM retained").fetchall() == [("original",)]
+        assert connection.execute("SELECT name FROM sqlite_master WHERE name='migrated'").fetchone() == ("migrated",)
+    with closing(sqlite3.connect(path.with_name(path.name + ".pre-migration"))) as connection:
+        assert connection.execute("SELECT value FROM retained").fetchall() == [("original",)]
+        assert not connection.execute("SELECT name FROM sqlite_master WHERE name='migrated'").fetchall()
