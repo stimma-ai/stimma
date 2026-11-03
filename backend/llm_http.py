@@ -973,7 +973,7 @@ def _retryable_response(response: httpx.Response) -> bool:
     return True
 
 
-def _retry_delay(attempt: int, response: httpx.Response | None) -> float:
+def _retry_delay(attempt: int, response: httpx.Response | None) -> float | None:
     delay = random.uniform(0.5, 1.0) * (2 ** attempt)
     if response is not None and (value := response.headers.get("Retry-After")):
         try:
@@ -983,8 +983,10 @@ def _retry_delay(attempt: int, response: httpx.Response | None) -> float:
                 retry_after = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
             except (ValueError, TypeError, OverflowError):
                 retry_after = 0
+        if retry_after > 60:
+            return None
         delay = max(delay, retry_after)
-    return min(30.0, delay)
+    return delay
 
 
 async def acompletion(**kwargs) -> _Obj:
@@ -1004,10 +1006,14 @@ async def acompletion(**kwargs) -> _Obj:
             response = error.response
             if not _retryable_response(response) or attempt == 2:
                 raise
+            delay = _retry_delay(attempt, response)
+            if delay is None:
+                raise
         except (httpx.TransportError, LLMConnectionError):
             if attempt == 2:
                 raise
-        await asyncio.sleep(_retry_delay(attempt, response))
+            delay = _retry_delay(attempt, None)
+        await asyncio.sleep(delay)
 
 
 async def _acompletion_once(*, model, messages, api_key=None, api_base=None,

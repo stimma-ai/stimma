@@ -111,10 +111,10 @@ async def test_permanent_errors_never_retry(status, body, delays):
     assert len(requests) == 1 and not delays
 
 
-@pytest.mark.parametrize('value,minimum,maximum', [('12', 12, 12), ('300', 30, 30), ('date', 8, 11)])
-async def test_retry_after_seconds_date_and_cap(value, minimum, maximum, delays):
+@pytest.mark.parametrize('value,minimum,maximum', [('12', 12, 12), ('45', 45, 45), ('60', 60, 60), ('date', 38, 41)])
+async def test_retry_after_seconds_and_date_wait_full_value(value, minimum, maximum, delays):
     if value == 'date':
-        value = formatdate(time() + 10, usegmt=True)
+        value = formatdate(time() + 40, usegmt=True)
     async with provider([(503, {}, {'Retry-After': value}), SUCCESS]) as (url, _):
         await complete(url)
     assert minimum <= delays[0] <= maximum
@@ -167,3 +167,13 @@ async def test_cloud_refresh_is_kept_across_transient_retries(monkeypatch, delay
     refresh.assert_awaited_once()
     assert len(requests) == 3
     assert fresh_attempts == 2
+
+
+@pytest.mark.parametrize('value', ['300', 'date'])
+async def test_long_retry_after_surfaces_failure_without_retry(value, delays):
+    if value == 'date':
+        value = formatdate(time() + 300, usegmt=True)
+    async with provider([(429, {}, {'Retry-After': value}), SUCCESS]) as (url, requests):
+        with pytest.raises(httpx.HTTPStatusError):
+            await complete(url)
+    assert len(requests) == 1 and not delays
