@@ -648,11 +648,12 @@ async function saveChatName(chat) {
 
   const newName = editingName.value.trim()
   try {
-    await fetch(`/api/chats/${chat.id}`, {
+    const response = await fetch(`/api/chats/${chat.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName })
     })
+    if (!response.ok) throw new Error(await response.text())
     chat.name = newName
   } catch (err) {
     reportActionError("Couldn't rename chat.", err)

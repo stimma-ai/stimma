@@ -2035,6 +2035,7 @@ async function handleNewChatDrop(e: DragEvent) {
 async function resolveFlowChatId(flowId: number): Promise<number | null> {
   try {
     const listResp = await fetch(`/api/chats?flow_id=${flowId}&page=1&page_size=1`)
+    if (!listResp.ok) throw new Error(await listResp.text())
     if (listResp.ok) {
       const list = await listResp.json()
       const existing = list?.items?.[0]?.id

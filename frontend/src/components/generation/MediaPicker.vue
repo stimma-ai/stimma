@@ -1918,7 +1918,9 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
     // Upload paint layer if it exists but hasn't been uploaded yet
     let paintLayerPath = item._paintLayerPath || null
     if (hasPaint && !paintLayerPath) {
-      const paintBlob = await fetch(item._paintLayerDataUrl!).then(r => r.blob())
+      const paintResponse = await fetch(item._paintLayerDataUrl!)
+      if (!paintResponse.ok) throw new Error(await paintResponse.text())
+      const paintBlob = await paintResponse.blob()
       const formData = new FormData()
       formData.append('file', paintBlob, 'paint_layer.png')
       const uploadResponse = await axios.post(`${API_BASE}/generate/upload-paint-layer`, formData, {

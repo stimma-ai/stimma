@@ -82,11 +82,12 @@ async function toggleTelemetry() {
   localTelemetryEnabled.value = newValue
   telemetrySaving.value = true
   try {
-    await fetch(`${getApiBase()}/settings/telemetry`, {
+    const response = await fetch(`${getApiBase()}/settings/telemetry`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: newValue }),
     })
+    if (!response.ok) throw new Error(await response.text())
     emit('telemetry-updated', newValue)
   } catch (err) {
     localTelemetryEnabled.value = previous
