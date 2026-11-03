@@ -103,6 +103,19 @@ for (const touch of [false, true]) test(`Settings search finds synonyms and high
   await page.getByRole('button', { name: 'Visual Indexing Background work' }).click()
   await expect(page.locator('[data-setting-label="Visual Indexing"]')).toBeVisible()
   await expect(page.locator('[data-setting-label="Visual Indexing"]')).toHaveClass(/ring-2/)
+  for (const [query, name, target] of [
+    ['wildcards', 'Wildcards Prompt variables', 'prompt-wildcards'],
+    ['segments', 'Segments Prompt variables', 'prompt-segments'],
+    ['version', 'About About', 'about-build'],
+    ['login', 'Stimma Account Stimma account', 'stimma-account'],
+  ]) {
+    await search.fill(query)
+    await page.getByRole('button', { name, exact: true }).click()
+    const destination = page.locator(`[data-settings-target="${target}"]`)
+    await expect(destination).toBeVisible()
+    await expect(destination).toHaveClass(/ring-2/)
+    await expect(destination).toBeFocused()
+  }
   await search.fill('no-such-setting')
   await expect(page.getByText('No settings match “no-such-setting”.')).toBeVisible()
   await search.press('Escape')

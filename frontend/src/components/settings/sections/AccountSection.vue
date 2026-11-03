@@ -7,7 +7,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
         </svg>
       </div>
-      <h3 class="text-lg font-semibold text-content mb-2">Privacy Lockdown</h3>
+      <h3 data-settings-target="stimma-account" class="text-lg font-semibold text-content mb-2">Privacy Lockdown</h3>
       <p class="text-sm text-content-tertiary">
         Sign-in to your account is disabled.
       </p>
@@ -16,7 +16,7 @@
     <div v-else-if="!user" class="min-h-[60vh] flex items-start justify-center pt-10">
       <div class="w-full max-w-[640px] text-center">
         <img src="/logo.svg" alt="" aria-hidden="true" class="mx-auto mb-7 h-[72px] w-[72px]" />
-        <h3 class="text-[26px] font-semibold tracking-tight text-content">Sign in to Stimma</h3>
+        <h3 data-settings-target="stimma-account" class="text-[26px] font-semibold tracking-tight text-content">Sign in to Stimma</h3>
         <p class="mx-auto mt-2.5 mb-14 max-w-[420px] text-sm leading-6 text-content-secondary">
           Stimma doesn’t require an account — sign in when you want it connected.
         </p>
@@ -79,7 +79,7 @@
       <header class="flex items-center gap-4">
         <img src="/logo.svg" alt="" aria-hidden="true" class="h-12 w-12 shrink-0" />
         <div class="min-w-0">
-          <h2 class="text-[22px] font-semibold tracking-tight text-content">Stimma Account</h2>
+          <h2 data-settings-target="stimma-account" class="text-[22px] font-semibold tracking-tight text-content">Stimma Account</h2>
           <p class="mt-0.5 truncate text-[13.5px] text-content-tertiary">{{ user.email }}</p>
         </div>
         <div class="ml-auto flex shrink-0 items-center gap-4 text-[13.5px]">

@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col min-h-full">
     <!-- Identity -->
-    <div class="flex items-center gap-4 pb-6">
+    <div data-settings-target="about-build" class="flex items-center gap-4 pb-6">
       <img src="/logo.svg" alt="Stimma" class="w-16 h-16 rounded-lg border border-edge bg-surface" />
       <div>
         <div class="flex items-center gap-2.5">

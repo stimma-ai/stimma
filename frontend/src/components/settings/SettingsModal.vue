@@ -328,7 +328,7 @@ async function openSetting(hit) {
   stopHighlight = cleanup
   const highlight = () => {
     const normalize = text => text.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
-    const target = [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
+    const target = (hit.target ? content.querySelector(`[data-settings-target="${hit.target}"]`) : null) || [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
       normalize(node.dataset.settingLabel || node.textContent || '') === normalize(hit.label))
     if (!target) return false
     highlighted = target

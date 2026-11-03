@@ -2,7 +2,7 @@
   <div>
     <!-- Wildcards -->
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Wildcards</h3>
+      <h3 data-settings-target="prompt-wildcards" class="text-xs font-semibold text-content-secondary">Wildcards</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Each time you generate, a random value from the list is picked — great for adding variety across batches.
       </p>
@@ -99,7 +99,7 @@
 
     <!-- Segments -->
     <div class="mt-12 mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Segments</h3>
+      <h3 data-settings-target="prompt-segments" class="text-xs font-semibold text-content-secondary">Segments</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Fixed text blocks that expand in place. Content can include <code class="text-xs">[verbatim]</code>, <code class="text-xs"># comments</code>, and <code class="text-xs">{a|b|c}</code> wildcards.
       </p>
