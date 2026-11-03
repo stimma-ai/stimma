@@ -1,4 +1,6 @@
 """Core media browsing and search routes."""
+import asyncio
+
 from core.logging import get_logger
 from typing import Optional, List
 from datetime import datetime
@@ -18,6 +20,7 @@ from utils.query_builder import (
 )
 from utils.similarity import (
     compute_relevance_cutoff,
+    score_clip_embeddings,
     filter_items_by_face_similarity,
     parse_similarity_ids,
     sort_similarity_items,
@@ -339,32 +342,20 @@ async def get_media(
             raise HTTPException(status_code=400, detail="similar_to_text cannot be empty")
 
         # Encode the text using CLIP
-        from clip_service import get_clip_service, CLIP_EMBEDDING_DIM
+        from clip_service import get_clip_service
         clip_service = get_clip_service()
-        query_embedding = clip_service.encode_text(similar_to_text.strip())
+        query_embedding = await asyncio.to_thread(clip_service.encode_text, similar_to_text.strip())
 
         # Add filter to only include items with embeddings
         query = query.where(MediaItem.clip_embedding.isnot(None))
 
-        # Execute query to get all filtered items (no pagination yet)
-        result = await session.execute(query)
-        all_items = result.scalars().all()
-
-        # Compute similarities - use lower threshold for text-to-image (scores are typically 0.2-0.4)
+        result = await session.execute(query.with_only_columns(
+            MediaItem.id, MediaItem.clip_embedding, maintain_column_froms=True,
+        ))
+        all_scores, stale_embedding_ids = await asyncio.to_thread(
+            score_clip_embeddings, result.all(), query_embedding,
+        )
         threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_text_similarity_threshold
-        all_scores: dict[int, float] = {}
-        scored_items = []
-        stale_embedding_ids = []  # Items with wrong dimension embeddings
-
-        for item in all_items:
-            embedding = item.get_embedding()
-            if embedding is not None:
-                # Check embedding dimensions - skip items with old model embeddings
-                if embedding.shape[0] != CLIP_EMBEDDING_DIM:
-                    stale_embedding_ids.append(item.id)
-                    continue
-                all_scores[item.id] = float(clip_service.compute_similarity(query_embedding, embedding))
-                scored_items.append(item)
 
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
         if stale_embedding_ids:
@@ -380,12 +371,14 @@ async def get_media(
         else:
             effective_threshold = threshold
 
-        filtered_items = []
-        for item in scored_items:
-            score = all_scores[item.id]
-            if score >= effective_threshold:
-                similarity_scores[item.id] = score
-                filtered_items.append(item)
+        similarity_scores = {media_id: score for media_id, score in all_scores.items()
+                             if score >= effective_threshold}
+        # Sort lightweight winner metadata, then load only the requested page.
+        result = await session.execute(select(
+            MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
+        ).where(MediaItem.id.in_(similarity_scores)))
+        winners = {row.id: row for row in result.all()}
+        filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
         # Sort filtered items based on sort_by parameter
         if sort_by == "similarity":
@@ -499,30 +492,20 @@ async def get_media(
         # Add filter to only include items with embeddings
         query = query.where(MediaItem.clip_embedding.isnot(None))
 
-        # Execute query to get all filtered items (no pagination yet)
-        result = await session.execute(query)
-        all_items = result.scalars().all()
-
-        # Compute similarities
-        from clip_service import get_clip_service
-        clip_service = get_clip_service()
-        # Use provided threshold or fall back to settings
+        result = await session.execute(query.with_only_columns(
+            MediaItem.id, MediaItem.clip_embedding, maintain_column_froms=True,
+        ))
+        all_scores, stale_embedding_ids = await asyncio.to_thread(
+            score_clip_embeddings, result.all(), query_embedding,
+        )
         threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_similarity_threshold
-        filtered_items = []
-        stale_embedding_ids = []  # Items with wrong dimension embeddings
-
-        for item in all_items:
-            embedding = item.get_embedding()
-            if embedding is not None:
-                # Check embedding dimensions - skip items with old model embeddings
-                if embedding.shape[0] != CLIP_EMBEDDING_DIM:
-                    stale_embedding_ids.append(item.id)
-                    continue
-                similarity = clip_service.compute_similarity(query_embedding, embedding)
-                # Include reference items regardless of threshold, others must meet threshold
-                if item.id in reference_ids or similarity >= threshold:
-                    similarity_scores[item.id] = float(similarity)
-                    filtered_items.append(item)
+        similarity_scores = {media_id: score for media_id, score in all_scores.items()
+                             if media_id in reference_ids or score >= threshold}
+        result = await session.execute(select(
+            MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
+        ).where(MediaItem.id.in_(similarity_scores)))
+        winners = {row.id: row for row in result.all()}
+        filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
         if stale_embedding_ids:
@@ -845,35 +828,21 @@ async def get_media_ids(
 
             # Get all items with embeddings
             query = query.where(MediaItem.clip_embedding.isnot(None))
-            result = await session.execute(query)
-            all_ids = [row[0] for row in result.all()]
-
-            # Fetch full items to compute similarities
-            items_result = await session.execute(
-                select(MediaItem).where(MediaItem.id.in_(all_ids))
+            # The previous full-row ID lookup established ID order for ties.
+            result = await session.execute(query.with_only_columns(
+                MediaItem.id, MediaItem.clip_embedding, maintain_column_froms=True,
+            ).order_by(MediaItem.id))
+            all_scores, stale_embedding_ids = await asyncio.to_thread(
+                score_clip_embeddings, result.all(), query_embedding,
             )
-            all_items = items_result.scalars().all()
-
-            # Compute similarities
-            from clip_service import get_clip_service
-            clip_service = get_clip_service()
             threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_similarity_threshold
-            filtered_items = []
-            similarity_scores = {}
-            stale_embedding_ids = []
-
-            for item in all_items:
-                embedding = item.get_embedding()
-                if embedding is not None:
-                    # Check embedding dimensions - skip items with old model embeddings
-                    if embedding.shape[0] != CLIP_EMBEDDING_DIM:
-                        stale_embedding_ids.append(item.id)
-                        continue
-                    similarity = clip_service.compute_similarity(query_embedding, embedding)
-                    # Include reference items regardless of threshold
-                    if item.id in similar_to_ids or similarity >= threshold:
-                        similarity_scores[item.id] = float(similarity)
-                        filtered_items.append(item)
+            similarity_scores = {media_id: score for media_id, score in all_scores.items()
+                                 if media_id in similar_to_ids or score >= threshold}
+            result = await session.execute(select(
+                MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
+            ).where(MediaItem.id.in_(similarity_scores)))
+            winners = {row.id: row for row in result.all()}
+            filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
             # Schedule re-indexing for items with stale embeddings
             if stale_embedding_ids:
@@ -1450,52 +1419,34 @@ async def search_similar(
             detail="Reference asset has outdated CLIP embedding. It has been scheduled for re-indexing. Please try again after CLIP indexing completes."
         )
 
-    # Get all items with embeddings, restricted to the ordinary browser
-    # population (see similarity_search_population).
     result = await session.execute(
-        select(MediaItem).where(
+        select(MediaItem.id, MediaItem.clip_embedding).where(
             MediaItem.clip_embedding.isnot(None),
+            MediaItem.id != request.media_id,
             *similarity_search_population(),
         )
     )
-    all_items = result.scalars().all()
-
-    # Compute similarities
-    from clip_service import get_clip_service
-    clip_service = get_clip_service()
-    similarities = []
-    stale_embedding_ids = []
-    for item in all_items:
-        if item.id == request.media_id:
-            continue  # Skip the query item itself
-
-        embedding = item.get_embedding()
-        if embedding is not None:
-            # Check embedding dimensions - skip items with old model embeddings
-            if embedding.shape[0] != CLIP_EMBEDDING_DIM:
-                stale_embedding_ids.append(item.id)
-                continue
-            similarity = clip_service.compute_similarity(query_embedding, embedding)
-            similarities.append((item, similarity))
+    all_scores, stale_embedding_ids = await asyncio.to_thread(
+        score_clip_embeddings, result.all(), query_embedding,
+    )
 
     # Schedule re-indexing for items with stale embeddings
     if stale_embedding_ids:
         log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings, scheduling re-index")
         await reset_stale_clip_embeddings(session, stale_embedding_ids)
 
-    # Sort by similarity
-    similarities.sort(key=lambda x: x[1], reverse=True)
-
-    # Filter by threshold
     threshold = get_settings().clip_similarity_threshold
-    filtered_similarities = [(item, score) for item, score in similarities if score >= threshold]
+    scores_by_id = {media_id: score for media_id, score in all_scores.items() if score >= threshold}
+    # Preserve the existing sort-before-filter behavior, including NaN scores.
+    ordered_ids = [media_id for media_id in sorted(all_scores, key=all_scores.get, reverse=True)
+                   if media_id in scores_by_id]
+    result = await session.execute(select(MediaItem).where(MediaItem.id.in_(ordered_ids)))
+    winners = {item.id: item for item in result.scalars().all()}
+    filtered_items = [winners[media_id] for media_id in ordered_ids if media_id in winners]
 
-    # Convert to response with similarity scores using the shared compatibility
-    # projection so the payload shape matches every other Media-shaped list.
-    scores_by_id = {item.id: float(score) for item, score in filtered_similarities}
     media_items = []
     for item_dict in await media_compatibility_projections(
-        session, [item for item, _ in filtered_similarities]
+        session, filtered_items
     ):
         item_dict['similarity_score'] = scores_by_id[item_dict["media_id"]]
         media_items.append(MediaItemResponse(**item_dict))

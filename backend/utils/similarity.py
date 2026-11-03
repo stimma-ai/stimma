@@ -19,6 +19,35 @@ DEFAULT_RELEVANCE_K = 2.5
 MIN_SCORES_FOR_RELEVANCE_CUTOFF = 30
 
 
+def score_clip_embeddings(rows, query_embedding: np.ndarray) -> tuple[dict[int, float], list[int]]:
+    """Score only embedding columns; callers run this CPU work in a thread."""
+    from clip_service import CLIP_EMBEDDING_DIM
+
+    ids, embeddings, stale_ids = [], [], []
+    for media_id, blob in rows:
+        if blob is None:
+            continue
+        embedding = np.frombuffer(blob, dtype=np.float32)
+        if embedding.shape[0] != CLIP_EMBEDDING_DIM:
+            stale_ids.append(media_id)
+            continue
+        ids.append(media_id)
+        embeddings.append(embedding)
+
+    query = query_embedding / np.linalg.norm(query_embedding)
+    scores = {}
+    # Bound temporary matrix memory independently of library size. Batched
+    # vector dot products retain the float32 reduction used by np.dot on each
+    # stored vector, including ties and scores exactly at a threshold.
+    for start in range(0, len(ids), 1024):
+        matrix = np.stack(embeddings[start:start + 1024])
+        norms = np.sqrt(np.matmul(matrix[:, None, :], matrix[:, :, None])[:, 0, 0])
+        matrix = matrix / norms[:, None]
+        values = np.matmul(matrix[:, None, :], query[:, None])[:, 0, 0]
+        scores.update(zip(ids[start:start + 1024], map(float, values)))
+    return scores, stale_ids
+
+
 def compute_relevance_cutoff(
     scores: Sequence[float],
     absolute_floor: float,
