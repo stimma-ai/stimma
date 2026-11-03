@@ -88,6 +88,9 @@ async def purge_ephemeral_run(session: AsyncSession, run_id: str) -> int:
     if not rows:
         return 0
 
+    from media_sidecars import purge_ephemeral_sidecars
+    from core.profile_context import get_current_profile
+    await purge_ephemeral_sidecars(session, [m.id for m in rows], get_current_profile())
     for m in rows:
         path = m.file_path
         if path:

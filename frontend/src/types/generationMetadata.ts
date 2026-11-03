@@ -60,6 +60,8 @@ export interface LineageTraceEntry {
 }
 
 export interface GenerationMetadata {
+  /** Actual representation selected by consuming adapters. */
+  input_usage?: Array<Record<string, unknown>>
   /** Schema version. Currently 3. */
   version?: number
   /** "stimma" | "flow" | "external" | "batch" | "agent_v2_*" | "flow_create_layout" ... */

@@ -20,6 +20,7 @@ from database import (
     Face,
     GenerationJob,
     MediaItem,
+    MediaSidecar,
     MediaKeyword,
     MediaLineage,
     ManagedArtifact,
@@ -117,19 +118,50 @@ async def _retained_file_paths(session, paths: list[str]) -> set[str]:
     )
 
 
+def _item_storage_ids(items):
+    ids = {item.storage_object_id for item in items if item.storage_object_id is not None}
+    for item in items:
+        ids.update(entry["id"] for entry in json.loads(item.sidecar_objects or "[]"))
+    return ids
+
+
+async def _storage_is_referenced(session, storage_id):
+    return bool(await session.scalar(select(MediaItem.id).where(MediaItem.storage_object_id == storage_id).limit(1))
+                or await session.scalar(select(MediaSidecar.id).where(MediaSidecar.storage_object_id == storage_id).limit(1)))
+
+
+async def _stage_sidecar_objects(session, media_ids, items):
+    """Retain unlink work independently of rows that are about to be purged."""
+    by_media = {item.media_id: item for item in items}
+    snapshots = {media_id: json.loads(by_media[media_id].sidecar_objects or "[]") if media_id in by_media else [] for media_id in media_ids}
+    rows = (await session.execute(select(MediaSidecar, StorageObject).join(
+        StorageObject, StorageObject.id == MediaSidecar.storage_object_id,
+    ).where(MediaSidecar.media_id.in_(media_ids)))).all()
+    for sidecar, storage in rows:
+        primary_ref = await session.scalar(select(MediaItem.id).where(
+            MediaItem.storage_object_id == storage.id, MediaItem.id.not_in(media_ids)).limit(1))
+        sidecar_ref = await session.scalar(select(MediaSidecar.id).where(
+            MediaSidecar.storage_object_id == storage.id, MediaSidecar.media_id.not_in(media_ids)).limit(1))
+        key = None
+        if primary_ref is None and sidecar_ref is None:
+            storage.state = "deleting"
+            key = storage.object_key
+        snapshots[sidecar.media_id].append({"id": storage.id, "key": key})
+    for media_id, entries in snapshots.items():
+        if media_id in by_media:
+            by_media[media_id].sidecar_objects = json.dumps(entries)
+    await session.execute(delete(MediaSidecar).where(MediaSidecar.media_id.in_(media_ids)))
+
+
 async def _retained_storage_ids(session, storage_ids: set[int]) -> set[int]:
     if not storage_ids:
         return set()
-    return set(
-        await session.scalars(
-            select(MediaItem.storage_object_id)
-            .where(
-                MediaItem.storage_object_id.in_(storage_ids),
-                _media_has_live_root(),
-            )
-            .distinct()
-        )
-    )
+    primary = set(await session.scalars(select(MediaItem.storage_object_id).where(
+        MediaItem.storage_object_id.in_(storage_ids), _media_has_live_root()).distinct()))
+    # Any remaining companion row is a strong byte reference, including Trash.
+    companions = set(await session.scalars(select(MediaSidecar.storage_object_id).where(
+        MediaSidecar.storage_object_id.in_(storage_ids)).distinct()))
+    return primary | companions
 
 
 def _utcnow() -> datetime:
@@ -630,6 +662,9 @@ def _unlink_staged_manifests(
             trash_service.permanently_delete(
                 str(object_path(profile_id, item.storage_object_key))
             )
+        for entry in json.loads(item.sidecar_objects or "[]"):
+            if entry.get("key") and entry["id"] not in retained_storage_ids:
+                trash_service.permanently_delete(str(object_path(profile_id, entry["key"])))
     for artifact in artifacts:
         trash_service.permanently_delete(artifact.locator)
 
@@ -747,11 +782,7 @@ async def _finalize_staged_deletion(
             session,
             compatibility_paths,
         )
-        storage_ids = {
-            item.storage_object_id
-            for item in staged_items
-            if item.storage_object_id is not None
-        }
+        storage_ids = _item_storage_ids(staged_items)
         retained_storage_ids = await _retained_storage_ids(
             session,
             storage_ids,
@@ -827,20 +858,12 @@ async def _finalize_staged_deletion(
         return True, []
 
     completed_ids = [item.media_id for item in staged_items]
-    storage_ids = {
-        item.storage_object_id
-        for item in staged_items
-        if item.storage_object_id is not None
-    }
+    storage_ids = _item_storage_ids(staged_items)
     async with db.async_session_maker() as session:
         if storage_ids:
             for storage_id in storage_ids:
-                remaining_ref = await session.scalar(
-                    select(MediaItem.id).where(
-                        MediaItem.storage_object_id == storage_id
-                    ).limit(1)
-                )
-                if remaining_ref is None:
+                remaining_ref = await _storage_is_referenced(session, storage_id)
+                if not remaining_ref:
                     storage = await session.get(StorageObject, storage_id)
                     if storage is not None and storage.state == "deleting":
                         await session.delete(storage)
@@ -1002,11 +1025,7 @@ async def _finalize_staged_asset_batch(
             session,
             compatibility_paths,
         )
-        storage_ids = {
-            item.storage_object_id
-            for item in staged_items
-            if item.storage_object_id is not None
-        }
+        storage_ids = _item_storage_ids(staged_items)
         retained_storage_ids = await _retained_storage_ids(
             session,
             storage_ids,
@@ -1052,12 +1071,9 @@ async def _finalize_staged_asset_batch(
     ]
 
     async with db.async_session_maker() as session:
-        successful_storage_ids = {
-            item.storage_object_id
-            for item in staged_items
-            if item.operation_id in successful_operation_ids
-            and item.storage_object_id is not None
-        }
+        successful_storage_ids = _item_storage_ids([
+            item for item in staged_items if item.operation_id in successful_operation_ids
+        ])
         still_retained_storage_ids = await _retained_storage_ids(
             session,
             successful_storage_ids,
@@ -1852,6 +1868,8 @@ async def _process_profile(profile_id: str) -> bool:
                                 storage.state = "deleting"
                                 item.storage_object_key = storage.object_key
 
+                await _stage_sidecar_objects(session, active_media_ids, [op_items[mid] for mid in active_media_ids])
+
                 media_artifacts = list(
                     await session.scalars(
                         select(ManagedArtifact).where(
@@ -2125,6 +2143,8 @@ async def prestage_delete_operation_items(
         if storage is not None and storage.id not in retained_storage_ids:
             storage.state = "deleting"
             item.storage_object_key = storage.object_key
+
+    await _stage_sidecar_objects(session, media_ids, items)
 
     media_artifacts = list(
         await session.scalars(

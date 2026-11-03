@@ -104,7 +104,7 @@ async def test_queue_resolves_nested_library_ids():
     async def fake_lookup(_session, media_id):
         return {41: "/lib/a.png", 42: "/lib/b.mp4"}.get(media_id)
 
-    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)):
+    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)), patch("media_sidecars.companions_for_media", new=AsyncMock(return_value=[])):
         out = await queue._resolve_nested_media_ids(None, {"keyframes": [
             {"media": 41, "at": 0}, {"media": "media:42", "at": 1}, {"media": "/x.png", "at": 2},
         ]}, KEYFRAMES_SCHEMA)

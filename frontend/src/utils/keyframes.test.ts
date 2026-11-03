@@ -38,9 +38,9 @@ test('wire shape is sorted, anchored, and carries clip fields only for clips', (
   ]
   assert.deepEqual(toWire(items, 8), [
     { media: '/lib/start.png', at: 0 },
-    { media: '/lib/take.mp4', at: 5.8, from: 4.7, length: 0.917, sound: true },
+    { media: 'media:7', at: 5.8, from: 4.7, length: 0.917, sound: true },
     // End stills send the duration itself so they land on the last frame.
-    { media: '/lib/end.png', at: 8 },
+    { media: 'media:10', at: 8 },
   ])
   assert.deepEqual(lineageIds(items, 8), [null, 7, 10])
 })
@@ -51,9 +51,9 @@ test('end-anchored clips end at the end', () => {
   assert.equal(toWire([clip], 8)[0].at, 7)
 })
 
-test('a frame from a video sends its still', () => {
+test('a frame from a video keeps its original source and timestamp', () => {
   const frame: KeyframeItem = { id: 'f', path: '/tmp/frame.png', sourcePath: '/lib/v.mp4', thumbPath: '/tmp/frame.png', isVideo: true, from: 3, at: 1 }
-  assert.deepEqual(toWire([frame], 8), [{ media: '/tmp/frame.png', at: 1 }])
+  assert.deepEqual(toWire([frame], 8), [{ media: '/lib/v.mp4', at: 1, from: 3 }])
 })
 
 test('clip lengths follow the frame grid and the limit', () => {
@@ -84,4 +84,11 @@ test('restoring from a past job rebuilds items and anchors', () => {
     ['/lib/b.png', 'end', false, undefined, null],
   ])
   assert.deepEqual(fromWire(undefined, undefined, 8), [])
+})
+
+test('library video restoration preserves identity even for a single frame', () => {
+  const [item] = fromWire([{ media: 'media:42', from: 0, at: 1 }], undefined, 8)
+  assert.equal(item.mediaId, 42)
+  assert.equal(item.isVideo, true)
+  assert.equal(item.from, 0)
 })

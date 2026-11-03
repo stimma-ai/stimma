@@ -22,6 +22,7 @@ CORE_ASSET_TABLES = {
     "container_members",
     "media_items",
     "media_owners",
+    "media_sidecars",
     "storage_objects",
     "working_documents",
 }

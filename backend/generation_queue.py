@@ -1330,7 +1330,7 @@ class GenerationQueue:
         if not media_id:
             return None
         result = await session.execute(
-            select(MediaItem.file_path).where(MediaItem.id == media_id)
+            select(MediaItem.file_path).where(MediaItem.id == media_id, MediaItem.deleted_at.is_(None), MediaItem.deletion_pending_at.is_(None))
         )
         row = result.first()
         return row[0] if row else None
@@ -1354,17 +1354,18 @@ class GenerationQueue:
         # Keys that contain arrays
         array_keys = {'input_images', 'input_videos'}
 
-        def _coerce_media_id(value: Any) -> Optional[int]:
-            """Return ``value`` as int media-id, or None if it isn't one."""
-            if isinstance(value, bool):  # bool is an int subclass — exclude
-                return None
-            if isinstance(value, int):
-                return value
-            if isinstance(value, str) and value.isdigit():
-                return int(value)
-            return None
+        def _coerce_media_id(value):
+            return self._coerce_media_ref(value)
 
         processed = dict(parameters)
+        bindings = dict(parameters.get("_media_sidecars") or {})
+        from media_sidecars import companions_for_media
+
+        async def bind(path, media_id):
+            companions = await companions_for_media(session, media_id, get_current_profile())
+            if companions:
+                bindings[path] = companions
+
 
         # Process single-value keys
         for key in single_keys:
@@ -1375,6 +1376,7 @@ class GenerationQueue:
                     path = await self._resolve_media_id_to_path(session, media_id)
                     if path:
                         processed[key] = path
+                        await bind(path, media_id)
                         log.debug(f"Resolved {key} media_id {media_id} to path: {path}")
                     else:
                         log.warning(f"Could not resolve {key} media_id {media_id} to path")
@@ -1389,6 +1391,7 @@ class GenerationQueue:
                         path = await self._resolve_media_id_to_path(session, media_id)
                         if path:
                             resolved.append(path)
+                            await bind(path, media_id)
                             log.debug(f"Resolved {key} media_id {media_id} to path: {path}")
                         else:
                             log.warning(f"Could not resolve {key} media_id {media_id} to path")
@@ -1396,6 +1399,8 @@ class GenerationQueue:
                         resolved.append(item)
                 processed[key] = resolved
 
+        if bindings:
+            processed["_media_sidecars"] = bindings
         return processed
 
     @staticmethod
@@ -1414,19 +1419,28 @@ class GenerationQueue:
     async def _resolve_nested_media_ids(
         self, session: AsyncSession, parameters: Dict[str, Any], schema: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Library ids in `x-media` leaves (e.g. ``keyframes[].media``) → file paths."""
+        """Keep companion ownership while resolving library references to transport paths."""
         from utils.schema_media import map_media_leaves
+        from media_sidecars import companions_for_media
 
+        bindings = dict(parameters.get("_media_sidecars") or {})
         async def resolve(value, _leaf, path):
             media_id = self._coerce_media_ref(value)
             if media_id is None:
                 return value
             resolved = await self._resolve_media_id_to_path(session, media_id)
             if not resolved:
-                log.warning(f"Could not resolve {'.'.join(map(str, path))} media_id {media_id} to path")
+                raise ValueError(f"Media {media_id} is unavailable")
+            if resolved:
+                companions = await companions_for_media(session, media_id, get_current_profile())
+                if companions:
+                    bindings[resolved] = companions
             return resolved or value
 
-        return await map_media_leaves(parameters, schema, resolve)
+        processed = await map_media_leaves(parameters, schema, resolve)
+        if bindings:
+            processed["_media_sidecars"] = bindings
+        return processed
 
     async def _nested_lineage(self, params: dict, schema: Optional[Dict[str, Any]], profile_id: str) -> dict:
         """Lineage for `x-media` leaves. Ids come from ``<param>_media_ids`` (positional by
@@ -2188,7 +2202,7 @@ class GenerationQueue:
                         registry = ProviderRegistry.get_instance()
                         provider = registry.get_provider(provider_id)
                         if provider and hasattr(provider, 'cancel_execution'):
-                            request_id = f"job-{job_id}"
+                            request_id = f"job-{db.db_guid}-{job_id}"
                             log.info("sending cancel to provider", provider_id=provider_id, request_id=request_id)
                             await provider.cancel_execution(request_id)
                     except Exception as e:
@@ -3138,14 +3152,13 @@ class GenerationQueue:
             log.debug(f"Job {job.id}: TIMING - _resolve_lineage: {(_time.time() - _pre_gen_start)*1000:.0f}ms")
 
             # Generate output filename
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             if task_type in ["image-to-video", "text-to-video", "video-to-video", "upscale-video", "video-stitch", "video-extend"]:
                 file_extension = ".mp4"
             elif task_type in ("text-to-audio", "text-to-music", "text-to-speech", "audio-to-audio"):
                 file_extension = ".flac"
             else:
                 file_extension = ".png"
-            filename = f"gen_{timestamp}_{job.id}{file_extension}"
+            filename = f"gen_job_{job.id}{file_extension}"
             output_path = os.path.join(job.folder_path, filename)
             os.makedirs(job.folder_path, exist_ok=True)
 
@@ -3222,7 +3235,7 @@ class GenerationQueue:
                 from utils.query_builder import VIDEO_FORMATS
                 first_input = (exec_params.get('input_images') or [None])[0]
                 if isinstance(first_input, str) and Path(first_input).suffix.lstrip('.').lower() in VIDEO_FORMATS:
-                    output_path = os.path.join(job.folder_path, f"gen_{timestamp}_{job.id}.mp4")
+                    output_path = os.path.join(job.folder_path, f"gen_job_{job.id}.mp4")
 
             # Execute via provider
             # Note: JSON-RPC providers don't accept output_path - they return output_data instead
@@ -3233,7 +3246,7 @@ class GenerationQueue:
             is_builtin = provider.provider_type == "builtin"
 
             # Use job ID as request_id for cancellation support
-            request_id = f"job-{job.id}"
+            request_id = f"job-{self._get_db(profile_id).db_guid}-{job.id}"
 
             # Live progress fan-out to the UI. Transient — never persisted.
             # Numeric-only ticks are coalesced; ticks carrying a preview frame
@@ -3289,6 +3302,7 @@ class GenerationQueue:
                 async for progress_or_result in provider.execute(
                     tool_id=tool_id_in_provider,
                     parameters=exec_params,
+                    output_path=output_path,
                     request_id=request_id,
                 ):
                     if isinstance(progress_or_result, ExecutionResult):
@@ -3622,6 +3636,7 @@ class GenerationQueue:
             source_inputs=lineage_data.get('source_inputs', []),
             lineage_trace=lineage_data.get('lineage_trace', []),
             inspired_by=inspired_by,
+            extra={"input_usage": exec_result.metadata.get("input_usage")} if exec_result.metadata.get("input_usage") else None,
         ))
         log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
 
@@ -3634,13 +3649,16 @@ class GenerationQueue:
         _t0 = _time.time()
         async with self._get_db(profile_id).async_session_maker() as session:
             # Insert file directly into the profile's database
-            media_item = await self._insert_generated_file(
-                output_path,
-                session=session,
-                chat_item_id=chat_item_id,
-                generation_metadata=generation_metadata_json,
-                ephemeral_run_id=ephemeral_run_id
-            )
+            persistent_job = await session.get(GenerationJob, job.id)
+            media_item = await session.get(MediaItem, persistent_job.result_media_id) if persistent_job and persistent_job.result_media_id else None
+            if media_item is None:
+                media_item = await self._insert_generated_file(
+                    output_path,
+                    session=session,
+                    chat_item_id=chat_item_id,
+                    generation_metadata=generation_metadata_json,
+                    ephemeral_run_id=ephemeral_run_id,
+                )
             log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
             log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
 
@@ -3652,6 +3670,19 @@ class GenerationQueue:
                     profile_id=profile_id,
                     remove_source=True,
                 )
+
+            from media_sidecars import attach_sidecars
+            output_records = getattr(exec_result, "outputs", [])
+            if output_records:
+                await attach_sidecars(session, media=media_item, sidecars=output_records[0].sidecars, profile_id=profile_id)
+            if getattr(exec_result, "receipt_path", None):
+                from database import ManagedArtifact
+                exists_receipt = await session.scalar(select(ManagedArtifact.id).where(
+                    ManagedArtifact.media_id == media_item.id, ManagedArtifact.artifact_kind == "generation_receipt",
+                    ManagedArtifact.locator == exec_result.receipt_path))
+                if exists_receipt is None:
+                    session.add(ManagedArtifact(owner_kind="media", owner_id=str(media_item.id), media_id=media_item.id,
+                                                artifact_kind="generation_receipt", locator=exec_result.receipt_path))
 
             # Record lineage relationships to media_lineage table
             _t1 = _time.time()
@@ -3726,6 +3757,34 @@ class GenerationQueue:
                 expires_at=auto_delete_at,
             )
 
+            output_media_ids = [media_item.id]
+            additional_media = []
+            previous_ids = json.loads(persistent_job.result_media_ids or "[]")
+            for output_index, record in enumerate(output_records[1:], 1):
+                other = await session.get(MediaItem, previous_ids[output_index]) if output_index < len(previous_ids) else None
+                if other is None:
+                    other_path = preserve_remote_output_suffix(
+                        str(Path(output_path).with_name(Path(output_path).stem + f"_output_{output_index}" + Path(output_path).suffix)),
+                        {"_output_asset_id": record.asset_id})
+                    await asyncio.to_thread(Path(other_path).write_bytes, record.data)
+                    other = await self._insert_generated_file(other_path, session=session, chat_item_id=chat_item_id,
+                                                             generation_metadata=generation_metadata_json, ephemeral_run_id=ephemeral_run_id)
+                other.tool_id, other.preset_id = job.tool_id, job.preset_id
+                if not ephemeral_run_id:
+                    await stage_managed_media(session, media=other, profile_id=profile_id, remove_source=True)
+                    await self._record_lineage(other.id, lineage_data.get('source_inputs', []), task_type, session)
+                    await propagate_tool_lineage(session, other.id, source_ids, job.tool_id)
+                    if job.project_id:
+                        from project_service import attach_media_to_project
+                        await attach_media_to_project(session, job.project_id, other.id)
+                await attach_sidecars(session, media=other, sidecars=record.sidecars, profile_id=profile_id)
+                asset_id = await finalize_generation_output(session, job=persistent_job, media=other,
+                                                             expires_at=auto_delete_at, output_index=output_index)
+                output_media_ids.append(other.id)
+                additional_media.append((other, asset_id))
+            persistent_job.result_media_id = media_item.id
+            persistent_job.result_media_ids = json.dumps(output_media_ids)
+
             # ONE commit for all database operations
             await session.commit()
             if auto_delete_at is not None:
@@ -3738,7 +3797,8 @@ class GenerationQueue:
             try:
                 from storage_service import cleanup_staged_source
                 async with self._get_db(profile_id).async_session_maker() as cleanup_session:
-                    await cleanup_staged_source(cleanup_session, media_id=media_item.id)
+                    for saved_media in [media_item, *(m for m, _ in additional_media)]:
+                        await cleanup_staged_source(cleanup_session, media_id=saved_media.id)
             except Exception as exc:
                 # The indexed ManagedArtifact is intentionally retained for
                 # startup reconciliation; the committed object is authoritative.
@@ -3810,6 +3870,11 @@ class GenerationQueue:
                         'asset_id': job_dict['result_asset_id'],
                         'media_id': media_item.id,
                     })
+
+                for other, asset_id in additional_media:
+                    if asset_id:
+                        await self._websocket_manager.broadcast('asset_created', {'asset_id': asset_id, 'media_id': other.id})
+                    await self._websocket_manager.broadcast('media_added', {'media_id': other.id, 'file_path': other.file_path})
 
                 # Also broadcast media_added event so browse view refreshes
                 await self._websocket_manager.broadcast('media_added', {

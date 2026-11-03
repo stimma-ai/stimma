@@ -563,6 +563,24 @@ Example:
         group="image",
         is_async=True,
     ),
+    "join_video": SDKMethodHelp(
+        name="join_video",
+        signature='await stimma.join_video(segments, out="joined.mp4") -> dict',
+        summary="Trim and concatenate matching video clips while preserving reusable companion state.",
+        details="""Each segment is a path, ToolResult, or a record with media_id/path and integer
+trim_head, trim_tail and overlap frame counts. Overlap is removed from the head.
+Frame rates and dimensions must match. This performs no grading, resampling,
+crossfade or audio mixing. It verifies the final frame count and writes a bound
+companion manifest that ordinary library.save/show imports automatically.
+The report has out, frames, fps, segments and companion count. Use seamkit for
+join inspection and repair; preserve_state=True selects this assembly path.
+
+Example:
+  report = await stimma.join_video([{"media_id": 42}, {"media_id": 43, "overlap": 39}], "long.mp4")
+  saved = await stimma.library.save(report["out"])""",
+        group="image",
+        is_async=True,
+    ),
     "ffmpeg": SDKMethodHelp(
         name="ffmpeg",
         signature="await stimma.ffmpeg(*args, timeout=600.0, check=True) -> AVToolResult",

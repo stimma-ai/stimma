@@ -9,6 +9,7 @@ See https://github.com/stimma-ai/stimma-tools-protocol for the full protocol spe
 
 import asyncio
 import base64
+import hashlib
 import json
 import os
 import re
@@ -1198,6 +1199,7 @@ class JsonRpcProvider(ToolProvider):
                     "host_version": "1.0.0",
                     "capabilities": {
                         "parameter_options": True,
+                        "media_sidecars": True,
                         "preview_frames": True,
                         # We accept needs_setup tools on the wire (and drop
                         # them at ingestion — not-ready tools are unavailable
@@ -1668,7 +1670,21 @@ class JsonRpcProvider(ToolProvider):
                     tool_id=tool_id,
                     keys=dropped_keys,
                 )
-            processed_params = await self._upload_input_assets(outbound_parameters, schema)
+            from .result_receipt import atomic_json, materialize_result, receipt_location
+            input_hash = hashlib.sha256(json.dumps([tool_id, outbound_parameters], sort_keys=True).encode()).hexdigest()
+            receipt_root = receipt_location(output_path, self.provider_id, request_id)
+            if receipt_root:
+                receipt_root = receipt_root / input_hash
+            receipt = receipt_root / "result.json" if receipt_root else None
+            if receipt and receipt.is_file():
+                cached = json.loads(receipt.read_text())
+                if cached.get("input_hash") == input_hash:
+                    yield await materialize_result(self, cached["result"], receipt_root)
+                    return
+            prepared_sidecars = {}
+            processed_params = await self._upload_input_assets(
+                outbound_parameters, schema, parameters.get("_media_sidecars") or {}, prepared_sidecars)
+
 
             # Send execute request. preview_frames is per-request so toggling
             # the host setting takes effect on the next job without the
@@ -1694,6 +1710,8 @@ class JsonRpcProvider(ToolProvider):
                 "preview_frames": _previews,
             }
 
+            if prepared_sidecars and self._capabilities.get("media_sidecars"):
+                execute_params["input_sidecars"] = prepared_sidecars
             result = await self._send_request("tools.execute", execute_params)
 
             if not result.get("accepted", False):
@@ -1709,47 +1727,14 @@ class JsonRpcProvider(ToolProvider):
                     yield data
 
                 elif msg_type == "result":
-                    # Download output assets. The output envelope is {"assets": [{asset_id, type, role}, ...]};
-                    # the primary asset becomes output_data, the rest additional_outputs.
-                    output_data = None
-                    additional_outputs: List[bytes] = []
-                    output = data.get("output", {}) or {}
                     if data.get("success"):
-                        assets = output.get("assets") or []
-                        # Order primary first
-                        assets = sorted(assets, key=lambda a: 0 if a.get("role") == "primary" else 1)
-                        for a in assets:
-                            aid = a.get("asset_id") if isinstance(a, dict) else None
-                            if not aid:
-                                continue
-                            blob = await self.download_asset(aid)
-                            if output_data is None:
-                                output_data = blob
-                            else:
-                                additional_outputs.append(blob)
-
-                    metadata = dict(data.get("metadata", {}) or {})
-                    if data.get("success") and assets:
-                        primary_asset_id = assets[0].get("asset_id") if isinstance(assets[0], dict) else None
-                        if primary_asset_id:
-                            metadata["_output_asset_id"] = primary_asset_id
-                    # generation_time can be in metadata or output
-                    generation_time = (
-                        metadata.get("generation_time")
-                        or output.get("generation_time")
-                        or 0.0
-                    )
-                    yield ExecutionResult(
-                        success=data.get("success", False),
-                        output_data=output_data,
-                        additional_outputs=additional_outputs,
-                        generation_time=generation_time,
-                        actual_seed=metadata.get("actual_seed") or output.get("actual_seed"),
-                        metadata=metadata,
-                        error=_format_jsonrpc_error(data.get("error", {}))
-                        if not data.get("success")
-                        else None,
-                    )
+                        # Save the envelope before the first download. A failed transfer
+                        # resumes this result on the same job, never resubmits compute.
+                        if receipt:
+                            atomic_json(receipt, {"input_hash": input_hash, "result": data})
+                        yield await materialize_result(self, data, receipt_root)
+                    else:
+                        yield ExecutionResult(success=False, error=_format_jsonrpc_error(data.get("error", {})))
                     break
 
         finally:
@@ -1759,6 +1744,8 @@ class JsonRpcProvider(ToolProvider):
         self,
         parameters: Dict[str, Any],
         parameter_schema: Optional[Dict[str, Any]] = None,
+        source_sidecars: Optional[dict] = None,
+        prepared_sidecars: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """
         Process any file paths in parameters for the provider.
@@ -1775,6 +1762,29 @@ class JsonRpcProvider(ToolProvider):
         single_file_keys, array_file_keys = _media_input_keys(parameter_schema)
 
         processed = dict(parameters)
+
+        async def attach_companions(file_path, primary_id, accepted):
+            if prepared_sidecars is None or not self._capabilities.get("media_sidecars") or not accepted:
+                return
+            records = []
+            for original in (source_sidecars or {}).get(file_path, []):
+                if not any(a.get("format") == original.get("format") and a.get("format_version") == original.get("format_version") for a in accepted):
+                    continue
+                record = {k: v for k, v in original.items() if k not in ("file", "asset_id")}
+                if record.get("status") != "unavailable":
+                    try:
+                        raw_path = Path(original["file"])
+                        raw = await asyncio.to_thread(raw_path.read_bytes)
+                        if record.get("sha256") and hashlib.sha256(raw).hexdigest() != record["sha256"]:
+                            raise ValueError("integrity_failed")
+                        if record.get("byte_size") is not None and len(raw) != record["byte_size"]:
+                            raise ValueError("integrity_failed")
+                        record["asset_id"] = str(raw_path) if isinstance(self._transport, StdioTransport) else await self.upload_asset(raw, "application/octet-stream")
+                    except (OSError, ValueError, RuntimeError, KeyError, aiohttp.ClientError) as exc:
+                        record.update(status="unavailable", unavailable_reason="integrity_failed" if isinstance(exc, ValueError) else "upload_failed")
+                records.append(record)
+            if records:
+                prepared_sidecars[primary_id] = records
 
         schema_props = (parameter_schema or {}).get("properties", {})
 
@@ -1849,7 +1859,26 @@ class JsonRpcProvider(ToolProvider):
                 return value
             return await upload_file(value, leaf.get("x-accept-media"), media_kinds(leaf))
 
-        return await map_media_leaves(processed, parameter_schema, upload_leaf)
+        processed = await map_media_leaves(processed, parameter_schema, upload_leaf)
+        # Companion association happens after primary conversion/upload, keyed by
+        # the exact transmitted reference. Never route companion bytes through AV conversion.
+        for key in single_file_keys | array_file_keys:
+            prop = schema_props.get(key, {})
+            original_values = parameters.get(key)
+            final_values = processed.get(key)
+            if isinstance(original_values, str):
+                await attach_companions(original_values, final_values, prop.get("x-accept-sidecars"))
+            elif isinstance(original_values, list) and isinstance(final_values, list):
+                for source, target in zip(original_values, final_values):
+                    if isinstance(source, str):
+                        await attach_companions(source, target, prop.get("x-accept-sidecars"))
+        from utils.schema_media import iter_media_leaves
+        original_leaves = list(iter_media_leaves(parameters, parameter_schema))
+        final_leaves = list(iter_media_leaves(processed, parameter_schema))
+        for (_path, source, leaf), (_final_path, target, _leaf) in zip(original_leaves, final_leaves):
+            if isinstance(source, str):
+                await attach_companions(source, target, leaf.get("x-accept-sidecars"))
+        return processed
 
     async def upload_asset(self, data: bytes, mime_type: str) -> str:
         """Upload an asset to the provider."""

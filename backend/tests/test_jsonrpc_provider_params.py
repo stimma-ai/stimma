@@ -302,3 +302,44 @@ async def test_execute_preserves_primary_output_asset_extension(monkeypatch):
     assert results[-1].success
     assert results[-1].metadata["_output_asset_id"] == "transcript123.json"
     assert results[-1].output_data == b'{"text":"hello"}'
+
+
+@pytest.mark.asyncio
+async def test_companion_upload_failure_keeps_primary_and_mapping(tmp_path):
+    from unittest.mock import AsyncMock
+    video, state = tmp_path / "source.mp4", tmp_path / "state.bin"
+    video.write_bytes(b"render")
+    state.write_bytes(b"opaque")
+    provider = JsonRpcProvider(StdioProviderConfig(id="fixture", command="noop"))
+    provider._capabilities = {"media_sidecars": True}
+    provider.upload_asset = AsyncMock(side_effect=["wire.mp4", OSError("optional transfer failed")])
+    schema = {"type": "object", "properties": {"pins": {"type": "array", "items": {"type": "object", "properties": {
+        "media": {"type": "string", "x-media": "video", "x-accept-sidecars": [{"format": "unknown", "format_version": 2}]}}}}}}
+    mapping = {"custom": "retained without interpretation"}
+    envelope = {}
+    result = await provider._upload_input_assets({"pins": [{"media": str(video)}]}, schema,
+        {str(video): [{"file": str(state), "format": "unknown", "format_version": 2, "media_mapping": mapping}]}, envelope)
+    assert result == {"pins": [{"media": "wire.mp4"}]}
+    assert envelope["wire.mp4"][0]["status"] == "unavailable"
+    assert envelope["wire.mp4"][0]["media_mapping"] == mapping
+
+
+@pytest.mark.asyncio
+async def test_execute_download_retry_does_not_resubmit_generation(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+    provider = JsonRpcProvider(StdioProviderConfig(id="fixture", command="noop"))
+    provider._status = ProviderStatus.CONNECTED
+    async def send(method, params):
+        await provider._pending_executions[params["request_id"]].put(("result", {"success": True, "output": {"assets": [
+            {"asset_id": "one.mp4", "type": "video"}, {"asset_id": "two.mp4", "type": "video"}]}}))
+        return {"accepted": True}
+    provider._send_request = AsyncMock(side_effect=send)
+    provider.download_asset = AsyncMock(side_effect=[b"one", OSError("disconnected")])
+    kwargs = dict(tool_id="fixture", parameters={}, request_id="same-job", output_path=str(tmp_path / "out.mp4"))
+    with pytest.raises(OSError):
+        _ = [item async for item in provider.execute(**kwargs)]
+    provider.download_asset = AsyncMock(return_value=b"two")
+    [result] = [item async for item in provider.execute(**kwargs)]
+    provider._send_request.assert_awaited_once()
+    provider.download_asset.assert_awaited_once_with("two.mp4")
+    assert [o.data for o in result.outputs] == [b"one", b"two"]

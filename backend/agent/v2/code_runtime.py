@@ -1621,6 +1621,16 @@ class StimmaSDK:
             return out_path
         return img
 
+    async def join_video(self, segments, out="joined.mp4") -> dict:
+        """Frame-accurate trim/concat with automatic companion coverage preservation.
+
+        Segments are paths, ToolResults, or {media_id/path, trim_head, trim_tail,
+        overlap} records. Cuts are integer frame counts. No matching, scaling,
+        crossfades or audio mixing. Returns an assembly report; save/show its out.
+        """
+        from video_join import join_video
+        return await join_video(self, segments, out)
+
     async def ffmpeg(self, *args, timeout: float = 600.0, check: bool = True) -> AVToolResult:
         """Run ffmpeg in the chat workspace (concat, trim, remux, extract frames...).
 

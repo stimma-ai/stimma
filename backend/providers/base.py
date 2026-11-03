@@ -88,6 +88,23 @@ class ExecutionProgress:
 
 
 @dataclass
+class OutputSidecar:
+    info: Dict[str, Any]
+    data: Optional[bytes] = None
+    file_path: Optional[str] = None
+
+
+@dataclass
+class OutputAsset:
+    asset_id: str
+    type: str
+    role: str = "primary"
+    data: Optional[bytes] = None
+    sidecars: List[OutputSidecar] = field(default_factory=list)
+    file_path: Optional[str] = None
+
+
+@dataclass
 class ExecutionResult:
     """
     Final result from tool execution.
@@ -107,6 +124,8 @@ class ExecutionResult:
 
     # Optional workflow/flow for reproduction (e.g., ComfyUI workflow JSON)
     workflow: Optional[Dict[str, Any]] = None
+    outputs: List[OutputAsset] = field(default_factory=list)
+    receipt_path: Optional[str] = None
 
 
 class ToolProvider(ABC):

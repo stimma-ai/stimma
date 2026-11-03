@@ -32,8 +32,10 @@ async def finalize_generation_output(
     job: GenerationJob,
     media: MediaItem,
     expires_at: datetime | None = None,
+    output_index: int = 0,
 ) -> int | None:
     """Create exactly one durable root for a completed generated Media."""
+    suffix = f":output:{output_index}" if output_index else ""
     disposition = 'ephemeral' if media.ephemeral_run_id else (job.output_disposition or 'asset')
     context_kind = job.output_context_kind
     context_id = job.output_context_id
@@ -47,13 +49,14 @@ async def finalize_generation_output(
             media_id=media.id,
             origin_type='generation_job',
             origin_id=str(job.id),
-            idempotency_key=f'generation-job:{job.id}:asset',
+            idempotency_key=f'generation-job:{job.id}:asset{suffix}',
             expires_at=expires_at,
         )
         await mirror_media_associations_to_asset(
             session, media_id=media.id, asset_id=asset.id
         )
-        job.result_asset_id = asset.id
+        if output_index == 0:
+            job.result_asset_id = asset.id
         await session.flush()
         return asset.id
 
@@ -63,6 +66,6 @@ async def finalize_generation_output(
         root_kind=context_kind,
         root_id=context_id,
         role='result' if disposition == 'context' else 'embedded_candidate',
-        idempotency_key=f'generation-job:{job.id}:{disposition}',
+        idempotency_key=f'generation-job:{job.id}:{disposition}{suffix}',
     )
     return None

@@ -95,13 +95,13 @@ export function toWire(items: KeyframeItem[], duration: number): WireKeyframe[] 
     .map((item) => {
       const clip = isClip(item)
       const wire: WireKeyframe = {
-        media: clip ? (item.sourcePath || item.path) : item.path,
+        media: item.mediaId != null ? `media:${item.mediaId}` : item.isVideo ? (item.sourcePath || item.path) : item.path,
         // End pins send the duration itself: "at the end" survives the model
         // rounding its length up to a frame grid.
         at: item.anchor === 'end' && !clip ? duration : round3(effectiveAt(item, duration)),
       }
+      if (item.isVideo) wire.from = round3(item.from || 0)
       if (clip) {
-        wire.from = round3(item.from || 0)
         wire.length = round3(item.length!)
         if (item.sound) wire.sound = true
       }
@@ -124,15 +124,15 @@ export function fromWire(wire: unknown, mediaIds: unknown, duration: number): Ke
     .filter((w): w is WireKeyframe => !!w && typeof w === 'object' && typeof (w as any).media === 'string')
     .map((w, i) => {
       const clip = !!(w.length && w.length > 0)
-      const isVideo = clip || isVideoPath(w.media)
+      const isVideo = clip || isVideoPath(w.media) || w.from !== undefined
       const at = Number(w.at) || 0
       return {
         id: newKeyframeId(),
-        mediaId: typeof ids[i] === 'number' ? ids[i] : undefined,
+        mediaId: /^media:\d+$/.test(w.media) ? Number(w.media.slice(6)) : typeof ids[i] === 'number' ? ids[i] : undefined,
         path: w.media,
         isVideo,
         sourcePath: isVideo ? w.media : undefined,
-        from: clip ? Number(w.from) || 0 : undefined,
+        from: isVideo ? Number(w.from) || 0 : undefined,
         length: clip ? Number(w.length) : undefined,
         sound: clip ? !!w.sound : undefined,
         at,

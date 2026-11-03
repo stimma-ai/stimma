@@ -45,6 +45,7 @@ INTERNAL_PARAM_KEYS = frozenset({
     "input_video_media_ids",
     "inspired_by_media_id",
     "_ephemeral_run_id",
+    "_media_sidecars",
     "_run_id",
 })
 

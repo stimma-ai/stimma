@@ -186,9 +186,12 @@ async def media_compatibility_projections(
             )
         )
 
+    from media_sidecars import summaries_by_media
+    companion_summaries = await summaries_by_media(session, media_ids)
     projections: list[dict] = []
     for media in media_items:
         item = media.to_dict()
+        item["sidecars"] = companion_summaries.get(media.id, [])
         item["media_id"] = media.id
         item["media_deleted_at"] = item.get("deleted_at")
         item["auto_delete_at"] = None

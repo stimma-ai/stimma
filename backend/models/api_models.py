@@ -1,5 +1,5 @@
 """Pydantic models for API requests and responses."""
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -53,6 +53,7 @@ class MediaItemResponse(BaseModel):
     extracted_prompt: Optional[str]
     generation_metadata: Optional[str]
     has_editor_sidecar: bool = False
+    sidecars: List[Dict[str, Any]] = []
     has_working_document: bool = False
     keywords: List[str]
     has_clip_embedding: bool
@@ -279,6 +280,7 @@ class GenerationJobResponse(BaseModel):
     started_at: Optional[str]
     completed_at: Optional[str]
     result_media_id: Optional[int]
+    result_media_ids: List[int] = []
     error: Optional[str]
 
 

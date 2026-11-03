@@ -1546,3 +1546,41 @@ def clean_queue_state(generation_queue):
     _reset_queue_state(generation_queue)
     yield
     _reset_queue_state(generation_queue)
+
+
+@pytest.mark.asyncio
+async def test_multi_output_finalization_preserves_independent_companions_and_retry(
+    generation_queue, generation_db_session, tmp_path, monkeypatch,
+):
+    from io import BytesIO
+    from PIL import Image
+    from types import SimpleNamespace
+    from sqlalchemy import select
+    from database import MediaSidecar
+    from providers.base import ExecutionResult, OutputAsset, OutputSidecar
+    payloads = []
+    for color in ("red", "blue"):
+        raw = BytesIO()
+        Image.new("RGB", (32, 32), color).save(raw, format="PNG")
+        payloads.append(raw.getvalue())
+    path = tmp_path / "multi.png"
+    path.write_bytes(payloads[0])
+    outputs = [OutputAsset(f"render{i}.png", "image", "primary", raw,
+        [OutputSidecar({"format": f"opaque.{i}", "format_version": i+1, "descriptor": {"index": i}}, f"state{i}".encode())])
+        for i, raw in enumerate(payloads)]
+    result = ExecutionResult(success=True, output_data=payloads[0], outputs=outputs, metadata={})
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status="processing", output_disposition="asset")
+        await session.commit()
+    monkeypatch.setattr(generation_queue, "_update_grid_with_media_id", AsyncMock())
+    for _ in range(2):
+        await generation_queue._finalize_job(job, "default", result, str(path), {}, "text-to-image", {}, result,
+                                             SimpleNamespace(provider_id="test"), datetime.utcnow())
+    async with generation_db_session() as session:
+        saved = await session.get(GenerationJob, job.id)
+        ids = json.loads(saved.result_media_ids)
+        assert len(ids) == len(set(ids)) == 2
+        assert saved.result_media_id == ids[0]
+        rows = list(await session.scalars(select(MediaSidecar).where(MediaSidecar.media_id.in_(ids))))
+        assert {(r.format, json.loads(r.descriptor_json)["index"]) for r in rows} == {("opaque.0", 0), ("opaque.1", 1)}
+        assert len(rows) == 2

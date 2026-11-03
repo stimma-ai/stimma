@@ -1,4 +1,5 @@
 import random
+import json
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
@@ -394,6 +395,28 @@ class StorageObject(Base):
     )
 
 
+class MediaSidecar(Base):
+    """Opaque implementation resource attached to an exact immutable media payload."""
+    __tablename__ = "media_sidecars"
+
+    id = Column(Integer, primary_key=True)
+    media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, index=True)
+    storage_object_id = Column(Integer, ForeignKey('storage_objects.id'), nullable=True, index=True)
+    format = Column(String, nullable=False)
+    format_version = Column(Integer, nullable=False)
+    descriptor_json = Column(Text, nullable=False, default="{}")
+    mapping_json = Column(Text, nullable=True)
+    info_json = Column(Text, nullable=False, default="{}")
+    identity_key = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_media_sidecars_identity', 'media_id', 'identity_key', unique=True),
+        {'sqlite_autoincrement': True},
+    )
+
+
 class MediaOwner(Base):
     """Typed strong-retention edge from a live root to Media."""
     __tablename__ = "media_owners"
@@ -776,6 +799,7 @@ class GenerationJob(Base):
 
     # Results
     result_media_id = Column(Integer, nullable=True)  # FK to media_items
+    result_media_ids = Column(Text, nullable=True)
     error = Column(String, nullable=True)  # Error message if failed
 
     # Batch processing
@@ -816,6 +840,7 @@ class GenerationJob(Base):
             "auto_delete_duration": self.auto_delete_duration,
             "auto_delete_at": None,
             "result_media_id": self.result_media_id,
+            "result_media_ids": json.loads(self.result_media_ids) if self.result_media_ids else ([self.result_media_id] if self.result_media_id else []),
             "error": self.error,
             "batch_id": self.batch_id,
             "batch_total": self.batch_total,
@@ -1378,6 +1403,7 @@ class DeleteOperationItem(Base):
     storage_object_key = Column(String, nullable=True)
     storage_kind = Column(String, nullable=True)
     thumbnail_paths = Column(Text, nullable=True)
+    sidecar_objects = Column(Text, nullable=True)  # Durable unlink snapshot after parent-row deletion
     state = Column(String, nullable=False, default='pending', index=True)
     lease_expires_at = Column(DateTime, nullable=True, index=True)
     attempt_count = Column(Integer, nullable=False, default=0)

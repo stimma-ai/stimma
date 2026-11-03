@@ -981,6 +981,9 @@ async def get_media_item(
         and not include_trashed
     ):
         raise HTTPException(status_code=404, detail="Asset not found")
+    from media_sidecars import companions_for_media
+    from core.profile_context import get_current_profile
+    item_dict["sidecars"] = await companions_for_media(session, media_id, get_current_profile(), include_paths=False)
     return MediaItemResponse(**item_dict)
 
 

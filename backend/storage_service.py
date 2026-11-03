@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
 from core.logging import get_logger
-from database import ManagedArtifact, MediaItem, StorageObject
+from database import ManagedArtifact, MediaItem, MediaSidecar, StorageObject
 from trash_service import TrashService
 
 log = get_logger(__name__)
@@ -163,6 +163,31 @@ def _install_editor_sidecar(source: Path, compatibility_path: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
+async def stage_managed_object(session, *, source, profile_id, mime_type=None, expected_hash=None):
+    """Install arbitrary bytes in managed CAS; callers own the retention edge."""
+    source = Path(source)
+    actual_hash = await asyncio.to_thread(_hash_payload, source)
+    if expected_hash is not None and actual_hash != expected_hash:
+        raise StorageServiceError("Managed object integrity mismatch")
+    key = object_key_for_hash(actual_hash)
+    storage = await session.scalar(select(StorageObject).where(StorageObject.kind == "managed", StorageObject.object_key == key))
+    if storage is not None and storage.state == "deleting":
+        raise StorageServiceError("Managed object deletion is in progress")
+    destination = object_path(profile_id, key)
+    await asyncio.to_thread(_install_verified, source, destination, actual_hash)
+    if storage is None:
+        storage = StorageObject(kind="managed", object_key=key, expected_hash=actual_hash,
+                                file_size=await asyncio.to_thread(_payload_size, source), mime_type=mime_type,
+                                state="available", verified_at=datetime.utcnow())
+        session.add(storage)
+        await session.flush()
+    elif storage.deleted_at is not None or storage.state == "missing":
+        storage.deleted_at = None
+        storage.state = "available"
+        storage.verified_at = datetime.utcnow()
+    return storage
+
+
 async def stage_managed_media(
     session: AsyncSession,
     *,
@@ -224,34 +249,11 @@ async def stage_managed_media(
         media.file_size = await asyncio.to_thread(_payload_size, source)
     elif actual_hash != media.file_hash:
         raise StorageServiceError("Media hash does not match source bytes")
-    key = object_key_for_hash(actual_hash)
-    storage = await session.scalar(
-        select(StorageObject).where(
-            StorageObject.kind == "managed",
-            StorageObject.object_key == key,
-        )
+    storage = await stage_managed_object(
+        session, source=source, profile_id=profile_id, expected_hash=actual_hash,
+        mime_type=mimetypes.guess_type(media.original_filename or source.name)[0],
     )
-    if storage is not None and storage.state == "deleting":
-        raise StorageServiceError("Managed object deletion is in progress")
-
-    destination = object_path(profile_id, key)
-    await asyncio.to_thread(_install_verified, source, destination, actual_hash)
-    if storage is None:
-        storage = StorageObject(
-            kind="managed",
-            object_key=key,
-            expected_hash=actual_hash,
-            file_size=media.file_size,
-            mime_type=mimetypes.guess_type(media.original_filename or source.name)[0],
-            state="available",
-            verified_at=datetime.utcnow(),
-        )
-        session.add(storage)
-        await session.flush()
-    elif storage.deleted_at is not None:
-        storage.deleted_at = None
-        storage.state = "available"
-        storage.verified_at = datetime.utcnow()
+    destination = object_path(profile_id, storage.object_key)
     media.original_filename = media.original_filename or source.name
     compatibility_path = media_compatibility_path(
         profile_id, media.id, media.original_filename
@@ -272,6 +274,8 @@ async def stage_managed_media(
             locator=str(source),
             state="available",
         ))
+    from media_sidecars import import_portable_manifest
+    await import_portable_manifest(session, media=media, source=source, profile_id=profile_id)
     await session.flush()
     return storage
 
@@ -300,6 +304,9 @@ async def register_external_media(
     session.add(storage)
     await session.flush()
     media.storage_object_id = storage.id
+    from media_sidecars import import_portable_manifest
+    from core.profile_context import get_current_profile
+    await import_portable_manifest(session, media=media, source=media.file_path, profile_id=get_current_profile())
     return storage
 
 
@@ -623,6 +630,23 @@ async def reconcile_storage(
             storage.state = "available"
             storage.verified_at = datetime.utcnow()
             media.file_unavailable = False
+    sidecar_rows = list(await session.scalars(select(MediaSidecar).where(MediaSidecar.deleted_at.is_(None))))
+    report["missing_sidecars"] = []
+    for sidecar in sidecar_rows:
+        storage = storage_by_id.get(sidecar.storage_object_id)
+        if storage is None:
+            if sidecar.storage_object_id is not None:
+                report["missing_sidecars"].append(sidecar.id)
+            continue
+        referenced_ids.add(storage.id)
+        locator = object_path(profile_id, storage.object_key)
+        valid = locator.is_file()
+        if valid and verify_hashes:
+            valid = await asyncio.to_thread(_hash_payload, locator) == storage.expected_hash
+        if not valid:
+            report["missing_sidecars"].append(sidecar.id)
+        if repair_states:
+            storage.state = "available" if valid else "missing"
     report["orphan_storage_objects"] = sorted(set(storage_by_id) - referenced_ids)
     report["counts"] = {
         "media_with_storage": len(media_rows),

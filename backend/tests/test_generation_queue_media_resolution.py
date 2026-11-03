@@ -22,7 +22,7 @@ async def _resolve(queue, task_input):
     async def fake_lookup(_session, media_id):
         return {7658: "/tmp/a.png", 999: "/tmp/b.png"}.get(media_id)
 
-    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)):
+    with patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_lookup)), patch("media_sidecars.companions_for_media", new=AsyncMock(return_value=[])):
         return await queue._resolve_media_ids_in_params(session=None, parameters=task_input)
 
 

@@ -391,7 +391,7 @@ function videoUrl(item: KeyframeItem): string {
   return withProfile(`${getApiBase()}/generate/reference-video-file?path=${encodeURIComponent(item.sourcePath)}`)
 }
 function stripUrl(item: KeyframeItem): string {
-  if (!item.sourcePath) return ''
+  if (!item.sourcePath || item.sourcePath.startsWith('media:')) return ''
   return withProfile(`${getApiBase()}/generate/frame-strip?source_path=${encodeURIComponent(item.sourcePath)}&count=8&w=120`)
 }
 
@@ -570,9 +570,12 @@ async function commitFrame(id: string, position: FramePosition, timeSeconds?: nu
   const item = items.value.find(i => i.id === id)
   if (!item?.sourcePath) return
   try {
-    const frame = await extractFrame({ sourcePath: item.sourcePath, position, timeSeconds })
+    const sourcePath = item.sourcePath.startsWith('media:') && item.mediaId
+      ? (await getMediaItem(item.mediaId)).file_path : item.sourcePath
+    const frame = await extractFrame({ sourcePath, position, timeSeconds })
     const clip = isClip(item)
     patch(id, {
+      sourcePath,
       from: frame.time,
       thumbPath: frame.path,
       sourceDuration: frame.duration || item.sourceDuration,

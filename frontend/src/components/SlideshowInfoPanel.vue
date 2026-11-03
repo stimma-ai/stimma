@@ -525,6 +525,7 @@ import SendToToolMenu from './SendToToolMenu.vue'
 import InspireMenu from './InspireMenu.vue'
 import { MediaImage } from './media'
 import ProvenanceAppHost from './media/ProvenanceAppHost.vue'
+import { parseGenerationMetadata } from '../utils/mediaProvenance'
 import ProvenanceSteps from '../provenance/ProvenanceSteps.vue'
 import ProvenanceFileFacts from '../provenance/ProvenanceFileFacts.vue'
 import { viewFromProvenance } from '../provenance/fromProvenance'
@@ -960,6 +961,20 @@ const fileInfoRows = computed(() => {
   const rows = factRows(provenance.value.fileFacts).map(row => (
     row.key === 'name' ? { ...row, actions: true } : row
   ))
+  const companions = m.sidecars || []
+  if (companions.length) {
+    const labels = [...new Set(companions.map((c) => c.display_label || c.format))].join(', ')
+    const status = companions.every((c) => c.status === 'available') ? 'available' : 'some unavailable'
+    const unique = new Map(companions.map((c, i) => [c.sha256 || i, c.byte_size || 0]))
+    const bytes = [...unique.values()].reduce((n, value) => n + Number(value), 0)
+    const size = bytes ? ` · ${(bytes / 1048576).toFixed(1)} MB` : ''
+    rows.push({ key: 'companions', label: 'Stored companions', value: `${labels}${size} · ${status}`, mono: false, valueClass: 'text-content-secondary' })
+  }
+  const usage = parseGenerationMetadata(m.generation_metadata)?.input_usage || []
+  if (usage.length) {
+    const descriptions = [...new Set(usage.map(u => [u.source, u.reason].filter(Boolean).join(' · ').replaceAll('_', ' ')))]
+    rows.push({ key: 'inputUsage', label: 'Input representations', value: descriptions.join(', '), mono: false, valueClass: 'text-content-secondary' })
+  }
   // Processing status rides along as a fact row once everything completed;
   // while anything is pending/running/failed it renders as its own section.
   if (hasVisualContent(m) && allProcessingDone.value) {

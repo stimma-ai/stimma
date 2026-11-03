@@ -81,6 +81,11 @@ async def _describe(session: AsyncSession, item: MediaItem) -> Dict[str, Any]:
         "parameters": stored,
         "sources": await _sources_for(session, item, gen),
     }
+    from media_sidecars import companions_for_media
+    from core.profile_context import get_current_profile
+    entry["sidecars"] = await companions_for_media(session, item.id, get_current_profile(), include_paths=False)
+    if gen.get("input_usage"):
+        entry["input_usage"] = gen["input_usage"]
     negative = gen.get("negative_prompt") or stored.get("negative_prompt")
     if negative:
         entry["negative_prompt"] = negative
