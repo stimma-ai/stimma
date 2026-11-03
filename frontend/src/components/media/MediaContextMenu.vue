@@ -951,6 +951,7 @@ import { useTelemetry } from '../../composables/useTelemetry'
 import { assetIdOf, hasAssetIdentity, mediaIdOf } from '../../utils/assetIdentity'
 import { useFlowsApi, type Flow } from '../../composables/useFlowsApi'
 import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField } from '../../utils/flowMediaInputs'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -1058,7 +1059,7 @@ const MAX_RECENT = 5
 function getRecentGenerateToolIds(): string[] {
   try {
     const key = makeStorageKey(RECENT_GENERATE_KEY, 'recent')
-    const stored = localStorage.getItem(key)
+    const stored = syncedStorage.getItem(key)
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -1070,7 +1071,7 @@ function addRecentGenerateToolId(toolId: string) {
     const key = makeStorageKey(RECENT_GENERATE_KEY, 'recent')
     const recent = getRecentGenerateToolIds().filter(id => id !== toolId)
     recent.unshift(toolId)
-    localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
+    syncedStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
   } catch {
     // Ignore storage errors
   }

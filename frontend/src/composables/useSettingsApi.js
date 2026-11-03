@@ -215,11 +215,6 @@ export function useSettingsApi() {
    * Update theme setting.
    * @param {string} theme - Theme preference (light, dark, system)
    */
-  async function updateTheme(theme) {
-    const response = await axios.patch(`${getAPIBase()}/settings/theme`, { theme })
-    return response.data
-  }
-
   /**
    * Fetch request latency percentile metrics from admin diagnostics.
    * @param {Object} params - Query params ({ sort_by, limit })
@@ -260,7 +255,6 @@ export function useSettingsApi() {
     updateGenerationPreviews,
     updateDebugForceFfmpegMissing,
     recheckFfmpeg,
-    updateTheme,
     fetchRequestMetrics,
     resetRequestMetrics,
   }

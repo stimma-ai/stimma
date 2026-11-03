@@ -35,6 +35,8 @@ import Tooltip from './ui/Tooltip.vue'
 import { useDirectoryPickerHost } from '../composables/useDirectoryPicker'
 import { browseErrorMessage, useFilesystemApi } from '../composables/useFilesystemApi'
 import { useMultiDevice } from '../composables/useMultiDevice'
+import { makeProfileKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 import {
   activeRootFor,
   basename,
@@ -42,7 +44,6 @@ import {
   groupRoots,
   parseRecents,
   pushRecent,
-  recentsStorageKey,
   type DirectoryEntry,
   type DirectoryListing,
   type RecentEntry,
@@ -94,12 +95,12 @@ function rootIcon(root: DirectoryEntry) {
 }
 
 function storageKey() {
-  return recentsStorageKey(activeDeviceId.value)
+  return makeProfileKey('folder_picker_recents')
 }
 
 function loadRecents() {
   try {
-    recents.value = parseRecents(localStorage.getItem(storageKey()))
+    recents.value = parseRecents(syncedStorage.getItem(storageKey()))
   } catch {
     recents.value = []
   }
@@ -108,7 +109,7 @@ function loadRecents() {
 function saveRecent(path: string) {
   recents.value = pushRecent(recents.value, path)
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(recents.value))
+    syncedStorage.setItem(storageKey(), JSON.stringify(recents.value))
   } catch {
     // Storage full or unavailable: recents are a convenience, not state.
   }

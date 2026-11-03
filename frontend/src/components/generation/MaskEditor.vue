@@ -287,6 +287,7 @@ import { appendProjectId } from '../../utils/projectScope'
 import Spinner from '../ui/Spinner.vue'
 import InpaintPrepRows from './InpaintPrepRows.vue'
 import type { InpaintPrepImage } from './InpaintPrepRows.vue'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const API_BASE = '/api'
 const { getMediaItem, getMediaFileUrl } = useMediaApi()
@@ -336,7 +337,7 @@ function getExpandContractKey() {
 function getEditorHeightKey() {
   return makeProfileKey('mask_editor', 'editor_height')
 }
-const brushSize = ref(parseInt(localStorage.getItem(getBrushSizeKey()) || '80', 10))
+const brushSize = ref(parseInt(syncedStorage.getItem(getBrushSizeKey()) || '80', 10))
 const isPainting = ref(false)
 const imageWidth = ref(512)
 const imageHeight = ref(512)
@@ -352,7 +353,7 @@ const pendingMaskToLoad = ref<string | null>(null)
 const undoStack = ref<ImageData[]>([])
 const redoStack = ref<ImageData[]>([])
 const MAX_UNDO_STATES = 50
-const expandContractPercent = ref(parseInt(localStorage.getItem(getExpandContractKey()) || '15', 10))
+const expandContractPercent = ref(parseInt(syncedStorage.getItem(getExpandContractKey()) || '15', 10))
 const editorHeight = ref(parseInt(localStorage.getItem(getEditorHeightKey()) || '400', 10))
 const isResizing = ref(false)
 const resizeStartY = ref(0)
@@ -402,11 +403,11 @@ const brushPreviewSize = computed(() => {
 
 // Persist brush size to localStorage
 watch(brushSize, (newSize) => {
-  localStorage.setItem(getBrushSizeKey(), String(newSize))
+  syncedStorage.setItem(getBrushSizeKey(), String(newSize))
 })
 
 watch(expandContractPercent, (newPercent) => {
-  localStorage.setItem(getExpandContractKey(), String(newPercent))
+  syncedStorage.setItem(getExpandContractKey(), String(newPercent))
 })
 
 watch(editorHeight, (newHeight) => {

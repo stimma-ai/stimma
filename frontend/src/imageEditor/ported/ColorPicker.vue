@@ -13,6 +13,7 @@
  */
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { makeProfileKey } from '../../utils/storageKeys';
+import { syncedStorage } from '../../utils/workspaceStore'
 
 interface RGBAColor {
   r: number;
@@ -182,7 +183,7 @@ function pushRecent(color: RGBAColor) {
   const hex = rgbToHex(color);
   recents.value = [hex, ...recents.value.filter(h => h !== hex)].slice(0, RECENTS_MAX);
   try {
-    localStorage.setItem(RECENTS_KEY(), JSON.stringify(recents.value));
+    syncedStorage.setItem(RECENTS_KEY(), JSON.stringify(recents.value));
   } catch { /* storage full or unavailable — recents just don't persist */ }
 }
 
@@ -387,7 +388,7 @@ function handleMouseUp(e: PointerEvent) {
 onMounted(() => {
   eyeDropperSupported.value = 'EyeDropper' in window;
   try {
-    const stored = localStorage.getItem(RECENTS_KEY());
+    const stored = syncedStorage.getItem(RECENTS_KEY());
     if (stored) recents.value = JSON.parse(stored).slice(0, RECENTS_MAX);
     const tab = localStorage.getItem(TAB_KEY());
     if (tab === 'grid' || tab === 'spectrum' || tab === 'sliders') activeTab.value = tab;

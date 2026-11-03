@@ -214,6 +214,7 @@ import type { LoraOption, LoraPoolItem } from '../../composables/useLoraPool'
 import { computeDisplayNames, getRawDisplayName, getRawFileName } from '../../composables/useLoraDisplayNames'
 import type { LoraDisplayName } from '../../composables/useLoraDisplayNames'
 import { makeProfileKey } from '../../utils/storageKeys'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 interface UploadConfig {
   extensions: string[]
@@ -256,7 +257,7 @@ const {
 } = useLoraPool()
 
 const showModal = ref(false)
-const showRaw = ref(localStorage.getItem(makeProfileKey('lora', 'show_raw')) === 'true')
+const showRaw = ref(syncedStorage.getItem(makeProfileKey('lora', 'show_raw')) === 'true')
 
 // Header strip state/actions (option D)
 const filterOpen = ref(false)
@@ -276,7 +277,7 @@ function disableAll() {
 const filterQuery = ref('')
 
 watch(showRaw, (v) => {
-  localStorage.setItem(makeProfileKey('lora', 'show_raw'), String(v))
+  syncedStorage.setItem(makeProfileKey('lora', 'show_raw'), String(v))
 })
 
 // Pool data

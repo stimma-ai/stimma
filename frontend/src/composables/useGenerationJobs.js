@@ -7,6 +7,7 @@ import { acquireRealtimeTopic, markRealtimeTopicProvisional, onRealtimeTopicConf
 import { useMediaApi } from './useMediaApi'
 import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
+import { instanceMatchesFeedScope } from './useGenerationStatus.js'
 import { getApiBase } from '../apiConfig'
 
 function getAPIBase() {
@@ -33,6 +34,8 @@ function compareCompletedDesc(a, b) {
  * @param {Object} options
  * @param {string} options.taskType - Filter jobs by task type (e.g., 'text-to-image', 'image-to-image')
  * @param {string} options.generatorInstanceId - Optional instance ID to filter jobs by client
+ * @param {string} options.feedScope - Optional tool tab whose jobs to follow from every client,
+ *   in place of filtering to one client's generatorInstanceId
  * @param {import('vue').Ref<number|null>} options.activeCap - Optional reactive cap on the
  *   displayed "active" (pending/queued/assigned/processing) count, e.g. generate-forever's
  *   configured concurrency. Backend-side, a freed slot's replacement job can broadcast
@@ -42,7 +45,9 @@ function compareCompletedDesc(a, b) {
  *   means uncapped (manual, non-forever-mode generation has no such limit to enforce).
  */
 export function useGenerationJobs(options = {}) {
-  const { taskType = null, generatorInstanceId = null, activeCap = null } = options
+  const { taskType = null, generatorInstanceId = null, feedScope = null, activeCap = null } = options
+  // Whether a job belongs in this feed.
+  const inFeed = (owner) => (feedScope ? instanceMatchesFeedScope(owner, feedScope) : owner === generatorInstanceId)
 
   const { on: onWebSocketEvent } = useWebSocket()
   const { getMarkers, addMarkerToMedia, removeMarkerFromMedia } = useMediaApi()
@@ -345,7 +350,9 @@ export function useGenerationJobs(options = {}) {
       }
 
       let url = `${getAPIBase()}/generate/jobs?limit=100`
-      if (generatorInstanceId) {
+      if (feedScope) {
+        url += `&feed_scope=${encodeURIComponent(feedScope)}`
+      } else if (generatorInstanceId) {
         url += `&generator_instance_id=${generatorInstanceId}`
       }
 
@@ -424,7 +431,7 @@ export function useGenerationJobs(options = {}) {
   // instead of silently rendering another tool's result in this strip.
   function warnIfForeignJob(job, via) {
     const owner = job?.generator_instance_id
-    if (!generatorInstanceId || !owner || owner === generatorInstanceId) return
+    if (!generatorInstanceId || !owner || inFeed(owner)) return
     console.warn(`[useGenerationJobs] foreign job in feed via ${via}`, {
       job_id: job.id,
       tool_id: job.tool_id,
@@ -444,7 +451,7 @@ export function useGenerationJobs(options = {}) {
     // Check generator instance ID filter.
     // Some websocket events may omit generator_instance_id, so only reject
     // when the event explicitly has a different non-empty instance ID.
-    if (generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== generatorInstanceId) {
+    if (generatorInstanceId && data.generator_instance_id && !inFeed(data.generator_instance_id)) {
       return false
     }
     // Check task type filter
@@ -634,7 +641,7 @@ export function useGenerationJobs(options = {}) {
   function handleJobDeleted(data) {
     // For deleted events, we need to check if the job was ours
     // Since deleted event may not have full job data, check if job is in our list
-    if (generatorInstanceId && data.generator_instance_id !== generatorInstanceId) {
+    if (generatorInstanceId && !inFeed(data.generator_instance_id)) {
       return
     }
 
@@ -826,7 +833,7 @@ export function useGenerationJobs(options = {}) {
     const currentProfile = getCurrentProfileId()
     if (data.profile_id && data.profile_id !== currentProfile) return
     // Chain bars belong to the page whose base job started them
-    if (generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== generatorInstanceId) {
+    if (generatorInstanceId && data.generator_instance_id && !inFeed(data.generator_instance_id)) {
       return
     }
     trackChainRun(run)
@@ -1104,7 +1111,8 @@ export function useGenerationJobs(options = {}) {
       limit: String(limit),
       offset: String(offset)
     })
-    if (generatorInstanceId) params.set('generator_instance_id', generatorInstanceId)
+    if (feedScope) params.set('feed_scope', feedScope)
+    else if (generatorInstanceId) params.set('generator_instance_id', generatorInstanceId)
     if (tailJob?.completed_at) {
       params.set('completed_before', tailJob.completed_at)
       if (typeof tailJob.id === 'number') params.set('completed_before_id', String(tailJob.id))
@@ -1153,7 +1161,8 @@ export function useGenerationJobs(options = {}) {
     const tailJob = list.length > 0 ? list[list.length - 1] : null
 
     const params = new URLSearchParams()
-    if (generatorInstanceId) params.set('generator_instance_id', generatorInstanceId)
+    if (feedScope) params.set('feed_scope', feedScope)
+    else if (generatorInstanceId) params.set('generator_instance_id', generatorInstanceId)
     if (tailJob?.completed_at) {
       params.set('completed_before', tailJob.completed_at)
       if (typeof tailJob.id === 'number') params.set('completed_before_id', String(tailJob.id))
@@ -1217,7 +1226,9 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('postprocessing_chain_progress', handleChainProgress))
     // This feed's jobs arrive in full (other clients get summaries) for as
     // long as the feed exists, including while its view is cached offscreen.
-    const generatorTopic = generatorInstanceId ? `generator:${generatorInstanceId}` : null
+    const generatorTopic = feedScope
+      ? `feed:${feedScope}`
+      : generatorInstanceId ? `generator:${generatorInstanceId}` : null
     if (generatorTopic) {
       unsubscribers.push(acquireRealtimeTopic(generatorTopic))
       // Jobs read before the server confirmed this feed are read again then.

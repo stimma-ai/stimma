@@ -4,13 +4,15 @@ The stack document is server-persisted so a session survives app restarts and
 so generated candidates can be owned by something durable. See
 ``image_stack_service`` for the on-disk shape.
 
-The editor screen is the single writer for a given document; these routes are
+One client at a time writes a given document (saves name the generation they
+built on, and a stale one is refused); these routes are
 storage, not orchestration. The open handshake resolves the base Revision and
 creates or resumes the Asset's stack document.
 """
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any, Optional
 
@@ -51,14 +53,35 @@ class OpenStackResponse(BaseModel):
     document: Optional[dict] = None
     # The head at open time, so the client can tell when it has drifted.
     head_revision_id: Optional[int] = None
+    # Which save of the document this is; a later write names it to prove it
+    # isn't overwriting a save it never saw.
+    generation: int = 0
 
 
 class WriteDocumentRequest(BaseModel):
     document: dict
+    expected_generation: Optional[int] = None
 
 
 class AppendJournalRequest(BaseModel):
     entries: list[dict]
+    expected_generation: Optional[int] = None
+
+
+_document_locks: dict[tuple, asyncio.Lock] = {}
+
+
+def _document_lock(document_id: int) -> asyncio.Lock:
+    """Held from checking a save's generation through to committing the next one."""
+    key = (get_current_profile(), document_id, asyncio.get_running_loop())
+    return _document_locks.setdefault(key, asyncio.Lock())
+
+
+def _require_generation(document, expected: Optional[int]) -> None:
+    """Another client saved since this one last read the document: its edits are
+    built on a state that no longer exists, and writing them would erase the save."""
+    if expected is not None and expected != document.generation:
+        raise HTTPException(status_code=409, detail="Document was saved by another client")
 
 
 async def _load_document(
@@ -159,6 +182,7 @@ async def open_stack(
         base=base_info,
         document=stored,
         head_revision_id=asset.current_revision_id,
+        generation=document.generation or 0,
     )
 
 
@@ -183,14 +207,16 @@ async def put_stack_document(
     request: WriteDocumentRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    document, directory = await _load_document(session, document_id)
-    try:
-        await stack.write_document(directory, request.document)
-    except stack.ImageStackError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    document.generation += 1
-    await session.commit()
-    return {"ok": True, "generation": document.generation}
+    async with _document_lock(document_id):
+        document, directory = await _load_document(session, document_id)
+        _require_generation(document, request.expected_generation)
+        try:
+            await stack.write_document(directory, request.document)
+        except stack.ImageStackError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        document.generation = (document.generation or 0) + 1
+        await session.commit()
+        return {"ok": True, "generation": document.generation}
 
 
 @router.post("/{document_id}/journal")
@@ -199,11 +225,13 @@ async def append_stack_journal(
     request: AppendJournalRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    _, directory = await _load_document(session, document_id)
-    try:
-        length = await stack.append_journal(directory, request.entries)
-    except stack.ImageStackError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    async with _document_lock(document_id):
+        document, directory = await _load_document(session, document_id)
+        _require_generation(document, request.expected_generation)
+        try:
+            length = await stack.append_journal(directory, request.entries)
+        except stack.ImageStackError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
     return {"ok": True, "journal_length": length}
 
 

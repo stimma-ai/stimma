@@ -20,7 +20,7 @@ export default async function globalSetup(config: FullConfig) {
     localStorage.setItem('stimma_bundle_id', 'ai.stimma.stimma.debug')
     localStorage.setItem('stimma_sandbox', 'default')
     for (const prefix of ['stimma', 'stimma_ai.stimma.stimma.debug', 'stimma_ai.stimma.stimma.debug_default']) {
-      localStorage.setItem(`${prefix}_global_theme`, 'light')
+      localStorage.setItem('stimma_install_theme', 'light')
       localStorage.setItem(`${prefix}_global_onboarding_completed`, 'true')
     }
   })

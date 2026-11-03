@@ -1,5 +1,6 @@
 import { ref, watch, onUnmounted, getCurrentInstance } from 'vue'
 import { makeStorageKey, makeProfileKey, makeToolProfileKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 import { isResolutionPolicy, type ResolutionPolicy } from '../utils/resolutionPolicy'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { getCurrentProfileId } from './useProfile'
@@ -15,16 +16,6 @@ import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
  */
 
 // Storage key generation
-function getGlobalKey(taskType: string, toolId?: number, fullToolId?: string): string {
-  if (fullToolId) {
-    return makeToolProfileKey(fullToolId, 'global')
-  }
-  if (toolId !== undefined) {
-    return makeStorageKey('tool', toolId, 'global')
-  }
-  return makeProfileKey(taskType, 'global')
-}
-
 function getUIStateKey(taskType: string, toolId?: number, fullToolId?: string): string {
   if (fullToolId) {
     return makeToolProfileKey(fullToolId, 'ui')
@@ -181,65 +172,10 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
 
   // --- Storage Functions ---
 
-  function loadGlobalPrefs(): void {
-    if (!getCurrentProfileId()) return
-    try {
-      const saved = localStorage.getItem(getGlobalKey(taskType, toolId, fullToolId))
-      if (saved) {
-        const data = JSON.parse(saved)
-        globalPrefs.value = {
-          prompt: data.prompt ?? '',
-          negative_prompt: data.negative_prompt ?? '',
-          folder_path: data.folder_path ?? '',
-          inputImages: data.inputImages ?? [],
-          inputVideos: data.inputVideos ?? [],
-          inputAudios: data.inputAudios ?? [],
-          inpaintRefImages: data.inpaintRefImages ?? [],
-          promptOptions: {
-            // Default ON only when this profile has never stored the setting
-            // (new state); an explicit stored value is preserved as-is. Audio
-            // tools default OFF (see autoImproveDefaultEnabled).
-            autoImprove: data.promptOptions?.autoImprove ?? { enabled: autoImproveDefaultEnabled, instructions: '' },
-            varyPrompt: data.promptOptions?.varyPrompt ?? { enabled: false, instructions: '' },
-            translate: data.promptOptions?.translate ?? { enabled: false, language: 'zh-Hans' },
-          },
-          autoMarkerIds: data.autoMarkerIds ?? [],
-          agentInstructions: data.agentInstructions ?? '',
-          batchMode: data.batchMode ?? false,
-          batchField: data.batchField ?? 'input_images',
-        }
-      }
-    } catch (err) {
-      console.error(`Failed to load global prefs for ${taskType}:`, err)
-    }
-  }
-
-  function saveGlobalPrefs(): void {
-    if (!preferencesLoaded.value || isLoadingPreferences.value) return
-    if (!getCurrentProfileId()) return
-    try {
-      // Strip large data URLs from inputImages before saving — paint layers
-      // are persisted separately via dedicated storage in ToolView
-      const stripPaintLayer = (img: any) => {
-        if (!img._paintLayerDataUrl) return img
-        const { _paintLayerDataUrl, ...rest } = img
-        return rest
-      }
-      const cleanedPrefs = {
-        ...globalPrefs.value,
-        inputImages: globalPrefs.value.inputImages.map(stripPaintLayer),
-        inpaintRefImages: (globalPrefs.value.inpaintRefImages ?? []).map(stripPaintLayer),
-      }
-      localStorage.setItem(getGlobalKey(taskType, toolId, fullToolId), JSON.stringify(cleanedPrefs))
-    } catch (err) {
-      console.error(`Failed to save global prefs for ${taskType}:`, err)
-    }
-  }
-
   function loadUIState(): void {
     if (!getCurrentProfileId()) return
     try {
-      const saved = localStorage.getItem(getUIStateKey(taskType, toolId, fullToolId))
+      const saved = syncedStorage.getItem(getUIStateKey(taskType, toolId, fullToolId))
       if (saved) {
         const data = JSON.parse(saved)
         uiState.value = {
@@ -248,8 +184,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           advancedExpanded: data.advancedExpanded ?? false,
           aiPromptExpanded: data.aiPromptExpanded ?? true,
           promptSettingsExpanded: data.promptSettingsExpanded ?? false,
-          // Never restore active forever mode across reloads.
-          generateForeverMode: false,
+          // Never restored across reloads, and never taken from another client:
+          // it's running here or it isn't.
+          generateForeverMode: uiState.value.generateForeverMode,
           generateForeverConcurrency: data.generateForeverConcurrency ?? 2,
           generateForeverIdleLimit: data.generateForeverIdleLimit ?? 50,
           batchSize: Math.min(8, Math.max(1, data.batchSize ?? 1)),
@@ -274,7 +211,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
         ...uiState.value,
         generateForeverMode: false
       }
-      localStorage.setItem(getUIStateKey(taskType, toolId, fullToolId), JSON.stringify(persistedUIState))
+      syncedStorage.setItem(getUIStateKey(taskType, toolId, fullToolId), JSON.stringify(persistedUIState))
     } catch (err) {
       console.error(`Failed to save UI state for ${taskType}:`, err)
     }
@@ -305,7 +242,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
 
   function init(): void {
     isLoadingPreferences.value = true
-    loadGlobalPrefs()
     loadUIState()
     isLoadingPreferences.value = false
     preferencesLoaded.value = true
@@ -353,30 +289,18 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     return { ...UI_DEFAULTS }
   }
 
-  // Debounced saving for globalPrefs and uiState
-  let globalSaveTimeout: ReturnType<typeof setTimeout> | null = null
+  // Debounced saving for uiState
   let uiSaveTimeout: ReturnType<typeof setTimeout> | null = null
-
-  function debouncedSaveGlobal(): void {
-    if (globalSaveTimeout) clearTimeout(globalSaveTimeout)
-    globalSaveTimeout = setTimeout(saveGlobalPrefs, 500)
-  }
 
   function debouncedSaveUI(): void {
     if (uiSaveTimeout) clearTimeout(uiSaveTimeout)
     uiSaveTimeout = setTimeout(saveUIState, 500)
   }
 
-  watch(globalPrefs, debouncedSaveGlobal, { deep: true })
   watch(uiState, debouncedSaveUI, { deep: true })
 
   // Flush any pending debounced saves immediately (used before profile switch)
   function flushPendingSaves(): void {
-    if (globalSaveTimeout) {
-      clearTimeout(globalSaveTimeout)
-      globalSaveTimeout = null
-      saveGlobalPrefs()
-    }
     if (uiSaveTimeout) {
       clearTimeout(uiSaveTimeout)
       uiSaveTimeout = null
@@ -396,10 +320,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     isLoadingPreferences.value = true
 
     // Cancel any pending saves (we already flushed in will-change)
-    if (globalSaveTimeout) {
-      clearTimeout(globalSaveTimeout)
-      globalSaveTimeout = null
-    }
     if (uiSaveTimeout) {
       clearTimeout(uiSaveTimeout)
       uiSaveTimeout = null
@@ -437,7 +357,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     modelParams.value = { ...UI_DEFAULTS }
 
     // Reload from new profile's storage
-    loadGlobalPrefs()
     loadUIState()
     isLoadingPreferences.value = false
     preferencesLoaded.value = true
@@ -470,7 +389,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     revertToDefaults,
     revertToDefaultsIncludingLoras,
     getDefaults,
-    saveGlobalPrefs,
     saveModelParams,
     saveUIState,
     flushPendingSaves,

@@ -755,21 +755,6 @@ if (useExternalFilters) {
   }, { deep: true })
 }
 
-// Save similar search state when it changes (profile-specific)
-// Skip when using external filters
-watch([similarSearchActive, similarSearchSourceItem, similarSearchSourceItems], () => {
-  if (initializing.value || useExternalFilters) return
-  try {
-    localStorage.setItem(makeProfileKey(globalFilterScope, 'similar_search'), JSON.stringify({
-      active: similarSearchActive.value,
-      sourceItem: similarSearchSourceItem.value,
-      sourceItems: similarSearchSourceItems.value
-    }))
-  } catch (error) {
-    console.error('Failed to save similar search state:', error)
-  }
-}, { deep: true })
-
 const virtualGridRef = ref(null)
 const filterBarRef = ref(null)
 const gridStorageKey = computed(() => {

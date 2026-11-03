@@ -10,6 +10,7 @@ import { useWebSocket } from './useWebSocket'
 import { useDeleteOperations } from './useDeleteOperations'
 import { captioningEnabledRef } from '../appConfig'
 import { makeGlobalKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -73,7 +74,7 @@ async function fetchPauseStatus() {
 }
 
 function isSystemWarningDismissed(type) {
-  return localStorage.getItem(makeGlobalKey('dismissed_warning', type)) === 'true'
+  return syncedStorage.getItem(makeGlobalKey('dismissed_warning', type)) === 'true'
 }
 
 function addSystemWarning(w) {
@@ -100,7 +101,7 @@ async function fetchSystemWarnings() {
 }
 
 function dismissSystemWarning(type) {
-  localStorage.setItem(makeGlobalKey('dismissed_warning', type), 'true')
+  syncedStorage.setItem(makeGlobalKey('dismissed_warning', type), 'true')
   systemWarnings.value = systemWarnings.value.filter((w) => w.type !== type)
 }
 

@@ -158,6 +158,7 @@ from routes import (
     realtime,
     flows,
     saved_views,
+    workspace,
     search,
     tasks as flow_tasks,
     settings,
@@ -226,6 +227,7 @@ app.include_router(chats.router)
 app.include_router(prompt_enhancement.router)
 app.include_router(profiles.router)
 app.include_router(saved_views.router)
+app.include_router(workspace.router)
 app.include_router(search.router)
 app.include_router(settings.router)
 app.include_router(tools.router)

@@ -1,6 +1,7 @@
 import { computed, ref, readonly } from 'vue'
 import { getCurrentProfileId } from './useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const STORAGE_PART = 'tool_auto_delete_duration'
 const DEFAULT_DURATION = 'never'
@@ -65,7 +66,7 @@ function saveDuration(duration: string): void {
   try {
     const key = getStableProfileKey()
     const normalized = normalizeDuration(duration)
-    localStorage.setItem(key, normalized)
+    syncedStorage.setItem(key, normalized)
     loadedKey = key
   } catch (err) {
     console.error('Failed to save tool auto-delete duration:', err)
@@ -83,7 +84,7 @@ function loadDuration(): void {
     const profileId = getCurrentProfileId()
     const stableKey = getStableProfileKey()
     loadedKey = stableKey
-    const stableValue = localStorage.getItem(stableKey)
+    const stableValue = syncedStorage.getItem(stableKey)
     if (stableValue !== null) {
       const normalized = normalizeDuration(stableValue)
       autoDeleteDurationState.value = normalized
@@ -93,10 +94,10 @@ function loadDuration(): void {
     // Migrate from legacy modifier/account-scoped keys if present.
     const legacyKey = findLegacyKey(profileId)
     if (legacyKey) {
-      const legacyValue = localStorage.getItem(legacyKey)
+      const legacyValue = syncedStorage.getItem(legacyKey)
       const normalized = normalizeDuration(legacyValue)
       autoDeleteDurationState.value = normalized
-      localStorage.setItem(stableKey, normalized)
+      syncedStorage.setItem(stableKey, normalized)
       return
     }
 

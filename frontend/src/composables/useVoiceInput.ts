@@ -21,9 +21,6 @@ export const VOICE_DOWNLOAD_LOCKDOWN_MESSAGE =
 
 export type VoiceState = 'idle' | 'starting' | 'downloading' | 'recording' | 'finalizing' | 'error'
 
-// Remove the preference left by builds that offered multiple voice models.
-localStorage.removeItem('stimma.voiceModel')
-
 // ---- Tauri bridge (lazy, shared) ------------------------------------------
 
 export const supported = ref(false)

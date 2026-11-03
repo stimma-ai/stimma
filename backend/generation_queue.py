@@ -142,6 +142,18 @@ def completed_before_condition(completed_before: datetime, completed_before_id: 
     )
 
 
+def feed_scope_condition(feed_scope: str):
+    """Jobs of one tool tab, whichever client started them. Instance ids are
+    tool-<scope> or tool-<scope>@@<client>."""
+    from sqlalchemy import or_
+
+    prefix = f"tool-{feed_scope}"
+    return or_(
+        GenerationJob.generator_instance_id == prefix,
+        GenerationJob.generator_instance_id.startswith(f"{prefix}@@", autoescape=True),
+    )
+
+
 def compute_size_from_image(image_path: str, megapixels: float, step: int = 64) -> tuple[int, int]:
     """Compute output size from input image aspect ratio and target megapixels.
 
@@ -1944,6 +1956,7 @@ class GenerationQueue:
         self,
         status: Optional[str] = None,
         generator_instance_id: Optional[str] = None,
+        feed_scope: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
         order: str = "created_at",
@@ -1977,6 +1990,9 @@ class GenerationQueue:
 
             if generator_instance_id:
                 query = query.where(GenerationJob.generator_instance_id == generator_instance_id)
+
+            if feed_scope:
+                query = query.where(feed_scope_condition(feed_scope))
 
             if completed_before is not None:
                 query = query.where(
@@ -2066,6 +2082,7 @@ class GenerationQueue:
     async def count_completed_jobs(
         self,
         generator_instance_id: Optional[str] = None,
+        feed_scope: Optional[str] = None,
         completed_before: Optional[datetime] = None,
         completed_before_id: Optional[int] = None,
     ) -> int:
@@ -2086,6 +2103,9 @@ class GenerationQueue:
 
             if generator_instance_id:
                 query = query.where(GenerationJob.generator_instance_id == generator_instance_id)
+
+            if feed_scope:
+                query = query.where(feed_scope_condition(feed_scope))
 
             if completed_before is not None:
                 query = query.where(

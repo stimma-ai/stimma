@@ -1,5 +1,6 @@
 import { makeStorageKey } from '../utils/storageKeys'
 import type { RecentInputKind } from './useRecentMediaInputs'
+import { syncedStorage } from '../utils/workspaceStore'
 
 /**
  * Recently-picked media backing the picker popover's "Recents" tab.
@@ -31,7 +32,7 @@ function storageKey(projectId: number | null): string {
 
 function load(projectId: number | null): RecentMediaPick[] {
   try {
-    const raw = localStorage.getItem(storageKey(projectId))
+    const raw = syncedStorage.getItem(storageKey(projectId))
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -42,7 +43,7 @@ function load(projectId: number | null): RecentMediaPick[] {
 
 function save(projectId: number | null, entries: RecentMediaPick[]) {
   try {
-    localStorage.setItem(storageKey(projectId), JSON.stringify(entries))
+    syncedStorage.setItem(storageKey(projectId), JSON.stringify(entries))
   } catch {}
 }
 
@@ -62,14 +63,12 @@ export function recordMediaPick(
 export function removeRecentMediaPick(mediaId: number) {
   // Entries live in one key per project scope — sweep every scope's key.
   const prefix = storageKey(null).replace(/_global$/, '')
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i)
-    if (!key || !key.startsWith(prefix)) continue
+  for (const key of syncedStorage.keysWithPrefix(prefix)) {
     try {
-      const parsed = JSON.parse(localStorage.getItem(key) || '[]')
+      const parsed = JSON.parse(syncedStorage.getItem(key) || '[]')
       if (!Array.isArray(parsed)) continue
       const remaining = parsed.filter((e: RecentMediaPick) => e.mediaId !== mediaId)
-      if (remaining.length !== parsed.length) localStorage.setItem(key, JSON.stringify(remaining))
+      if (remaining.length !== parsed.length) syncedStorage.setItem(key, JSON.stringify(remaining))
     } catch {}
   }
 }

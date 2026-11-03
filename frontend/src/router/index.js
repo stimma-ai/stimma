@@ -303,10 +303,16 @@ router.beforeEach(async (to, from) => {
   }
   if (to.name !== 'tool') return true
   const { whenTabsReady, useWorkspaceTabs } = await import('../composables/useWorkspaceTabs')
+  const { whenWorkspaceReady } = await import('../utils/workspaceBoot')
   // Don't hang tool navigation forever if settings never load (e.g. backend
   // unreachable at boot): after the grace period resolve against whatever tab
-  // state exists — worst case a fresh instance is minted.
-  await Promise.race([whenTabsReady(), new Promise(resolve => setTimeout(resolve, 4000))])
+  // state exists — worst case a fresh instance is minted. The workspace can be a
+  // round trip to a remote server away, and a tab minted before it arrives is a
+  // duplicate everywhere, so this is generous.
+  await Promise.race([
+    Promise.all([whenTabsReady(), whenWorkspaceReady()]),
+    new Promise(resolve => setTimeout(resolve, 15000)),
+  ])
   const { resolveToolInstance, allTabs } = useWorkspaceTabs()
   // Explicit sessions retain their own destination. Unaddressed launchers use
   // the working context, including deep links and legacy media handoff paths.

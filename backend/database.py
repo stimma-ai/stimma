@@ -835,6 +835,45 @@ class UserPreference(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class WorkspaceDoc(Base):
+    """One piece of the shared workspace: a sidebar tab, a tool tab's working
+    state, a preference, a recent list, a draft. Every client of a profile reads
+    and writes the same rows. Object values merge per top-level key, so two
+    clients editing different fields both win."""
+    __tablename__ = "workspace_docs"
+
+    namespace = Column(String, primary_key=True)
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=True)  # JSON
+    rev = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+
+class WorkspaceMigration(Base):
+    """A client's upload of the workspace it kept locally before the server held
+    it. Every upload is archived; the one row with applied=1 is the claim."""
+    __tablename__ = "workspace_migrations"
+    __table_args__ = (
+        Index(
+            "uq_workspace_migrations_claim",
+            "applied",
+            unique=True,
+            sqlite_where=text("applied = 1"),
+        ),
+        {"sqlite_autoincrement": True},
+    )
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(String, nullable=False, index=True)
+    applied = Column(Boolean, nullable=False, default=False)
+    payload = Column(Text, nullable=False)  # JSON, as uploaded
+    stats = Column(Text, nullable=True)  # JSON
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+
 class TaskDefaults(Base):
     """Table for storing user default parameters per task type."""
     __tablename__ = "task_defaults"

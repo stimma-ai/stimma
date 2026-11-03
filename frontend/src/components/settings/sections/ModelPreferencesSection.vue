@@ -71,7 +71,7 @@ import { setGenerationPreviews, imagePreviewsRef as imagePreviews, videoPreviews
 
 // Theme
 const { themePreference, setTheme } = useTheme()
-const { updateTheme, updateGenerationPreviews } = useSettingsApi()
+const { updateGenerationPreviews } = useSettingsApi()
 
 // Live generation previews (global, split by output kind). The app-wide refs
 // are the source of truth — they're set at boot and ANDed with each tool's
@@ -93,6 +93,5 @@ const THEME_OPTIONS = [
 function selectTheme(theme) {
   setTheme(theme)
   // Fire-and-forget persist to server
-  updateTheme(theme).catch(err => console.error('Failed to persist theme:', err))
 }
 </script>

@@ -17,6 +17,7 @@
 
 import { makeProfileKey } from '../../utils/storageKeys'
 import type { PaintEngineSettings } from './paintEngineSettings'
+import { onNamespaceChange, syncedStorage } from '../../utils/workspaceStore'
 
 export interface ToolPrefs {
   /**
@@ -70,12 +71,18 @@ const KEY = () => makeProfileKey('imageEditor', 'toolPrefs')
 let cachedKey: string | null = null
 let cached: ToolPrefs = {}
 
+// These follow you, so what's cached can change underneath.
+onNamespaceChange('kv', (key) => {
+  if (key === 'imageEditor_toolPrefs') cachedKey = null
+})
+if (typeof window !== 'undefined') window.addEventListener('workspace-loaded', () => { cachedKey = null })
+
 export function readToolPrefs(): ToolPrefs {
   const key = KEY()
   if (cachedKey === key) return cached
   let parsed: ToolPrefs = {}
   try {
-    const stored = localStorage.getItem(key)
+    const stored = syncedStorage.getItem(key)
     if (stored) {
       const value = JSON.parse(stored)
       if (value && typeof value === 'object') parsed = value as ToolPrefs
@@ -92,7 +99,7 @@ export function writeToolPrefs(patch: Partial<ToolPrefs>): void {
   cachedKey = key
   cached = next
   try {
-    localStorage.setItem(key, JSON.stringify(next))
+    syncedStorage.setItem(key, JSON.stringify(next))
   } catch { /* storage full or unavailable — the pick just doesn't persist */ }
 }
 

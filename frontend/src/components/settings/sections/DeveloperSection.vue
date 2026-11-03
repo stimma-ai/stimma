@@ -261,6 +261,7 @@ import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 import SettingRow from '../SettingRow.vue'
 import Button from '../../ui/Button.vue'
 import Modal from '../../ui/Modal.vue'
+import { syncedStorage } from '../../../utils/workspaceStore'
 
 const props = defineProps({
   developerMode: {
@@ -330,6 +331,7 @@ function resetOnboarding() {
   // Close settings first so finishing onboarding lands in the app, not settings.
   emit('close-settings')
   localStorage.removeItem(makeGlobalKey('onboarding_completed'))
+  syncedStorage.removeItem(makeGlobalKey('onboarding_completed'))
   // A real first run includes the clickwrap, so clear that too — otherwise
   // this only ever replays the half of onboarding that is per backend.
   clearTermsAcceptance()

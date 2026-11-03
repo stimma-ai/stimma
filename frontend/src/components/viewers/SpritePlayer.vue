@@ -197,6 +197,7 @@ import { ArrowPathIcon, BackwardIcon, ForwardIcon, PauseIcon, PlayIcon } from '@
 import { useMediaApi } from '../../composables/useMediaApi'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { nextSpriteFrame, spriteFrameIndices } from '../../utils/spritePlayback.js'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const props = defineProps({
   mediaId: { type: [Number, String], required: true },
@@ -516,7 +517,7 @@ const readout = computed(() => {
 
 function toggleReadout() {
   readoutMode.value = readoutMode.value === 'frames' ? 'time' : 'frames'
-  try { localStorage.setItem(makeProfileKey('frame-mode', FRAME_MODE_KEY), readoutMode.value) } catch { /* ignore */ }
+  try { syncedStorage.setItem(makeProfileKey('frame-mode', FRAME_MODE_KEY), readoutMode.value) } catch { /* ignore */ }
 }
 
 function onKeydown(event) {
@@ -538,7 +539,7 @@ function measureStage() {
 
 onMounted(() => {
   try {
-    const stored = localStorage.getItem(makeProfileKey('frame-mode', FRAME_MODE_KEY))
+    const stored = syncedStorage.getItem(makeProfileKey('frame-mode', FRAME_MODE_KEY))
     readoutMode.value = stored === 'time' ? 'time' : 'frames'
   } catch { /* ignore */ }
   if (typeof ResizeObserver !== 'undefined') {

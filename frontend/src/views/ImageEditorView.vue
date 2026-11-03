@@ -8748,6 +8748,16 @@ async function hydrateEditorExtras() {
   if (rememberedFamily) selectFamily(rememberedFamily as FamilyId)
 }
 
+// Editing on two clients: the later save would erase the earlier one, so it's
+// refused. Reloading picks up what the other client saved.
+watch(stack.savedElsewhere, (saved) => {
+  if (!saved) return
+  addToast('This image was edited on another device. Your latest changes here were not saved.', 'warning', 0, {
+    label: 'Load latest',
+    onClick: () => window.location.reload(),
+  })
+})
+
 onMounted(async () => {
   void initMarkers()
   try {

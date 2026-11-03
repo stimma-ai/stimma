@@ -21,7 +21,9 @@
 import { getAppModifier } from '../appConfig'
 import { listBlobKeys, deleteBlob } from './blobStorage'
 
-const INSTANCE_TOKEN_RE = /__i_(\d+)(?:[^0-9]|$)/
+// Instance ids are integers on older tabs and base-36 on newer ones. The image
+// editor's __i_image-stack-* overlays aren't tool tabs, and aren't matched.
+const INSTANCE_TOKEN_RE = /__i_([0-9A-Za-z]+)(?![0-9A-Za-z-])/
 
 /**
  * Collect the set of live tool-instance ids from every persisted
@@ -75,8 +77,9 @@ function basePrefix(): string {
 function shouldPurge(key: string, prefix: string): boolean {
   if (!key.startsWith(prefix + '_')) return false  // not ours — leave alone
 
-  // Drop all mask / paint entries (moved to IndexedDB).
-  if (key.includes('_mask')) return true
+  // Drop all mask / paint entries (moved to IndexedDB). They end the key: other
+  // keys and tool ids can contain these words.
+  if (/_tool_.+_mask$/.test(key)) return true
   if (/_paint(_\d+)?$/.test(key)) return true
 
   // Drop all tool-descriptor cache entries (feature removed).

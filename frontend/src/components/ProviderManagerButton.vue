@@ -105,6 +105,7 @@ import { makeGlobalKey } from '../utils/storageKeys'
 import ComfyUIIcon from './tools/ComfyUIIcon.vue'
 import Spinner from './ui/Spinner.vue'
 import Sheet from './ui/Sheet.vue'
+import { syncedStorage } from '../utils/workspaceStore'
 
 type ManagedProvider = Provider
 
@@ -124,7 +125,7 @@ const anchor = ref<string>('')
 const frameEl = ref<HTMLIFrameElement | null>(null)
 function setFrame(el: unknown) { frameEl.value = (el as HTMLIFrameElement | null) }
 const HINT_KEY = makeGlobalKey('providerManager', 'hintDismissed')
-const hintDismissed = ref(localStorage.getItem(HINT_KEY) === '1')
+const hintDismissed = ref(syncedStorage.getItem(HINT_KEY) === '1')
 
 const managed = computed(() => providers.value.filter(p => !!p.management_url))
 const hintFor = computed(() => {
@@ -214,7 +215,7 @@ function toggle(id: string, tab?: string) {
   if (hintFor.value === id) dismissHint()
 }
 function close() { openId.value = null }
-function dismissHint() { hintDismissed.value = true; localStorage.setItem(HINT_KEY, '1') }
+function dismissHint() { hintDismissed.value = true; syncedStorage.setItem(HINT_KEY, '1') }
 
 function onDocClick(e: MouseEvent) {
   if (isCompact.value) return // The teleported Sheet owns outside-tap dismissal.

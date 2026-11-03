@@ -274,13 +274,16 @@ axios.interceptors.request.use(async (config) => {
   // Add profile header to all API requests
   // In Tauri mode, URLs are absolute like http://127.0.0.1:PORT/api/...
   config.headers = config.headers || {}
-  if (currentProfileId.value) {
-    config.headers['X-Profile-ID'] = currentProfileId.value
+  // A request made on behalf of one profile can finish being prepared after the
+  // window has switched to another (see workspaceStore's flush).
+  const profileId = config.profileId ?? currentProfileId.value
+  if (profileId) {
+    config.headers['X-Profile-ID'] = profileId
   } else {
     delete config.headers['X-Profile-ID']
   }
   // Add PIN header if we have a cached PIN for this profile
-  const cachedPin = getCachedPin(currentProfileId.value)
+  const cachedPin = getCachedPin(profileId)
   if (cachedPin) {
     config.headers['X-Profile-PIN'] = cachedPin
   }

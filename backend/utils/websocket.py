@@ -213,8 +213,11 @@ class OutboundFrame:
 #     chat:<id>            chat items, plan/node progress and usage for one chat
 #     generator:<id>       full job detail and progress ticks for one generator
 #                          instance (a tool view's job feed)
+#     feed:<scope>         the same for one tool tab, whichever client started
+#                          the job (an instance id is tool-<scope>@@<client>)
 #     generation           the same for every generator instance
 #     previews:<id>        generation preview images for one generator instance
+#     previews-feed:<scope> the same for one tool tab
 #     previews             preview images for every generator instance
 # - Job lifecycle events for a generator instance the client does not follow
 #   arrive as small summaries (ids, status, result), so every client still learns
@@ -287,6 +290,18 @@ def _generator_instance_of(data: dict) -> Optional[str]:
     return gid if isinstance(gid, str) and gid else None
 
 
+def _feed_scope_of(gid: str) -> Optional[str]:
+    """The tool tab behind a generator instance id, shared across clients."""
+    if not gid.startswith("tool-") or "@@" not in gid:
+        return None
+    return gid[len("tool-"):].split("@@", 1)[0]
+
+
+def _generator_topics(gid: str) -> tuple:
+    scope = _feed_scope_of(gid)
+    return ("generation", f"generator:{gid}") + ((f"feed:{scope}",) if scope else ())
+
+
 def build_frame(event: str, data: dict) -> OutboundFrame:
     """Serialize a broadcast once and attach its interest metadata."""
     profile_id = data.get("profile_id")
@@ -297,15 +312,18 @@ def build_frame(event: str, data: dict) -> OutboundFrame:
         gid = _generator_instance_of(data)
         # A job without an instance is shown by any feed; keep it whole.
         if gid and isinstance(data.get("job"), dict):
-            topics = ("generation", f"generator:{gid}")
+            topics = _generator_topics(gid)
             factories["summary"] = lambda: build_frame(event, _job_summary(data))
     elif event == "generation_job_progress":
         gid = _generator_instance_of(data)
         if gid:
-            topics = ("generation", f"generator:{gid}")
+            topics = _generator_topics(gid)
         preview = data.get("preview_b64")
         if preview:
             preview_topics = ("previews", f"previews:{gid}") if gid else ("previews",)
+            scope = _feed_scope_of(gid) if gid else None
+            if scope:
+                preview_topics += (f"previews-feed:{scope}",)
             preview_bytes = len(preview) if isinstance(preview, str) else 0
             factories["no_preview"] = lambda: build_frame(event, _without_preview(data))
     elif event in _CHAT_DETAIL_EVENTS:

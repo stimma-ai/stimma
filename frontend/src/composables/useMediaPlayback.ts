@@ -70,9 +70,8 @@ function hydrate() {
       if (typeof s.audioMuted === 'boolean') audioMuted.value = s.audioMuted
       if (typeof s.audioVolume === 'number') audioVolume.value = clamp01(s.audioVolume)
     } else {
-      // First run: seed from the legacy per-surface prefs (slideshow settings
-      // blob for video, AudioPlayer's shared volume key for audio), where
-      // mute was representable only as volume === 0.
+      // First run: seed from the slideshow settings blob, where mute was
+      // representable only as volume === 0.
       try {
         const slideshow = JSON.parse(localStorage.getItem(makeProfileKey('slideshow', 'settings')) || '{}')
         if (typeof slideshow.volume === 'number') {
@@ -80,12 +79,6 @@ function hydrate() {
           if (slideshow.volume > 0) videoVolume.value = clamp01(slideshow.volume)
         }
       } catch { /* ignore malformed legacy settings */ }
-      const legacyAudio = parseFloat(localStorage.getItem(makeProfileKey('audio_player', 'volume')) ?? '')
-      if (!isNaN(legacyAudio)) {
-        audioMuted.value = legacyAudio === 0
-        if (legacyAudio > 0) audioVolume.value = clamp01(legacyAudio)
-      }
-      localStorage.removeItem(makeProfileKey('audio_player', 'volume'))
       persist()
     }
   } catch (e) {
