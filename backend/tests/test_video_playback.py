@@ -56,7 +56,10 @@ async def test_serves_segmented_video_and_native_hls(client, db_session, tmp_pat
         packets = [p for p in probe["packets"] if p["codec_type"] == kind]
         assert float(packets[0]["pts_time"]) == pytest.approx(0, abs=0.001)
         end = float(packets[-1]["pts_time"]) + float(packets[-1]["duration_time"])
-        assert end == pytest.approx(manifest["duration"], abs=0.001)
+        # AAC's final packet can extend past the video by less than one frame;
+        # older FFmpeg versions retain that packet's full duration.
+        tolerance = 1024 / manifest["sample_rate"] if kind == "audio" else 0.001
+        assert end == pytest.approx(manifest["duration"], abs=tolerance)
     assert len(segments[0]) < sum(map(len, segments)) / 3
     playlist = await client.get(f"{base}/v1/small/index.m3u8", params={"profile": "default"})
     assert playlist.status_code == 200
