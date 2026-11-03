@@ -159,6 +159,68 @@ async def test_agent_wait_uses_provider_progress_without_ui(
 
 
 @pytest.mark.asyncio
+async def test_result_after_silence_renews_agent_timeout_before_slow_download(
+    generation_queue, generation_db_session, output_folder, monkeypatch, tmp_path,
+):
+    from agent.jobs import wait_for_jobs
+    from providers import ProviderRegistry
+    from providers.base import ToolDescriptor
+    from tests.helpers.generation import create_generation_job
+    from tests.helpers.media import generate_test_image
+
+    image = tmp_path / 'result.png'
+    generate_test_image(image, width=64, height=64)
+    download_finished = asyncio.Event()
+
+    async def slow_download(asset_id):
+        assert asset_id == 'result.png'
+        await asyncio.sleep(0.4)
+        download_finished.set()
+        return image.read_bytes()
+
+    monkeypatch.setattr('providers.jsonrpc.EXECUTION_IDLE_TIMEOUT', 0.8)
+    async with stp_peer() as (provider, peer):
+        provider._tools = [ToolDescriptor(
+            id='render', name='Render', parameter_schema={}, output_schema={},
+            task_type='text-to-image',
+        )]
+        monkeypatch.setitem(ProviderRegistry.get_instance()._providers, provider.provider_id, provider)
+        monkeypatch.setattr(provider, 'download_asset', slow_download)
+        async with generation_db_session() as session:
+            job = await create_generation_job(
+                session, tool_id=f'{provider.provider_id}:render', folder_path=output_folder,
+            )
+            request_id = f'job-{generation_queue._get_db("default").db_guid}-{job.id}'
+            worker = asyncio.create_task(generation_queue._process_job(job, 'default'))
+            waiter = asyncio.create_task(wait_for_jobs(
+                [job.id], session, poll_interval=0.02, timeout=0.8,
+            ))
+            try:
+                await asyncio.wait_for(peer.executed.wait(), 1)
+                # Each phase fits the idle timeout, but together they exceed it.
+                await asyncio.sleep(0.6)
+                await peer.notify(
+                    'tools.result', request_id=request_id, success=True,
+                    output={'assets': [{'asset_id': 'result.png', 'type': 'image'}]},
+                )
+                media_ids, errors, cancelled, job_to_media = await asyncio.wait_for(waiter, 5)
+                await worker
+                await generation_queue._await_finalizers()
+                assert download_finished.is_set()
+                assert errors == []
+                assert cancelled == 0
+                stored = await generation_queue.get_job(job.id)
+                assert stored['status'] == 'completed'
+                assert media_ids == [stored['result_media_id']]
+                assert job_to_media == {job.id: stored['result_media_id']}
+                assert not peer.cancelled.is_set()
+            finally:
+                worker.cancel()
+                waiter.cancel()
+                await asyncio.gather(worker, waiter, return_exceptions=True)
+
+
+@pytest.mark.asyncio
 async def test_agent_wait_does_not_expire_queued_work(generation_queue, generation_db_session):
     from agent.jobs import wait_for_jobs
     from database import GenerationJob

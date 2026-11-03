@@ -1744,6 +1744,8 @@ class JsonRpcProvider(ToolProvider):
 
                 elif msg_type == "result":
                     if data.get("success"):
+                        # Renew job activity before downloading the completed output.
+                        yield ExecutionProgress(progress=1.0, stage="downloading")
                         # Save the envelope before the first download. A failed transfer
                         # resumes this result on the same job, never resubmits compute.
                         if receipt:
