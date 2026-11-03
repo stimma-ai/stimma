@@ -470,7 +470,9 @@ def _to_responses_request(
     # ``previous_response_id`` continuation only exists for stored responses.
     # The ChatGPT-plan backend does not store them, so that route replays the
     # full conversation each turn instead.
-    continuation = _responses_continuation(messages) if store else None
+    # Compaction also replays: the stored chain still holds what was removed.
+    replay_history = any(message.get("_stimma_replay_history") for message in messages)
+    continuation = _responses_continuation(messages) if store and not replay_history else None
     source = messages[continuation[1]:] if continuation else messages
     if continuation:
         # Responses requires every outstanding function_call_output before
@@ -918,7 +920,7 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         # Namespaced continuation state is for Stimma's adapters, never an
         # OpenAI-compatible provider wire field.
         "messages": [
-            {key: value for key, value in message.items() if key != "_stimma_provider_state"}
+            {key: value for key, value in message.items() if not key.startswith("_stimma_")}
             for message in messages
         ],
     }

@@ -153,12 +153,31 @@ async def _deliver_steers(
 
 
 def _max_turns_for_chat(chat: Chat) -> int:
-    # A turn cap exists only as a runaway-cost backstop for occasional bad
-    # model behavior — it should be rare to hit, not a routine ceiling that
-    # truncates legitimate multi-step work (a layout task can easily spend
-    # 10-15 turns). 100 is a generous ceiling for both chat and flow work;
-    # exhausting it is handled gracefully (see the for/else in the loop).
-    return 100
+    # A pure backstop for a run nobody is watching, on a key with no spend limit
+    # of its own. Stimma Cloud quota and the user's stop button end a run sooner,
+    # and the repeated-call check catches the common way of getting stuck, so
+    # legitimate long work should never reach it. Exhausting it is handled
+    # gracefully (see the for/else in the loop).
+    return 1000
+
+
+# A model repeating a call whose result it already has is either stuck or about
+# to be. It may be deliberate (a retry, or another take on a generation), so warn
+# first and leave room to recover before pausing.
+_REPEATED_CALL_NUDGE_AT = 5
+_REPEATED_CALL_STOP_AT = 15
+
+
+def _tool_batch_signature(tool_calls: list) -> list[tuple[str, str]]:
+    """Identify a turn's tool calls, ignoring argument and parallel call order."""
+    signature = []
+    for tool_call in tool_calls:
+        try:
+            arguments = json.dumps(json.loads(tool_call.arguments or "{}"), sort_keys=True)
+        except (json.JSONDecodeError, TypeError):
+            arguments = tool_call.arguments or ""
+        signature.append((tool_call.name, arguments))
+    return sorted(signature)
 
 
 def _track_skill_invoked(chat_id: int, skill_name: str) -> None:
@@ -255,6 +274,7 @@ async def _finalize_thinking_item(
     elapsed_seconds: float = 0.0,
     tokens_per_second: float = 0.0,
     estimated_prompt_tokens: int = 0,
+    context_tokens: int = 0,
 ) -> None:
     item.message_text = message_text
     metadata = {
@@ -274,6 +294,7 @@ async def _finalize_thinking_item(
             "elapsed_seconds": round(elapsed_seconds, 2),
             "tokens_per_second": round(tokens_per_second, 1),
             "estimated_prompt_tokens": int(estimated_prompt_tokens),
+            "context_tokens": int(context_tokens),
         }
     item.item_metadata = json.dumps(metadata)
     await session.commit()
@@ -398,12 +419,21 @@ def _dump_tool_args(arguments: dict) -> str:
     return json.dumps(arguments)
 
 
-def _provider_state_metadata(provider_state: dict | None) -> str | None:
-    """Serialize opaque native-provider continuation state for a tool item."""
-    return (
-        json.dumps({"llm_provider_state": provider_state})
-        if provider_state else None
-    )
+def _provider_state_metadata(
+    provider_state: dict | None,
+    call_size: dict | None = None,
+) -> str | None:
+    """Serialize opaque native-provider continuation state for a tool item.
+
+    call_size records how big this LLM call really was against our estimate. A
+    tool-only turn has no other item to carry it.
+    """
+    metadata = {}
+    if provider_state:
+        metadata["llm_provider_state"] = provider_state
+    if call_size:
+        metadata["llm_call_size"] = call_size
+    return json.dumps(metadata) if metadata else None
 
 
 def _serialize_tool_result(fn_name: str, result_str: str) -> str:
@@ -1449,22 +1479,29 @@ async def _run_agentic_loop_inner(
     # spin against max_turns.
     produced_visible_output = False
     empty_finish_nudged = False
+    # Consecutive turns that made exactly the same tool calls.
+    last_batch_signature: list[tuple[str, str]] | None = None
+    repeated_batches = 0
 
-    async def report_incomplete_response():
+    async def report_pause(message_text: str, metadata_flag: str):
         pause_item = ChatItem(
             chat_id=chat_id,
             item_type="assistant_message",
-            message_text=(
-                "The model stopped responding before I could finish, so I've paused here. "
-                "Tell me to continue and I'll pick up from the work already done."
-            ),
-            item_metadata=json.dumps({"incomplete_response": True}),
+            message_text=message_text,
+            item_metadata=json.dumps({metadata_flag: True}),
         )
         session.add(pause_item)
         await session.commit()
         await ws_manager.broadcast("chat_item_created", {
             "chat_id": chat_id, "item": pause_item.to_dict(),
         })
+
+    async def report_incomplete_response():
+        await report_pause(
+            "The model stopped responding before I could finish, so I've paused here. "
+            "Tell me to continue and I'll pick up from the work already done.",
+            "incomplete_response",
+        )
 
     # If resuming with pending tool calls, execute them first
     if pending_tool_calls:
@@ -1563,6 +1600,8 @@ async def _run_agentic_loop_inner(
         steered = await _deliver_steers(chat, session, ws_manager)
         if steered:
             consecutive_textonly = 0
+            repeated_batches = 0
+            last_batch_signature = None
         # Build messages from chat history with system reminders
         system_reminders = []
         if steered:
@@ -1658,6 +1697,7 @@ async def _run_agentic_loop_inner(
         cumulative_usage["cache_creation_input_tokens"] += resp.usage.cache_creation_input_tokens
         cumulative_usage["cache_read_input_tokens"] += resp.usage.cache_read_input_tokens
         cumulative_llm_seconds += resp.elapsed_seconds
+        context_tokens = resp.usage.context_tokens
 
         if reasoning:
             await _finalize_thinking_item(
@@ -1672,6 +1712,7 @@ async def _run_agentic_loop_inner(
                 elapsed_seconds=cumulative_llm_seconds,
                 tokens_per_second=resp.tokens_per_second,
                 estimated_prompt_tokens=estimated_prompt_tokens,
+                context_tokens=context_tokens,
             )
         else:
             # No thinking content — remove the thinking item so no empty
@@ -1699,6 +1740,7 @@ async def _run_agentic_loop_inner(
                         "elapsed_seconds": round(cumulative_llm_seconds, 2),
                         "tokens_per_second": round(resp.tokens_per_second, 1),
                         "estimated_prompt_tokens": int(estimated_prompt_tokens),
+                        "context_tokens": int(context_tokens),
                     }
                 }
                 text_item = ChatItem(
@@ -1723,7 +1765,7 @@ async def _run_agentic_loop_inner(
             "reasoning_tokens": cumulative_usage["reasoning_tokens"],
             "cache_creation_input_tokens": cumulative_usage["cache_creation_input_tokens"],
             "cache_read_input_tokens": cumulative_usage["cache_read_input_tokens"],
-            "context_tokens": resp.usage.prompt_tokens + resp.usage.cache_creation_input_tokens + resp.usage.cache_read_input_tokens,
+            "context_tokens": context_tokens,
             "model": resp.model,
             "tokens_per_second": round(resp.tokens_per_second, 1),  # this call
             "cumulative_llm_seconds": round(cumulative_llm_seconds, 2),
@@ -1794,7 +1836,10 @@ async def _run_agentic_loop_inner(
                     tool_name=fn_name,
                     tool_call_id=tool_call_id,
                     tool_args=_enrich_tool_args(fn_name, fn_arguments),
-                    item_metadata=_provider_state_metadata(resp.provider_state),
+                    item_metadata=_provider_state_metadata(resp.provider_state, {
+                        "context_tokens": int(context_tokens),
+                        "estimated_prompt_tokens": int(estimated_prompt_tokens),
+                    }),
                 )
                 session.add(call_item)
                 await session.commit()
@@ -1882,6 +1927,30 @@ async def _run_agentic_loop_inner(
             # A tool ran: the model is working, so any text-only streak is
             # cleared.
             consecutive_textonly = 0
+
+            batch_signature = _tool_batch_signature(tool_calls)
+            if batch_signature == last_batch_signature:
+                repeated_batches += 1
+            else:
+                last_batch_signature = batch_signature
+                repeated_batches = 1
+            if repeated_batches >= _REPEATED_CALL_STOP_AT and not _has_pending_steers(chat_id):
+                log.warning(f"Chat {chat_id}: same tool calls {repeated_batches} turns running, pausing")
+                await report_pause(
+                    f"I've repeated the same step {repeated_batches} times in a row, so I've paused "
+                    "here in case I'm stuck. Tell me to keep going, or point me in a different "
+                    "direction, and I'll pick up from where I left off.",
+                    "repeated_calls_stopped",
+                )
+                break
+            if repeated_batches == _REPEATED_CALL_NUDGE_AT:
+                pending_stall_nudge = (
+                    "<system-reminder>\n"
+                    f"You've made the same tool call with the same arguments {repeated_batches} times "
+                    "in a row. If you expect a new result each time, carry on. Otherwise try a different "
+                    "approach, or tell the user what's blocking you.\n"
+                    "</system-reminder>"
+                )
             # Continue loop for next LLM call
             continue
 
@@ -1949,28 +2018,18 @@ async def _run_agentic_loop_inner(
     else:
         # Every allowed turn ran without the model ending its own turn (no
         # `finish`, no text-only completion, no stall give-up — all of which
-        # `break`). That's the runaway-cost backstop firing. Emit an honest
+        # `break`). That's the runaway backstop firing. Emit an honest
         # hand-off instead of stopping silently mid-task, which reads as the
         # agent giving up.
         log.warning(
             f"Chat {chat_id}: reached max_turns ({max_turns}) without finishing — emitting graceful hand-off"
         )
-        limit_item = ChatItem(
-            chat_id=chat_id,
-            item_type="assistant_message",
-            message_text=(
-                f"I reached my step limit ({max_turns} actions) before wrapping this up, "
-                "so I've paused here rather than run on indefinitely. Tell me to keep going "
-                "and I'll pick up from where I left off."
-            ),
-            item_metadata=json.dumps({"max_turns_reached": True}),
+        await report_pause(
+            f"I've taken {max_turns:,} steps on this without finishing, so I've paused here "
+            "rather than run on indefinitely. Tell me to keep going and I'll pick up from "
+            "where I left off.",
+            "max_turns_reached",
         )
-        session.add(limit_item)
-        await session.commit()
-        await ws_manager.broadcast("chat_item_created", {
-            "chat_id": chat_id,
-            "item": limit_item.to_dict(),
-        })
 
 
 async def _resume_delegate_after_permission(

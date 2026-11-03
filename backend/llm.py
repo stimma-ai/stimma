@@ -93,6 +93,16 @@ class Usage:
     reasoning_tokens: int = 0
     cache_creation_input_tokens: int = 0
     cache_read_input_tokens: int = 0
+    # OpenAI-compatible providers count cached tokens inside prompt_tokens;
+    # Anthropic-shaped usage reports them separately.
+    cached_tokens_in_prompt: bool = False
+
+    @property
+    def context_tokens(self) -> int:
+        """Size of the prompt this call actually sent."""
+        if self.cached_tokens_in_prompt:
+            return self.prompt_tokens
+        return self.prompt_tokens + self.cache_creation_input_tokens + self.cache_read_input_tokens
 
 
 @dataclass
@@ -346,6 +356,7 @@ def _normalize_response(raw_response) -> LLMResponse:
             prompt_details = getattr(raw_usage, 'prompt_tokens_details', None)
             if prompt_details:
                 usage.cache_read_input_tokens = getattr(prompt_details, 'cached_tokens', 0) or 0
+                usage.cached_tokens_in_prompt = True
 
     # Extract Stimma Cloud quota if present (injected by llm_http from response headers)
     quota = None
