@@ -1,7 +1,7 @@
 """
 Log tail + secret scrubber for feedback and crash reports.
 
-Tails the last N lines of the rolling backend log
+Tails the last N lines of each rolling backend and shell log
 (``<data_dir>/Logs/Stimma_log.00.txt``, spilling into ``.01`` when the
 current file is short — see core/logging.py for the rotation scheme) and
 scrubs secret-shaped values before anything leaves the machine.
@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import List, Optional
 
 DEFAULT_TAIL_LINES = 200
+MAX_TAIL_BYTES = 256 * 1024
 
 # Secret-shaped patterns. Each replaces only the VALUE, keeping the key
 # visible so the log stays readable.
@@ -57,28 +58,48 @@ def tail_log_lines(
     n: int = DEFAULT_TAIL_LINES,
     log_dir: Optional[Path] = None,
 ) -> List[str]:
-    """Last ``n`` log lines, oldest first, scrubbed.
+    """Up to ``n`` lines per source, oldest first within each, scrubbed.
 
-    Reads ``Stimma_log.00.txt`` and, when it holds fewer than ``n`` lines
-    (fresh rotation), spills into ``.01`` (and onward) for the remainder.
+    Each source spills into older rotations and reads at most MAX_TAIL_BYTES.
+    Both feedback attachments and crash reports use this same consent-gated tail.
     """
+    if n <= 0:
+        return []
     directory = log_dir or get_log_dir()
+    backend = _tail_files(
+        [directory / f"Stimma_log.{index:02d}.txt" for index in range(20)], n,
+    )
+    shell = _tail_files(
+        [directory / "Stimma-shell.log"]
+        + [directory / f"Stimma-shell.log.{index}" for index in range(1, 5)], n,
+    )
+    # Keep sources distinct rather than pretending their timestamps are sorted.
+    lines = backend + (["[shell]"] + shell if shell else [])
+    return [scrub_secrets(line) for line in lines]
+
+
+def _tail_files(paths: List[Path], n: int) -> List[str]:
     collected: List[str] = []
-    # .00 is newest; walk backward through history until we have n lines.
-    for index in range(0, 20):
-        if len(collected) >= n:
-            break
-        path = directory / f"Stimma_log.{index:02d}.txt"
-        if not path.exists():
+    budget = MAX_TAIL_BYTES
+    for path in paths:
+        if len(collected) >= n or budget <= 0:
             break
         try:
-            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-        except Exception:
+            with path.open("rb") as file:
+                size = file.seek(0, 2)
+                start = max(0, size - budget)
+                file.seek(start)
+                data = file.read(budget)
+            budget -= len(data)
+            # Avoid attaching a partial first line after seeking into a file.
+            if start and b"\n" in data:
+                data = data.split(b"\n", 1)[1]
+            lines = data.decode("utf-8", errors="replace").splitlines()
+        except OSError:
             break
         needed = n - len(collected)
-        # Older files prepend before what we already have.
         collected = lines[-needed:] + collected
-    return [scrub_secrets(line) for line in collected[-n:]]
+    return collected[-n:]
 
 
 def tail_log_text(n: int = DEFAULT_TAIL_LINES, log_dir: Optional[Path] = None) -> str:

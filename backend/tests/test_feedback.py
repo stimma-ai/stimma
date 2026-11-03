@@ -60,6 +60,38 @@ class TestLogTail:
         from log_tail import tail_log_lines
         assert tail_log_lines(200, log_dir=tmp_path / "nope") == []
 
+    def test_shell_tail_includes_rotations_with_the_backend_scrubber(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log.1").write_text(
+            "old shell\nupdater api_key=private-key\n"
+        )
+        (tmp_path / "Stimma-shell.log").write_text(
+            "renderer Authorization: Bearer private-token\n"
+        )
+        lines = tail_log_lines(2, log_dir=tmp_path)
+        assert lines == [
+            "backend warning", "[shell]", "updater api_key=[redacted]",
+            "renderer Authorization: [redacted]",
+        ]
+
+    def test_shell_tail_bounds_a_huge_legacy_file_and_works_without_backend(self, tmp_path):
+        from log_tail import MAX_TAIL_BYTES, tail_log_text
+        with (tmp_path / "Stimma-shell.log").open("wb") as file:
+            file.seek(1024 * 1024 * 1024)
+            file.write(b"\nrenderer failure token=private-token\n")
+        text = tail_log_text(log_dir=tmp_path)
+        assert "renderer failure token=[redacted]" in text
+        assert "private-token" not in text
+        assert len(text) <= MAX_TAIL_BYTES + 20
+
+    def test_unreadable_shell_does_not_hide_backend_and_zero_is_empty(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log").mkdir()
+        assert tail_log_lines(log_dir=tmp_path) == ["backend warning"]
+        assert tail_log_lines(0, log_dir=tmp_path) == []
+
     def test_scrubs_authorization_header(self):
         from log_tail import scrub_secrets
         out = scrub_secrets("sending Authorization: Bearer sk-abc123XYZsecret to api")
@@ -863,6 +895,47 @@ def fake_cloud(monkeypatch):
 
 
 class TestFeedbackRoutes:
+    @pytest.mark.asyncio
+    async def test_shell_logs_only_read_with_existing_consent_and_never_in_lockdown(
+        self, feedback_client_fixture, monkeypatch, tmp_path,
+    ):
+        import log_tail
+        from fastapi import HTTPException
+        from routes import feedback
+        from config import get_settings
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+        reads = []
+        sent = []
+        (tmp_path / "Stimma-shell.log").write_text("updater token=private-token\n")
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: reads.append(True) or tmp_path)
+
+        async def submit_feedback(**kwargs):
+            sent.append(kwargs)
+            return "test-feedback"
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", submit_feedback)
+        request = feedback.SubmitFeedbackRequest(kind="feedback")
+        await feedback.submit(request)
+        assert reads == []
+        request.include_logs = True
+        await feedback.submit(request)
+        assert sent[-1]["logs"] == b"[shell]\nupdater token=[redacted]"
+        assert reads == [True]
+        monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+        with pytest.raises(HTTPException) as error:
+            await feedback.submit(request)
+        assert error.value.status_code == 403
+        assert reads == [True]
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN")
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "never")
+        request.kind = "thumbs"
+        with pytest.raises(HTTPException) as error:
+            await feedback.submit(request)
+        assert error.value.status_code == 403
+        assert reads == [True]
+
     @pytest.mark.asyncio
     async def test_state_defaults(self, feedback_client_fixture, monkeypatch):
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
