@@ -282,6 +282,10 @@ async def _finalize_thinking_item(
         "thinking_content": reasoning or "",
         "thinking_duration_seconds": round(duration_seconds, 2),
     }
+    metadata["llm_call_size"] = {
+        "context_tokens": int(context_tokens),
+        "estimated_prompt_tokens": int(estimated_prompt_tokens),
+    }
     if usage:
         metadata["llm_usage"] = {
             "prompt_tokens": usage.prompt_tokens,
@@ -1729,6 +1733,10 @@ async def _run_agentic_loop_inner(
                 # Store cumulative usage for the entire agent loop (not just this call),
                 # so the session bar correctly totals all tokens across tool-call turns.
                 usage_metadata = {
+                    "llm_call_size": {
+                        "context_tokens": int(context_tokens),
+                        "estimated_prompt_tokens": int(estimated_prompt_tokens),
+                    },
                     "llm_usage": {
                         "prompt_tokens": cumulative_usage["prompt_tokens"],
                         "completion_tokens": cumulative_usage["completion_tokens"],

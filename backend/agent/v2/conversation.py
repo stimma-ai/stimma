@@ -907,7 +907,7 @@ def _read_prior_correction(items: List["ChatItem"]) -> float:
             meta = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             continue
-        usage = (meta or {}).get("llm_usage") or (meta or {}).get("llm_call_size")
+        usage = (meta or {}).get("llm_call_size") or (meta or {}).get("llm_usage")
         if not usage:
             continue
         actual = usage.get("context_tokens")
