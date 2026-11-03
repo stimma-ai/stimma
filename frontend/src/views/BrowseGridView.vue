@@ -284,6 +284,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+import { useAssetTrash } from '../composables/useAssetTrash'
 import { useCompare } from '../composables/useCompare'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
@@ -379,7 +380,6 @@ const {
   getAssetBrowserItem,
   findAssetIndex: findMediaIndex,
   bulkMarker: bulkMarkerOperation,
-  trashMany: bulkDeleteMedia,
   restore: restoreFromTrash,
   restoreMany: bulkRestoreFromTrash,
   permanentlyDelete: permanentlyDeleteMedia,
@@ -389,6 +389,7 @@ const {
   getDeletionPreview,
   getAvailableImplicitMarkers,
 } = useAssetApi()
+const { trashAssetsWithUndo: bulkDeleteMedia } = useAssetTrash()
 
 const getMediaItem = (assetId, options = {}) => (
   getAssetBrowserItem(assetId, options.includeTrashed === true)

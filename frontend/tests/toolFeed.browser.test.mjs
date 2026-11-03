@@ -24,6 +24,7 @@ async function openFeed(t, { holdFirstRead = false, jobs = [job(1)] } = {}) {
   // A current server that sits on every scope acknowledgement until released.
   const server = { scopes: [], heldAcks: [], jobReads: 0, jobs, holdFirstRead, releaseRead: null }
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
+    server.broadcast = (event, data) => ws.send(JSON.stringify({ event, data }))
     const url = new URL(ws.url())
     ws.send(JSON.stringify({ event: 'connected', data: { realtime_protocol: 1, realtime: {
       protocol: 1, profile_id: url.searchParams.get('profile'), topics: url.searchParams.getAll('topic'),
@@ -88,5 +89,19 @@ test('a confirmation reload that overtakes the first read still hides old failur
   await expect.poll(() => page.evaluate(() => window.feedInitialized === true)).toBe(true)
   // Only the live job shows; the old failure is dismissed as on a plain load.
   await expect.poll(() => page.locator('li.job').evaluateAll(els => els.map(el => el.dataset.id))).toEqual(['2'])
+  assert.deepEqual(errors, [])
+})
+
+
+test('a generated asset returns to the tool feed when trash is undone', async t => {
+  const completed = { ...job(1), status: 'completed', result_asset_id: 42, result_media_id: 7 }
+  const { page, server, errors } = await openFeed(t, { jobs: [completed] })
+  await expect(page.locator('li.job')).toHaveCount(1)
+  server.jobs = []
+  server.broadcast('assets_trashed', { asset_ids: [42] })
+  await expect(page.locator('li.job')).toHaveCount(0)
+  server.jobs = [completed]
+  server.broadcast('assets_restored', { asset_ids: [42] })
+  await expect(page.locator('li.job')).toHaveCount(1)
   assert.deepEqual(errors, [])
 })

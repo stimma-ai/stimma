@@ -165,11 +165,11 @@ function rankNameMatches<T>(
 export function useGlobalSearch() {
   const { fetchProvidersAndTools } = useProvidersApi()
 
-  async function searchEntities(q: string, limit = 8, projectId?: number | null): Promise<EntitySearchResults> {
+  async function searchEntities(q: string, limit = 8, projectId?: number | null, signal?: AbortSignal): Promise<EntitySearchResults> {
     if (!q.trim()) return { ...EMPTY_ENTITY_RESULTS }
     const params = new URLSearchParams({ q, limit: String(limit) })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/search?${params}`)
+    const response = await fetch(`/api/search?${params}`, { signal })
     if (!response.ok) throw new Error(`Search failed: ${response.status}`)
     return await response.json()
   }
@@ -179,9 +179,9 @@ export function useGlobalSearch() {
    * match across name AND provider ("ltx comfy" → LTX tools on ComfyUI —
    * both are visible on the result row, so both are fair game).
    */
-  async function searchTools(q: string, limit = 6): Promise<ProviderToolSummary[]> {
+  async function searchTools(q: string, limit = 6, signal?: AbortSignal): Promise<ProviderToolSummary[]> {
     if (!q.trim()) return []
-    const { tools } = await fetchProvidersAndTools()
+    const { tools } = await fetchProvidersAndTools(false, { signal })
     return rankNameMatches(
       tools,
       q,
@@ -214,7 +214,7 @@ export function useGlobalSearch() {
   }
 
   /** Assets whose title, filename, prompt, or type word matches every query token. */
-  async function searchMediaByPrompt(q: string, pageSize = 6, projectId?: number | null): Promise<MediaSearchHit[]> {
+  async function searchMediaByPrompt(q: string, pageSize = 6, projectId?: number | null, signal?: AbortSignal): Promise<MediaSearchHit[]> {
     if (!q.trim()) return []
     const params = new URLSearchParams({
       prompt_query: q,
@@ -223,8 +223,8 @@ export function useGlobalSearch() {
       sort_by: 'created_desc',
     })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/assets/browse?${params}`)
-    if (!response.ok) return []
+    const response = await fetch(`/api/assets/browse?${params}`, { signal })
+    if (!response.ok) throw new Error(`Search failed: ${response.status}`)
     const data = await response.json()
     return data.items || []
   }
@@ -237,12 +237,12 @@ export function useGlobalSearch() {
    * matching set per type and returns the first `maxGroups` present types
    * with their newest `perGroup` items. Recency only orders within a group.
    */
-  async function searchAssetGroups(q: string, perGroup: number, maxGroups: number, projectId?: number | null): Promise<AssetGroup[]> {
+  async function searchAssetGroups(q: string, perGroup: number, maxGroups: number, projectId?: number | null, signal?: AbortSignal): Promise<AssetGroup[]> {
     if (!q.trim()) return []
     const params = new URLSearchParams({ q, per_group: String(perGroup), max_groups: String(maxGroups) })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/assets/search-groups?${params}`)
-    if (!response.ok) return []
+    const response = await fetch(`/api/assets/search-groups?${params}`, { signal })
+    if (!response.ok) throw new Error(`Search failed: ${response.status}`)
     const payload = await response.json()
     const groups: AssetGroup[] = []
     for (const entry of payload.groups || []) {
@@ -254,7 +254,7 @@ export function useGlobalSearch() {
   }
 
   /** Assets that VISUALLY match the query via CLIP text-to-image similarity. */
-  async function searchMediaVisual(q: string, pageSize = 6, projectId?: number | null): Promise<MediaSearchHit[]> {
+  async function searchMediaVisual(q: string, pageSize = 6, projectId?: number | null, signal?: AbortSignal): Promise<MediaSearchHit[]> {
     if (!q.trim()) return []
     const params = new URLSearchParams({
       similar_to_text: q,
@@ -263,8 +263,8 @@ export function useGlobalSearch() {
       page_size: String(pageSize),
     })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/assets/browse?${params}`)
-    if (!response.ok) return []
+    const response = await fetch(`/api/assets/browse?${params}`, { signal })
+    if (!response.ok) throw new Error(`Search failed: ${response.status}`)
     const data = await response.json()
     return data.items || []
   }

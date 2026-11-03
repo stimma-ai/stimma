@@ -51,10 +51,10 @@
       <div class="text-center">
         <h2 class="text-lg font-medium text-content mb-1">
           <span class="compact:hidden">{{ isDragging ? 'Drop to upload' : 'Drag files here to upload' }}</span>
-          <span class="hidden compact:inline">Add photos and videos</span>
+          <span class="hidden compact:inline">Add media</span>
         </h2>
         <p class="text-sm text-content-tertiary">
-          Images and videos will be imported
+          Import images, videos, audio and SVG files
         </p>
       </div>
 
@@ -66,7 +66,7 @@
         ref="fileInput"
         type="file"
         multiple
-        accept="image/*,video/*"
+        :accept="LIBRARY_UPLOAD_ACCEPT"
         class="hidden"
         @change="handleFileSelect"
       />
@@ -116,8 +116,11 @@
           class="aspect-square rounded-media overflow-hidden cursor-pointer"
           @click="openSlideshow(index)"
         >
-          <AppImage
-            :src="getThumbnailUrl(item.file_hash)"
+          <MediaImage
+            :media-id="item.media_id"
+            :file-hash="item.file_hash"
+            :file-format="item.filename.split('.').pop()?.toLowerCase()"
+            :enable-context-menu="false"
             :alt="item.filename"
             container-class="w-full h-full"
           />
@@ -128,13 +131,14 @@
 </template>
 
 <script setup lang="ts">
+import { LIBRARY_UPLOAD_ACCEPT } from '../utils/libraryUploadFormats'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLibraryUpload, type UploadResult } from '../composables/useLibraryUpload'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useSlideshow } from '../composables/useSlideshow'
 import { AutoMarkPicker } from '../components/generation'
-import { AppImage } from '../components/media'
+import { MediaImage } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import Spinner from '../components/ui/Spinner.vue'
 import Button from '../components/ui/Button.vue'
@@ -149,8 +153,8 @@ interface Marker {
   color: string
 }
 
-const { progress, showProgress, percentComplete, statusText, uploadFiles, clearProgress, filterMediaFiles } = useLibraryUpload()
-const { getMarkers, getThumbnailUrl } = useMediaApi()
+const { progress, showProgress, percentComplete, statusText, uploadFiles, clearProgress } = useLibraryUpload()
+const { getMarkers } = useMediaApi()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 
 const isDragging = ref(false)
@@ -245,10 +249,7 @@ async function handleFileSelect(e: Event) {
 }
 
 async function doUpload(files: File[]) {
-  const mediaFiles = filterMediaFiles(files)
-  if (mediaFiles.length === 0) return
-
-  const results = await uploadFiles(mediaFiles, selectedMarkerIds.value, projectId.value)
+  const results = await uploadFiles(files, selectedMarkerIds.value, projectId.value)
   const successful = results.filter(r => r.status === 'success' && r.file_hash && r.media_id)
   // Prepend newest first, dedup by media_id
   const existingIds = new Set(uploadedMedia.value.map(m => m.media_id))

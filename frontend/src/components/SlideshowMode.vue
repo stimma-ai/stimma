@@ -1330,6 +1330,7 @@ import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+import { useAssetTrash } from '../composables/useAssetTrash'
 import { useTelemetry } from '../composables/useTelemetry'
 import { addToast } from '../composables/useToasts'
 import { useProvidersApi } from '../composables/useProvidersApi'
@@ -1483,7 +1484,6 @@ const emit = defineEmits(['close', 'filterByKeyword', 'findSimilar', 'update:ind
 
 const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
 const {
-  trash: trashAsset,
   restore: restoreAsset,
   permanentlyDelete: permanentlyDeleteAsset,
   addMarker: addMarkerToAsset,
@@ -1621,6 +1621,8 @@ const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPl
 const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
+const { trashAssetsWithUndo } = useAssetTrash()
+const trashAsset = assetId => trashAssetsWithUndo([assetId])
 const { isCompact: slideshowCompact, allowsAutofocus } = useViewport()
 // Phones always take the whole screen: inline embedding (chat, tool, flow) is a desktop layout.
 const fullscreen = computed(() => !props.inline || slideshowCompact.value)

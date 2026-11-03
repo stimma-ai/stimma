@@ -365,6 +365,7 @@ import { useBoardMultiSelect } from '../composables/useBoardMultiSelect'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
+import { useAssetTrash } from '../composables/useAssetTrash'
 import { useToasts } from '../composables/useToasts'
 import { createDragPreview, createSectionDragPreview, cleanupSectionDragPreview, handleDragEnd as handleDragPreviewEnd } from '../composables/useDragPreview'
 import { useSlideshow } from '../composables/useSlideshow'
@@ -392,13 +393,13 @@ const {
 const {
   getAssetBrowserItem,
   addToBoard,
-  trashMany: bulkDeleteMedia,
   bulkMarker: bulkMarkerOperation,
   bulkMoveBoardItems,
   bulkRemoveFromBoard,
   moveBoardItem,
   removeFromBoardSection: removeMediaFromBoardSection,
 } = useAssetApi()
+const { trashAssetsWithUndo: bulkDeleteMedia } = useAssetTrash()
 const { addToast } = useToasts()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 
@@ -984,9 +985,13 @@ function handleBoardsAdded() {
 async function handleBulkMoveToTrash() {
   if (selectedItemIds.value.length === 0) return
   const ids = [...selectedItemIds.value]
-  selectNone()
-  await bulkDeleteMedia(ids)
-  await loadBoard()
+  try {
+    await bulkDeleteMedia(ids)
+    selectNone()
+    await loadBoard()
+  } catch {
+    addToast('Could not move assets to Trash', 'error')
+  }
 }
 
 function handleExport() {
@@ -1914,6 +1919,10 @@ const unsubReconnected = on('websocket_reconnected', () => {
   if (!boardVisible) { boardStale = true; return undefined }
   return loadBoard()
 })
+const assetLifecycleUnsubscribers = ['assets_trashed', 'asset_trashed', 'assets_restored', 'asset_restored'].map(event => on(event, () => {
+  if (!boardVisible) { boardStale = true; return }
+  void loadBoard().catch(() => {})
+}))
 onActivated(() => {
   boardVisible = true
   if (boardStale) { boardStale = false; void loadBoard().catch(() => {}) }
@@ -1935,6 +1944,7 @@ onUnmounted(() => {
   unsubBoardUpdated()
   unsubMediaUpdated()
   unsubReconnected()
+  assetLifecycleUnsubscribers.forEach(unsubscribe => unsubscribe())
   stopAutoScroll()
   if (pendingSectionFallbackCommit) {
     clearTimeout(pendingSectionFallbackCommit)

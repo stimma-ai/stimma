@@ -28,8 +28,23 @@
       </div>
     </template>
 
+    <div class="shrink-0 px-6 py-3 compact:px-4">
+      <input v-model="settingsQuery" type="search" aria-label="Search settings" placeholder="Search settings…"
+        class="w-full rounded-md bg-overlay-subtle px-3 py-2 text-sm text-content placeholder:text-content-muted outline-none focus-visible:ring-2 ring-accent/60"
+        @keydown.enter.prevent="settingsMatches[0] && openSetting(settingsMatches[0])" />
+    </div>
+    <div v-if="settingsQuery.trim()" class="flex-1 min-h-0 overflow-y-auto px-6 pb-4 compact:px-4" aria-label="Settings search results">
+      <p v-if="!settingsMatches.length" role="status" class="py-6 text-sm text-content-tertiary">No settings match “{{ settingsQuery }}”.</p>
+      <button v-for="hit in settingsMatches" :key="`${hit.section}:${hit.label}`" type="button"
+        class="flex w-full flex-col gap-1 rounded-md px-3 py-3 text-left hover:bg-overlay-subtle focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+        @click="openSetting(hit)">
+        <span class="text-sm text-content">{{ hit.label }}</span>
+        <span class="text-xs text-content-tertiary">{{ hit.sectionLabel }}</span>
+      </button>
+    </div>
+
     <!-- Content -->
-    <div class="flex flex-1 overflow-hidden">
+    <div v-show="!settingsQuery.trim()" class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Sidebar -->
       <SettingsSidebar
         v-show="!isCompact || compactList"
@@ -44,7 +59,7 @@
       />
 
       <!-- Main content area -->
-      <div data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
+      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />
@@ -216,6 +231,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { searchSettings } from '../../utils/settingsSearch'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { useTelemetry } from '../../composables/useTelemetry'
@@ -287,6 +303,55 @@ const pinModalProfileName = computed(() => {
   return profile?.name || ''
 })
 
+const settingsQuery = ref('')
+const settingsMatches = computed(() => searchSettings(settingsQuery.value))
+const settingsContent = ref(null)
+let stopHighlight = () => {}
+
+async function openSetting(hit) {
+  stopHighlight()
+  activeSection.value = hit.section
+  compactList.value = false
+  settingsQuery.value = ''
+  await nextTick()
+  const content = settingsContent.value
+  if (!content) return
+  let highlighted = null
+  let observer = null
+  let timer = null
+  const classes = ['ring-2', 'ring-accent/60', 'rounded-md']
+  const cleanup = () => {
+    observer?.disconnect()
+    clearTimeout(timer)
+    highlighted?.classList.remove(...classes)
+  }
+  stopHighlight = cleanup
+  const highlight = () => {
+    const normalize = text => text.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+    const target = [...content.querySelectorAll('[data-setting-label], h2, h3, h4')].find(node =>
+      normalize(node.dataset.settingLabel || node.textContent || '') === normalize(hit.label))
+    if (!target) return false
+    highlighted = target
+    target.classList.add(...classes)
+    target.setAttribute('tabindex', '-1')
+    target.focus({ preventScroll: true })
+    target.scrollIntoView({ block: 'nearest' })
+    observer?.disconnect()
+    clearTimeout(timer)
+    timer = setTimeout(cleanup, 3000)
+    return true
+  }
+  if (!highlight()) {
+    content.scrollTop = 0
+    // Some sections load their controls asynchronously.
+    observer = new MutationObserver(highlight)
+    observer.observe(content, { childList: true, subtree: true })
+    timer = setTimeout(cleanup, 5000)
+  }
+}
+watch(() => props.show, show => { if (!show) { settingsQuery.value = ''; stopHighlight() } })
+onUnmounted(() => stopHighlight())
+
 const activeSection = ref('folders')
 const { isCompact } = useViewport()
 // Compact viewports show the section list first, then one section with a
@@ -296,7 +361,7 @@ watch(() => props.show, (open) => { if (open) compactList.value = props.startAtL
 const SECTION_LABELS = {
   folders: 'Folders', markers: 'Markers', wildcards: 'Prompt variables', agent: 'Agent', account: 'Stimma account', 'shared-links': 'Shared links',
   server: 'Stimma server', tools: 'Generation tools', 'ai-services': 'Chat models', 'model-preferences': 'Preferences',
-  profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer', stimpacks: 'Stimpacks',
+  mcp: 'MCP', profiles: 'Profiles', background: 'Background work', privacy: 'Privacy', updates: 'About', developer: 'Developer', stimpacks: 'Stimpacks',
 }
 const activeSectionLabel = computed(() => SECTION_LABELS[activeSection.value] || 'Settings')
 const aiServicesSection = ref(null)
@@ -383,6 +448,7 @@ function handleKeydown(e) {
     const layer = document.querySelector('[data-settings-content]')?.closest('[data-modal-layer]')
     if (!isTopmostEscapeLayer(layer)) return
     consumeEscape(e)
+    if (settingsQuery.value) { settingsQuery.value = ''; return }
     if (activeSection.value === 'ai-services' && aiServicesSection.value?.handleEscape?.()) {
       return
     }

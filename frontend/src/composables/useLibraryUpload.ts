@@ -8,17 +8,12 @@
 import { ref, computed, reactive } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import { isLibraryUpload } from '../utils/libraryUploadFormats'
+import { addToast } from './useToasts'
 
 function getAPIBase() {
   return getApiBase()
 }
-
-// Image file types we accept
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
-const ACCEPTED_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES]
-
-const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.mov']
 
 export interface UploadProgress {
   isUploading: boolean
@@ -75,15 +70,7 @@ export function useLibraryUpload() {
    * Filter files to only include accepted media types.
    */
   function filterMediaFiles(files: File[]): File[] {
-    return files.filter(file => {
-      // Check MIME type first
-      if (ACCEPTED_TYPES.includes(file.type)) {
-        return true
-      }
-      // Fall back to extension check (for files with missing MIME)
-      const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-      return ACCEPTED_EXTENSIONS.includes(ext)
-    })
+    return files.filter(isLibraryUpload)
   }
 
   /**
@@ -102,6 +89,11 @@ export function useLibraryUpload() {
   ): Promise<UploadResult[]> {
     // Filter to media files only
     const mediaFiles = filterMediaFiles(files)
+    const rejected = files.filter(file => !isLibraryUpload(file))
+    if (rejected.length) {
+      const names = rejected.slice(0, 3).map(file => file.name).join(', ')
+      addToast(`Skipped ${rejected.length} unsupported ${rejected.length === 1 ? 'file' : 'files'}: ${names}${rejected.length > 3 ? '…' : ''}. Supported: images, videos, audio and SVG.`, 'warning', 8000)
+    }
 
     if (mediaFiles.length === 0) {
       console.log('[LibraryUpload] No valid media files to upload')

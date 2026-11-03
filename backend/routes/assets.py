@@ -1690,8 +1690,11 @@ async def trash_assets(
     request: AssetIdsRequest, session: AsyncSession = Depends(get_db_session)
 ):
     changed = []
-    for asset_id in request.asset_ids:
+    for asset_id in dict.fromkeys(request.asset_ids):
         try:
+            asset = await session.get(Asset, asset_id)
+            if asset is None or asset.state != "active":
+                continue
             await trash_asset(session, asset_id=asset_id)
             changed.append(asset_id)
         except AssetServiceError:

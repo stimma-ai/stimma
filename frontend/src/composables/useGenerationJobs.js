@@ -9,6 +9,7 @@ import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
 import { instanceMatchesFeedScope } from './useGenerationStatus.js'
 import { getApiBase } from '../apiConfig'
+import { addToast } from './useToasts'
 
 function getAPIBase() {
   return getApiBase()
@@ -914,42 +915,70 @@ export function useGenerationJobs(options = {}) {
     }
   }
 
-  async function dismissJob(jobId) {
-    try {
-      await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
-      jobs.value = jobs.value.filter(j => j.id !== jobId)
-      dismissedJobs.value.add(jobId)
-      dismissedJobs.value = new Set(dismissedJobs.value)
-    } catch (err) {
-      console.error('Failed to delete job:', err)
-      dismissedJobs.value.add(jobId)
-      dismissedJobs.value = new Set(dismissedJobs.value)
-    }
+  // Deduplicate repeated clicks while the server is acknowledging an action.
+  const jobActions = new Map()
+  function actOnJob(key, request) {
+    if (jobActions.has(key)) return jobActions.get(key)
+    const action = request().finally(() => jobActions.delete(key))
+    jobActions.set(key, action)
+    return action
   }
 
-  async function retryJob(jobId) {
-    try {
-      // The retry endpoint re-queues the SAME job (same id, batch_id) and
-      // broadcasts generation_job_queued, which updates the tile in place. Do
-      // NOT dismiss/hard-delete it afterwards — that would undo the retry.
-      await axios.post(`${getAPIBase()}/generate/jobs/${jobId}/retry`)
-      console.log('Job retry submitted')
-    } catch (err) {
-      console.error('Failed to retry job:', err)
-    }
+  function dismissJob(jobId) {
+    return actOnJob(`dismiss:${jobId}`, async () => {
+      try {
+        await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}?hard_delete=true`)
+        jobs.value = jobs.value.filter(j => j.id !== jobId)
+        dismissedJobs.value = new Set([...dismissedJobs.value, jobId])
+        return true
+      } catch {
+        addToast('Could not dismiss this job. It is still visible; please try again.', 'error')
+        return false
+      }
+    })
   }
 
-  // Cancel a job (queued or processing)
-  async function cancelJob(jobId) {
-    try {
-      await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}`)
-      // Job will be removed via WebSocket event
-      console.log(`Job ${jobId} cancelled`)
+  function retryJob(jobId) {
+    return actOnJob(`retry:${jobId}`, async () => {
+      try {
+        // Retry requeues the same ID; its WebSocket event updates the tile.
+        await axios.post(`${getAPIBase()}/generate/jobs/${jobId}/retry`)
+        return true
+      } catch {
+        addToast('Could not retry this job. Please try again.', 'error')
+        return false
+      }
+    })
+  }
+
+  function cancelJob(jobId, { notifyOnError = true } = {}) {
+    return actOnJob(`cancel:${jobId}`, async () => {
+      try {
+        await axios.delete(`${getAPIBase()}/generate/jobs/${jobId}`)
+        // Acknowledgement succeeded; the WebSocket event updates the tile.
+        return true
+      } catch {
+        if (notifyOnError) addToast('Could not cancel this job. It may still be running; please try again.', 'error', 8000)
+        return false
+      }
+    })
+  }
+
+  function cancelAndDismissBatch(batchId) {
+    return actOnJob(`batch:${batchId}`, async () => {
+      const batch = batchJobs.value[batchId]
+      const active = batch?.jobs.filter(job => ['queued', 'assigned', 'enhancing', 'processing'].includes(job.status)) || []
+      let failed = 0
+      for (const job of active) {
+        if (!await cancelJob(job.id, { notifyOnError: false })) failed++
+      }
+      if (failed) {
+        addToast(`Could not cancel ${failed} ${failed === 1 ? 'job' : 'jobs'}. The batch is still visible; try cancelling it again.`, 'error', 8000)
+        return false
+      }
+      dismissBatch(batchId)
       return true
-    } catch (err) {
-      console.error('Failed to cancel job:', err)
-      return false
-    }
+    })
   }
 
   // Cancel all queued jobs for the current instance
@@ -963,7 +992,8 @@ export function useGenerationJobs(options = {}) {
       return response.data?.cancelled_count || 0
     } catch (err) {
       console.error('Failed to cancel queued jobs:', err)
-      return 0
+      addToast('Could not clear the queue. Jobs may still be queued; please try again.', 'error', 8000)
+      return null
     }
   }
 
@@ -1218,6 +1248,12 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('asset_deleted', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('asset_trashed', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('assets_trashed', handleAssetsRemoved))
+    const refreshRestoredAssets = data => {
+      if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
+      return loadJobs(true)
+    }
+    unsubscribers.push(onWebSocketEvent('asset_restored', refreshRestoredAssets))
+    unsubscribers.push(onWebSocketEvent('assets_restored', refreshRestoredAssets))
     unsubscribers.push(onWebSocketEvent('asset_identity_deleted', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeleted))
     unsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleBulkMediaDeleted))
@@ -1327,6 +1363,7 @@ export function useGenerationJobs(options = {}) {
     dismissChainRun,
     cancelJob,
     cancelAllQueued,
+    cancelAndDismissBatch,
     handleMediaLoadError,
     getJobPrompt,
     getGenerationTime,

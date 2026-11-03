@@ -59,8 +59,8 @@ export function useAssetApi() {
     return (await axios.get(`${api()}/assets/${assetId}/deletion-preview`)).data
   }
 
-  async function getContextualMedia(params: Record<string, unknown> = {}) {
-    return (await axios.get(`${api()}/assets/contextual-media`, { params })).data
+  async function getContextualMedia(params: Record<string, unknown> = {}, config: { signal?: AbortSignal } = {}) {
+    return (await axios.get(`${api()}/assets/contextual-media`, { ...config, params })).data
   }
 
   /** Keeps a contextual Media as an Asset, attached to `projectId` when given. */

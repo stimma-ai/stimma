@@ -1233,7 +1233,7 @@ import Spinner from '../components/ui/Spinner.vue'
 import Button from '../components/ui/Button.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useMediaApi } from '../composables/useMediaApi'
-import { useAssetApi } from '../composables/useAssetApi'
+import { useAssetTrash } from '../composables/useAssetTrash'
 import { useExpirationClock } from '../composables/useExpirationClock'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useToolState, type ToolState } from '../composables/useToolState'
@@ -1959,7 +1959,8 @@ const { getProviderTool, getToolState, saveToolState, refreshProviderTools, subs
 let unsubscribeFromProviderChanges: (() => void) | null = null
 let foreverModeUnsubscribers: Array<() => void> = []
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl, getMseLoopUrls, getProject } = useMediaApi()
-const { trash: trashAsset } = useAssetApi()
+const { trashAssetsWithUndo } = useAssetTrash()
+const trashAsset = (assetId: number) => trashAssetsWithUndo([assetId])
 const { formatRemainingTime } = useExpirationClock()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
 
@@ -7161,21 +7162,19 @@ function closeInfoModal() {
 }
 
 async function handleErrorModalRetry(jobId: number) {
-  closeErrorModal()
-  await retryJob(jobId)
+  if (await retryJob(jobId)) closeErrorModal()
 }
 
 async function handleErrorModalDismiss(jobId: number) {
-  closeErrorModal()
-  await dismissJob(jobId)
+  if (await dismissJob(jobId)) closeErrorModal()
 }
 
 async function dismissJob(jobId: number) {
-  await jobsManager?.dismissJob(jobId)
+  return await jobsManager?.dismissJob(jobId)
 }
 
 async function retryJob(jobId: number) {
-  await jobsManager?.retryJob(jobId)
+  return await jobsManager?.retryJob(jobId)
 }
 
 async function cancelJob(jobId: number | string) {
@@ -7187,17 +7186,7 @@ async function cancelJob(jobId: number | string) {
 }
 
 async function cancelAndDismissBatch(batchId: string) {
-  // Cancel all jobs in the batch that are still cancellable
-  const batch = jobsManager?.batchJobs.value[batchId]
-  if (batch) {
-    for (const job of batch.jobs) {
-      if (['queued', 'assigned', 'enhancing', 'processing'].includes(job.status)) {
-        await jobsManager?.cancelJob(job.id)
-      }
-    }
-  }
-  // Always dismiss the batch from UI regardless of job states
-  jobsManager?.dismissBatch(batchId)
+  await jobsManager?.cancelAndDismissBatch(batchId)
 }
 
 function dismissBatch(batchId: string) {

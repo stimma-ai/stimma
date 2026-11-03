@@ -911,6 +911,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAssetTrash } from '../../composables/useAssetTrash'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
@@ -984,6 +985,7 @@ const router = useRouter()
 const { activeProjectId: workingProjectId } = useWorkingContext()
 const { tabs: workspaceTabs, resolveToolInstance } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
+const { trashAssetsWithUndo } = useAssetTrash()
 const { isCoarsePointer, allowsAutofocus } = useViewport()
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject, getMediaProjects } = useMediaApi()
@@ -996,8 +998,6 @@ const {
   removeFromBoardSection,
   removeFromProject: removeAssetFromProject,
   getProjects: getAssetProjects,
-  trash: trashAsset,
-  trashMany: trashAssets,
   restore: restoreAsset,
   restoreMany: restoreAssets,
   permanentlyDelete: permanentlyDeleteAsset,
@@ -2299,14 +2299,14 @@ async function handleKeepInAllAssets() {
 }
 
 async function handleMoveToTrash() {
-  const ids = targetIds.value
+  const ids = [...targetIds.value]
+  const assetIds = [...targetAssetIds.value]
   contextMenu.hide()
   if (ids.length === 0) return
 
   try {
-    if (targetAssetIds.value.length > 0) {
-      if (ids.length > 1) await trashAssets(ids)
-      else await trashAsset(ids[0])
+    if (assetIds.length > 0) {
+      await trashAssetsWithUndo(assetIds)
     } else if (ids.length > 1) {
       await bulkDeleteMedia(ids)
     } else {
@@ -2315,6 +2315,7 @@ async function handleMoveToTrash() {
     emit('refresh')
   } catch (err) {
     console.error('Failed to move to trash:', err)
+    addToast('Could not move assets to Trash', 'error')
   }
 }
 

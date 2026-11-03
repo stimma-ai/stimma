@@ -46,6 +46,11 @@
           <template v-else-if="q && totalCount > 0">{{ totalCount }} {{ totalCount === 1 ? 'match' : 'matches' }} across {{ matchedKindsLabel }}</template>
         </div>
 
+        <div v-if="failedSearchSections.length" role="status" class="mb-6 flex flex-wrap items-center gap-3 text-sm text-content-secondary" data-search-failures>
+          <span>Could not search: {{ failedSearchSections.join(', ') }}. Results may be incomplete.</span>
+          <Button variant="secondary" size="sm" @click="retrySearch">Retry failed searches</Button>
+        </div>
+
         <!-- Skeleton while the first results for this query load -->
         <div v-if="showSkeleton" class="space-y-10 pb-12">
           <section v-for="s in 2" :key="`skc-${s}`">
@@ -72,7 +77,7 @@
         </div>
 
         <!-- No matches at all: one empty state with the library escape hatches -->
-        <div v-else-if="totalCount === 0" class="py-24 flex flex-col gap-6">
+        <div v-else-if="totalCount === 0 && !loading && failedSearchSections.length === 0" class="py-24 flex flex-col gap-6">
           <EmptyState
             icon="search"
             :title="`No matches for “${q}”`"
@@ -313,8 +318,10 @@
 </template>
 
 <script setup lang="ts">
+import { useSearchTasks } from '../composables/useSearchTasks'
+import Button from '../components/ui/Button.vue'
 import { useEntityMove } from '../composables/useEntityMove'
-import { ref, computed, watch, h, defineComponent, onActivated, type PropType } from 'vue'
+import { ref, computed, watch, h, defineComponent, onActivated, onDeactivated, onBeforeUnmount, type PropType } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useRoute, useRouter } from 'vue-router'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
@@ -390,8 +397,8 @@ function clearScope() {
   router.replace({ query: restQuery })
 }
 
-const loading = ref(false)
-const showSkeleton = computed(() => loading.value && totalCount.value === 0)
+const { loading, failed: failedSearchSections, run: runSearchTasks, retry: retrySearch, cancel: cancelSearchTasks } = useSearchTasks()
+const showSkeleton = computed(() => loading.value && totalCount.value === 0 && failedSearchSections.value.length === 0)
 const entityResults = ref<EntitySearchResults | null>(null)
 const toolResults = ref<ProviderToolSummary[]>([])
 const assetGroups = ref<AssetGroup[]>([])
@@ -532,51 +539,33 @@ const matchedKindsLabel = computed(() => {
 })
 
 let searchSeq = 0
-
+onBeforeUnmount(() => { searchSeq++ })
+onDeactivated(() => { searchSeq++; cancelSearchTasks() })
 async function runSearch() {
-  const current = q.value
   const seq = ++searchSeq
-  if (!current) {
-    entityResults.value = null
-    toolResults.value = []
-    assetGroups.value = []
-    visualResults.value = []
-    contextualGroups.value = []
-    return
-  }
-  loading.value = true
-  // A NEW query's load shows the skeleton instead of the previous query's
-  // (now wrong) results; a same-query refresh keeps content in place.
-  if (lastLoadedQuery.value !== current) {
+  const current = q.value
+  if (!current || lastLoadedQuery.value !== current) {
     entityResults.value = null
     toolResults.value = []
     assetGroups.value = []
     visualResults.value = []
     contextualGroups.value = []
   }
-  try {
-    const projectId = scopeProjectId.value
-    const [entities, tools, prompt, visual, contextual] = await Promise.all([
-      searchEntities(current, PAGE_ENTITY_LIMIT, projectId).catch(() => null),
-      searchTools(current, PAGE_TOOL_LIMIT).catch(() => []),
-      searchAssetGroups(current, PAGE_MEDIA_LIMIT, PAGE_ASSET_GROUPS, projectId).catch(() => []),
-      searchMediaVisual(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
-      projectId == null
-        ? getContextualMedia({ q: current, limit: PAGE_MEDIA_LIMIT * 3 }).catch(() => ({ groups: [] }))
-        : Promise.resolve({ groups: [] }),
-    ])
-    if (seq !== searchSeq) return
-    entityResults.value = entities
-    toolResults.value = tools
-    assetGroups.value = prompt
-    visualResults.value = visual
-    contextualGroups.value = contextual.groups || []
-    if (entities && entities.presets.length > 0) void ensureToolNames()
-    lastLoadedQuery.value = current
-    consumeSlideshowParam()
-  } finally {
-    if (seq === searchSeq) loading.value = false
-  }
+  if (!current) { lastLoadedQuery.value = null; return runSearchTasks([]) }
+  const projectId = scopeProjectId.value
+  await runSearchTasks([
+    { label: 'Chats, boards, flows and projects', read: signal => searchEntities(current, PAGE_ENTITY_LIMIT, projectId, signal), apply: entities => {
+      entityResults.value = entities
+      if (entities.presets.length) void ensureToolNames()
+    } },
+    { label: 'Tools', read: signal => searchTools(current, PAGE_TOOL_LIMIT, signal), apply: tools => { toolResults.value = tools } },
+    { label: 'Assets', read: signal => searchAssetGroups(current, PAGE_MEDIA_LIMIT, PAGE_ASSET_GROUPS, projectId, signal), apply: groups => { assetGroups.value = groups } },
+    { label: 'Visual matches', read: signal => searchMediaVisual(current, PAGE_MEDIA_LIMIT, projectId, signal), apply: items => { visualResults.value = items } },
+    ...(projectId == null ? [{ label: 'In chats and runs', read: (signal: AbortSignal) => getContextualMedia({ q: current, limit: PAGE_MEDIA_LIMIT * 3 }, { signal }), apply: (payload: any) => { contextualGroups.value = payload.groups || [] } }] : []),
+  ])
+  if (seq !== searchSeq) return
+  lastLoadedQuery.value = current
+  consumeSlideshowParam()
 }
 
 function contextualRootLabel(group: ContextualGroup) {
@@ -652,6 +641,7 @@ async function ensureToolNames() {
 }
 
 watch([q, scopeProjectId], () => {
+  lastLoadedQuery.value = ''
   void runSearch()
   void loadScopeProjectName()
 }, { immediate: true })

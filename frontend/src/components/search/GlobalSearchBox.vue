@@ -218,7 +218,11 @@
         </div>
       </template>
 
-      <div v-if="loading && sections.length === 0" class="px-3.5 py-4 text-[12.5px] text-content-muted">
+      <div v-if="failedSearchSections.length" role="status" class="flex flex-wrap items-center gap-2 px-3.5 py-3 text-xs text-content-secondary" data-search-failures>
+        <span>Could not search: {{ failedSearchSections.join(', ') }}.</span>
+        <Button variant="ghost" size="sm" @mousedown.prevent @click="retrySearch">Retry failed searches</Button>
+      </div>
+      <div v-if="loading" class="px-3.5 py-4 text-[12.5px] text-content-muted">
         Searching…
       </div>
 
@@ -236,6 +240,9 @@
 </template>
 
 <script setup lang="ts">
+import { useSearchTasks } from '../../composables/useSearchTasks'
+import { withReadDeadline } from '../../utils/readDeadline'
+import Button from '../ui/Button.vue'
 import { ref, computed, inject, nextTick, watch, onBeforeUnmount, type ComputedRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
@@ -331,7 +338,7 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const voiceBtn = ref<any>(null)
 const query = ref('')
 const isOpen = ref(false)
-const loading = ref(false)
+const { loading, failed: failedSearchSections, run: runSearchTasks, retry: retrySearch, cancel: cancelSearch } = useSearchTasks()
 const selectedIndex = ref(0)
 
 // Project scope chip. Seeded from the app-level project context (same
@@ -568,6 +575,8 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let searchSeq = 0
 
 watch(query, () => {
+  searchSeq++
+  cancelSearch()
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(runSearch, DEBOUNCE_MS)
 })
@@ -575,76 +584,53 @@ watch(query, () => {
 async function runSearch() {
   const q = query.value.trim()
   const seq = ++searchSeq
-  if (!q) {
-    entityResults.value = null
-    toolResults.value = []
-    openInstanceResults.value = []
-    assetGroupResults.value = []
-    visualMediaResults.value = []
-    contextualMediaResults.value = []
-    outside.value = null
-    selectedIndex.value = 0
-    return
-  }
-  loading.value = true
-  try {
-    // Entity + tool matches land together; the two asset flavors fill in
-    // after so they never delay the navigational hits.
-    const projectId = scopeProject.value?.id ?? null
-    outside.value = null
-    if (projectId != null) void countOutsideMatches(q, projectId, seq)
-    // Asset groups are the slowest hit; start them with the navigational
-    // searches rather than after, so nothing waits on anything else.
-    searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId).then(groups => {
-      if (seq === searchSeq) assetGroupResults.value = groups
-    }).catch(() => {})
-    const [entities, tools] = await Promise.all([
-      searchEntities(q, DROPDOWN_ENTITY_LIMIT, projectId).catch(() => null),
-      searchTools(q, DROPDOWN_TOOL_LIMIT).catch(() => []),
-    ])
-    if (seq !== searchSeq) return
-    entityResults.value = entities
-    toolResults.value = tools
-    openInstanceResults.value = searchOpenToolInstances(q, 5, projectId)
-    selectedIndex.value = 0
-    if (entities && entities.presets.length > 0) void ensureToolCatalog()
-    if (openInstanceResults.value.length > 0) void ensureToolCatalog()
-    searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
-      if (seq === searchSeq) visualMediaResults.value = items
-    }).catch(() => {})
-    if (projectId == null) {
-      getContextualMedia({ q, limit: DROPDOWN_MEDIA_LIMIT * 3 }).then(payload => {
-        if (seq !== searchSeq) return
-        const seen = new Set<number>()
-        contextualMediaResults.value = (payload.groups || []).flatMap((group: any) =>
-          (group.items || []).map((media: MediaSearchHit) => ({
-            ...media,
-            root_kind: group.root_kind,
-            root_id: group.root_id,
-          })),
-        ).filter((media: MediaSearchHit) => {
-          if (seen.has(media.id)) return false
-          seen.add(media.id)
-          return true
-        }).slice(0, DROPDOWN_MEDIA_LIMIT)
-      }).catch(() => {})
-    } else {
-      contextualMediaResults.value = []
-    }
-  } finally {
-    if (seq === searchSeq) loading.value = false
-  }
+  entityResults.value = null
+  toolResults.value = []
+  openInstanceResults.value = []
+  assetGroupResults.value = []
+  visualMediaResults.value = []
+  contextualMediaResults.value = []
+  outside.value = null
+  selectedIndex.value = 0
+  if (!q) return runSearchTasks([])
+  const projectId = scopeProject.value?.id ?? null
+  if (projectId != null) void countOutsideMatches(q, projectId, seq)
+  openInstanceResults.value = searchOpenToolInstances(q, 5, projectId)
+  if (openInstanceResults.value.length) void ensureToolCatalog()
+  return runSearchTasks([
+    { label: 'Chats, boards, flows and projects', read: signal => searchEntities(q, DROPDOWN_ENTITY_LIMIT, projectId, signal), apply: entities => {
+      entityResults.value = entities
+      if (entities.presets.length) void ensureToolCatalog()
+    } },
+    { label: 'Tools', read: signal => searchTools(q, DROPDOWN_TOOL_LIMIT, signal), apply: tools => { toolResults.value = tools } },
+    { label: 'Assets', read: signal => searchAssetGroups(q, Math.max(DROPDOWN_ASSET_ROWS, DROPDOWN_MEDIA_LIMIT), DROPDOWN_ASSET_GROUPS, projectId, signal), apply: groups => { assetGroupResults.value = groups } },
+    { label: 'Visual matches', read: signal => searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId, signal), apply: items => { visualMediaResults.value = items } },
+    ...(projectId == null ? [{ label: 'In chats and runs', read: (signal: AbortSignal) => getContextualMedia({ q, limit: DROPDOWN_MEDIA_LIMIT * 3 }, { signal }), apply: (payload: any) => {
+      const seen = new Set<number>()
+      contextualMediaResults.value = (payload.groups || []).flatMap((group: any) =>
+        (group.items || []).map((media: MediaSearchHit) => ({ ...media, root_kind: group.root_kind, root_id: group.root_id })),
+      ).filter((media: MediaSearchHit) => {
+        if (seen.has(media.id)) return false
+        seen.add(media.id)
+        return true
+      }).slice(0, DROPDOWN_MEDIA_LIMIT)
+    } }] : []),
+  ])
 }
 
 // Inside a project, also run the unscoped search to tell the user what lies
 // outside it. Asset totals compare every type, scoped and unscoped.
 async function countOutsideMatches(q: string, projectId: number, seq: number) {
   const totals = (groups: AssetGroup[]) => groups.reduce((sum, g) => sum + g.total, 0)
-  const [global, globalAssets, scopedAssets] = await Promise.all([
-    searchEntities(q, OUTSIDE_ENTITY_LIMIT, null).catch(() => null),
-    searchAssetGroups(q, 1, ALL_ASSET_GROUPS, null).catch(() => []),
-    searchAssetGroups(q, 1, ALL_ASSET_GROUPS, projectId).catch(() => []),
-  ])
+  let counts
+  try {
+    counts = await withReadDeadline(signal => Promise.all([
+      searchEntities(q, OUTSIDE_ENTITY_LIMIT, null, signal),
+      searchAssetGroups(q, 1, ALL_ASSET_GROUPS, null, signal),
+      searchAssetGroups(q, 1, ALL_ASSET_GROUPS, projectId, signal),
+    ]))
+  } catch { return }
+  const [global, globalAssets, scopedAssets] = counts
   if (seq !== searchSeq) return
   outside.value = countOutside(global, projectId, OUTSIDE_ENTITY_LIMIT, {
     scoped: totals(scopedAssets), global: totals(globalAssets),
@@ -896,6 +882,8 @@ function iconPathFor(item: SelectableItem): string {
 // --- Lifecycle ---
 
 onBeforeUnmount(() => {
+  searchSeq++
+  cancelSearch()
   if (debounceTimer) clearTimeout(debounceTimer)
   document.removeEventListener('click', handleClickOutside, true)
 })

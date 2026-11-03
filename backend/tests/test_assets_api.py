@@ -1029,6 +1029,38 @@ async def test_asset_organization_reads_and_expiration_are_asset_scoped(client, 
 
 
 @pytest.mark.asyncio
+async def test_bulk_trash_reports_only_newly_trashed_assets_for_undo(client, db_session):
+    async with db_session() as session:
+        first_media = await create_media_item(session, file_path="/tmp/undo-active.png")
+        second_media = await create_media_item(session, file_path="/tmp/undo-trashed.png")
+        first = await create_asset_from_media(session, media_id=first_media.id)
+        second = await create_asset_from_media(session, media_id=second_media.id)
+        first_id, second_id = first.id, second.id
+        second.state = "trashed"
+        second.deleted_at = datetime.utcnow()
+        await session.commit()
+
+    response = await client.post(
+        "/api/assets/batch/trash",
+        json={"asset_ids": [first_id, second_id, first_id]},
+    )
+    assert response.status_code == 200
+    assert response.json()["asset_ids"] == [first_id]
+    repeated = await client.post(
+        "/api/assets/batch/trash", json={"asset_ids": [first_id]},
+    )
+    assert repeated.json()["asset_ids"] == []
+
+    restored = await client.post(
+        "/api/assets/batch/restore", json={"asset_ids": response.json()["asset_ids"]},
+    )
+    assert restored.status_code == 200
+    async with db_session() as session:
+        assert (await session.get(Asset, first_id)).state == "active"
+        assert (await session.get(Asset, second_id)).state == "trashed"
+
+
+@pytest.mark.asyncio
 async def test_asset_tag_counts_only_include_live_assets(client, db_session):
     async with db_session() as session:
         media = await create_media_item(session, file_path="/tmp/live-tag-count.png")

@@ -9,7 +9,7 @@
     >
       <!-- Left Info Panel -->
       <SlideshowInfoPanel
-        v-if="showInfoPanel && leftItem"
+        v-if="showInfoPanel && !isCompact && leftItem"
         :current-item="leftItem"
         class="!order-none w-[320px] max-w-[25vw] !border-l-0 border-r border-edge-subtle"
         @restore="handleAction('restore', leftItem)"
@@ -44,10 +44,15 @@
         <div
           v-else-if="leftItem && rightItem"
           ref="mediaContainerRef"
-          class="w-full h-full relative select-none overflow-hidden"
+          class="w-full h-full relative select-none overflow-hidden touch-none"
+          data-compare-canvas
           :class="zoomScale > 1 ? 'cursor-grab' : ''"
           @wheel.prevent="handleWheel"
-          @mousedown="handleMouseDown"
+          @pointerdown="handlePointerDown"
+          @pointermove="handlePointerMove"
+          @pointerup="handlePointerEnd"
+          @pointercancel="handlePointerEnd"
+          @lostpointercapture="handlePointerEnd"
           @dblclick="handleDoubleClick"
         >
           <!-- Transformed container for images and slider -->
@@ -84,6 +89,7 @@
 
             <!-- Slider handle (inside transformed container so it moves with zoom/pan) -->
             <div
+              role="slider" tabindex="0" aria-label="Comparison divider" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(sliderPosition)"
               class="absolute top-0 bottom-0 w-1 cursor-ew-resize z-10"
               :style="{ left: `calc(${sliderPosition}% - 2px)` }"
             >
@@ -104,12 +110,13 @@
         </div>
 
         <!-- Toolbar (top right of comparison area) -->
-        <div class="absolute top-4 right-4 flex items-center gap-2 z-20">
+        <div class="absolute top-4 right-4 flex items-center gap-2 z-chrome">
+          <Tooltip text="Toggle between fit and 200% zoom"><button type="button" aria-label="Toggle zoom" @click="toggleZoom" class="min-h-11 min-w-11 rounded-full bg-overlay-backdrop px-3 font-mono text-xs text-white focus-visible:outline-none focus-visible:ring-2 ring-accent/60">{{ Math.round(zoomScale * 100) }}%</button></Tooltip>
           <!-- Swap button -->
           <button
             @click="swapImages"
-            class="w-10 h-10 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/50 transition-colors"
-            title="Swap images (S)"
+            class="w-10 h-10 coarse:min-w-11 coarse:min-h-11 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/50 transition-colors"
+            aria-label="Swap images" title="Swap images (S)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
               <path fill-rule="evenodd" d="M13.2 2.24a.75.75 0 0 0 .04 1.06l2.1 1.95H6.75a.75.75 0 0 0 0 1.5h8.59l-2.1 1.95a.75.75 0 1 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 0 0-1.06.04Zm-6.4 8a.75.75 0 0 0-1.06-.04l-3.5 3.25a.75.75 0 0 0 0 1.1l3.5 3.25a.75.75 0 1 0 1.02-1.1l-2.1-1.95h8.59a.75.75 0 0 0 0-1.5H4.66l2.1-1.95a.75.75 0 0 0 .04-1.06Z" clip-rule="evenodd" />
@@ -120,10 +127,10 @@
           <button
             @click="showInfoPanel = !showInfoPanel"
             :class="[
-              'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
+              'w-10 h-10 coarse:min-w-11 coarse:min-h-11 rounded-full flex items-center justify-center transition-colors',
               showInfoPanel ? 'bg-accent text-white' : 'bg-black/70 text-white hover:bg-black/50'
             ]"
-            title="Toggle info panels (I)"
+            aria-label="Toggle image information" title="Toggle info panels (I)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
               <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" />
@@ -133,8 +140,8 @@
           <!-- Close button -->
           <button
             @click="close"
-            class="w-10 h-10 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/50 transition-colors"
-            title="Close (Escape)"
+            class="w-10 h-10 coarse:min-w-11 coarse:min-h-11 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/50 transition-colors"
+            aria-label="Close comparison" title="Close (Escape)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -145,7 +152,7 @@
 
       <!-- Right Info Panel -->
       <SlideshowInfoPanel
-        v-if="showInfoPanel && rightItem"
+        v-if="showInfoPanel && !isCompact && rightItem"
         :current-item="rightItem"
         class="w-[320px] max-w-[25vw]"
         @restore="handleAction('restore', rightItem)"
@@ -161,6 +168,25 @@
         @menu-sent="close"
       />
     </div>
+    <Sheet v-if="isCompact" :show="showInfoPanel" @close="showInfoPanel = false">
+      <div class="px-4 pb-3"><SegmentedControl aria-label="Image information" v-model="infoSide" :options="[{ value: 'left', label: 'Left image' }, { value: 'right', label: 'Right image' }]" /></div>
+      <SlideshowInfoPanel
+        v-if="infoItem"
+        :content-only="true"
+        :current-item="infoItem"
+        @restore="handleAction('restore', infoItem)"
+        @permanent-delete="handleAction('permanent-delete', infoItem)"
+        v-on="hostHandlesActions ? { download: () => handleAction('download', infoItem) } : {}"
+        @filter-by-tag="(tagId) => handleAction('filter-by-tag', infoItem, tagId)"
+        @filter-by-keyword="(keyword) => handleAction('filter-by-keyword', infoItem, keyword)"
+        @navigate-to-board="(boardId) => handleAction('navigate-to-board', infoItem, boardId)"
+        @navigate-to-source-media="(mediaId) => handleAction('navigate-to-source-media', infoItem, mediaId)"
+        @compare-with-source="(sourceId) => handleAction('compare-with-source', infoItem, sourceId)"
+        @jump-to-chat="(chatId) => handleAction('jump-to-chat', infoItem, chatId)"
+        @toggle-marker="(markerId) => handleAction('toggle-marker', infoItem, markerId)"
+        @menu-sent="close"
+      />
+    </Sheet>
   </Teleport>
 </template>
 
@@ -169,6 +195,10 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick, getCurrentInsta
 import { useMediaApi } from '../composables/useMediaApi'
 import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
+import { useViewport } from '../composables/useViewport'
+import Sheet from './ui/Sheet.vue'
+import SegmentedControl from './ui/SegmentedControl.vue'
+import Tooltip from './ui/Tooltip.vue'
 
 const props = defineProps({
   leftItem: {
@@ -212,7 +242,10 @@ const comparisonArea = ref(null)
 const mediaContainerRef = ref(null)
 
 // State
-const showInfoPanel = ref(true)
+const { isCompact, allowsAutofocus } = useViewport()
+const showInfoPanel = ref(!isCompact.value)
+const infoSide = ref('left')
+const infoItem = computed(() => infoSide.value === 'left' ? props.leftItem : props.rightItem)
 const sliderPosition = ref(props.initialSliderPosition)
 const isDraggingSlider = ref(false)
 const isPanning = ref(false)
@@ -324,47 +357,68 @@ function handleDoubleClick(event) {
   }
 }
 
-// Mouse handling
-function handleMouseDown(e) {
-  // Prevent text selection during drag
-  e.preventDefault()
+// Pointer capture keeps a drag attached to this surface even outside its bounds.
+const pointers = new Map()
+let pinch = null
 
-  // Check if clicking on slider handle
-  if (e.target.closest('.cursor-ew-resize')) {
-    isDraggingSlider.value = true
-    updateSliderFromEvent(e)
-  } else if (zoomScale.value > 1) {
-    // Start panning when zoomed
-    isPanning.value = true
-    panStart.value = { x: e.clientX, y: e.clientY }
-    lastPan.value = { x: panX.value, y: panY.value }
-  } else {
-    // At 1x zoom, clicking anywhere moves slider
-    isDraggingSlider.value = true
-    updateSliderFromEvent(e)
-  }
-
-  document.addEventListener('mousemove', handleDocumentMouseMove)
-  document.addEventListener('mouseup', handleDocumentMouseUp)
+function toggleZoom() {
+  zoomScale.value = zoomScale.value > 1 ? 1 : 2
+  clampPan()
 }
 
-function handleDocumentMouseMove(e) {
-  if (isDraggingSlider.value) {
+function handlePointerDown(e) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  e.currentTarget.setPointerCapture(e.pointerId)
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pointers.size > 1) {
+    isDraggingSlider.value = false
+    isPanning.value = false
+    const [a, b] = [...pointers.values()]
+    pinch = { distance: Math.hypot(b.x - a.x, b.y - a.y), scale: zoomScale.value,
+      x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, panX: panX.value, panY: panY.value }
+    return
+  }
+  isDraggingSlider.value = !!e.target.closest('.cursor-ew-resize') || zoomScale.value === 1
+  isPanning.value = !isDraggingSlider.value
+  panStart.value = { x: e.clientX, y: e.clientY }
+  lastPan.value = { x: panX.value, y: panY.value }
+  if (isDraggingSlider.value) updateSliderFromEvent(e)
+}
+
+function handlePointerMove(e) {
+  if (!pointers.has(e.pointerId)) return
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (pointers.size > 1 && pinch?.distance) {
+    const [a, b] = [...pointers.values()]
+    const rect = mediaContainerRef.value.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinch.scale * Math.hypot(b.x - a.x, b.y - a.y) / pinch.distance))
+    panX.value = (a.x + b.x) / 2 - centerX - (pinch.x - centerX - pinch.panX) * scale / pinch.scale
+    panY.value = (a.y + b.y) / 2 - centerY - (pinch.y - centerY - pinch.panY) * scale / pinch.scale
+    zoomScale.value = scale
+    clampPan()
+  } else if (isDraggingSlider.value) {
     updateSliderFromEvent(e)
   } else if (isPanning.value) {
-    const dx = e.clientX - panStart.value.x
-    const dy = e.clientY - panStart.value.y
-    panX.value = lastPan.value.x + dx
-    panY.value = lastPan.value.y + dy
+    panX.value = lastPan.value.x + e.clientX - panStart.value.x
+    panY.value = lastPan.value.y + e.clientY - panStart.value.y
     clampPan()
   }
 }
 
-function handleDocumentMouseUp() {
+function handlePointerEnd(e) {
+  if (!pointers.delete(e.pointerId)) return
+  pinch = null
   isDraggingSlider.value = false
-  isPanning.value = false
-  document.removeEventListener('mousemove', handleDocumentMouseMove)
-  document.removeEventListener('mouseup', handleDocumentMouseUp)
+  const remaining = [...pointers.values()][0]
+  isPanning.value = !!remaining && zoomScale.value > 1
+  if (remaining) {
+    panStart.value = remaining
+    lastPan.value = { x: panX.value, y: panY.value }
+  }
+  if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
 }
 
 function updateSliderFromEvent(e) {
@@ -431,14 +485,13 @@ function handleKeyDown(e) {
 // Focus overlay on mount for keyboard events
 onMounted(() => {
   nextTick(() => {
-    overlay.value?.focus()
+    if (allowsAutofocus.value) overlay.value?.focus()
   })
 })
 
 // Cleanup on unmount
 onUnmounted(() => {
-  document.removeEventListener('mousemove', handleDocumentMouseMove)
-  document.removeEventListener('mouseup', handleDocumentMouseUp)
+  pointers.clear()
 })
 
 // Watch for external slider position changes
