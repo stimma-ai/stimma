@@ -164,7 +164,7 @@ async def submit(req: SubmitFeedbackRequest):
     logs_bytes = None
     if req.include_logs:
         from log_tail import tail_log_text
-        logs_bytes = tail_log_text().encode("utf-8")
+        logs_bytes = tail_log_text(include_shell=True).encode("utf-8")
 
     screenshot_bytes = None
     if req.screenshot:

@@ -107,7 +107,7 @@ class TestLogTail:
         (tmp_path / "Stimma-shell.log").write_text(
             "renderer Authorization: Bearer private-token\n"
         )
-        lines = tail_log_lines(2, log_dir=tmp_path)
+        lines = tail_log_lines(2, log_dir=tmp_path, include_shell=True)
         assert lines == [
             "backend warning", "[shell]", "updater api_key=[redacted]",
             "renderer Authorization: [redacted]",
@@ -118,7 +118,7 @@ class TestLogTail:
         with (tmp_path / "Stimma-shell.log").open("wb") as file:
             file.seek(1024 * 1024 * 1024)
             file.write(b"\nrenderer failure token=private-token\n")
-        text = tail_log_text(log_dir=tmp_path)
+        text = tail_log_text(log_dir=tmp_path, include_shell=True)
         assert "renderer failure token=[redacted]" in text
         assert "private-token" not in text
         assert len(text) <= MAX_TAIL_BYTES + 20
@@ -127,8 +127,8 @@ class TestLogTail:
         from log_tail import tail_log_lines
         (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
         (tmp_path / "Stimma-shell.log").mkdir()
-        assert tail_log_lines(log_dir=tmp_path) == ["backend warning"]
-        assert tail_log_lines(0, log_dir=tmp_path) == []
+        assert tail_log_lines(log_dir=tmp_path, include_shell=True) == ["backend warning"]
+        assert tail_log_lines(0, log_dir=tmp_path, include_shell=True) == []
 
     def test_scrubs_authorization_header(self):
         from log_tail import scrub_secrets
@@ -497,6 +497,20 @@ def _unique_booms(n):
 
 
 class TestCrashReports:
+    @pytest.mark.parametrize("consent", ["ask", "always"])
+    def test_crash_reports_exclude_shell_logs(self, monkeypatch, tmp_path, consent):
+        import crash_reports
+        import log_tail
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.setattr(crash_reports, "_crash_consent", lambda: consent)
+        monkeypatch.setattr(crash_reports, "get_pending_dir", lambda: tmp_path / "pending")
+        (tmp_path / "Stimma_log.00.txt").write_text("backend warning\n")
+        (tmp_path / "Stimma-shell.log").write_text("shell diagnostic\n")
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: tmp_path)
+        report = crash_reports.record_crash(_boom())
+        assert report is not None
+        assert json.loads(report.read_text())["logTail"] == ["backend warning"]
+
     def test_dev_build_never_writes(self, crash_env, monkeypatch):
         import crash_reports
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)

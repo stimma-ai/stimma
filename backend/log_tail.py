@@ -64,11 +64,13 @@ def get_log_dir() -> Path:
 def tail_log_lines(
     n: int = DEFAULT_TAIL_LINES,
     log_dir: Optional[Path] = None,
+    *,
+    include_shell: bool = False,
 ) -> List[str]:
     """Up to ``n`` lines per source, oldest first within each, scrubbed.
 
     Each source spills into older rotations and reads at most MAX_TAIL_BYTES.
-    Both feedback attachments and crash reports use this same consent-gated tail.
+    Feedback attachments opt into shell logs; crash reports stay backend-only.
     """
     if n <= 0:
         return []
@@ -79,7 +81,7 @@ def tail_log_lines(
     shell = _tail_files(
         [directory / "Stimma-shell.log"]
         + [directory / f"Stimma-shell.log.{index}" for index in range(1, 5)], n,
-    )
+    ) if include_shell else []
     # Keep sources distinct rather than pretending their timestamps are sorted.
     lines = backend + (["[shell]"] + shell if shell else [])
     return [scrub_secrets(line) for line in lines]
@@ -109,6 +111,8 @@ def _tail_files(paths: List[Path], n: int) -> List[str]:
     return collected[-n:]
 
 
-def tail_log_text(n: int = DEFAULT_TAIL_LINES, log_dir: Optional[Path] = None) -> str:
+def tail_log_text(
+    n: int = DEFAULT_TAIL_LINES, log_dir: Optional[Path] = None, *, include_shell: bool = False,
+) -> str:
     """The scrubbed log tail as one string (for logs.txt uploads)."""
-    return "\n".join(tail_log_lines(n, log_dir=log_dir))
+    return "\n".join(tail_log_lines(n, log_dir=log_dir, include_shell=include_shell))
