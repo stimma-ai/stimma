@@ -9,6 +9,7 @@ import threading
 from queue import LifoQueue
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 from sqlalchemy import select, update, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -3524,30 +3525,11 @@ async def bulk_download_media(
     if not valid_items:
         raise HTTPException(status_code=404, detail="No media files found on disk")
 
-    # Single file: return directly
-    if len(valid_items) == 1:
+    # Single file: return directly; directory payloads use the zip path below.
+    single_directory = len(valid_items) == 1 and Path(valid_items[0].file_path).is_dir()
+    if len(valid_items) == 1 and not single_directory:
         item = valid_items[0]
         file_path = Path(item.file_path)
-
-        # Directory-based media (e.g., .stimmalayout bundles) - zip the directory
-        if file_path.is_dir():
-            import zipfile
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for child in file_path.rglob('*'):
-                    if child.is_file():
-                        zf.write(child, f"{file_path.name}/{child.relative_to(file_path)}")
-            buffer.seek(0)
-            zip_data = buffer.read()
-            return StreamingResponse(
-                io.BytesIO(zip_data),
-                media_type="application/zip",
-                headers={
-                    'Content-Disposition': content_disposition('attachment', f'{file_path.name}.zip'),
-                    'Content-Length': str(len(zip_data)),
-                    'Access-Control-Allow-Origin': '*',
-                }
-            )
 
         video_formats = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'}
         if item.file_format.lower() in video_formats:
@@ -3575,11 +3557,11 @@ async def bulk_download_media(
         )
 
     # Multiple files: create zip stream
+    tmp_dir = tempfile.mkdtemp(prefix='stimma-download-')
+    zip_path = Path(tmp_dir) / 'download.zip'
+
     def generate_zip():
-        """Generator that yields zip file chunks."""
-        # Use a BytesIO buffer to accumulate zip data
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             seen_names = {}  # Track filenames to handle duplicates
 
             for item in valid_items:
@@ -3605,25 +3587,24 @@ async def bulk_download_media(
                 else:
                     zf.write(file_path, base_name)
 
-        # Return complete buffer
-        buffer.seek(0)
-        return buffer.read()
-
-    # Generate the zip file
-    zip_data = generate_zip()
-
-    # Create timestamp for filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_filename = f"stimma-download-{timestamp}.zip"
-
-    return StreamingResponse(
-        io.BytesIO(zip_data),
-        media_type="application/zip",
-        headers={
+    try:
+        await asyncio.to_thread(generate_zip)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = (f"{Path(valid_items[0].file_path).name}.zip" if single_directory
+                        else f"stimma-download-{timestamp}.zip")
+        headers = {
             'Content-Disposition': content_disposition('attachment', zip_filename),
-            'Content-Length': str(len(zip_data))
+            'Content-Length': str(zip_path.stat().st_size),
         }
-    )
+        if single_directory:
+            headers['Access-Control-Allow-Origin'] = '*'
+        return FileResponse(
+            zip_path, media_type="application/zip", headers=headers,
+            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+        )
+    except BaseException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
 
 # ============================================================================
@@ -3941,8 +3922,8 @@ async def export_media(
             fmt = (item.file_format or '').lower()
 
             if fmt in IMAGE_EXPORT_FORMATS:
-                buf, filename, media_type = _convert_image(
-                    file_path, opts, item.generation_metadata, input_hashes
+                buf, filename, media_type = await asyncio.to_thread(
+                    _convert_image, file_path, opts, item.generation_metadata, input_hashes
                 )
                 return StreamingResponse(
                     buf,
@@ -3954,7 +3935,7 @@ async def export_media(
                 )
             elif fmt in VIDEO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-                output_path, filename, media_type = _convert_video(file_path, opts, tmp_dir)
+                output_path, filename, media_type = await asyncio.to_thread(_convert_video, file_path, opts, tmp_dir)
                 return FileResponse(
                     output_path,
                     media_type=media_type,
@@ -3962,11 +3943,11 @@ async def export_media(
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=None  # cleanup handled below
+                    background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
                 )
             elif fmt in AUDIO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-                output_path, filename, media_type = _convert_audio(file_path, opts, tmp_dir)
+                output_path, filename, media_type = await asyncio.to_thread(_convert_audio, file_path, opts, tmp_dir)
                 return FileResponse(
                     output_path,
                     media_type=media_type,
@@ -3974,84 +3955,83 @@ async def export_media(
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=None
+                    background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
                 )
 
         # Multiple files: export to zip
         tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
-        buffer = io.BytesIO()
+        zip_path = Path(tmp_dir) / 'export.zip'
 
-        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            seen_names = {}
+        def generate_zip():
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                seen_names = {}
 
-            for item in valid_items:
-                file_path = Path(item.file_path)
-                if not file_path.exists():
-                    continue
+                for item in valid_items:
+                    file_path = Path(item.file_path)
+                    if not file_path.exists():
+                        continue
 
-                fmt = (item.file_format or '').lower()
+                    fmt = (item.file_format or '').lower()
 
-                try:
-                    if fmt in IMAGE_EXPORT_FORMATS:
-                        buf, filename, _ = _convert_image(
-                            file_path, opts, item.generation_metadata, input_hashes
-                        )
-                        data = buf.read()
-                    elif fmt in VIDEO_EXPORT_FORMATS:
-                        output_path, filename, _ = _convert_video(file_path, opts, tmp_dir)
-                        data = output_path.read_bytes()
-                    elif fmt in AUDIO_EXPORT_FORMATS:
-                        output_path, filename, _ = _convert_audio(file_path, opts, tmp_dir)
-                        data = output_path.read_bytes()
-                    else:
-                        filename = file_path.name
-                        if file_path.is_dir():
-                            data = None  # handled below
+                    try:
+                        if fmt in IMAGE_EXPORT_FORMATS:
+                            buf, filename, _ = _convert_image(
+                                file_path, opts, item.generation_metadata, input_hashes
+                            )
+                            data = buf.read()
+                        elif fmt in VIDEO_EXPORT_FORMATS:
+                            output_path, filename, _ = _convert_video(file_path, opts, tmp_dir)
+                            data = None
+                            file_path = output_path
+                        elif fmt in AUDIO_EXPORT_FORMATS:
+                            output_path, filename, _ = _convert_audio(file_path, opts, tmp_dir)
+                            data = None
+                            file_path = output_path
                         else:
-                            data = file_path.read_bytes()
-                except Exception as e:
-                    log.warning(f"Failed to convert {file_path.name}: {e}")
-                    # Fall back to original file
-                    filename = file_path.name
-                    if file_path.is_dir():
+                            filename = file_path.name
+                            data = None
+                    except Exception as e:
+                        log.warning(f"Failed to convert {file_path.name}: {e}")
+                        # Fall back to original file
+                        filename = file_path.name
                         data = None
+
+                    # Handle duplicate filenames
+                    if filename in seen_names:
+                        seen_names[filename] += 1
+                        stem = Path(filename).stem
+                        suffix = Path(filename).suffix
+                        filename = f"{stem}_{seen_names[filename]}{suffix}"
                     else:
-                        data = file_path.read_bytes()
+                        seen_names[filename] = 0
 
-                # Handle duplicate filenames
-                if filename in seen_names:
-                    seen_names[filename] += 1
-                    stem = Path(filename).stem
-                    suffix = Path(filename).suffix
-                    filename = f"{stem}_{seen_names[filename]}{suffix}"
-                else:
-                    seen_names[filename] = 0
+                    if data is None and file_path.is_dir():
+                        # Directory-based media: add all files under the directory name
+                        for child in file_path.rglob('*'):
+                            if child.is_file():
+                                zf.write(child, f"{filename}/{child.relative_to(file_path)}")
+                    elif data is None:
+                        zf.write(file_path, filename)
+                    else:
+                        zf.writestr(filename, data)
 
-                if data is None and file_path.is_dir():
-                    # Directory-based media: add all files under the directory name
-                    for child in file_path.rglob('*'):
-                        if child.is_file():
-                            zf.write(child, f"{filename}/{child.relative_to(file_path)}")
-                else:
-                    zf.writestr(filename, data)
-
-        buffer.seek(0)
-        zip_data = buffer.read()
+        await asyncio.to_thread(generate_zip)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"stimma-export-{timestamp}.zip"
 
-        return StreamingResponse(
-            io.BytesIO(zip_data),
+        return FileResponse(
+            zip_path,
             media_type="application/zip",
             headers={
                 'Content-Disposition': content_disposition('attachment', zip_filename),
-                'Content-Length': str(len(zip_data))
-            }
+                'Content-Length': str(zip_path.stat().st_size)
+            },
+            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
         )
-    finally:
-        # Clean up temp directory in background
+    except BaseException:
         if tmp_dir:
             try:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
             except Exception:
                 pass
+        raise
