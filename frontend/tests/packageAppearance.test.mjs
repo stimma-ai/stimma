@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { chromium } from '@playwright/test'
+import { chromium, expect } from '@playwright/test'
 
 // <stimma-appearance> is a kit component an authored cover places around
 // anything that comes in a light and a dark rendering. One appearance shows
@@ -97,20 +97,18 @@ for (const javaScriptEnabled of [true, false]) {
           })
           assert.ok(during.every(value => value > 0 && value < 1), `expected a crossfade, got ${during}`)
         }
-        await page.waitForTimeout(250)
+        await expect.poll(() => visible(page, '#stimma-appearance-1 [when="light"] stimma-media')).toBe(0)
         assert.equal(await first.evaluate(el => el.getBoundingClientRect().height), beforeHeight)
-        assert.equal(await visible(page, '#stimma-appearance-1 [when="light"] stimma-media'), 0)
         assert.ok(await visible(page, '#stimma-appearance-1 [when="dark"] stimma-media') > 0)
         await first.locator('label.sp-light').click()
-        await page.waitForTimeout(250)
-        assert.equal(await visible(page, '#stimma-appearance-1 [when="dark"] stimma-media'), 0)
+        await expect.poll(() => visible(page, '#stimma-appearance-1 [when="dark"] stimma-media')).toBe(0)
         assert.ok(await visible(page, '#stimma-appearance-1 [when="light"] stimma-media') > 0)
 
         // Never both: no light and dark of the same thing visible together.
         assert.equal(await visible(page, '[when="light"] stimma-media, [when="dark"] stimma-media'), 2)
         const second = page.locator('stimma-appearance').nth(1)
         await second.locator('label.sp-light').click()
-        await page.waitForTimeout(250)
+        await expect.poll(() => visible(page, '#stimma-appearance-2 [when="dark"] stimma-media')).toBe(0)
         assert.equal(await second.locator('div[when="light"]').evaluate(el => getComputedStyle(el).display), 'grid')
         const positions = await second.evaluate(el => ({
           imageBottom: el.querySelector('div[when="light"]').getBoundingClientRect().bottom,

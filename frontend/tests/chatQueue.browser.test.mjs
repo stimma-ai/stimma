@@ -113,7 +113,7 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
   await send('no text overlay')
   await expect.poll(() => steers().length).toBe(5)
   await page.getByRole('button', { name: 'Stop' }).click()
-  assert.ok(posts.some(p => p.path === '/api/chats/1/stop'))
+  await expect.poll(() => posts.some(p => p.path === '/api/chats/1/stop')).toBe(true)
   assert.equal(await page.evaluate(() => window.queueView.messageInput.value), '')
   assert.equal((await queue()).length, 3)
   socket.send(JSON.stringify({ event: 'agent_stopped', data: { chat_id: 1, reason: 'cancelled' } }))
