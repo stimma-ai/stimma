@@ -1016,6 +1016,29 @@ async def acompletion(**kwargs) -> _Obj:
         await asyncio.sleep(delay)
 
 
+def _chat_completion_messages(messages: list[dict]) -> list[dict]:
+    """Normalize adjacent user content for templates that require alternating roles.
+
+    Work only on the outgoing Chat Completions payload; persisted history and
+    native provider adapters keep their stable message prefixes.
+    """
+    converted = []
+    for message in messages:
+        clean = {key: value for key, value in message.items() if not key.startswith("_stimma_")}
+        if clean.get("role") == "user" and converted and converted[-1].get("role") == "user":
+            previous = converted[-1]
+            first, second = previous.get("content"), clean.get("content")
+            if isinstance(first, str) and isinstance(second, str):
+                previous["content"] = first + "\n\n" + second
+            else:
+                def parts(content):
+                    return content if isinstance(content, list) else ([{"type": "text", "text": content}] if content else [])
+                previous["content"] = parts(first) + parts(second)
+        else:
+            converted.append(clean)
+    return converted
+
+
 async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
                        thinking=None, cacheable=False, session_id=None,
                        provider_kind=None, _auth_refresh_state=None, **kwargs) -> _Obj:
@@ -1052,10 +1075,7 @@ async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
         "model": model,
         # Namespaced continuation state is for Stimma's adapters, never an
         # OpenAI-compatible provider wire field.
-        "messages": [
-            {key: value for key, value in message.items() if not key.startswith("_stimma_")}
-            for message in messages
-        ],
+        "messages": _chat_completion_messages(messages),
     }
 
     # Merge extra_body keys into the top-level body (OpenAI-compatible endpoints

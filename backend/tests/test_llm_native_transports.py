@@ -393,3 +393,40 @@ async def test_ask_pause_keeps_provider_state_on_remaining_batch_calls():
 
     pending = json.loads(chat.generation_settings)["_v2_ask_pending"]
     assert pending["remaining_tool_calls"][0]["llm_provider_state"] == provider_state
+
+
+@pytest.mark.parametrize('first,second,expected', [
+    ('Hello', 'Remember the request.', 'Hello\n\nRemember the request.'),
+    ('Hello', [{'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,AA=='}}],
+     [{'type': 'text', 'text': 'Hello'}, {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,AA=='}}]),
+    ([{'type': 'text', 'text': 'Hello'}], 'Remember the request.',
+     [{'type': 'text', 'text': 'Hello'}, {'type': 'text', 'text': 'Remember the request.'}]),
+    ([{'type': 'text', 'text': 'Hello'}], [{'type': 'text', 'text': 'Remember the request.'}],
+     [{'type': 'text', 'text': 'Hello'}, {'type': 'text', 'text': 'Remember the request.'}]),
+])
+async def test_chat_completions_merges_adjacent_users_only_on_the_wire(first, second, expected, monkeypatch):
+    from copy import deepcopy
+    from llm_http import acompletion
+
+    messages = [
+        {'role': 'system', 'content': 'Be helpful.'},
+        {'role': 'user', 'content': first},
+        {'role': 'user', 'content': second, '_stimma_reminder': True, 'name': '_stimma_context'},
+        {'role': 'assistant', 'content': 'Done.'},
+        {'role': 'user', 'content': 'Continue.'},
+    ]
+    original = deepcopy(messages)
+    captured = []
+    def respond(request):
+        body = json.loads(request.content)
+        captured.append(body)
+        roles = [message['role'] for message in body['messages'] if message['role'] != 'system']
+        if any(a == b == 'user' for a, b in zip(roles, roles[1:])):
+            return httpx.Response(400, json={'error': 'User and assistant roles must alternate.'})
+        return httpx.Response(200, json={'choices': [{'message': {'content': 'Done.'}}]})
+    client = httpx.AsyncClient
+    monkeypatch.setattr('llm_http.httpx.AsyncClient', lambda **kw: client(**kw, transport=httpx.MockTransport(respond)))
+    await acompletion(model='local-model', provider_kind='local', api_base='https://model.example/v1',
+                      api_key='dummy', messages=messages)
+    assert captured[0]['messages'] == [messages[0], {'role': 'user', 'content': expected}, *messages[3:]]
+    assert messages == original
