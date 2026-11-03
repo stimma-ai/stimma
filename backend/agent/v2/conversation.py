@@ -22,6 +22,13 @@ TRUNCATION_MIN_CHARS = 500     # Only compress tool results larger than this
 RECENT_TURNS_TO_KEEP = 5       # User turns to preserve in token-budget backstop
 MAX_ACTIVE_VIEW_IMAGES = 4     # Hard multimodal budget; older images stay tool-retrievable
 COMPACTION_PCT = 0.80          # Fraction of the context window we're willing to fill
+# A long run from one user message has no user turns to age out, so the settings
+# below apply context pressure by step instead.
+RUN_KEEP_RECENT_RESULTS = 8    # Newest tool results a run keeps verbatim under pressure
+RUN_COMPRESSION_TRIGGER = 0.85 # Fraction of the history budget where compression starts
+RUN_COMPRESSION_TARGET = 0.60  # Fraction of the history budget compression aims to reach
+RUN_PRESSURE_CHUNK = 4         # Work in budget/N chunks, so the cached prefix rarely moves
+RUN_COMPRESSION_EXEMPT_TOOLS = {"ask_user", "skill"}  # Human answers and loaded instructions
 
 
 def response_reserve(max_context_tokens: int) -> int:
@@ -72,8 +79,10 @@ async def build_messages(
     max_context_tokens: Advertised window for the target model. Used to derive the
     compaction threshold (80% of window minus response reserve and system prompt).
 
-    Returns (messages, estimated_prompt_tokens). The estimate is adjusted by a
-    per-chat correction factor learned from prior turns' actual usage.
+    Returns (messages, estimated_prompt_tokens). The estimate covers the whole
+    prompt including overhead_tokens and is deliberately uncorrected: it's what
+    the next turn compares to the provider's actual count to learn the per-chat
+    correction factor applied to the budget here.
     """
     result = await session.execute(
         select(ChatItem)
@@ -84,13 +93,72 @@ async def build_messages(
 
     # Compress stale tool results and superseded run_code source directly in the
     # database. This ensures future rebuilds produce identical message prefixes.
-    await _compress_stale_items(items, session)
+    compacted = await _compress_stale_items(items, session)
 
     # Self-tuning: use prior turn's actual prompt_tokens vs. our estimate at the
     # time to correct the estimator for this chat. Charmodel/4 tends to
     # underestimate for Anthropic/Qwen and overestimate for some JSON-heavy cases.
     correction = _read_prior_correction(items)
 
+    messages = _items_to_messages(items, system_prompt)
+
+    # Token budget: drop middle messages if history exceeds budget.
+    # Preserves first + last turns so the prefix stays anchored for caching.
+    pre_tokens = _estimate_tokens(messages)
+    budget = compute_history_budget(max_context_tokens, pre_tokens["system"], overhead_tokens)
+    # Both trims return the list they were given when they change nothing.
+    untrimmed = messages
+    messages = _apply_token_budget(untrimmed, budget=budget, correction=correction)
+    compacted = compacted or messages is not untrimmed
+
+    # Still filling up: this is a long run rather than a long conversation. Shed
+    # old tool output first, since that keeps the record of what was done, and
+    # only then whole steps. Starting short of the budget means dropping steps
+    # stays the last resort rather than something a run flaps in and out of.
+    if (
+        _tokens_over_budget(messages, int(budget * RUN_COMPRESSION_TRIGGER), correction) > 0
+        and await _compress_run_under_pressure(items, session, messages, budget, correction)
+    ):
+        compacted = True
+        messages = _items_to_messages(items, system_prompt)
+        messages = _apply_token_budget(messages, budget=budget, correction=correction)
+    untrimmed = messages
+    messages = _trim_run_steps(untrimmed, budget=budget, correction=correction)
+    if compacted or messages is not untrimmed:
+        # A provider continuing from its own stored copy of the run would keep
+        # everything just removed, so this turn has to send the smaller history.
+        messages[0]["_stimma_replay_history"] = True
+    # Trimming cuts on user-turn boundaries, so it should not split a call from
+    # its result — but this is the last thing that touches the list before it
+    # reaches the provider, and re-running it is cheap and idempotent.
+    _repair_tool_call_pairing(messages)
+    post_tokens = _estimate_tokens(messages)
+
+    adjusted_total = int(post_tokens["total"] * correction)
+
+    if pre_tokens["total"] != post_tokens["total"]:
+        log.info(
+            f"Chat {chat_id}: context compressed "
+            f"{pre_tokens['total']}→{post_tokens['total']} est. tokens "
+            f"(adj={adjusted_total}, budget={budget}, window={max_context_tokens}, "
+            f"correction={correction:.2f})"
+        )
+    else:
+        log.debug(
+            f"Chat {chat_id}: context {post_tokens['total']} est. tokens "
+            f"(adj={adjusted_total}, budget={budget}, window={max_context_tokens}, "
+            f"correction={correction:.2f})"
+        )
+
+    # Inject timestamp and system reminders into the last user message
+    # (not the system prompt) so they don't bust prompt cache.
+    _inject_last_user_context(messages, system_reminders or [])
+
+    return messages, post_tokens["total"] + overhead_tokens
+
+
+def _items_to_messages(items: List["ChatItem"], system_prompt: str) -> List[Dict[str, Any]]:
+    """Map ChatItems to provider messages with well-formed tool call pairing."""
     messages: List[Dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
     ]
@@ -122,39 +190,7 @@ async def build_messages(
     # tool calls and their results. Providers reject the whole conversation for
     # either half of that, bricking every later turn.
     _repair_tool_call_pairing(messages)
-
-    # Token budget: drop middle messages if history exceeds budget.
-    # Preserves first + last turns so the prefix stays anchored for caching.
-    pre_tokens = _estimate_tokens(messages)
-    budget = compute_history_budget(max_context_tokens, pre_tokens["system"], overhead_tokens)
-    messages = _apply_token_budget(messages, budget=budget, correction=correction)
-    # Trimming cuts on user-turn boundaries, so it should not split a call from
-    # its result — but this is the last thing that touches the list before it
-    # reaches the provider, and re-running it is cheap and idempotent.
-    _repair_tool_call_pairing(messages)
-    post_tokens = _estimate_tokens(messages)
-
-    adjusted_total = int(post_tokens["total"] * correction)
-
-    if pre_tokens["total"] != post_tokens["total"]:
-        log.info(
-            f"Chat {chat_id}: context compressed "
-            f"{pre_tokens['total']}→{post_tokens['total']} est. tokens "
-            f"(adj={adjusted_total}, budget={budget}, window={max_context_tokens}, "
-            f"correction={correction:.2f})"
-        )
-    else:
-        log.debug(
-            f"Chat {chat_id}: context {post_tokens['total']} est. tokens "
-            f"(adj={adjusted_total}, budget={budget}, window={max_context_tokens}, "
-            f"correction={correction:.2f})"
-        )
-
-    # Inject timestamp and system reminders into the last user message
-    # (not the system prompt) so they don't bust prompt cache.
-    _inject_last_user_context(messages, system_reminders or [])
-
-    return messages, adjusted_total
+    return messages
 
 
 INTERRUPTED_TOOL_RESULT = (
@@ -550,7 +586,7 @@ def _find_user_turn_boundaries(messages: List[Dict[str, Any]]) -> List[int]:
 async def _compress_stale_items(
     items: List["ChatItem"],
     session: AsyncSession,
-) -> None:
+) -> bool:
     """Compress stale tool results and superseded run_code source in the database.
 
     Modifies ChatItem rows in-place so that future build_messages() calls produce
@@ -562,6 +598,8 @@ async def _compress_stale_items(
     - Keeps at most MAX_ACTIVE_VIEW_IMAGES raw images, all from within the most
       recent STALE_TURN_THRESHOLD user turns. Older markers become lightweight
       placeholders and remain retrievable by calling view_image again.
+
+    Returns whether anything changed.
     """
     # Find user turn boundaries in the items list
     user_turn_indices = [i for i, item in enumerate(items) if item.item_type == "user_message"]
@@ -620,33 +658,199 @@ async def _compress_stale_items(
                         dirty = True
                     continue
 
-            if i < cutoff_idx and isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
-                tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
-                placeholder = _stale_result_placeholder(tool_name, content)
-                if item.tool_result and len(item.tool_result) > TRUNCATION_MIN_CHARS:
-                    item.tool_result = placeholder
-                    dirty = True
-                elif item.tool_error and len(item.tool_error) > TRUNCATION_MIN_CHARS:
-                    item.tool_error = placeholder
-                    dirty = True
+            if i < cutoff_idx and _compress_tool_result(item, call_id_to_name):
+                dirty = True
 
         # Compress superseded run_code arguments
         if i < cutoff_idx and item.item_type == "tool_call" and item.tool_name == "run_code":
-            if item.tool_call_id != last_run_code_call_id:
-                args_str = item.tool_args or "{}"
-                try:
-                    args = json.loads(args_str)
-                    code = args.get("code", "")
-                    if code and not code.startswith("[Python"):
-                        line_count = code.count("\n") + 1
-                        args["code"] = f"[Python — {line_count} lines — superseded by later code]"
-                        item.tool_args = json.dumps(args)
-                        dirty = True
-                except (json.JSONDecodeError, TypeError):
-                    pass
+            if item.tool_call_id != last_run_code_call_id and _compress_run_code_args(item):
+                dirty = True
 
     if dirty:
         await session.commit()
+    return dirty
+
+
+def _compress_tool_result(item: "ChatItem", call_id_to_name: Dict[str, str]) -> int:
+    """Replace a large tool result with its placeholder. Returns the chars saved."""
+    content = item.tool_result or item.tool_error or ""
+    if not isinstance(content, str) or len(content) <= TRUNCATION_MIN_CHARS:
+        return 0
+    tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
+    placeholder = _stale_result_placeholder(tool_name, content)
+    if item.tool_result:
+        item.tool_result = placeholder
+    else:
+        item.tool_error = placeholder
+    return max(len(content) - len(placeholder), 0)
+
+
+def _compress_run_code_args(item: "ChatItem") -> int:
+    """Replace superseded run_code source with a summary. Returns the chars saved."""
+    try:
+        args = json.loads(item.tool_args or "{}")
+        code = args.get("code", "")
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return 0
+    if not code or code.startswith("[Python"):
+        return 0
+    line_count = code.count("\n") + 1
+    args["code"] = f"[Python — {line_count} lines — superseded by later code]"
+    item.tool_args = json.dumps(args)
+    return max(len(code) - len(args["code"]), 0)
+
+
+def _tokens_over_budget(messages: List[Dict[str, Any]], budget: int, correction: float) -> int:
+    """How far history + images overshoots the budget, in uncorrected tokens."""
+    tokens = _estimate_tokens(messages)
+    effective = (tokens["history"] + tokens["images"]) * correction
+    return int((effective - budget) / correction) + 1 if effective > budget else 0
+
+
+async def _compress_run_under_pressure(
+    items: List["ChatItem"],
+    session: AsyncSession,
+    messages: List[Dict[str, Any]],
+    budget: int,
+    correction: float,
+) -> bool:
+    """Compress the oldest tool output of a run that has outgrown its budget.
+
+    Persisted like _compress_stale_items, and for the same reason. Each write
+    changes the prompt prefix and so costs a cache miss, which makes this work
+    in batches: it compresses well below the budget, and passes on savings too
+    small to be worth a miss. _trim_run_steps covers any overage left behind.
+    """
+    target_overage = _tokens_over_budget(messages, int(budget * RUN_COMPRESSION_TARGET), correction)
+    worth_compressing = max(budget, 0) // RUN_PRESSURE_CHUNK
+
+    result_indices = [i for i, item in enumerate(items) if item.item_type == "tool_result"]
+    if len(result_indices) <= RUN_KEEP_RECENT_RESULTS:
+        return False
+    protected_from = result_indices[-RUN_KEEP_RECENT_RESULTS]
+
+    call_id_to_name = {
+        item.tool_call_id: item.tool_name or "tool"
+        for item in items
+        if item.item_type == "tool_call" and item.tool_call_id
+    }
+    last_run_code_id = next(
+        (it.tool_call_id for it in reversed(items) if it.item_type == "tool_call" and it.tool_name == "run_code"),
+        None,
+    )
+
+    # Plan first: a batch too small to be worth a cache miss writes nothing.
+    planned: List["ChatItem"] = []
+    saved = 0
+    for item in items[:protected_from]:
+        if saved >= target_overage:
+            break
+        if item.item_type == "tool_result":
+            tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
+            content = item.tool_result or item.tool_error or ""
+            if tool_name in RUN_COMPRESSION_EXEMPT_TOOLS or len(content) <= TRUNCATION_MIN_CHARS:
+                continue
+            saved += len(content) // 3
+            planned.append(item)
+        elif (
+            item.item_type == "tool_call"
+            and item.tool_name == "run_code"
+            and item.tool_call_id != last_run_code_id
+            # Provider state replays the call as issued, so editing tool_args
+            # would save nothing here.
+            and "llm_provider_state" not in (item.item_metadata or "")
+        ):
+            try:
+                code = json.loads(item.tool_args or "{}").get("code", "")
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                continue
+            if code and not code.startswith("[Python"):
+                saved += len(code) // 4
+                planned.append(item)
+
+    if not planned or saved < worth_compressing:
+        return False
+
+    for item in planned:
+        if item.item_type == "tool_result":
+            _compress_tool_result(item, call_id_to_name)
+        else:
+            _compress_run_code_args(item)
+    await session.commit()
+    log.info(f"Run under context pressure: compressed {len(planned)} old tool items (~{saved} tokens)")
+    return True
+
+
+def _trim_run_steps(
+    messages: List[Dict[str, Any]],
+    *,
+    budget: int,
+    correction: float = 1.0,
+) -> List[Dict[str, Any]]:
+    """Drop the oldest whole steps when history is still over budget.
+
+    A step is an assistant message plus the tool results answering it, so a call
+    never loses its result. Every user-role message stays, as does the newest
+    step and any step asking the user a question: those hold what the user wants.
+
+    The cut only lands on fixed token boundaries counted from the start of the
+    history. That keeps it in place, and the prompt cache valid, for many steps.
+    """
+    overage = _tokens_over_budget(messages, budget, correction)
+    if overage <= 0:
+        return messages
+
+    steps: List[List[int]] = []
+    open_step = False
+    for i, message in enumerate(messages):
+        role = message.get("role")
+        if role == "assistant":
+            steps.append([i])
+            open_step = True
+        elif role == "tool" and open_step:
+            steps[-1].append(i)
+        else:
+            open_step = False
+
+    def asks_user(step: List[int]) -> bool:
+        return any(
+            call.get("function", {}).get("name") == "ask_user"
+            for call in messages[step[0]].get("tool_calls") or []
+        )
+
+    droppable = [step for step in steps[:-1] if not asks_user(step)]
+    chunk = max(budget // RUN_PRESSURE_CHUNK, 1)
+    dropped: set[int] = set()
+    pending: List[int] = []
+    counted = 0
+    for position, step in enumerate(droppable):
+        before = counted
+        pending.extend(step)
+        counted += _estimate_tokens([messages[i] for i in step])["total"]
+        if counted // chunk > before // chunk or position == len(droppable) - 1:
+            dropped.update(pending)
+            pending = []
+            if counted >= overage:
+                break
+
+    if not dropped:
+        return messages
+    dropped_tool_calls = sum(len(messages[i].get("tool_calls") or []) for i in dropped)
+
+    placeholder = {
+        "role": "user",
+        "content": (
+            f"[{dropped_tool_calls} earlier tool calls and their results from this work were removed "
+            "to fit the context window. What they produced still exists: check your notepad, your "
+            "workspace files and library(action='browse', scope='chat') rather than redoing it.]"
+        ),
+    }
+    first_dropped = min(dropped)
+    result = messages[:first_dropped] + [placeholder]
+    result.extend(m for i, m in enumerate(messages) if i > first_dropped and i not in dropped)
+
+    log.info(f"Token budget applied: dropped {len(dropped)} messages from the oldest steps of this run")
+    return result
 
 
 _MEDIA_ID_RE = re.compile(r"""media_ids?["']?\s*[=:\s]\s*\[?\s*(\d+(?:\s*,\s*\d+)*)""")
@@ -674,15 +878,17 @@ def _stale_result_placeholder(tool_name: str, content: str) -> str:
 
 def _read_prior_correction(items: List["ChatItem"]) -> float:
     """Derive a tokens-per-estimated-token correction factor from the most
-    recent assistant turn that recorded both the actual prompt_tokens and our
-    estimate at call time.
+    recent assistant turn that recorded both the actual context size of its LLM
+    call and our estimate at call time. Tool-only turns record theirs on the
+    tool call. llm_usage's prompt_tokens won't do: it totals the whole agent
+    loop, while the estimate covers one call.
 
     Returns 1.0 when no prior measurement is available (fresh chat or old
     items without estimated_prompt_tokens). Clamped to a reasonable band so
     one outlier can't wildly skew the budget.
     """
     for item in reversed(items):
-        if item.item_type != "assistant_message":
+        if item.item_type not in ("assistant_message", "tool_call"):
             continue
         raw = item.item_metadata
         if not raw:
@@ -691,10 +897,10 @@ def _read_prior_correction(items: List["ChatItem"]) -> float:
             meta = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             continue
-        usage = (meta or {}).get("llm_usage")
+        usage = (meta or {}).get("llm_usage") or (meta or {}).get("llm_call_size")
         if not usage:
             continue
-        actual = usage.get("prompt_tokens")
+        actual = usage.get("context_tokens")
         estimated = usage.get("estimated_prompt_tokens")
         if not actual or not estimated:
             continue
