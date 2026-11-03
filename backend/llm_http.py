@@ -5,6 +5,7 @@ Handles the raw HTTP POST to /chat/completions, auth headers, token refresh,
 and error detection. All response normalization lives in llm.py.
 """
 import asyncio
+from copy import deepcopy
 import random
 import json
 import os
@@ -831,6 +832,21 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
         } for tool in kwargs["tools"]]
     extra = dict(kwargs.get("extra_body") or {})
     body.update(extra)
+    if _uses_thinking_binding(model):
+        thinking = body.get("thinking") or kwargs.get("thinking") or {"type": "adaptive"}
+        # Binding controls require adaptive thinking. Legacy budgeted and
+        # between-tools settings cannot carry this field on these models.
+        if thinking.get("type") in {"enabled", "between_tools"}:
+            thinking = {"type": "adaptive"}
+        # Disabled thinking has no signed blocks to bind.
+        if thinking.get("type") == "adaptive":
+            body["thinking"] = {
+                **thinking,
+                "block_binding": {
+                    **thinking.get("block_binding", {}),
+                    "prefix_mismatch_behavior": "drop_block",
+                },
+            }
     thinking_config = body.get("thinking")
     if isinstance(thinking_config, dict) and thinking_config.get("type") == "enabled":
         budget = int(thinking_config.get("budget_tokens") or 0)
@@ -838,7 +854,41 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
             body["max_tokens"] = max(int(body.get("max_tokens") or 0), budget + 256)
     if kwargs.get("temperature") is not None and "thinking" not in body:
         body["temperature"] = kwargs["temperature"]
+    if kwargs.get("cacheable"):
+        # Own copies: replayed signed blocks belong to persisted history.
+        body = deepcopy(body)
+        body["cache_control"] = {"type": "ephemeral"}
+        system = body.get("system") or []
+        preferred = [body]
+        if system:
+            system[-1]["cache_control"] = {"type": "ephemeral"}
+            preferred.append(system[-1])
+        remaining = 4 - len(preferred)
+        # Breakpoints live on tools, system blocks, and message content blocks.
+        # Never walk tool inputs: a tool may itself accept a cache_control key.
+        candidates = list(body.get("tools") or []) + list(system)
+        for message in body.get("messages") or []:
+            candidates.extend(message.get("content") or [])
+        for block in candidates:
+            if not isinstance(block, dict) or "cache_control" not in block:
+                continue
+            if any(block is preferred_block for preferred_block in preferred):
+                continue
+            if remaining:
+                remaining -= 1
+            else:
+                block.pop("cache_control")
     return body
+
+
+_THINKING_BINDING_MODELS = (
+    "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1",
+)
+_THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
+
+
+def _uses_thinking_binding(model: str) -> bool:
+    return any(model == name or model.startswith(name + "-") for name in _THINKING_BINDING_MODELS)
 
 
 def _anthropic_to_chat(data: dict, requested_model: str) -> _Obj:
@@ -880,6 +930,13 @@ async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs
         "Content-Type": "application/json", "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
     }
+    headers.update(kwargs.get("extra_headers") or {})
+    if _uses_thinking_binding(model) and (body.get("thinking") or {}).get("block_binding", {}).get("prefix_mismatch_behavior") == "drop_block":
+        beta_key = next((key for key in headers if key.lower() == "anthropic-beta"), "anthropic-beta")
+        betas = [value.strip() for value in headers.get(beta_key, "").split(",") if value.strip()]
+        if _THINKING_BINDING_BETA not in betas:
+            betas.append(_THINKING_BINDING_BETA)
+        headers[beta_key] = ",".join(betas)
     async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:

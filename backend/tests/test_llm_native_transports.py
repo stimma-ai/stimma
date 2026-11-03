@@ -157,7 +157,9 @@ def test_anthropic_native_request_replays_exact_signed_blocks():
     assert body["system"] == [{"type": "text", "text": "Be concise."}]
     assert body["messages"][1]["content"] is signed_blocks
     assert body["messages"][2]["content"][0]["type"] == "tool_result"
-    assert body["thinking"] == {"type": "adaptive"}
+    assert body["thinking"] == {
+        "type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"},
+    }
     assert body["output_config"] == {"effort": "high"}
     assert body["tools"][0]["input_schema"]["required"] == ["city"]
 

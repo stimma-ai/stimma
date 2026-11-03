@@ -1371,7 +1371,7 @@ async def _run_agentic_loop_inner(
     effective_effort = resolve_chat_effort(chat.reasoning_effort, project_effort)
 
     # Build system prompt once — stimpacks and other volatile context are delivered
-    # via system reminders (injected into the last user message per turn)
+    # via reminders appended to the conversation when they change.
     from .stimpacks import list_skills
     from .system_reminders import (
         build_artifact_context_reminder,
@@ -1380,7 +1380,6 @@ async def _run_agentic_loop_inner(
         build_user_program_edit_reminder,
     )
     all_skills = list_skills()
-    notepad_state = format_notepad_for_prompt(str(workspace_dir))
     # Flow chats get a specialized system prompt + the flow directory as
     # the workspace for program.py edits. Everything else (tools, LLM,
     # broadcast) is shared with the main agent loop.
@@ -1401,7 +1400,6 @@ async def _run_agentic_loop_inner(
             additional_instructions=resolved_config.additional_instructions,
             global_memory=resolved_config.global_memory,
             project_memory=resolved_config.project_memory,
-            notepad_state=notepad_state,
         )
 
     # Materialize the read-only .stimma/ tool catalog into the workspace so the
@@ -1632,6 +1630,11 @@ async def _run_agentic_loop_inner(
             program_edit_reminder = build_user_program_edit_reminder(chat.flow_id)
             if program_edit_reminder:
                 system_reminders.append(program_edit_reminder)
+        system_reminders.append(
+            "<system-reminder>\n"
+            + format_notepad_for_prompt(str(workspace_dir))
+            + "\n</system-reminder>"
+        )
         if artifact_context:
             artifact_reminder = await build_artifact_context_reminder(session, artifact_context)
             if artifact_reminder:

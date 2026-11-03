@@ -3,7 +3,7 @@
 import base64
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -81,9 +81,9 @@ async def build_messages(
     across consecutive turns — this is critical for prompt caching (both Anthropic
     explicit cache_control and OpenAI automatic prefix caching).
 
-    system_reminders: Optional list of runtime-injected reminder strings. These are
-    appended to the last user message (like the timestamp) to provide per-turn
-    system-authored context without modifying the cached system prompt prefix.
+    system_reminders: Runtime context persisted as new messages at the tail when
+    it changes. User timestamps are persisted once, so replay leaves the prefix
+    unchanged until context pressure requires compression or trimming.
     Wrap each reminder in <system-reminder> tags before passing.
 
     max_context_tokens: Advertised window for the target model. Used to derive the
@@ -97,9 +97,10 @@ async def build_messages(
     result = await session.execute(
         select(ChatItem)
         .where(ChatItem.chat_id == chat_id, ChatItem.parent_item_id.is_(None))
-        .order_by(ChatItem.created_at.asc())
+        .order_by(ChatItem.created_at.asc(), ChatItem.id.asc())
     )
     items = list(result.scalars().all())
+    await _persist_prompt_context(chat_id, items, session, system_reminders or [])
 
     # Compress stale tool results and superseded run_code source directly in the
     # database. This ensures future rebuilds produce identical message prefixes.
@@ -159,10 +160,6 @@ async def build_messages(
             f"(adj={adjusted_total}, budget={budget}, window={max_context_tokens}, "
             f"correction={correction:.2f})"
         )
-
-    # Inject timestamp and system reminders into the last user message
-    # (not the system prompt) so they don't bust prompt cache.
-    _inject_last_user_context(messages, system_reminders or [])
 
     return messages, post_tokens["total"] + overhead_tokens
 
@@ -296,15 +293,63 @@ def _synthesize_missing_tool_results(messages: List[Dict[str, Any]]) -> None:
         i = j
 
 
+def _item_metadata(item: ChatItem) -> dict:
+    try:
+        metadata = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
+        return metadata if isinstance(metadata, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+async def _persist_prompt_context(
+    chat_id: int,
+    items: List[ChatItem],
+    session: AsyncSession,
+    reminders: List[str],
+) -> None:
+    """Record user timestamps once and append changed runtime context.
+
+    Older chats acquire timestamps on their first rebuild. Afterwards the same
+    text is replayed, including across runs. Reminders follow completed tool
+    batches rather than changing a user message earlier in the conversation.
+    """
+    dirty = False
+    previous_reminders = []
+    for item in items:
+        metadata = _item_metadata(item)
+        if item.item_type == "user_message" and "prompt_timestamp" not in metadata:
+            created = item.created_at or datetime.now().astimezone()
+            # Stored timestamps are UTC-naive; new in-memory items may be aware.
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            timestamp = created.astimezone().strftime("%Y-%m-%d %H:%M %Z")
+            metadata["prompt_timestamp"] = f"[Current date/time: {timestamp}]"
+            item.item_metadata = json.dumps(metadata)
+            dirty = True
+        elif item.item_type == "system_reminder":
+            previous_reminders = metadata.get("prompt_reminders", [])
+    if reminders != previous_reminders:
+        item = ChatItem(
+            chat_id=chat_id,
+            item_type="system_reminder",
+            message_text="\n\n".join(reminders),
+            item_metadata=json.dumps({"prompt_reminders": reminders}),
+        )
+        session.add(item)
+        items.append(item)
+        dirty = True
+    if dirty:
+        await session.commit()
+
+
 def _inject_last_user_context(
     messages: List[Dict[str, Any]],
     system_reminders: List[str],
 ) -> None:
-    """Prepend timestamp and system reminders to the last user message (mutates in place).
+    """Transient context for the stateless editor-agent request builder.
 
-    System reminders are runtime-injected, system-authored context that the model
-    should treat as authoritative guidance. They're placed in the last user message
-    (rather than the system prompt) to keep the prompt prefix stable for caching.
+    The durable chat loop uses _persist_prompt_context instead, so its earlier
+    messages are never rewritten when the clock or reminders change.
     """
     now = datetime.now().astimezone()
     timestamp = now.strftime("%Y-%m-%d %H:%M %Z")
@@ -356,7 +401,17 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
         if metadata and metadata.get('workspace_refs'):
             refs = json.dumps(metadata['workspace_refs'], ensure_ascii=False)
             text += f"\n\n[Attached workspace files: {refs}. Chat paths are relative to your workspace; project paths are relative to stimma.project_path(). Read these files for context.]"
+        if metadata and metadata.get("prompt_timestamp"):
+            text = f"{metadata['prompt_timestamp']}\n\n{text}"
         return {"role": "user", "content": text}
+
+    if item.item_type == "system_reminder":
+        if not item.message_text:
+            return None
+        return {
+            "role": "user", "name": "_stimma_context",
+            "content": item.message_text, "_stimma_reminder": True,
+        }
 
     if item.item_type == "assistant_message":
         if not (item.message_text or "").strip():
@@ -800,8 +855,9 @@ def _trim_run_steps(
     """Drop the oldest whole steps when history is still over budget.
 
     A step is an assistant message plus the tool results answering it, so a call
-    never loses its result. Every user-role message stays, as does the newest
-    step and any step asking the user a question: those hold what the user wants.
+    never loses its result. Appended runtime reminders travel with their step;
+    human messages and loaded skills stay, as do the newest step and any step
+    asking the user a question: those hold what the user wants.
 
     The cut only lands on fixed token boundaries counted from the start of the
     history. That keeps it in place, and the prompt cache valid, for many steps.
@@ -817,7 +873,7 @@ def _trim_run_steps(
         if role == "assistant":
             steps.append([i])
             open_step = True
-        elif role == "tool" and open_step:
+        elif (role == "tool" or message.get("_stimma_reminder")) and open_step:
             steps[-1].append(i)
         else:
             open_step = False
