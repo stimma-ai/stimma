@@ -69,7 +69,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
 
@@ -104,7 +104,7 @@ jobs:
             xvfb
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -119,7 +119,7 @@ jobs:
         run: python3 scripts/configure-build-cache.py
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: ${{ runner.environment == 'github-hosted' }}
           cache-local-path: ~/.cache/uv
@@ -333,7 +333,7 @@ jobs:
 
       - name: Publish GitHub release assets
         if: inputs.publish_github_release == true
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ inputs.version }}
           prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
@@ -493,7 +493,7 @@ jobs:
 
       - name: Upload workflow artifacts
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           compression-level: 0
           name: stimma-${{ env.LINUX_PLATFORM }}-electron-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}

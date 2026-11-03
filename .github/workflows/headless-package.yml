@@ -58,12 +58,12 @@ jobs:
       BOOTSTRAP_IMAGE: stimma-server:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
       STIMMA_SMOKE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.arch }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - uses: denoland/setup-deno@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
@@ -118,7 +118,7 @@ jobs:
         run: tools/stimma headless publish
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           compression-level: 0
           name: headless-${{ matrix.arch }}
