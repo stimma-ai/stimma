@@ -8,11 +8,16 @@
 import { Menu, app, dialog } from 'electron'
 import { applicationMenuTemplate } from './menuTemplate.ts'
 import { promptLogExport } from './logExport.ts'
+import { getKnownDevices } from './devices.ts'
+import { getProxyTarget } from './proxy.ts'
 
 export function installApplicationMenu(dev: boolean, dataDir: string): void {
   app.setName('Stimma')
   const template = applicationMenuTemplate(dev, process.platform, () => {
-    void promptLogExport(dataDir, app.getVersion(), dialog)
+    // Connection messages include roster names, route hosts and the proxy host.
+    const identities = getKnownDevices().flatMap((device) => [device.name, ...device.routes.map((route) => route.host)])
+    identities.push(getProxyTarget()?.host ?? '')
+    void promptLogExport(dataDir, app.getVersion(), dialog, identities)
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }

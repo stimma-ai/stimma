@@ -79,6 +79,32 @@ test('export scrubs home paths, JSON secrets, bearer values, provider keys and J
   assert.equal(scrubLogExport('completion used 1523 tokens (prompt_tokens 800)'), 'completion used 1523 tokens (prompt_tokens 800)')
 })
 
+test('export archives redact standalone local and known device identities', async (t) => {
+  t.mock.method(os, 'userInfo', () => ({ username: 'test-account' }))
+  t.mock.method(os, 'hostname', () => 'sample-workstation')
+  const dir = await scratch(t)
+  await fs.mkdir(path.join(dir, 'Logs'))
+  const messages = [
+    'user=test-account host=SAMPLE-WORKSTATION',
+    'Connected to Studio Computer via tailscale studio-node.example:9191',
+    'Bootstrap refused by Studio Computer: 403',
+    'Cached session rejected by Studio Computer; re-bootstrapping',
+    'Target set to 192.0.2.14:9191',
+    'getaddrinfo ENOTFOUND studio-node.example',
+  ].join('\n')
+  await fs.writeFile(path.join(dir, 'Logs', 'Stimma-shell.log'), messages)
+  const destination = path.join(dir, 'logs.zip')
+  await promptLogExport(dir, 'dev', {
+    showSaveDialog: async () => ({ canceled: false, filePath: destination }),
+    showErrorBox: (_title, message) => assert.fail(message),
+  }, ['Studio Computer', 'studio-node.example', '192.0.2.14'])
+  const text = readZip(await fs.readFile(destination)).get('Stimma-shell.log')!
+  assert.match(text, /Connected to \[redacted\] via tailscale \[redacted\]:9191/)
+  for (const value of ['test-account', 'sample-workstation', 'Studio Computer', 'studio-node.example', '192.0.2.14']) {
+    assert.ok(!text.toLowerCase().includes(value.toLowerCase()), value)
+  }
+})
+
 test('export bounds legacy logs, tolerates missing rotations and never changes source logs', async (t) => {
   const dir = await scratch(t)
   const logs = path.join(dir, 'Logs')

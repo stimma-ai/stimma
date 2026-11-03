@@ -13,7 +13,7 @@ const LOG_NAMES = [
   ...Array.from({ length: 20 }, (_, i) => `Stimma_log.${String(i).padStart(2, '0')}.txt`),
 ]
 
-export function scrubLogExport(text: string, home = os.homedir()): string {
+export function scrubLogExport(text: string, home = os.homedir(), identities: readonly string[] = []): string {
   // Match the feedback scrubber's secret assignments, including quoted JSON keys.
   text = text.replace(
     /\b(authorization)(["']?\s*[:=]\s*["']?)(?:(?:bearer|basic)\s+)?[^\s"',;]+/gi,
@@ -31,8 +31,14 @@ export function scrubLogExport(text: string, home = os.homedir()): string {
   for (const value of homes) {
     if (value) text = text.replace(new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '~')
   }
-  return text.replace(/[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>]+/gi, '~')
+  text = text.replace(/[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>]+/gi, '~')
     .replace(/\/(?:home|Users)\/[^/\r\n"'<>]+/g, '~')
+  for (const value of [os.userInfo().username, os.hostname(), ...identities].sort((a, b) => b.length - a.length)) {
+    if (!value) continue
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    text = text.replace(new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'gi'), '[redacted]')
+  }
+  return text
 }
 
 /** A small classic ZIP writer: fixed ASCII names, deflate, no ZIP64 needed. */
@@ -40,6 +46,7 @@ export async function exportLogs(
   destination: string,
   dataDir: string,
   version: string,
+  identities: readonly string[] = [],
 ): Promise<void> {
   const logsDir = path.join(dataDir, 'Logs')
   const resolve = (filename: string) => process.platform === 'win32'
@@ -53,7 +60,7 @@ export async function exportLogs(
   let offset = 0
   try {
     const add = async (name: string, text: string) => {
-      const data = Buffer.from(scrubLogExport(text), 'utf8')
+      const data = Buffer.from(scrubLogExport(text, os.homedir(), identities), 'utf8')
       const compressed = await compress(data)
       const filename = Buffer.from(name)
       const header = Buffer.alloc(30)
@@ -126,10 +133,11 @@ export async function promptLogExport(
     showSaveDialog: (options: { defaultPath: string }) => Promise<{ canceled: boolean; filePath?: string }>
     showErrorBox: (title: string, content: string) => void
   },
+  identities: readonly string[] = [],
 ): Promise<void> {
   try {
     const result = await dialogs.showSaveDialog({ defaultPath: 'Stimma-logs.zip' })
-    if (!result.canceled && result.filePath) await exportLogs(result.filePath, dataDir, version)
+    if (!result.canceled && result.filePath) await exportLogs(result.filePath, dataDir, version, identities)
   } catch {
     dialogs.showErrorBox('Stimma', "Couldn't export logs.")
   }
