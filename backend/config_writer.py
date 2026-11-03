@@ -8,6 +8,7 @@ import re
 import shutil
 import tempfile
 from datetime import datetime
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -59,36 +60,32 @@ def _load_config_yaml() -> tuple[Any, YAML]:
     return data, yaml
 
 
-def _atomic_write_config(data: Any, yaml: YAML) -> None:
-    """Atomically write config data to file.
+@contextmanager
+def atomic_write(path: Path, mode: str = "w"):
+    """Replace a file only after a complete, durable write in its directory."""
+    path = Path(path)
+    fd, temp_path = tempfile.mkstemp(suffix=path.suffix, dir=path.parent)
+    try:
+        kwargs = {} if "b" in mode else {"encoding": "utf-8"}
+        with os.fdopen(fd, mode, **kwargs) as handle:
+            yield handle
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-    1. Write to temp file in same directory
-    2. Backup existing config to config.yaml.bak
-    3. Atomic rename temp to config.yaml
-    """
+
+def _atomic_write_config(data: Any, yaml: YAML) -> None:
+    """Atomically write config data, keeping the previous config as a backup."""
     global _app_initiated_write
     _app_initiated_write = True
     config_path = get_config_path()
-    config_dir = config_path.parent
-
-    # Write to temp file in same directory (for atomic rename)
-    fd, temp_path = tempfile.mkstemp(suffix='.yaml', dir=config_dir)
-    try:
-        with os.fdopen(fd, 'w') as f:
-            yaml.dump(data, f)
-
-        # Backup existing config
-        backup_path = config_path.with_suffix('.yaml.bak')
+    with atomic_write(config_path) as handle:
+        yaml.dump(data, handle)
         if config_path.exists():
-            shutil.copy2(config_path, backup_path)
-
-        # Atomic rename
-        os.replace(temp_path, config_path)
-    except Exception:
-        # Clean up temp file on error
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
-        raise
+            shutil.copy2(config_path, config_path.with_suffix('.yaml.bak'))
 
 
 def _find_profile_index(data: Any, profile_id: str) -> Optional[int]:

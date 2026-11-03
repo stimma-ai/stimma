@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import MediaItem
+from config_writer import atomic_write
 from generation_metadata import dump_generation_metadata
 from utils.query_builder import not_due_for_autodelete
 from core.logging import get_logger
@@ -177,18 +178,15 @@ async def write_composite_content(
     """
     file_path = Path(media_item.file_path)
 
-    # Write to disk
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(content, f, indent=2)
+    def write_content():
+        with atomic_write(file_path) as handle:
+            json.dump(content, handle, indent=2)
+        return _compute_file_hash(file_path), file_path.stat(), json.dumps(content)
 
-    # Compute new file hash
-    file_hash = _compute_file_hash(file_path)
+    file_hash, stat_info, raw_metadata = await asyncio.to_thread(write_content)
 
-    # Get updated file stats
-    stat_info = file_path.stat()
-
-    # Update DB cache
-    media_item.raw_metadata = json.dumps(content)
+    # Update DB cache only after the source file was replaced successfully.
+    media_item.raw_metadata = raw_metadata
     media_item.file_hash = file_hash
     media_item.file_size = stat_info.st_size
     media_item.modified_date = dt.fromtimestamp(stat_info.st_mtime)
