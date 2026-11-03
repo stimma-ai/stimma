@@ -97,7 +97,8 @@ async def test_download_receipt_retains_render_and_opaque_metadata_when_sidecar_
 
 
 @pytest.mark.asyncio
-async def test_real_join_exports_and_reimports_opaque_tail_mapping(db_session, tmp_path):
+@pytest.mark.parametrize("materialize_asset", [False, True])
+async def test_real_join_exports_and_reimports_opaque_tail_mapping(db_session, tmp_path, materialize_asset):
     import asyncio
     from types import SimpleNamespace
     from video_join import join_video
@@ -130,8 +131,10 @@ async def test_real_join_exports_and_reimports_opaque_tail_mapping(db_session, t
         report = await join_video(sdk, [{"media_id": media.id}, {"media_id": media.id, "trim_head": 39}])
         assert report["frames"] == 277
         joined_path = Path(report["out"])
-        joined = await create_media_item(session, file_path=joined_path, file_hash=hashlib.sha256(joined_path.read_bytes()).hexdigest(), file_format="mp4")
-        await stage_managed_media(session, media=joined, profile_id="default", remove_source=False)
+        from agent.v2.tools.library import save_workspace_file
+        saved = json.loads(await save_workspace_file(session, str(joined_path), tmp_path, None,
+                                                     materialize_asset=materialize_asset))
+        joined = await session.get(MediaItem, saved["media_id"])
         records = await companions_for_media(session, joined.id, "default")
         assert len(records) == 2
         records.sort(key=lambda r: r["media_mapping"]["spans"][0]["media"][0])
@@ -165,3 +168,24 @@ async def test_ephemeral_cleanup_releases_state_and_receipt(db_session, tmp_path
             assert await purge_ephemeral_run(session, "test-sidecars") == 1
         assert not Path(record["file"]).exists()
         assert not receipt.exists()
+
+
+@pytest.mark.asyncio
+async def test_asset_info_and_browse_include_generic_companion_facts(client, db_session, tmp_path):
+    async with db_session() as session:
+        path = tmp_path / "facts.png"
+        path.write_bytes(b"facts render")
+        media = await create_media_item(session, file_path=path)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        await attach_sidecars(session, media=media, sidecars=[state()], profile_id="default")
+        asset_id, media_id = asset.id, media.id
+        await session.commit()
+    detail = await client.get(f"/api/assets/{asset_id}")
+    assert detail.status_code == 200
+    assert detail.json()["media"]["sidecars"][0]["descriptor"]["not_a_tensor"] == [1, {"custom": True}]
+    listing = (await client.get("/api/assets")).json()["items"]
+    [listed] = [r for r in listing if r["asset"]["id"] == asset_id]
+    assert listed["media"]["sidecars"][0]["format"] == "unrelated.opaque_format"
+    browsing = (await client.get("/api/assets/browse")).json()["items"]
+    [browsed] = [r for r in browsing if r["media_id"] == media_id]
+    assert browsed["sidecars"][0]["status"] == "available"

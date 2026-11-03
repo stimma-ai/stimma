@@ -1692,6 +1692,13 @@ async def save_workspace_file(
         remove_source=True,
     )
 
+    # Staging copied only the render. Resolve the hash-bound portable manifest
+    # beside the original workspace file while its companion paths still exist.
+    if not is_bundle:
+        from media_sidecars import import_portable_manifest
+        await import_portable_manifest(session, media=media_item, source=source,
+                                       profile_id=get_current_profile())
+
     asset_id = None
     revision_id = None
     if materialize_asset:

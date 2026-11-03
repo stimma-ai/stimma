@@ -97,11 +97,11 @@ class AssetTagBatchRequest(AssetIdsRequest):
     remove_tag_ids: list[int] = []
 
 
-def _projection(asset: Asset, revision: AssetRevision, media: MediaItem) -> dict:
+def _projection(asset: Asset, revision: AssetRevision, media: MediaItem, *, sidecars=()) -> dict:
     return {
         "asset": asset.to_dict(),
         "revision": revision.to_dict(),
-        "media": media.to_dict(),
+        "media": {**media.to_dict(), "sidecars": list(sidecars)},
     }
 
 
@@ -172,9 +172,11 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
         for association, tag in tag_rows:
             tags[association.asset_id].append(tag.to_dict())
 
+    from media_sidecars import summaries_by_media
+    companions = await summaries_by_media(session, [media.id for _, _, media in rows])
     result = []
     for asset, revision, media in rows:
-        item = media.to_dict()
+        item = {**media.to_dict(), "sidecars": companions.get(media.id, [])}
         item.update(
             {
                 "id": asset.id,
@@ -355,8 +357,10 @@ async def list_assets(
             base.order_by(Asset.updated_at.desc(), Asset.id.desc()).offset(offset).limit(limit)
         )
     ).all()
+    from media_sidecars import summaries_by_media
+    companions = await summaries_by_media(session, [media.id for _, _, media in rows])
     return {
-        "items": [_projection(*row) for row in rows],
+        "items": [_projection(*row, sidecars=companions.get(row[2].id, [])) for row in rows],
         "total": total or 0,
         "limit": limit,
         "offset": offset,
@@ -2240,7 +2244,10 @@ async def get_asset(asset_id: int, session: AsyncSession = Depends(get_db_sessio
     ).one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return _projection(*row)
+    from media_sidecars import companions_for_media
+    from core.profile_context import get_current_profile
+    companions = await companions_for_media(session, row[2].id, get_current_profile(), include_paths=False)
+    return _projection(*row, sidecars=companions)
 
 
 def _revision_entry(revision: AssetRevision, media: MediaItem) -> dict:
