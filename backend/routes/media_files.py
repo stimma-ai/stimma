@@ -1,6 +1,7 @@
 """Media file serving routes (thumbnails and original files)."""
 import asyncio
 import os
+import shutil
 import uuid
 from typing import Optional, List
 from core.logging import get_logger
@@ -9,7 +10,6 @@ import threading
 from queue import LifoQueue
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from starlette.background import BackgroundTask
 from sqlalchemy import select, update, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +29,21 @@ from utils.http_headers import content_disposition
 import metadata_embed
 
 router = APIRouter(prefix="/api", tags=["media_files"])
+
+
+class TemporaryFileResponse(FileResponse):
+    """Own temporary output through send, including failure and cancellation."""
+
+    def __init__(self, *args, cleanup_dir, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cleanup_dir = cleanup_dir
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # No await: an already cancelled request must still remove its files.
+            shutil.rmtree(self.cleanup_dir, ignore_errors=True)
 
 
 # Cache headers for immutable content (db_guid in URL makes it globally unique)
@@ -3598,9 +3613,9 @@ async def bulk_download_media(
         }
         if single_directory:
             headers['Access-Control-Allow-Origin'] = '*'
-        return FileResponse(
+        return TemporaryFileResponse(
             zip_path, media_type="application/zip", headers=headers,
-            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+            cleanup_dir=tmp_dir,
         )
     except BaseException:
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -3936,26 +3951,26 @@ async def export_media(
             elif fmt in VIDEO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
                 output_path, filename, media_type = await asyncio.to_thread(_convert_video, file_path, opts, tmp_dir)
-                return FileResponse(
+                return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
                     headers={
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
+                    cleanup_dir=tmp_dir
                 )
             elif fmt in AUDIO_EXPORT_FORMATS:
                 tmp_dir = tempfile.mkdtemp(prefix='stimma-export-')
                 output_path, filename, media_type = await asyncio.to_thread(_convert_audio, file_path, opts, tmp_dir)
-                return FileResponse(
+                return TemporaryFileResponse(
                     output_path,
                     media_type=media_type,
                     headers={
                         'Content-Disposition': content_disposition('attachment', filename),
                         'Access-Control-Allow-Origin': '*',
                     },
-                    background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
+                    cleanup_dir=tmp_dir
                 )
 
         # Multiple files: export to zip
@@ -4019,14 +4034,14 @@ async def export_media(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"stimma-export-{timestamp}.zip"
 
-        return FileResponse(
+        return TemporaryFileResponse(
             zip_path,
             media_type="application/zip",
             headers={
                 'Content-Disposition': content_disposition('attachment', zip_filename),
                 'Content-Length': str(zip_path.stat().st_size)
             },
-            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+            cleanup_dir=tmp_dir,
         )
     except BaseException:
         if tmp_dir:

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from routes.media_files import ExportOptions, ExportRequest, export_media
+from routes.media_files import BulkDownloadRequest, ExportOptions, ExportRequest, bulk_download_media, export_media
 from tests.helpers.media import create_media_item
 
 
@@ -83,3 +83,39 @@ async def test_converted_exports_survive_send_and_cleanup(client, db_session, tm
         with pytest.raises(RuntimeError, match="ffmpeg failed"):
             await export_media(ExportRequest(media_ids=[items[1].id]), session)
         assert set(Path(tempfile.gettempdir()).glob("stimma-export-*")) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", [OSError, asyncio.CancelledError])
+@pytest.mark.parametrize("kind", ["video", "audio", "export_zip", "download_zip"])
+async def test_temporary_responses_cleanup_after_interrupted_send(db_session, tmp_path, monkeypatch, kind, interruption):
+    import routes.media_files as media_files
+
+    def convert(source, options, directory):
+        output = Path(directory) / source.name
+        output.write_bytes(b"converted payload")
+        return output, output.name, "application/octet-stream"
+
+    monkeypatch.setattr(media_files, "_convert_video", convert)
+    monkeypatch.setattr(media_files, "_convert_audio", convert)
+    async with db_session() as session:
+        items = []
+        for name in ("video.mp4", "audio.wav"):
+            path = tmp_path / name
+            path.write_bytes(b"original payload")
+            items.append(await create_media_item(session, file_path=path, file_format=path.suffix[1:]))
+        if kind == "download_zip":
+            response = await bulk_download_media(BulkDownloadRequest(media_ids=[item.id for item in items]), session)
+        else:
+            ids = [item.id for item in items] if kind == "export_zip" else [items[kind == "audio"].id]
+            response = await export_media(ExportRequest(media_ids=ids), session)
+        output = Path(response.path)
+
+        async def send(message):
+            assert output.exists()
+            if message["type"] == "http.response.body":
+                raise interruption("interrupted send")
+
+        with pytest.raises(interruption, match="interrupted send"):
+            await response({"type": "http", "method": "GET", "headers": []}, None, send)
+        assert not output.parent.exists()
