@@ -5,44 +5,14 @@
  * packaged Tauri app exposed neither.
  */
 
-import { Menu, MenuItemConstructorOptions, app } from 'electron'
+import { Menu, app, dialog } from 'electron'
+import { applicationMenuTemplate } from './menuTemplate.ts'
+import { promptLogExport } from './logExport.ts'
 
-export function installApplicationMenu(dev: boolean): void {
-  const isMac = process.platform === 'darwin'
-
+export function installApplicationMenu(dev: boolean, dataDir: string): void {
   app.setName('Stimma')
-
-  // Stimma uses its own in-app controls. On Linux and Windows, Electron's
-  // default menu is redundant and visually inconsistent with the shell.
-  if (!isMac) {
-    Menu.setApplicationMenu(null)
-    return
-  }
-
-  const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' as const }] : []),
-    {
-      label: 'File',
-      submenu: [isMac ? { role: 'close' as const } : { role: 'quit' as const }],
-    },
-    { role: 'editMenu' },
-    {
-      label: 'View',
-      submenu: [
-        ...(dev
-          ? [
-              { role: 'reload' as const },
-              { role: 'forceReload' as const },
-              { role: 'toggleDevTools' as const },
-              { type: 'separator' as const },
-            ]
-          : []),
-        // No zoom roles: the Tauri shell had no webview zoom accelerators.
-        { role: 'togglefullscreen' as const },
-      ],
-    },
-    { role: 'windowMenu' },
-  ]
-
+  const template = applicationMenuTemplate(dev, process.platform, () => {
+    void promptLogExport(dataDir, app.getVersion(), dialog)
+  })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
