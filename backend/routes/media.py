@@ -29,6 +29,21 @@ from utils.websocket import ws_manager
 
 router = APIRouter(tags=["media"])
 log = get_logger(__name__)
+SIMILARITY_LOOKUP_CHUNK_SIZE = 500
+
+
+async def _load_similarity_winners(session: AsyncSession, media_ids, *, payloads: bool = False):
+    """Load winner metadata or payloads within SQLite's bind parameter limit."""
+    ids = list(media_ids)
+    winners = {}
+    columns = (MediaItem,) if payloads else (MediaItem.id, MediaItem.created_date, MediaItem.indexed_date)
+    for start in range(0, len(ids), SIMILARITY_LOOKUP_CHUNK_SIZE):
+        result = await session.execute(select(*columns).where(
+            MediaItem.id.in_(ids[start:start + SIMILARITY_LOOKUP_CHUNK_SIZE]),
+        ))
+        rows = result.scalars().all() if payloads else result.all()
+        winners.update((row.id, row) for row in rows)
+    return winners
 
 
 def _scope_media_query_to_project(query, project_id: int, sort_by: str):
@@ -374,10 +389,7 @@ async def get_media(
         similarity_scores = {media_id: score for media_id, score in all_scores.items()
                              if score >= effective_threshold}
         # Sort lightweight winner metadata, then load only the requested page.
-        result = await session.execute(select(
-            MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
-        ).where(MediaItem.id.in_(similarity_scores)))
-        winners = {row.id: row for row in result.all()}
+        winners = await _load_similarity_winners(session, similarity_scores)
         filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
         # Sort filtered items based on sort_by parameter
@@ -501,10 +513,7 @@ async def get_media(
         threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_similarity_threshold
         similarity_scores = {media_id: score for media_id, score in all_scores.items()
                              if media_id in reference_ids or score >= threshold}
-        result = await session.execute(select(
-            MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
-        ).where(MediaItem.id.in_(similarity_scores)))
-        winners = {row.id: row for row in result.all()}
+        winners = await _load_similarity_winners(session, similarity_scores)
         filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
@@ -838,10 +847,7 @@ async def get_media_ids(
             threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_similarity_threshold
             similarity_scores = {media_id: score for media_id, score in all_scores.items()
                                  if media_id in similar_to_ids or score >= threshold}
-            result = await session.execute(select(
-                MediaItem.id, MediaItem.created_date, MediaItem.indexed_date,
-            ).where(MediaItem.id.in_(similarity_scores)))
-            winners = {row.id: row for row in result.all()}
+            winners = await _load_similarity_winners(session, similarity_scores)
             filtered_items = [winners[media_id] for media_id in similarity_scores if media_id in winners]
 
             # Schedule re-indexing for items with stale embeddings
@@ -1440,8 +1446,7 @@ async def search_similar(
     # Preserve the existing sort-before-filter behavior, including NaN scores.
     ordered_ids = [media_id for media_id in sorted(all_scores, key=all_scores.get, reverse=True)
                    if media_id in scores_by_id]
-    result = await session.execute(select(MediaItem).where(MediaItem.id.in_(ordered_ids)))
-    winners = {item.id: item for item in result.scalars().all()}
+    winners = await _load_similarity_winners(session, ordered_ids, payloads=True)
     filtered_items = [winners[media_id] for media_id in ordered_ids if media_id in winners]
 
     media_items = []

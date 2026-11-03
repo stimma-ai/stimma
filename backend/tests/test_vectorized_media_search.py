@@ -128,3 +128,54 @@ async def test_vectorized_similarity_preserves_scores_filters_and_order(client, 
             assert stale.clip_status == "pending"
     finally:
         event.remove(engine, "before_cursor_execute", record_sql)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["text", "media", "ids", "post"])
+async def test_similarity_winner_lookups_are_chunked(client, db_session, monkeypatch, mode):
+    import routes.media as media_routes
+
+    monkeypatch.setattr(media_routes, "SIMILARITY_LOOKUP_CHUNK_SIZE", 2, raising=False)
+    vector = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+    vector[-1 if mode == "post" else 0] = 1
+    async with db_session() as session:
+        items = []
+        for _ in range(5):
+            item = await create_media_item(session, materialize_asset=True, vlm_caption=f"chunked winners {mode}")
+            item.set_embedding(vector)
+            items.append(item)
+        await session.commit()
+        ids = [item.id for item in items]
+
+    chunks = []
+
+    def limit_winner_query(connection, cursor, statement, parameters, context, executemany):
+        metadata_lookup = statement.startswith("SELECT media_items.id, media_items.created_date, media_items.indexed_date")
+        payload_lookup = statement.startswith("SELECT media_items.id, media_items.file_path") and "WHERE media_items.id IN" in statement
+        if (mode == "post" and payload_lookup) or (mode != "post" and metadata_lookup):
+            chunks.append(len(parameters))
+            assert len(parameters) <= 2, "winner lookup exceeds SQL variable limit"
+
+    engine = db_session.kw["bind"].sync_engine
+    event.listen(engine, "before_cursor_execute", limit_winner_query)
+    try:
+        params = dict(caption_query=f"chunked winners {mode}", similarity_threshold=0.5, sort_by="similarity")
+        params["similar_to_text" if mode == "text" else "similar_to"] = "fixture" if mode == "text" else str(ids[0])
+        if mode != "ids":
+            params.update(page=1, page_size=1)
+        if mode == "post":
+            response = await client.post("/api/search/similar", json={"media_id": ids[0]})
+        else:
+            response = await client.get("/api/media/ids" if mode == "ids" else "/api/media", params=params)
+        assert response.status_code == 200, response.text
+        data = response.json()
+        if mode == "post":
+            assert [item["media_id"] for item in data["items"]] == ids[1:]
+        elif mode == "ids":
+            assert data["ids"] == ids
+        else:
+            assert data["total"] == len(ids)
+            assert [item["media_id"] for item in data["items"]] == ids[:1]
+        assert chunks == ([2, 2] if mode == "post" else [2, 2, 1])
+    finally:
+        event.remove(engine, "before_cursor_execute", limit_winner_query)
