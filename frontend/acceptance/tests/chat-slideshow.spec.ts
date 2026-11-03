@@ -85,7 +85,13 @@ test('chat slideshow stays live and preserves the selected image across batches'
   await expect(page.getByTitle('Next (→ or D)', { exact: true })).toBeVisible();
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('Escape');
-  await page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer`).first().click();
+  // A tile opens the collection's preview; the picture opens the slideshow.
+  const favorites = page.locator(`[data-item-id="${response.id}"]`);
+  const openFavorite = async (index: number) => {
+    await favorites.locator(`[data-tile="${index}"]`).click();
+    await favorites.getByTestId('media-collection-hero').locator('.group.cursor-pointer').click();
+  };
+  await openFavorite(0);
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('ArrowRight');
   await expect(hero).toHaveAttribute('src', new RegExp(images[0].file_hash!));
@@ -98,7 +104,7 @@ test('chat slideshow stays live and preserves the selected image across batches'
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('Escape');
   // Click the second appearance of image 2 in this same favorites message.
-  await page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer`).nth(2).click();
+  await openFavorite(2);
   await expect(hero).toHaveAttribute('src', new RegExp(images[2].file_hash!));
   await page.keyboard.press('ArrowRight');
   await expect(hero).toHaveAttribute('src', new RegExp(images[1].file_hash!));
@@ -136,8 +142,8 @@ test('chat slideshow stays live and preserves the selected image across batches'
       })),
     } }),
   } } });
-  await expect(page.locator(`[data-item-id="${response.id}"] .media-display .group.cursor-pointer img`).first())
-    .toHaveAttribute('src', new RegExp(`/media/${images[1].id}/file`));
+  await expect(favorites.locator('[data-tile="0"] img'))
+    .toHaveAttribute('src', new RegExp(`/${images[1].id}/`));
   expect(keyWarnings).toEqual([]);
   const strip = page.locator('.horizontal-virtual-scroller');
   await expect(strip.locator('.scroll-item')).toHaveCount(15);

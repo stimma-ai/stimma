@@ -37,7 +37,7 @@
         <!-- Main chat area -->
         <div class="flex-1 flex flex-col min-w-0">
     <!-- Chat Messages Area -->
-    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar compact:p-3" ref="messagesContainer">
+    <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar compact:p-3" ref="messagesContainer" data-chat-scroller>
       <!-- Connection Error -->
       <ConnectionError
         v-if="loadError"
@@ -1176,9 +1176,10 @@
         @edit="editQueuedMessage"
         @remove="removeQueuedMessage"
       />
+      <MediaSelectionBar v-if="mediaCollections.selection.selecting.value" :class="messageQueue.length > 0 ? 'rounded-t-none' : ''" />
       <ChatInputBox
         ref="chatInputBoxRef"
-        :attached-top="messageQueue.length > 0"
+        :attached-top="messageQueue.length > 0 || mediaCollections.selection.selecting.value"
         :project-id="chat ? (chat.project_id ?? null) : undefined"
         :draft="composerDraft"
         :attachments="inputAttachments"
@@ -1310,8 +1311,13 @@
           @mousedown="artifactStage.startResize"
         />
         <Transition name="stage" @enter="freezeStageForEnter" @after-enter="unfreezeStage" @enter-cancelled="unfreezeStage" @before-leave="freezeStageForLeave">
+          <div
+            v-if="artifactStage.stageOpen.value && artifactStage.collectionItemId.value != null"
+            :ref="el => { mediaCollections.panel.target.value = el }"
+            class="flex min-w-0 flex-1 flex-col overflow-hidden bg-matte compact:absolute compact:inset-0 compact:z-chrome"
+          />
           <ArtifactStage
-            v-if="artifactStage.stageOpen.value"
+            v-else-if="artifactStage.stageOpen.value"
             class="compact:absolute compact:inset-0 compact:z-chrome"
             :workspace-file="artifactStage.workspaceFile.value"
             :chat-id="chatId"
@@ -1368,7 +1374,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, computed, toRaw, provide } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { useBackOverride } from '../composables/useBackOverride'
 import { setCompactTitle, setCompactMenu } from '../composables/useCompactChrome'
@@ -1406,6 +1412,8 @@ defineOptions({
   name: 'ChatView'
 })
 import MediaDisplay from '../components/chat/MediaDisplay.vue'
+import MediaSelectionBar from '../components/chat/MediaSelectionBar.vue'
+import { CHAT_MEDIA_COLLECTIONS, useChatMediaCollections } from '../composables/useChatMediaCollections'
 import FileChips from '../components/chat/FileChips.vue'
 import { fileUrl, type WorkspaceFile } from '../utils/fileRefs'
 import ArtifactStage from '../components/chat/ArtifactStage.vue'
@@ -1539,6 +1547,17 @@ const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load
 const hasMore = ref(false)
 // Keep draft reads inside ChatInputBox's render effect, away from history.
 const { draft: composerDraft, text: messageInput, attachments: inputAttachments } = useChatDraft(chatId)
+const mediaCollections = useChatMediaCollections({
+  attachments: inputAttachments,
+  canAttach: () => !noUsableChatModels.value,
+  compare: (leftMediaId, rightMediaId) => enterCompare({ leftMediaId, rightMediaId }),
+  panelAvailable: !props.embedded,
+  panelItemId: artifactStage.collectionItemId,
+  openPanel: artifactStage.openCollection,
+  closePanel: artifactStage.closeCollection,
+})
+provide(CHAT_MEDIA_COLLECTIONS, mediaCollections)
+watch(chatId, () => mediaCollections.selection.clear())
 const { resolvedTheme } = useTheme()
 const textRenderCache = createBoundedTextCache()
 watch(chatId, () => textRenderCache.clear())
@@ -3943,7 +3962,7 @@ async function sendMessage(queuedMessage = null) {
         // Sent while pinned to an older artifact revision: tells the agent
         // which version the user means so an edit branches from there
         // instead of continuing off the latest.
-        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
+        artifact_context: (!props.embedded && !artifactStage.workspaceFile.value && artifactStage.stageOpen.value && artifactStage.collectionItemId.value == null && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
           ? {
               asset_id: artifactStage.assetId.value,
               revision_id: artifactStage.viewedRevisionId.value,

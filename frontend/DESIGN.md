@@ -795,6 +795,31 @@ same for Adjust, the brushes, the selection tools, Crop and Annotate:
   swipe, and the row returns exactly as it was. It is not a level of the
   row: ‹ in the row always means the row's own level, never a drawer.
 
+### 3.5a Image collections in chat (adopted 2026-11-03)
+
+An agent's output images are one collection with two views and two homes
+(`MediaCollection`). Tiles are `OutputImage`, so status, markers, job info and
+the media menu stay in one place.
+
+- **Starting view.** Grid when the whole set fits without paging (12 on wide, 9
+  on compact), otherwise Preview. One image has no view toggle.
+- **Grid** is one matte wall with 2px gutters, showing whole images. It collapses
+  to three rows and the last tile carries mono `+N`. While expanded, the header
+  sticks to the top of the chat with Show fewer.
+- **Preview** is the picture and a strip. Everything on the picture is §3.3 black
+  glass: pick top-left, slideshow and menu top-right, facts bottom-left (the
+  position is editable), Add to message bottom-right. The picture, strip and
+  header fit the chat together, so paging through a set never needs a vertical
+  scroll. The strip crops like the slideshow strip, and the current tile takes
+  the selection ring while the rest dim.
+- **Clicks.** A grid tile opens Preview; the picture opens the slideshow. Touch
+  swipes the picture and long-presses to select (§1.11).
+- **Panel.** A collection can move into the artifact panel (full screen on
+  compact). A chip holds its place in the transcript, and the panel's previous
+  contents return when it leaves.
+- **Selection** belongs to one collection at a time and docks on the composer
+  like the message queue, keeping one bottom bar (§1.11).
+
 ### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
 
 The graph canvas nodes follow the same one-signal discipline as the rest of

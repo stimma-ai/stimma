@@ -327,6 +327,16 @@ async function onDrop(event) {
     return
   }
 
+  // A drag of several picked images from a chat collection.
+  try {
+    const items = JSON.parse(event.dataTransfer?.getData('application/x-stimma-assets') || '{}').items || []
+    if (items.length > 1 && items.every(item => item.media_id)) {
+      updateAttachments([...props.attachments, ...items.filter(item => !props.attachments.some(a => a.media_id === item.media_id)).map(item => ({ media_id: item.media_id }))])
+      nextTick(() => textareaRef.value?.focus())
+      return
+    }
+  } catch { /* Ignore malformed external drags. */ }
+
   // Check for media_id from in-app drag
   const mediaId = event.dataTransfer?.getData('application/x-media-id')
   if (mediaId) {

@@ -198,5 +198,6 @@ for (const kind of ['set', 'grid', 'layout']) {
     await expect(slideshow).toHaveCount(0);
     await expect(preview).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/chat/${chat.id}$`));
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 }

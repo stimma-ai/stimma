@@ -15,10 +15,10 @@
       v-if="row.output.status === 'pending' || row.output.status === 'generating'"
       class="relative w-full h-full flex items-center justify-center"
     >
-      <div class="animate-spin rounded-full h-10 w-10 border-2 border-edge border-t-blue-500"></div>
-      <!-- Progress indicator -->
-      <div v-if="row.output.progress" class="absolute bottom-2 left-2 right-2">
-        <div class="h-1 bg-surface-raised rounded-full overflow-hidden">
+      <!-- Pulse dot and thin bar on the matte, never a spinner (DESIGN.md §3.3) -->
+      <div class="flex w-2/5 flex-col items-center gap-2">
+        <span class="h-1.5 w-1.5 rounded-full animate-pulse-soft" :class="row.output.status === 'generating' ? 'bg-blue-500' : 'bg-zinc-500'"></span>
+        <div v-if="row.output.progress" class="h-0.5 w-full overflow-hidden rounded-full bg-overlay-medium">
           <div
             class="h-full bg-blue-500 transition-all"
             :style="{ width: `${row.output.progress}%` }"
@@ -60,13 +60,15 @@
       <MediaImage
         :media-id="row.output.media_id"
         :thumbnail="effectiveThumbnail"
-        :thumbnail-size="effectiveThumbnail ? 512 : undefined"
+        :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
+        :thumbnail-mode="fitThumbnail ? 'fit' : 'crop'"
+        background-class="bg-matte"
         :contain="true"
         container-class="w-full h-full"
       />
 
       <!-- Media type badge (upper right) - for non-image types -->
-      <div v-if="outputMediaType && outputMediaType !== 'image'" class="absolute top-1.5 right-1.5 z-chrome">
+      <div v-if="outputMediaType && outputMediaType !== 'image'" class="absolute top-1.5 right-1.5 z-chrome" :style="insetRight ? { right: `${insetRight}px` } : null">
         <div class="bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
           <!-- Audio icon (music note) -->
           <svg v-if="outputMediaType === 'audio'" class="w-3.5 h-3.5 flex-shrink-0 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -104,14 +106,14 @@
       </div>
 
       <!-- Trashed badge (upper left) - yellow trash icon -->
-      <div v-if="isTrashed" class="absolute top-1.5 left-1.5 z-chrome bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
+      <div v-if="isTrashed" :style="insetLeft ? { left: `${insetLeft}px` } : null" class="absolute top-1.5 left-1.5 z-chrome bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5 text-amber-400">
           <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
         </svg>
       </div>
 
       <!-- Auto-delete time remaining badge (upper left, only if not trashed) -->
-      <div v-else-if="formattedRemainingTime" class="absolute top-1.5 left-1.5 z-chrome bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
+      <div v-else-if="formattedRemainingTime" :style="insetLeft ? { left: `${insetLeft}px` } : null" class="absolute top-1.5 left-1.5 z-chrome bg-black/60 backdrop-blur-md rounded px-1.5 py-0.5 flex items-center gap-1">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-amber-400">
           <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
         </svg>
@@ -119,16 +121,17 @@
       </div>
 
       <!-- Marker toggle buttons (bottom left) -->
-      <div v-if="!isTrashed && availableMarkers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5">
+      <div v-if="!isTrashed && availableMarkers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
         <button
           v-for="marker in availableMarkers"
           :key="marker.id"
           @click.stop="toggleMarker(row.output.media_id, marker)"
           :class="[
-            'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
+            'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-all border-2',
             hasMarker(row.output.media_id, marker.id)
               ? 'bg-black/80'
-              : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
+              : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white',
+            quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
           ]"
           :style="hasMarker(row.output.media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -138,7 +141,7 @@
       </div>
 
       <!-- Bottom right controls: info button -->
-      <div class="absolute bottom-2 right-2 z-chrome flex gap-1 items-center">
+      <div class="absolute bottom-2 right-2 z-chrome flex gap-1 items-center" :style="insetBottom ? { bottom: `${insetBottom}px` } : null">
         <!-- Info button (visible on hover) -->
         <button
           v-if="row.output.job_id"
@@ -185,9 +188,7 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import { MediaImage } from '../media'
-import { rewriteUrl } from '../../apiConfig'
-import { getCurrentProfileId } from '../../composables/useProfile'
-import { getCachedPin } from '../../composables/usePinLock'
+import { workspaceMediaUrl } from '../../utils/workspaceMediaUrl'
 import { useMarkers } from '../../composables/useMarkers'
 import { useMediaState } from '../../composables/useMediaState'
 import { useExpirationClock } from '../../composables/useExpirationClock'
@@ -211,7 +212,21 @@ const props = defineProps({
   useThumbnail: {
     type: Boolean,
     default: true
-  }
+  },
+  // Show a whole-image thumbnail of this size, even for a confirmed image.
+  fitThumbnail: {
+    type: Number,
+    default: null
+  },
+  // Unset markers wait for hover; on touch they live on the opened picture.
+  quietMarkers: {
+    type: Boolean,
+    default: false
+  },
+  // Room for controls the parent lays over the tile.
+  insetLeft: { type: Number, default: 0 },
+  insetRight: { type: Number, default: 0 },
+  insetBottom: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['view-image', 'retry', 'cancel', 'show-job-info'])
@@ -223,24 +238,7 @@ const containerStyle = computed(() =>
     : { width: `${props.size}px`, height: `${props.size}px` }
 )
 
-const workspaceImageSrc = computed(() => {
-  const src = props.row.output.workspace_url
-  if (!src) return src
-
-  const profileId = getCurrentProfileId()
-  const pin = profileId ? getCachedPin(profileId) : null
-  const url = new URL(src, 'http://stimma.local')
-
-  if (profileId && !url.searchParams.has('profile')) {
-    url.searchParams.set('profile', profileId)
-  }
-  if (pin && !url.searchParams.has('pin')) {
-    url.searchParams.set('pin', pin)
-  }
-
-  const rewritten = `${url.pathname}${url.search}${url.hash}`
-  return rewriteUrl(rewritten)
-})
+const workspaceImageSrc = computed(() => workspaceMediaUrl(props.row.output.workspace_url))
 
 // Use shared markers composable
 const {
@@ -328,7 +326,7 @@ const outputMediaType = computed(() => {
 // 512px thumbnail size.
 const ATOMIC_IMAGE_TYPES = new Set(['image'])
 const effectiveThumbnail = computed(() => {
-  if (props.useThumbnail) return true
+  if (props.useThumbnail || props.fitThumbnail) return true
   // Only use full-res file when we've confirmed it's a regular image
   if (outputMediaType.value && ATOMIC_IMAGE_TYPES.has(outputMediaType.value)) return false
   return true
