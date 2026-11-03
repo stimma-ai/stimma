@@ -35,8 +35,7 @@ async function open(t, { start = '/elsewhere', respond = () => undefined, touch 
       if (path === '/api/settings') answer = { profiles: [{ id: 'test', name: 'Test' }], folders: [], markers: [], wildcards: [], llm_settings: [], tool_providers: [], background_work: { face_detection: { enabled: true, parallelism: 2, min_confidence: 0.5, max_faces: 10 }, clip: { enabled: true } } }
       else if (path === '/api/models/available') answer = { models: [] }
       else if (path === '/api/search') answer = entities('')
-      else if (path === '/api/providers') answer = []
-      else if (path === '/api/providers/tools' || path === '/api/tools') answer = { tools: [], providers: [] }
+      else if (path === '/api/tools/providers' || path === '/api/tools/providers/tools') answer = []
       else if (path === '/api/assets/search-groups' || path === '/api/assets/contextual-media') answer = { groups: [] }
       else if (path === '/api/assets/browse') answer = { items: [], total: 0 }
       else if (path.includes('markers') || path === '/api/projects') answer = []
@@ -54,7 +53,7 @@ async function open(t, { start = '/elsewhere', respond = () => undefined, touch 
 
 test('search shows fast categories, reports HTTP failures and timeouts, and retries only failed reads', async t => {
   let failAssets = true
-  const { page, requests } = await open(t, { start: '/search?q=poster', deadline: 400,
+  const { page, requests } = await open(t, { start: '/search?q=poster',
     respond: (path, query) => {
       if (path === '/api/search') return entities('Poster chat')
       if (path === '/api/assets/search-groups' && failAssets) return 503
@@ -68,6 +67,7 @@ test('search shows fast categories, reports HTTP failures and timeouts, and retr
   const entityReads = requests.filter(request => request.path === '/api/search').length
   failAssets = false
   await page.getByRole('button', { name: 'Retry failed searches' }).click()
+  await expect(page.getByText('Searching…', { exact: true })).toBeHidden()
   await expect(page.locator('[data-search-failures]')).toHaveCount(0)
   assert.equal(requests.filter(request => request.path === '/api/search').length, entityReads)
 })
