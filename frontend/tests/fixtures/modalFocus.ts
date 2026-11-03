@@ -3,11 +3,13 @@ import { EditorView, keymap } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
 import Modal from '../../src/components/ui/Modal.vue'
 import Tooltip from '../../src/components/ui/Tooltip.vue'
+import SettingsDropdown from '../../src/components/ui/SettingsDropdown.vue'
 import { useGlobalKeyboardShortcuts } from '../../src/composables/useGlobalKeyboardShortcuts'
 import '../../src/style.css'
 
 const show = ref(false), nested = ref(false), empty = ref(false)
 const label = ref('Remove item')
+const dropdown = ref(false), searchable = ref(false)
 const shortcuts: string[] = []
 let editor: EditorView
 Object.assign(window, { modalFocus: {
@@ -15,6 +17,7 @@ Object.assign(window, { modalFocus: {
   empty: () => { empty.value = true },
   rename: () => { label.value = 'Delete item' },
   editorText: () => editor.state.doc.toString(),
+  dropdown: (search: boolean) => { dropdown.value = true; searchable.value = search; show.value = true },
 } })
 createApp({
   setup() {
@@ -38,6 +41,10 @@ createApp({
           if (el && !editor) editor = new EditorView({ parent: el, doc: 'text', extensions: [keymap.of([indentWithTab])] })
         } }),
         h('button', {}, 'Last'),
+        dropdown.value ? h(SettingsDropdown, {
+          modelValue: '0',
+          options: Array.from({ length: searchable.value ? 13 : 2 }, (_, i) => ({ value: String(i), label: `Choice ${i}` })),
+        }) : null,
       ]),
       h(Modal, { show: nested.value, nested: true, onClose: () => { nested.value = false } }, () => [
         h('button', {}, 'Nested first'), h('button', {}, 'Nested last'),

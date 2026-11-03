@@ -156,7 +156,7 @@
 <script setup lang="ts">
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, inject, watch, nextTick, onUnmounted } from 'vue'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
 import type { ModelVendorId } from '../../utils/modelVendors'
 
@@ -208,6 +208,11 @@ const SEARCH_THRESHOLD = 12
 
 const container = ref<HTMLElement | null>(null)
 const dropdown = ref<HTMLElement | null>(null)
+const modalPopovers = inject<Set<HTMLElement> | null>('modalFocusPopovers', null)
+watch(dropdown, (element, previous) => {
+  if (previous) modalPopovers?.delete(previous)
+  if (element) modalPopovers?.add(element)
+})
 const optionsList = ref<HTMLElement | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
 const isOpen = ref(false)
@@ -473,6 +478,7 @@ watch(isOpen, (open) => {
 })
 
 onUnmounted(() => {
+  if (dropdown.value) modalPopovers?.delete(dropdown.value)
   document.removeEventListener('keydown', handleGlobalKeydown)
   if (searchTimer) clearTimeout(searchTimer)
   stopPreview()

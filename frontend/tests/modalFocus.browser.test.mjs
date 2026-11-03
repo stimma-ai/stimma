@@ -67,6 +67,27 @@ test('only the topmost Modal traps focus, including an empty nested dialog', asy
   await expect(emptyDialog).toBeFocused()
 })
 
+for (const searchable of [false, true]) {
+  test(`Modal keeps Tab inside with a hosted ${searchable ? 'searchable' : 'plain'} dropdown`, async t => {
+    const page = await fixture(t)
+    await page.evaluate(searchable => window.modalFocus.dropdown(searchable), searchable)
+    await page.getByRole('button', { name: 'Choice 0', exact: true }).click()
+    await expect(page.getByRole('listbox')).toBeVisible()
+    // The dropdown is teleported after the modal, with focus in its search
+    // field or its tabindex=-1 options list. Native Tab escapes from here.
+    for (const key of ['Tab', 'Shift+Tab', 'Tab', 'Tab']) {
+      await page.keyboard.press(key)
+      assert.equal(await page.evaluate(() => {
+        const active = document.activeElement
+        return !!active?.closest('[role="dialog"], [role="listbox"]')
+      }), true, `${key} must stay in the modal or its hosted popover`)
+    }
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toBeVisible()
+  })
+}
+
 test('Modal suppresses grid shortcuts while CodeMirror retains editing keys', async t => {
   const page = await fixture(t)
   await page.getByRole('button', { name: 'Outside', exact: true }).focus()

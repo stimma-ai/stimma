@@ -1,5 +1,5 @@
-import { hasEscapeLayer } from '../utils/escapeLayers'
-import { onMounted, onUnmounted, onActivated, onDeactivated, ref } from 'vue'
+import { hasEscapeLayer, isTopmostEscapeLayer } from '../utils/escapeLayers'
+import { getCurrentInstance, onMounted, onUnmounted, onActivated, onDeactivated, ref } from 'vue'
 
 /**
  * Global keyboard shortcuts handler
@@ -15,9 +15,13 @@ export function useGlobalKeyboardShortcuts(options = {}) {
 
   // Track whether the component is currently active (not deactivated by KeepAlive)
   const isComponentActive = ref(true)
+  const instance = getCurrentInstance()
 
   function handleGlobalKeydown(event) {
-    if (event.defaultPrevented || hasEscapeLayer()) return
+    if (event.defaultPrevented) return
+    // A viewer owns shortcuts on its own layer; screens behind it do not.
+    const layer = instance?.vnode.el?.closest?.('[data-modal-layer], [data-escape-layer]')
+    if (hasEscapeLayer() && !isTopmostEscapeLayer(layer)) return
     // Don't handle if component is deactivated (KeepAlive)
     if (!isComponentActive.value) {
       return

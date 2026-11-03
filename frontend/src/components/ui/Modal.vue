@@ -4,7 +4,7 @@
 // the modal family (ConfirmDialog, and eventually the ad-hoc modals)
 // builds on this rather than re-pasting Teleport/backdrop/
 // Transition markup.
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { isDesktop } from '../../apiConfig'
 import { useViewport } from '../../composables/useViewport'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
@@ -37,6 +37,9 @@ const emit = defineEmits<{
 
 const cardRef = ref<HTMLElement | null>(null)
 const layerRef = ref<HTMLElement | null>(null)
+// Teleported popovers belong to this modal's keyboard focus scope.
+const popovers = new Set<HTMLElement>()
+provide('modalFocusPopovers', popovers)
 let previouslyFocused: HTMLElement | null = null
 
 const sizeClasses: Record<string, string> = {
@@ -63,22 +66,24 @@ function onBackdropClick() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.defaultPrevented || (e.key !== 'Tab' && e.key !== 'Escape') || !isTopmostEscapeLayer(layerRef.value)) return
+  if (e.defaultPrevented || (e.key !== 'Tab' && e.key !== 'Escape')) return
+  const ownsTopLayer = isTopmostEscapeLayer(layerRef.value)
+  if (!ownsTopLayer && !(e.key === 'Tab' && [...popovers].some(isTopmostEscapeLayer))) return
   if (e.key === 'Tab') {
     const card = cardRef.value
     if (!card) return
-    const focusable = [...card.querySelectorAll<HTMLElement>(
+    const scope = [card, ...popovers]
+    const focusable = scope.flatMap(root => [...root.querySelectorAll<HTMLElement>(
       'a[href], area[href], button, input, select, textarea, iframe, [tabindex], [contenteditable], summary, audio[controls], video[controls]'
-    )].filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
+    )]).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
       && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement
-    if (!first || !card.contains(active) || active === card || (e.shiftKey ? active === first : active === last)) {
-      e.preventDefault()
-      const target = (e.shiftKey ? last : first) || card
-      target.focus()
-    }
+    const index = focusable.indexOf(document.activeElement as HTMLElement)
+    const next = e.shiftKey
+      ? (index <= 0 ? focusable.length - 1 : index - 1)
+      : (index + 1) % focusable.length
+    const target = focusable[next] || card
+    e.preventDefault()
+    target.focus()
   } else if (e.key === 'Escape' && props.closeOnEsc) {
     // CodeMirror/Vim owns Escape while editing.
     if ((e.target as Element)?.closest?.('.cm-editor')) return
