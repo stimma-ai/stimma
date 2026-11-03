@@ -644,8 +644,8 @@ def _estimate_tokens(messages: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def _find_user_turn_boundaries(messages: List[Dict[str, Any]]) -> List[int]:
-    """Return indices of user messages (turn boundaries), excluding system messages."""
-    return [i for i, m in enumerate(messages) if m.get("role") == "user"]
+    """Return human-turn boundaries, excluding runtime reminder messages."""
+    return [i for i, m in enumerate(messages) if m.get("role") == "user" and not m.get("_stimma_reminder")]
 
 
 async def _compress_stale_items(

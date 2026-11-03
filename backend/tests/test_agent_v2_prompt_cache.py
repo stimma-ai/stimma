@@ -192,3 +192,23 @@ async def test_cloud_request_keeps_its_own_cache_and_thinking_protocol(monkeypat
     assert 'cache_control' not in body
     assert 'anthropic-beta' not in captured[0].headers
     assert captured[0].headers['X-Stimma-Cacheable'] == 'true'
+
+
+def test_reminder_updates_do_not_displace_current_user_turn_under_budget_pressure():
+    messages = [{'role': 'system', 'content': 'Be helpful.'}]
+    for turn in range(8):
+        messages.extend([
+            {'role': 'user', 'content': f'Request {turn}'},
+            {'role': 'assistant', 'content': 'Earlier work. ' * 100},
+        ])
+    current = {'role': 'user', 'content': 'Finish the current request.'}
+    messages.append(current)
+    for update in range(7):
+        messages.append(conversation._item_to_message(ChatItem(
+            item_type='system_reminder', message_text=f'Note update {update}',
+        )))
+    boundaries = conversation._find_user_turn_boundaries(messages)
+    trimmed = conversation._apply_token_budget(messages, budget=100)
+    assert len(boundaries) == 9
+    assert current in trimmed
+    assert all(message in trimmed for message in messages[boundaries[-5]:])
