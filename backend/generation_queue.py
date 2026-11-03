@@ -32,6 +32,8 @@ import uuid
 
 log = get_logger(__name__)
 
+MAX_DISCONNECT_RETRIES = 2  # Three execution attempts, including the first.
+
 PENDING_REQUEST_TTL = 30  # seconds — generous for WS→frontend→HTTP roundtrip
 
 # Prompt warm pool: how long a generator instance's "keep N enhanced variants
@@ -378,6 +380,8 @@ class GenerationQueue:
         self._forever_mode_clients: Dict[str, Dict[str, int]] = {}
         # Transient provider activity for agent stall detection, scoped by profile.
         self._job_progress_at: Dict[tuple[str, int], float] = {}
+        self._executing_jobs: set[tuple[str, int]] = set()
+        self._disconnect_retry_lock = asyncio.Lock()
         # Track last served client per backend for round-robin fairness
         self._last_served_client: Dict[str, str] = {}
         # Track pending work requests per backend (timestamps for TTL-based self-healing)
@@ -2328,54 +2332,69 @@ class GenerationQueue:
         # Requeue any active jobs
         return await self.requeue_jobs_for_backend(backend_name)
 
+    async def _settle_disconnected_job(self, job_id: int, profile_id: str, error: str) -> str | None:
+        """Persist a bounded retry in job metadata, shared by both disconnect paths."""
+        async with self._disconnect_retry_lock:
+            async with self._get_db(profile_id).async_session_maker() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job is None or job.status not in ('assigned', 'processing'):
+                    return None  # Never resurrect cancellation or count a disconnect twice.
+                params = json.loads(job.parameters)
+                retries = params.get('_disconnect_retries', 0)
+                if retries < MAX_DISCONNECT_RETRIES:
+                    params['_disconnect_retries'] = retries + 1
+                    values = dict(parameters=json.dumps(params), status='queued',
+                                  assigned_at=None, started_at=None, worker_id=None)
+                else:
+                    values = dict(
+                        status='failed', completed_at=datetime.utcnow(),
+                        error=f'Generation failed after {retries + 1} attempts because the provider kept disconnecting: {error}',
+                    )
+                changed = await session.execute(
+                    update(GenerationJob).where(
+                        GenerationJob.id == job_id,
+                        GenerationJob.status == job.status,
+                        GenerationJob.parameters == job.parameters,
+                    ).values(**values)
+                )
+                if not changed.rowcount:
+                    return None  # Cancellation or another settlement won the race.
+                await session.commit()
+        if self._websocket_manager:
+            with ProfileScope(profile_id):
+                await self._websocket_manager.broadcast(f'generation_job_{job.status}', {
+                    'job': job.to_dict(),
+                    'generator_instance_id': job.generator_instance_id,
+                })
+        if job.status == 'failed' and job.batch_id:
+            await self._handle_batch_job_completion(job, None, profile_id)
+        if job.backend_name:
+            await self.scheduler.on_job_completed(job.id, job.backend_name)
+            if job.status == 'failed':
+                await self._fill_available_slots(job.backend_name)
+        self._job_submitted_event.set()
+        return job.status
+
     async def requeue_jobs_for_backend(self, backend_name: str) -> int:
-        """Requeue jobs that were processing on a backend that disconnected.
-
-        Args:
-            backend_name: The backend/provider that disconnected
-
-        Returns:
-            Number of jobs requeued
-        """
+        """Recover orphan assignments; live workers settle their own disconnect."""
         requeued_count = 0
-
         for profile_id, db in self._get_all_jobs_dbs():
             async with db.async_session_maker() as session:
-                # Find processing/assigned jobs for this backend
-                result = await session.execute(
-                    select(GenerationJob).where(
+                ids = list(await session.scalars(
+                    select(GenerationJob.id).where(
                         GenerationJob.backend_name == backend_name,
-                        GenerationJob.status.in_(['assigned', 'processing'])
+                        GenerationJob.status.in_(['assigned', 'processing']),
                     )
+                ))
+            for job_id in ids:
+                # The provider wakes the execution waiter on disconnect. Let
+                # that worker release its slot before another attempt starts.
+                if (profile_id, job_id) in self._executing_jobs:
+                    continue
+                status = await self._settle_disconnected_job(
+                    job_id, profile_id, 'Provider connection lost',
                 )
-                jobs = result.scalars().all()
-
-                if jobs:
-                    log.info(
-                        "requeuing jobs for disconnected backend",
-                        backend=backend_name,
-                        count=len(jobs),
-                        profile=profile_id
-                    )
-                    for job in jobs:
-                        job.status = 'queued'
-                        # Keep backend_name so job gets picked up when backend reconnects
-                        job.assigned_at = None
-                        job.started_at = None
-                        job.worker_id = None
-                        requeued_count += 1
-
-                        # Broadcast job requeued (use 'queued' event so frontend updates)
-                        if self._websocket_manager:
-                            with ProfileScope(profile_id):
-                                await self._websocket_manager.broadcast('generation_job_queued', {
-                                    'job': job.to_dict(),
-                                    'generator_instance_id': job.generator_instance_id,
-                
-                                })
-
-                    await session.commit()
-
+                requeued_count += status == 'queued'
         return requeued_count
 
     async def start_workers(self, num_workers: int = 2):
@@ -3116,16 +3135,20 @@ class GenerationQueue:
         from providers.base import ExecutionProgress
 
         set_current_profile(profile_id)
+        self._executing_jobs.add((profile_id, job.id))
 
         try:
             # Update status to processing
             async with self._get_db(profile_id).async_session_maker() as session:
-                await session.execute(
+                changed = await session.execute(
                     update(GenerationJob)
-                    .where(GenerationJob.id == job.id)
+                    .where(GenerationJob.id == job.id,
+                           GenerationJob.status.in_(['queued', 'assigned', 'processing']))
                     .values(status='processing', started_at=datetime.utcnow())
                 )
                 await session.commit()
+                if not changed.rowcount:
+                    return
 
             job_dict = await self.get_job(job.id, profile_id=profile_id)
 
@@ -3201,7 +3224,7 @@ class GenerationQueue:
             # Build the single parameters dict sent to the provider from the
             # stored flat job params. Filter out Stimma-internal parameters that
             # should never be sent to providers.
-            internal_params = {'inspired_by_media_id'}
+            internal_params = {'inspired_by_media_id', '_disconnect_retries'}
             exec_params = {k: v for k, v in params.items() if k not in internal_params}
 
             # Add tool_id for metadata embedding
@@ -3389,37 +3412,12 @@ class GenerationQueue:
         except Exception as e:
             error_msg = str(e)
 
-            # Check if this is a provider disconnection error - requeue instead of fail
-            is_disconnect_error = "not connected" in error_msg.lower() or "disconnected" in error_msg.lower()
-
+            is_disconnect_error = any(
+                phrase in error_msg.lower()
+                for phrase in ('not connected', 'disconnected', 'connection lost')
+            )
             if is_disconnect_error:
-                # Requeue the job so it resumes when provider reconnects
-                log.warning(f"Job {job.id} interrupted by provider disconnect, requeuing")
-                async with self._get_db(profile_id).async_session_maker() as session:
-                    await session.execute(
-                        update(GenerationJob)
-                        .where(GenerationJob.id == job.id)
-                        .values(
-                            status='queued',
-                            assigned_at=None,
-                            started_at=None,
-                            worker_id=None
-                        )
-                    )
-                    await session.commit()
-
-                # Broadcast requeue event
-                job_dict = await self.get_job(job.id, profile_id=profile_id)
-                if self._websocket_manager:
-                    await self._websocket_manager.broadcast('generation_job_queued', {
-                        'job': job_dict,
-                        'generator_instance_id': job.generator_instance_id,
-    
-                    })
-
-                # Notify scheduler that job slot is free
-                if job.backend_name:
-                    await self.scheduler.on_job_completed(job.id, job.backend_name)
+                await self._settle_disconnected_job(job.id, profile_id, error_msg)
             else:
                 # Check if job was already cancelled (race condition with cancel_job)
                 async with self._get_db(profile_id).async_session_maker() as session:
@@ -3492,6 +3490,7 @@ class GenerationQueue:
 
         finally:
             self._job_progress_at.pop((profile_id, job.id), None)
+            self._executing_jobs.discard((profile_id, job.id))
             # Clear thread profile context
             set_thread_profile(None)
 

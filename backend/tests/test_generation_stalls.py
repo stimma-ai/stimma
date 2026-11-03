@@ -251,3 +251,101 @@ async def test_restart_settles_partial_batch_and_keeps_terminal_rows(
     async with generation_db_session() as session:
         assert await session.get(GenerationJob, first.id) is not None
         assert await session.scalar(select(Asset).where(Asset.id == event['result_asset_id'])) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('error', ['Provider connection lost', 'Provider not connected', 'Provider disconnected'])
+async def test_disconnect_retries_stop_after_three_attempts(
+    generation_queue, generation_db_session, test_provider, output_folder, error,
+):
+    import json
+    from database import GenerationJob
+    from providers.test_provider import TestToolConfig
+    from tests.helpers.generation import create_generation_job
+
+    test_provider.configure_tool('text-to-image:test-model', TestToolConfig(
+        should_fail=True, fail_at_progress=0.0, fail_message=error,
+    ))
+    try:
+        async with generation_db_session() as session:
+            job = await create_generation_job(session, folder_path=output_folder)
+            job_id = job.id
+        for expected in ('queued', 'queued', 'failed'):
+            async with generation_db_session() as session:
+                job = await session.get(GenerationJob, job_id)
+            await generation_queue._process_job(job, 'default')
+            stored = await generation_queue.get_job(job_id)
+            assert stored['status'] == expected
+            if expected == 'queued':
+                await generation_queue.cleanup_stale_jobs()
+        assert json.loads(stored['parameters'])['_disconnect_retries'] == 2
+        assert '3 attempts' in stored['error']
+    finally:
+        test_provider.configure_tool('text-to-image:test-model', TestToolConfig())
+
+
+@pytest.mark.asyncio
+async def test_disconnect_cleanup_leaves_live_execution_to_worker(
+    generation_queue, generation_db_session, test_provider, output_folder,
+):
+    import json
+    from providers.test_provider import TestToolConfig
+    from tests.helpers.generation import create_generation_job
+
+    test_provider.configure_tool('text-to-image:test-model', TestToolConfig(
+        delay_per_stage=0.2, should_fail=True, fail_at_progress=0.25,
+        fail_message='Provider connection lost',
+    ))
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, folder_path=output_folder)
+    worker = asyncio.create_task(generation_queue._process_job(job, 'default'))
+    try:
+        for _ in range(100):
+            if (await generation_queue.get_job(job.id))['status'] == 'processing':
+                break
+            await asyncio.sleep(0.001)
+        assert await generation_queue.requeue_jobs_for_backend('test') == 0
+        await worker
+        stored = await generation_queue.get_job(job.id)
+        assert stored['status'] == 'queued'
+        assert json.loads(stored['parameters'])['_disconnect_retries'] == 1
+    finally:
+        worker.cancel()
+        await asyncio.gather(worker, return_exceptions=True)
+        test_provider.configure_tool('text-to-image:test-model', TestToolConfig())
+        await generation_queue.cancel_job(job.id)
+
+
+@pytest.mark.asyncio
+async def test_orphan_disconnect_retries_are_bounded_and_preserve_cancellation(
+    generation_queue, generation_db_session,
+):
+    from database import GenerationJob
+    from tests.helpers.generation import create_generation_job
+
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status='assigned')
+    for expected in ('queued', 'queued', 'failed'):
+        async with generation_db_session() as session:
+            stored = await session.get(GenerationJob, job.id)
+            stored.status = 'assigned'
+            await session.commit()
+        await generation_queue.requeue_jobs_for_backend('test')
+        assert (await generation_queue.get_job(job.id))['status'] == expected
+    async with generation_db_session() as session:
+        cancelled = await create_generation_job(session, status='processing')
+    await generation_queue.cancel_job(cancelled.id)
+    await generation_queue._settle_disconnected_job(cancelled.id, 'default', 'Provider connection lost')
+    assert (await generation_queue.get_job(cancelled.id))['status'] == 'cancelled'
+
+
+@pytest.mark.asyncio
+async def test_cancelled_assignment_cannot_start_again(generation_queue, generation_db_session):
+    from tests.helpers.generation import create_generation_job
+
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status='assigned')
+    await generation_queue.cancel_job(job.id)
+    await generation_queue._process_job(job, 'default')
+    assert (await generation_queue.get_job(job.id))['status'] == 'cancelled'
+    assert ('default', job.id) not in generation_queue._executing_jobs
