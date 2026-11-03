@@ -10,19 +10,19 @@ dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.31.1,<1",
     "python-multipart>=0.0.9,<1",
-    "sse-starlette==1.8.2",
-    "websockets==12.0",
+    "sse-starlette==3.6.0",
+    "websockets==17.4",
     "aiohttp>=3.14.4,<4",
-    "mcp>=1.30,<2",
+    "mcp>=1.30,<3",
     # Database
-    "sqlalchemy==2.0.23",
-    "aiosqlite==0.19.0",
+    "sqlalchemy==2.1.6",
+    "aiosqlite==0.22.1",
     "greenlet>=3.0.0",  # Required for SQLAlchemy async
     "alembic",
     # Data validation & config
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.5.2,<3",
-    "pyyaml==6.0.1",
+    "pyyaml==6.0.3",
     "ruamel.yaml>=0.18.0",
     # Image processing
     "pillow>=12.2",
@@ -32,7 +32,7 @@ dependencies = [
     "numpy>=1.26.2",
     "scipy>=1.10.0",  # explicit: darkroom/ depends on it directly
     "onnxruntime",
-    "scikit-image>=0.23.2,<0.24",
+    "scikit-image>=0.23.2,<0.27",
     "onnx-clip",
     "osam>=0.2.5",
     # Video processing
