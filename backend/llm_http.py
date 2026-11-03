@@ -780,7 +780,7 @@ def _anthropic_content_blocks(content) -> list[dict]:
     return result
 
 
-def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dict:
+def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict, *, direct: bool = False) -> dict:
     system = []
     converted: list[dict] = []
     for message in messages:
@@ -832,7 +832,7 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
         } for tool in kwargs["tools"]]
     extra = dict(kwargs.get("extra_body") or {})
     body.update(extra)
-    if _uses_thinking_binding(model):
+    if direct and _uses_thinking_binding(model):
         thinking = body.get("thinking") or kwargs.get("thinking") or {"type": "adaptive"}
         # Binding controls require adaptive thinking. Legacy budgeted and
         # between-tools settings cannot carry this field on these models.
@@ -854,7 +854,7 @@ def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dic
             body["max_tokens"] = max(int(body.get("max_tokens") or 0), budget + 256)
     if kwargs.get("temperature") is not None and "thinking" not in body:
         body["temperature"] = kwargs["temperature"]
-    if kwargs.get("cacheable"):
+    if direct and kwargs.get("cacheable"):
         # Own copies: replayed signed blocks belong to persisted history.
         body = deepcopy(body)
         body["cache_control"] = {"type": "ephemeral"}
@@ -925,13 +925,14 @@ def _anthropic_to_chat(data: dict, requested_model: str) -> _Obj:
 
 async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
     url = f"{api_base.rstrip('/')}/messages"
-    body = _to_anthropic_request(model, messages, kwargs)
+    direct = urlparse(api_base).hostname == "api.anthropic.com"
+    body = _to_anthropic_request(model, messages, kwargs, direct=direct)
     headers = {
         "Content-Type": "application/json", "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
     }
     headers.update(kwargs.get("extra_headers") or {})
-    if _uses_thinking_binding(model) and (body.get("thinking") or {}).get("block_binding", {}).get("prefix_mismatch_behavior") == "drop_block":
+    if direct and _uses_thinking_binding(model) and (body.get("thinking") or {}).get("block_binding", {}).get("prefix_mismatch_behavior") == "drop_block":
         beta_key = next((key for key in headers if key.lower() == "anthropic-beta"), "anthropic-beta")
         betas = [value.strip() for value in headers.get(beta_key, "").split(",") if value.strip()]
         if _THINKING_BINDING_BETA not in betas:

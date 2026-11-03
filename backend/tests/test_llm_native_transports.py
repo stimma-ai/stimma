@@ -152,6 +152,7 @@ def test_anthropic_native_request_replays_exact_signed_blocks():
                 "output_config": {"effort": "high"},
             },
         },
+        direct=True,
     )
 
     assert body["system"] == [{"type": "text", "text": "Be concise."}]

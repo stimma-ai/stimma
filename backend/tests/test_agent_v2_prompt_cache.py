@@ -79,7 +79,7 @@ async def test_consecutive_steps_turns_and_reopened_chat_keep_exact_prefix(db_se
         assert third[0] == second[0] == first[0]
         assert third[1]['content'].startswith(original_timestamp)
         assert now.astimezone().strftime('%Y-%m-%d') in third[-1]['content']
-        bodies = [_to_anthropic_request('claude-opus-5-5', messages, {'cacheable': True})
+        bodies = [_to_anthropic_request('claude-opus-5-5', messages, {'cacheable': True}, direct=True)
                   for messages in (first, second, third)]
         assert bodies[0]['system'] == bodies[1]['system'] == bodies[2]['system']
         for earlier, later in zip(bodies, bodies[1:]):
@@ -135,7 +135,7 @@ def test_direct_cache_breakpoints_are_bounded_and_history_is_not_mutated():
     body = _to_anthropic_request('claude-sonnet-5', [
         {'role': 'system', 'content': 'Stable instructions.'},
         {'role': 'assistant', '_stimma_provider_state': {'kind': 'anthropic_message', 'content': blocks}},
-    ], {'cacheable': True})
+    ], {'cacheable': True}, direct=True)
     assert body['cache_control'] == {'type': 'ephemeral'}
     assert body['system'][-1]['cache_control'] == {'type': 'ephemeral'}
     assert sum('cache_control' in b for b in body['messages'][0]['content']) + 2 == 4
@@ -212,3 +212,21 @@ def test_reminder_updates_do_not_displace_current_user_turn_under_budget_pressur
     assert len(boundaries) == 9
     assert current in trimmed
     assert all(message in trimmed for message in messages[boundaries[-5]:])
+
+
+@pytest.mark.parametrize('host', ['proxy.example', 'api.anthropic.com.proxy.example'])
+async def test_anthropic_format_proxy_omits_direct_provider_cache_and_binding(host, monkeypatch):
+    captured = []
+    def respond(request):
+        captured.append(request)
+        return httpx.Response(200, json={'content': [{'type': 'text', 'text': 'Done.'}]})
+    client = httpx.AsyncClient
+    monkeypatch.setattr('llm_http.httpx.AsyncClient', lambda **kw: client(**kw, transport=httpx.MockTransport(respond)))
+    await acompletion(model='claude-opus-5-5', messages=[{'role': 'system', 'content': 'Be helpful.'}],
+                      provider_kind='anthropic', api_base=f'https://{host}/v1', api_key='test',
+                      cacheable=True, extra_body={'thinking': {'type': 'enabled', 'budget_tokens': 1024}},
+                      extra_headers={'Anthropic-Beta': 'existing-beta'})
+    body = json.loads(captured[0].content)
+    assert 'cache_control' not in json.dumps(body)
+    assert body['thinking'] == {'type': 'enabled', 'budget_tokens': 1024}
+    assert captured[0].headers['anthropic-beta'] == 'existing-beta'
