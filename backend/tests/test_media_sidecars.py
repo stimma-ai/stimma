@@ -1,6 +1,7 @@
 """Companion ownership, transport fallback and model-independent edit mapping."""
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -98,6 +99,7 @@ async def test_download_receipt_retains_render_and_opaque_metadata_when_sidecar_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("materialize_asset", [False, True])
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="ffmpeg and ffprobe required")
 async def test_real_join_exports_and_reimports_opaque_tail_mapping(db_session, tmp_path, materialize_asset):
     import asyncio
     from types import SimpleNamespace

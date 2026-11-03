@@ -96,7 +96,7 @@ def test_identity_repair_preserves_existing_data_and_high_water(tmp_path, alread
             rows_before = {
                 model.__tablename__: connection.exec_driver_sql(
                     f'SELECT * FROM "{model.__tablename__}" ORDER BY id'
-                ).all()
+                ).mappings().all()
                 for model in tables
             }
             inspector = inspect(connection)
@@ -108,7 +108,12 @@ def test_identity_repair_preserves_existing_data_and_high_water(tmp_path, alread
             inspector = inspect(connection)
             for model in tables:
                 name = model.__tablename__
-                assert connection.exec_driver_sql(f'SELECT * FROM "{name}" ORDER BY id').all() == rows_before[name]
+                rows_after = connection.exec_driver_sql(f'SELECT * FROM "{name}" ORDER BY id').mappings().all()
+                # Additive migrations may introduce columns; every existing
+                # field and row must retain exactly the same value.
+                assert len(rows_after) == len(rows_before[name])
+                for before, after_row in zip(rows_before[name], rows_after):
+                    assert {key: after_row[key] for key in before} == dict(before)
                 # Later migrations may add indexes; none may be lost or changed.
                 after = [i for i in inspector.get_indexes(name) if i["name"] not in ADDED_LATER]
                 assert after == [i for i in indexes_before[name] if i["name"] not in ADDED_LATER]
