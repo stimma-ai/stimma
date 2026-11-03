@@ -3,19 +3,13 @@
  * mirrors to stdout/stderr (dev CLI merges those into its combined view).
  */
 
-import fs from 'node:fs'
+import { RotatingLog } from './rotatingLog.ts'
 import path from 'node:path'
 
-let stream: fs.WriteStream | null = null
+let stream: RotatingLog | null = null
 
 export function initLog(dataDir: string): void {
-  try {
-    const logsDir = path.join(dataDir, 'Logs')
-    fs.mkdirSync(logsDir, { recursive: true })
-    stream = fs.createWriteStream(path.join(logsDir, 'Stimma-shell.log'), { flags: 'a' })
-  } catch (e) {
-    console.error('[log] Failed to open shell log file:', e)
-  }
+  stream = new RotatingLog(path.join(dataDir, 'Logs', 'Stimma-shell.log'))
 }
 
 function write(level: string, target: string, message: string): void {

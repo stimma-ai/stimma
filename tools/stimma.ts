@@ -2372,7 +2372,7 @@ async function main(): Promise<void> {
         if (Deno.build.os === "windows") {
           await run("powershell", ["-NoProfile", "-Command", `Get-Content -Path '${appLog}' -Wait -Tail 1000`]);
         } else {
-          await run("tail", ["-f", "-n", "1000", appLog]);
+          await run("tail", ["-F", "-n", "1000", appLog]);
         }
       } else {
         printUsage();
