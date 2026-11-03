@@ -4,10 +4,10 @@
 // the modal family (ConfirmDialog, and eventually the ad-hoc modals)
 // builds on this rather than re-pasting Teleport/backdrop/
 // Transition markup.
-import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { isDesktop } from '../../apiConfig'
 import { useViewport } from '../../composables/useViewport'
-import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
+import { consumeEscape, getEscapeLayers } from '../../utils/escapeLayers'
 
 const { allowsAutofocus } = useViewport()
 
@@ -37,9 +37,6 @@ const emit = defineEmits<{
 
 const cardRef = ref<HTMLElement | null>(null)
 const layerRef = ref<HTMLElement | null>(null)
-// Teleported popovers belong to this modal's keyboard focus scope.
-const popovers = new Set<HTMLElement>()
-provide('modalFocusPopovers', popovers)
 let previouslyFocused: HTMLElement | null = null
 
 const sizeClasses: Record<string, string> = {
@@ -67,15 +64,20 @@ function onBackdropClick() {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented || (e.key !== 'Tab' && e.key !== 'Escape')) return
-  const ownsTopLayer = isTopmostEscapeLayer(layerRef.value)
-  if (!ownsTopLayer && !(e.key === 'Tab' && [...popovers].some(isTopmostEscapeLayer))) return
+  const layers = getEscapeLayers()
+  const index = layers.indexOf(layerRef.value)
+  if (index < 0) return
+  // The highest modal hosts every menu above it, including teleported menus.
+  const popovers = layers.slice(index + 1)
+  if (popovers.some(layer => layer.hasAttribute('data-modal-layer'))) return
+  if (e.key === 'Escape' && popovers.length) return
   if (e.key === 'Tab') {
     const card = cardRef.value
     if (!card) return
     const scope = [card, ...popovers]
-    const focusable = scope.flatMap(root => [...root.querySelectorAll<HTMLElement>(
+    const focusable = [...new Set(scope.flatMap(root => [...root.querySelectorAll<HTMLElement>(
       'a[href], area[href], button, input, select, textarea, iframe, [tabindex], [contenteditable], summary, audio[controls], video[controls]'
-    )]).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
+    )]))].filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
       && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
     const index = focusable.indexOf(document.activeElement as HTMLElement)
     const next = e.shiftKey

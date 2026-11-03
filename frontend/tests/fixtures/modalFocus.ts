@@ -4,12 +4,14 @@ import { indentWithTab } from '@codemirror/commands'
 import Modal from '../../src/components/ui/Modal.vue'
 import Tooltip from '../../src/components/ui/Tooltip.vue'
 import SettingsDropdown from '../../src/components/ui/SettingsDropdown.vue'
+import MarkersSection from '../../src/components/settings/sections/MarkersSection.vue'
 import { useGlobalKeyboardShortcuts } from '../../src/composables/useGlobalKeyboardShortcuts'
 import '../../src/style.css'
 
 const show = ref(false), nested = ref(false), empty = ref(false)
 const label = ref('Remove item')
 const dropdown = ref(false), searchable = ref(false)
+const markers = ref(false)
 const shortcuts: string[] = []
 let editor: EditorView
 Object.assign(window, { modalFocus: {
@@ -18,6 +20,7 @@ Object.assign(window, { modalFocus: {
   rename: () => { label.value = 'Delete item' },
   editorText: () => editor.state.doc.toString(),
   dropdown: (search: boolean) => { dropdown.value = true; searchable.value = search; show.value = true },
+  markers: () => { markers.value = true; show.value = true },
 } })
 createApp({
   setup() {
@@ -45,11 +48,14 @@ createApp({
           modelValue: '0',
           options: Array.from({ length: searchable.value ? 13 : 2 }, (_, i) => ({ value: String(i), label: `Choice ${i}` })),
         }) : null,
+        markers.value ? h(MarkersSection, {
+          markers: [{ id: 1, name: 'Favorite', icon_svg: 'heroicons:heart', color: '#ef4444' }],
+        }) : null,
       ]),
       h(Modal, { show: nested.value, nested: true, onClose: () => { nested.value = false } }, () => [
         h('button', {}, 'Nested first'), h('button', {}, 'Nested last'),
       ]),
-      h(Modal, { show: empty.value, nested: true, onClose: () => { empty.value = false } }),
+      h(Modal, { show: empty.value, nested: true, submenu: markers.value, onClose: () => { empty.value = false } }),
     ])
   },
 }).mount('#app')

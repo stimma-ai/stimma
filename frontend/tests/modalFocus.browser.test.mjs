@@ -88,6 +88,28 @@ for (const searchable of [false, true]) {
   })
 }
 
+test('Modal keeps Tab within the dialog and the real Markers menu without registration', async t => {
+  const page = await fixture(t)
+  await page.evaluate(() => window.modalFocus.markers())
+  await page.getByTitle('More options', { exact: true }).click()
+  const remove = page.getByRole('button', { name: 'Remove', exact: true })
+  await remove.focus()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'First', exact: true })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(remove).toBeFocused()
+  // A second modal above the menu must own Tab, even while the menu exists.
+  await page.evaluate(() => window.modalFocus.empty())
+  const emptyDialog = page.getByRole('dialog').last()
+  await page.keyboard.press('Tab')
+  await expect(emptyDialog).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-marker-menu]')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toBeVisible()
+})
+
 test('Modal suppresses grid shortcuts while CodeMirror retains editing keys', async t => {
   const page = await fixture(t)
   await page.getByRole('button', { name: 'Outside', exact: true }).focus()
