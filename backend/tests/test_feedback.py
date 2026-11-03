@@ -26,6 +26,17 @@ import pytest
 
 
 class TestLogTail:
+    def test_shell_tail_discards_rotation_fragments_including_current_file(self, tmp_path):
+        from log_tail import tail_log_lines
+        (tmp_path / "Stimma-shell.log.2").write_text("older record\ntoken=")
+        (tmp_path / "Stimma-shell.log.1").write_text(
+            "private-rotated-value\nuseful diagnostic\ntoken="
+        )
+        (tmp_path / "Stimma-shell.log").write_text("private-current-value")
+        assert tail_log_lines(log_dir=tmp_path, include_shell=True) == [
+            "[shell]", "token=", "useful diagnostic", "token=",
+        ]
+
     def test_bounded_tail_discards_a_partial_line_without_a_newline(self, tmp_path):
         from log_tail import MAX_TAIL_BYTES, tail_log_lines
         (tmp_path / "Stimma_log.00.txt").write_text("api_key=" + "v" * MAX_TAIL_BYTES)
@@ -105,7 +116,7 @@ class TestLogTail:
             "old shell\nupdater api_key=private-key\n"
         )
         (tmp_path / "Stimma-shell.log").write_text(
-            "renderer Authorization: Bearer private-token\n"
+            "\nrenderer Authorization: Bearer private-token\n"
         )
         lines = tail_log_lines(2, log_dir=tmp_path, include_shell=True)
         assert lines == [
@@ -959,7 +970,7 @@ class TestFeedbackRoutes:
         monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
         reads = []
         sent = []
-        (tmp_path / "Stimma-shell.log").write_text("updater token=private-token\n")
+        (tmp_path / "Stimma-shell.log").write_text("\nupdater token=private-token\n")
         monkeypatch.setattr(log_tail, "get_log_dir", lambda: reads.append(True) or tmp_path)
 
         async def submit_feedback(**kwargs):

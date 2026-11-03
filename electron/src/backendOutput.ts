@@ -22,18 +22,29 @@ export function observeBackendOutput(
     diagnostic: (text: string) => void
   },
 ): () => void {
-  let tail: Buffer = Buffer.alloc(0)
+  let tail: Buffer[] = []
+  let tailBytes = 0
   let ready = false
   const saveTail = () => {
-    if (tail.length) callbacks.diagnostic(tail.toString('utf8'))
-    tail = Buffer.alloc(0)
+    if (tail.length) callbacks.diagnostic(Buffer.concat(tail).toString('utf8'))
+    tail = []
+    tailBytes = 0
   }
   for (const [stream, stderr] of [[child.stdout!, false], [child.stderr!, true]] as const) {
     stream.on('data', (chunk: Buffer) => {
-      tail = Buffer.concat([tail, chunk.subarray(-DIAGNOSTIC_BYTES)]).subarray(-DIAGNOSTIC_BYTES)
       callbacks.output(chunk, stderr)
     })
     readline.createInterface({ input: stream }).on('line', (line) => {
+      // Retain complete records so an evicted key never leaves its value behind.
+      const record = Buffer.from(line + '\n')
+      if (record.length <= DIAGNOSTIC_BYTES) {
+        tail.push(record)
+        tailBytes += record.length
+      } else {
+        tail = []
+        tailBytes = 0
+      }
+      while (tailBytes > DIAGNOSTIC_BYTES) tailBytes -= tail.shift()!.length
       const port = parseBackendPort(line)
       if (port !== null) {
         ready = true

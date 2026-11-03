@@ -48,7 +48,7 @@ test('export ZIP includes all shell and backend rotations plus scrubbed version 
   await fs.mkdir(logs)
   const names = ['Stimma-shell.log', ...Array.from({ length: 4 }, (_, i) => `Stimma-shell.log.${i + 1}`),
     ...Array.from({ length: 20 }, (_, i) => `Stimma_log.${String(i).padStart(2, '0')}.txt`)]
-  for (const name of names) await fs.writeFile(path.join(logs, name), `failure in ${os.homedir()}/private/file token=private-token\n`)
+  for (const name of names) await fs.writeFile(path.join(logs, name), `${name.startsWith('Stimma-shell') ? '\n' : ''}failure in ${os.homedir()}/private/file token=private-token\n`)
   await fs.writeFile(path.join(logs, 'unrelated.txt'), 'must not export')
   const destination = path.join(dir, 'logs.zip')
   await exportLogs(destination, dir, '1.2.3')
@@ -92,7 +92,7 @@ test('export archives redact standalone local and known device identities', asyn
     'Target set to 192.0.2.14:9191',
     'getaddrinfo ENOTFOUND studio-node.example',
   ].join('\n')
-  await fs.writeFile(path.join(dir, 'Logs', 'Stimma-shell.log'), messages)
+  await fs.writeFile(path.join(dir, 'Logs', 'Stimma-shell.log'), '\n' + messages)
   const destination = path.join(dir, 'logs.zip')
   await promptLogExport(dir, 'dev', {
     showSaveDialog: async () => ({ canceled: false, filePath: destination }),
@@ -103,6 +103,21 @@ test('export archives redact standalone local and known device identities', asyn
   for (const value of ['test-account', 'sample-workstation', 'Studio Computer', 'studio-node.example', '192.0.2.14']) {
     assert.ok(!text.toLowerCase().includes(value.toLowerCase()), value)
   }
+})
+
+test('export drops leading fragments from every shell rotation including the current file', async (t) => {
+  const dir = await scratch(t)
+  const logs = path.join(dir, 'Logs')
+  await fs.mkdir(logs)
+  await fs.writeFile(path.join(logs, 'Stimma-shell.log.2'), 'older record\ntoken=')
+  await fs.writeFile(path.join(logs, 'Stimma-shell.log.1'), 'private-rotated-value\nuseful diagnostic\ntoken=')
+  await fs.writeFile(path.join(logs, 'Stimma-shell.log'), 'private-current-value')
+  const destination = path.join(dir, 'logs.zip')
+  await exportLogs(destination, dir, 'dev')
+  const entries = readZip(await fs.readFile(destination))
+  assert.equal(entries.get('Stimma-shell.log'), '')
+  assert.equal(entries.get('Stimma-shell.log.1'), 'useful diagnostic\ntoken=')
+  assert.ok(![...entries.values()].join('').includes('private-'))
 })
 
 test('export bounds legacy logs, tolerates missing rotations and never changes source logs', async (t) => {

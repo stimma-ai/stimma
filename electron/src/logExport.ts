@@ -102,7 +102,11 @@ export async function exportLogs(
         }
         // Drop a partial first line so a cut-off secret's value cannot leak.
         let text = buffer.subarray(0, length).toString('utf8')
-        if (start) text = text.includes('\n') ? text.slice(text.indexOf('\n') + 1) : ''
+        // Older shell writers split records at rotation boundaries, including
+        // the beginning of the current file. Conservatively drop that fragment.
+        if (start || name.startsWith('Stimma-shell.log')) {
+          text = text.includes('\n') ? text.slice(text.indexOf('\n') + 1) : ''
+        }
         await add(name, text)
       } finally {
         await input.close()

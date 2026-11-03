@@ -43,6 +43,15 @@ test('abnormal exit preserves at most 64 KiB including final stderr', () => {
   assert.ok(!f.diagnostics[0].includes('old output'))
 })
 
+test('diagnostic ring discards secret fragments after its byte limit', () => {
+  const f = fixture()
+  f.child.stdout.write('token=')
+  f.child.stdout.write('private-value '.repeat(6000))
+  f.child.stdout.write('\nuseful diagnostic\n')
+  f.child.emit('close', 1, null)
+  assert.deepEqual(f.diagnostics, ['useful diagnostic\n'])
+})
+
 test('watchdog restarts preserve crash diagnostics even if the next backend succeeds', () => {
   const f = fixture()
   f.child.stderr.write('native crash traceback\n[watchdog] Backend crashed: signal 11\n')

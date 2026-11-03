@@ -11,6 +11,8 @@ export const SHELL_LOG_FILES = 5 // Current file plus four backups.
 export class RotatingLog extends Writable {
   private output: fs.WriteStream | null = null
   private failed = false
+  private pending: Buffer = Buffer.alloc(0)
+  private droppingRecord = false
 
   private filename: string
   private maxBytes: number
@@ -50,7 +52,10 @@ export class RotatingLog extends Writable {
           if (!bytesRead) break
           offset += bytesRead
         }
-        await files.writeFile(filename + '.tmp', tail.subarray(0, offset), { mode: 0o600 })
+        // The bounded tail may start inside a secret value. Keep whole lines.
+        const data = tail.subarray(0, offset)
+        const newline = data.indexOf(10)
+        await files.writeFile(filename + '.tmp', newline < 0 ? Buffer.alloc(0) : data.subarray(newline + 1), { mode: 0o600 })
       } finally {
         await input.close()
       }
@@ -96,26 +101,41 @@ export class RotatingLog extends Writable {
 
   private async append(chunk: Buffer): Promise<void> {
     if (this.failed) return
-    let size = await this.size(this.filename)
     while (chunk.length) {
-      if (size >= this.maxBytes) {
-        await this.rotate()
-        size = 0
+      const newline = chunk.indexOf(10)
+      const length = newline < 0 ? chunk.length : newline + 1
+      const part = chunk.subarray(0, length)
+      if (!this.droppingRecord) {
+        if (this.pending.length + length > this.maxBytes) {
+          this.pending = Buffer.alloc(0)
+          this.droppingRecord = true
+        } else {
+          this.pending = Buffer.concat([this.pending, part])
+        }
       }
-      if (!this.output) {
-        this.output = fs.createWriteStream(this.filename, { flags: 'a', mode: 0o600 })
-        this.output.on('error', (error) => this.fail(error))
+      if (newline >= 0) {
+        if (!this.droppingRecord) await this.appendRecord(this.pending)
+        this.pending = Buffer.alloc(0)
+        this.droppingRecord = false
       }
-      const part = chunk.subarray(0, this.maxBytes - size)
-      await new Promise<void>((resolve, reject) => {
-        this.output!.write(part, (error) => error ? reject(error) : resolve())
-      })
-      size += part.length
-      chunk = chunk.subarray(part.length)
+      chunk = chunk.subarray(length)
     }
   }
 
+  private async appendRecord(record: Buffer): Promise<void> {
+    if (this.failed || !record.length) return
+    if (await this.size(this.filename) + record.length > this.maxBytes) await this.rotate()
+    if (!this.output) {
+      this.output = fs.createWriteStream(this.filename, { flags: 'a', mode: 0o600 })
+      this.output.on('error', (error) => this.fail(error))
+    }
+    await new Promise<void>((resolve, reject) => {
+      this.output!.write(record, (error) => error ? reject(error) : resolve())
+    })
+  }
+
   override _final(callback: () => void): void {
-    void this.closeOutput().catch((error) => this.fail(error)).then(() => callback())
+    void this.appendRecord(this.pending).then(() => this.closeOutput())
+      .catch((error) => this.fail(error)).then(() => callback())
   }
 }

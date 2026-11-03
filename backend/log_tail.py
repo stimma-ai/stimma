@@ -80,14 +80,14 @@ def tail_log_lines(
     )
     shell = _tail_files(
         [directory / "Stimma-shell.log"]
-        + [directory / f"Stimma-shell.log.{index}" for index in range(1, 5)], n,
+        + [directory / f"Stimma-shell.log.{index}" for index in range(1, 5)], n, drop_first_line=True,
     ) if include_shell else []
     # Keep sources distinct rather than pretending their timestamps are sorted.
     lines = backend + (["[shell]"] + shell if shell else [])
     return [scrub_secrets(line) for line in lines]
 
 
-def _tail_files(paths: List[Path], n: int) -> List[str]:
+def _tail_files(paths: List[Path], n: int, *, drop_first_line: bool = False) -> List[str]:
     collected: List[str] = []
     budget = MAX_TAIL_BYTES
     for path in paths:
@@ -100,8 +100,8 @@ def _tail_files(paths: List[Path], n: int) -> List[str]:
                 file.seek(start)
                 data = file.read(budget)
             budget -= len(data)
-            # Avoid attaching a partial first line after seeking into a file.
-            if start:
+            # Old shell rotations can start mid-record even without seeking.
+            if start or drop_first_line:
                 data = data.partition(b"\n")[2]
             lines = data.decode("utf-8", errors="replace").splitlines()
         except OSError:
