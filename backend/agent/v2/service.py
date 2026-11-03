@@ -22,7 +22,7 @@ from core.logging import get_logger
 from database import Chat, ChatItem, MediaItem
 from utils.websocket import WebSocketManager
 
-from .conversation import build_messages, response_reserve
+from .conversation import build_messages, max_output_tokens
 from .agent_config import resolve_agent_config
 from .llm_options import agent_llm_options
 from ..hitl import HumanActionRequired
@@ -1654,7 +1654,7 @@ async def _run_agentic_loop_inner(
         llm_started_at = time.monotonic()
 
         tools = tools_schema if tools_enabled and tools_schema else None
-        max_response_tokens = response_reserve(llm_config.max_context_tokens)
+        max_response_tokens = max_output_tokens(llm_config.max_context_tokens)
 
         try:
             resp = await llm_completion(
@@ -1805,7 +1805,7 @@ async def _run_agentic_loop_inner(
                 # is its closing remark; finish just ends the loop. Any tool
                 # calls the model batched *before* finish have already run
                 # above; anything after it is intentionally dropped.
-                if fn_name == "finish":
+                if fn_name == "finish" and resp.finish_reason != FinishReason.LENGTH:
                     finish_requested = True
                     break
 
@@ -1819,7 +1819,7 @@ async def _run_agentic_loop_inner(
                     })
 
                 # Permission check before execution
-                if await _needs_permission(fn_name, fn_arguments or "", chat, session):
+                if resp.finish_reason != FinishReason.LENGTH and await _needs_permission(fn_name, fn_arguments or "", chat, session):
                     try:
                         await _pause_for_permission(
                             fn_name, fn_arguments, tool_call_id,
@@ -1847,6 +1847,23 @@ async def _run_agentic_loop_inner(
                     "chat_id": chat_id,
                     "item": call_item.to_dict(),
                 })
+
+                if resp.finish_reason == FinishReason.LENGTH:
+                    result_item = ChatItem(
+                        chat_id=chat_id,
+                        item_type="tool_result",
+                        tool_call_id=tool_call_id,
+                        tool_result=(
+                            "This call was cut off at the output limit and was not run. "
+                            "Split the work into smaller steps, then try again."
+                        ),
+                    )
+                    session.add(result_item)
+                    await session.commit()
+                    await ws_manager.broadcast("chat_item_created", {
+                        "chat_id": chat_id, "item": result_item.to_dict(),
+                    })
+                    continue
 
                 # ask_user: pause with HITL prompt instead of executing the tool.
                 # The tool_result (with the user's answer) is saved on resume.
