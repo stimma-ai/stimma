@@ -198,3 +198,56 @@ async def test_agent_stall_cancels_job_and_provider(generation_queue, generation
     assert (await generation_queue.get_job(job.id))['status'] == 'cancelled'
     db = generation_queue._get_db('default')
     assert f'job-{db.db_guid}-{job.id}' in test_provider._cancelled_requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('client', ['agent', 'manual-tool-view', 'forever-tool-view'])
+async def test_restart_preserves_and_runs_submitted_jobs(
+    generation_queue, generation_db_session, output_folder, client,
+):
+    from tests.helpers.generation import create_generation_job
+
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, generator_instance_id=client, folder_path=output_folder)
+    await generation_queue.cleanup_stale_jobs()
+    assert (await generation_queue.get_job(job.id))['status'] == 'queued'
+    await generation_queue._process_job(job, 'default')
+    await generation_queue._await_finalizers()
+    assert (await generation_queue.get_job(job.id))['status'] == 'completed'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('interrupted_status', ['processing', 'assigned', 'queued'])
+async def test_restart_settles_partial_batch_and_keeps_terminal_rows(
+    generation_queue, generation_db_session, output_folder, mock_ws, interrupted_status,
+):
+    import json
+    from database import GenerationJob, Asset
+    from sqlalchemy import select
+    from tests.helpers.generation import create_generation_job
+    from tests.helpers.media import create_media_item
+
+    batch_id = f'restart-batch-{interrupted_status}'
+    async with generation_db_session() as session:
+        media = await create_media_item(session)
+        first = await create_generation_job(session, status='completed', result_media_id=media.id, folder_path=output_folder)
+        first.batch_id = batch_id
+        first.batch_total = 2
+        second = await create_generation_job(session, status=interrupted_status)
+        second.batch_id = batch_id
+        if interrupted_status == 'queued':
+            # A one-shot flow's temporary workspace and run are gone at restart.
+            second.parameters = json.dumps({'_ephemeral_run_id': 'expired-run'})
+            second.output_disposition = 'ephemeral'
+        await session.commit()
+    await generation_queue._handle_batch_job_completion(first, media, 'default')
+    mock_ws.clear()
+    await generation_queue.cleanup_stale_jobs()
+    assert (await generation_queue.get_job(second.id))['status'] == 'failed'
+    events = mock_ws.get_broadcasts('batch_completed')
+    event = next(data for _, data in events if data['batch_id'] == batch_id)
+    assert (event['completed'], event['failed'], event['total'], event['status']) == (1, 1, 2, 'partial')
+    assert event['result_asset_id'] is not None
+    async with generation_db_session() as session:
+        assert await session.get(GenerationJob, first.id) is not None
+        assert await session.scalar(select(Asset).where(Asset.id == event['result_asset_id'])) is not None

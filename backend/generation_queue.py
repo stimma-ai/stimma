@@ -2225,6 +2225,9 @@ class GenerationQueue:
         
                         })
 
+                if job.batch_id:
+                    await self._handle_batch_job_completion(job, None, profile_id)
+
                 # Refill forever-mode slots now that capacity was freed
                 if backend_name:
                     await self._fill_available_slots(backend_name)
@@ -2274,47 +2277,36 @@ class GenerationQueue:
         return False  # Job not found in any profile
 
     async def cleanup_stale_jobs(self):
-        """Clean up jobs that were interrupted by server restart across all profile databases.
+        """Recover queued work and settle executions interrupted by restart.
 
-        Any job not in a terminal state (completed, failed, cancelled) is stale after a restart.
-        Queued jobs are deleted (clients must re-register). All other non-terminal jobs are marked failed.
+        Accepted jobs contain all inputs, including forever-mode submissions;
+        only future work reservations require a live client. One-shot flow jobs
+        depend on an in-memory run and its temporary workspace, so cannot resume.
+        Retain failed rows so batch totals still account for every submitted job.
         """
         terminal_statuses = {'completed', 'failed', 'cancelled'}
-
         for profile_id, db in self._get_all_jobs_dbs():
             try:
+                affected_batches = {}
                 async with db.async_session_maker() as session:
-                    # Find ALL non-terminal jobs - these are all stale after a restart
                     result = await session.execute(
                         select(GenerationJob).where(
                             GenerationJob.status.notin_(terminal_statuses)
                         )
                     )
-                    stale_jobs = result.scalars().all()
-
-                    if not stale_jobs:
-                        continue
-
-                    queued_count = 0
-                    failed_count = 0
-                    for job in stale_jobs:
-                        if job.status == 'queued':
-                            # Queued jobs are deleted since clients need to re-register
-                            await session.delete(job)
-                            queued_count += 1
-                        else:
-                            # All other non-terminal jobs are marked failed
-                            job.status = 'failed'
-                            job.error = 'Interrupted by server restart'
-                            job.completed_at = datetime.utcnow()
-                            failed_count += 1
-
-                    if queued_count > 0:
-                        log.info(f"Deleting {queued_count} queued job(s) from profile {profile_id}")
-                    if failed_count > 0:
-                        log.info(f"Marking {failed_count} interrupted job(s) as failed in profile {profile_id}")
-
+                    for job in result.scalars().all():
+                        params = json.loads(job.parameters or '{}')
+                        ephemeral = job.output_disposition == 'ephemeral' or params.get('_ephemeral_run_id')
+                        if job.status == 'queued' and not ephemeral:
+                            continue
+                        job.status = 'failed'
+                        job.error = 'Interrupted by server restart'
+                        job.completed_at = datetime.utcnow()
+                        if job.batch_id:
+                            affected_batches[job.batch_id] = job
                     await session.commit()
+                for job in affected_batches.values():
+                    await self._handle_batch_job_completion(job, None, profile_id)
             except Exception:
                 log.exception(f"Failed to cleanup stale jobs for profile {profile_id}")
 
@@ -2772,7 +2764,7 @@ class GenerationQueue:
     async def _handle_batch_job_completion(
         self,
         job: GenerationJob,
-        media_item: "MediaItem",
+        media_item: Optional["MediaItem"],
         profile_id: str
     ):
         """Handle completion of a job that is part of a batch.
@@ -2807,7 +2799,7 @@ class GenerationQueue:
 
             # Count completed and failed jobs
             completed_count = sum(1 for j in batch_jobs if j.status == 'completed')
-            failed_count = sum(1 for j in batch_jobs if j.status == 'failed')
+            failed_count = sum(1 for j in batch_jobs if j.status in ('failed', 'cancelled'))
 
             # Get batch metadata from first job's input data
             tool_id = first_job.tool_id or first_job.model_name
@@ -2830,7 +2822,7 @@ class GenerationQueue:
                     await self._websocket_manager.broadcast('batch_job_completed', {
                         'batch_id': batch_id,
                         'job_id': job.id,
-                        'result_media_id': media_item.id,
+                        'result_media_id': media_item.id if media_item else None,
                         'output_set_id': None,
                         'completed': completed_count,
                         'failed': failed_count,
@@ -2858,59 +2850,60 @@ class GenerationQueue:
                         })
                 return
 
-            async with self._get_db(profile_id).async_session_maker() as media_session:
-                if output_set_id is None:
-                    # First completed job - create the output set
-                    log.info(f"Batch {batch_id}: Creating output set with first result (media_id={media_item.id})")
+            if media_item is not None:
+                async with self._get_db(profile_id).async_session_maker() as media_session:
+                    if output_set_id is None:
+                        # First completed job - create the output set
+                        log.info(f"Batch {batch_id}: Creating output set with first result (media_id={media_item.id})")
 
-                    output_set = await create_batch_output_set(
-                        session=media_session,
-                        folder_path=job.folder_path,
-                        batch_id=batch_id,
-                        first_item_path=media_item.file_path,
-                        title=output_title,
-                    )
-                    output_set_id = output_set.id
+                        output_set = await create_batch_output_set(
+                            session=media_session,
+                            folder_path=job.folder_path,
+                            batch_id=batch_id,
+                            first_item_path=media_item.file_path,
+                            title=output_title,
+                        )
+                        output_set_id = output_set.id
 
-                    # Associate output set with project if job is project-scoped
-                    if job.project_id:
-                        from project_service import attach_media_to_project
-                        await attach_media_to_project(media_session, job.project_id, output_set_id)
-                        log.info(f"Batch {batch_id}: Attached output set {output_set_id} to project {job.project_id}")
+                        # Associate output set with project if job is project-scoped
+                        if job.project_id:
+                            from project_service import attach_media_to_project
+                            await attach_media_to_project(media_session, job.project_id, output_set_id)
+                            log.info(f"Batch {batch_id}: Attached output set {output_set_id} to project {job.project_id}")
 
-                    # Store output_set_id on all batch jobs for reliability
-                    await jobs_session.execute(
-                        update(GenerationJob)
-                        .where(GenerationJob.batch_id == batch_id)
-                        .values(batch_output_set_id=output_set_id)
-                    )
-                    await jobs_session.commit()
+                        # Store output_set_id on all batch jobs for reliability
+                        await jobs_session.execute(
+                            update(GenerationJob)
+                            .where(GenerationJob.batch_id == batch_id)
+                            .values(batch_output_set_id=output_set_id)
+                        )
+                        await jobs_session.commit()
 
-                    log.info(f"Batch {batch_id}: Output set created with id={output_set_id}")
+                        log.info(f"Batch {batch_id}: Output set created with id={output_set_id}")
 
-                    from telemetry import get_telemetry_client
-                    get_telemetry_client().track("set_created", {
-                        "count": batch_total or 1,
-                        "actor": "system",
-                    }, category="library")
-                else:
-                    # Subsequent job - append to existing set
-                    log.info(f"Batch {batch_id}: Appending result to output set (set_id={output_set_id}, media_id={media_item.id})")
+                        from telemetry import get_telemetry_client
+                        get_telemetry_client().track("set_created", {
+                            "count": batch_total or 1,
+                            "actor": "system",
+                        }, category="library")
+                    else:
+                        # Subsequent job - append to existing set
+                        log.info(f"Batch {batch_id}: Appending result to output set (set_id={output_set_id}, media_id={media_item.id})")
 
-                    await append_to_set(
-                        session=media_session,
-                        set_media_id=output_set_id,
-                        new_item_path=media_item.file_path,
-                    )
+                        await append_to_set(
+                            session=media_session,
+                            set_media_id=output_set_id,
+                            new_item_path=media_item.file_path,
+                        )
 
-                await media_session.commit()
+                    await media_session.commit()
 
             # Broadcast batch progress
             if self._websocket_manager:
                 await self._websocket_manager.broadcast('batch_job_completed', {
                     'batch_id': batch_id,
                     'job_id': job.id,
-                    'result_media_id': media_item.id,
+                    'result_media_id': media_item.id if media_item else None,
                     'output_set_id': output_set_id,
                     'completed': completed_count,
                     'failed': failed_count,
@@ -3471,6 +3464,9 @@ class GenerationQueue:
                             'generator_instance_id': job.generator_instance_id,
         
                         })
+
+                    if job.batch_id:
+                        await self._handle_batch_job_completion(job, None, profile_id)
 
                     # Track failure telemetry: categorical errorType + errorHash
                     # only — the raw error text never egresses.

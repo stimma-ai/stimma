@@ -1481,10 +1481,10 @@ class TestJobSubmissionConsolidation:
 class TestStaleJobCleanup:
     """Tests for cleanup_stale_jobs (backend restart recovery)."""
 
-    async def test_cleanup_deletes_queued_jobs(
+    async def test_cleanup_preserves_queued_jobs(
         self, generation_queue, generation_db_session
     ):
-        """cleanup_stale_jobs deletes queued jobs (clients must re-submit)."""
+        """Submitted jobs are durable even when their submitting client is gone."""
         _reset_queue_state(generation_queue)
 
         async with generation_db_session() as session:
@@ -1495,9 +1495,9 @@ class TestStaleJobCleanup:
 
         await generation_queue.cleanup_stale_jobs()
 
-        # Job should be deleted
         result = await generation_queue.get_job(job_id)
-        assert result is None
+        assert result['status'] == 'queued'
+        await generation_queue.cancel_job(job_id)
 
     async def test_cleanup_fails_processing_jobs(
         self, generation_queue, generation_db_session
