@@ -252,6 +252,7 @@ async def test_app(temp_appdata_dir: Path):
         )
         from routes import tasks as flow_tasks
         from routes.presets import router as presets_router
+        from routes.lora_notes import router as lora_notes_router
         from routes.preferences import router as preferences_router
         app.include_router(media.router)
         app.include_router(assets.router)
@@ -278,6 +279,7 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(keywords.router)
         app.include_router(processing.router)
         app.include_router(presets_router)
+        app.include_router(lora_notes_router)
         app.include_router(preferences_router)
         app.include_router(settings_routes.router)
 

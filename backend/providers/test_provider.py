@@ -102,6 +102,8 @@ _LORAS_SCHEMA = {
                     "styles/inkwash-v2.safetensors",
                     "styles/watercolor-v2.safetensors",
                     "detail/crisp-detail-xl.safetensors",
+                    "series/clay_render_v1_000000500.safetensors",
+                    "series/clay_render_v1_000001000.safetensors",
                 ],
             },
             "weight": {"type": "number", "default": 1.0, "minimum": -10.0, "maximum": 10.0},
@@ -635,6 +637,18 @@ class TestToolProvider(ToolProvider):
                 },
                 metadata={"generator_type": "test"},
             )
+
+    async def file_fingerprints(self, tool_id: str, parameter: str) -> Optional[Dict[str, Any]]:
+        """Stable fake fingerprints from each LoRA's name, like a real provider's."""
+        import hashlib
+
+        descriptor = next((t for t in await self.list_tools() if t.id == tool_id), None)
+        schema = (descriptor.parameter_schema if descriptor else {}).get("properties", {}).get(parameter) or {}
+        values = (schema.get("items") or {}).get("properties", {}).get("path", {}).get("enum") or []
+        return {
+            "fingerprints": {v: f"stfp1:{hashlib.sha256(v.encode()).hexdigest()[:32]}" for v in values},
+            "pending": 0,
+        }
 
     async def list_tools(self) -> List[ToolDescriptor]:
         """Return all available test tools."""

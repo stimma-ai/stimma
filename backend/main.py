@@ -159,6 +159,7 @@ from routes import (
     flows,
     saved_views,
     workspace,
+    lora_notes as lora_notes_routes,
     search,
     tasks as flow_tasks,
     settings,
@@ -228,6 +229,7 @@ app.include_router(prompt_enhancement.router)
 app.include_router(profiles.router)
 app.include_router(saved_views.router)
 app.include_router(workspace.router)
+app.include_router(lora_notes_routes.router)
 app.include_router(search.router)
 app.include_router(settings.router)
 app.include_router(tools.router)

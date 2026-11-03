@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -456,12 +456,15 @@ async def _apply_generation_prompt_pipeline(
     input_media_ids: List[Optional[int]] = []
     if model_family(model) in ("qwen-image-2.1", "flux-3-klein"):
         input_media_ids = _prompt_input_media_ids(parameters)
+    from lora_notes import lora_context_for
+    lora_context = await lora_context_for(tool_id, parameters, profile_id)
     processed_prompt = await run_prompt_pipeline(
         db,
         prompt,
         prompt_options,
         model=model,
         model_vendor=model_vendor,
+        lora_context=lora_context,
         is_video="video" in effective_task,
         is_audio=effective_task in _AUDIO_TASK_TYPES,
         input_image_count=_prompt_input_image_count(parameters, schema_props, effective_task),
@@ -3264,6 +3267,8 @@ class PromptWarmPoolUpdateRequest(BaseModel):
     concurrency: int = 0
     # The tool's project, so the project's AI model override applies.
     project_id: Optional[int] = None
+    # The selected LoRAs, so warmed prompts use their trigger words and notes.
+    loras: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 @router.post("/prompt-warm-pool/update")
@@ -3278,9 +3283,13 @@ async def update_prompt_warm_pool(request: PromptWarmPoolUpdateRequest):
     registration is active (see GenerationQueue's prompt warm pool docs).
     """
     from generation_queue import get_generation_queue
+    from lora_notes import lora_context_for
+
     queue = get_generation_queue()
+    profile_id = get_current_profile()
     await queue.update_prompt_warm_pool(
         request.generator_instance_id,
+        lora_context=await lora_context_for(request.tool_id, {"loras": request.loras}, profile_id),
         tool_id=request.tool_id,
         prompt=request.prompt,
         instructions=request.instructions,
@@ -3291,7 +3300,7 @@ async def update_prompt_warm_pool(request: PromptWarmPoolUpdateRequest):
         audio_conditioned=request.audio_conditioned,
         prompt_sources_signature=request.prompt_sources_signature,
         concurrency=request.concurrency,
-        profile_id=get_current_profile(),
+        profile_id=profile_id,
         project_id=request.project_id,
     )
     return {"status": "ok"}

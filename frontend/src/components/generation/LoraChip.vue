@@ -29,7 +29,48 @@
       <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
         {{ item.lora }}
       </div>
+      <!-- Only rows that are on: the words this LoRA needs, or what's missing
+           when the prompt goes out verbatim. -->
+      <template v-if="item.enabled && !unavailable && triggerWords.length">
+        <div
+          v-if="missingTrigger"
+          class="mt-0.5 text-[11px] leading-snug text-amber-600 dark:text-amber-400"
+          data-lora-trigger-warning
+        >
+          <span class="font-mono">{{ missingTrigger }}</span> isn't in your prompt ·
+          <button
+            type="button"
+            class="font-semibold text-accent-hi coarse:min-h-11"
+            @click.stop="$emit('insert-trigger', missingTrigger)"
+            @pointerdown.stop
+          >Insert</button>
+        </div>
+        <div v-else class="mt-0.5 truncate font-mono text-[11px] leading-snug text-content-tertiary" data-lora-trigger-line>
+          {{ triggerWords.join(', ') }}
+        </div>
+      </template>
     </div>
+
+    <!-- Notes: only for a row with a fingerprint. Stays visible once written. -->
+    <button
+      v-if="canHaveNote"
+      @click.stop="$emit('toggle-note')"
+      @pointerdown.stop
+      type="button"
+      :class="[
+        'shrink-0 w-[18px] h-4 mt-[2px] flex items-center justify-center transition-opacity hover:text-content coarse:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0',
+        noteOpen ? 'opacity-100 text-accent-hi' : hasNote ? 'opacity-100 text-content-secondary' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-content-tertiary',
+      ]"
+      :title="hasNote ? 'Edit notes' : 'Add notes'"
+      :aria-label="hasNote ? 'Edit notes' : 'Add notes'"
+      :aria-expanded="noteOpen"
+      data-lora-note-button
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="w-[13px] h-[13px]">
+        <path d="M5 2.8h7l3.5 3.5v10.9H5z" />
+        <path d="M12 2.8v3.5h3.5M7.8 10.2h4.8M7.8 13.3h4.8" />
+      </svg>
+    </button>
 
     <!-- Weight cluster: − value + (hover reveals the steppers), ✕ far right.
          The whole row drags (root pointerdown, mouse only); no grab handle
@@ -88,12 +129,23 @@ interface Props {
   showRaw?: boolean
   groupId?: string | null
   unavailable?: boolean
+  canHaveNote?: boolean
+  hasNote?: boolean
+  noteOpen?: boolean
+  triggerWords?: string[]
+  /** A trigger word the verbatim prompt doesn't contain, when Enhance is off. */
+  missingTrigger?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showRaw: false,
   groupId: null,
   unavailable: false,
+  canHaveNote: false,
+  hasNote: false,
+  noteOpen: false,
+  triggerWords: () => [],
+  missingTrigger: null,
 })
 
 const emit = defineEmits<{
@@ -102,6 +154,8 @@ const emit = defineEmits<{
   (e: 'remove'): void
   (e: 'contextmenu', event: MouseEvent): void
   (e: 'drag-intent', event: PointerEvent, loraPath: string, groupId: string | null): void
+  (e: 'toggle-note'): void
+  (e: 'insert-trigger', word: string): void
 }>()
 
 const directoryPath = computed(() => getDirectoryPath(props.item.lora))

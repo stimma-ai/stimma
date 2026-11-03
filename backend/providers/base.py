@@ -241,6 +241,13 @@ class ToolProvider(ABC):
         """
         return []
 
+    async def file_fingerprints(self, tool_id: str, parameter: str) -> Optional[Dict[str, Any]]:
+        """Content fingerprints for a parameter's files: {fingerprints, pending}.
+
+        None for providers that don't support them (STP `file_fingerprints`).
+        """
+        return None
+
     # --- Execution ---
 
     @abstractmethod

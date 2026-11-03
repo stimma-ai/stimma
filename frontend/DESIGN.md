@@ -691,6 +691,12 @@ is retired. New grammar (mock §12 close-up):
 - **Picker**: the §7 menu shell (search field + list rows with media thumb +
   type badge; ✓ = already in pool, ＋ adds). No modal-with-checkmark-cards.
 - LoRA pool state stays OUTSIDE prompt-editor undo (existing invariant).
+- **Notes** (tool page only): a row whose provider gives its file a content
+  fingerprint gets a note icon in the hover cluster, always visible once a note
+  exists. It expands an inline editor under the row (wash inset, not a popover,
+  so the image stays visible). Rows that are on show their trigger words on a
+  quiet mono second line; with Enhance off, a word missing from the prompt
+  becomes a warning with Insert. A row without a fingerprint shows none of this.
 
 ### 3.5 Attached controls on input media (prep rows)
 

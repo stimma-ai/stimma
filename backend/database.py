@@ -2,6 +2,7 @@ import random
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Column,
@@ -833,6 +834,42 @@ class UserPreference(Base):
     key = Column(String, primary_key=True)
     value = Column(String, nullable=False)  # JSON string
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LoraNote(Base):
+    """Trigger words and notes for a LoRA. Attached to file fingerprints through
+    LoraNoteFile, so it survives moving and renaming the file. A shared note has
+    several files."""
+    __tablename__ = "lora_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trigger_words = Column(JSON, nullable=True)
+    notes = Column(Text, nullable=True)
+    shared = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+
+class LoraNoteFile(Base):
+    """Links a file fingerprint to its note. A fingerprint has at most one live link."""
+    __tablename__ = "lora_note_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fingerprint = Column(String, nullable=False)
+    note_id = Column(Integer, ForeignKey('lora_notes.id'), nullable=False, index=True)
+    last_seen_value = Column(String, nullable=True)  # Display and debugging only
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index(
+            'uq_lora_note_files_live_fingerprint',
+            'fingerprint',
+            unique=True,
+            sqlite_where=text('deleted_at IS NULL'),
+        ),
+    )
 
 
 class WorkspaceDoc(Base):

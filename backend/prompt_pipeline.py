@@ -33,6 +33,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.logging import get_logger
+from lora_notes import lora_context_signature, prepend_missing_triggers
 
 log = get_logger(__name__)
 
@@ -196,6 +197,7 @@ async def _improve_with_verbatim_protection(
     input_media_ids: Optional[List[Optional[int]]] = None,
     width: Optional[int] = None,
     height: Optional[int] = None,
+    lora_context: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     from routes.prompt_enhancement import ImprovePromptRequest, improve_prompt
 
@@ -228,6 +230,7 @@ async def _improve_with_verbatim_protection(
             width=width,
             height=height,
             project_id=project_id,
+            lora_context=lora_context or [],
         )
         async with db.async_session_maker() as session:
             candidate = (await improve_prompt(request, session)).improved_prompt
@@ -586,6 +589,7 @@ def _validated_prompt_preload(
     input_image_count: int,
     audio_conditioned: bool,
     source_signature: str,
+    lora_signature: str = "",
 ) -> Optional[str]:
     if not isinstance(prompt_preload, dict):
         return None
@@ -594,6 +598,8 @@ def _validated_prompt_preload(
         if prompt_preload.get("originalPrompt") != prompt:
             return None
         if prompt_preload.get("promptSourcesSignature") != source_signature:
+            return None
+        if (prompt_preload.get("loraContextSignature") or "") != lora_signature:
             return None
         if _normalized_optional_string(prompt_preload.get("instructions")) != _normalized_optional_string(instructions):
             return None
@@ -660,6 +666,7 @@ async def run_prompt_pipeline(
     profile_id: Optional[str] = None,
     project_id: Optional[int] = None,
     prompt_preload: Optional[Dict[str, Any]] = None,
+    lora_context: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Run the full generate-time pipeline on a prompt, server-side.
 
@@ -704,6 +711,7 @@ async def run_prompt_pipeline(
             input_image_count=input_image_count,
             audio_conditioned=audio_conditioned,
             source_signature=source_signature,
+            lora_signature=lora_context_signature(lora_context),
         )
 
     if preloaded_improved is not None:
@@ -733,6 +741,7 @@ async def run_prompt_pipeline(
             width=width,
             height=height,
             project_id=project_id,
+            lora_context=lora_context,
         )
 
     # 3) Translate.
@@ -754,6 +763,11 @@ async def run_prompt_pipeline(
     processed = process_final_prompt(
         processed, wildcards, segments, preserve_brackets=(h3_task is not None)
     )
+
+    # A LoRA may do little without its trigger, and the rewrite or translation
+    # can lose it. Structured formats have no safe place to prepend.
+    if enhance_on and not ideogram_json_mode and h3_task is None:
+        processed = prepend_missing_triggers(processed, lora_context)
 
     # 5) Ideogram JSON — on the fully resolved prompt (last step).
     if ideogram_json_mode:

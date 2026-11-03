@@ -661,8 +661,11 @@
           :upload-progress="loraUploadProgress"
           :upload-file-name="loraUploadFileName"
           :upload-config="loraUploadConfig"
+          :lora-notes="loraNotes"
+          :verbatim-prompt="globalPrefs.promptOptions?.autoImprove?.enabled ? null : (globalPrefs.prompt || '')"
           @refresh-loras="refreshLoras"
           @upload="uploadLora"
+          @insert-trigger="insertTriggerWord"
         />
 
         <!-- Post-processing chain (auto-runs after each generation when On).
@@ -1221,6 +1224,7 @@ import { submitJobAsync, submitBatchJobAsync, submitMediaBatchJobAsync, BatchJob
 import { createDragPreview, handleDragEnd as handleHeroDragEnd } from '../composables/useDragPreview'
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
 import { usePromptWarmPool } from '../composables/usePromptWarmPool'
+import { useLoraNotes } from '../composables/useLoraNotes'
 import { provideOwnerProject } from '../composables/useProjectScope'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
 import { isInsufficientBalanceCode, isLlmSetupCode } from '../utils/llmErrorCodes'
@@ -3751,6 +3755,20 @@ const enhanceIsMiniMaxH3 = computed(() => /(?:minimax[\s._-]*h3|hailuo[\s._-]*(?
 // (registers/tears down alongside it) - a single manual generation has no
 // duty cycle to preserve, so it isn't speculated for here; it just goes
 // through the normal enhance-at-submit path.
+// Trigger words and notes for this tool's LoRAs.
+const loraNotes = useLoraNotes(
+  computed(() => tool.value?.full_tool_id ?? null),
+  computed(() => !!tool.value?.parameter_schema?.properties?.loras),
+)
+watch(availableLoraPaths, () => { void loraNotes.refresh() })
+
+function insertTriggerWord(word: string) {
+  const prompt = globalPrefs.value.prompt || ''
+  const updated = prompt.trim() ? `${word}, ${prompt}` : word
+  globalPrefs.value.prompt = updated
+  aiPromptEditorRef.value?.setPromptText?.(updated)
+}
+
 const { clear: clearPromptWarmPool } = usePromptWarmPool({
   generatorInstanceId,
   toolId: computed(() => tool.value?.full_tool_id ?? null),
@@ -3773,6 +3791,7 @@ const { clear: clearPromptWarmPool } = usePromptWarmPool({
   isAudio: enhanceIsAudio,
   inputImageCount: enhanceInputImageCount,
   audioConditioned: enhanceAudioConditioned,
+  loras: computed(() => getToolEnabledLoras()),
   active: computed(() => uiState.value.generateForeverMode ?? false),
   concurrency: computed(() => uiState.value.generateForeverConcurrency ?? 1),
   projectId: projectScopeId,
@@ -6110,7 +6129,14 @@ function getStateContext(): Record<string, any> {
     ctx.loras = {
       selected: toolLoras.value.map(l => {
         const match = availableLoras.value.find((a: any) => a.path === l.lora)
-        return { name: match?.name || l.lora, path: l.lora, weight: l.weight, enabled: l.enabled }
+        const note = loraNotes.items.value[l.lora]?.note
+        return {
+          name: match?.name || l.lora,
+          path: l.lora,
+          weight: l.weight,
+          enabled: l.enabled,
+          ...(note ? { trigger_words: note.trigger_words, notes: note.notes } : {}),
+        }
       }),
     }
   }
@@ -6403,7 +6429,10 @@ async function runTool(name: string, args: any): Promise<string> {
         return tokens.length === 0 || tokens.every(t => hay.includes(t))
       }).slice(0, 10)
       if (!matches.length) return `No LoRAs match "${args.query}".`
-      return `Matches:\n${matches.map((l: any) => `- ${l.name} (${l.path})`).join('\n')}`
+      return `Matches:\n${matches.map((l: any) => {
+        const words = loraNotes.items.value[l.path]?.note?.trigger_words ?? []
+        return `- ${l.name} (${l.path})${words.length ? ` trigger words: ${words.join(', ')}` : ''}`
+      }).join('\n')}`
     }
     case 'set_lora_weight': {
       if (!hasLoras.value) return 'This tool does not support LoRAs.'

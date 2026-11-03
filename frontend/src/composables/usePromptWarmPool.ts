@@ -37,6 +37,8 @@ interface PromptWarmPoolOptions {
   // The tool tab's project. Pre-enhancement applies that project's AI model
   // override, the same way an enhance-at-submit would.
   projectId?: Ref<number | null>
+  // Selected LoRAs: their trigger words and notes shape the enhancement.
+  loras?: Ref<Array<{ lora: string; weight: number }>>
   debounceMs?: number
 }
 
@@ -62,6 +64,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
     active,
     concurrency,
     projectId,
+    loras,
     debounceMs = 1500,
   } = options
 
@@ -108,6 +111,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
       prompt_sources_signature: promptSourcesSignature(),
       concurrency: concurrency.value,
       project_id: projectId?.value ?? null,
+      loras: loras?.value ?? [],
     }).catch(err => {
       console.warn('[PromptWarmPool] update failed:', err)
     })

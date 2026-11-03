@@ -662,10 +662,13 @@ async def _apply_prompt_pipeline(
         h3_media_ids = [input_media_id] if input_media_id is not None else []
         h3_generate_audio = params.get("generate_audio") is not False
 
+    from lora_notes import lora_context_for
+
     return await run_prompt_pipeline(
         db,
         prompt,
         prompt_options,
+        lora_context=await lora_context_for(tool_id, params, profile_id),
         model=model,
         model_vendor=model_vendor,
         is_video="video" in effective_task,

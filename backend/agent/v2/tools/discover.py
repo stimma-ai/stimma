@@ -267,7 +267,13 @@ async def get_schema(tool_id: str, **kwargs) -> str:
 )
 async def search_options_tool(tool_id: str, param: str, query: str, **kwargs) -> str:
     registry = ProviderRegistry.get_instance()
-    return _search_options(registry, tool_id, param, query)
+    trigger_words: Dict[str, List[str]] = {}
+    if param.split(".")[0] == "loras":
+        from lora_notes import agent_notes_by_tool
+
+        for note in (await agent_notes_by_tool(None, [tool_id])).get(tool_id, []):
+            trigger_words[note["value"]] = note["trigger_words"]
+    return _search_options(registry, tool_id, param, query, trigger_words)
 
 
 def _list_task_types(registry: ProviderRegistry) -> str:
@@ -440,7 +446,11 @@ def _enrich_controlnet_info(result: Dict[str, Any]) -> None:
 
 
 def _search_options(
-    registry: ProviderRegistry, tool_id: str, param: str, query: str
+    registry: ProviderRegistry,
+    tool_id: str,
+    param: str,
+    query: str,
+    trigger_words: Optional[Dict[str, List[str]]] = None,
 ) -> str:
     if not tool_id or not param or not query:
         return "Error: tool_id, param, and query are all required for search_options"
@@ -483,6 +493,7 @@ def _search_options(
 
     lines = [f"Search results for '{query}' in {param} ({len(results)} of {len(enum_values)} total):\n"]
     for r in results:
-        lines.append(f"- {r}")
+        words = (trigger_words or {}).get(r)
+        lines.append(f"- {r} (trigger words: {', '.join(words)})" if words else f"- {r}")
 
     return "\n".join(lines)

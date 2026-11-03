@@ -2522,7 +2522,7 @@ class StimmaSDK:
         lists enum files whose contents differ from before the refresh.
         """
         from providers.registry import ProviderRegistry
-        from .tool_fs import materialize_tool_fs
+        from .tool_fs import materialize_tool_fs_with_lora_notes
 
         root = Path(self.workspace_dir) / ".stimma"
         before = {
@@ -2532,7 +2532,7 @@ class StimmaSDK:
 
         registry = ProviderRegistry.get_instance()
         await registry.refresh_tools(force_refresh=True)
-        materialize_tool_fs(registry, self.workspace_dir)
+        await materialize_tool_fs_with_lora_notes(registry, self.workspace_dir)
 
         after = {
             p.name: p.read_text(encoding="utf-8")

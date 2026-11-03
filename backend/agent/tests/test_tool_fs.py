@@ -518,3 +518,31 @@ def test_structured_media_param_documents_item_fields():
     assert "keyframes[].sound (bool)" in text
     # The description's own period isn't doubled before the field notes.
     assert "Pin stills or clips. keyframes[].media" in text
+
+
+def _lora_binding_name(root: Path) -> str:
+    return next(p for p in (root / "lora-notes").iterdir()).name
+
+
+def test_lora_notes_file_appears_changes_and_goes_away(tmp_path: Path):
+    reg = _registry()
+    manifest = tool_fs.build_manifest(reg)
+    tool_id = next(b.tool_id for b in manifest.iter_bindings() if "loras" in b.descriptor.parameter_schema["properties"])
+    note = {"value": "lora_1", "trigger_words": ["ohwx mara"], "notes": "A person."}
+
+    root = tool_fs.materialize_tool_fs(reg, tmp_path, enum_threshold=100)
+    assert not (root / "lora-notes").exists()
+
+    tool_fs.materialize_tool_fs(reg, tmp_path, enum_threshold=100, lora_notes={tool_id: [note]})
+    name = _lora_binding_name(root)
+    text = (root / "lora-notes" / name).read_text()
+    assert "lora_1" in text and "ohwx mara" in text and "A person." in text
+    assert any(f".stimma/lora-notes/{name}" in p.read_text() for p in (root / "tools").rglob("*.py"))
+
+    changed = {**note, "notes": "Changed."}
+    tool_fs.materialize_tool_fs(reg, tmp_path, enum_threshold=100, lora_notes={tool_id: [changed]})
+    assert "Changed." in (root / "lora-notes" / name).read_text()
+
+    tool_fs.materialize_tool_fs(reg, tmp_path, enum_threshold=100)
+    assert not list((root / "lora-notes").iterdir())
+    assert not any("lora-notes/" in p.read_text() for p in (root / "tools").rglob("*.py"))

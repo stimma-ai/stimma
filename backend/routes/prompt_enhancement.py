@@ -442,6 +442,27 @@ def _protected_text_guidance(
     return "PRESERVING PROTECTED TEXT\nThe prompt contains protected spans. " + lead + "\n" + "\n".join(bullets)
 
 
+def _lora_guidance(lora_context: List[Dict[str, Any]]) -> str:
+    """What the user has told us about the LoRAs this generation uses."""
+    if not lora_context:
+        return ""
+    lines = []
+    for lora in lora_context:
+        lines.append(f"- {lora.get('name')}")
+        words = lora.get("trigger_words") or []
+        if words:
+            lines.append(f"  Trigger words: {', '.join(words)}")
+        notes = (lora.get("notes") or "").strip()
+        if notes:
+            lines.append(f"  Notes: {notes}")
+    return (
+        "\n\nThis generation uses the LoRAs below, which are add-on model weights. The notes are the "
+        "user's own guidance about what each one does and how to prompt for it, so follow them. Use every "
+        "trigger word in the prompt exactly as written, because a LoRA may do little without its trigger. "
+        "Don't explain any of this in your output.\n" + "\n".join(lines)
+    )
+
+
 def _strip_hallucinated_placeholders(output: str, source: str) -> str:
     """Drop __VERBATIM_X__ tokens the model invented (absent from the input).
 
@@ -572,6 +593,9 @@ class ImprovePromptRequest(BaseModel):
     # Project whose model override should apply, when the editor is scoped
     # to one. Absent -> the profile's Tool Assistant setting.
     project_id: Optional[int] = None
+    # Trigger words and notes for the LoRAs this generation uses:
+    # [{name, trigger_words, notes}]. See lora_notes.py.
+    lora_context: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class ImprovePromptResponse(BaseModel):
@@ -1022,6 +1046,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             audio_disabled=(mode == "minimax-h3" and not request.h3_generate_audio),
         ),
     )
+    system_prompt += _lora_guidance(request.lora_context)
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     log.info(
         f"Prompt improve mode={mode} images={len(source_images_b64)} "

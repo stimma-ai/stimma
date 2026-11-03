@@ -100,9 +100,11 @@
           @remove="onRemoveGroup(group.id)"
           @group-drag-intent="onGroupDragIntent"
         >
+          <template v-for="item in filterItems(getPreviewItems(group.id, group.items))" :key="item.lora">
           <LoraChip
-            v-for="item in filterItems(getPreviewItems(group.id, group.items))"
-            :key="item.lora"
+            v-bind="noteProps(item.lora)"
+            @toggle-note="toggleNote(item.lora)"
+            @insert-trigger="$emit('insert-trigger', $event)"
             :item="item"
             :display-name="getChipDisplayName(item.lora)"
             :show-raw="showRaw"
@@ -115,6 +117,8 @@
             @contextmenu="onChipContextMenu($event, item.lora)"
             @drag-intent="onChipDragIntent"
           />
+          <LoraNoteEditor v-if="noteOpenFor === item.lora && loraNotes" :key="`note-${item.lora}`" :value="item.lora" :notes-api="loraNotes" @close="noteOpenFor = null" />
+          </template>
         </LoraGroupBox>
 
         <!-- "Other" group (ungrouped items) — visible when has items, or as drop target during chip drag -->
@@ -128,9 +132,11 @@
           @remove="() => {}"
           @group-drag-intent="() => {}"
         >
+          <template v-for="item in ungroupedPreview" :key="item.lora">
           <LoraChip
-            v-for="item in ungroupedPreview"
-            :key="item.lora"
+            v-bind="noteProps(item.lora)"
+            @toggle-note="toggleNote(item.lora)"
+            @insert-trigger="$emit('insert-trigger', $event)"
             :item="item"
             :display-name="getChipDisplayName(item.lora)"
             :show-raw="showRaw"
@@ -143,6 +149,8 @@
             @contextmenu="onChipContextMenu($event, item.lora)"
             @drag-intent="onChipDragIntent"
           />
+          <LoraNoteEditor v-if="noteOpenFor === item.lora && loraNotes" :key="`note-${item.lora}`" :value="item.lora" :notes-api="loraNotes" @close="noteOpenFor = null" />
+          </template>
         </LoraGroupBox>
 
         <!-- Drop zone: "new group" target visible during chip drag -->
@@ -208,6 +216,8 @@ import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 import LoraChip from './LoraChip.vue'
 import LoraGroupBox from './LoraGroupBox.vue'
 import LoraPickerModal from './LoraPickerModal.vue'
+import LoraNoteEditor from './LoraNoteEditor.vue'
+import type { LoraNotes } from '../../composables/useLoraNotes'
 import ActionMenu from '../ActionMenu.vue'
 import { useLoraPool } from '../../composables/useLoraPool'
 import type { LoraOption, LoraPoolItem } from '../../composables/useLoraPool'
@@ -232,6 +242,10 @@ interface Props {
   uploadConfig?: UploadConfig | null
   /** Tighter spacing and row wrapping for editor property popovers. */
   compact?: boolean
+  /** Trigger words and notes. Only the tool page has room for the inline editor. */
+  loraNotes?: LoraNotes | null
+  /** The prompt as it will be sent when Enhance is off; null when Enhance is on. */
+  verbatimPrompt?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -242,11 +256,14 @@ const props = withDefaults(defineProps<Props>(), {
   uploadConfig: null,
   modelName: null,
   compact: false,
+  loraNotes: null,
+  verbatimPrompt: null,
 })
 
 const emit = defineEmits<{
   (e: 'refresh-loras'): void
   (e: 'upload', files: File[]): void
+  (e: 'insert-trigger', word: string): void
 }>()
 
 const {
@@ -257,6 +274,26 @@ const {
 } = useLoraPool()
 
 const showModal = ref(false)
+
+const noteOpenFor = ref<string | null>(null)
+
+function noteProps(lora: string) {
+  const item = props.loraNotes?.items.value[lora]
+  const words = item?.note?.trigger_words ?? []
+  const prompt = props.verbatimPrompt?.toLowerCase()
+  return {
+    canHaveNote: !!item?.fingerprint,
+    hasNote: !!item?.note,
+    noteOpen: noteOpenFor.value === lora,
+    triggerWords: words,
+    missingTrigger: prompt == null ? null : (words.find(word => !prompt.includes(word.toLowerCase())) ?? null),
+  }
+}
+
+function toggleNote(lora: string) {
+  noteOpenFor.value = noteOpenFor.value === lora ? null : lora
+}
+
 const showRaw = ref(syncedStorage.getItem(makeProfileKey('lora', 'show_raw')) === 'true')
 
 // Header strip state/actions (option D)
@@ -464,6 +501,7 @@ function onPointerMove(event: PointerEvent) {
 
     // Start drag
     drag.active = true
+    noteOpenFor.value = null
     document.body.style.userSelect = 'none'
     window.getSelection()?.removeAllRanges()
 
@@ -742,7 +780,19 @@ onUnmounted(() => {
 const contextMenu = ref({ visible: false, x: 0, y: 0, loraPath: '' })
 
 const contextMenuActions = computed(() => {
+  const noteItem = props.loraNotes?.items.value[contextMenu.value.loraPath]
+  const noteWords = noteItem?.note?.trigger_words ?? []
   const actions: any[] = [
+    ...(noteItem?.fingerprint ? [{
+      id: 'edit-notes',
+      label: noteItem.note ? 'Edit notes…' : 'Add notes…',
+      action: () => { noteOpenFor.value = contextMenu.value.loraPath },
+    }] : []),
+    ...(noteWords.length ? [{
+      id: 'copy-triggers',
+      label: 'Copy trigger words',
+      action: () => { navigator.clipboard.writeText(noteWords.join(', ')) },
+    }] : []),
     {
       id: 'copy-name',
       label: 'Copy LoRA Filename',

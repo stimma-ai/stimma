@@ -48,7 +48,7 @@ ENUM_INLINE_THRESHOLD = 100
 # Bumped whenever stub *rendering* changes (not just the catalog). Folded into the
 # materialization fingerprint so a logic change refreshes already-cached .stimma/
 # trees, instead of waiting for a provider/schema change to invalidate them.
-_RENDERER_VERSION = 4
+_RENDERER_VERSION = 5
 
 # Params the model should not fill in unprompted. Shown in the signature with
 # their default, grouped under one docstring line rather than hidden — the agent
@@ -392,6 +392,7 @@ def render_tool_stub(
     binding: ToolBinding,
     *,
     enum_threshold: int = ENUM_INLINE_THRESHOLD,
+    lora_notes_file: str | None = None,
 ) -> tuple[str, dict[str, list[str]]]:
     """Render a body-less typed stub for one tool. Returns (text, enum_spills)."""
     descriptor = binding.descriptor
@@ -527,6 +528,10 @@ def render_tool_stub(
                 "this model's preferred style first."
             )
 
+    if lora_notes_file:
+        doc.append("")
+        doc.append(f"The user wrote trigger words and notes for some of these LoRAs: {lora_notes_file}")
+
     lines.append('    """')
     for d in doc:
         lines.append(f"    {d}" if d else "")
@@ -576,10 +581,27 @@ A parameter with thousands of valid values (e.g. loras) is not inlined in the
 signature. Its docstring points to `.stimma/enums/<name>.txt`, one value per
 line — grep it.
 
+## LoRA notes
+`.stimma/lora-notes/` holds the user's trigger words and notes for their LoRAs,
+one file per tool, when they have written any. A tool's docstring points to its
+file. Read it before using those LoRAs: most need their trigger word in the prompt.
+
 ## In a flow (program.py)
 Use the same catalog to find the `tool_id` and `task_type`, then write
 `tool("<tool_id>", task_type="<task_type>", ...)`.
 """
+
+
+def _render_lora_notes(notes: list[dict]) -> str:
+    lines = ["# LoRA notes", "", "The user's trigger words and notes for these LoRAs.", ""]
+    for note in notes:
+        lines.append(f"## {note['value']}")
+        if note.get("trigger_words"):
+            lines.append(f"Trigger words: {', '.join(note['trigger_words'])}")
+        if note.get("notes"):
+            lines.append(f"Notes: {note['notes']}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _write_if_changed(path: Path, content: str) -> bool:
@@ -593,12 +615,27 @@ def _write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
+async def materialize_tool_fs_with_lora_notes(registry, workspace_dir: str | Path) -> Path:
+    """Materialize the catalog with the current profile's LoRA notes."""
+    from lora_notes import LORAS_PARAMETER, agent_notes_by_tool
+
+    manifest = build_manifest(registry)
+    tool_ids = sorted({
+        b.tool_id
+        for b in manifest.iter_bindings()
+        if LORAS_PARAMETER in ((getattr(b.descriptor, "parameter_schema", None) or {}).get("properties") or {})
+    })
+    notes = await agent_notes_by_tool(None, tool_ids)
+    return materialize_tool_fs(registry, workspace_dir, manifest=manifest, lora_notes=notes)
+
+
 def materialize_tool_fs(
     registry,
     workspace_dir: str | Path,
     *,
     enum_threshold: int = ENUM_INLINE_THRESHOLD,
     manifest: Manifest | None = None,
+    lora_notes: dict[str, list[dict]] | None = None,
 ) -> Path:
     """Write the ``.stimma/`` readable catalog into ``workspace_dir``.
 
@@ -624,6 +661,7 @@ def materialize_tool_fs(
             "renderer": _RENDERER_VERSION,
             "threshold": enum_threshold,
             "prompt_format_references": references,
+            "lora_notes": lora_notes or {},
             "tools": {
                 module: {fn: b.tool_id for fn, b in funcs.items()}
                 for module, funcs in manifest.by_module.items()
@@ -659,7 +697,12 @@ def materialize_tool_fs(
             (b.task_type for b in funcs.values()), module
         )
         for fn, binding in funcs.items():
-            text, spills = render_tool_stub(binding, enum_threshold=enum_threshold)
+            notes_file = None
+            tool_notes = (lora_notes or {}).get(binding.tool_id)
+            if tool_notes:
+                notes_file = f".stimma/lora-notes/{module}.{fn}.md"
+                desired[root / "lora-notes" / f"{module}.{fn}.md"] = _render_lora_notes(tool_notes)
+            text, spills = render_tool_stub(binding, enum_threshold=enum_threshold, lora_notes_file=notes_file)
             desired[task_dir / f"{fn}.py"] = text
             for stem, values in spills.items():
                 enum_files[stem] = values
@@ -670,7 +713,7 @@ def materialize_tool_fs(
     desired[root / ".manifest.json"] = json.dumps(manifest.to_json(), indent=2)
 
     # Prune files under managed subtrees that are no longer desired.
-    managed = [root / "tools", root / "enums", root / "prompt-formats"]
+    managed = [root / "tools", root / "enums", root / "prompt-formats", root / "lora-notes"]
     existing: set[Path] = set()
     for base in managed:
         if base.exists():

@@ -1494,6 +1494,14 @@ class JsonRpcProvider(ToolProvider):
         options = result.get("options", []) if isinstance(result, dict) else []
         return [option for option in options if isinstance(option, dict)]
 
+    async def file_fingerprints(self, tool_id: str, parameter: str) -> Optional[Dict[str, Any]]:
+        if self._status != ProviderStatus.CONNECTED or not self._capabilities.get("file_fingerprints", False):
+            return None
+        return await self._send_request(
+            "tools.file_fingerprints",
+            {"tool_id": tool_id, "parameter": parameter},
+        )
+
     async def upload_prepare(
         self,
         tool_id: str,

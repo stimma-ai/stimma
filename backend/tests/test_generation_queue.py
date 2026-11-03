@@ -985,6 +985,31 @@ class TestPromptWarmPool:
         kwargs.update(overrides)
         await queue.update_prompt_warm_pool(client, **kwargs)
 
+    async def test_refill_uses_lora_context_and_entries_carry_its_signature(
+        self, generation_queue, generation_db_session
+    ):
+        from types import SimpleNamespace
+        from lora_notes import lora_context_signature
+        import routes.prompt_enhancement as pe
+
+        _clear_warm_pool(generation_queue)
+        client = "warm-lora"
+        context = [{"name": "mara", "trigger_words": ["ohwx mara"], "notes": ""}]
+        improve = AsyncMock(return_value=pe.ImprovePromptResponse(improved_prompt="ohwx mara reads"))
+        with (
+            patch("prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])),
+            patch.object(generation_queue, "_get_db", return_value=SimpleNamespace(
+                async_session_maker=generation_db_session
+            )),
+            patch.object(pe, "improve_prompt", improve),
+        ):
+            await self._update(generation_queue, client, concurrency=1, lora_context=context)
+            await _await_warm_tasks(generation_queue, client)
+        assert improve.await_args.args[0].lora_context == context
+        entry = generation_queue._prompt_warm_ready[client][0]
+        assert entry["loraContextSignature"] == lora_context_signature(context)
+        _clear_warm_pool(generation_queue)
+
     async def test_invalid_enhancement_never_enters_warm_pool(
         self, generation_queue, generation_db_session
     ):

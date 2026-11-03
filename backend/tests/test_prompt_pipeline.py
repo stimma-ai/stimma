@@ -830,3 +830,114 @@ def test_h3_problem_codes_and_text_free_stats():
     stats = pp._h3_dialogue_stats(body.format(line="Fresh warm bread."), source)
     assert stats == "dialogue_blocks=1 ungrounded=1 source_quotes=1"
     assert "bread" not in stats.lower()
+
+
+LORA_CONTEXT = [{"name": "mara", "trigger_words": ["ohwx mara"], "notes": "A specific person."}]
+
+
+class TestLoraContext:
+    @pytest.mark.asyncio
+    async def test_enhancer_receives_notes_and_a_dropped_trigger_is_restored(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        seen = []
+
+        async def fake_improve(request, session):
+            seen.append(request)
+            return pe.ImprovePromptResponse(improved_prompt="a woman reading on a train")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "reading on a train",
+            {"autoImprove": {"enabled": True}},
+            lora_context=LORA_CONTEXT,
+        )
+        assert seen[0].lora_context == LORA_CONTEXT
+        assert out == "ohwx mara, a woman reading on a train"
+
+    @pytest.mark.asyncio
+    async def test_kept_trigger_is_not_doubled_even_when_verbatim_protected(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        async def fake_improve(request, session):
+            return pe.ImprovePromptResponse(improved_prompt=f"{request.prompt} on a train")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "[OHWX Mara] reading",
+            {"autoImprove": {"enabled": True}},
+            lora_context=LORA_CONTEXT,
+        )
+        assert out == "OHWX Mara reading on a train"
+
+    @pytest.mark.asyncio
+    async def test_trigger_lost_in_translation_is_restored(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        async def fake_improve(request, session):
+            return pe.ImprovePromptResponse(improved_prompt="ohwx mara reads")
+
+        async def fake_translate(request):
+            return pe.TranslatePromptResponse(translated_prompt="ella lee")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        monkeypatch.setattr(pe, "translate_prompt", fake_translate)
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "reading",
+            {"autoImprove": {"enabled": True}, "translate": {"enabled": True, "language": "es"}},
+            lora_context=LORA_CONTEXT,
+        )
+        assert out == "ohwx mara, ella lee"
+
+    @pytest.mark.asyncio
+    async def test_enhance_off_is_verbatim(self, generation_app, generation_db_session):
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session), "reading on a train", {}, lora_context=LORA_CONTEXT
+        )
+        assert out == "reading on a train"
+
+    @pytest.mark.asyncio
+    async def test_preload_for_other_loras_falls_through(self, generation_app, generation_db_session, monkeypatch):
+        import routes.prompt_enhancement as pe
+        from lora_notes import lora_context_signature
+
+        calls = []
+
+        async def fake_improve(request, session):
+            calls.append(request)
+            return pe.ImprovePromptResponse(improved_prompt="fresh ohwx mara")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+        preload = {
+            "originalPrompt": "reading",
+            "processedPrompt": "reading",
+            "promptSourcesSignature": pp.prompt_sources_signature([], []),
+            "improvedPrompt": "warmed ohwx mara",
+            "loraContextSignature": "",
+        }
+        options = {"autoImprove": {"enabled": True}}
+        db = _db(generation_db_session)
+        with_wrong = await pp.run_prompt_pipeline(db, "reading", options, lora_context=LORA_CONTEXT, prompt_preload=preload)
+        assert with_wrong == "fresh ohwx mara"
+        assert len(calls) == 1
+
+        preload["loraContextSignature"] = lora_context_signature(LORA_CONTEXT)
+        with_right = await pp.run_prompt_pipeline(db, "reading", options, lora_context=LORA_CONTEXT, prompt_preload=preload)
+        assert with_right == "warmed ohwx mara"
+        assert len(calls) == 1
+
+    def test_guidance_appears_in_system_prompt_text(self):
+        from routes.prompt_enhancement import _lora_guidance
+
+        text = _lora_guidance(LORA_CONTEXT)
+        assert "ohwx mara" in text and "A specific person." in text
+        assert _lora_guidance([]) == ""

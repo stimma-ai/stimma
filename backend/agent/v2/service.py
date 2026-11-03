@@ -1406,9 +1406,9 @@ async def _run_agentic_loop_inner(
     # with the run_code import namespace; idempotent + fingerprinted, so this is
     # a cheap no-op when the provider catalog hasn't changed.
     try:
-        from .tool_fs import materialize_tool_fs
+        from .tool_fs import materialize_tool_fs_with_lora_notes
         from providers.registry import ProviderRegistry
-        materialize_tool_fs(ProviderRegistry.get_instance(), workspace_dir)
+        await materialize_tool_fs_with_lora_notes(ProviderRegistry.get_instance(), workspace_dir)
     except Exception as e:
         log.warning(f"Failed to materialize .stimma/ tool catalog: {e}")
 

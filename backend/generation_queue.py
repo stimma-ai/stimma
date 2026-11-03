@@ -565,7 +565,7 @@ class GenerationQueue:
     _PROMPT_WARM_INTENT_FIELDS = (
         'tool_id', 'prompt', 'instructions', 'model', 'is_video', 'is_audio',
         'input_image_count', 'audio_conditioned', 'prompt_sources_signature', 'profile_id',
-        'project_id',
+        'project_id', 'lora_context_signature',
     )
 
     def _prompt_warm_pool_stale(self, generator_instance_id: str) -> bool:
@@ -590,6 +590,7 @@ class GenerationQueue:
         concurrency: int,
         profile_id: str,
         project_id: Optional[int] = None,
+        lora_context: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         """Set/refresh what should be kept warm for this generator instance.
 
@@ -600,6 +601,8 @@ class GenerationQueue:
         by design, matching generate-forever's "throw away stale LLM work"
         contract.
         """
+        from lora_notes import lora_context_signature
+
         concurrency = max(0, min(concurrency, PROMPT_WARM_POOL_MAX_CONCURRENCY))
         # profile_id is part of the comparable snapshot, not just bookkeeping:
         # GenerationQueue is a process-wide singleton serving multiple profiles,
@@ -614,6 +617,8 @@ class GenerationQueue:
             'profile_id': profile_id,
             # The project's AI model override shapes the enhancement.
             'project_id': project_id,
+            # So do the selected LoRAs' trigger words and notes.
+            'lora_context_signature': lora_context_signature(lora_context),
         }
         existing = self._prompt_warm_intent.get(generator_instance_id)
         existing_snapshot = (
@@ -625,6 +630,7 @@ class GenerationQueue:
 
         self._prompt_warm_intent[generator_instance_id] = {
             **new_snapshot,
+            'lora_context': lora_context or [],
             'concurrency': concurrency,
             'updated_at': time.monotonic(),
         }
@@ -686,6 +692,7 @@ class GenerationQueue:
                 h3_reference_manifest=None,
                 h3_generate_audio=True,
                 project_id=intent.get('project_id'),
+                lora_context=intent.get('lora_context'),
             )
         except asyncio.CancelledError:
             raise
@@ -706,6 +713,7 @@ class GenerationQueue:
             'originalPrompt': intent['prompt'],
             'processedPrompt': processed_prompt,
             'promptSourcesSignature': intent['prompt_sources_signature'],
+            'loraContextSignature': intent['lora_context_signature'],
             'instructions': intent['instructions'],
             'model': intent['model'],
             'isVideo': intent['is_video'],
