@@ -39,6 +39,11 @@ from .base import (
 
 log = get_logger(__name__)
 
+# ComfyUI forwards sampling ticks/previews, not periodic job heartbeats. A single
+# node (model loading, video decode/encode) can be silent for many minutes.
+# Bound silence rather than total render time, with room for slow video steps.
+EXECUTION_IDLE_TIMEOUT = 30 * 60.0
+
 
 def _format_jsonrpc_error(error: Any) -> str:
     """Flatten a JSON-RPC error object into a human-readable string.
@@ -1719,7 +1724,18 @@ class JsonRpcProvider(ToolProvider):
 
             # Wait for progress/result notifications
             while True:
-                msg_type, data = await result_queue.get()
+                try:
+                    msg_type, data = await asyncio.wait_for(
+                        result_queue.get(), timeout=EXECUTION_IDLE_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    await self.cancel_execution(request_id)
+                    yield ExecutionResult(
+                        success=False,
+                        error="Generation failed after 30 minutes without an update from the provider. "
+                              "Cancellation was requested; the provider may still be stopping.",
+                    )
+                    break
 
                 if msg_type == "progress":
                     if progress_callback:
@@ -1974,6 +1990,11 @@ class JsonRpcProvider(ToolProvider):
 
     async def cancel_execution(self, request_id: str) -> bool:
         """Cancel an in-progress execution."""
+        # Wake the local execution even if remote cancellation is unsupported,
+        # rejected, or unresponsive. The DB cancellation discards late results.
+        queue = self._pending_executions.get(request_id)
+        if queue is not None:
+            queue.put_nowait(("result", {"success": False, "error": "Generation cancelled"}))
         if not self._supports_cancel:
             return False
 
