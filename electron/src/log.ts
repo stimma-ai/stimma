@@ -16,15 +16,27 @@ export function initLog(dataDir: string): void {
 /** All shell writers pass here, including renderer/updater logs and errors. */
 export function scrubNetworkDetails(message: string): string {
   return message
-    // Keep the scheme/path for diagnosis, never a URL's authority (or credentials).
-    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/?#"'<>]+/gi, '$1[redacted]')
-    // Socket endpoints, including bare DNS names. File/line references are not hosts.
-    .replace(/(?<![\w.:-])(?!(?:[\w.-]+\.)?(?:js|mjs|cjs|ts|tsx|json|py):)(?:[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)*|(?:\d{1,3}\.){3}\d{1,3}|\[[a-f0-9:]+\]):\d{1,5}(?![\w.])/gi, '[redacted]')
-    .replace(/\b(?:getaddrinfo\s+)?(?:ENOTFOUND|EAI_AGAIN)\s+[^\s"'<>]+/g, '[redacted]')
-    // Bare LAN/tailnet addresses. Require address shapes, not arbitrary numbers.
-    .replace(/(?<![\w.])(?:(?:10|127)(?:\.\d{1,3}){3}|(?:169\.254|192\.168|172\.(?:1[6-9]|2\d|3[01])|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7]))(?:\.\d{1,3}){2})(?![\w.])/g, '[redacted]')
-    .replace(/(?<![\w:])(?:[a-f0-9]{0,4}:){2,}[a-f0-9:]*(?:%[a-z0-9]+)?(?![\w:])/gi, (value) => isIP(value) === 6 ? '[redacted]' : value)
-    .replace(/(?<![\w.-])(?:[a-z0-9_-]+\.)+(?:local|lan|internal|home|ts\.net)\b/gi, '[redacted]')
+    // Keep loopback URLs and scheme/path diagnostics; redact other authorities and credentials.
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/?#"'<>]+)/gi, (value, scheme, authority) => {
+      const host = /^(?:\[([^\]]+)\]|([^:@]+))(?::\d+)?$/.exec(authority)
+      return host && isLoopbackHost(host[1] ?? host[2]) ? value : `${scheme}[redacted]`
+    })
+    .replace(/\[([a-f0-9:.]+(?:%[a-z0-9]+)?)\](?::\d{1,5})?/gi, scrubIP)
+    .replace(/(?<![\w:])(?:[a-f0-9]{0,4}:){2,}(?:(?:\d{1,3}\.){3}\d{1,3}|[a-f0-9:]*)(?:%[a-z0-9]+)?(?![\w:])/gi, (value) => scrubIP(value, value))
+    .replace(/(?<![\w.])((?:\d{1,3}\.){3}\d{1,3})(?::\d{1,5})?(?![\w.])/g, scrubIP)
+    // Dotted hosts need an alphabetic final label. Preserve known source locations.
+    .replace(/(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}(?::\d+)?(?![\w.-])/gi, (value) =>
+      /\.(?:[cm]?[jt]sx?|vue|svelte|json|py|rb|rs|go|c|h|cc|cpp|hpp|cs|java|kt|swift|sh):\d+$/i.test(value) ? value : '[redacted]')
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host.toLowerCase() === 'localhost'
+    || (isIP(host) === 4 && host.startsWith('127.'))
+    || (isIP(host) === 6 && /^(?:0*:){2,7}0*1$/.test(host.split('%')[0]))
+}
+
+function scrubIP(value: string, host: string): string {
+  return isIP(host) && !isLoopbackHost(host) ? '[redacted]' : value
 }
 
 function write(level: string, target: string, message: string): void {

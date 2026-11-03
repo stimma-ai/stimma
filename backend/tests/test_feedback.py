@@ -26,6 +26,36 @@ import pytest
 
 
 class TestLogTail:
+    @pytest.mark.parametrize("message", [
+        "task_queues:105:5", "App.vue:42:11", "foo.ts:10", "foo.js:1:2", "foo.py:7",
+        "app.123.js:42", "foo.ts:100000", "size:1024", "render-box:9191", "metric.value1:1024",
+        "Version 1.2.3; version:1.2.3; size 1048576 bytes (12.5 MB); 12:34:56",
+        "invalid 999.1.2.3", "Listening on localhost:9191", "Listening on 127.0.0.1:9191",
+        "Listening on 127.0.0.1:PORT", "Listening on 127.0.0.2:9191",
+        "Listening on [::1]:9191", "Listening on ::1", "Listening on 0:0:0:0:0:0:0:1",
+        "http://localhost:9191/path", "http://127.0.0.1:9191/path", "http://[::1]:9191/path",
+        "http://[0:0:0:0:0:0:0:1]:9191/path",
+    ])
+    def test_shell_scrubber_preserves_diagnostics_and_loopback_endpoints(self, message):
+        from log_tail import scrub_shell_details
+        assert scrub_shell_details(message) == message
+
+    @pytest.mark.parametrize(("message", "expected"), [
+        ("getaddrinfo ENOTFOUND studio-node.example", "getaddrinfo ENOTFOUND [redacted]"),
+        ("getaddrinfo EAI_AGAIN studio-node.example:9191", "getaddrinfo EAI_AGAIN [redacted]"),
+        ("connect ECONNREFUSED 203.0.113.8:9191", "connect ECONNREFUSED [redacted]"),
+        ("route 198.51.100.8", "route [redacted]"),
+        ("route studio-node.example:9191 studio-node.example", "route [redacted] [redacted]"),
+        ("route [2001:db8::8]:9191 2001:db8::8", "route [redacted] [redacted]"),
+        ("route fe80::1234%eth0 ::ffff:192.0.2.8", "route [redacted] [redacted]"),
+        ("https://render-box:9191/path", "https://[redacted]/path"),
+        ("https://user:password@localhost:9191/path", "https://[redacted]/path"),
+        ("https://studio-node.example:9191/path", "https://[redacted]/path"),
+    ])
+    def test_shell_scrubber_removes_addresses_without_removing_error_codes(self, message, expected):
+        from log_tail import scrub_shell_details
+        assert scrub_shell_details(message) == expected
+
     def test_shell_tail_discards_rotation_fragments_including_current_file(self, tmp_path):
         from log_tail import tail_log_lines
         (tmp_path / "Stimma-shell.log.2").write_text("older record\ntoken=")
@@ -1011,18 +1041,19 @@ class TestFeedbackRoutes:
         monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
         legacy = [
             "Connected to Studio Computer via tailscale studio-node.example:9191",
+            "Connected to Studio Computer via lan render-box:9191",
             "Bootstrap refused by Studio Computer: 403",
             "Bootstrap failed for Studio Computer: Error: connect ECONNREFUSED 192.168.42.8:9191",
             "Cached session rejected by Studio Computer; re-bootstrapping",
             "Session rejected by Studio Computer; re-bootstrapping",
-            "Target set to render-box:9191",
+            "Target set to render-box.example:9191",
             "Renderer failed to load https://render-box.example:9192/: ERR_FAILED (-2)",
             "getaddrinfo ENOTFOUND studio-node.example",
             "route 10.23.45.6 172.23.4.5 192.168.42.8 100.97.42.8",
             "route render-box.local render-box.lan render-box.tailtest.ts.net",
             "route [fd12:3456::8]:9191 fd12:3456::8 fe80::1234 2001:db8::8",
         ]
-        useful = "Version 1.2.3 and 1.2.3.4; version:1.2.3; file app.123.js:42; size 1048576 bytes (12.5 MB); 12:34:56"
+        useful = "Version 1.2.3; version:1.2.3; file app.123.js:42; size 1048576 bytes (12.5 MB); 12:34:56"
         (tmp_path / "Stimma-shell.log").write_text("\n" + "\n".join(legacy + [
             useful, "Connected to device 3fa9c812 via tailscale",
             "Cached session rejected by device 3fa9c812; re-bootstrapping",
@@ -1043,6 +1074,7 @@ class TestFeedbackRoutes:
         ):
             assert value not in text
         assert "Connected to [redacted] via tailscale [redacted]" in text
+        assert "Connected to [redacted] via lan [redacted]" in text
         assert "Bootstrap refused by [redacted]: 403" in text
         assert useful in text
         assert "Connected to device 3fa9c812 via tailscale" in text

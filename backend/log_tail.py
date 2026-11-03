@@ -15,7 +15,7 @@ of secret-named keys are redacted, never the words themselves.
 import getpass
 import re
 import socket
-from ipaddress import IPv6Address
+from ipaddress import ip_address
 from pathlib import Path
 from typing import List, Optional
 
@@ -56,12 +56,29 @@ def scrub_secrets(text: str) -> str:
     return text
 
 
-def _scrub_ipv6(match: re.Match) -> str:
+def _is_loopback_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
     try:
-        IPv6Address(match[0])
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _scrub_ip(match: re.Match) -> str:
+    host = match[1] if match.lastindex else match[0]
+    try:
+        address = ip_address(host)
     except ValueError:
         return match[0]
-    return "[redacted]"
+    return match[0] if address.is_loopback else "[redacted]"
+
+
+def _scrub_url(match: re.Match) -> str:
+    host = re.fullmatch(r"(?:\[([^\]]+)\]|([^:@]+))(?::\d+)?", match[2])
+    if host and _is_loopback_host(host[1] or host[2]):
+        return match[0]
+    return f"{match[1]}[redacted]"
 
 
 def scrub_shell_details(text: str) -> str:
@@ -70,24 +87,27 @@ def scrub_shell_details(text: str) -> str:
     text = re.sub(r"(Bootstrap refused by )(?!device [a-f0-9]{8}:).+(: \d{3})", r"\1[redacted]\2", text)
     text = re.sub(r"(Bootstrap failed for )(?!device [a-f0-9]{8}:)[^\r\n]+", r"\1[redacted]", text)
     text = re.sub(r"((?:Cached session|Session) rejected by )(?!device [a-f0-9]{8};).+(; re-bootstrapping)", r"\1[redacted]\2", text)
-    text = re.sub(r"([a-z][a-z0-9+.-]*://)[^\s/?#\"'<>]+", r"\1[redacted]", text, flags=re.IGNORECASE)
-    # Exclude file/line references and numeric versions, sizes and timestamps.
+    # Keep loopback URLs and scheme/path diagnostics; redact other authorities and credentials.
+    text = re.sub(r"([a-z][a-z0-9+.-]*://)([^\s/?#\"'<>]+)", _scrub_url, text, flags=re.IGNORECASE)
     text = re.sub(
-        r"(?<![\w.:-])(?!(?:[\w.-]+\.)?(?:js|mjs|cjs|ts|tsx|json|py):)"
-        r"(?:[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)*|(?:\d{1,3}\.){3}\d{1,3}|\[[a-f0-9:]+\]):\d{1,5}(?![\w.])",
-        "[redacted]", text, flags=re.IGNORECASE,
-    )
-    text = re.sub(r"\b(?:getaddrinfo\s+)?(?:ENOTFOUND|EAI_AGAIN)\s+[^\s\"'<>]+", "[redacted]", text)
-    text = re.sub(
-        r"(?<![\w.])(?:(?:10|127)(?:\.\d{1,3}){3}|(?:169\.254|192\.168|172\.(?:1[6-9]|2\d|3[01])|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7]))(?:\.\d{1,3}){2})(?![\w.])",
-        "[redacted]", text,
+        r"\[([a-f0-9:.]+(?:%[a-z0-9]+)?)\](?::\d{1,5})?", _scrub_ip, text, flags=re.IGNORECASE,
     )
     text = re.sub(
-        r"(?<![\w:])(?:[a-f0-9]{0,4}:){2,}[a-f0-9:]*(?:%[a-z0-9]+)?(?![\w:])",
-        _scrub_ipv6,
+        r"(?<![\w:])(?:[a-f0-9]{0,4}:){2,}(?:(?:\d{1,3}\.){3}\d{1,3}|[a-f0-9:]*)(?:%[a-z0-9]+)?(?![\w:])",
+        _scrub_ip, text, flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"(?<![\w.])((?:\d{1,3}\.){3}\d{1,3})(?::\d{1,5})?(?![\w.])", _scrub_ip, text,
+    )
+    # Dotted hosts need an alphabetic final label. Preserve known source locations.
+    return re.sub(
+        r"(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}(?::\d+)?(?![\w.-])",
+        lambda m: m[0] if re.search(
+            r"\.(?:[cm]?[jt]sx?|vue|svelte|json|py|rb|rs|go|c|h|cc|cpp|hpp|cs|java|kt|swift|sh):\d+$",
+            m[0], flags=re.IGNORECASE,
+        ) else "[redacted]",
         text, flags=re.IGNORECASE,
     )
-    return re.sub(r"(?<![\w.-])(?:[a-z0-9_-]+\.)+(?:local|lan|internal|home|ts\.net)\b", "[redacted]", text, flags=re.IGNORECASE)
 
 
 def get_log_dir() -> Path:
