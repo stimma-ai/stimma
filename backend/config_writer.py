@@ -6,7 +6,8 @@ Uses ruamel.yaml to preserve comments and formatting in the config file.
 import os
 import re
 import shutil
-import tempfile
+import stat
+import uuid
 from datetime import datetime
 from contextlib import contextmanager
 from pathlib import Path
@@ -61,13 +62,23 @@ def _load_config_yaml() -> tuple[Any, YAML]:
 
 
 @contextmanager
-def atomic_write(path: Path, mode: str = "w"):
-    """Replace a file only after a complete, durable write in its directory."""
+def atomic_write(path: Path, mode: str = "w", *, permissions: int | None = None):
+    """Replace durably, preserving existing permissions or using the umask.
+
+    Credential writers can explicitly require private permissions.
+    """
     path = Path(path)
-    fd, temp_path = tempfile.mkstemp(suffix=path.suffix, dir=path.parent)
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    # O_EXCL creates the temporary file safely while letting the OS apply the
+    # umask; reading/changing the process-wide umask would race other writers.
+    fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666 if permissions is None else permissions)
     try:
         kwargs = {} if "b" in mode else {"encoding": "utf-8"}
         with os.fdopen(fd, mode, **kwargs) as handle:
+            if permissions is not None:
+                os.chmod(temp_path, permissions)
+            elif path.exists():
+                os.chmod(temp_path, stat.S_IMODE(path.stat().st_mode))
             yield handle
             handle.flush()
             os.fsync(handle.fileno())
@@ -82,7 +93,7 @@ def _atomic_write_config(data: Any, yaml: YAML) -> None:
     global _app_initiated_write
     _app_initiated_write = True
     config_path = get_config_path()
-    with atomic_write(config_path) as handle:
+    with atomic_write(config_path, permissions=0o600) as handle:
         yaml.dump(data, handle)
         if config_path.exists():
             shutil.copy2(config_path, config_path.with_suffix('.yaml.bak'))
