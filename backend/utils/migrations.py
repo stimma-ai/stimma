@@ -14,7 +14,6 @@ import tempfile
 
 from alembic.script import ScriptDirectory
 from filelock import FileLock
-from config_writer import atomic_write
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -35,8 +34,30 @@ def get_alembic_config(db_path: str) -> AlembicConfig:
     return config
 
 
-def run_migrations_for_profile(profile_id: str, db_path: str) -> None:
-    """Run all pending migrations for a single profile database."""
+def _require_exclusive_access(path: Path, exclusive_access: bool) -> None:
+    """Only startup, before application engines/services exist, may replace a DB.
+
+    Also reject an already open WAL connection, even if it has no transaction.
+    Runtime callers cannot quiesce the other process and must defer to startup.
+    """
+    message = (
+        "Cannot safely migrate or restore an open profile database. "
+        "Stop all processes using it and restart. The database has been left in place; "
+        "the .pre-migration snapshot has been kept."
+    )
+    if not exclusive_access:
+        raise RuntimeError(message)
+    try:
+        with closing(sqlite3.connect(path, timeout=0)) as connection:
+            connection.execute("PRAGMA locking_mode=EXCLUSIVE")
+            connection.execute("BEGIN EXCLUSIVE")
+            connection.rollback()
+    except sqlite3.OperationalError as error:
+        raise RuntimeError(message) from error
+
+
+def run_migrations_for_profile(profile_id: str, db_path: str, *, exclusive_access: bool = False) -> None:
+    """Run pending migrations; existing DBs require quiescent startup access."""
     path = Path(db_path)
     # Both the app and ingestion process can discover a new profile together.
     with FileLock(f"{db_path}.migration.lock"):
@@ -74,13 +95,17 @@ def run_migrations_for_profile(profile_id: str, db_path: str) -> None:
                         Path(temporary).unlink(missing_ok=True)
                     snapshot = snapshot_path
 
+                _require_exclusive_access(path, exclusive_access)
+
             log.info(f"MIGRATIONS [{profile_id}]: Upgrading '{db_path}'...")
             try:
                 command.upgrade(config, "head")
             except BaseException:
                 if snapshot is not None:
-                    with atomic_write(path, "wb") as destination, snapshot.open("rb") as source:
-                        shutil.copyfileobj(source, destination)
+                    _require_exclusive_access(path, exclusive_access)
+                    # Consume the snapshot: recovery must not need another DB's
+                    # worth of space after allocating the safety snapshot.
+                    os.replace(snapshot, path)
                     # These files belong to the failed schema, not the snapshot.
                     Path(f"{db_path}-wal").unlink(missing_ok=True)
                     Path(f"{db_path}-shm").unlink(missing_ok=True)
@@ -94,9 +119,13 @@ def run_migrations_for_profile(profile_id: str, db_path: str) -> None:
 def run_all_migrations() -> None:
     """Run migrations for all configured profile databases at startup."""
     settings = get_settings()
+    from database_registry import get_database_registry
+    # Startup calls this before registration/init and before spawning ingestion.
+    # A repeated lifespan with existing engines cannot promise quiescence.
+    exclusive_access = not get_database_registry()._databases
     log.info(f"MIGRATIONS: Running for {len(settings.profiles)} profile(s)...")
 
     for profile in settings.profiles:
-        run_migrations_for_profile(profile.id, profile.database)
+        run_migrations_for_profile(profile.id, profile.database, exclusive_access=exclusive_access)
 
     log.info("MIGRATIONS: All databases up to date")
