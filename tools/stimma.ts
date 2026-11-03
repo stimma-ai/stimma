@@ -637,6 +637,8 @@ Commands:
   mobile android doctor|build|run|test|test-ui|lint|screenshot  Build and run the Android shell
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
+  doctor workspace [--from DIR]  Read-only report of what a desktop's local storage
+                      would carry onto the shared workspace
   oss             Regenerate ATTRIBUTION.md dependency tables from the current
                   lockfiles (run after dependency changes; review + commit the diff)
   migrate-to-managed-storage [--profile ID] [--legacy-generated-root PATH]
@@ -2525,6 +2527,11 @@ async function main(): Promise<void> {
     }
 
     case "doctor": {
+      if (sub === "workspace") {
+        const { workspaceDoctor } = await import("./workspace_doctor.ts");
+        await workspaceDoctor(repoRoot, getDataDir(bundleId, sandbox), rest);
+        break;
+      }
       if (sub !== "assets") {
         printUsage();
       }

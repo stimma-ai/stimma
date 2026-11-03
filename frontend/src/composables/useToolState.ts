@@ -5,6 +5,7 @@ import { getCurrentProfileId } from './useProfile'
 import { makeToolProfileKey } from '../utils/storageKeys'
 import { emptyChain, normalizeChain, type PostProcessingChain } from '../utils/postProcessingChain'
 import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
+import { syncedStorage } from '../utils/workspaceStore'
 
 // Tool state type (parameters, loras, etc.)
 export type ToolState = Record<string, any>
@@ -28,6 +29,25 @@ function findLegacyToolKey(fullToolId: string, part: string): string | null {
 // it, so it must be ignored on apply and in the modified comparison.
 const EPHEMERAL_STATE_KEYS = new Set(['seed', 'randomizeSeed', 'selected_loras', 'folder_path', 'agentThinking'])
 
+// How long values may keep settling after another client's change is applied.
+const REMOTE_SETTLE_MS = 100
+
+// State keys held in globalPrefs (the rest are model params), with what an absent
+// value means. Mirrors applyToolState.
+const GLOBAL_PREF_DEFAULTS: Record<string, unknown> = {
+  prompt: '',
+  inputImages: [],
+  inpaintRefImages: [],
+  inputVideos: [],
+  inputAudios: [],
+  promptOptions: { autoImprove: { enabled: false, instructions: '' }, varyPrompt: { enabled: false, instructions: '' } },
+  autoMarkerIds: [],
+  agentInstructions: '',
+  batchMode: false,
+  batchField: 'input_images',
+}
+const GLOBAL_PREF_KEYS = new Set(Object.keys(GLOBAL_PREF_DEFAULTS))
+
 export interface UseToolStateOptions {
   fullToolId: string       // The actual tool ID (for API calls)
   scopedToolId?: string    // Project-scoped ID for storage keys (defaults to fullToolId)
@@ -38,6 +58,10 @@ export interface UseToolStateOptions {
   toolChain: Ref<PostProcessingChain>
   uiState: Ref<any>
   saveToolState: (toolId: string, state: ToolState) => Promise<void>
+  /** The state key of the field being typed in, whose value mustn't move under the cursor. */
+  focusedStateKey?: () => string | null
+  /** Another client changed the input images; paint layers come separately. */
+  onRemoteInputs?: () => void
 }
 
 export interface UseToolStateReturn {
@@ -83,6 +107,8 @@ export interface UseToolStateReturn {
   startWatchingChanges: () => void
   stopWatching: () => void
   flushPendingSaves: () => void
+  releaseHeldStateKeys: () => void
+  isSettlingRemoteChange: () => boolean
 }
 
 export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
@@ -214,28 +240,32 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       : emptyChain()
   }
 
-  // Save current state to localStorage (working copy)
+  // Save the working copy
   function saveStateToLocalStorage() {
     if (!tool.value) return
     if (!getCurrentProfileId()) return  // profile not yet set (e.g. browser reload)
-    const state = buildToolState()
-    localStorage.setItem(getToolStateKey(), JSON.stringify(state))
+    if (settlingRemoteChange) {
+      stateSaveTimeout = setTimeout(saveStateToLocalStorage, 500)
+      return
+    }
+    const state = stateToSave()
+    syncedStorage.setItem(getToolStateKey(), JSON.stringify(state))
   }
 
-  // Load state from localStorage (returns null if not present)
+  // Load the working copy (returns null if not present)
   function loadStateFromLocalStorage(): ToolState | null {
     if (!tool.value) return null
     if (!getCurrentProfileId()) return null  // profile not yet set
-    let saved = localStorage.getItem(getToolStateKey())
+    let saved = syncedStorage.getItem(getToolStateKey())
     // Legacy-key rescue predates scoped ids. Never apply it to instance-scoped
     // state: a fresh instance must start from tool defaults, not resurrect
     // pre-instance leftovers (the tab migration already moved live state).
     if (!saved && !storageToolId.includes('__i_')) {
       const legacyKey = findLegacyToolKey(fullToolId, 'state')
       if (legacyKey) {
-        saved = localStorage.getItem(legacyKey)
+        saved = syncedStorage.getItem(legacyKey)
         if (saved) {
-          localStorage.setItem(getToolStateKey(), saved)
+          syncedStorage.setItem(getToolStateKey(), saved)
         }
       }
     }
@@ -248,17 +278,163 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     }
   }
 
-  // Clear localStorage working copy
+  // Clear the working copy
   function clearLocalStorageState() {
     if (!tool.value) return
-    localStorage.removeItem(getToolStateKey())
+    syncedStorage.removeItem(getToolStateKey())
   }
 
-  // Debounced save to localStorage
+  // Debounced save of the working copy
   let stateSaveTimeout: ReturnType<typeof setTimeout> | null = null
   function debouncedSaveState() {
+    // What applying another client's change sets off isn't an edit made here.
+    if (settlingRemoteChange) return
     if (stateSaveTimeout) clearTimeout(stateSaveTimeout)
     stateSaveTimeout = setTimeout(saveStateToLocalStorage, 500)
+  }
+
+  // --- Another client's edits to this tab ---
+  //
+  // Applying a change can rewrite other values (constraints, normalization).
+  // Those rewrites stay local until a real edit: writing them back would have
+  // two clients correcting each other.
+  let settlingRemoteChange = false
+  let settleTimer: ReturnType<typeof setTimeout> | null = null
+  let settlingField: string | null = null
+  let settlingFieldBefore: string | null = null
+  // Fields another client changed while the cursor was in them, with what the
+  // field held then. Until it's typed in, the field isn't this client's to send.
+  const heldKeys = new Map<string, string>()
+
+  function stateToSave(): ToolState {
+    const state = buildToolState()
+    const stored = heldKeys.size ? loadStateFromLocalStorage() : null
+    for (const [key, heldValue] of heldKeys) {
+      if (JSON.stringify(state[key]) !== heldValue) heldKeys.delete(key)
+      else if (stored) state[key] = stored[key]
+    }
+    return state
+  }
+  let unsubscribeRemote: (() => void) | null = null
+
+  function applyRemoteKeys(state: ToolState, keys: string[]) {
+    for (const key of keys) {
+      if (EPHEMERAL_STATE_KEYS.has(key)) continue
+      const value = state[key]
+      if (key === 'inputImages') {
+        // Paint layers aren't in the state. Keep those still on the same image.
+        const previous = (globalPrefs.value.inputImages ?? []) as any[]
+        globalPrefs.value.inputImages = ((value ?? []) as any[]).map((img, i) =>
+          previous[i]?._paintLayerDataUrl && (previous[i]._originalPath || previous[i].path) === (img._originalPath || img.path)
+            ? { ...img, _paintLayerDataUrl: previous[i]._paintLayerDataUrl }
+            : img)
+        options.onRemoteInputs?.()
+      } else if (GLOBAL_PREF_KEYS.has(key)) {
+        ;(globalPrefs.value as any)[key] = value ?? GLOBAL_PREF_DEFAULTS[key]
+      } else if (key === 'loras') {
+        toolLoras.value = (value ?? []).map((l: any) => ({ lora: l.lora, weight: l.weight, enabled: l.enabled ?? true }))
+      } else if (key === 'postProcessingChain') {
+        toolChain.value = value ? normalizeChain(value) : emptyChain()
+      } else if (value == null) {
+        delete (modelParams.value as any)[key]
+      } else {
+        ;(modelParams.value as any)[key] = value
+      }
+    }
+  }
+
+  function applyRemoteState(changedKeys: string[] | null, previous: unknown) {
+    if (!tool.value) return
+    let state = loadStateFromLocalStorage()
+    const current = stateToSave()
+    // Edits here still waiting on the save debounce differ from what the store
+    // held before this change. They're kept over what's arriving, and go now.
+    const before = (previous && typeof previous === 'object' ? previous : {}) as ToolState
+    const unsaved = stateSaveTimeout && previous !== undefined
+      ? [...new Set([...Object.keys(before), ...Object.keys(current)])]
+          .filter(key => !heldKeys.has(key) && JSON.stringify(before[key]) !== JSON.stringify(current[key]))
+      : []
+    if (stateSaveTimeout) clearTimeout(stateSaveTimeout)
+    stateSaveTimeout = null
+    if (unsaved.length) {
+      state = { ...state, ...Object.fromEntries(unsaved.map(key => [key, current[key]])) }
+      syncedStorage.setItem(getToolStateKey(), JSON.stringify(state))
+    }
+    const editing = options.focusedStateKey?.() ?? null
+    const keys = (changedKeys ?? [...new Set([...Object.keys(state ?? {}), ...Object.keys(current)])])
+      .filter(key => JSON.stringify(state?.[key]) !== JSON.stringify(current[key]))
+    if (editing && keys.includes(editing)) heldKeys.set(editing, JSON.stringify(current[editing]))
+    settlingRemoteChange = true
+    applyRemoteKeys(state ?? {}, keys.filter(key => key !== editing))
+    // Changes landing together settle as one, against the field as it first was.
+    if (!settlingField && editing) {
+      settlingField = editing
+      settlingFieldBefore = JSON.stringify(buildToolState()[editing])
+    }
+    if (settleTimer) clearTimeout(settleTimer)
+    settleTimer = setTimeout(finishSettling, REMOTE_SETTLE_MS)
+  }
+
+  function finishSettling() {
+    const field = settlingField
+    const fieldBefore = settlingFieldBefore
+    settleTimer = null
+    settlingField = null
+    settlingFieldBefore = null
+    settlingRemoteChange = false
+    const stored = loadStateFromLocalStorage()
+    if (!stored) return
+    // A field with the cursor in it can only change by being typed in. That's an
+    // edit, not settling, so it stays out of what's taken as settled.
+    const typed = !!field && JSON.stringify(buildToolState()[field]) !== fieldBefore
+    const settled = stateToSave()
+    if (typed) settled[field!] = stored[field!]
+    syncedStorage.adopt(getToolStateKey(), JSON.stringify(settled))
+    if (typed) debouncedSaveState()
+  }
+
+  /** The focused field stopped being focused: apply what arrived meanwhile. */
+  function releaseHeldStateKeys() {
+    if (heldKeys.size === 0) return
+    const keys = [...heldKeys.keys()]
+    stateToSave() // Anything typed since it was held stays, and goes out with the next save.
+    const released = keys.filter(key => heldKeys.has(key))
+    heldKeys.clear()
+    const state = loadStateFromLocalStorage()
+    if (state) applyRemoteKeys(state, released)
+  }
+
+  function followRemoteChanges() {
+    unsubscribeRemote?.()
+    unsubscribeRemote = syncedStorage.subscribe(getToolStateKey(), (_value, change) => {
+      if (change.deleted) {
+        // Another client reset or saved it: back to the baseline.
+        if (!tool.value) return
+        settlingRemoteChange = true
+        applyToolState(activePreset.value?.state ?? baseState.value)
+        nextTick(() => setTimeout(() => { settlingRemoteChange = false }, REMOTE_SETTLE_MS))
+        return
+      }
+      applyRemoteState(change.changedKeys, change.previous)
+    })
+    const unsubscribePreset = syncedStorage.subscribe(getActivePresetKey(), async () => {
+      const id = loadActivePresetId()
+      if (id === (activePreset.value?.id ?? null)) return
+      if (id === null) {
+        activePreset.value = null
+        baseState.value = { ...(tool.value?.state ?? {}) }
+        return
+      }
+      try {
+        const preset = await usePresetsApi().getPreset(id)
+        activePreset.value = preset
+        baseState.value = { ...preset.state }
+      } catch (err) {
+        console.warn('Preset chosen on another client is not available:', err)
+      }
+    })
+    const unsubscribeState = unsubscribeRemote
+    unsubscribeRemote = () => { unsubscribeState(); unsubscribePreset() }
   }
 
   // Check if current state differs from base state
@@ -305,7 +481,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // Collapsed groups management
   function loadCollapsedGroups() {
-    const stored = localStorage.getItem(getCollapsedGroupsKey())
+    const stored = syncedStorage.getItem(getCollapsedGroupsKey())
     if (stored) {
       try {
         collapsedGroups.value = JSON.parse(stored)
@@ -316,7 +492,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
   }
 
   function saveCollapsedGroups() {
-    localStorage.setItem(getCollapsedGroupsKey(), JSON.stringify(collapsedGroups.value))
+    syncedStorage.setItem(getCollapsedGroupsKey(), JSON.stringify(collapsedGroups.value))
   }
 
   function getGroupCollapsed(groupLabel: string | null): boolean {
@@ -336,26 +512,26 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // AI prompt expanded state
   function loadAIPromptExpanded(): boolean {
-    const saved = localStorage.getItem(getAIPromptExpandedKey())
+    const saved = syncedStorage.getItem(getAIPromptExpandedKey())
     // Default to expanded if no saved preference
     return saved === null ? true : saved === 'true'
   }
 
   function saveAIPromptExpanded(expanded: boolean) {
-    localStorage.setItem(getAIPromptExpandedKey(), String(expanded))
+    syncedStorage.setItem(getAIPromptExpandedKey(), String(expanded))
   }
 
   // Preset management
   function loadActivePresetId(): number | null {
-    const stored = localStorage.getItem(getActivePresetKey())
+    const stored = syncedStorage.getItem(getActivePresetKey())
     return stored ? parseInt(stored, 10) : null
   }
 
   function saveActivePresetId(presetId: number | null) {
     if (presetId === null) {
-      localStorage.removeItem(getActivePresetKey())
+      syncedStorage.removeItem(getActivePresetKey())
     } else {
-      localStorage.setItem(getActivePresetKey(), String(presetId))
+      syncedStorage.setItem(getActivePresetKey(), String(presetId))
     }
   }
 
@@ -540,10 +716,11 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
   // Track active watchers for cleanup
   let watchStopHandles: WatchStopHandle[] = []
 
-  // Start watching for changes to save to localStorage
+  // Start watching for changes to save
   function startWatchingChanges() {
     // Stop any existing watchers first to prevent stacking (e.g. on profile switch)
     stopWatching()
+    followRemoteChanges()
     nextTick(() => {
       watchStopHandles.push(
         watch([globalPrefs, modelParams, toolLoras, toolChain, uiState], debouncedSaveState, { deep: true })
@@ -559,6 +736,8 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // Stop all active watchers and clear pending debounce
   function stopWatching() {
+    unsubscribeRemote?.()
+    unsubscribeRemote = null
     for (const stop of watchStopHandles) {
       stop()
     }
@@ -621,5 +800,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     startWatchingChanges,
     stopWatching,
     flushPendingSaves,
+    releaseHeldStateKeys,
+    isSettlingRemoteChange: () => settlingRemoteChange,
   }
 }

@@ -957,6 +957,17 @@ async def lifespan(app: FastAPI):
                     digest=migration["digest"],
                 )
 
+        # Closed workspace tabs keep their tool state for a while so they can be
+        # reopened; past that, it and any stored files it used are removed.
+        import workspace_service
+        for profile in settings.profiles:
+            try:
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    await workspace_service.purge_expired(session, profile.id)
+            except Exception as exc:
+                log.warning("workspace purge failed", profile=profile.id, error=str(exc))
+
         # Adopt Stimma-native manifests/bundles from historical writable roots
         # after membership has been normalized. Other watched paths remain
         # external Sources.

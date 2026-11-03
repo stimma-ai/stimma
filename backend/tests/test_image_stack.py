@@ -1084,3 +1084,54 @@ class TestStepNaming:
         )
         assert response.status_code == 200
         assert response.json()["label"] is None
+
+
+class TestConcurrentClients:
+    async def test_a_stale_client_cannot_overwrite_a_newer_save(self, client, db_session, tmp_path):
+        asset_id, _, _ = await _asset(db_session, tmp_path, name="two-clients")
+        opened = (await client.post("/api/image-stack/open", json={"asset_id": asset_id})).json()
+        document_id, generation = opened["document_id"], opened["generation"]
+        document = {
+            "format": "stimma-image-stack", "version": 1, "base": opened["base"],
+            "canvas": {"width": 8, "height": 8}, "edits": [], "output": {},
+        }
+
+        # The phone saves, knowing the current generation.
+        saved = await client.put(
+            f"/api/image-stack/{document_id}/document",
+            json={"document": {**document, "edits": [{"id": "phone"}]}, "expected_generation": generation},
+        )
+        assert saved.status_code == 200
+
+        # The desktop, still on what it opened, is refused and changes nothing.
+        stale = await client.put(
+            f"/api/image-stack/{document_id}/document",
+            json={"document": {**document, "edits": [{"id": "desktop"}]}, "expected_generation": generation},
+        )
+        assert stale.status_code == 409
+        journal = await client.post(
+            f"/api/image-stack/{document_id}/journal",
+            json={"entries": [{"action": "x"}], "expected_generation": generation},
+        )
+        assert journal.status_code == 409
+        current = (await client.get(f"/api/image-stack/{document_id}")).json()
+        assert current["document"]["edits"] == [{"id": "phone"}]
+
+    async def test_saves_at_the_same_moment_cannot_both_win(self, client, db_session, tmp_path):
+        import asyncio
+
+        asset_id, _, _ = await _asset(db_session, tmp_path, name="same-moment")
+        opened = (await client.post("/api/image-stack/open", json={"asset_id": asset_id})).json()
+        document_id, generation = opened["document_id"], opened["generation"]
+        document = {
+            "format": "stimma-image-stack", "version": 1, "base": opened["base"],
+            "canvas": {"width": 8, "height": 8}, "edits": [], "output": {},
+        }
+        responses = await asyncio.gather(*[
+            client.put(
+                f"/api/image-stack/{document_id}/document",
+                json={"document": {**document, "edits": [{"id": str(i)}]}, "expected_generation": generation},
+            )
+            for i in range(4)
+        ])
+        assert sorted(r.status_code for r in responses) == [200, 409, 409, 409]

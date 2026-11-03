@@ -10,7 +10,6 @@ import {
   isSameOrDescendant,
   parseRecents,
   pushRecent,
-  recentsStorageKey,
   type DirectoryEntry,
 } from './directoryPicker.ts'
 
@@ -98,10 +97,4 @@ test('parseRecents tolerates garbage and fills in missing names', () => {
     { name: 'y', path: '/x/y' },
     { name: 'n', path: '/z' },
   ])
-})
-
-test('recents are scoped per server', () => {
-  assert.equal(recentsStorageKey(null), 'stimma_folder_picker_recents:local')
-  assert.equal(recentsStorageKey('local'), 'stimma_folder_picker_recents:local')
-  assert.equal(recentsStorageKey('dev-123'), 'stimma_folder_picker_recents:dev-123')
 })

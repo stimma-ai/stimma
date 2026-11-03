@@ -1,7 +1,7 @@
 /**
  * LoRA Pool composable.
  *
- * Manages a per-tool pool of LoRAs that persists in localStorage.
+ * Manages a per-tool pool of LoRAs, shared by every client of the profile.
  * Keyed by STP provider:tool ID (e.g. "comfyui:flux-klein-9b").
  *
  * Storage key: stimma_{profileId}_lorapool_{toolId}
@@ -12,6 +12,7 @@
 import { ref } from 'vue'
 import { makeProfileKey } from '../utils/storageKeys'
 import { clampLoraWeight } from '../utils/loraWeights'
+import { onNamespaceChange, syncedStorage } from '../utils/workspaceStore'
 
 export interface LoraPoolItem {
   lora: string       // Path for backend (unique key) — also the opaque server id for cloud LoRAs
@@ -86,11 +87,29 @@ function bumpVersion() {
   poolVersion.value++
 }
 
+// Another client changed a pool or a tab's selections. Everything here is read
+// lazily, so forgetting it and bumping the version is a re-read.
+const POOL_DOC_PREFIX = 'lorapool_'
+onNamespaceChange('kv', (key) => {
+  if (!key.startsWith(POOL_DOC_PREFIX)) return
+  const id = key.slice(POOL_DOC_PREFIX.length)
+  loadedToolIds.value.delete(id)
+  loadedOverlayIds.value.delete(id)
+  bumpVersion()
+})
+if (typeof window !== 'undefined') {
+  window.addEventListener('workspace-loaded', () => {
+    loadedToolIds.value.clear()
+    loadedOverlayIds.value.clear()
+    bumpVersion()
+  })
+}
+
 function ensureOverlay(scopedId: string): SelectionOverlay {
   void poolVersion.value
   if (!loadedOverlayIds.value.has(scopedId)) {
     try {
-      const saved = localStorage.getItem(getPoolKey(scopedId))
+      const saved = syncedStorage.getItem(getPoolKey(scopedId))
       const parsed = saved ? JSON.parse(saved) : null
       overlays.value[scopedId] = (parsed && typeof parsed === 'object' && parsed.selections && typeof parsed.selections === 'object')
         ? parsed.selections
@@ -105,7 +124,10 @@ function ensureOverlay(scopedId: string): SelectionOverlay {
 
 function saveOverlay(scopedId: string): void {
   try {
-    localStorage.setItem(getPoolKey(scopedId), JSON.stringify({ selections: overlays.value[scopedId] || {} }))
+    const selections = overlays.value[scopedId] || {}
+    // Nothing selected is what a missing overlay already means.
+    if (!Object.keys(selections).length && syncedStorage.getItem(getPoolKey(scopedId)) === null) return
+    syncedStorage.setItem(getPoolKey(scopedId), JSON.stringify({ selections }))
   } catch (err) {
     console.error(`Failed to save LoRA selection overlay for ${scopedId}:`, err)
   }
@@ -167,14 +189,14 @@ function normalizeItem(item: any): LoraPoolItem {
 }
 
 /**
- * Load pool from localStorage for a given model family.
+ * Load pool for a given model family.
  */
 function loadPool(toolId: string): void {
   if (!toolId) return
 
   try {
     const key = getPoolKey(toolId)
-    const saved = localStorage.getItem(key)
+    const saved = syncedStorage.getItem(key)
     if (saved) {
       const parsed = JSON.parse(saved)
       pools.value[toolId] = normalizePool(parsed)
@@ -190,7 +212,7 @@ function loadPool(toolId: string): void {
 }
 
 /**
- * Save pool to localStorage for a given model family.
+ * Save pool for a given model family.
  */
 function savePool(toolId: string): void {
   if (!toolId) return
@@ -198,7 +220,7 @@ function savePool(toolId: string): void {
   try {
     const key = getPoolKey(toolId)
     const pool = pools.value[toolId] || { groups: [], ungrouped: [] }
-    localStorage.setItem(key, JSON.stringify(pool))
+    syncedStorage.setItem(key, JSON.stringify(pool))
   } catch (err) {
     console.error(`Failed to save LoRA pool for ${toolId}:`, err)
   }
@@ -653,7 +675,7 @@ function getEnabledLoras(toolId: string | null | undefined): Array<{ lora: strin
  */
 /**
  * LoRAs enabled by OTHER instances of the same tool (loaded overlays plus
- * persisted ones scanned from localStorage). Used so bulk structural
+ * persisted ones scanned from storage). Used so bulk structural
  * removals never destroy a sibling tab's active selection.
  */
 function siblingEnabledPaths(base: string, exceptScopedId: string): Set<string> {
@@ -670,13 +692,12 @@ function siblingEnabledPaths(base: string, exceptScopedId: string): Set<string> 
   const basePoolKey = getPoolKey(base)
   const exceptKey = getPoolKey(exceptScopedId)
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (!key || key === exceptKey || !key.startsWith(`${basePoolKey}__`) || !key.includes('__i_')) continue
+    for (const key of syncedStorage.keysWithPrefix(`${basePoolKey}__`)) {
+      if (key === exceptKey || !key.includes('__i_')) continue
       const sid = base + key.slice(basePoolKey.length)
       if (loadedOverlayIds.value.has(sid)) continue // already counted above
       try {
-        const parsed = JSON.parse(localStorage.getItem(key) || 'null')
+        const parsed = JSON.parse(syncedStorage.getItem(key) || 'null')
         readSelections(parsed?.selections)
       } catch { /* ignore malformed */ }
     }

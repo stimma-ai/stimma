@@ -232,6 +232,7 @@ import { makeProfileKey } from '../../utils/storageKeys'
 import ModelVendorIcon from '../models/ModelVendorIcon.vue'
 import { getModelVendorInfo, sortModelsByBrand } from '../../utils/modelVendors'
 import { modelSourceLine } from '../../utils/modelFunding'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const { allowsAutofocus } = useViewport()
 
@@ -485,7 +486,7 @@ function recentModelsStorageKey() {
 
 function loadRecentModelSlugs() {
   try {
-    const stored = JSON.parse(localStorage.getItem(recentModelsStorageKey()) || '[]')
+    const stored = JSON.parse(syncedStorage.getItem(recentModelsStorageKey()) || '[]')
     return Array.isArray(stored)
       ? stored.filter(slug => typeof slug === 'string' && slug !== 'auto').slice(0, MAX_RECENT_MODELS)
       : []
@@ -498,7 +499,7 @@ function recordRecentModel(slug) {
   const next = [slug, ...recentModelSlugs.value.filter(recentSlug => recentSlug !== slug)].slice(0, MAX_RECENT_MODELS)
   recentModelSlugs.value = next
   try {
-    localStorage.setItem(recentModelsStorageKey(), JSON.stringify(next))
+    syncedStorage.setItem(recentModelsStorageKey(), JSON.stringify(next))
   } catch {
     // Recents are a convenience; model selection should still work if storage is unavailable.
   }

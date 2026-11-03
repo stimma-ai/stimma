@@ -144,6 +144,7 @@ import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 import { getApiBase } from '../../apiConfig'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { makeProfileKey } from '../../utils/storageKeys'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const props = defineProps({
   mediaId: {
@@ -229,7 +230,7 @@ function backgroundStorageKey() {
 function selectBackground(value) {
   background.value = value
   try {
-    localStorage.setItem(backgroundStorageKey(), value)
+    syncedStorage.setItem(backgroundStorageKey(), value)
   } catch {
     // A full or unavailable localStorage must not break the viewer.
   }
@@ -290,7 +291,7 @@ function onDocumentClick(event) {
 
 onMounted(() => {
   try {
-    const saved = localStorage.getItem(backgroundStorageKey())
+    const saved = syncedStorage.getItem(backgroundStorageKey())
     if (BACKGROUND_OPTIONS.some(o => o.value === saved)) background.value = saved
   } catch {
     // Ignore — the default ground is fine.

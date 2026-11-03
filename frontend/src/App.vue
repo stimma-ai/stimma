@@ -299,6 +299,7 @@ import { connectionFailure, pinVerificationError } from './utils/proxyFailure'
 import { clearCompactTitle } from './composables/useCompactChrome'
 import { installCompactNav } from './composables/useCompactNav'
 import { installWorkspaceTabRoutes } from './composables/useWorkspaceTabRoutes'
+import { installRemoteTabClose } from './composables/useRemoteTabClose'
 import CompactHeader from './components/compact/CompactHeader.vue'
 import AccountSheet from './components/compact/AccountSheet.vue'
 import Spinner from './components/ui/Spinner.vue'
@@ -322,6 +323,8 @@ import { useProfile, initWindowProfile, reportWindowProfile, openProfileWindow }
 import { useAuth } from './composables/useAuth'
 import { useReadiness } from './composables/useReadiness'
 import { desktop } from './desktop'
+import { activateWorkspace } from './utils/workspaceBoot'
+import { syncedStorage } from './utils/workspaceStore'
 import { useConnectionPresentation } from './composables/useConnectionPresentation'
 import { setMobileSlideshowActive } from './desktop/mobileBridge'
 import { revealMobileInterface } from './desktop/mobileBridge'
@@ -382,7 +385,7 @@ const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
 watch(slideshowActive, active => { void setMobileSlideshowActive(active) }, { immediate: true })
 onUnmounted(() => { void setMobileSlideshowActive(false) })
-const { setTheme, resolvedTheme } = useTheme()
+const { resolvedTheme } = useTheme()
 const {
   allTabs, findNextTab, removeTab,
   reopenLastClosed, getNextTab, getPrevTab
@@ -654,6 +657,7 @@ installCompactNav(router)
 // workspace tab (and tool state lives on the tab's instance), so the compact
 // chrome runs the same route → tab logic itself.
 installWorkspaceTabRoutes(route, () => isCompact.value)
+installRemoteTabClose(router, route)
 
 function openSidebar() {
   sidebarOpen.value = true
@@ -1004,6 +1008,9 @@ async function loadAppSettings() {
   // App modifier is now set, so localStorage key prefix is stable — purge
   // legacy masks/paint (now in IndexedDB) and the old tool-descriptor cache.
   runStartupCleanup()
+  // The shared workspace, before anything below reads it. A failed read leaves
+  // the app usable; the next connection tries again.
+  await activateWorkspace(settings)
   setCloudBaseUrl(settings.cloud_base_url)
   setDevMode(settings.developer_mode)
   setAppBranch(settings.app_branch)
@@ -1027,11 +1034,6 @@ async function loadAppSettings() {
   // What's New pill: fetch this version's release notes (same host as the
   // updater), once lockdown state is known.
   void scheduleMaintenance('release-notes', () => initReleaseNotes(privacyLockdown))
-  // Sync theme from backend config (backend is source of truth,
-  // localStorage is used for instant flash prevention on load)
-  if (settings.theme) {
-    setTheme(settings.theme)
-  }
   // Cache wildcards and prompt segments for prompt expansion
   if (settings.wildcards) {
     setWildcards(settings.wildcards)
@@ -1128,7 +1130,11 @@ async function checkStartupPin() {
         new Promise(resolve => setTimeout(() => resolve(false), FIRST_NAVIGATION_WAIT_MS)),
       ])
       const startupReady = isSettingsLoaded() && (await multiDeviceReady())
-      const onboarded = localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
+      // The server's copy lets a new client skip setup of a server that's already
+      // set up. A profile added later has none, so this client's own memory of
+      // finishing setup still counts.
+      const onboarded = syncedStorage.getItem(makeGlobalKey('onboarding_completed')) !== null ||
+        localStorage.getItem(makeGlobalKey('onboarding_completed')) !== null
       // The onboarding flag is scoped to the backend this window is driving,
       // so it is per server by design. Acceptance of the terms is not: carry
       // an existing one over to this install before the gate, or the first

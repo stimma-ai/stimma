@@ -1,12 +1,14 @@
 import { ref, computed, watchEffect, onUnmounted } from 'vue'
-import { makeGlobalKey } from '../utils/storageKeys'
+import { makeGlobalKey, makeInstallKey } from '../utils/storageKeys'
 
-// Migrate legacy unscoped key
-const _legacyThemeKey = 'stimma-theme'
-const STORAGE_KEY = makeGlobalKey('theme')
-if (localStorage.getItem(_legacyThemeKey) !== null) {
-  localStorage.setItem(STORAGE_KEY, localStorage.getItem(_legacyThemeKey))
-  localStorage.removeItem(_legacyThemeKey)
+// A person's theme belongs to the device they're looking at. Read before the
+// bundle loads to prevent a flash (index.html, mobile/main.ts), so the key can't
+// depend on which server this client is driving. Older installs kept it under a
+// key that did; the first read carries that over.
+const STORAGE_KEY = makeInstallKey('theme')
+if (localStorage.getItem(STORAGE_KEY) === null) {
+  const previous = localStorage.getItem(makeGlobalKey('theme'))
+  if (previous !== null) localStorage.setItem(STORAGE_KEY, previous)
 }
 
 // Shared reactive state (singleton across all usages)

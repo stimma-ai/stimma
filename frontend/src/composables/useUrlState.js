@@ -13,17 +13,12 @@ export function encodeMediaType(type) { return MEDIA_TYPE_CODES[type] || type }
 export function decodeMediaType(code) { return MEDIA_TYPE_BY_CODE[code] || (code === 'v' ? 'videos' : code) }
 
 /**
- * Composable for managing state in URL query parameters and localStorage
+ * Composable for managing state in URL query parameters
  * Supports compact encoding for bookmarkable URLs
  */
 export function useUrlState() {
   const router = useRouter()
   const route = useRoute()
-
-  // Storage key for filters (profile-scoped)
-  function getFiltersKey() {
-    return makeProfileKey('browse', 'url_filters')
-  }
 
   /**
    * Encode filters to compact URL format
@@ -329,87 +324,10 @@ export function useUrlState() {
     }
   }
 
-  /**
-   * Save filters to localStorage
-   */
-  function saveToLocalStorage(filters) {
-    try {
-      localStorage.setItem(getFiltersKey(), JSON.stringify(filters))
-    } catch (e) {
-      console.error('Failed to save filters to localStorage:', e)
-    }
-  }
-
-  /**
-   * Load filters from localStorage
-   */
-  function loadFromLocalStorage() {
-    try {
-      const saved = localStorage.getItem(makeProfileKey('browse', 'url_filters'))
-      return saved ? JSON.parse(saved) : null
-    } catch (e) {
-      console.error('Failed to load filters from localStorage:', e)
-      return null
-    }
-  }
-
-  /**
-   * Initialize filters from URL or localStorage
-   * Priority: URL > localStorage > defaults
-   */
-  function initializeFilters(defaultFilters) {
-    // Check URL first
-    const urlFilters = decodeFiltersFromUrl(route.query)
-    const hasUrlParams = Object.keys(route.query).length > 0
-
-    if (hasUrlParams) {
-      // URL takes precedence
-      return urlFilters
-    }
-
-    // Fall back to localStorage
-    const savedFilters = loadFromLocalStorage()
-    if (savedFilters) {
-      return { ...defaultFilters, ...savedFilters }
-    }
-
-    return defaultFilters
-  }
-
-  /**
-   * Setup watchers for automatic state persistence
-   */
-  function setupPersistence(filters, slideshowState = null) {
-    // Watch filters and update URL + localStorage
-    watch(
-      () => ({ ...filters }),
-      (newFilters) => {
-        updateUrl(newFilters, slideshowState?.value)
-        saveToLocalStorage(newFilters)
-      },
-      { deep: true }
-    )
-
-    // Watch slideshow state if provided
-    if (slideshowState) {
-      watch(
-        slideshowState,
-        () => {
-          updateUrl(filters, slideshowState.value)
-        },
-        { deep: true }
-      )
-    }
-  }
-
   return {
     encodeFiltersToUrl,
     decodeFiltersFromUrl,
     decodeSlideshowFromUrl,
-    updateUrl,
-    saveToLocalStorage,
-    loadFromLocalStorage,
-    initializeFilters,
-    setupPersistence
+    updateUrl
   }
 }

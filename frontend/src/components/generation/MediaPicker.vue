@@ -872,6 +872,7 @@ import Spinner from '../ui/Spinner.vue'
 import Modal from '../ui/Modal.vue'
 import { useOwnerProject } from '../../composables/useProjectScope'
 import { appendProjectId } from '../../utils/projectScope'
+import { syncedStorage } from '../../utils/workspaceStore'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1765,12 +1766,12 @@ function onPreprocessorSliderInput(index: number, param: string, value: number) 
 
 function saveControlnetParams(preprocessor: string, params: Record<string, number>) {
   const key = makeProfileKey('controlnet', preprocessor)
-  localStorage.setItem(key, JSON.stringify(params))
+  syncedStorage.setItem(key, JSON.stringify(params))
 }
 
 function loadControlnetParams(preprocessor: string): Record<string, number> | null {
   const key = makeProfileKey('controlnet', preprocessor)
-  const raw = localStorage.getItem(key)
+  const raw = syncedStorage.getItem(key)
   if (!raw) return null
   try { return JSON.parse(raw) } catch { return null }
 }
@@ -2207,14 +2208,14 @@ const frameDisplayMode = ref<'time' | 'frames'>('time')
 function loadFrameDisplayMode() {
   if (!props.frameModeKey) { frameDisplayMode.value = 'time'; return }
   try {
-    frameDisplayMode.value = localStorage.getItem(makeProfileKey('frame-mode', props.frameModeKey)) === 'frames' ? 'frames' : 'time'
+    frameDisplayMode.value = syncedStorage.getItem(makeProfileKey('frame-mode', props.frameModeKey)) === 'frames' ? 'frames' : 'time'
   } catch { frameDisplayMode.value = 'time' }
 }
 
 function toggleFrameDisplay() {
   frameDisplayMode.value = frameDisplayMode.value === 'frames' ? 'time' : 'frames'
   if (props.frameModeKey) {
-    try { localStorage.setItem(makeProfileKey('frame-mode', props.frameModeKey), frameDisplayMode.value) } catch { /* ignore */ }
+    try { syncedStorage.setItem(makeProfileKey('frame-mode', props.frameModeKey), frameDisplayMode.value) } catch { /* ignore */ }
   }
 }
 

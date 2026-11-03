@@ -1,4 +1,5 @@
 import { makeStorageKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 
 /**
  * Cross-entity recents with frecency, backing the global search omnibox.
@@ -38,7 +39,7 @@ function storageKey(): string {
 
 function load(): RecentEntity[] {
   try {
-    const raw = localStorage.getItem(storageKey())
+    const raw = syncedStorage.getItem(storageKey())
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -49,7 +50,7 @@ function load(): RecentEntity[] {
 
 function save(entries: RecentEntity[]) {
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(entries))
+    syncedStorage.setItem(storageKey(), JSON.stringify(entries))
   } catch {}
 }
 

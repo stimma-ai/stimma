@@ -171,9 +171,19 @@ test.describe('working context', () => {
   });
 
   test('existing saved tool pins return as normal sidebar rows', async ({ page }) => {
+    test.skip(process.env.STIMMA_ACCEPTANCE_SHELL === 'electron', 'Electron windows are pinned to one profile');
     await page.goto('/browse');
     await waitForShell(page);
-    await apiJSON(page, '/api/tools/pin', { method: 'POST', data: { full_tool_id: TEST_I2I_TOOL_ID } } as any);
+    // A profile whose workspace hasn't been read yet: its saved pins become tabs
+    // on first read. After that, tabs are the authority on what's pinned.
+    const profile = await apiJSON<{ id: string }>(page, '/api/settings/profiles', {
+      method: 'POST',
+      data: JSON.stringify({ name: `Saved pins ${Date.now().toString(36)}` }),
+    } as any);
+    await page.evaluate(id => localStorage.setItem('profileId', id), profile.id);
+    await expect.poll(async () => (await page.request.get('/api/profiles')).ok()).toBe(true);
+    await expect.poll(() => apiJSON(page, '/api/tools/pinned').then(() => true, () => false)).toBe(true);
+    await apiJSON(page, '/api/tools/pin', { method: 'POST', data: JSON.stringify({ full_tool_id: TEST_I2I_TOOL_ID }) } as any);
     await page.reload();
     await waitForShell(page);
     await expect(sidebar(page).getByText('Pinned', { exact: true })).toBeVisible();
@@ -182,7 +192,6 @@ test.describe('working context', () => {
     const bounds = await session.boundingBox();
     expect(bounds!.height).toBeLessThan(80);
     await expect(sidebar(page).getByText('Tool shortcuts', { exact: true })).toHaveCount(0);
-    await apiJSON(page, `/api/tools/pin/${encodeURIComponent(TEST_I2I_TOOL_ID)}`, { method: 'DELETE' });
   });
 
   test('an Everything image dropped on a project tool session produces project output', async ({ page }) => {

@@ -1,7 +1,19 @@
 import { ref, computed, readonly, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { makeProfileKey, makeGlobalKey, makeToolProfileKey, makeToolDbKey } from '../utils/storageKeys'
-import { listBlobKeys, getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
+import { listBlobKeys, getBlob, putBlob, deleteBlob } from '../utils/syncedBlobs'
+import {
+  TAB_NAMESPACE,
+  deleteDoc,
+  getClosedTabs,
+  isServerMode,
+  isWorkspaceHydrated,
+  listDocs,
+  onNamespaceChange,
+  syncedStorage,
+  writeDoc,
+} from '../utils/workspaceStore'
+import { registerLocalTabPreparation } from '../utils/workspaceBoot'
 import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
@@ -78,48 +90,31 @@ function getLastLibraryRouteKey(): string {
 const tabs = ref<WorkspaceTab[]>([])
 let nextDisplayOrder = 0
 
-// Recently closed tabs stack (in-memory only, not persisted)
+// Recently closed tabs, newest last. On a server this starts from the tabs it
+// has soft-deleted, so reopening crosses clients and restarts.
 const recentlyClosed: WorkspaceTab[] = []
 const MAX_RECENTLY_CLOSED = 20
 
-// Tool instance counter — persisted and strictly monotonic. Never derived
-// downward from live tabs: a closed instance's storage keys survive until the
-// next startup sweep, so reusing its id would resurrect leftover state.
-// GLOBAL (not per-profile): the startup sweep can't attribute db-guid-scoped
-// keys to a profile, so ids must be unique across profiles or one profile's
-// live id would shield another profile's orphans forever.
-function getInstanceCounterKey(): string {
-  return makeGlobalKey('workspace_tabs', 'tool_instance_counter')
-}
-
+// Tool instance ids are unique without coordination, so any client can open a
+// tab, offline or not, without colliding with another. Older tabs keep the small
+// integers they got from the counter that used to mint these.
 function nextToolInstanceId(): string {
-  let counter = 0
-  try {
-    counter = parseInt(localStorage.getItem(getInstanceCounterKey()) || '0', 10) || 0
-  } catch {}
-  // Defensive: never mint below an id already referenced by a live tab
-  for (const tab of tabs.value) {
-    if (tab.type === 'tool' && tab.instanceId) {
-      const num = parseInt(tab.instanceId, 10)
-      if (!isNaN(num) && num >= counter) counter = num + 1
-    }
-  }
-  try {
-    localStorage.setItem(getInstanceCounterKey(), String(counter + 1))
-  } catch {}
-  return String(counter)
+  const random = globalThis.crypto?.getRandomValues
+    ? [...globalThis.crypto.getRandomValues(new Uint8Array(6))].map(b => b.toString(36).padStart(2, '0')).join('')
+    : Math.random().toString(36).slice(2, 14)
+  return `${Date.now().toString(36)}${random}`
 }
 
 // Db-guid-scoped key suffixes that are per-instance (used by the migration;
 // profile-scoped parts are handled inline below, and the startup sweep in
 // utils/storageCleanup.ts matches the __i_{K} token instead of a part list).
 const INSTANCE_DB_KEY_PARTS = ['video_images', 'remix'] as const
-const INSTANCE_PROFILE_KEY_PARTS = ['state', 'active_preset', 'collapsed_groups', 'ai_prompt_expanded', 'global', 'ui'] as const
+const INSTANCE_PROFILE_KEY_PARTS = ['state', 'active_preset', 'collapsed_groups', 'ai_prompt_expanded', 'ui'] as const
 
-function copyLocalStorageKey(sourceKey: string, targetKey: string) {
+function copyStoredKey(sourceKey: string, targetKey: string) {
   try {
-    const value = localStorage.getItem(sourceKey)
-    if (value !== null) localStorage.setItem(targetKey, value)
+    const value = syncedStorage.getItem(sourceKey)
+    if (value !== null) syncedStorage.setItem(targetKey, value)
   } catch {}
 }
 
@@ -312,7 +307,7 @@ export function whenTabsReady(): Promise<void> {
 
 // --- Persistence ---
 
-function loadFromStorage() {
+function loadFromLocalStorage() {
   try {
     const stored = localStorage.getItem(getStorageKey())
     if (stored) {
@@ -341,8 +336,63 @@ function loadFromStorage() {
   }
 }
 
+// What the server holds for each tab, as of the last sync: the watcher sends
+// the difference, so a change from another client isn't sent back.
+const syncedTabs = new Map<string, WorkspaceTab>()
+
+function restoreClosedTabs() {
+  recentlyClosed.length = 0
+  for (const tab of [...getClosedTabs<WorkspaceTab>()].reverse()) {
+    if (tab?.id && !syncedTabs.has(tab.id)) recentlyClosed.push(tab)
+  }
+}
+
+function loadFromServer() {
+  // Copies: these get edited in place, and the store has to see the difference.
+  const loaded = listDocs<WorkspaceTab>(TAB_NAMESPACE)
+    .map(({ value }) => JSON.parse(JSON.stringify(value)) as WorkspaceTab)
+    .filter(tab => tab?.id)
+  syncedTabs.clear()
+  for (const tab of loaded) syncedTabs.set(tab.id, JSON.parse(JSON.stringify(tab)))
+  tabs.value = loaded
+  nextDisplayOrder = loaded.reduce((max, t) => Math.max(max, t.displayOrder), -1) + 1
+  restoreClosedTabs()
+}
+
+function loadFromStorage() {
+  if (isServerMode()) loadFromServer()
+  else loadFromLocalStorage()
+}
+
+// The workspace is on its way: nothing to show, and nothing is ready to resolve
+// a tool instance against until it arrives.
+const awaitingServer = () => isServerMode() && !isWorkspaceHydrated()
+
+function sendTabChanges() {
+  const current = new Set<string>()
+  for (const tab of tabs.value) {
+    current.add(tab.id)
+    const known = syncedTabs.get(tab.id)
+    if (!known || JSON.stringify(known) !== JSON.stringify(tab)) {
+      const copy = JSON.parse(JSON.stringify(tab))
+      syncedTabs.set(tab.id, copy)
+      writeDoc(TAB_NAMESPACE, tab.id, copy)
+    }
+  }
+  for (const id of [...syncedTabs.keys()]) {
+    if (!current.has(id)) {
+      syncedTabs.delete(id)
+      deleteDoc(TAB_NAMESPACE, id)
+    }
+  }
+}
+
 function saveToStorage() {
   if (isReloadingProfile || !settingsReady) return
+  if (isServerMode()) {
+    if (!awaitingServer()) sendTabChanges()
+    return
+  }
   try {
     localStorage.setItem(getStorageKey(), JSON.stringify(tabs.value))
   } catch (err) {
@@ -350,39 +400,89 @@ function saveToStorage() {
   }
 }
 
+// Another client opened, closed or changed a tab.
+onNamespaceChange(TAB_NAMESPACE, (key, value, change) => {
+  if (change.rehydrated) {
+    // A re-read reports each difference; the whole list is reloaded once below.
+    scheduleServerReload()
+    return
+  }
+  if (change.deleted) {
+    syncedTabs.delete(key)
+    const closed = tabs.value.find(t => t.id === key)
+    if (!closed) return
+    recentlyClosed.push({ ...closed })
+    if (recentlyClosed.length > MAX_RECENTLY_CLOSED) recentlyClosed.shift()
+    tabs.value = tabs.value.filter(t => t.id !== key)
+    window.dispatchEvent(new CustomEvent('workspace-tab-closed-remotely', { detail: { tab: closed } }))
+    return
+  }
+  const incoming = JSON.parse(JSON.stringify(value)) as WorkspaceTab
+  syncedTabs.set(key, JSON.parse(JSON.stringify(incoming)))
+  const index = tabs.value.findIndex(t => t.id === key)
+  if (index === -1) tabs.value = [...tabs.value, incoming]
+  else tabs.value = tabs.value.map(t => (t.id === key ? incoming : t))
+  if (incoming.displayOrder >= nextDisplayOrder) nextDisplayOrder = incoming.displayOrder + 1
+  for (let i = recentlyClosed.length - 1; i >= 0; i--) {
+    if (recentlyClosed[i].id === key) recentlyClosed.splice(i, 1)
+  }
+})
+
+let serverReloadQueued = false
+function scheduleServerReload() {
+  if (serverReloadQueued) return
+  serverReloadQueued = true
+  queueMicrotask(() => {
+    serverReloadQueued = false
+    if (isServerMode()) reloadTabs()
+  })
+}
+
+function reloadTabs() {
+  if (awaitingServer()) {
+    tabs.value = []
+    syncedTabs.clear()
+    return
+  }
+  isReloadingProfile = true
+  try {
+    loadFromStorage()
+  } finally {
+    isReloadingProfile = false
+    noteTabsLoaded()
+  }
+}
+
 // Try initial load (may work if settings already loaded, e.g. cached)
 if (isSettingsLoaded()) {
   settingsReady = true
-  loadFromStorage()
-  noteTabsLoaded()
+  reloadTabs()
 }
 
-// Watch for changes and sync to localStorage
+// Watch for changes and sync them
 watch(tabs, saveToStorage, { deep: true })
+
+// Old local tabs are upgraded in place before migration reads them.
+registerLocalTabPreparation(() => {
+  isReloadingProfile = true
+  try {
+    loadFromLocalStorage()
+    tabs.value = []
+  } finally {
+    isReloadingProfile = false
+  }
+})
 
 // Reload when settings become available (appModifier is now set, key is correct)
 if (typeof window !== 'undefined') {
   window.addEventListener('settings-loaded', () => {
     settingsReady = true
-    isReloadingProfile = true
-    try {
-      loadFromStorage()
-    } finally {
-      isReloadingProfile = false
-      noteTabsLoaded()
-    }
+    reloadTabs()
   })
 
-  window.addEventListener('profile-changed', () => {
-    isReloadingProfile = true
-    try {
-      loadFromStorage()
-    } finally {
-      isReloadingProfile = false
-      noteTabsLoaded()
-    }
-  })
-
+  // On a server this empties the list until the workspace arrives.
+  window.addEventListener('profile-changed', reloadTabs)
+  window.addEventListener('workspace-loaded', reloadTabs)
 }
 
 // --- Helpers ---
@@ -561,14 +661,10 @@ export function useWorkspaceTabs() {
     for (let i = recentlyClosed.length - 1; i >= 0; i--) {
       if ((recentlyClosed[i].projectId ?? null) === projectId) recentlyClosed.splice(i, 1)
     }
-    // Instance-scoped keys embed `__project_<id>__i_<K>`; blobs are swept at
-    // the next boot once no tab references the instance.
+    // Instance-scoped keys embed `__project_<id>__i_<K>`. Local blobs are swept
+    // at the next boot, server ones when the closed tab expires.
     try {
-      const marker = `__project_${projectId}__i_`
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i)
-        if (key?.includes(marker)) localStorage.removeItem(key)
-      }
+      syncedStorage.removeKeysContaining(`__project_${projectId}__i_`)
     } catch { /* storage unavailable */ }
     return [...removedIds]
   }
@@ -594,12 +690,12 @@ export function useWorkspaceTabs() {
     const targetScopedId = toolInstanceScopedId(source.entityId, source.projectId, instanceId)
 
     for (const part of INSTANCE_PROFILE_KEY_PARTS) {
-      copyLocalStorageKey(makeToolProfileKey(sourceScopedId, part), makeToolProfileKey(targetScopedId, part))
+      copyStoredKey(makeToolProfileKey(sourceScopedId, part), makeToolProfileKey(targetScopedId, part))
     }
     for (const part of INSTANCE_DB_KEY_PARTS) {
-      copyLocalStorageKey(makeToolDbKey(sourceScopedId, part), makeToolDbKey(targetScopedId, part))
+      copyStoredKey(makeToolDbKey(sourceScopedId, part), makeToolDbKey(targetScopedId, part))
     }
-    copyLocalStorageKey(
+    copyStoredKey(
       makeProfileKey('lorapool', sourceScopedId),
       makeProfileKey('lorapool', targetScopedId)
     )
@@ -630,8 +726,8 @@ export function useWorkspaceTabs() {
   }
 
   /**
-   * Set or clear a tool tab's user-given name. Purely local (a window title):
-   * displayName keeps the tool name.
+   * Set or clear a tool tab's user-given name (a window title): displayName
+   * keeps the tool name.
    */
   function updateTabCustomName(tabId: string, name: string | null) {
     const tab = tabs.value.find(t => t.id === tabId)
@@ -781,14 +877,19 @@ export function useWorkspaceTabs() {
     if (!tab || tab.pinned) return
 
     // Backend pins are tool-level; only call the API when this is the first
-    // pinned instance of the tool.
+    // pinned instance of the tool. On a server the tab is what's pinned, and the
+    // tool-level pin is kept for older desktops, so it can't hold the tab back.
     if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId)) {
       const { pinProviderTool } = useProvidersApi()
-      try {
-        await pinProviderTool(tab.entityId)
-      } catch (err) {
-        console.error('[useWorkspaceTabs] Failed to pin tool:', err)
-        return
+      if (isServerMode()) {
+        pinProviderTool(tab.entityId).catch(err => console.warn('[useWorkspaceTabs] Tool-level pin failed:', err))
+      } else {
+        try {
+          await pinProviderTool(tab.entityId)
+        } catch (err) {
+          console.error('[useWorkspaceTabs] Failed to pin tool:', err)
+          return
+        }
       }
     }
 
@@ -808,11 +909,15 @@ export function useWorkspaceTabs() {
     // instance of this tool remains.
     if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId && t.id !== tab.id)) {
       const { unpinProviderTool } = useProvidersApi()
-      try {
-        await unpinProviderTool(tab.entityId)
-      } catch (err) {
-        console.error('[useWorkspaceTabs] Failed to unpin tool:', err)
-        return
+      if (isServerMode()) {
+        unpinProviderTool(tab.entityId).catch(err => console.warn('[useWorkspaceTabs] Tool-level unpin failed:', err))
+      } else {
+        try {
+          await unpinProviderTool(tab.entityId)
+        } catch (err) {
+          console.error('[useWorkspaceTabs] Failed to unpin tool:', err)
+          return
+        }
       }
     }
 
@@ -936,6 +1041,20 @@ export function useWorkspaceTabs() {
     // duplicate once the real list arrives. Pins reconcile again after load
     // (profile-changed handler / pin events).
     if (!tabsLoadedForProfile) return
+
+    // On a server, tabs are the authority on what's pinned, and the server
+    // seeded them from its tool pins once. Reconciling here as well would have
+    // every client racing to pin different instances of the same tool.
+    if (isServerMode()) {
+      for (const tool of pinnedToolsFromApi) {
+        for (const t of tabs.value) {
+          if (t.type === 'tool' && t.entityId === tool.full_tool_id && t.displayName !== tool.name) {
+            t.displayName = tool.name
+          }
+        }
+      }
+      return
+    }
 
     const apiPinnedIds = new Set(pinnedToolsFromApi.map(t => t.full_tool_id))
 

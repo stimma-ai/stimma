@@ -2621,7 +2621,7 @@ watch(
         if (!tab.projectName) {
           getProject(projectId).then(project => {
             if (project) {
-              addTab('tool', fullToolId, toolDisplayName, projectId, project.name || 'Untitled Project', instanceId)
+              addTab('tool', fullToolId, undefined, projectId, project.name || 'Untitled Project', instanceId)
             }
           }).catch(() => {})
         }

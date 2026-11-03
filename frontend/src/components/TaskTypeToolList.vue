@@ -179,6 +179,7 @@ import {
 } from '../utils/taskTypeIcons'
 import type { MediaType } from '../utils/mediaTypes'
 import { planToolHandoff } from '../utils/toolHandoff'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const { allowsAutofocus } = useViewport()
 
@@ -303,7 +304,7 @@ const filteredTools = computed(() => {
 function getRecentToolsByTaskType(taskType: string): string[] {
   try {
     const key = makeStorageKey(RECENT_STORAGE_KEY, taskType, 'recent')
-    const stored = localStorage.getItem(key)
+    const stored = syncedStorage.getItem(key)
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -315,7 +316,7 @@ function addRecentToolForTaskType(taskType: string, toolId: string) {
     const key = makeStorageKey(RECENT_STORAGE_KEY, taskType, 'recent')
     const recent = getRecentToolsByTaskType(taskType).filter(id => id !== toolId)
     recent.unshift(toolId)
-    localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
+    syncedStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
   } catch {
     // Ignore storage errors
   }

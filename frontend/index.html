@@ -9,7 +9,7 @@
   <script>
     // Prevent flash of wrong theme on load
     (function() {
-      var pref = localStorage.getItem('stimma-theme') || 'system';
+      var pref = localStorage.getItem('stimma_install_theme') || 'system';
       var theme = pref;
       if (pref === 'system') {
         theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';

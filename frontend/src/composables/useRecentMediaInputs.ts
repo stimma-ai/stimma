@@ -1,4 +1,5 @@
 import { makeStorageKey } from '../utils/storageKeys'
+import { syncedStorage } from '../utils/workspaceStore'
 
 /**
  * Recently-used tool inputs with frecency, backing the media picker popover's
@@ -36,7 +37,7 @@ function storageKey(): string {
 
 function load(): RecentMediaInput[] {
   try {
-    const raw = localStorage.getItem(storageKey())
+    const raw = syncedStorage.getItem(storageKey())
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -47,7 +48,7 @@ function load(): RecentMediaInput[] {
 
 function save(entries: RecentMediaInput[]) {
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(entries))
+    syncedStorage.setItem(storageKey(), JSON.stringify(entries))
   } catch {}
 }
 

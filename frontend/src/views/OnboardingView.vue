@@ -129,17 +129,16 @@ import { hasAcceptedTerms, recordTermsAcceptance } from '../utils/terms'
 import { getApiBase } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { useTheme } from '../composables/useTheme'
-import { useSettingsApi } from '../composables/useSettingsApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useReadiness } from '../composables/useReadiness'
 import RedeemCodeLink from '../components/RedeemCodeLink.vue'
 import Tooltip from '../components/ui/Tooltip.vue'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const router = useRouter()
 const { track } = useTelemetry()
 const { cloudBaseUrl } = useCloudAccount()
 const { themePreference: currentTheme, setTheme } = useTheme()
-const { updateTheme } = useSettingsApi()
 
 const termsUrl = computed(() => `${cloudBaseUrl.value}/link/terms`)
 const privacyUrl = computed(() => `${cloudBaseUrl.value}/link/privacy`)
@@ -156,7 +155,6 @@ async function openUrl(url) {
 
 function selectTheme(theme) {
   setTheme(theme)
-  updateTheme(theme).catch(() => {})
 }
 
 const loading = ref(false)
@@ -188,6 +186,7 @@ if (isOfficial) {
 
 function markComplete(action) {
   localStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
+  syncedStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
   // Install-scoped, unlike the flag above: the person does not re-agree just
   // because they pointed this window at another computer.
   recordTermsAcceptance()

@@ -1,3 +1,4 @@
+import { workspaceTabs } from '../helpers/lockstep';
 import { expect, test } from '../helpers/testbed';
 import type { Page } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -344,10 +345,8 @@ test.describe('project world', () => {
     await expect(sidebar(page).getByRole('region', { name: 'Projects' }).getByRole('button', { name: p.name, exact: true })).toHaveCount(0);
     await chooseContext(page, q.name);
     await chooseContext(page, 'Everything');
-    const tabs = await page.evaluate(() => Object.entries(localStorage)
-      .filter(([key]) => key.endsWith('workspace_tabs'))
-      .flatMap(([, value]) => JSON.parse(value) as Array<{ projectId?: number | null; contextProjectIds?: number[] }>));
-    expect(tabs.filter(t => t.projectId === p.id || t.contextProjectIds?.includes(p.id))).toEqual([]);
+    await expect.poll(async () => (await workspaceTabs(page))
+      .filter(t => t.projectId === p.id || t.contextProjectIds?.includes(p.id))).toEqual([]);
   });
 
   test('the Home composer sends its first message exactly once', async ({ page }) => {

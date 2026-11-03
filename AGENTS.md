@@ -146,6 +146,10 @@ Commands:
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
+  doctor workspace [--from DIR]  Read-only report of what a desktop's local storage
+                      would carry onto the shared workspace
+  doctor workspace [--from DIR]  Read-only report of what a desktop's local storage
+                      would carry onto the shared workspace
   tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
                       (canary builds are automatic on push to main — not tag-driven)
   promote production  Promote the latest beta's commit to a production release

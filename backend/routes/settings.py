@@ -325,6 +325,7 @@ class SettingsResponse(BaseModel):
     background_work: BackgroundWorkResponse
     tool_providers: List[ToolProviderResponse]
     llm_settings: List[LLMRoleResponse]  # LLM configurations by role
+    workspace_sync: int = 1  # Tabs and tool state live on this server (protocol version)
     bundle_id: str  # e.g., "ai.stimma.stimma" for prod, "ai.stimma.stimma.debug" for dev
     sandbox: str  # e.g., "default" or a named dev/test sandbox
     cloud_base_url: str  # Base URL for stimma.ai cloud services

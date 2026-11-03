@@ -382,6 +382,7 @@
           <AIPromptEditor
             ref="aiPromptEditorRef"
             v-model="globalPrefs.prompt"
+            @focusout="handlePromptFocusOut"
             :rows="drawerMode ? 3 : roomyTool ? 6 : (isFromScratch ? 19 : 10)"
             external-chat
             :promptOptions="globalPrefs.promptOptions"
@@ -1177,7 +1178,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, onBeforeUnmount, watch, nextTick, provide } from 'vue'
 import { consumeEscape, isTopmostEscapeLayer } from '../utils/escapeLayers'
 import { useViewport } from '../composables/useViewport'
 import { claimCompactHeader, compactHeaderOwner, releaseCompactHeader, setCompactTitle } from '../composables/useCompactChrome'
@@ -1237,9 +1238,11 @@ import { useToolSchemaFeatures } from '../composables/useToolSchemaFeatures'
 import type { MediaInputConfig } from '../composables/useToolSchemaFeatures'
 import { useVideoFrameExtraction, type FramePosition } from '../composables/useVideoFrameExtraction'
 import { useTelemetry } from '../composables/useTelemetry'
-import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
+import { makeGlobalKey, makeToolDbKey, makeToolProfileKey } from '../utils/storageKeys'
 import { snapDimsToGrid as snapDimsToSchemaGrid } from '../utils/resolutionControls'
-import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
+import { getBlob, putBlob, deleteBlob } from '../utils/syncedBlobs'
+import { docKeyFor, isServerMode, onNamespaceChange, syncedStorage } from '../utils/workspaceStore'
+import { whenWorkspaceReady } from '../utils/workspaceBoot'
 import { convertMaskDataUrl } from '../utils/maskFormat'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
@@ -2560,7 +2563,8 @@ if (!tabGuid) {
 // feedScope so their job-feed history stays attached — prefer it when present.
 const _tabsForFeed = useWorkspaceTabs()
 const _feedTab = instanceScopeId ? _tabsForFeed.getToolInstanceTab(fullToolIdFromProps, projectScopeId.value, instanceScopeId) : undefined
-const generatorInstanceId = `tool-${_feedTab?.feedScope || toolIdForStorage}@@${tabGuid}`
+const feedScope = _feedTab?.feedScope || toolIdForStorage
+const generatorInstanceId = `tool-${feedScope}@@${tabGuid}`
 
 // This instance's workspace tab (reactive — carries customName for the
 // header title, updated by renames from here or the sidebar).
@@ -2591,7 +2595,7 @@ let restoredStartAwaitingDimensions: { mediaId?: number; path?: string } | null 
 
 function loadVideoImages() {
   if (!tool.value) return
-  const savedVideoImages = localStorage.getItem(getVideoImagesKey(tool.value.full_tool_id))
+  const savedVideoImages = syncedStorage.getItem(getVideoImagesKey(tool.value.full_tool_id))
   if (savedVideoImages) {
     try {
       const parsed = JSON.parse(savedVideoImages)
@@ -2613,21 +2617,21 @@ function loadVideoImages() {
   }
 }
 
-// Save video images to localStorage when they change
+// Save video images when they change
 watch(videoImages, (newImages) => {
   if (tool.value) {
-    localStorage.setItem(getVideoImagesKey(tool.value.full_tool_id), JSON.stringify(newImages))
+    syncedStorage.setItem(getVideoImagesKey(tool.value.full_tool_id), JSON.stringify(newImages))
   }
 }, { deep: true })
 
-// Persist remix source to localStorage per-tool
+// Persist remix source per-tool
 function getRemixKey(fullToolId: string) {
   return makeToolDbKey(scopedToolId(fullToolId), 'remix')
 }
 
 function loadRemixState() {
   if (!tool.value) return
-  const saved = localStorage.getItem(getRemixKey(tool.value.full_tool_id))
+  const saved = syncedStorage.getItem(getRemixKey(tool.value.full_tool_id))
   if (saved) {
     try {
       remixSource.value = JSON.parse(saved)
@@ -2643,9 +2647,9 @@ function loadRemixState() {
 watch(remixSource, (newVal) => {
   if (tool.value) {
     if (newVal) {
-      localStorage.setItem(getRemixKey(tool.value.full_tool_id), JSON.stringify(newVal))
+      syncedStorage.setItem(getRemixKey(tool.value.full_tool_id), JSON.stringify(newVal))
     } else {
-      localStorage.removeItem(getRemixKey(tool.value.full_tool_id))
+      syncedStorage.removeItem(getRemixKey(tool.value.full_tool_id))
     }
   }
 })
@@ -2703,12 +2707,15 @@ const activeJobsCap = ref<number | null>(null)
 const jobsManager = useGenerationJobs({
   taskType: null,  // We filter by generatorInstanceId instead
   generatorInstanceId: generatorInstanceId,
+  // On a server with a shared workspace the tab's feed spans clients: a job
+  // started on another one shows here too.
+  feedScope: isServerMode() ? feedScope : null,
   activeCap: activeJobsCap
 })
 const { beginInstanceWork, setInstanceForeverMode, isInstanceActive } = useGenerationStatus()
 // Preview images are sent only while this tool is on screen (KeepAlive
 // active). The job feed itself stays followed while the view is cached.
-useRealtimeTopic(() => `previews:${generatorInstanceId}`)
+useRealtimeTopic(() => isServerMode() ? `previews-feed:${feedScope}` : `previews:${generatorInstanceId}`)
 
 // Generation preferences composable - called at TOP LEVEL during setup
 // taskType is a placeholder - the real key is toolId which creates tool-specific storage
@@ -2989,10 +2996,14 @@ const hadMaskInSession = ref(false)
 let maskPersistTimeout: ReturnType<typeof setTimeout> | null = null
 let pendingHoppedMask: { mask: string; imagePath: string } | null = null
 
+// Set while applying a mask or paint layer another client stored.
+let applyingRemoteMedia = false
+
 // Watch maskDataUrl changes and persist (debounced)
 watch([maskDataUrl, inpaintSourceImage], ([newMask, newImage], [oldMask]) => {
   const key = maskStorageKey.value
   if (!key) return
+  if (applyingRemoteMedia || isSettlingRemoteChange()) return
 
   if (maskPersistTimeout) {
     clearTimeout(maskPersistTimeout)
@@ -3021,6 +3032,9 @@ watch([() => tool.value?.full_tool_id, inpaintSourceImage], async ([newFullToolI
     return
   }
   const key = makeToolDbKey(scopedToolId(newFullToolId), 'mask')
+  // An image another client changed may have its mask still on the way, so a
+  // mismatch here only says what's stored is out of date, not that it's garbage.
+  const remoteChange = applyingRemoteMedia || isSettlingRemoteChange()
   const stored = await getBlob<{ mask: string; imagePath: string }>(key).catch(() => null)
   // Bail if tool switched under us while the async load was in flight
   if (tool.value?.full_tool_id !== newFullToolId) return
@@ -3031,7 +3045,7 @@ watch([() => tool.value?.full_tool_id, inpaintSourceImage], async ([newFullToolI
       maskDataUrl.value = stored.mask
     } else if (currentImage?.path) {
       // Image is different from when mask was painted, clear it
-      deleteBlob(key).catch(() => { /* ignore */ })
+      if (!remoteChange) deleteBlob(key).catch(() => { /* ignore */ })
       maskDataUrl.value = null
     }
     // If currentImage is null/undefined, don't clear yet - wait for it to load
@@ -3057,6 +3071,9 @@ watch(() => globalPrefs.value.inputImages.map((img: any) => ({
   path: img._originalPath || img.path,
 })), (newSlots, oldSlots) => {
   if (!tool.value) return
+  // Inputs another client changed bring their paint layers with them, from the
+  // server; what's in memory here says nothing about what's stored.
+  if (applyingRemoteMedia || isSettlingRemoteChange()) return
   for (let i = 0; i < newSlots.length; i++) {
     const slot = newSlots[i]
     const oldSlot = oldSlots?.[i]
@@ -3089,8 +3106,39 @@ watch(() => globalPrefs.value.inputImages.map((img: any) => ({
   }
 }, { deep: true })
 
+// Another client painted or masked in this tab.
+const stopFollowingStoredMedia = onNamespaceChange('blob', async (docKey) => {
+  if (!tool.value) return
+  const stem = docKeyFor(makeToolDbKey(scopedToolId(tool.value.full_tool_id), ''))
+  if (!stem || !docKey.startsWith(stem)) return
+  const part = docKey.slice(stem.length)
+  applyingRemoteMedia = true
+  try {
+    if (part === 'mask') {
+      const stored = await getBlob<{ mask: string; imagePath: string }>(maskStorageKey.value!).catch(() => null)
+      maskDataUrl.value = stored && stored.imagePath === inpaintSourceImage.value?.path ? stored.mask : null
+      hadMaskInSession.value = !!maskDataUrl.value
+    } else if (part.startsWith('paint_')) {
+      const slot = Number(part.slice('paint_'.length))
+      const key = getPaintStorageKey(slot)
+      const images = globalPrefs.value.inputImages
+      if (key && images?.[slot]) {
+        const stored = await getBlob<{ paint: string; imagePath: string }>(key).catch(() => null)
+        const path = images[slot]._originalPath || images[slot].path
+        const { _paintLayerDataUrl, ...rest } = images[slot]
+        images[slot] = stored && stored.imagePath === path ? { ...rest, _paintLayerDataUrl: stored.paint } : rest
+        globalPrefs.value.inputImages = [...images]
+      }
+    }
+    await nextTick()
+  } finally {
+    applyingRemoteMedia = false
+  }
+})
+onBeforeUnmount(stopFollowingStoredMedia)
+
 // Restore paint layers from dedicated storage — called after initializeState
-async function restorePaintLayers() {
+async function restorePaintLayers({ remoteChange = false } = {}) {
   if (!tool.value) return
   const fullToolId = tool.value.full_tool_id
   const images = globalPrefs.value.inputImages
@@ -3110,7 +3158,7 @@ async function restorePaintLayers() {
     if (stored.imagePath === itemPath) {
       images[i] = { ...images[i], _paintLayerDataUrl: stored.paint }
       anyRestored = true
-    } else {
+    } else if (!remoteChange) {
       deleteBlob(key).catch(() => { /* ignore */ })
     }
   }
@@ -3756,6 +3804,8 @@ const {
   startWatchingChanges,
   stopWatching,
   flushPendingSaves,
+  releaseHeldStateKeys,
+  isSettlingRemoteChange,
 } = useToolState({
   fullToolId: fullToolIdFromProps,
   scopedToolId: (projectSuffix || instanceSuffix) ? scopedToolId(fullToolIdFromProps) : undefined,
@@ -3766,7 +3816,22 @@ const {
   toolChain,
   uiState,
   saveToolState,
+  focusedStateKey: () => aiPromptEditorRef.value?.$el?.contains?.(document.activeElement) ? 'prompt' : null,
+  onRemoteInputs: () => { void restorePaintLayers({ remoteChange: true }) },
 })
+
+// A prompt edit from another client waits for the cursor to leave the field.
+function handlePromptFocusOut(event: FocusEvent) {
+  if (!aiPromptEditorRef.value?.$el?.contains?.(event.relatedTarget as Node | null)) releaseHeldStateKeys()
+}
+
+// Another client changed this tab's other saved values.
+const stopFollowingToolPrefs = [
+  syncedStorage.subscribe(makeToolProfileKey(scopedToolId(fullToolIdFromProps), 'ui'), () => loadUIState()),
+  syncedStorage.subscribe(makeToolDbKey(scopedToolId(fullToolIdFromProps), 'video_images'), () => loadVideoImages()),
+  syncedStorage.subscribe(makeToolDbKey(scopedToolId(fullToolIdFromProps), 'remix'), () => loadRemixState()),
+]
+onBeforeUnmount(() => stopFollowingToolPrefs.forEach(stop => stop()))
 
 // Upscale resolution picker value
 const resolutionPickerValue = computed(() => ({
@@ -7209,6 +7274,7 @@ function handlePageHide() {
 
 async function handleProfileChanged() {
   stopWatching()  // stop watchers to prevent stale saves during reinit
+  await whenWorkspaceReady()
   await loadTool(true)  // force reload from API + reinitialize state + restart watchers
 }
 
@@ -7216,6 +7282,7 @@ onMounted(async () => {
   // Under KeepAlive onActivated claims too; this covers a mount outside it.
   claimCompactHeader(compactHeaderToken)
   console.log('[ToolView onMounted] Starting', { queryKeys: Object.keys(route.query) })
+  await whenWorkspaceReady()
   await loadTool()
   console.log('[ToolView onMounted] loadTool completed')
 

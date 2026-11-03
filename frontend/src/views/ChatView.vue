@@ -1587,13 +1587,7 @@ const traceToolCallId = ref(null)  // Filter traces by tool_call_id (for delegat
 const chatTraces = ref([])  // All traces for this chat
 const selectedJob = ref(null)
 const viewMode = ref('chat') // 'chat' or 'raw'
-// Migrate legacy unscoped key
-const _legacyChatSettingsKey = 'chatSettingsPanelVisible'
 const _chatSettingsKey = makeProfileKey('chatSettingsPanelVisible')
-if (localStorage.getItem(_legacyChatSettingsKey) !== null) {
-  localStorage.setItem(_chatSettingsKey, localStorage.getItem(_legacyChatSettingsKey))
-  localStorage.removeItem(_legacyChatSettingsKey)
-}
 const settingsPanelVisible = ref(localStorage.getItem(_chatSettingsKey) === 'true')
 const focusedItemId = ref(null) // ID of item to focus in raw view
 const debugMessages = ref(null) // Debug: what LLM sees

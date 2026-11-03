@@ -55,6 +55,11 @@ export interface StackEditOptions {
 
 export function useStackDocument() {
   const documentId = ref<number | null>(null)
+  // Another client saved this document after this one read it. Nothing more is
+  // written from here until it loads the latest.
+  const savedElsewhere = ref(false)
+  let generation = 0
+  let flushInProgress: Promise<void> | null = null
   const doc = ref<StackDocument | null>(null)
   const journal = shallowRef<JournalEntry[]>([])
   /** Entries at index >= cursor are undone. */
@@ -114,6 +119,8 @@ export function useStackDocument() {
       revision_id: revisionId ?? null,
     })
     documentId.value = data.document_id
+    generation = data.generation ?? 0
+    savedElsewhere.value = false
 
     if (data.document) {
       doc.value = migrateDocument(data.document)
@@ -231,8 +238,19 @@ export function useStackDocument() {
 
   /** Write document.json and drain queued journal entries. */
   async function flush() {
+    // One at a time: each save names the generation the previous one produced.
+    while (flushInProgress) await flushInProgress.catch(() => {})
+    flushInProgress = writeDocument()
+    try {
+      await flushInProgress
+    } finally {
+      flushInProgress = null
+    }
+  }
+
+  async function writeDocument() {
     if (persistTimer) { clearTimeout(persistTimer); persistTimer = null }
-    if (!documentId.value || !doc.value) return
+    if (!documentId.value || !doc.value || savedElsewhere.value) return
     // History assigns the persisted sequence boundary. A fast edit made before
     // hydration may mutate immediately, but it cannot be written before its
     // temporary sequence id has been made durable and collision-free.
@@ -243,12 +261,18 @@ export function useStackDocument() {
     saving.value = true
     try {
       if (entries.length) {
-        await axios.post(`${API_BASE}/image-stack/${id}/journal`, { entries })
+        await axios.post(`${API_BASE}/image-stack/${id}/journal`, { entries, expected_generation: generation })
       }
-      await axios.put(`${API_BASE}/image-stack/${id}/document`, {
+      const { data } = await axios.put(`${API_BASE}/image-stack/${id}/document`, {
         document: JSON.parse(JSON.stringify(doc.value)),
+        expected_generation: generation,
       })
-    } catch (err) {
+      generation = data.generation
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        savedElsewhere.value = true
+        return
+      }
       // Re-queue so the next flush retries rather than dropping history.
       pendingJournal = [...entries, ...pendingJournal]
       console.error('[imageStack] persist failed', err)
@@ -685,6 +709,7 @@ export function useStackDocument() {
   }
 
   return {
+    savedElsewhere,
     documentId,
     doc,
     ops,

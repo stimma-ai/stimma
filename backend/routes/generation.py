@@ -2310,6 +2310,7 @@ def _parse_completed_before(completed_before: Optional[str]):
 async def list_generation_jobs(
     status: Optional[str] = None,
     generator_instance_id: Optional[str] = None,
+    feed_scope: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     order: str = Query("created_at", pattern="^(created_at|completed_at)$"),
@@ -2327,6 +2328,7 @@ async def list_generation_jobs(
     jobs = await generation_queue.list_jobs(
         status=status,
         generator_instance_id=generator_instance_id,
+        feed_scope=feed_scope,
         limit=limit,
         offset=offset,
         order=order,
@@ -2339,6 +2341,7 @@ async def list_generation_jobs(
 @router.get("/jobs/completed-count")
 async def count_completed_generation_jobs(
     generator_instance_id: Optional[str] = None,
+    feed_scope: Optional[str] = None,
     completed_before: Optional[str] = None,
     completed_before_id: Optional[int] = None
 ):
@@ -2348,6 +2351,7 @@ async def count_completed_generation_jobs(
     generation_queue = get_generation_queue()
     count = await generation_queue.count_completed_jobs(
         generator_instance_id=generator_instance_id,
+        feed_scope=feed_scope,
         completed_before=_parse_completed_before(completed_before),
         completed_before_id=completed_before_id
     )

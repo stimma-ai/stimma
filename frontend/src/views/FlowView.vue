@@ -807,6 +807,7 @@ import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
@@ -1788,6 +1789,8 @@ function getProgramDraftKey(rid = flowId.value) {
   return rid ? makeStorageKey('flow', rid, 'program_draft') : null
 }
 
+const DRAFT_SYNC_DELAY_MS = 1000
+
 function getCodeIntroKey() {
   return makeStorageKey('flow', 'code_intro_seen')
 }
@@ -1796,7 +1799,7 @@ function getStoredProgramDraft(rid = flowId.value): string | null {
   const key = getProgramDraftKey(rid)
   if (!key) return null
   try {
-    return localStorage.getItem(key)
+    return syncedStorage.getItem(key)
   } catch {
     return null
   }
@@ -1805,7 +1808,7 @@ function getStoredProgramDraft(rid = flowId.value): string | null {
 function clearStoredProgramDraft(rid = flowId.value) {
   const key = getProgramDraftKey(rid)
   if (!key) return
-  try { localStorage.removeItem(key) } catch {}
+  try { syncedStorage.removeItem(key) } catch {}
 }
 
 function handleCodeDraftUpdate(next: string) {
@@ -1813,8 +1816,8 @@ function handleCodeDraftUpdate(next: string) {
   const key = getProgramDraftKey()
   if (!key) return
   try {
-    if (next !== programCode.value) localStorage.setItem(key, next)
-    else localStorage.removeItem(key)
+    if (next !== programCode.value) syncedStorage.setItem(key, next, { delayMs: DRAFT_SYNC_DELAY_MS })
+    else syncedStorage.removeItem(key)
   } catch {}
 }
 
@@ -1827,12 +1830,12 @@ function revertCodeEdit() {
 
 function dismissCodeIntro() {
   showCodeIntroModal.value = false
-  try { localStorage.setItem(getCodeIntroKey(), 'true') } catch {}
+  try { syncedStorage.setItem(getCodeIntroKey(), 'true') } catch {}
 }
 
 function showCodeIntroIfNeeded() {
   try {
-    if (localStorage.getItem(getCodeIntroKey()) === 'true') return
+    if (syncedStorage.getItem(getCodeIntroKey()) === 'true') return
   } catch {}
   showCodeIntroModal.value = true
 }

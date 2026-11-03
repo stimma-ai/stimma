@@ -125,7 +125,3 @@ export function parseRecents(raw: string | null | undefined): RecentEntry[] {
   }
 }
 
-/** Storage key for recents, scoped to the server whose filesystem they name. */
-export function recentsStorageKey(deviceId: string | null | undefined): string {
-  return `stimma_folder_picker_recents:${deviceId || 'local'}`
-}

@@ -164,6 +164,7 @@ import { makeStorageKey } from '../utils/storageKeys'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import { useWorkingContext } from '../composables/useWorkingContext'
 import { useWorkspaceTabs, toolTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { syncedStorage } from '../utils/workspaceStore'
 
 const { allowsAutofocus } = useViewport()
 
@@ -188,7 +189,7 @@ const MAX_RECENT = 5
 function getRecentTools(): string[] {
   try {
     const key = makeStorageKey(RECENT_STORAGE_KEY, 'recent')
-    const stored = localStorage.getItem(key)
+    const stored = syncedStorage.getItem(key)
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -200,7 +201,7 @@ function addRecentTool(toolId: string) {
     const key = makeStorageKey(RECENT_STORAGE_KEY, 'recent')
     const recent = getRecentTools().filter(id => id !== toolId)
     recent.unshift(toolId)
-    localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
+    syncedStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
   } catch {
     // Ignore storage errors
   }

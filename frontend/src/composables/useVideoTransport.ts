@@ -16,6 +16,7 @@ import { getCachedPin } from './usePinLock'
 import { makeProfileKey } from '../utils/storageKeys'
 import { allowMobilePlayback } from './useMobilePlaybackLifecycle'
 import type { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { syncedStorage } from '../utils/workspaceStore'
 
 export interface VideoTransportSource {
   filePath: string
@@ -44,7 +45,7 @@ export function useVideoTransport(opts: VideoTransportOptions) {
   const scrubbing = ref(false)
   const displayMode = ref<'time' | 'frames'>('time')
   try {
-    displayMode.value = localStorage.getItem(makeProfileKey('frame-mode', FRAME_MODE_KEY)) === 'frames' ? 'frames' : 'time'
+    displayMode.value = syncedStorage.getItem(makeProfileKey('frame-mode', FRAME_MODE_KEY)) === 'frames' ? 'frames' : 'time'
   } catch { /* default to time */ }
 
   const filePath = computed(() => opts.source()?.filePath || '')
@@ -89,7 +90,7 @@ export function useVideoTransport(opts: VideoTransportOptions) {
   function toggleDisplayMode() {
     displayMode.value = displayMode.value === 'frames' ? 'time' : 'frames'
     try {
-      localStorage.setItem(makeProfileKey('frame-mode', FRAME_MODE_KEY), displayMode.value)
+      syncedStorage.setItem(makeProfileKey('frame-mode', FRAME_MODE_KEY), displayMode.value)
     } catch { /* ignore */ }
   }
 
