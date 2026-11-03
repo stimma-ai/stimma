@@ -185,6 +185,7 @@ export function usePromptWarmPool(options: PromptWarmPoolOptions) {
       ...(inputImageCount ? [inputImageCount] : []),
       ...(audioConditioned ? [audioConditioned] : []),
       ...(projectId ? [projectId] : []),
+      ...(loras ? [loras] : []),
     ],
     () => {
       if (active.value) scheduleUpdate()

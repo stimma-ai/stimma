@@ -29,7 +29,7 @@ def _check_fingerprint(fingerprint: str) -> None:
 
 @router.get("")
 async def get_lora_notes(tool_id: str = Query(...)):
-    return await resolve_lora_notes(get_current_profile(), tool_id)
+    return await resolve_lora_notes(get_current_profile(), tool_id, fresh=True)
 
 
 @router.put("/files/{fingerprint}")

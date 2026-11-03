@@ -95,7 +95,7 @@ def _lora_values(descriptor) -> List[str]:
     return [str(v) for v in values] if isinstance(values, list) else []
 
 
-async def _fetch_fingerprints(tool_id: str) -> Optional[_Snapshot]:
+async def _fetch_fingerprints(tool_id: str, fresh: bool = False) -> Optional[_Snapshot]:
     """Fingerprints for a tool's LoRA list, or None when unavailable. Never raises."""
     try:
         from providers.registry import ProviderRegistry
@@ -109,7 +109,8 @@ async def _fetch_fingerprints(tool_id: str) -> Optional[_Snapshot]:
             return None
         cached = _snapshots.get(tool_id)
         if (
-            cached
+            not fresh
+            and cached
             and cached.values == values
             and cached.pending == 0
             and time.monotonic() - cached.at < _FINGERPRINT_TTL_SECONDS
@@ -202,9 +203,13 @@ async def _auto_join(profile_id, series: Dict[str, List[str]], snapshot: _Snapsh
         await session.commit()
 
 
-async def resolve_lora_notes(profile_id: Optional[str], tool_id: str) -> Dict[str, Any]:
-    """Notes for a tool's LoRA list: {available, pending, items: {value: {...}}}."""
-    snapshot = await _fetch_fingerprints(tool_id)
+async def resolve_lora_notes(profile_id: Optional[str], tool_id: str, fresh: bool = False) -> Dict[str, Any]:
+    """Notes for a tool's LoRA list: {available, pending, items: {value: {...}}}.
+
+    `fresh` skips the short fingerprint cache, for the widget, which stops polling
+    once it sees nothing pending.
+    """
+    snapshot = await _fetch_fingerprints(tool_id, fresh)
     if snapshot is None:
         return {"available": False, "pending": 0, "items": {}}
 

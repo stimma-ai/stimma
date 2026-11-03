@@ -668,7 +668,11 @@ async def _apply_prompt_pipeline(
         db,
         prompt,
         prompt_options,
-        lora_context=await lora_context_for(tool_id, params, profile_id),
+        lora_context=(
+            await lora_context_for(tool_id, params, profile_id)
+            if ((prompt_options or {}).get("autoImprove") or {}).get("enabled")
+            else None
+        ),
         model=model,
         model_vendor=model_vendor,
         is_video="video" in effective_task,

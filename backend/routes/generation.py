@@ -457,7 +457,8 @@ async def _apply_generation_prompt_pipeline(
     if model_family(model) in ("qwen-image-2.1", "flux-3-klein"):
         input_media_ids = _prompt_input_media_ids(parameters)
     from lora_notes import lora_context_for
-    lora_context = await lora_context_for(tool_id, parameters, profile_id)
+    enhance_on = bool(((prompt_options or {}).get("autoImprove") or {}).get("enabled"))
+    lora_context = await lora_context_for(tool_id, parameters, profile_id) if enhance_on else None
     processed_prompt = await run_prompt_pipeline(
         db,
         prompt,
