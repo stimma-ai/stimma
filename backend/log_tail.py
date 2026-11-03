@@ -99,8 +99,8 @@ def _tail_files(paths: List[Path], n: int) -> List[str]:
                 data = file.read(budget)
             budget -= len(data)
             # Avoid attaching a partial first line after seeking into a file.
-            if start and b"\n" in data:
-                data = data.split(b"\n", 1)[1]
+            if start:
+                data = data.partition(b"\n")[2]
             lines = data.decode("utf-8", errors="replace").splitlines()
         except OSError:
             break

@@ -26,6 +26,11 @@ import pytest
 
 
 class TestLogTail:
+    def test_bounded_tail_discards_a_partial_line_without_a_newline(self, tmp_path):
+        from log_tail import MAX_TAIL_BYTES, tail_log_lines
+        (tmp_path / "Stimma_log.00.txt").write_text("api_key=" + "v" * MAX_TAIL_BYTES)
+        assert tail_log_lines(log_dir=tmp_path) == []
+
     def test_feedback_scrubs_export_secrets_and_current_identity(self, monkeypatch):
         import getpass
         import socket
