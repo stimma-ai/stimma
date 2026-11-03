@@ -676,6 +676,8 @@ def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_ev
     def _check_parent():
         while True:
             if os.getppid() != parent_pid:
+                from utils.video_playback import shutdown as shutdown_video_playback
+                shutdown_video_playback()
                 os._exit(0)  # Parent died, exit immediately
             time.sleep(0.5)
     threading.Thread(target=_check_parent, daemon=True).start()
@@ -734,6 +736,9 @@ def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_ev
         log.exception("INGESTION WORKER CRASHED")
         traceback.print_exc(file=sys.stderr)
         raise
+    finally:
+        from utils.video_playback import shutdown as shutdown_video_playback
+        shutdown_video_playback()
 
 
 # Global thread pool for thumbnail generation
@@ -1408,6 +1413,8 @@ async def lifespan(app: FastAPI):
 
     # === SHUTDOWN ===
     log.info("shutdown begin")
+    from utils.video_playback import shutdown as shutdown_video_playback
+    shutdown_video_playback()
 
     # Stop the serving listener before anything it depends on goes away.
     try:

@@ -138,6 +138,7 @@ export function useMediaApi() {
       const base = `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/mse-loop`
       return {
         manifest: base,
+        playback: `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/playback`,
         init: `${base}/init`,
         segment: `${base}/segment`,
       }
@@ -147,6 +148,7 @@ export function useMediaApi() {
     const query = `?profile=${encodeURIComponent(profileId)}`
     return {
       manifest: `${base}${query}`,
+      playback: `${getAPIBase()}/media/by-hash/${fileHash}/playback${query}`,
       init: `${base}/init${query}`,
       segment: `${base}/segment${query}`,
     }

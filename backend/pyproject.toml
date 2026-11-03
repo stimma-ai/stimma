@@ -37,6 +37,7 @@ dependencies = [
     "osam>=0.2.5",
     # Video processing
     "ffmpeg-python==0.2.0",
+    "filelock>=3.20,<4",
     # LLM (httpx used directly for OpenAI-compatible API calls)
     # Model hub (face detection, SAM3 model downloads)
     "huggingface-hub",

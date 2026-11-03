@@ -1375,6 +1375,7 @@ import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructu
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer, SvgViewer, SpritePlayer, PackageViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { playbackPartUrl } from '../utils/segmentedLoopPlayback'
 import { useVideoTransport } from '../composables/useVideoTransport'
 import VideoTransportBar from './media/VideoTransportBar.vue'
 import { useWorkingContext } from '../composables/useWorkingContext'
@@ -1861,10 +1862,13 @@ function preloadSmallVideo(fileHash) {
     // Preparing the manifest may run ffmpeg on the server the first time. Do
     // that ahead of navigation, then fully consume the immutable init/segment
     // responses so Chromium's HTTP cache owns the bytes MseLoopPlayback needs.
-    const manifest = await fetch(urls.manifest)
-    if (!manifest.ok) throw new Error(`video manifest preload failed (${manifest.status})`)
-    await manifest.arrayBuffer()
-    const responses = await Promise.all([fetch(urls.init), fetch(urls.segment)])
+    const response = await fetch(urls.playback || urls.manifest)
+    if (!response.ok) throw new Error(`video manifest preload failed (${response.status})`)
+    const manifest = await response.json()
+    const parts = manifest.streaming
+      ? ['init.mp4', 'segment-0.m4s'].map(part => playbackPartUrl(urls.playback, manifest.renditions[0].id, part))
+      : [urls.init, urls.segment]
+    const responses = await Promise.all(parts.map(url => fetch(url)))
     if (responses.some(response => !response.ok)) throw new Error('video segment preload failed')
     await Promise.all(responses.map(response => response.arrayBuffer()))
     return true

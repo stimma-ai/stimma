@@ -1921,6 +1921,71 @@ async def _prepare_loop_media(item: MediaItem, session: AsyncSession) -> tuple[d
         raise HTTPException(status_code=500, detail="Failed to prepare video for seamless looping") from exc
 
 
+async def _video_playback_manifest(file_hash: str, session: AsyncSession):
+    from utils import video_playback
+
+    item = await _find_loop_media(session, file_hash)
+    source = Path(item.file_path)
+    if not video_playback.needs_streaming(item.duration, source.stat().st_size):
+        manifest, _ = await _prepare_loop_media(item, session)
+        return await _manifest_with_face_position(manifest, item, session)
+    try:
+        manifest = await asyncio.to_thread(video_playback.describe, source, file_hash)
+        (video_playback.cache_dir(file_hash) / "cancelled").unlink(missing_ok=True)
+        await video_playback.register_cache(session, item.id, file_hash, manifest)
+        await session.commit()
+        init = await video_playback.part(source, file_hash, manifest["renditions"][0]["id"], "init.mp4")
+        manifest = {**manifest, "mime_type": video_playback.mime_type(init.read_bytes(), manifest["has_audio"])}
+        return await _manifest_with_face_position(manifest, item, session)
+    except (ValueError, RuntimeError, OSError) as exc:
+        log.warning("Video playback preparation failed", error=type(exc).__name__)
+        raise HTTPException(500, "Failed to prepare video playback") from exc
+
+
+async def _video_playback_part(file_hash: str, rendition: str, part_name: str, request: Request, session: AsyncSession):
+    from utils import video_playback
+    item = await _find_loop_media(session, file_hash)
+    source = Path(item.file_path)
+    try:
+        if part_name == "index.m3u8":
+            from fastapi.responses import PlainTextResponse
+            from fractions import Fraction
+            from urllib.parse import urlencode
+            manifest = await asyncio.to_thread(video_playback.describe, source, file_hash)
+            if rendition == "auto":
+                query = urlencode({key: request.query_params[key] for key in ("profile", "pin") if key in request.query_params})
+                suffix = f"?{query}" if query else ""
+                lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-INDEPENDENT-SEGMENTS"]
+                init = await video_playback.part(source, file_hash, manifest["renditions"][0]["id"], "init.mp4")
+                codecs = video_playback.mime_type(init.read_bytes(), manifest["has_audio"]).split('"')[1]
+                fps = float(Fraction(manifest["fps"]))
+                for variant in manifest["renditions"]:
+                    average = variant["video_bitrate"] + (128_000 if manifest["has_audio"] else 0)
+                    lines += [f'#EXT-X-STREAM-INF:BANDWIDTH={variant["bandwidth"]},AVERAGE-BANDWIDTH={average},RESOLUTION={variant["width"]}x{variant["height"]},FRAME-RATE={fps:.3f},CODECS="{codecs}"', f'../{variant["id"]}/index.m3u8{suffix}']
+                return PlainTextResponse("\n".join(lines) + "\n", media_type="application/vnd.apple.mpegurl")
+            if rendition not in {r["id"] for r in manifest["renditions"]}:
+                raise ValueError("Unknown rendition")
+            query = urlencode({key: request.query_params[key] for key in ("profile", "pin") if key in request.query_params})
+            return PlainTextResponse(video_playback.playlist(manifest, f"?{query}" if query else ""), media_type="application/vnd.apple.mpegurl")
+        await session.commit()
+        path = await video_playback.part(source, file_hash, rendition, part_name)
+    except ValueError as exc:
+        raise HTTPException(404, "Video playback segment not found") from exc
+    except (RuntimeError, OSError) as exc:
+        raise HTTPException(503, "Video playback segment preparation failed") from exc
+    return FileResponse(path, media_type="video/mp4", headers=CACHE_HEADERS)
+
+
+@router.get("/media/by-hash/{file_hash}/playback")
+async def get_video_playback(file_hash: str, session: AsyncSession = Depends(get_db_session)):
+    return await _video_playback_manifest(file_hash, session)
+
+
+@router.get("/media/by-hash/{file_hash}/playback/v1/{rendition}/{part_name}")
+async def get_video_playback_part(file_hash: str, rendition: str, part_name: str, request: Request, session: AsyncSession = Depends(get_db_session)):
+    return await _video_playback_part(file_hash, rendition, part_name, request, session)
+
+
 @router.get("/media/by-hash/{file_hash}/mse-loop")
 async def get_mse_loop_manifest(
     file_hash: str,
@@ -3047,6 +3112,16 @@ async def get_thumbnail_by_db_guid(
     await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
     await _record_thumbnail_cache(session, media_id, cache_path)
     return FileResponse(cache_path, media_type=media_type, headers=CACHE_HEADERS)
+
+
+@router.get("/db/{db_guid}/media/by-hash/{file_hash}/playback")
+async def get_video_playback_by_guid(db_guid: str, file_hash: str, session: AsyncSession = Depends(get_db_session_by_guid)):
+    return await _video_playback_manifest(file_hash, session)
+
+
+@router.get("/db/{db_guid}/media/by-hash/{file_hash}/playback/v1/{rendition}/{part_name}")
+async def get_video_playback_part_by_guid(db_guid: str, file_hash: str, rendition: str, part_name: str, request: Request, session: AsyncSession = Depends(get_db_session_by_guid)):
+    return await _video_playback_part(file_hash, rendition, part_name, request, session)
 
 
 @router.get("/db/{db_guid}/media/by-hash/{file_hash}/mse-loop")

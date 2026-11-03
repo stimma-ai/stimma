@@ -1470,6 +1470,16 @@ class MediaIngestion:
 
             await session.commit()
 
+            from utils.video_playback import prewarm
+            from types import SimpleNamespace
+            # A failed optional prewarm rolls back its own index transaction.
+            # Snapshot values first so that rollback cannot expire later rows.
+            videos = [SimpleNamespace(**{key: getattr(item, key) for key in (
+                'id', 'file_format', 'duration', 'file_size', 'file_path', 'file_hash',
+            )}) for item in media_by_id.values() if item.metadata_status == 'completed']
+            for item in videos:
+                await prewarm(session, item)
+
     async def _apply_extracted_metadata(
         self,
         session: AsyncSession,

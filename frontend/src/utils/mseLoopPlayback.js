@@ -1,3 +1,5 @@
+import { SegmentedLoopPlayback } from './segmentedLoopPlayback.js'
+
 const DEFAULT_INITIAL_LOOPS = 6
 const DEFAULT_APPEND_LOOPS = 4
 const DEFAULT_BUFFER_AHEAD_LOOPS = 3
@@ -99,6 +101,8 @@ export class MseLoopPlayback {
     this.operation = Promise.resolve()
     this.raf = null
     this.maintenancePending = false
+    this.abort = new AbortController()
+    this.streamingPlayback = null
   }
 
   get logicalCurrentTime() {
@@ -108,6 +112,7 @@ export class MseLoopPlayback {
   }
 
   seekLogical(seconds) {
+    if (this.streamingPlayback) return this.streamingPlayback.seekLogical(seconds)
     if (!(this.duration > 0)) return
     const max = Math.max(0, this.duration - 0.000_001)
     const logical = Math.min(max, Math.max(0, seconds))
@@ -117,16 +122,14 @@ export class MseLoopPlayback {
 
   async start() {
     try {
-      if (!('MediaSource' in window)) throw new Error('Media Source Extensions are unavailable')
-
-      const manifestResponse = await fetch(this.urls.manifest)
+      let manifestResponse = await fetch(this.urls.playback || this.urls.manifest, { signal: this.abort.signal })
+      // A newly cached UI may still be connected to an older server.
+      if (manifestResponse.status === 404 && this.urls.playback) {
+        manifestResponse = await fetch(this.urls.manifest, { signal: this.abort.signal })
+      }
       if (!manifestResponse.ok) throw new Error(`MSE preparation failed (${manifestResponse.status})`)
       const manifest = await manifestResponse.json()
       if (this.destroyed) return
-      if (!MediaSource.isTypeSupported(manifest.mime_type)) {
-        throw new Error(`MSE codec is unsupported: ${manifest.mime_type}`)
-      }
-
       this.duration = Number(manifest.duration)
       if (!(this.duration > 0)) throw new Error('MSE manifest has no valid duration')
       this.hasAudio = Boolean(manifest.has_audio)
@@ -143,9 +146,18 @@ export class MseLoopPlayback {
         this.hidOpacity = true
       }
 
+      if (manifest.streaming) {
+        this.streamingPlayback = new SegmentedLoopPlayback(this, manifest)
+        await this.streamingPlayback.start()
+        return
+      }
+      if (!('MediaSource' in window)) throw new Error('Media Source Extensions are unavailable')
+      if (!MediaSource.isTypeSupported(manifest.mime_type)) {
+        throw new Error(`MSE codec is unsupported: ${manifest.mime_type}`)
+      }
       const [initResponse, segmentResponse] = await Promise.all([
-        fetch(this.urls.init),
-        fetch(this.urls.segment),
+        fetch(this.urls.init, { signal: this.abort.signal }),
+        fetch(this.urls.segment, { signal: this.abort.signal }),
       ])
       if (!initResponse.ok || !segmentResponse.ok) throw new Error('MSE media segment fetch failed')
       const [initBytes, segmentBytes] = await Promise.all([
@@ -253,6 +265,9 @@ export class MseLoopPlayback {
   destroy() {
     if (this.destroyed) return
     this.destroyed = true
+    this.abort.abort()
+    this.streamingPlayback?.destroy()
+    this.streamingPlayback = null
     if (this.raf != null) cancelAnimationFrame(this.raf)
     this.raf = null
     this.video.pause()

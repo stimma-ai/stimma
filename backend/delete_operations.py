@@ -603,6 +603,9 @@ def _unlink_staged_manifests(
         return None
 
     for item in staged_items:
+        if item.file_hash and len(item.file_hash) == 64:
+            from utils.video_playback import stop as stop_video_preparation
+            stop_video_preparation(item.file_hash)
         try:
             thumbnail_paths = json.loads(item.thumbnail_paths or "[]")
         except (json.JSONDecodeError, TypeError):
