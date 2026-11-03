@@ -100,7 +100,7 @@ import { useFlowsApi, type Flow } from '../composables/useFlowsApi'
 
 import { useWebSocket } from '../composables/useWebSocket'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 
 
 const router = useRouter()
@@ -220,7 +220,7 @@ async function handleInlineRename(flow: Flow, newName: string) {
     const idx = flows.value.findIndex(r => r.id === flow.id)
     if (idx >= 0) flows.value[idx] = updated
   } catch (err) {
-    console.error('Failed to rename flow:', err)
+    reportActionError("Couldn't rename flow.", err)
   }
 }
 
@@ -266,7 +266,7 @@ async function createFlow() {
     const r = await api.createFlow(body)
     router.push({ name: 'flow', params: { id: String(r.id) } })
   } catch (err) {
-    console.error('Failed to create flow:', err)
+    reportActionError("Couldn't create flow.", err)
   }
 }
 

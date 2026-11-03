@@ -858,7 +858,7 @@ import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { useVideoFrameExtraction, type FramePosition } from '../../composables/useVideoFrameExtraction'
 import { createDragPreview, handleDragEnd as clearDragPreview } from '../../composables/useDragPreview'
-import { addToast } from '../../composables/useToasts'
+import { addToast, reportActionError } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
 import MediaImage from '../media/MediaImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
@@ -1635,7 +1635,7 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
       emit('update:modelValue', newItems)
     }
   } catch (error) {
-    console.error('Failed to add from media library:', error)
+    reportActionError("Couldn't attach media.", error)
     // The item no longer exists — stop offering it in the popover feeds.
     if (axios.isAxiosError(error) && error.response?.status === 404) {
       removeRecentMediaInput(mediaId)
@@ -1723,7 +1723,7 @@ async function uploadFile(file: File, replaceIndex?: number) {
     items.value = newItems
     emit('update:modelValue', newItems)
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    reportActionError("Couldn't upload file.", error)
   } finally {
     isUploading.value = false
   }
@@ -1986,7 +1986,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
     items.value = newItems
     emit('update:modelValue', newItems)
   } catch (err) {
-    console.error('Reference preprocessing failed:', err)
+    reportActionError("Couldn't process reference.", err)
   } finally {
     processingIndex.value = null
     processingReason.value = null

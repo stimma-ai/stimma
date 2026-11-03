@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../../composables/useToasts'
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
@@ -206,11 +207,13 @@ async function saveInstructions() {
   if (settings.value?.additional_instructions === localInstructions.value) return
 
   try {
+    const value = localInstructions.value
     await axios.patch(`${getApiBase()}/settings/agent`, {
-      additional_instructions: localInstructions.value,
+      additional_instructions: value,
     })
+    if (settings.value) settings.value.additional_instructions = value
   } catch (err) {
-    console.error('Failed to save instructions:', err)
+    reportActionError("Couldn't save instructions.", err)
   }
 }
 
@@ -218,11 +221,13 @@ async function saveMemory() {
   if (settings.value?.memory === localMemory.value) return
 
   try {
+    const value = localMemory.value
     await axios.patch(`${getApiBase()}/settings/agent`, {
-      memory: localMemory.value,
+      memory: value,
     })
+    if (settings.value) settings.value.memory = value
   } catch (err) {
-    console.error('Failed to save memory:', err)
+    reportActionError("Couldn't save memory.", err)
   }
 }
 
@@ -238,7 +243,7 @@ async function saveSelection(role: string, patch: Partial<RoleSelection>) {
     await axios.patch(`${getApiBase()}/settings/agent`, { models: { [role]: selection } })
     await fetchModels(null, true)
   } catch (err) {
-    console.error('Failed to save model selection:', err)
+    reportActionError("Couldn't save model.", err)
   }
 }
 
@@ -268,7 +273,7 @@ async function resetModels() {
   try {
     await axios.patch(`${getApiBase()}/settings/agent`, { models: cleared })
   } catch (err) {
-    console.error('Failed to reset models:', err)
+    reportActionError("Couldn't reset models.", err)
   }
 }
 
@@ -279,7 +284,7 @@ async function handleToolConfigUpdate(config: ToolConfig) {
       tool_config: config,
     })
   } catch (err) {
-    console.error('Failed to save tool config:', err)
+    reportActionError("Couldn't save permissions.", err)
   }
 }
 

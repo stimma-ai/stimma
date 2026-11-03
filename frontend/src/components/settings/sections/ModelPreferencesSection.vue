@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../../composables/useToasts'
 import { useTheme } from '../../../composables/useTheme'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import SettingRow from '../SettingRow.vue'
@@ -80,7 +81,7 @@ const { updateGenerationPreviews } = useSettingsApi()
 function updatePreviewSetting(kinds) {
   setGenerationPreviews(kinds)
   updateGenerationPreviews(kinds).catch(err => {
-    console.error('Failed to persist generation preview settings:', err)
+    reportActionError("Couldn't save preview settings.", err)
   })
 }
 

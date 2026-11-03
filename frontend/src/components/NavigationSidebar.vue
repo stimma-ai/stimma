@@ -1021,7 +1021,7 @@ import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { createTaskTypeIconComponent } from '../utils/taskTypeIcons'
 import { planToolHandoff } from '../utils/toolHandoff'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
 import { useUnseenActivity } from '../composables/useUnseenActivity'
 import { useAgentActivity } from '../composables/useAgentActivity'
@@ -1795,14 +1795,15 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     if (props.isMobile) emit('close')
   } else if (tab.type === 'board') {
     try {
-      await fetch(`/api/boards/${tab.entityId}/items`, {
+      const response = await fetch(`/api/boards/${tab.entityId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
+      if (!response.ok) throw new Error(await response.text())
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to add media to board:', error)
+      reportActionError("Couldn't add to board.", error)
     }
   }
 }
@@ -1973,15 +1974,16 @@ async function handleNewBoardDrop(e: DragEvent) {
   if (mediaIds.length > 0) {
     try {
       const newBoard = await apiCreateBoard('', activeProjectId.value)
-      await fetch(`/api/boards/${newBoard.id}/items`, {
+      const response = await fetch(`/api/boards/${newBoard.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
+      if (!response.ok) throw new Error(await response.text())
       router.push({ name: 'board-detail', params: { id: newBoard.id } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create board with media:', error)
+      reportActionError("Couldn't create board.", error)
     }
   }
 }
@@ -2022,7 +2024,7 @@ async function handleNewChatDrop(e: DragEvent) {
       router.push({ name: 'chat', params: { id: newChat.id } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create chat with media:', error)
+      reportActionError("Couldn't create chat.", error)
     }
   }
 }
@@ -2047,7 +2049,7 @@ async function resolveFlowChatId(flowId: number): Promise<number | null> {
     const created = await createResp.json()
     return created?.id != null ? Number(created.id) : null
   } catch (error) {
-    console.error('Failed to resolve flow chat:', error)
+    reportActionError("Couldn't create chat.", error)
     return null
   }
 }
@@ -2090,7 +2092,7 @@ async function handleNewFlowDrop(e: DragEvent) {
       router.push({ name: 'flow', params: { id: String(flow.id) } })
       if (props.isMobile) emit('close')
     } catch (error) {
-      console.error('Failed to create flow with media:', error)
+      reportActionError("Couldn't create flow.", error)
     }
   }
 }
@@ -2132,7 +2134,7 @@ async function createNewBoard() {
     router.push({ name: 'board-detail', params: { id: newBoard.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
-    console.error('Failed to create board:', error)
+    reportActionError("Couldn't create board.", error)
   }
 }
 
@@ -2149,7 +2151,7 @@ async function createNewChat() {
     router.push({ name: 'chat', params: { id: newChat.id } })
     if (props.isMobile) emit('close')
   } catch (error) {
-    console.error('Failed to create chat:', error)
+    reportActionError("Couldn't create chat.", error)
   }
 }
 
@@ -2165,7 +2167,7 @@ async function createNewFlow() {
     router.push({ name: 'flow', params: { id: String(flow.id) } })
     if (props.isMobile) emit('close')
   } catch (err) {
-    console.error('Failed to create flow:', err)
+    reportActionError("Couldn't create flow.", err)
   }
 }
 
@@ -2287,21 +2289,24 @@ async function saveRename() {
     } else if (tabType === 'project') {
       await updateProject(entityId, { name: newName })
     } else if (tabType === 'chat') {
-      await fetch(`/api/chats/${entityId}`, {
+      const response = await fetch(`/api/chats/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
+      if (!response.ok) throw new Error(await response.text())
     } else if (tabType === 'flow') {
-      await fetch(`/api/flows/${entityId}`, {
+      const response = await fetch(`/api/flows/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
+      if (!response.ok) throw new Error(await response.text())
     }
     updateTabName(tabId, newName)
   } catch (err) {
-    console.error(`Failed to rename ${tabType}:`, err)
+    reportActionError("Couldn't rename item.", err)
+    return
   }
 
   editingItem.value = null

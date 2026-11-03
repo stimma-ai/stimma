@@ -249,7 +249,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAgentActivity } from '../composables/useAgentActivity'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import RenameSheet from '../components/compact/RenameSheet.vue'
@@ -597,7 +597,7 @@ async function createNewChat() {
     const newChat = await response.json()
     router.push({ name: 'chat', params: { id: newChat.id } })
   } catch (err) {
-    console.error('Failed to create chat:', err)
+    reportActionError("Couldn't create chat.", err)
   }
 }
 
@@ -655,7 +655,7 @@ async function saveChatName(chat) {
     })
     chat.name = newName
   } catch (err) {
-    console.error('Failed to rename chat:', err)
+    reportActionError("Couldn't rename chat.", err)
   }
 
   editingChatId.value = null

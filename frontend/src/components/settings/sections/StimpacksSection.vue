@@ -381,7 +381,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useStimpacksApi, type Stimpack, type MarketplaceStimpack, type StimpackValidation, type StimpackValidationSkill } from '../../../composables/useStimpacksApi'
 import { getApiBase, isDesktop } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
-import { addToast } from '../../../composables/useToasts'
+import { addToast, reportActionError } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
 import Modal from '../../ui/Modal.vue'
@@ -574,7 +574,7 @@ async function handleInstallStimpack(stimpack: MarketplaceStimpack) {
     await loadStimpacks()
     notifyStimpacksChanged()
   } catch (err) {
-    console.error('Failed to install stimpack:', err)
+    reportActionError("Couldn't install stimpack.", err)
   } finally {
     installingStimpack.value = null
   }
@@ -586,7 +586,7 @@ async function handleUninstallFromCatalog(stimpack: MarketplaceStimpack) {
     await loadStimpacks()
     notifyStimpacksChanged()
   } catch (err) {
-    console.error('Failed to remove stimpack:', err)
+    reportActionError("Couldn't remove stimpack.", err)
   }
 }
 
@@ -610,7 +610,7 @@ async function executeRemoveStimpack() {
     await loadStimpacks()
     notifyStimpacksChanged()
   } catch (err) {
-    console.error('Failed to remove stimpack:', err)
+    reportActionError("Couldn't remove stimpack.", err)
   }
 }
 

@@ -207,6 +207,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -552,7 +553,7 @@ async function applyPrep(fields: Partial<InpaintPrepImage>, reason: string) {
       _originalHeight: originalHeight,
     })
   } catch (err) {
-    console.error('Inpaint source preprocessing failed:', err)
+    reportActionError("Couldn't process reference.", err)
   } finally {
     processing.value = null
   }

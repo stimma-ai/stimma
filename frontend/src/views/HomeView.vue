@@ -311,7 +311,7 @@ import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { computeFlowOutputs } from '../composables/useFlowOutputs'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
@@ -821,7 +821,7 @@ async function submitMessage() {
       query
     })
   } catch (err) {
-    console.error('Failed to create chat:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     submitting.value = false
   }
@@ -1035,7 +1035,7 @@ async function handleBoardDrop(boardId, event) {
     else await addMediaToBoard(boardId, mediaIds)
     await reloadJumpBackIn('board')
   } catch (err) {
-    console.error('Failed to add media to board:', err)
+    reportActionError("Couldn't add to board.", err)
   }
 }
 

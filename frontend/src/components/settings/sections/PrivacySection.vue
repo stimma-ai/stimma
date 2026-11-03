@@ -48,6 +48,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../../composables/useToasts'
 import { ref, watch } from 'vue'
 import { getApiBase } from '../../../apiConfig'
 import { isOfficialBuild } from '../../../distribution'
@@ -89,7 +90,7 @@ async function toggleTelemetry() {
     emit('telemetry-updated', newValue)
   } catch (err) {
     localTelemetryEnabled.value = previous
-    console.error('Failed to update telemetry setting:', err)
+    reportActionError("Couldn't save privacy setting.", err)
   } finally {
     telemetrySaving.value = false
   }

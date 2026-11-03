@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
 import Button from '../ui/Button.vue'
@@ -303,11 +304,12 @@ async function cancelRow(rowId) {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       row.output.status = 'cancelled'
     }
   } catch (error) {
-    console.error('Error cancelling job:', error)
+    reportActionError("Couldn't cancel job.", error)
   }
 }
 
@@ -321,6 +323,7 @@ async function retryRow(rowId) {
       headers: { 'X-Profile-ID': getCurrentProfileId() }
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       row.output.status = 'generating'
       row.output.error = null
@@ -332,7 +335,7 @@ async function retryRow(rowId) {
       }
     }
   } catch (error) {
-    console.error('Error retrying job:', error)
+    reportActionError("Couldn't retry job.", error)
   }
 }
 

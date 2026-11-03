@@ -430,6 +430,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { MediaImage } from '../media'
@@ -990,7 +991,7 @@ async function uploadFileToField(name: string, file: File, multi: boolean) {
       values[name] = mediaId
     }
   } catch (err) {
-    console.error('Failed to upload file:', err)
+    reportActionError("Couldn't upload file.", err)
   }
 }
 

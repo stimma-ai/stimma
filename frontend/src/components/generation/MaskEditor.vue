@@ -273,6 +273,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import { getCurrentProfileId } from '../../composables/useProfile'
@@ -875,7 +876,7 @@ async function addFromMediaId(mediaId: number) {
 
     emit('update:image', newImage)
   } catch (error) {
-    console.error('Failed to add image from media library:', error)
+    reportActionError("Couldn't attach image.", error)
   } finally {
     isUploading.value = false
   }
@@ -908,7 +909,7 @@ async function uploadFile(file: File) {
 
     emit('update:image', newImage)
   } catch (error) {
-    console.error('Failed to upload image:', error)
+    reportActionError("Couldn't upload image.", error)
   } finally {
     isUploading.value = false
   }

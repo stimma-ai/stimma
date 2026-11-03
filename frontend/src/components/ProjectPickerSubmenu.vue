@@ -92,7 +92,7 @@
 
 <script setup>
 import { useViewport } from '../composables/useViewport'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
@@ -223,7 +223,7 @@ async function handleCreateProject() {
     projects.value.unshift(project)
     emit('select', project.id)
   } catch (err) {
-    console.error('Failed to create project:', err)
+    reportActionError("Couldn't create project.", err)
   } finally {
     creating.value = false
   }

@@ -1433,7 +1433,7 @@ import PlanVisualization from '../components/PlanVisualization.vue'
 import NotepadDisplay from '../components/chat/NotepadDisplay.vue'
 import TraceModal from '../components/chat/TraceModal.vue'
 import { copyToClipboard } from '../utils/clipboard'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import { useAuth } from '../composables/useAuth'
 import { useAvailableModels } from '../composables/useAvailableModels'
 import {
@@ -2234,13 +2234,14 @@ async function activateSkill(name) {
   try {
     // The resulting stimpack_injection item arrives via WebSocket and flips
     // the status dot through invokedSkillKeySet.
-    await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
+    const response = await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     })
+    if (!response.ok) throw new Error(await response.text())
   } catch (err) {
-    console.error('Failed to activate skill:', err)
+    reportActionError("Couldn't activate skill.", err)
   } finally {
     invokingSkillName.value = null
   }
@@ -3052,12 +3053,13 @@ async function updateAutoDeleteDuration(_duration) {
         })
       })
 
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         const updatedChat = await response.json()
         chat.value = updatedChat
       }
     } catch (error) {
-      console.error('Error saving auto-delete duration to chat:', error)
+      reportActionError("Couldn't save retention.", error)
     }
   }
 }
@@ -3962,7 +3964,8 @@ async function sendMessage(queuedMessage = null) {
     await nextTick()
     scrollToBottom()
   } catch (error) {
-    console.error('Error sending message:', error)
+    if (queuedMessage) console.error('Error sending queued message:', error)
+    else reportActionError("Couldn't send.", error)
     if (!sent) {
       // The POST never committed, so no agent run is coming — roll back the
       // optimistic running flag, otherwise the composer and queue deadlock
@@ -4124,10 +4127,10 @@ async function retryJob(jobId) {
       closeJobModals()
       // The job status will be updated on next poll - grids will show loading state
     } else {
-      console.error('Failed to retry job:', await response.text())
+      reportActionError("Couldn't retry job.", await response.text())
     }
   } catch (error) {
-    console.error('Error retrying job:', error)
+    reportActionError("Couldn't retry job.", error)
   }
 }
 
@@ -4187,6 +4190,7 @@ async function handleToggleMarker({ mediaId, marker }) {
         method: 'DELETE',
         headers: { 'X-Profile-ID': getCurrentProfileId() }
       })
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         mediaMarkers.value = {
           ...mediaMarkers.value,
@@ -4199,6 +4203,7 @@ async function handleToggleMarker({ mediaId, marker }) {
         method: 'POST',
         headers: { 'X-Profile-ID': getCurrentProfileId() }
       })
+      if (!response.ok) throw new Error(await response.text())
       if (response.ok) {
         mediaMarkers.value = {
           ...mediaMarkers.value,
@@ -4207,7 +4212,7 @@ async function handleToggleMarker({ mediaId, marker }) {
       }
     }
   } catch (error) {
-    console.error('Error toggling marker:', error)
+    reportActionError("Couldn't update marker.", error)
   }
 }
 
@@ -4554,7 +4559,7 @@ async function retryAfterError() {
       headers: { 'Content-Type': 'application/json' }
     })
     if (!response.ok) {
-      console.error('Failed to retry:', await response.text())
+      reportActionError("Couldn't retry.", await response.text())
       // Retry never started — put the error items back so the user
       // still sees what happened and can try again.
       items.value = [...items.value, ...removed]
@@ -4565,7 +4570,7 @@ async function retryAfterError() {
     agentRunning.value = true
     lastSendStartedAt = Date.now()
   } catch (error) {
-    console.error('Error retrying:', error)
+    reportActionError("Couldn't retry.", error)
     items.value = [...items.value, ...removed]
   }
 }
@@ -4595,17 +4600,19 @@ async function deleteItem(itemId) {
       items.value = items.value.filter(item => item.id !== itemId)
       refreshInvokedSkills()
     } else {
-      console.error('Failed to delete item:', await response.text())
+      reportActionError("Couldn't delete message.", await response.text())
     }
   } catch (error) {
-    console.error('Error deleting item:', error)
+    reportActionError("Couldn't delete message.", error)
   }
 }
 
 // Delete an item and all items after it
 async function deleteFromHere(itemId) {
   const index = items.value.findIndex(item => item.id === itemId)
-  if (index === -1) return
+  if (index === -1) return false
+  const deletingChatId = chatId.value
+  const removed = items.value.slice(index)
 
   // Optimistically remove from local items list immediately to avoid race
   // conditions where WebSocket events (e.g. chat_item_created from a running
@@ -4617,10 +4624,18 @@ async function deleteFromHere(itemId) {
   // client-computed id list can leave an orphaned tool_call row that makes
   // providers reject the conversation on replay.
   try {
-    await fetch(`/api/chats/${chatId.value}/items/${itemId}/delete-from-here`, { method: 'POST' })
-    refreshInvokedSkills()
+    const response = await fetch(`/api/chats/${deletingChatId}/items/${itemId}/delete-from-here`, { method: 'POST' })
+    if (!response.ok) throw new Error(await response.text())
+    if (chatId.value === deletingChatId) refreshInvokedSkills()
+    return true
   } catch (error) {
-    console.error('Error deleting items:', error)
+    if (chatId.value === deletingChatId) {
+      // Keep items received during the request, without duplicating restored rows.
+      const currentIds = new Set(items.value.map(item => item.id))
+      items.value.splice(index, 0, ...removed.filter(item => !currentIds.has(item.id)))
+    }
+    reportActionError("Couldn't delete messages.", error)
+    return false
   }
 }
 
@@ -4683,10 +4698,10 @@ async function replayFromHere(item) {
   // resend lands in the client-side queue behind a run whose completion event
   // may never arrive (or that we're about to orphan by deleting its items),
   // leaving the message stuck "queued" forever.
-  await cancelAgent()
+  if (!await cancelAgent()) return
 
   // Delete this item and all items after it
-  await deleteFromHere(item.id)
+  if (!await deleteFromHere(item.id)) return
 
   // Set the message input and attachments, then send
   messageInput.value = message
@@ -4757,10 +4772,10 @@ async function submitEditedMessage(item) {
   cancelEditing()
 
   // Abort any running agent first — see replayFromHere for why.
-  await cancelAgent()
+  if (!await cancelAgent()) return
 
   // Delete this item and all items after it
-  await deleteFromHere(item.id)
+  if (!await deleteFromHere(item.id)) return
 
   // Set the message input and attachments, then send
   messageInput.value = newMessage
@@ -4874,12 +4889,13 @@ async function renameChatFromStrip(newName) {
       })
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       const updatedChat = await response.json()
       chat.value = updatedChat
     }
   } catch (error) {
-    console.error('Error renaming chat:', error)
+    reportActionError("Couldn't rename chat.", error)
   }
 }
 
@@ -4939,10 +4955,10 @@ async function cloneChat() {
       router.push({ name: 'chat', params: { id: newChat.id } })
     } else {
       const errorText = await response.text()
-      console.error('Clone failed:', response.status, errorText)
+      reportActionError("Couldn't clone chat.", errorText)
     }
   } catch (error) {
-    console.error('Error cloning chat:', error)
+    reportActionError("Couldn't clone chat.", error)
   }
 }
 
@@ -4972,6 +4988,7 @@ async function clearChat() {
       method: 'POST'
     })
 
+    if (!response.ok) throw new Error(await response.text())
     if (response.ok) {
       // Clear local items array
       items.value = []
@@ -4980,7 +4997,7 @@ async function clearChat() {
       skillsGeneration++
     }
   } catch (error) {
-    console.error('Error clearing chat:', error)
+    reportActionError("Couldn't clear chat.", error)
   }
 }
 
@@ -5001,12 +5018,12 @@ async function stopAgent() {
       headers: { 'Content-Type': 'application/json' }
     })
     if (!response.ok) {
-      console.error('Failed to stop agent:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
       suppressingPostStop.value = false
     }
     // suppressingPostStop is cleared when the agent's response arrives (chat_item_created handler)
   } catch (error) {
-    console.error('Error stopping agent:', error)
+    reportActionError("Couldn't stop.", error)
     suppressingPostStop.value = false
   }
 }
@@ -5019,7 +5036,7 @@ async function interruptPendingHITLRequest() {
     })
 
     if (!response.ok) {
-      console.error('Failed to interrupt pending HITL request:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
       return false
     }
 
@@ -5029,7 +5046,7 @@ async function interruptPendingHITLRequest() {
     runningNodes.value = []
     return true
   } catch (error) {
-    console.error('Error interrupting pending HITL request:', error)
+    reportActionError("Couldn't stop.", error)
     return false
   }
 }
@@ -5045,12 +5062,14 @@ async function cancelAgent() {
       agentPlanning.value = false
       agentPaused.value = false
       runningNodes.value = []
+      return true
     } else {
-      console.error('Failed to cancel agent:', await response.text())
+      reportActionError("Couldn't stop.", await response.text())
     }
   } catch (error) {
-    console.error('Error cancelling agent:', error)
+    reportActionError("Couldn't stop.", error)
   }
+  return false
 }
 
 async function rerunPlan() {
@@ -5063,10 +5082,10 @@ async function rerunPlan() {
       agentRunning.value = true
       agentPaused.value = false
     } else {
-      console.error('Failed to rerun plan:', await response.text())
+      reportActionError("Couldn't rerun plan.", await response.text())
     }
   } catch (error) {
-    console.error('Error rerunning plan:', error)
+    reportActionError("Couldn't rerun plan.", error)
   }
 }
 
@@ -5491,10 +5510,10 @@ async function abortPlan() {
     })
 
     if (!response.ok) {
-      console.error('Failed to abort plan')
+      throw new Error(await response.text())
     }
   } catch (error) {
-    console.error('Error aborting plan:', error)
+    reportActionError("Couldn't stop.", error)
   }
 }
 
@@ -5526,7 +5545,7 @@ async function updateParameter(name, value) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error updating parameter:', error)
+    reportActionError("Couldn't save parameter.", error)
   }
 }
 
@@ -5564,7 +5583,7 @@ async function updateSetting(name, value) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error updating setting:', error)
+    reportActionError("Couldn't save setting.", error)
   }
 }
 
@@ -5614,7 +5633,7 @@ async function toggleLock(param) {
     const updatedChat = await response.json()
     chat.value = updatedChat
   } catch (error) {
-    console.error('Error toggling lock:', error)
+    reportActionError("Couldn't save lock.", error)
   }
 }
 

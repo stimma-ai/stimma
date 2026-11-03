@@ -222,6 +222,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../../composables/useToasts'
 import { consumeEscape, isTopmostEscapeLayer } from '../../utils/escapeLayers'
 import { useViewport } from '../../composables/useViewport'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
@@ -413,7 +414,7 @@ async function selectModel(model) {
     }
     await fetchModels(props.projectId, true)
   } catch (err) {
-    console.error('Failed to update chat model:', err)
+    reportActionError("Couldn't save model.", err)
   }
 }
 
@@ -431,7 +432,7 @@ async function selectReasoning(level) {
       reasoning_effort: level,
     })
   } catch (err) {
-    console.error('Failed to update chat reasoning effort:', err)
+    reportActionError("Couldn't save reasoning effort.", err)
   }
 }
 

@@ -156,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+import { reportActionError } from '../../composables/useToasts'
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import { usePresetsApi, type Preset, type PresetState } from '../../composables/usePresetsApi'
 import Modal from '../ui/Modal.vue'
@@ -303,7 +304,7 @@ async function confirmSavePreset() {
     // Refresh presets list
     await loadPresets()
   } catch (err) {
-    console.error('Failed to save preset:', err)
+    reportActionError("Couldn't save preset.", err)
   } finally {
     saving.value = false
   }

@@ -798,7 +798,7 @@ import { useFlowsApi, type Flow, type FlowTask, type FlowEquation, type PhaseNod
 import { useWebSocket } from '../composables/useWebSocket'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
-import { useToasts } from '../composables/useToasts'
+import { useToasts, reportActionError } from '../composables/useToasts'
 import { devModeRef } from '../appConfig'
 import { flowMediaSlideshowKey } from '../components/flow/flowMediaSlideshow'
 import { makeStorageKey } from '../utils/storageKeys'
@@ -1257,7 +1257,7 @@ async function saveName() {
   editingName.value = false
   if (!flow.value) return
   if (name === (flow.value.name || '')) return
-  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+  try { await state.updateMetadata({ name }) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 
 const showStartButton  = computed(() => !flow.value?.execution_state || flow.value.execution_state === 'idle')
@@ -1476,7 +1476,7 @@ async function handleNewChatSession() {
     }
     showChatMenu.value = false
   } catch (err) {
-    console.error('Failed to start new chat session:', err)
+    reportActionError("Couldn't create chat.", err)
   } finally {
     creatingChatSession.value = false
   }
@@ -1533,30 +1533,30 @@ async function doPlay() {
   }
 }
 async function doPause() {
-  try { await state.pause() } catch (err: any) { console.error('pause failed', err) }
+  try { await state.pause() } catch (err: any) { reportActionError("Couldn't pause flow.", err) }
 }
 
 // --- Invalidation ---
 async function doInvalidateEquation(key: string) {
-  try { await state.invalidateEquation(key) } catch (err) { console.error(err) }
+  try { await state.invalidateEquation(key) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 async function doInvalidatePhase(path: string[]) {
-  try { await state.invalidatePhase(path) } catch (err) { console.error(err) }
+  try { await state.invalidatePhase(path) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 async function doReselectEquation(key: string, resolution: any) {
-  try { await state.reselectEquation(key, resolution) } catch (err) { console.error(err) }
+  try { await state.reselectEquation(key, resolution) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 
 // --- Task resolution ---
 async function onResolveTask(task: FlowTask, resolution: any) {
   try {
     await state.resolveTask(task.task_id, resolution)
-  } catch (err) { console.error('resolve failed', err) }
+  } catch (err) { reportActionError("Couldn't submit answer.", err) }
 }
 async function onResolveErrorTask(task: FlowTask, action: string, value?: any) {
   try {
     await state.resolveErrorTask(task.task_id, action, value)
-  } catch (err) { console.error('resolve-error failed', err) }
+  } catch (err) { reportActionError("Couldn't submit answer.", err) }
 }
 
 // --- Slideshow approval context ---
@@ -1633,7 +1633,7 @@ async function onSlideshowApprove() {
       await state.reselectEquation(ctx.approveEquationKey, true)
     }
   }
-  catch (err) { console.error('slideshow approve failed', err) }
+  catch (err) { reportActionError("Couldn't approve.", err) }
 }
 function slotWrapperKeyForApprove(approveEquationKey: string): string | null {
   const slash = approveEquationKey.lastIndexOf('/')
@@ -1649,13 +1649,13 @@ async function onSlideshowReject() {
       await state.invalidateEquation(ctx.replaceEquationKey)
     }
   }
-  catch (err) { console.error('slideshow reject failed', err) }
+  catch (err) { reportActionError("Couldn't reject.", err) }
 }
 async function onSlideshowUnapprove() {
   const ctx = slideshowApprovalContext.value
   if (!ctx?.approveEquationKey) return
   try { await state.invalidateEquation(ctx.approveEquationKey) }
-  catch (err) { console.error('slideshow unapprove failed', err) }
+  catch (err) { reportActionError("Couldn't clear approval.", err) }
 }
 
 // --- Input form ---
@@ -1705,7 +1705,7 @@ async function onInputSubmit(values: Record<string, any>) {
   try {
     await state.updateMetadata({ inputs: values })
   } catch (err) {
-    console.error('Apply inputs failed:', err)
+    reportActionError("Couldn't save inputs.", err)
   } finally {
     submittingInputs.value = false
   }
@@ -1722,7 +1722,7 @@ async function onPanelInputUpdate(partial: Record<string, any>) {
   try {
     await state.updateMetadata({ inputs: merged })
   } catch (err) {
-    console.error('Apply input failed:', err)
+    reportActionError("Couldn't save input.", err)
   } finally {
     submittingInputs.value = false
   }
@@ -1739,7 +1739,7 @@ async function doCopy() {
     const copy = await state.fork(flow.value.inputs || {})
     router.push({ name: 'flow', params: { id: String(copy.id) } })
   } catch (err) {
-    console.error('Copy failed:', err)
+    reportActionError("Couldn't copy flow.", err)
   } finally {
     copying.value = false
   }
@@ -1871,7 +1871,7 @@ async function doReparseFlow() {
     await state.reparse()
     if (viewMode.value === 'code') await loadProgramCode()
   } catch (err) {
-    console.error('Re-parse failed:', err)
+    reportActionError("Couldn't reparse flow.", err)
   } finally {
     reparsingFlow.value = false
   }
@@ -1887,7 +1887,7 @@ async function doClearFlow() {
     programCodeDraft.value = ''
     if (viewMode.value === 'code') await loadProgramCode()
   } catch (err) {
-    console.error('Clear flow failed:', err)
+    reportActionError("Couldn't clear flow.", err)
   } finally {
     clearingFlow.value = false
   }
@@ -2178,7 +2178,7 @@ async function askAgentToFix(_loadError: { category: string; message: string; su
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send fix request to agent:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     fixingWithAgent.value = false
   }
@@ -2210,7 +2210,7 @@ async function askAgentForHelpUnblocking() {
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send help request to agent:', err)
+    reportActionError("Couldn't send.", err)
   } finally {
     fixingWithAgent.value = false
   }
@@ -2234,7 +2234,7 @@ async function askAgentToFixStep(equation: { display_name?: string | null; equat
       message_text: messageText,
     })
   } catch (err) {
-    console.error('Failed to send step fix request to agent:', err)
+    reportActionError("Couldn't send.", err)
   }
 }
 
@@ -2321,7 +2321,7 @@ watch(() => state.tasks.value.map(t => t.task_id).join(','), (_new) => {
 const renameOpen = ref(false)
 async function renameFlow(name: string) {
   if (!flow.value) return
-  try { await state.updateMetadata({ name }) } catch (err) { console.error(err) }
+  try { await state.updateMetadata({ name }) } catch (err) { reportActionError("Couldn't update flow.", err) }
 }
 watch([() => route.query.rename, () => flow.value?.id], ([flag, id]) => {
   if (flag !== '1' || !id) return

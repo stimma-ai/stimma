@@ -131,6 +131,7 @@
 </template>
 
 <script setup>
+import { addToast, reportActionError } from '../../composables/useToasts'
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
 import ChatInputAttachments from './ChatInputAttachments.vue'
@@ -271,7 +272,10 @@ async function handleUploadSelect(event) {
 }
 
 async function uploadFileToAttachments(file) {
-  if (!file.type.startsWith('image/')) return
+  if (!file.type.startsWith('image/')) {
+    addToast('Only images can be attached here.', 'error')
+    return
+  }
   const draft = props.draft
   try {
     const formData = new FormData()
@@ -289,7 +293,7 @@ async function uploadFileToAttachments(file) {
     if (draft) draft.attachments.push(attachment)
     else updateAttachments([...props.attachments, attachment])
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    reportActionError("Couldn't upload file.", error)
   }
 }
 

@@ -216,7 +216,7 @@ import GlowCanvas from './ui/GlowCanvas.vue'
 import { useReadiness } from '../composables/useReadiness'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useWebSocket } from '../composables/useWebSocket'
-import { addToast } from '../composables/useToasts'
+import { addToast, reportActionError } from '../composables/useToasts'
 import Spinner from './ui/Spinner.vue'
 import AIServicesSection from './settings/sections/AIServicesSection.vue'
 import ToolProvidersSection from './settings/sections/ToolProvidersSection.vue'
@@ -452,7 +452,7 @@ async function handleFolderRescan() {
   try {
     await rescanFolders()
   } catch (error) {
-    console.error('Failed to trigger rescan:', error)
+    reportActionError("Couldn't rescan.", error)
   }
 }
 
@@ -486,7 +486,7 @@ async function persistToolProviderUpdate({ providerId, data }) {
     await refreshReadiness()
     return true
   } catch (error) {
-    console.error('Failed to persist tool provider:', error)
+    reportActionError("Couldn't save provider.", error)
     if (settings.value && originalProvider) {
       settings.value = {
         ...settings.value,

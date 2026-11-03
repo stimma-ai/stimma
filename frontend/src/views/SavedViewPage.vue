@@ -105,6 +105,7 @@
 </template>
 
 <script setup>
+import { reportActionError } from '../composables/useToasts'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrowseGridView from './BrowseGridView.vue'
@@ -196,7 +197,7 @@ async function saveChanges() {
     })
     originalFilters.value = JSON.parse(JSON.stringify(filters))
   } catch (error) {
-    console.error('Failed to save changes:', error)
+    reportActionError("Couldn't save view.", error)
   }
 }
 
@@ -210,7 +211,7 @@ async function saveAsNew() {
     // Navigate to the new view
     router.push({ name: 'saved-view', params: { id: newView.id } })
   } catch (error) {
-    console.error('Failed to create new view:', error)
+    reportActionError("Couldn't create view.", error)
   }
 }
 
@@ -221,7 +222,7 @@ async function deleteView() {
     // Navigate back to browse
     router.push({ name: 'browse' })
   } catch (error) {
-    console.error('Failed to delete view:', error)
+    reportActionError("Couldn't delete view.", error)
   }
 }
 
@@ -269,7 +270,7 @@ async function moveView(direction) {
   try {
     await reorderSavedView(savedViewId.value, direction)
   } catch (error) {
-    console.error('Failed to move view:', error)
+    reportActionError("Couldn't move view.", error)
   }
 }
 
