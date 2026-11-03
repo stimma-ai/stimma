@@ -26,6 +26,39 @@ import pytest
 
 
 class TestLogTail:
+    def test_feedback_scrubs_export_secrets_and_current_identity(self, monkeypatch):
+        import getpass
+        import socket
+        from pathlib import Path
+        from log_tail import scrub_secrets
+
+        monkeypatch.setattr(Path, "home", lambda: Path("/home/test-account"))
+        monkeypatch.setattr(getpass, "getuser", lambda: "test-account")
+        monkeypatch.setattr(socket, "gethostname", lambda: "sample-workstation")
+        for value in (
+            '"access_token": "private-value"',
+            "Authorization: Basic private-basic",
+            "'refresh_token': 'private-refresh'",
+            "pin=123456",
+            "sk-" + "x" * 40,
+            "ghp_" + "b" * 36,
+            "opaque " + "a" * 40,
+        ):
+            out = scrub_secrets(value)
+            assert "[redacted]" in out
+            assert not any(secret in out for secret in (
+                "private-", "123456", "x" * 40, "b" * 36, "a" * 40,
+            ))
+        for home in (
+            "/home/test-account", "/Users/other-account",
+            r"C:\Users\other-account", r"C:\\Users\\other-account",
+            "C:/Users/other-account",
+        ):
+            assert scrub_secrets(home + "/cache/data") == "~/cache/data"
+        assert scrub_secrets("user=test-account host=sample-workstation") == (
+            "user=[redacted] host=[redacted]"
+        )
+
     def test_tail_reads_last_n_lines(self, tmp_path):
         from log_tail import tail_log_lines
         log_dir = tmp_path / "Logs"

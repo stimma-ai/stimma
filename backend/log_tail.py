@@ -12,7 +12,9 @@ assignments, and bearer-token-shaped strings. A naive ``token`` substring
 match would mangle every LLM token-count log line, so only *assignments*
 of secret-named keys are redacted, never the words themselves.
 """
+import getpass
 import re
+import socket
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,29 +24,34 @@ MAX_TAIL_BYTES = 256 * 1024
 # Secret-shaped patterns. Each replaces only the VALUE, keeping the key
 # visible so the log stays readable.
 _SECRET_PATTERNS = [
-    # Authorization: Bearer xxxx / Authorization=xxxx
-    re.compile(r"(?i)\b(authorization)(\s*[:=]\s*)(\"?)(?:bearer\s+)?[^\s\"',;]+", ),
-    # api_key / api-key / apikey (json, yaml, query, env styles)
-    re.compile(r"(?i)\b(api[_-]?key)(\s*[:=]\s*)(\"?)[^\s\"',;&]+"),
-    # token / access_token / refresh_token / id_token ASSIGNMENTS only
-    re.compile(r"(?i)\b((?:access[_-]|refresh[_-]|id[_-]|auth[_-])?token)(\s*[:=]\s*)(\"?)[^\s\"',;&]+"),
-    # secret / client_secret assignments
-    re.compile(r"(?i)\b((?:client[_-])?secret)(\s*[:=]\s*)(\"?)[^\s\"',;&]+"),
-    # password assignments
-    re.compile(r"(?i)\b(password|passwd)(\s*[:=]\s*)(\"?)[^\s\"',;&]+"),
+    re.compile(r'''(?i)\b(authorization)(["']?\s*[:=]\s*["']?)(?:(?:bearer|basic)\s+)?[^\s"',;]+'''),
+    re.compile(r'''(?i)\b(api[_-]?key|(?:access[_-]|refresh[_-]|id[_-]|auth[_-])?token|(?:client[_-])?secret|password|passwd|pin)(["']?\s*[:=]\s*["']?)[^\s"',;&]+'''),
 ]
 
 # Bare bearer-token-shaped strings (long base64url/JWT-looking blobs).
 _JWT_PATTERN = re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\b")
 _BEARER_INLINE = re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._\-]{16,}")
+_PROVIDER_KEY = re.compile(r"\b(?:sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xox[baprs]-[A-Za-z0-9-]+|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{20,})\b")
+_OPAQUE_SECRET = re.compile(r"\b[A-Za-z0-9_+/=-]{32,}\b")
 
 
 def scrub_secrets(text: str) -> str:
-    """Redact secret-shaped values from log text (keys stay visible)."""
+    """Redact secrets and local identities before attaching diagnostics."""
     for pattern in _SECRET_PATTERNS:
-        text = pattern.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}[redacted]", text)
+        text = pattern.sub(lambda m: f"{m.group(1)}{m.group(2)}[redacted]", text)
     text = _BEARER_INLINE.sub(lambda m: f"{m.group(1)} [redacted]", text)
     text = _JWT_PATTERN.sub("[redacted-jwt]", text)
+    text = _PROVIDER_KEY.sub("[redacted]", text)
+    text = _OPAQUE_SECRET.sub("[redacted]", text)
+    home = str(Path.home())
+    for value in {home, home.replace("\\", "/"), home.replace("\\", "\\\\")}:
+        if value:
+            text = re.sub(re.escape(value), "~", text, flags=re.IGNORECASE)
+    text = re.sub(r'''(?i)[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>]+''', "~", text)
+    text = re.sub(r'''/(?:home|Users)/[^/\r\n"'<>]+''', "~", text)
+    for value in (getpass.getuser(), socket.gethostname()):
+        if value:
+            text = re.sub(r"(?<!\w)" + re.escape(value) + r"(?!\w)", "[redacted]", text, flags=re.IGNORECASE)
     return text
 
 
