@@ -355,9 +355,12 @@ class TestFileCacheHeaders:
         assert response.status_code == 200
         assert "immutable" in response.headers["cache-control"]
 
-    async def test_id_thumbnail_redirect_is_revalidated(self, client: AsyncClient, db_session, tmp_path):
-        path = tmp_path / "redirect.png"
-        file_hash = generate_test_image(path, width=73)
+    @pytest.mark.parametrize("mode", ["crop", "fit"])
+    @pytest.mark.parametrize("size", [64, 128])
+    async def test_id_thumbnail_serves_image_without_redirect(self, client: AsyncClient, db_session, tmp_path, mode, size):
+        """Sidebar images must load through mobile's redirect-refusing proxy."""
+        path = tmp_path / f"direct-{mode}-{size}.png"
+        file_hash = generate_test_image(path, width=146, height=200, color=(20, 40, 200))
         async with db_session() as session:
             media = await create_media_item(session, file_path=path, file_hash=file_hash)
             media_id = media.id
@@ -366,10 +369,17 @@ class TestFileCacheHeaders:
             f"/api/media/{media_id}/thumbnail",
             f"/api/db/{db_guid}/media/{media_id}/thumbnail",
         ):
-            response = await client.get(url, follow_redirects=False)
-            assert response.status_code == 307
-            assert response.headers.get("cache-control") == "no-cache"
-            assert "v=" in response.headers["location"]
+            # Exercise generation on a cold cache and serving from disk cache.
+            for _ in range(2):
+                response = await client.get(url, params={"size": size, "mode": mode, "theme": "light"}, follow_redirects=False)
+                assert response.status_code == 200, url
+                assert "location" not in response.headers
+                assert response.headers.get("cache-control") == "no-cache"
+                assert response.headers["content-type"] == "image/png"
+                with Image.open(io.BytesIO(response.content)) as image:
+                    assert image.size == ((size, size) if mode == "crop" else (int(size * 146 / 200), size))
+                    pixel = image.getpixel((image.width // 2, image.height // 2))
+                    assert all(abs(a - b) <= 2 for a, b in zip(pixel, (20, 40, 200)))
 
 
 @pytest.mark.parametrize("route", ["legacy", "profile", "thumbnail-path"])

@@ -40,7 +40,7 @@ CACHE_HEADERS = {
     'Access-Control-Allow-Origin': '*',
 }
 
-# Revalidate ID-based files and redirects. Historical migrations allowed ID
+# Revalidate ID-based files and thumbnails. Historical migrations allowed ID
 # reuse, so existing browser entries can refer to an earlier payload. Only
 # content-addressed URLs may promise immutability.
 ID_KEYED_CACHE_HEADERS = {
@@ -2108,6 +2108,7 @@ async def get_media_file(
 
 @router.get("/media/{media_id}/thumbnail")
 async def get_thumbnail_by_media_id(
+    request: Request,
     media_id: int,
     size: int = Query(512, ge=64, le=1024),
     mode: str = Query("crop", pattern="^(crop|fit)$"),
@@ -2125,13 +2126,14 @@ async def get_thumbnail_by_media_id(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Redirect to file_hash endpoint, preserving profile for cross-profile support
-    from fastapi.responses import RedirectResponse
-    profile_id = get_current_profile()
-    return RedirectResponse(
-        url=f"/api/thumbnail/{item.file_hash}?size={size}&mode={mode}&profile={profile_id}&theme={theme}&v={THUMBNAIL_VERSION}",
-        headers=ID_KEYED_CACHE_HEADERS,
+    # Native mobile proxies refuse redirects. Reuse the hash renderer and disk
+    # cache, but keep this ID-based response revalidatable.
+    response = await get_thumbnail(
+        request=request, file_hash=item.file_hash, size=size, mode=mode,
+        theme=theme, session=session,
     )
+    response.headers.update(ID_KEYED_CACHE_HEADERS)
+    return response
 
 
 @router.get("/media/{media_id}/file")
@@ -3299,6 +3301,7 @@ async def get_file_by_media_id_and_db_guid(
 
 @router.get("/db/{db_guid}/media/{media_id}/thumbnail")
 async def get_thumbnail_by_media_id_and_db_guid(
+    request: Request,
     db_guid: str,
     media_id: int,
     size: int = Query(512, ge=64, le=1024),
@@ -3317,12 +3320,14 @@ async def get_thumbnail_by_media_id_and_db_guid(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Redirect to hash-based endpoint (keeps URL consistent)
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(
-        url=f"/api/db/{db_guid}/thumbnail/{item.file_hash}?size={size}&mode={mode}&theme={theme}&v={THUMBNAIL_VERSION}",
-        headers=ID_KEYED_CACHE_HEADERS,
+    # Serve bytes directly for mobile's redirect-refusing proxy, using the same
+    # profile session and content-addressed disk cache as the hash route.
+    response = await get_thumbnail_by_db_guid(
+        request=request, db_guid=db_guid, file_hash=item.file_hash, size=size,
+        mode=mode, theme=theme, session=session,
     )
+    response.headers.update(ID_KEYED_CACHE_HEADERS)
+    return response
 
 
 @router.get("/db/{db_guid}/media/{media_id}/thumbnail-path")
