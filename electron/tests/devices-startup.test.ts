@@ -11,7 +11,10 @@ import { build } from 'esbuild'
 import { makeScratchDir } from './scratch.mjs'
 
 for (const accepted of [true, false]) {
-  test(`cached remote startup ${accepted ? 'connects before Python' : 'keeps revoked sessions off the proxy'}`, async () => {
+  test(`cached remote startup ${accepted ? 'connects before Python' : 'keeps revoked sessions off the proxy'}`, async (t) => {
+    const messages: string[] = []
+    t.mock.method(console, 'log', (line: string) => messages.push(line))
+    t.mock.method(console, 'error', (line: string) => messages.push(line))
     const scratch = makeScratchDir('devices-startup-')
     const keyPath = path.join(scratch.dir, 'key.pem')
     const certPath = path.join(scratch.dir, 'cert.pem')
@@ -34,7 +37,7 @@ for (const accepted of [true, false]) {
       const port = (server.address() as { port: number }).port
       fs.writeFileSync(path.join(scratch.dir, 'devices.json'), JSON.stringify({
         activeDeviceId: 'remote', sessions: { remote: Buffer.from('saved-session').toString('base64') },
-        devices: [{ deviceId: 'remote', name: 'Remote', serving: true, certFingerprint: fingerprint,
+        devices: [{ deviceId: 'remote', name: 'Studio Computer', serving: true, certFingerprint: fingerprint,
           routes: [{ kind: 'lan', host: '127.0.0.1', port }] }], preferredRoutes: {},
       }))
       const outfile = path.join(scratch.dir, 'devices.cjs')
@@ -79,6 +82,13 @@ for (const accepted of [true, false]) {
           await new Promise<void>(resolve => local.close(() => resolve()))
         }
       }
+      const text = messages.join('\n')
+      const connected = text.match(/Connected to (device [a-f0-9]{8}) via lan/)
+      assert.ok(connected)
+      assert.ok(!text.includes('Studio Computer'))
+      assert.ok(!text.includes('127.0.0.1'))
+      assert.ok(!text.includes(`:${port}`))
+      if (!accepted) assert.ok(text.includes(`Cached session rejected by ${connected[1]}; re-bootstrapping`))
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()))
       scratch.cleanup()

@@ -1000,6 +1000,55 @@ class TestFeedbackRoutes:
         assert reads == [True]
 
     @pytest.mark.asyncio
+    async def test_feedback_scrubs_legacy_shell_devices_and_network_addresses(
+        self, feedback_client_fixture, monkeypatch, tmp_path,
+    ):
+        import log_tail
+        import feedback_client
+        from routes import feedback
+
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+        legacy = [
+            "Connected to Studio Computer via tailscale studio-node.example:9191",
+            "Bootstrap refused by Studio Computer: 403",
+            "Bootstrap failed for Studio Computer: Error: connect ECONNREFUSED 192.168.42.8:9191",
+            "Cached session rejected by Studio Computer; re-bootstrapping",
+            "Session rejected by Studio Computer; re-bootstrapping",
+            "Target set to render-box:9191",
+            "Renderer failed to load https://render-box.example:9192/: ERR_FAILED (-2)",
+            "getaddrinfo ENOTFOUND studio-node.example",
+            "route 10.23.45.6 172.23.4.5 192.168.42.8 100.97.42.8",
+            "route render-box.local render-box.lan render-box.tailtest.ts.net",
+            "route [fd12:3456::8]:9191 fd12:3456::8 fe80::1234 2001:db8::8",
+        ]
+        useful = "Version 1.2.3 and 1.2.3.4; version:1.2.3; file app.123.js:42; size 1048576 bytes (12.5 MB); 12:34:56"
+        (tmp_path / "Stimma-shell.log").write_text("\n" + "\n".join(legacy + [
+            useful, "Connected to device 3fa9c812 via tailscale",
+            "Cached session rejected by device 3fa9c812; re-bootstrapping",
+        ]))
+        monkeypatch.setattr(log_tail, "get_log_dir", lambda: tmp_path)
+        sent = []
+
+        async def submit_feedback(**kwargs):
+            sent.append(kwargs)
+            return "test-feedback"
+
+        monkeypatch.setattr(feedback_client, "submit_feedback", submit_feedback)
+        await feedback.submit(feedback.SubmitFeedbackRequest(kind="feedback", include_logs=True))
+        text = sent[-1]["logs"].decode()
+        for value in (
+            "Studio Computer", "studio-node", "render-box", "192.168.42.8", "10.23.45.6",
+            "172.23.4.5", "100.97.42.8", "fd12:3456::8", "fe80::1234", "2001:db8::8",
+        ):
+            assert value not in text
+        assert "Connected to [redacted] via tailscale [redacted]" in text
+        assert "Bootstrap refused by [redacted]: 403" in text
+        assert useful in text
+        assert "Connected to device 3fa9c812 via tailscale" in text
+        assert "Cached session rejected by device 3fa9c812; re-bootstrapping" in text
+
+    @pytest.mark.asyncio
     async def test_state_defaults(self, feedback_client_fixture, monkeypatch):
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
         resp = await feedback_client_fixture.get("/api/feedback/state")

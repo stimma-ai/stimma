@@ -15,6 +15,7 @@ of secret-named keys are redacted, never the words themselves.
 import getpass
 import re
 import socket
+from ipaddress import IPv6Address
 from pathlib import Path
 from typing import List, Optional
 
@@ -55,6 +56,40 @@ def scrub_secrets(text: str) -> str:
     return text
 
 
+def _scrub_ipv6(match: re.Match) -> str:
+    try:
+        IPv6Address(match[0])
+    except ValueError:
+        return match[0]
+    return "[redacted]"
+
+
+def scrub_shell_details(text: str) -> str:
+    """Redact legacy device messages and remote addresses unknown to this backend."""
+    text = re.sub(r"(Connected to ).+( via (?:lan|tailscale)) [^\r\n]+", r"\1[redacted]\2 [redacted]", text)
+    text = re.sub(r"(Bootstrap refused by )(?!device [a-f0-9]{8}:).+(: \d{3})", r"\1[redacted]\2", text)
+    text = re.sub(r"(Bootstrap failed for )(?!device [a-f0-9]{8}:)[^\r\n]+", r"\1[redacted]", text)
+    text = re.sub(r"((?:Cached session|Session) rejected by )(?!device [a-f0-9]{8};).+(; re-bootstrapping)", r"\1[redacted]\2", text)
+    text = re.sub(r"([a-z][a-z0-9+.-]*://)[^\s/?#\"'<>]+", r"\1[redacted]", text, flags=re.IGNORECASE)
+    # Exclude file/line references and numeric versions, sizes and timestamps.
+    text = re.sub(
+        r"(?<![\w.:-])(?!(?:[\w.-]+\.)?(?:js|mjs|cjs|ts|tsx|json|py):)"
+        r"(?:[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)*|(?:\d{1,3}\.){3}\d{1,3}|\[[a-f0-9:]+\]):\d{1,5}(?![\w.])",
+        "[redacted]", text, flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\b(?:getaddrinfo\s+)?(?:ENOTFOUND|EAI_AGAIN)\s+[^\s\"'<>]+", "[redacted]", text)
+    text = re.sub(
+        r"(?<![\w.])(?:(?:10|127)(?:\.\d{1,3}){3}|(?:169\.254|192\.168|172\.(?:1[6-9]|2\d|3[01])|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7]))(?:\.\d{1,3}){2})(?![\w.])",
+        "[redacted]", text,
+    )
+    text = re.sub(
+        r"(?<![\w:])(?:[a-f0-9]{0,4}:){2,}[a-f0-9:]*(?:%[a-z0-9]+)?(?![\w:])",
+        _scrub_ipv6,
+        text, flags=re.IGNORECASE,
+    )
+    return re.sub(r"(?<![\w.-])(?:[a-z0-9_-]+\.)+(?:local|lan|internal|home|ts\.net)\b", "[redacted]", text, flags=re.IGNORECASE)
+
+
 def get_log_dir() -> Path:
     """The rolling-log directory (``<data_dir>/Logs``)."""
     from app_dirs import get_data_dir
@@ -83,7 +118,7 @@ def tail_log_lines(
         + [directory / f"Stimma-shell.log.{index}" for index in range(1, 5)], n, drop_first_line=True,
     ) if include_shell else []
     # Keep sources distinct rather than pretending their timestamps are sorted.
-    lines = backend + (["[shell]"] + shell if shell else [])
+    lines = backend + (["[shell]"] + [scrub_shell_details(line) for line in shell] if shell else [])
     return [scrub_secrets(line) for line in lines]
 
 
