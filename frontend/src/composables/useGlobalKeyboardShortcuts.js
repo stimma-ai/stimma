@@ -1,3 +1,4 @@
+import { hasEscapeLayer } from '../utils/escapeLayers'
 import { onMounted, onUnmounted, onActivated, onDeactivated, ref } from 'vue'
 
 /**
@@ -16,7 +17,7 @@ export function useGlobalKeyboardShortcuts(options = {}) {
   const isComponentActive = ref(true)
 
   function handleGlobalKeydown(event) {
-    if (event.defaultPrevented) return
+    if (event.defaultPrevented || hasEscapeLayer()) return
     // Don't handle if component is deactivated (KeepAlive)
     if (!isComponentActive.value) {
       return

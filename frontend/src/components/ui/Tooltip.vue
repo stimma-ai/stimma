@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onUpdated, onBeforeUnmount } from 'vue'
 import { useViewport } from '../../composables/useViewport'
 
 const props = defineProps<{
@@ -7,6 +7,21 @@ const props = defineProps<{
 }>()
 
 const triggerRef = ref<HTMLElement | null>(null)
+// Name an otherwise unnamed icon button without overriding explicit labels.
+let namedButton: HTMLButtonElement | null = null
+let suppliedLabel = ''
+function nameTrigger() {
+  const button = triggerRef.value?.querySelector('button')
+  if (!button || button.textContent?.trim() || button.hasAttribute('aria-labelledby') || button.hasAttribute('title')) return
+  if (!button.hasAttribute('aria-label') || (button === namedButton && button.getAttribute('aria-label') === suppliedLabel)) {
+    button.setAttribute('aria-label', props.text)
+    namedButton = button
+    suppliedLabel = props.text
+  }
+}
+onMounted(nameTrigger)
+onUpdated(nameTrigger)
+
 const visible = ref(false)
 const top = ref(0)
 const left = ref(0)

@@ -63,7 +63,23 @@ function onBackdropClick() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!e.defaultPrevented && e.key === 'Escape' && props.closeOnEsc && isTopmostEscapeLayer(layerRef.value)) {
+  if (e.defaultPrevented || (e.key !== 'Tab' && e.key !== 'Escape') || !isTopmostEscapeLayer(layerRef.value)) return
+  if (e.key === 'Tab') {
+    const card = cardRef.value
+    if (!card) return
+    const focusable = [...card.querySelectorAll<HTMLElement>(
+      'a[href], area[href], button, input, select, textarea, iframe, [tabindex], [contenteditable], summary, audio[controls], video[controls]'
+    )].filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')
+      && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+    if (!first || !card.contains(active) || active === card || (e.shiftKey ? active === first : active === last)) {
+      e.preventDefault()
+      const target = (e.shiftKey ? last : first) || card
+      target.focus()
+    }
+  } else if (e.key === 'Escape' && props.closeOnEsc) {
     // CodeMirror/Vim owns Escape while editing.
     if ((e.target as Element)?.closest?.('.cm-editor')) return
     consumeEscape(e)
@@ -111,6 +127,8 @@ onBeforeUnmount(() => {
         <div
           ref="cardRef"
           tabindex="-1"
+          role="dialog"
+          aria-modal="true"
           class="relative bg-surface border border-edge rounded-lg shadow-2xl outline-none mx-4 compact:mx-3 compact:w-[calc(100%-1.5rem)] compact:max-w-none compact:max-h-[min(92dvh,calc(100dvh-2*max(var(--safe-top,0px),var(--safe-bottom,0px))))] compact:overflow-y-auto"
           :class="cardSizeClass"
         >
