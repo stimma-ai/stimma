@@ -611,7 +611,7 @@ async def _acompletion_openai_responses(
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     if extra_headers:
         headers.update(extra_headers)
-    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:
         raise _provider_http_error(resp, provider=provider_label)
@@ -669,7 +669,7 @@ async def _acompletion_chatgpt(*, model, messages, api_key, api_base, **kwargs) 
             "Accept": "text/event-stream",
             **chatgpt_auth.request_headers(token),
         }
-        timeout = httpx.Timeout(300.0, connect=10.0)
+        timeout = httpx.Timeout(300.0, read=600.0, connect=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("POST", url, json=body, headers=headers) as resp:
                 if resp.status_code >= 400:
@@ -938,7 +938,7 @@ async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs
         if _THINKING_BINDING_BETA not in betas:
             betas.append(_THINKING_BINDING_BETA)
         headers[beta_key] = ",".join(betas)
-    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
         resp = await client.post(url, json=body, headers=headers)
     if resp.status_code >= 400:
         raise _provider_http_error(resp, provider="Anthropic")
@@ -1010,8 +1010,11 @@ async def acompletion(**kwargs) -> _Obj:
             delay = _retry_delay(attempt, response)
             if delay is None:
                 raise
-        except (httpx.TransportError, LLMConnectionError):
-            if attempt == 2:
+        except (httpx.TransportError, LLMConnectionError) as error:
+            cause = error.__cause__ if isinstance(error, LLMConnectionError) else error
+            # A read timeout may already have spent minutes generating output.
+            # Retry connection setup failures and disconnected sockets only.
+            if attempt == 2 or not isinstance(cause, (httpx.ConnectTimeout, httpx.NetworkError, httpx.RemoteProtocolError)):
                 raise
             delay = _retry_delay(attempt, None)
         await asyncio.sleep(delay)
@@ -1156,7 +1159,7 @@ async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
         _dump_request(dump_dir, url, body, headers, cacheable, session_id)
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, read=600.0, connect=10.0)) as client:
             resp = await client.post(url, json=body, headers=headers)
             if dump_dir is not None:
                 _dump_response(dump_dir, resp, label="response")

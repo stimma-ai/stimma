@@ -1661,7 +1661,9 @@ async def _run_agentic_loop_inner(
         llm_started_at = time.monotonic()
 
         tools = tools_schema if tools_enabled and tools_schema else None
-        max_response_tokens = max_output_tokens(llm_config.max_context_tokens)
+        max_response_tokens = max_output_tokens(
+            llm_config.max_context_tokens, getattr(llm_config, "max_output_tokens", None),
+        )
 
         try:
             resp = await llm_completion(

@@ -55,7 +55,8 @@ def test_agent_output_limit_is_separate_from_prompt_reserve(window, expected):
     assert response_reserve(window) <= 8192
 
 
-async def test_truncated_tool_batch_is_paired_and_never_executed(db_session, tmp_path, monkeypatch):
+@pytest.mark.parametrize('output_cap', [None, 4096])
+async def test_truncated_tool_batch_is_paired_and_never_executed(db_session, tmp_path, monkeypatch, output_cap):
     from agent.v2.conversation import build_messages
     from llm import FinishReason
     import json
@@ -72,7 +73,7 @@ async def test_truncated_tool_batch_is_paired_and_never_executed(db_session, tmp
             additional_instructions='', global_memory='', project_memory='',
         )))
         monkeypatch.setattr(service, '_raise_if_interrupted', lambda *args: None)
-        monkeypatch.setattr(service, 'get_chat_llm_config', AsyncMock(return_value=SimpleNamespace(max_context_tokens=128000)))
+        monkeypatch.setattr(service, 'get_chat_llm_config', AsyncMock(return_value=SimpleNamespace(max_context_tokens=128000, max_output_tokens=output_cap)))
         permission = AsyncMock(return_value=False)
         execute = AsyncMock()
         monkeypatch.setattr(service, '_needs_permission', permission)
@@ -90,7 +91,7 @@ async def test_truncated_tool_batch_is_paired_and_never_executed(db_session, tmp
         execute.assert_not_awaited()
         permission.assert_not_awaited()
         assert completion.await_count == 2
-        assert completion.await_args_list[0].kwargs['max_tokens'] == 16384
+        assert completion.await_args_list[0].kwargs['max_tokens'] == (output_cap or 16384)
         messages, _ = await build_messages(chat.id, session, 'Be helpful.')
         calls = [m for m in messages if m.get('tool_calls')]
         results = [m for m in messages if m['role'] == 'tool']

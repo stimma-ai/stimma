@@ -250,6 +250,7 @@ async def _get_stimma_cloud_config(
 
         return LLMEndpointConfig(
             url=llm_url,
+            max_output_tokens=(_lookup_catalog(model_slug or role) or {}).get("max_output_tokens"),
             model=role,  # alias (e.g. 'agent', 'agent-max')
             api_key=id_token,
             max_context_tokens=max_context_tokens if max_context_tokens is not None else MAX_CONTEXT_CAP,
@@ -358,6 +359,7 @@ def set_catalog_cache(entries: list[dict]) -> None:
             'agent_model': e.get('agent_model') or e['slug'],
             'agent_fast_model': e.get('agent_fast_model') or e['slug'],
             'max_context_tokens': int(e.get('max_context_tokens') or _FALLBACK_CONTEXT),
+            'max_output_tokens': e.get('max_output_tokens'),
             'reasoning': e.get('reasoning') or {},
             'is_default': bool(e.get('is_default')),
             # The name the user sees in the model picker. Anything reporting
@@ -785,6 +787,7 @@ def _get_provider_model_config(
                 model=model.model_id,
                 api_key=provider.api_key,
                 max_context_tokens=min(MAX_CONTEXT_CAP, model.max_context_tokens),
+                max_output_tokens=model.max_output_tokens,
                 content_policy_enabled=model.content_policy_enabled,
                 extra_system_prompt=model.extra_system_prompt.strip(),
                 extra_body=model.extra_body,

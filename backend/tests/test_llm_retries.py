@@ -120,11 +120,10 @@ async def test_retry_after_seconds_and_date_wait_full_value(value, minimum, maxi
     assert minimum <= delays[0] <= maximum
 
 
-@pytest.mark.parametrize('failure', ['disconnect', 'timeout'])
-async def test_transport_failure_retries(failure, monkeypatch):
+async def test_transport_disconnect_retries(monkeypatch):
     client = httpx.AsyncClient
     monkeypatch.setattr(llm_http.httpx, 'AsyncClient', lambda **kw: client(timeout=0.05))
-    async with provider([failure, SUCCESS]) as (url, requests):
+    async with provider(['disconnect', SUCCESS]) as (url, requests):
         assert (await complete(url)).choices[0].message.content == 'Done'
     assert len(requests) == 2
 
@@ -177,3 +176,32 @@ async def test_long_retry_after_surfaces_failure_without_retry(value, delays):
         with pytest.raises(httpx.HTTPStatusError):
             await complete(url)
     assert len(requests) == 1 and not delays
+
+
+@pytest.mark.parametrize('kind', [None, 'openai', 'anthropic', 'chatgpt'])
+async def test_read_timeout_is_not_retried_and_has_a_longer_deadline(kind, monkeypatch, delays):
+    requests = []
+    def respond(request):
+        requests.append(request)
+        raise httpx.ReadTimeout('Generation took too long.', request=request)
+    client = httpx.AsyncClient
+    monkeypatch.setattr(llm_http.httpx, 'AsyncClient', lambda **kw: client(**kw, transport=httpx.MockTransport(respond)))
+    with pytest.raises((httpx.ReadTimeout, llm_http.LLMConnectionError)):
+        await complete('https://model.example/v1', provider_kind=kind)
+    assert len(requests) == 1 and not delays
+    assert requests[0].extensions['timeout']['read'] == 600
+    assert requests[0].extensions['timeout']['connect'] == 10
+
+
+@pytest.mark.parametrize('kind', [None, 'openai', 'anthropic', 'chatgpt'])
+@pytest.mark.parametrize('error_type', [httpx.ConnectError, httpx.ConnectTimeout, httpx.RemoteProtocolError])
+async def test_connect_failures_and_disconnects_retry_across_transports(kind, error_type, monkeypatch, delays):
+    requests = []
+    def respond(request):
+        requests.append(request)
+        raise error_type('Connection failed.', request=request)
+    client = httpx.AsyncClient
+    monkeypatch.setattr(llm_http.httpx, 'AsyncClient', lambda **kw: client(**kw, transport=httpx.MockTransport(respond)))
+    with pytest.raises((error_type, llm_http.LLMConnectionError)):
+        await complete('https://model.example/v1', provider_kind=kind)
+    assert len(requests) == 3 and len(delays) == 2

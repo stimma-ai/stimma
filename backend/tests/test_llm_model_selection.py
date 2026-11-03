@@ -1231,3 +1231,25 @@ def test_retired_api_key_selection_uses_same_provider(monkeypatch):
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-sol") == "key:gpt-6.1-sol"
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-terra") == "key:gpt-6.1-sol"
     assert llm_resolver.normalize_model_slug("key:gpt-5.6-luna") == "key:gpt-6-luna"
+
+
+async def test_known_output_caps_survive_cloud_catalog_and_provider_config(monkeypatch):
+    from unittest.mock import AsyncMock
+    from config import LLMProviderConfig, LLMProviderModelConfig
+    import llm_resolver
+
+    model = LLMProviderModelConfig(id='local:model', model_id='model', name='Model', max_output_tokens=4096)
+    provider = LLMProviderConfig(id='local', kind='local', name='Local', base_url='https://model.example/v1', models=[model])
+    settings = _stub_settings(llm_providers=[provider], cloud=SimpleNamespace(base_url='https://cloud.example'))
+    monkeypatch.setattr(llm_resolver, 'get_settings', lambda: settings)
+    monkeypatch.setattr(llm_resolver, '_catalog_cache', {})
+    monkeypatch.setattr(llm_resolver, '_model_prompt_fields', lambda *a: {})
+    monkeypatch.setattr(llm_resolver, '_cloud_reasoning_fields', lambda *a, **kw: {})
+    monkeypatch.setattr('privacy_lockdown.is_privacy_lockdown_enabled', lambda: False)
+    monkeypatch.setattr('firebase_auth.get_valid_id_token', AsyncMock(return_value='test'))
+    monkeypatch.setattr('auth_storage.load_auth_state', lambda: None)
+    llm_resolver.set_catalog_cache([{'slug': 'stimma:capped', 'max_output_tokens': 8192}])
+    cloud = await llm_resolver._get_stimma_cloud_config('capped', model_slug='stimma:capped')
+    assert cloud.max_output_tokens == 8192
+    assert llm_resolver._get_provider_model_config('local:model').max_output_tokens == 4096
+    assert LLMEndpointConfig(max_output_tokens=2048).max_output_tokens == 2048

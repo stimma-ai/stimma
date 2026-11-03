@@ -41,14 +41,15 @@ def response_reserve(max_context_tokens: int) -> int:
     return max(2_048, min(8_192, max_context_tokens // 10))
 
 
-def max_output_tokens(max_context_tokens: int) -> int:
+def max_output_tokens(max_context_tokens: int, model_output_limit: int | None = None) -> int:
     """Allow larger tool arguments when the window has spare output room.
 
     Keep the prompt reserve independent: its 80% budget already leaves enough
-    headroom for 16k output on windows of 128k or larger. The HTTP read timeout
-    remains 300 seconds; a slow provider can still time out and be retried.
+    headroom for 16k output on windows of 128k or larger. Respect a known
+    model output cap, including caps smaller than the prompt reserve.
     """
-    return 16_384 if max_context_tokens >= 128_000 else response_reserve(max_context_tokens)
+    allowance = 16_384 if max_context_tokens >= 128_000 else response_reserve(max_context_tokens)
+    return min(allowance, model_output_limit) if model_output_limit else allowance
 
 
 def compute_history_budget(max_context_tokens: int, system_tokens: int, overhead_tokens: int = 0) -> int:
