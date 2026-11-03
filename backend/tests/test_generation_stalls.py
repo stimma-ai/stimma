@@ -123,3 +123,78 @@ async def test_cancel_wakes_execution_before_remote_reply(supports_cancel):
                 if task:
                     task.cancel()
             await asyncio.gather(*(t for t in (execution, cancel) if t), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_agent_wait_uses_provider_progress_without_ui(
+    generation_queue, generation_db_session, test_provider, output_folder,
+):
+    from agent.jobs import wait_for_jobs
+    from providers.test_provider import TestToolConfig
+    from tests.helpers.generation import create_generation_job
+
+    tool_id = 'text-to-image:test-model'
+    test_provider.configure_tool(tool_id, TestToolConfig(
+        delay_per_stage=0.2, should_fail=True, fail_at_progress=1.0,
+        fail_message='Finished progress test',
+    ))
+    ws = generation_queue._websocket_manager
+    generation_queue._websocket_manager = None
+    worker = None
+    try:
+        async with generation_db_session() as session:
+            job = await create_generation_job(session, folder_path=output_folder)
+            worker = asyncio.create_task(generation_queue._process_job(job, 'default'))
+            _, errors, _, _ = await asyncio.wait_for(
+                wait_for_jobs([job.id], session, poll_interval=0.02, timeout=0.35), 3,
+            )
+            await worker
+            assert errors == [f'Job {job.id}: Finished progress test']
+    finally:
+        generation_queue._websocket_manager = ws
+        test_provider.configure_tool(tool_id, TestToolConfig())
+        if worker:
+            worker.cancel()
+            await asyncio.gather(worker, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_agent_wait_does_not_expire_queued_work(generation_queue, generation_db_session):
+    from agent.jobs import wait_for_jobs
+    from database import GenerationJob
+    from tests.helpers.generation import create_generation_job
+
+    async with generation_db_session() as session:
+        job = await create_generation_job(session)
+        waiter = asyncio.create_task(wait_for_jobs([job.id], session, poll_interval=0.01, timeout=0.05))
+        try:
+            await asyncio.sleep(0.15)
+            assert not waiter.done()
+            async with generation_db_session() as update_session:
+                stored = await update_session.get(GenerationJob, job.id)
+                from tests.helpers.media import create_media_item
+                media = await create_media_item(update_session)
+                stored.status = 'completed'
+                stored.result_media_id = media.id
+                await update_session.commit()
+            assert (await asyncio.wait_for(waiter, 1))[0] == [media.id]
+        finally:
+            waiter.cancel()
+            await asyncio.gather(waiter, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_agent_stall_cancels_job_and_provider(generation_queue, generation_db_session, test_provider):
+    from agent.jobs import wait_for_jobs
+    from tests.helpers.generation import create_generation_job
+
+    async with generation_db_session() as session:
+        job = await create_generation_job(session, status='processing')
+        _, errors, cancelled, _ = await asyncio.wait_for(
+            wait_for_jobs([job.id], session, poll_interval=0.01, timeout=0.05), 1,
+        )
+    assert cancelled == 0  # Stall is an error, not a user cancellation.
+    assert 'was cancelled' in errors[0]
+    assert (await generation_queue.get_job(job.id))['status'] == 'cancelled'
+    db = generation_queue._get_db('default')
+    assert f'job-{db.db_guid}-{job.id}' in test_provider._cancelled_requests

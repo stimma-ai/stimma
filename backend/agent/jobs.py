@@ -8,6 +8,7 @@ before returning results to the agent.
 import asyncio
 import json
 import re
+import time
 from core.logging import get_logger
 from typing import List, Tuple, Literal
 from sqlalchemy import select
@@ -60,10 +61,9 @@ async def wait_for_jobs(
 
     Timeout behaviour:
         The timeout is a STALL timeout, not a wall-clock timeout. The timer
-        resets whenever any job changes state (queued -> assigned -> processing
-        -> done) or any job in the batch completes/fails. A job that remains in
-        the same active state is not progress; otherwise provider-side hangs can
-        spin forever.
+        resets on state transitions and provider progress for each job. Time
+        waiting in the local queue does not count. A timed-out job is cancelled
+        before an error is returned; remote cancellation may still be stopping.
 
     Args:
         job_ids: List of job IDs to wait for
@@ -87,7 +87,7 @@ async def wait_for_jobs(
         return [], [], 0, {}
 
     log.info(f"Waiting for {len(job_ids)} jobs: {job_ids}")
-    time_since_progress = 0.0
+    last_activity = {jid: time.monotonic() for jid in job_ids}
     completed_media_ids: List[int] = []
     job_to_media: dict = {}  # job_id -> media_id
     errors: List[str] = []
@@ -106,11 +106,12 @@ async def wait_for_jobs(
     db = get_database_registry().get_database(profile_id)
     session_maker = db.async_session_maker
 
+    from generation_queue import get_generation_queue
+    queue = get_generation_queue()
     poll_count = 0
 
-    while pending and time_since_progress < timeout:
+    while pending:
         await asyncio.sleep(poll_interval)
-        time_since_progress += poll_interval
         poll_count += 1
 
         # Check if we should stop (plan cancelled/interrupted)
@@ -119,11 +120,9 @@ async def wait_for_jobs(
             if status == 'interrupted':
                 log.info(f"[wait_for_jobs] Plan interrupted, cancelling {len(pending)} remaining jobs")
                 # Cancel remaining pending jobs
-                from generation_queue import get_generation_queue
-                queue = get_generation_queue()
                 for job_id in list(pending):
                     try:
-                        await queue.cancel_job(job_id)
+                        await queue.cancel_job(job_id, profile_id=profile_id)
                         cancelled_count += 1
                         pending.discard(job_id)
                     except Exception as e:
@@ -139,12 +138,17 @@ async def wait_for_jobs(
                 select(GenerationJob).where(GenerationJob.id.in_(pending))
             )
             jobs = result.scalars().all()
+            found = {job.id for job in jobs}
+            for missing_id in pending - found:
+                errors.append(f"Generation {missing_id} is no longer available.")
+            pending.intersection_update(found)
+            if not pending:
+                break
 
-            # Active states are useful diagnostics, but staying active without a
-            # status transition is not progress. Providers can hang while a job
-            # remains "processing", so only real transitions below reset the
-            # stall timer.
             any_active = any(j.status in ("processing", "assigned") for j in jobs)
+
+            now = time.monotonic()
+            time_since_progress = now - max(last_activity[jid] for jid in pending)
 
             # Log periodically (every ~30s) but only at debug level when active
             if poll_count % 60 == 0:  # every ~30s at 0.5s poll interval
@@ -159,16 +163,17 @@ async def wait_for_jobs(
                     log.warning(f"[wait_for_jobs] Stall={time_since_progress:.0f}s/{timeout}s, pending={pending}, statuses={statuses}, backends={backend_names}, profile={profile_id}")
 
             for job in jobs:
-                # Detect state transitions → reset stall timer
                 prev = last_status.get(job.id)
-                if prev is not None and job.status != prev:
-                    log.debug(f"Job {job.id} state change: {prev} → {job.status}")
-                    time_since_progress = 0.0
+                if job.status == "queued" or job.status != prev:
+                    last_activity[job.id] = now
+                last_activity[job.id] = max(
+                    last_activity[job.id],
+                    queue._job_progress_at.get((profile_id, job.id), 0.0),
+                )
                 last_status[job.id] = job.status
 
                 if job.status == "completed":
                     pending.discard(job.id)
-                    time_since_progress = 0.0  # a job finished — reset stall timer
                     log.info(f"Job {job.id} completed, media_id={job.result_media_id}")
                     if job.result_media_id:
                         completed_media_ids.append(job.result_media_id)
@@ -182,7 +187,6 @@ async def wait_for_jobs(
 
                 elif job.status == "cancelled":
                     pending.discard(job.id)
-                    time_since_progress = 0.0
                     log.info(f"[wait_for_jobs] Job {job.id} cancelled by user")
                     cancelled_count += 1
                     if progress_callback:
@@ -193,7 +197,6 @@ async def wait_for_jobs(
 
                 elif job.status == "failed":
                     pending.discard(job.id)
-                    time_since_progress = 0.0
                     log.warning(f"[wait_for_jobs] Job {job.id} failed: {job.error}")
                     errors.append(f"Job {job.id}: {_clean_job_error(job.error) if job.error else 'failed'}")
                     if progress_callback:
@@ -201,17 +204,22 @@ async def wait_for_jobs(
                             await progress_callback(job.id, "failed", None)
                         except Exception as e:
                             log.warning(f"Progress callback failed: {e}")
-            # Session closes here at end of `async with` block
-
-    # Handle timeout — log diagnostic info
-    if pending:
-        try:
-            from backend_registry import get_backend_registry
-            backends = await get_backend_registry().list_backends()
-            log.error(f"[wait_for_jobs] TIMEOUT — no progress for {timeout}s. pending={list(pending)}, registered_backends={list(backends.keys())}, backend_states={{k: {{'available': v['is_available'], 'busy': v['is_busy'], 'jobs': v['current_jobs']}} for k, v in backends.items()}}")
-        except Exception:
-            log.error(f"[wait_for_jobs] TIMEOUT — no progress for {timeout}s. pending={list(pending)}")
-        errors.append(f"Timeout waiting for jobs (no progress for {timeout}s): {list(pending)}")
+            # Check jobs independently: progress on one render must not hide
+            # another hung render, and queued work has no execution deadline.
+            expired = [jid for jid in pending if now - last_activity[jid] >= timeout]
+        # Cancel outside the read session before reporting failure.
+        for job_id in expired:
+            cancelled = await queue.cancel_job(
+                job_id, profile_id=profile_id,
+                error="Generation cancelled after the provider stopped reporting progress",
+            )
+            if cancelled:
+                pending.discard(job_id)
+                errors.append(
+                    f"Generation {job_id} was cancelled after {timeout:g} seconds without progress. "
+                    "The provider may still be stopping."
+                )
+            # If completion raced cancellation, read its real result next poll.
 
     return completed_media_ids, errors, cancelled_count, job_to_media
 

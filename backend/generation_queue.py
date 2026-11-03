@@ -376,6 +376,8 @@ class GenerationQueue:
         # Forever mode: track clients that want continuous work
         # backend_name -> generator_instance_id -> max_concurrency (0 = unlimited)
         self._forever_mode_clients: Dict[str, Dict[str, int]] = {}
+        # Transient provider activity for agent stall detection, scoped by profile.
+        self._job_progress_at: Dict[tuple[str, int], float] = {}
         # Track last served client per backend for round-robin fairness
         self._last_served_client: Dict[str, str] = {}
         # Track pending work requests per backend (timestamps for TTL-based self-healing)
@@ -3255,6 +3257,7 @@ class GenerationQueue:
 
             async def _broadcast_progress(p: ExecutionProgress):
                 nonlocal _last_progress_broadcast
+                self._job_progress_at[(profile_id, job.id)] = time.monotonic()
                 if not self._websocket_manager:
                     return
                 now = time.monotonic()
@@ -3492,6 +3495,7 @@ class GenerationQueue:
                         await self._fill_available_slots(job.backend_name)
 
         finally:
+            self._job_progress_at.pop((profile_id, job.id), None)
             # Clear thread profile context
             set_thread_profile(None)
 
