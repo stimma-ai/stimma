@@ -25,7 +25,7 @@ export function scrubNetworkDetails(message: string): string {
     .replace(/(?<![\w:])(?:[a-f0-9]{0,4}:){2,}(?:(?:\d{1,3}\.){3}\d{1,3}|[a-f0-9:]*)(?:%[a-z0-9]+)?(?![\w:])/gi, (value) => scrubIP(value, value))
     .replace(/(?<![\w.])((?:\d{1,3}\.){3}\d{1,3})(?::\d{1,5})?(?![\w.])/g, scrubIP)
     // Dotted hosts need an alphabetic final label. Preserve known source locations.
-    .replace(/(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}(?::\d+)?(?![\w.-])/gi, (value) =>
+    .replace(/(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}\.?(?::\d+)?(?![\w.-])/gi, (value) =>
       /\.(?:[cm]?[jt]sx?|vue|svelte|json|py|rb|rs|go|c|h|cc|cpp|hpp|cs|java|kt|swift|sh):\d+$/i.test(value) ? value : '[redacted]')
 }
 

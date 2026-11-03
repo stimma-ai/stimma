@@ -101,7 +101,7 @@ def scrub_shell_details(text: str) -> str:
     )
     # Dotted hosts need an alphabetic final label. Preserve known source locations.
     return re.sub(
-        r"(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}(?::\d+)?(?![\w.-])",
+        r"(?<![\w.-])(?:[a-z0-9_-]+\.)+[a-z]{2,}\.?(?::\d+)?(?![\w.-])",
         lambda m: m[0] if re.search(
             r"\.(?:[cm]?[jt]sx?|vue|svelte|json|py|rb|rs|go|c|h|cc|cpp|hpp|cs|java|kt|swift|sh):\d+$",
             m[0], flags=re.IGNORECASE,

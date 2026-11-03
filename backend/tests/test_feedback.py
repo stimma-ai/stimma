@@ -43,6 +43,9 @@ class TestLogTail:
     @pytest.mark.parametrize(("message", "expected"), [
         ("getaddrinfo ENOTFOUND studio-node.example", "getaddrinfo ENOTFOUND [redacted]"),
         ("getaddrinfo EAI_AGAIN studio-node.example:9191", "getaddrinfo EAI_AGAIN [redacted]"),
+        ("route render-box.local. render-box.tailtest.ts.net.", "route [redacted] [redacted]"),
+        ("route render-box.local.:9191 render-box.tailtest.ts.net.:9191", "route [redacted] [redacted]"),
+        ("Could not resolve render-box.local.", "Could not resolve [redacted]"),
         ("connect ECONNREFUSED 203.0.113.8:9191", "connect ECONNREFUSED [redacted]"),
         ("route 198.51.100.8", "route [redacted]"),
         ("route studio-node.example:9191 studio-node.example", "route [redacted] [redacted]"),
