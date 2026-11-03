@@ -9,7 +9,7 @@ import {
   type PhaseNode,
 } from './useFlowsApi'
 import { setFlowStatusSummary, setFlowHasLoadError } from './useFlowCounts'
-import { addToast } from './useToasts'
+import { reportActionError } from './useToasts'
 
 /**
  * Per-flow reactive state. Loads flow + phase tree + tasks on mount,
@@ -348,8 +348,7 @@ export function useFlowState(flowId: Ref<number | string | null>) {
       // setting loadError here would render the whole steps list as a
       // "Stimma is unavailable" empty state, which is wildly out of
       // proportion with a single bad URL.
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to resolve task'
-      addToast(detail, 'error', 8000)
+      reportActionError("Couldn't submit answer.", err)
       throw err
     } finally {
       resolvingTaskIds.delete(taskId)
@@ -366,8 +365,7 @@ export function useFlowState(flowId: Ref<number | string | null>) {
     } catch (err: any) {
       resolvingTaskIds.delete(taskId)
       restoreTask(removed)
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to resolve task'
-      addToast(detail, 'error', 8000)
+      reportActionError("Couldn't submit answer.", err)
       throw err
     } finally {
       resolvingTaskIds.delete(taskId)

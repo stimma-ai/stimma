@@ -273,7 +273,7 @@ async function handleUploadSelect(event) {
 
 async function uploadFileToAttachments(file) {
   if (!file.type.startsWith('image/')) {
-    addToast('Only images can be attached here.', 'error')
+    addToast('Only images can be attached.', 'error')
     return
   }
   const draft = props.draft

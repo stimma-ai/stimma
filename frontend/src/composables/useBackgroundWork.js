@@ -118,8 +118,9 @@ async function openSystemWarningAction(url) {
 }
 
 async function togglePause() {
+  const resuming = isPaused.value
   try {
-    if (isPaused.value) {
+    if (resuming) {
       await axios.post(`${API_URL}/api/processing/resume`)
       isPaused.value = false
     } else {
@@ -127,7 +128,7 @@ async function togglePause() {
       isPaused.value = true
     }
   } catch (error) {
-    reportActionError("Couldn't change processing state.", error)
+    reportActionError(resuming ? "Couldn't resume." : "Couldn't pause.", error)
   }
 }
 

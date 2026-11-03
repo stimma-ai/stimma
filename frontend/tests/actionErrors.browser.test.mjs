@@ -6,7 +6,7 @@ import { chromium, expect } from '@playwright/test'
 import config from '../vite.config.js'
 
 const instrument = { name: 'action-errors-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.actionView = { items, deleteFromHere, replayFromHere, modelsFetched };\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.actionView = { items, deleteFromHere, replayFromHere, modelsFetched, startEditing };\n</script>')
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -78,3 +78,20 @@ test('replay stops when deleteFromHere fails', async t => {
   assert.equal(posts.some(path => path.endsWith('/items')), false)
   await expect(page.getByText("Couldn't delete messages.", { exact: true })).toBeVisible()
 })
+
+for (const failure of ['http', 'network']) {
+  test(`failed edited-message deletion preserves the edited draft (${failure})`, async t => {
+    const { page, failDelete, posts } = await fixture(t, failure)
+    await page.evaluate(() => window.actionView.startEditing(window.actionView.items.value[1]))
+    const editor = page.locator('[data-edit-input]')
+    await editor.fill('Edited message to keep')
+    await editor.press('Enter')
+    await expect.poll(() => posts.some(path => path.endsWith('/delete-from-here'))).toBe(true)
+    failDelete()
+    await expect(page.getByText("Couldn't delete messages.", { exact: true })).toBeVisible()
+    await expect(editor).toHaveValue('Edited message to keep')
+    await expect(editor).toBeFocused()
+    await expect(page.getByText('Message 3', { exact: true })).toBeVisible()
+    assert.equal(posts.some(path => path.endsWith('/items')), false)
+  })
+}

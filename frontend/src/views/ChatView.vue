@@ -4765,17 +4765,27 @@ async function submitEditedMessage(item) {
   }
 
   const newMessage = editingText.value
+  const editingChatId = chatId.value
   // Copy — see replayFromHere: don't alias the stored message's metadata array.
   const attachments = getMessageAttachments(item).map(a => ({ ...a }))
-
-  // Clear editing state
-  cancelEditing()
 
   // Abort any running agent first — see replayFromHere for why.
   if (!await cancelAgent()) return
 
   // Delete this item and all items after it
-  if (!await deleteFromHere(item.id)) return
+  if (!await deleteFromHere(item.id)) {
+    if (chatId.value !== editingChatId) return
+    // Removing the optimistic row blurs its editor. Restore the draft after
+    // the row returns, including any text that differs from the saved message.
+    editingItemId.value = item.id
+    editingText.value = newMessage
+    await nextTick()
+    document.querySelector<HTMLTextAreaElement>('[data-edit-input]')?.focus()
+    autoResizeEditTextarea(null)
+    return
+  }
+
+  cancelEditing()
 
   // Set the message input and attachments, then send
   messageInput.value = newMessage

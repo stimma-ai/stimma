@@ -1551,12 +1551,12 @@ async function doReselectEquation(key: string, resolution: any) {
 async function onResolveTask(task: FlowTask, resolution: any) {
   try {
     await state.resolveTask(task.task_id, resolution)
-  } catch (err) { reportActionError("Couldn't submit answer.", err) }
+  } catch { /* Task state reports the failure and restores the task. */ }
 }
 async function onResolveErrorTask(task: FlowTask, action: string, value?: any) {
   try {
     await state.resolveErrorTask(task.task_id, action, value)
-  } catch (err) { reportActionError("Couldn't submit answer.", err) }
+  } catch { /* Task state reports the failure and restores the task. */ }
 }
 
 // --- Slideshow approval context ---
@@ -1633,7 +1633,7 @@ async function onSlideshowApprove() {
       await state.reselectEquation(ctx.approveEquationKey, true)
     }
   }
-  catch (err) { reportActionError("Couldn't approve.", err) }
+  catch (err) { if (!ctx.task) reportActionError("Couldn't approve.", err) }
 }
 function slotWrapperKeyForApprove(approveEquationKey: string): string | null {
   const slash = approveEquationKey.lastIndexOf('/')
@@ -1649,7 +1649,7 @@ async function onSlideshowReject() {
       await state.invalidateEquation(ctx.replaceEquationKey)
     }
   }
-  catch (err) { reportActionError("Couldn't reject.", err) }
+  catch (err) { if (!ctx.task) reportActionError("Couldn't reject.", err) }
 }
 async function onSlideshowUnapprove() {
   const ctx = slideshowApprovalContext.value

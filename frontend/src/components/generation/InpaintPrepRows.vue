@@ -553,7 +553,7 @@ async function applyPrep(fields: Partial<InpaintPrepImage>, reason: string) {
       _originalHeight: originalHeight,
     })
   } catch (err) {
-    reportActionError("Couldn't process reference.", err)
+    reportActionError("Couldn't process image.", err)
   } finally {
     processing.value = null
   }

@@ -1986,7 +1986,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
     items.value = newItems
     emit('update:modelValue', newItems)
   } catch (err) {
-    reportActionError("Couldn't process reference.", err)
+    reportActionError("Couldn't process image.", err)
   } finally {
     processingIndex.value = null
     processingReason.value = null
