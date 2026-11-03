@@ -10,19 +10,15 @@ from packages.recipes import Build, Input, Param, png_bytes, recipe
 
 
 def _pdf(data: bytes, width: int, height: int) -> bytes:
-    from weasyprint import HTML, default_url_fetcher
-
-    def local_only(url, **kwargs):
-        if not url.startswith("data:"):
-            raise ValueError("Logo PDF resources must be embedded in the SVG")
-        return default_url_fetcher(url, **kwargs)
+    from weasyprint import HTML
+    from weasyprint.urls import URLFetcher
 
     encoded = base64.b64encode(data).decode("ascii")
     return HTML(string=(
         f'<style>@page{{size:{width}px {height}px;margin:0}}'
         'html,body{margin:0;padding:0;font-size:0}img{display:block;width:100%;height:100%}</style>'
         f'<img src="data:image/svg+xml;base64,{encoded}">'
-    ), url_fetcher=local_only).write_pdf()
+    ), url_fetcher=URLFetcher(allowed_protocols={"data"})).write_pdf()
 
 
 @recipe(

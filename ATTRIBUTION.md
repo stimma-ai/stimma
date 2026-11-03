@@ -95,11 +95,12 @@ license:
 ## Python packages
 
 <!-- BEGIN GENERATED: python -->
-136 packages (direct and transitive; the entire environment is bundled with the app).
+138 packages (direct and transitive; the entire environment is bundled with the app).
 
 | Package | Version | License | Source |
 |---|---|---|---|
-| aiohttp | 3.9.1 | Apache-2.0 | https://github.com/aio-libs/aiohttp |
+| aiohappyeyeballs | 2.7.1 | PSF-2.0 | https://github.com/aio-libs/aiohappyeyeballs |
+| aiohttp | 3.14.5 | Apache-2.0 AND MIT | https://github.com/aio-libs/aiohttp |
 | aiosignal | 1.4.0 | Apache-2.0 | https://github.com/aio-libs/aiosignal |
 | aiosqlite | 0.19.0 | MIT | https://aiosqlite.omnilib.dev |
 | alembic | 1.17.2 | MIT | https://alembic.sqlalchemy.org |
@@ -110,9 +111,9 @@ license:
 | babel | 2.18.0 | BSD | https://babel.pocoo.org/ |
 | bcrypt | 5.0.0 | Apache-2.0 | https://github.com/pyca/bcrypt/ |
 | beautifulsoup4 | 4.14.3 | MIT | https://www.crummy.com/software/BeautifulSoup/bs4/ |
-| brotli | 1.2.0 | MIT | https://github.com/google/brotli |
+| brotli | 1.2.1 | MIT | https://github.com/google/brotli |
 | brotlicffi | 1.2.0.1 | MIT | https://github.com/python-hyper/brotlicffi |
-| certifi | 2025.11.12 | MPL-2.0 | https://github.com/certifi/python-certifi |
+| certifi | 2026.10.23 | MPL-2.0 | https://github.com/certifi/python-certifi |
 | cffi | 2.0.0 | MIT | https://github.com/python-cffi/cffi |
 | charset-normalizer | 3.4.4 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
 | click | 8.3.1 | BSD-3-Clause | https://github.com/pallets/click/ |
@@ -120,20 +121,20 @@ license:
 | colorama | 0.4.6 | BSD-3-Clause | https://github.com/tartley/colorama |
 | coloredlogs | 15.0.1 | MIT | https://coloredlogs.readthedocs.io |
 | courlan | 1.3.2 | Apache-2.0 | https://github.com/adbar/courlan |
-| cryptography | 49.0.0 | Apache-2.0 OR BSD-3-Clause | https://github.com/pyca/cryptography |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause | https://github.com/pyca/cryptography |
 | cssselect2 | 0.9.0 | BSD | https://doc.courtbouillon.org/cssselect2/ |
 | dateparser | 1.3.0 | BSD | https://github.com/scrapinghub/dateparser |
 | ddgs | 9.11.3 | MIT | https://github.com/deedy5/ddgs |
 | fastapi | 0.141.1 | MIT | https://github.com/fastapi/fastapi |
 | ffmpeg-python | 0.2.0 | Apache-2.0 | https://github.com/kkroening/ffmpeg-python |
-| filelock | 3.20.1 | Unlicense | https://github.com/tox-dev/py-filelock |
+| filelock | 4.2.7 | MIT | https://github.com/tox-dev/filelock |
 | flatbuffers | 25.12.19 | Apache-2.0 | https://google.github.io/flatbuffers/ |
 | fonttools | 4.62.0 | MIT | http://github.com/fonttools/fonttools |
 | frozenlist | 1.8.0 | Apache-2.0 | https://github.com/aio-libs/frozenlist |
-| fsspec | 2026.2.0 | BSD-3-Clause | https://github.com/fsspec/filesystem_spec |
+| fsspec | 2026.9.0 | BSD-3-Clause | https://github.com/fsspec/filesystem_spec |
 | ftfy | 6.3.1 | Apache-2.0 | https://ftfy.readthedocs.io/en/latest/ |
 | future | 1.0.0 | MIT | https://python-future.org |
-| gdown | 5.2.1 | MIT | https://github.com/wkentaro/gdown |
+| gdown | 5.2.2 | MIT | https://github.com/wkentaro/gdown |
 | greenlet | 3.0.1 | MIT | https://greenlet.readthedocs.io/ |
 | h11 | 0.16.0 | MIT | https://github.com/python-hyper/h11 |
 | hf-xet | 1.2.0 | Apache-2.0 | https://github.com/huggingface/xet-core |
@@ -144,7 +145,7 @@ license:
 | httpx-sse | 0.4.3 | MIT | https://github.com/florimondmanca/httpx-sse |
 | huggingface-hub | 1.4.1 | Apache-2.0 | https://github.com/huggingface/huggingface_hub |
 | humanfriendly | 10.0 | MIT | https://humanfriendly.readthedocs.io |
-| idna | 3.11 | BSD-3-Clause | https://github.com/kjd/idna |
+| idna | 3.20 | BSD-3-Clause | https://github.com/kjd/idna |
 | imageio | 2.37.2 | BSD-2-Clause | https://github.com/imageio/imageio |
 | imgviz | 1.8.0 | MIT | https://github.com/wkentaro/imgviz |
 | jeepney | 0.9.0 | MIT | https://gitlab.com/takluyver/jeepney |
@@ -153,19 +154,20 @@ license:
 | justext | 3.0.2 | BSD | https://github.com/miso-belica/jusText |
 | lazy-loader | 0.4 | BSD | https://github.com/scientific-python/lazy_loader |
 | loguru | 0.7.3 | MIT | https://github.com/Delgan/loguru |
-| lxml | 6.0.2 | BSD-3-Clause | https://lxml.de/ |
-| lxml-html-clean | 0.4.4 | BSD-3-Clause | https://github.com/fedora-python/lxml_html_clean/ |
-| mako | 1.3.10 | MIT | https://www.makotemplates.org/ |
+| lxml | 6.1.3 | BSD-3-Clause | https://lxml.de/ |
+| lxml-html-clean | 0.4.6 | BSD-3-Clause | https://github.com/fedora-python/lxml_html_clean/ |
+| mako | 1.4.3 | MIT | https://www.makotemplates.org/ |
 | markdown | 3.10.1 | BSD-3-Clause | https://Python-Markdown.github.io/ |
 | markdown-it-py | 4.0.0 | MIT | https://github.com/executablebooks/markdown-it-py |
 | markupsafe | 3.0.3 | BSD-3-Clause | https://github.com/pallets/markupsafe/ |
-| mcp | 1.29.1 | MIT | https://modelcontextprotocol.io |
+| mcp | 1.30.0 | MIT | https://modelcontextprotocol.io |
 | mdurl | 0.1.2 | MIT | https://github.com/executablebooks/mdurl |
+| ml-dtypes | 0.5.4 | Apache-2.0 | https://github.com/jax-ml/ml_dtypes |
 | mpmath | 1.3.0 | BSD | http://mpmath.org/ |
-| multidict | 6.7.0 | Apache License 2.0 | https://github.com/aio-libs/multidict |
+| multidict | 6.9.1 | Apache License 2.0 | https://github.com/aio-libs/multidict |
 | networkx | 3.6.1 | BSD-3-Clause | https://networkx.org/ |
 | numpy | 1.26.2 | BSD | https://numpy.org |
-| onnx | 1.17.0 | Apache License v2.0 | https://onnx.ai/ |
+| onnx | 1.18.0, 1.23.2 | Apache-2.0 | https://onnx.ai/ |
 | onnx-clip | 4.0.1 | MIT |  |
 | onnxruntime | 1.23.2 | MIT | https://onnxruntime.ai |
 | opencv-python-headless | 4.11.0.86 | Apache-2.0 | https://github.com/opencv/opencv-python |
@@ -175,21 +177,21 @@ license:
 | pillow | 10.4.0 | HPND | https://python-pillow.org |
 | primp | 1.1.3 | MIT License | https://github.com/deedy5/primp |
 | propcache | 0.4.1 | Apache-2.0 | https://github.com/aio-libs/propcache |
-| protobuf | 6.33.2 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
+| protobuf | 6.33.6 | 3-Clause BSD License | https://developers.google.com/protocol-buffers/ |
 | psutil | 7.2.2 | BSD-3-Clause | https://github.com/giampaolo/psutil |
 | pycparser | 3.0 | BSD-3-Clause | https://github.com/eliben/pycparser |
 | pydantic | 2.13.5 | MIT | https://github.com/pydantic/pydantic |
 | pydantic-core | 2.46.5 | MIT | https://github.com/pydantic/pydantic |
 | pydantic-settings | 2.15.0 | MIT | https://github.com/pydantic/pydantic-settings |
 | pydyf | 0.12.1 | BSD | https://www.courtbouillon.org/pydyf |
-| pygments | 2.19.2 | BSD | https://pygments.org |
-| pyjwt | 2.13.0 | MIT | https://github.com/jpadilla/pyjwt |
+| pygments | 2.21.0 | BSD-2-Clause | https://pygments.org |
+| pyjwt | 2.15.1 | MIT | https://github.com/jpadilla/pyjwt |
 | pypdfium2 | 5.6.0 | BSD-3-Clause AND Apache-2.0 (bundles PDFium and its third-party libraries) | https://github.com/pypdfium2-team/pypdfium2 |
 | pyphen | 0.17.2 | GPL-2.0+ OR LGPL-2.1+ OR MPL-1.1 (used under MPL-1.1) | https://www.courtbouillon.org/pyphen |
 | pyreadline3 | 3.5.4 | BSD-3-Clause | https://github.com/pyreadline3/pyreadline3 |
 | pysocks | 1.7.1 | BSD-3-Clause | https://github.com/Anorov/PySocks |
 | python-dateutil | 2.9.0.post0 | BSD | https://github.com/dateutil/dateutil |
-| python-dotenv | 1.2.1 | BSD-3-Clause | https://github.com/theskumar/python-dotenv |
+| python-dotenv | 1.2.4 | BSD-3-Clause | https://github.com/theskumar/python-dotenv |
 | python-frontmatter | 1.1.0 | MIT | https://github.com/eyeseast/python-frontmatter |
 | python-multipart | 0.0.32 | Apache-2.0 | https://github.com/Kludex/python-multipart |
 | pytz | 2026.1.post1 | MIT | http://pythonhosted.org/pytz |
@@ -197,7 +199,7 @@ license:
 | pyyaml | 6.0.1 | MIT | https://pyyaml.org/ |
 | referencing | 0.37.0 | MIT | https://github.com/python-jsonschema/referencing |
 | regex | 2025.11.3 | Apache-2.0 AND CNRI-Python | https://github.com/mrabarnett/mrab-regex |
-| requests | 2.32.5 | Apache-2.0 | https://requests.readthedocs.io |
+| requests | 2.34.2 | Apache-2.0 | https://github.com/psf/requests |
 | rich | 14.3.2 | MIT | https://github.com/Textualize/rich |
 | rpds-py | 2026.6.3 | MIT | https://github.com/crate-py/rpds |
 | ruamel-yaml | 0.19.1 | MIT | https://sourceforge.net/p/ruamel-yaml/code/ci/default/tree/ |
@@ -206,7 +208,7 @@ license:
 | secretstorage | 3.5.0 | BSD-3-Clause | https://github.com/mitya57/secretstorage |
 | shellingham | 1.5.4 | ISC | https://github.com/sarugaku/shellingham |
 | six | 1.17.0 | MIT | https://github.com/benjaminp/six |
-| soupsieve | 2.8.1 | MIT | https://github.com/facelessuser/soupsieve |
+| soupsieve | 2.10 | MIT | https://github.com/facelessuser/soupsieve |
 | sqlalchemy | 2.0.23 | MIT | https://www.sqlalchemy.org |
 | sse-starlette | 1.8.2 | BSD | https://github.com/sysid/sse-starlette |
 | starlette | 1.6.0 | BSD-3-Clause | https://github.com/Kludex/starlette |
@@ -224,16 +226,16 @@ license:
 | typing-inspection | 0.4.4 | MIT | https://github.com/pydantic/typing-inspection |
 | tzdata | 2025.3 | Apache-2.0 | https://github.com/python/tzdata |
 | tzlocal | 5.3.1 | MIT | https://github.com/regebro/tzlocal |
-| urllib3 | 2.6.2 | MIT | https://github.com/urllib3/urllib3/blob/main/CHANGES.rst |
+| urllib3 | 2.8.0 | MIT | https://github.com/urllib3/urllib3/blob/main/CHANGES.rst |
 | uvicorn | 0.50.1 | BSD-3-Clause | https://uvicorn.dev/ |
 | uvloop | 0.22.1 | Apache-2.0 | https://github.com/MagicStack/uvloop |
 | watchfiles | 1.1.1 | MIT | https://github.com/samuelcolvin/watchfiles |
 | wcwidth | 0.2.14 | MIT | https://github.com/jquast/wcwidth |
-| weasyprint | 68.1 | BSD | https://weasyprint.org/ |
+| weasyprint | 70.0 | BSD | https://weasyprint.org/ |
 | webencodings | 0.5.1 | BSD | https://github.com/SimonSapin/python-webencodings |
 | websockets | 12.0 | BSD | https://github.com/python-websockets/websockets |
 | win32-setctime | 1.2.0 | MIT | https://github.com/Delgan/win32-setctime |
-| yarl | 1.22.0 | Apache-2.0 | https://github.com/aio-libs/yarl |
+| yarl | 1.25.1 | Apache-2.0 | https://github.com/aio-libs/yarl |
 | zopfli | 0.4.1 | Apache-2.0 | https://github.com/fonttools/py-zopfli |
 <!-- END GENERATED: python -->
 

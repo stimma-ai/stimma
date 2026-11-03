@@ -121,12 +121,14 @@ def python_rows() -> list[tuple[str, ...]]:
          "--format", "requirements-txt"],
         cwd=backend, capture_output=True, text=True, check=True,
     ).stdout
-    wanted: dict[str, str] = {}
+    wanted: dict[str, list[str]] = {}
     for line in export.splitlines():
         line = line.split(";")[0].strip()
         m = re.match(r"^([A-Za-z0-9_.\-]+)==([^ ]+)$", line)
         if m:
-            wanted[m.group(1).lower().replace("_", "-")] = m.group(2)
+            versions = wanted.setdefault(m.group(1).lower().replace("_", "-"), [])
+            if m.group(2) not in versions:
+                versions.append(m.group(2))
 
     probe = r"""
 import importlib.metadata as im, json
@@ -158,7 +160,7 @@ print(json.dumps(out))
 
     rows = []
     for name in sorted(wanted):
-        version = wanted[name]
+        version = ", ".join(wanted[name])
         info = meta.get(name)
         if name in PY_OVERRIDES:
             lic, home = PY_OVERRIDES[name]

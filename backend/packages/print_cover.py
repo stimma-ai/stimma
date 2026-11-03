@@ -65,19 +65,15 @@ stimma-section[page] .sp-appearance-head, stimma-section[page] .sp-appearance-pa
 
 def export_pdf(bundle_dir: Path, *, validate_pages: bool = False) -> bytes:
     """Render embedded assets only: no network or ambient filesystem access."""
-    from weasyprint import HTML, default_url_fetcher
-
-    def embedded_only(url, **kwargs):
-        if not url.startswith('data:'):
-            raise ValueError('PDF cover resources must be embedded')
-        return default_url_fetcher(url, **kwargs)
+    from weasyprint import HTML
+    from weasyprint.urls import URLFetcher
 
     # Kit print defaults follow kit screen CSS, but precede authored styles.
     # Authors can override typography, page colors and composition normally.
     html = export_single_html(bundle_dir).replace(
         '</style>', f'</style><style>{PRINT_CSS}</style>', 1,
     )
-    document = HTML(string=html, url_fetcher=embedded_only)
+    document = HTML(string=html, url_fetcher=URLFetcher(allowed_protocols={'data'}))
     # Supplemental HTML disclosures stay out of the deck, including their
     # appearance variants. Remove them before splitting page-level variants.
     for parent in list(document.etree_element.iter()):

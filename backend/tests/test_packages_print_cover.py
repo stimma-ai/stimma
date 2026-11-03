@@ -13,19 +13,16 @@ from packages.manifest import new_manifest
 from packages.print_cover import export_pdf
 
 
-def test_custom_responsive_grid_reports_print_fix(tmp_path):
+@pytest.mark.parametrize('print_override', [
+    '', '@media print { .grid { grid-template-columns:1fr 1fr; } }',
+])
+def test_custom_responsive_grid_exports_with_optional_print_override(tmp_path, print_override):
     source = '''<html><head><style>
       .grid { display:grid;
         grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)); }
       PRINT_OVERRIDE
       </style></head><body><div class="grid"><p>First</p><p>Second</p></div></body></html>'''
-    (tmp_path / 'index.html').write_text(source.replace('PRINT_OVERRIDE', ''))
-    with pytest.raises(ValueError, match='explicit @media print grid-template-columns'):
-        export_pdf(tmp_path)
-    # The author keeps the responsive HTML and supplies its print composition.
-    fixed = source.replace('PRINT_OVERRIDE',
-                           '@media print { .grid { grid-template-columns:1fr 1fr; } }')
-    (tmp_path / 'index.html').write_text(fixed)
+    (tmp_path / 'index.html').write_text(source.replace('PRINT_OVERRIDE', print_override))
     with pdfium.PdfDocument(export_pdf(tmp_path)) as pdf:
         text = ''.join(page.get_textpage().get_text_range() for page in pdf)
         assert 'First' in text and 'Second' in text
@@ -65,15 +62,15 @@ def test_zip_includes_readable_pdf_with_both_appearances_and_repeating_footer(tm
 
 
 def test_pdf_does_not_fetch_external_or_ambient_resources(tmp_path, monkeypatch):
-    import weasyprint
+    from urllib.request import OpenerDirector
     calls = []
-    original = weasyprint.default_url_fetcher
+    original = OpenerDirector.open
 
-    def fetch(url, **kwargs):
-        calls.append(url)
-        return original(url, **kwargs)
+    def fetch(self, url, *args, **kwargs):
+        calls.append(url.full_url)
+        return original(self, url, *args, **kwargs)
 
-    monkeypatch.setattr(weasyprint, 'default_url_fetcher', fetch)
+    monkeypatch.setattr(OpenerDirector, 'open', fetch)
     secret = tmp_path.parent / 'not-in-package.txt'
     secret.write_text('Private data must not be read')
     (tmp_path / 'index.html').write_text(f'''<html><head></head><body>
