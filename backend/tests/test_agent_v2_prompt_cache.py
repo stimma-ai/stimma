@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from sqlalchemy import select
 
 from agent.v2 import conversation, service
 from agent.v2.conversation import build_messages, _estimate_tokens
@@ -126,6 +127,78 @@ async def test_agent_appends_notepad_changes_across_steps_and_runs(db_session, t
         await service._run_agentic_loop_inner(chat, session, MockWebSocketManager(), max_turns=1)
         assert requests[2][:len(requests[1])] == requests[1]
         assert requests[0][0] == requests[1][0] == requests[2][0]
+
+
+@pytest.mark.parametrize('trim_path', ['turns', 'steps'])
+async def test_trimmed_notepad_is_restored_once_at_tail(db_session, tmp_path, monkeypatch, trim_path):
+    async with db_session() as session:
+        chat = Chat(name='Trimmed notepad')
+        session.add(chat)
+        await session.commit()
+        await notepad(action='write_scratchpad', content='Current note.', workspace_dir=str(tmp_path))
+        reminders = ['<system-reminder>\n' + format_notepad_for_prompt(str(tmp_path)) + '\n</system-reminder>']
+        current = '\n\n'.join(reminders)
+
+        def snapshot(text):
+            return ChatItem(chat_id=chat.id, item_type='system_reminder', message_text=text,
+                            item_metadata=json.dumps({'prompt_reminders': [text]}))
+
+        if trim_path == 'turns':
+            for turn in range(9):
+                session.add_all([
+                    ChatItem(chat_id=chat.id, item_type='user_message', message_text=f'Request {turn}'),
+                    ChatItem(chat_id=chat.id, item_type='assistant_message',
+                             message_text='x' * 20000 if turn == 2 else 'Done.'),
+                ])
+                if turn == 0:
+                    session.add(snapshot('Outdated note.'))
+                elif turn == 2:
+                    session.add(snapshot(current))
+        else:
+            session.add_all([
+                ChatItem(chat_id=chat.id, item_type='user_message', message_text='Take notes.'),
+                ChatItem(chat_id=chat.id, item_type='assistant_message', message_text='x' * 20000),
+                snapshot(current),
+                ChatItem(chat_id=chat.id, item_type='assistant_message', message_text='Continue.'),
+            ])
+        await session.commit()
+
+        trim_name = '_apply_token_budget' if trim_path == 'turns' else '_trim_run_steps'
+        trim = getattr(conversation, trim_name)
+        cuts = []
+
+        def record_trim(messages, **kwargs):
+            trimmed = trim(messages, **kwargs)
+            if trimmed is not messages:
+                cuts.append(deepcopy(trimmed))
+            return trimmed
+
+        monkeypatch.setattr(conversation, trim_name, record_trim)
+        messages, estimate = await build_messages(chat.id, session, 'Be helpful.', reminders, max_context_tokens=6000)
+        assert cuts
+        remaining = [m['content'] for m in cuts[-1] if m.get('_stimma_reminder')]
+        assert remaining == (['Outdated note.'] if trim_path == 'turns' else [])
+        assert messages[-1]['_stimma_reminder']
+        assert messages[-1]['content'] == current
+        assert estimate == _estimate_tokens(messages)['total']
+
+        stored = (await session.execute(select(ChatItem).where(
+            ChatItem.chat_id == chat.id, ChatItem.item_type == 'system_reminder',
+        ).order_by(ChatItem.id))).scalars().all()
+        assert len(stored) == (3 if trim_path == 'turns' else 2)
+        assert stored[-1].message_text == current
+        cuts.clear()
+        session.add(ChatItem(chat_id=chat.id, item_type='assistant_message', message_text='Next step.'))
+        await session.commit()
+        untrimmed, _ = await build_messages(chat.id, session, 'Be helpful.', reminders)
+        assert not cuts
+        assert sum(m.get('_stimma_reminder', False) for m in untrimmed) == len(stored)
+        assert untrimmed[-2]['content'] == current
+        assert untrimmed[-1]['content'] == 'Next step.'
+        session.add(ChatItem(chat_id=chat.id, item_type='assistant_message', message_text='Another step.'))
+        await session.commit()
+        following, _ = await build_messages(chat.id, session, 'Be helpful.', reminders)
+        assert following[:len(untrimmed)] == untrimmed
 
 
 def test_direct_cache_breakpoints_are_bounded_and_history_is_not_mutated():

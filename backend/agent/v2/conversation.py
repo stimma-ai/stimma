@@ -141,9 +141,18 @@ async def build_messages(
         # everything just removed, so this turn has to send the smaller history.
         messages[0]["_stimma_replay_history"] = True
     # Trimming cuts on user-turn boundaries, so it should not split a call from
-    # its result — but this is the last thing that touches the list before it
-    # reaches the provider, and re-running it is cheap and idempotent.
+    # its result — but re-running repair before the provider is cheap and
+    # idempotent.
     _repair_tool_call_pairing(messages)
+    # Trimming can remove the newest snapshot while leaving an older one.
+    # Restore current state at the tail and persist it for subsequent rebuilds.
+    reminders = system_reminders or []
+    reminder_text = "\n\n".join(reminders)
+    latest_reminder = next((m["content"] for m in reversed(messages) if m.get("_stimma_reminder")), "")
+    if reminder_text and latest_reminder != reminder_text:
+        item = _append_prompt_reminders(chat_id, items, session, reminders)
+        await session.commit()
+        messages.append(_item_to_message(item))
     post_tokens = _estimate_tokens(messages)
 
     adjusted_total = int(post_tokens["total"] * correction)
@@ -330,17 +339,24 @@ async def _persist_prompt_context(
         elif item.item_type == "system_reminder":
             previous_reminders = metadata.get("prompt_reminders", [])
     if reminders != previous_reminders:
-        item = ChatItem(
-            chat_id=chat_id,
-            item_type="system_reminder",
-            message_text="\n\n".join(reminders),
-            item_metadata=json.dumps({"prompt_reminders": reminders}),
-        )
-        session.add(item)
-        items.append(item)
+        _append_prompt_reminders(chat_id, items, session, reminders)
         dirty = True
     if dirty:
         await session.commit()
+
+
+def _append_prompt_reminders(
+    chat_id: int, items: List[ChatItem], session: AsyncSession, reminders: List[str],
+) -> ChatItem:
+    item = ChatItem(
+        chat_id=chat_id,
+        item_type="system_reminder",
+        message_text="\n\n".join(reminders),
+        item_metadata=json.dumps({"prompt_reminders": reminders}),
+    )
+    session.add(item)
+    items.append(item)
+    return item
 
 
 def _inject_last_user_context(
