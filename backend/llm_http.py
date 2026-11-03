@@ -4,11 +4,15 @@ Low-level HTTP client for OpenAI-compatible chat completion endpoints.
 Handles the raw HTTP POST to /chat/completions, auth headers, token refresh,
 and error detection. All response normalization lives in llm.py.
 """
+import asyncio
+import random
 import json
 import os
 import re
 import time
 import uuid
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -883,9 +887,75 @@ async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs
     return _anthropic_to_chat(resp.json(), model)
 
 
-async def acompletion(*, model, messages, api_key=None, api_base=None,
+_RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504, 529}
+
+
+def _retryable_response(response: httpx.Response) -> bool:
+    if response.status_code not in _RETRYABLE_STATUS:
+        return False
+    # Cloud can wrap an upstream rejection in a 503. Inspect its original
+    # status and detail as well as native provider error types/codes.
+    try:
+        detail = response.json()
+    except ValueError:
+        detail = response.text
+    text = json.dumps(detail).lower()
+    permanent = (
+        "quota", "billing", "insufficient_quota", "insufficient_balance",
+        "credit balance", "credits", "payment", "subscription", "entitlement",
+        "content_filter", "content filter", "content policy", "safety", "permission",
+    )
+    if any(marker in text for marker in permanent):
+        return False
+    if isinstance(detail, dict):
+        error = detail.get("error", detail)
+        if isinstance(error, dict):
+            status = error.get("upstream_status")
+            if isinstance(status, int) and 400 <= status < 500 and status not in {408, 429}:
+                return False
+    return True
+
+
+def _retry_delay(attempt: int, response: httpx.Response | None) -> float:
+    delay = random.uniform(0.5, 1.0) * (2 ** attempt)
+    if response is not None and (value := response.headers.get("Retry-After")):
+        try:
+            retry_after = float(value)
+        except ValueError:
+            try:
+                retry_after = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
+            except (ValueError, TypeError, OverflowError):
+                retry_after = 0
+        delay = max(delay, retry_after)
+    return min(30.0, delay)
+
+
+async def acompletion(**kwargs) -> _Obj:
+    """Retry only transient request failures, before any tools can execute.
+
+    Each attempt owns its response/stream buffers; no partial output escapes.
+    Cancellation deliberately bypasses this loop, including during backoff.
+    """
+    # Keep a refreshed cloud token across transient retries, and refresh only
+    # once for the whole request rather than once per attempt.
+    kwargs["_auth_refresh_state"] = {}
+    for attempt in range(3):
+        response = None
+        try:
+            return await _acompletion_once(**kwargs)
+        except httpx.HTTPStatusError as error:
+            response = error.response
+            if not _retryable_response(response) or attempt == 2:
+                raise
+        except (httpx.TransportError, LLMConnectionError):
+            if attempt == 2:
+                raise
+        await asyncio.sleep(_retry_delay(attempt, response))
+
+
+async def _acompletion_once(*, model, messages, api_key=None, api_base=None,
                        thinking=None, cacheable=False, session_id=None,
-                       provider_kind=None, **kwargs) -> _Obj:
+                       provider_kind=None, _auth_refresh_state=None, **kwargs) -> _Obj:
     """Make a raw HTTP POST to an OpenAI-compatible /chat/completions endpoint.
 
     Returns an _Obj with the same attribute shape as the openai SDK response:
@@ -973,6 +1043,9 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     # Detect if this is a Stimma Cloud endpoint (for 401 retry logic)
     from privacy_lockdown import is_stimma_service_url
     is_stimma_cloud = is_stimma_service_url(api_base)
+    auth_refresh_state = _auth_refresh_state if _auth_refresh_state is not None else {}
+    if is_stimma_cloud and auth_refresh_state.get("token"):
+        headers["Authorization"] = f"Bearer {auth_refresh_state['token']}"
     if is_stimma_cloud:
         from privacy_lockdown import raise_if_enabled
         raise_if_enabled("Stimma models")
@@ -1005,12 +1078,14 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
                 _dump_response(dump_dir, resp, label="response")
 
             # On 401 from Stimma Cloud, force-refresh Firebase token and retry once
-            if resp.status_code == 401 and is_stimma_cloud:
+            if resp.status_code == 401 and is_stimma_cloud and not auth_refresh_state.get("attempted"):
+                auth_refresh_state["attempted"] = True
                 log.warning("got 401 from stimma cloud, attempting token refresh and retry")
                 try:
                     from firebase_auth import force_refresh_id_token
                     fresh_token = await force_refresh_id_token()
                     if fresh_token:
+                        auth_refresh_state["token"] = fresh_token
                         headers["Authorization"] = f"Bearer {fresh_token}"
                         resp = await client.post(url, json=body, headers=headers)
                         if dump_dir is not None:
