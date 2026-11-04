@@ -21,6 +21,7 @@ from typing import Optional
 
 from config import LEGACY_LLM_MODEL_SLUGS, get_settings, LLMEndpointConfig
 from core.logging import get_logger
+from llm_provider_catalog import STIMMA_ROUTE, canonical_model_id, shadowed_routes
 from model_tiers import ModelCandidate, ROLE_TIERS, seed_effort, select_auto_model
 
 log = get_logger(__name__)
@@ -494,6 +495,7 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
 
     lockdown = is_privacy_lockdown_enabled()
     candidates: list[ModelCandidate] = []
+    routes: list[tuple[str, Optional[str], str]] = []
 
     if cloud_available and not lockdown:
         for slug, entry in {**_BUILTIN_CATALOG, **_catalog_cache}.items():
@@ -507,6 +509,7 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
                 vendor=entry.get("model_vendor"),
                 model_id=(entry.get("canonical_model_id") or slug),
             ))
+            routes.append((slug, entry.get("canonical_model_id"), STIMMA_ROUTE))
 
     for provider in getattr(get_settings(), "llm_providers", []):
         if provider.deleted_at or not provider.enabled or provider.last_test_passed is False:
@@ -522,8 +525,12 @@ def auto_candidates(*, cloud_available: bool) -> list[ModelCandidate]:
                 vendor=model.model_vendor,
                 model_id=model.model_id,
             ))
+            routes.append((model.id, canonical_model_id(provider.kind, model.model_id), provider.kind))
 
-    return candidates
+    # One model reachable two ways is one candidate, on the route the picker
+    # leads with: otherwise `auto` can spend credits the user's own key covers.
+    shadowed = shadowed_routes(routes)
+    return [candidate for candidate in candidates if candidate.slug not in shadowed]
 
 
 async def _cloud_is_available() -> bool:

@@ -1253,3 +1253,113 @@ async def test_known_output_caps_survive_cloud_catalog_and_provider_config(monke
     assert cloud.max_output_tokens == 8192
     assert llm_resolver._get_provider_model_config('local:model').max_output_tokens == 4096
     assert LLMEndpointConfig(max_output_tokens=2048).max_output_tokens == 2048
+
+
+def _route_provider(kind, *model_ids, **overrides):
+    from config import LLMProviderConfig, LLMProviderModelConfig
+
+    return LLMProviderConfig(
+        id=f"{kind}-1", kind=kind, name=kind.title(), base_url="https://example.test/v1",
+        models=[
+            LLMProviderModelConfig(id=f"{kind}-1:{model_id}", model_id=model_id, name=model_id, max_context_tokens=32_000)
+            for model_id in model_ids
+        ],
+        **overrides,
+    )
+
+
+async def _available_models_with_cloud(monkeypatch, providers):
+    """/models/available for a signed-in install offering GPT-6 on the cloud."""
+    from routes import models as models_route
+    import firebase_auth
+    import llm_resolver
+
+    catalog = [
+        {"slug": f"stimma:{model_id}", "name": model_id, "model_vendor": "openai", "canonical_model_id": f"openai:{model_id}"}
+        for model_id in ("gpt-6-astra", "gpt-6.1-sol")
+    ]
+    settings = _stub_settings(
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        llm_providers=providers,
+        llms={"agent": LLMRoleConfig(source="auto"), "agent-fast": LLMRoleConfig(source="auto")},
+    )
+
+    class _Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"data": catalog}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, *args, **kwargs):
+            return _Response()
+
+    async def a_token():
+        return "token"
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: settings)
+    monkeypatch.setattr("llm_resolver.get_settings", lambda: settings)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", a_token)
+    monkeypatch.setattr(models_route.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: {"credits": 100})
+    try:
+        payload = await models_route.get_available_models()
+    finally:
+        llm_resolver.set_catalog_cache([])
+    return payload, {model["slug"]: model for model in payload["models"]}
+
+
+@pytest.mark.asyncio
+async def test_picker_leads_with_chatgpt_then_key_then_stimma(monkeypatch):
+    payload, models = await _available_models_with_cloud(monkeypatch, [
+        _route_provider("openrouter", "openai/gpt-6.1-sol"),
+        _route_provider("openai", "gpt-6.1-sol"),
+        _route_provider("chatgpt", "gpt-6-astra", "gpt-6.1-sol"),
+    ])
+
+    assert not models["chatgpt-1:gpt-6.1-sol"].get("collapsed")
+    for slug in ("openai-1:gpt-6.1-sol", "openrouter-1:openai/gpt-6.1-sol", "stimma:gpt-6.1-sol"):
+        assert models[slug]["collapsed"] is True
+        assert models[slug]["preferred_slug"] == "chatgpt-1:gpt-6.1-sol"
+    # Auto lands on the route the picker leads with, not the one billed to credits.
+    assert payload["models"][0]["resolved_slug"] == "chatgpt-1:gpt-6-astra"
+
+
+@pytest.mark.asyncio
+async def test_key_outranks_stimma_without_chatgpt(monkeypatch):
+    payload, models = await _available_models_with_cloud(monkeypatch, [_route_provider("openai", "gpt-6.1-sol")])
+
+    assert not models["openai-1:gpt-6.1-sol"].get("collapsed")
+    assert models["stimma:gpt-6.1-sol"]["preferred_slug"] == "openai-1:gpt-6.1-sol"
+    assert payload["models"][0]["resolved_slug"] == "openai-1:gpt-6-astra"
+
+
+@pytest.mark.asyncio
+async def test_broken_provider_does_not_hide_a_working_route(monkeypatch):
+    _, models = await _available_models_with_cloud(monkeypatch, [
+        _route_provider("chatgpt", "gpt-6.1-sol", last_test_passed=False),
+    ])
+
+    assert not models["stimma:gpt-6.1-sol"].get("collapsed")
+
+
+@pytest.mark.asyncio
+async def test_local_servers_never_collapse_each_other(monkeypatch):
+    from config import LLMProviderModelConfig
+
+    other_box = _local_provider(id="local-def456", name="other-box")
+    other_box.models = [LLMProviderModelConfig(
+        id="local-def456:qwen3-vl", model_id="qwen3-vl", name="Qwen3 VL", max_context_tokens=32_000,
+    )]
+    _, models = await _available_models_with_cloud(monkeypatch, [_local_provider(), other_box])
+
+    assert not models["local-abc123:qwen3-vl"].get("collapsed")
+    assert not models["local-def456:qwen3-vl"].get("collapsed")

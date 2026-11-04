@@ -105,12 +105,16 @@ function blockFor(role: string, fallbackOnly = false): Record<string, any> {
  * you hand the row back to automatic selection.
  */
 function optionsFor(role: string) {
-  const option = modelOptions.value.find(o => o.value === blockFor(role, true).model)
-  if (!option) return modelOptions.value
+  // A row pinned to a route the list leads past keeps it: dropping it would
+  // show "Default" while the pinned route is still what gets called.
+  const pinned = selectableModels.value.find(m => m.collapsed && m.slug === props.modelValue?.[role])
+  const options = pinned ? [...modelOptions.value, optionFor(pinned)] : modelOptions.value
+  const option = options.find(o => o.value === blockFor(role, true).model)
+  if (!option) return options
   // The real entry stays in the list below: an explicit pin on the same model
   // is a different state from tracking it, and the trigger needs a match for
   // whichever one is selected.
-  return [{ ...option, value: '', tag: 'Default' }, ...modelOptions.value]
+  return [{ ...option, value: '', tag: 'Default' }, ...options]
 }
 
 /** Levels to offer, same treatment. */
@@ -124,7 +128,7 @@ function effortOptionsFor(role: string) {
 function selectedFor(role: string) {
   if (!isExplicit(role)) return ''
   const slug = props.modelValue?.[role]
-  return modelOptions.value.some(o => o.value === slug) ? (slug as string) : ''
+  return selectableModels.value.some(m => m.source !== 'auto' && m.slug === slug) ? (slug as string) : ''
 }
 
 /**
