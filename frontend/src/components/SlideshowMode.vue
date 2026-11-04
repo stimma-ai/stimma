@@ -662,7 +662,7 @@
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute left-0 flex items-center justify-start cursor-pointer z-chrome group bg-transparent border-none',
-          isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
+          (isSet || isGrid) ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
         ]"
         title="Previous (← or A)"
       >
@@ -680,7 +680,7 @@
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute right-0 flex items-center justify-end cursor-pointer z-chrome group bg-transparent border-none',
-          isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
+          (isSet || isGrid) ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
         ]"
         title="Next (→ or D)"
       >
