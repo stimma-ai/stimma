@@ -3330,10 +3330,18 @@ function handleRemixUseSeed() {
   modelParams.value.randomizeSeed = false
 }
 
+// A remix replaces the prompt the agent's conversation was about. That conversation
+// is the only copy of the old text the agent can read, and a model that fails an
+// edit rewrites the prompt from it. Asking it not to isn't reliable, so don't send it.
+function startAgentConversationOver() {
+  promptMiniAgent.clearHistory()
+}
+
 // Use the remix source's original prompt. The intent is to reproduce the source,
 // so restore the enhance + translate settings it was generated with (when known).
 function handleRemixUsePrompt() {
   if (!remixSource.value) return
+  startAgentConversationOver()
   globalPrefs.value.prompt = remixSource.value.promptSnippet
   const meta = remixSource.value.promptMetadata
   if (meta) {
@@ -3357,6 +3365,7 @@ function handleRemixUsePrompt() {
 // prompt verbatim, also turn off enhance + translate so it isn't rewritten.
 function handleRemixUseExactPrompt() {
   if (remixSource.value?.renderedPrompt == null) return
+  startAgentConversationOver()
   globalPrefs.value.prompt = remixSource.value.renderedPrompt
   globalPrefs.value.promptOptions = {
     ...globalPrefs.value.promptOptions,
@@ -4964,6 +4973,7 @@ async function loadRemix(mediaId: string) {
     // then immediately reinstate the resolved source images, so the picker goes
     // straight from old → restored with no empty intermediate frame.
     if (loadRemixSeq !== mySeq) return
+    startAgentConversationOver()
     applyAdaptedConfig(update)
     if (restoreVideoFrames) {
       videoImages.startImage = resolvedStart
