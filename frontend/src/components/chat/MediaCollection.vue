@@ -524,7 +524,7 @@ onBeforeUnmount(() => {
                   @keydown.escape.stop="jumping = false"
                   @blur="jumpCommit"
                 >
-                <button v-else type="button" class="whitespace-nowrap rounded-sm hover:underline disabled:hover:no-underline coarse:min-h-11 coarse:min-w-11" :title="count > 8 ? 'Go to image number' : undefined" :disabled="count <= 8" @click.stop="jumpStart">{{ activeIndex + 1 }} / {{ count }}</button>
+                <button v-else type="button" class="min-h-11 min-w-11 whitespace-nowrap rounded-sm hover:underline disabled:hover:no-underline" :title="count > 8 ? 'Go to image number' : undefined" :disabled="count <= 8" @click.stop="jumpStart">{{ activeIndex + 1 }} / {{ count }}</button>
                 <span v-if="heroFacts" class="opacity-50">·</span>
               </template>
               <span v-if="heroFacts" class="truncate">{{ heroFacts }}</span>
