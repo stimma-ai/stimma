@@ -6,7 +6,7 @@
   >
     <div class="mb-3 flex items-start justify-between gap-4">
       <div class="min-w-0">
-        <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Stimpacks</h3>
+        <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Stimpacks</h3>
         <p class="mt-1 max-w-xl text-xs text-content-tertiary">
           Stimpacks extend Stimma with new skills and capabilities. Drop a .md or .zip file here to install one.
         </p>

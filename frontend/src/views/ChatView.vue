@@ -1971,40 +1971,40 @@ function getToolCallStatusLabel(toolCallItem) {
 const TOOL_DISPLAY_NAMES = {
   call_tool: null,       // Special: uses tool_args._display_name or tool_id
   run_code: 'Working…',  // Special: uses tool_args._display_name (agent-supplied label)
-  bash: 'Running Command',
-  ask_user: 'Asking You',
-  browse_web: 'Browsing Web',
+  bash: 'Running command',
+  ask_user: 'Asking you',
+  browse_web: 'Browsing web',
   library: null,         // Special: varies by action arg
   skill: null,           // Special: "Skill: <display_name>"
   stimpack: null,        // backward compat for old chats: "Skill: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
-  glob: 'Finding Files',
-  grep: 'Searching Files',
-  read_file: 'Reading File',
-  write_file: 'Saving File',
-  edit_file: 'Editing File',
-  create_parameter_sweep: 'Creating Parameter Sweep',
-  assemble_grid: 'Creating Grid',  // backward compat for old chats
-  assemble_set: 'Creating Set',
-  create_layout: 'Creating Layout',
-  render_html: 'Rendering Layout',  // backward compat for old chats
-  analyze_flow: 'Analyzing Flow',
-  flow_inspect: 'Analyzing Flow',  // backward compat: renamed from flow_inspect
-  flow_update: 'Updating Flow',
+  glob: 'Finding files',
+  grep: 'Searching files',
+  read_file: 'Reading file',
+  write_file: 'Saving file',
+  edit_file: 'Editing file',
+  create_parameter_sweep: 'Creating parameter sweep',
+  assemble_grid: 'Creating grid',  // backward compat for old chats
+  assemble_set: 'Creating set',
+  create_layout: 'Creating layout',
+  render_html: 'Rendering layout',  // backward compat for old chats
+  analyze_flow: 'Analyzing flow',
+  flow_inspect: 'Analyzing flow',  // backward compat: renamed from flow_inspect
+  flow_update: 'Updating flow',
 }
 
 // Library action → display copy
 const LIBRARY_ACTION_NAMES = {
-  search: 'Searching Library',
-  browse: 'Browsing Library',
-  browse_schema: 'Browsing Library',
-  browse_options: 'Browsing Library',
-  get: 'Looking Up Asset',
-  save: 'Saving to Library',
-  lineage: 'Checking Lineage',
+  search: 'Searching library',
+  browse: 'Browsing library',
+  browse_schema: 'Browsing library',
+  browse_options: 'Browsing library',
+  get: 'Looking up asset',
+  save: 'Saving to library',
+  lineage: 'Checking lineage',
   tag: 'Tagging',
   marker: 'Marking',
-  board: 'Organizing Board',
+  board: 'Organizing board',
 }
 
 // Infrastructure tools hidden from pill summary (still shown in expanded timeline)
@@ -2014,14 +2014,14 @@ const HIDDEN_TOOLS = new Set(['list_tools', 'get_schema', 'discover', 'view_imag
 const ALL_TOOL_DISPLAY_NAMES = {
   ...Object.fromEntries(Object.entries(TOOL_DISPLAY_NAMES).filter(([, v]) => v !== null)),
   // Hidden tools get friendly names in expanded timeline
-  list_tools: 'Exploring Tools',
-  get_schema: 'Exploring Tools',
-  discover: 'Exploring Tools',
-  view_image: 'Viewing Image',
-  notepad: 'Taking Notes',
-  sdk_help: 'Reading Docs',
-  show: 'Showing Work',
-  share_files: 'Show Files',
+  list_tools: 'Exploring tools',
+  get_schema: 'Exploring tools',
+  discover: 'Exploring tools',
+  view_image: 'Viewing image',
+  notepad: 'Taking notes',
+  sdk_help: 'Reading docs',
+  show: 'Showing work',
+  share_files: 'Show files',
 }
 
 function formatToolCallName(name) {

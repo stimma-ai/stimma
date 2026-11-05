@@ -46,21 +46,21 @@ watch(() => props.mediaId, async (mediaId) => {
   if (ids.length === 0) emit('unavailable')
 }, { immediate: true })
 
-// Layers sit back to front. Each steps 3% of the square up and to the right of the picture, so
-// only a narrow edge of each shows; the whole pile is centred in the square. The scrim fades the
-// layers into the matte: lighter on the paper matte, where a heavy scrim erases them, and
-// heavier on the near-black one, where a pale image would otherwise glow grey.
+// Layers sit back to front. Each steps up and to the right of the picture (3% of the square;
+// 2% in dark, where less of it is exposed) so only a narrow edge of each shows; the whole pile
+// is centred in the square. The scrim fades the layers into the matte: lighter on the paper
+// matte, where a heavy scrim erases them, and much heavier on the near-black one, where a pale
+// image would otherwise read as a grey plane instead of a trace.
 const CARD = 78
-const STEP = 3
 const cards = computed(() => {
   const ids = members.value || []
-  const margin = (100 - CARD - STEP * (ids.length - 1)) / 2
+  const offset = (depth) => `calc((${100 - CARD}% - var(--set-step) * ${ids.length - 1}) / 2 + var(--set-step) * ${depth})`
   return ids
     .map((id, depth) => ({
       id,
       depth,
-      style: { width: `${CARD}%`, height: `${CARD}%`, left: `${margin + STEP * depth}%`, bottom: `${margin + STEP * depth}%` },
-      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.78]' : 'opacity-[.35] dark:opacity-[.9]',
+      style: { width: `${CARD}%`, height: `${CARD}%`, left: offset(depth), bottom: offset(depth) },
+      scrim: depth === 0 ? '' : depth === 1 ? 'opacity-[.15] dark:opacity-[.92]' : 'opacity-[.35] dark:opacity-[.965]',
     }))
     .reverse()
 })
@@ -68,7 +68,7 @@ const cards = computed(() => {
 
 <template>
   <div class="h-full w-full bg-matte [container-type:size]" data-testid="set-stack-preview">
-    <div v-if="cards.length" class="relative mx-auto" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
+    <div v-if="cards.length" class="relative mx-auto [--set-step:3%] dark:[--set-step:2%]" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
       <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte shadow-[0_1px_4px_rgb(0_0_0/0.22)] dark:shadow-none" :style="card.style">
         <MediaImage
           :media-id="card.id"

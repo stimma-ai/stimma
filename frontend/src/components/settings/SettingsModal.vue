@@ -16,20 +16,20 @@
             aria-label="All settings"
             @click="compactList = true"
           >
-            <ChevronLeftIcon :class="compactIcon" />
+            <ChevronLeftIcon :class="[compactIcon, '-translate-x-1.5']" />
           </button>
           <h2 ref="settingsTitle" class="truncate font-brand font-semibold text-content" :class="isCompact ? 'text-[18px] leading-6 px-1' : 'text-base'">{{ isCompact && !compactList ? activeSectionLabel : 'Settings' }}</h2>
         </div>
-        <button v-if="isCompact" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
+        <button v-if="isCompact && compactList" type="button" :class="compactIconButton" aria-label="Close" title="Close" @click="close">
           <XMarkIcon :class="compactIcon" />
         </button>
-        <IconButton v-else size="lg" aria-label="Close" title="Close" @click="close">
+        <IconButton v-else-if="!isCompact" size="lg" aria-label="Close" title="Close" @click="close">
           <XMarkIcon class="h-icon-nav w-icon-nav" />
         </IconButton>
       </div>
     </template>
 
-    <div class="shrink-0 px-6 pb-2 pt-3 compact:px-4 compact:pb-1">
+    <div v-if="!isCompact || compactList" class="shrink-0 px-6 pb-2 pt-3 compact:px-4 compact:pb-1">
       <input v-model="settingsQuery" type="search" aria-label="Search settings" placeholder="Search settings…"
         class="w-full rounded-md bg-overlay-subtle px-3 py-2 text-sm text-content placeholder:text-content-muted outline-none focus-visible:ring-2 ring-accent/60"
         @keydown.enter.prevent="settingsMatches[0] && openSetting(settingsMatches[0])" />
@@ -60,7 +60,7 @@
       />
 
       <!-- Main content area -->
-      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto px-6 pb-6 pt-4 compact:px-4 compact:pb-4 compact:pt-2">
+      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto px-6 pb-0 pt-4 compact:px-4 compact:pb-0 compact:pt-2">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />
@@ -216,8 +216,9 @@
                   @close-settings="close"
                 />
               </template>
-            </div>
-          </div>
+        <div class="pointer-events-none sticky bottom-0 -mx-6 h-8 flex-none bg-gradient-to-t from-surface to-transparent compact:-mx-4" aria-hidden="true"></div>
+      </div>
+    </div>
   </Modal>
 
   <!-- PIN Entry Modal for locked profiles -->

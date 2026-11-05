@@ -143,7 +143,6 @@
           <PencilIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Edit</span>
         </button>
-        <div v-if="isImage && !isMultiple" class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
         <!-- Tags -->
         <button
@@ -773,7 +772,6 @@
         </div>
         </Teleport>
 
-        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
 
 <button
           v-if="groupedExplore"
@@ -1322,15 +1320,6 @@ const hasFaceEmbeddings = computed(() => (
   (isImage.value || isVideo.value) &&
   !isMultiple.value &&
   (mediaItem.value?.has_face_embeddings ?? mediaFaces.value.some((face: any) => face.has_embedding))
-))
-
-// Whether the explore group (find similar / faces / compare / lineage) has any
-// visible row — guards its leading separator so empty groups don't double rules.
-const hasExploreActions = computed(() => (
-  (hasClipEmbedding.value && targetCount.value <= 3)
-  || hasFaceEmbeddings.value
-  || (targetCount.value === 2 && !isVideo.value)
-  || !isMultiple.value
 ))
 
 const exploreRowCount = computed(() => (

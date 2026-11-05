@@ -583,8 +583,8 @@ onBeforeUnmount(() => {
               type="button"
               class="absolute right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
               :class="[heroGutters ? 'bottom-0.5' : 'bottom-2', activeIsComposite
-                ? (collections.isAttached(activeMediaId) ? 'bg-overlay-light text-content hover:bg-overlay-medium' : 'text-content ring-1 ring-inset ring-edge-strong hover:bg-overlay-light')
-                : (collections.isAttached(activeMediaId) ? 'bg-black/55 text-white backdrop-blur hover:bg-black/75' : 'bg-black/70 text-white backdrop-blur ring-1 ring-inset ring-white/35 hover:bg-black/85')]"
+                ? (collections.isAttached(activeMediaId) ? 'text-content-secondary hover:bg-overlay-subtle' : 'bg-overlay-light text-content hover:bg-overlay-medium')
+                : (collections.isAttached(activeMediaId) ? 'bg-black/40 text-white/85 backdrop-blur hover:bg-black/60' : 'bg-black/65 text-white backdrop-blur hover:bg-black/80')]"
               @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
             >
               <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />

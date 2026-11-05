@@ -80,7 +80,7 @@ const sheetItems = computed(() => {
 
 <template>
   <header class="compact-header flex-none bg-surface pt-safe">
-    <div class="h-header-mobile pt-2 flex items-center gap-0.5 px-3">
+    <div class="h-header-mobile flex items-center gap-0.5 px-3">
       <!-- Left slot: Menu on hubs, Back on details, never both. The drawer
            stays reachable from a detail through Back (to the hub) and the edge
            swipe. Where the drawer can dock (a hub when roomy, a detail at
@@ -98,7 +98,7 @@ const sheetItems = computed(() => {
           <rect x="2.5" y="4" width="15" height="12" rx="2" />
           <path d="M7.5 4v12" />
         </svg>
-        <svg v-else :class="compactIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+        <svg v-else :class="[compactIcon, '-translate-x-[3px]']" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
           <path d="M3 7h14M3 13h9" />
         </svg>
       </button>
@@ -109,7 +109,7 @@ const sheetItems = computed(() => {
         aria-label="Back"
         @click="back"
       >
-        <ChevronLeftIcon :class="compactIcon" />
+        <ChevronLeftIcon :class="[compactIcon, '-translate-x-1.5']" />
       </button>
 
       <button

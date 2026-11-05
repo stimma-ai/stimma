@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="!wizard" class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Folders</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Folders</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Add folders Stimma may scan for external media. Stimma never writes new files here; deleting an item and emptying the trash deletes its file from disk.
       </p>

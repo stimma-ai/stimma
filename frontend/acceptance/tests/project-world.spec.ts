@@ -63,8 +63,12 @@ async function openTileMenu(page: Page, media: Media) {
   const item = tile(page, media);
   await expect(item).toBeVisible({ timeout: 30000 });
   await item.click({ button: 'right' });
-  const menu = page.getByRole('button', { name: 'Send to tool', exact: true }).filter({ visible: true });
-  await expect(menu.first()).toBeVisible();
+  await expect(page.getByTestId('menu-group-send').filter({ visible: true })).toBeVisible();
+}
+
+/** Hovers a root menu group row (organize, send, explore) so its panel opens. */
+async function openMenuGroup(page: Page, group: 'organize' | 'send' | 'explore') {
+  await page.getByTestId(`menu-group-${group}`).filter({ visible: true }).hover();
 }
 
 function dropMedia(mediaId: number) {
@@ -115,6 +119,7 @@ test.describe('project world', () => {
     await page.goto(`/projects/${p.id}/assets`);
     await expectContext(page, p.name);
     await openTileMenu(page, source);
+    await openMenuGroup(page, 'send');
     await page.getByRole('button', { name: 'Send to tool', exact: true }).filter({ visible: true }).first().hover();
     const submenu = page.locator('div.fixed.z-submenu').filter({ visible: true }).filter({ hasText: /Image/ }).last();
     await expect(submenu).toBeVisible();
@@ -142,6 +147,7 @@ test.describe('project world', () => {
 
     await page.goto(`/projects/${p.id}/assets`);
     await openTileMenu(page, media);
+    await openMenuGroup(page, 'organize');
     await page.getByRole('button', { name: 'Projects', exact: true }).filter({ visible: true }).hover();
     const rowP = page.getByRole('menuitemcheckbox', { name: new RegExp(p.name) });
     const rowQ = page.getByRole('menuitemcheckbox', { name: new RegExp(q.name) });
@@ -163,6 +169,7 @@ test.describe('project world', () => {
 
     await page.goto(`/projects/${p.id}/assets`);
     await openTileMenu(page, media);
+    await openMenuGroup(page, 'organize');
     await page.getByRole('button', { name: 'Remove from Project', exact: true }).filter({ visible: true }).click();
     await expect(tile(page, media)).toHaveCount(0, { timeout: 5000 });
     await expect.poll(() => projectsOf(page, media.id)).toEqual([]);

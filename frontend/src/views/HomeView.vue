@@ -61,12 +61,12 @@
                 :rows="1"
                 :disabled="submitting"
                 :agent-unavailable="agentModelUnavailable"
+                :context="projectId ? '' : 'New chat · No project'"
                 @update:attachments="inputAttachments = $event"
                 @submit="submitMessage"
               >
                 <template #context-header>
                   <!-- Inside a project the page already says where you are (heading, header). -->
-                  <div v-if="!projectId" class="px-4 pt-3 text-xs text-content-muted">New chat · No project</div>
                   <div v-if="newChatImageUnsupported" class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
                 </template>
                 <template #model-picker>
@@ -80,12 +80,12 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:hidden">
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:mt-3 compact:flex-nowrap compact:gap-1.5 compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
                 @click="openToolById(tool.full_tool_id)"
-                class="flex items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
+                class="flex shrink-0 items-center gap-2 px-3 py-1.5 compact:gap-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
                 :title="tool.name"
               >
                 <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
@@ -94,7 +94,7 @@
               </button>
               <router-link
                 :to="contextRoute('all-tools', projectId)"
-                class="flex items-center px-3 py-1.5 compact:px-2.5 compact:py-1 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2.5 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>

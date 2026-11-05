@@ -21,7 +21,7 @@
           v-if="isEditingBoardName || (editedName && !isCompact)"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="-ml-2 w-80 max-w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-xl font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
+          class="-ml-2 min-w-[6ch] max-w-80 [field-sizing:content] rounded-md border border-transparent bg-transparent px-2 py-1 font-brand text-xl font-semibold text-content outline-none transition-colors hover:bg-overlay-subtle focus:bg-overlay-subtle focus:border-accent"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
@@ -35,6 +35,15 @@
         >
           Name this board...
         </button>
+      </template>
+      <template v-if="loneSection" #meta>
+        <span class="whitespace-nowrap font-mono tabular-nums">{{ assetCountLabel(loneSection) }}</span>
+      </template>
+      <template v-if="loneSection" #actions>
+        <Button size="sm" class="h-9" @click="addAssetsSection = loneSection.id">
+          <template #icon><PlusIcon class="h-icon-nav w-icon-nav" /></template>
+          Add assets
+        </Button>
       </template>
       <template #menu>
         <div class="relative">
@@ -59,7 +68,7 @@
       </template>
     </PageHeader>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section compact:pt-0" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section compact:pt-0" :class="[{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }, loneSection ? '!pt-0' : '']">
       <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading board...</div>
       <div v-else-if="!board" class="px-page py-20 text-center text-content-muted">Board not found.</div>
       <TransitionGroup v-else tag="div" class="space-y-section">
@@ -70,6 +79,7 @@
           data-board-section="true"
           class="relative transition-colors"
           :class="[
+            loneSection && loneSection.id === section.id ? 'group/head' : '',
             sectionDragCollapsed && dragState.sectionDragId === section.id ? 'opacity-40' : ''
           ]"
           @dragover.prevent="handleSectionContainerDragOver(section, $event)"
@@ -78,10 +88,18 @@
           <!-- Section micro-label row: same drag/rename handlers as the old
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
+          <!-- A lone unnamed section has no band of its own on desktop: its count
+               and Add assets live in the page header, and the naming affordance
+               floats over the matte's corner on hover and focus. -->
           <div
-            class="group/head relative flex select-none items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:px-3 compact:pb-0"
-            :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
-            draggable="true"
+            class="group/head select-none"
+            :class="[
+              loneSection && loneSection.id === section.id
+                ? 'absolute left-2 top-2 z-chrome'
+                : 'relative flex items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:px-3 compact:pb-0',
+              !dragState.item && !(loneSection && loneSection.id === section.id) ? 'cursor-grab active:cursor-grabbing' : '',
+            ]"
+            :draggable="!(loneSection && loneSection.id === section.id)"
             @dragstart.stop="onSectionDragStart(section, $event)"
             @dragend="onSectionDragEnd"
             @dragover.stop.prevent="handleSectionHeaderDragOver(section, $event)"
@@ -104,15 +122,16 @@
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100">
+                <span v-else class="flex items-center gap-1.5 text-xs font-normal text-content-muted transition-[color,opacity] group-hover/name:text-content-secondary opacity-0 group-hover/head:opacity-100 group-focus-visible/name:opacity-100 compact:opacity-100" :class="loneSection && loneSection.id === section.id ? 'rounded-md bg-matte/80 px-2 py-1 backdrop-blur-sm' : ''">
                   <span class="truncate">Name this section…</span>
                   <PencilIcon class="h-3 w-3 flex-none opacity-70" :stroke-width="1.75" aria-hidden="true" />
                 </span>
               </button>
             </div>
-            <div class="flex flex-none items-center gap-1">
-              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
-              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-accent-hi transition-colors hover:bg-overlay-subtle compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
+            <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
+              <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ assetCountLabel(section) }}</span>
+              <!-- Tertiary: the view's one primary add is in the page header (desktop). -->
+              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 
@@ -351,7 +370,8 @@ import RenameSheet from '../components/compact/RenameSheet.vue'
 import Sheet from '../components/ui/Sheet.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import OverflowButton from '../components/ui/OverflowButton.vue'
-import { PencilIcon } from '@heroicons/vue/24/outline'
+import { PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import Button from '../components/ui/Button.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
 import AssetSelectionSheet from '../components/AssetSelectionSheet.vue'
@@ -608,6 +628,16 @@ const draggedSectionIsDefault = computed(() => {
   const section = (board.value.sections || []).find((s) => s.id === dragState.sectionDragId)
   return Boolean(section?.is_default)
 })
+
+const loneSection = computed(() => {
+  if (isCompact.value) return null
+  const sections = displaySections.value
+  return sections.length === 1 && !sections[0].name ? sections[0] : null
+})
+function assetCountLabel(section) {
+  const n = (section.items || []).length
+  return `${n} ${n === 1 ? 'asset' : 'assets'}`
+}
 
 const totalAssetCount = computed(() => (board.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
 const selectedMediaIds = computed(() => selectedItems.value.map(mediaIdOf).filter(Boolean))

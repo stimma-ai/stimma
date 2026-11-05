@@ -12,7 +12,7 @@ test.describe('tool agent after a remix', () => {
       requests.push(body);
       await route.fulfill({ json: reply(body) });
     });
-    const agentInput = page.locator('#agent-dock textarea').last();
+    const agentInput = page.locator('#agent-dock textarea, #agent-dock-result textarea').last();
     const ask = async (text: string, steps: number) => {
       const before = requests.length;
       await agentInput.fill(text);
@@ -82,7 +82,7 @@ test.describe('tool agent after a remix', () => {
     await page.locator('button[title^="Remix: load this image"]').first().click({ force: true });
     await expect(page.getByRole('button', { name: 'Use Exact Prompt' })).toBeVisible();
 
-    const agentInput = page.locator('#agent-dock textarea').last();
+    const agentInput = page.locator('#agent-dock textarea, #agent-dock-result textarea').last();
     await agentInput.fill('change the fox to a lynx');
     await agentInput.press('Enter');
     await expect.poll(() => requests).toBe(1);

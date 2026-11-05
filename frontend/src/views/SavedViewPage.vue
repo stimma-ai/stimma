@@ -105,6 +105,7 @@
 </template>
 
 <script setup>
+import { displaySavedViewName } from '../utils/savedViewName'
 import { reportActionError } from '../composables/useToasts'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -293,9 +294,9 @@ watch(() => route.params.id, async (newId) => {
 async function loadSavedView() {
   try {
     const view = await getSavedView(savedViewId.value)
-    savedViewName.value = view.name
+    savedViewName.value = displaySavedViewName(view.name)
     savedViewProjectId.value = view.project_id ?? null
-    setCompactTitle(view.name || 'Saved view')
+    setCompactTitle(displaySavedViewName(view.name) || 'Saved view')
 
     // Apply saved filters
     const savedFilters = normalizeBrowseFilters({

@@ -46,6 +46,8 @@
            whole typing region, including empty context. -->
       <slot v-if="!agentUnavailable" name="context-header" />
 
+      <div v-if="context && !agentUnavailable" class="mx-4 truncate pt-2.5 text-[11px] leading-4 text-content-muted" data-composer-context>{{ context }}</div>
+
       <!-- Attachments preview -->
       <ChatInputAttachments
         v-if="!agentUnavailable && attachments.length > 0"
@@ -56,14 +58,15 @@
       <AgentUnavailableInput v-if="agentUnavailable" />
 
       <!-- Textarea scroll wrapper -->
-      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 mt-2.5">
+      <div v-else ref="scrollWrapRef" class="chat-input-scroll-wrap overflow-y-auto mx-4 coarse:mt-0"
+        :class="context ? 'mt-1' : 'mt-2.5'">
         <textarea v-no-autocorrect
           ref="textareaRef"
           :value="inputText"
           @input="setText($event.target.value)"
           :placeholder="placeholder"
           :rows="rows"
-          class="chat-input-textarea w-full bg-transparent text-content p-0 focus:outline-none resize-none block"
+          class="chat-input-textarea w-full bg-transparent text-content p-0 coarse:py-2.5 focus:outline-none resize-none block"
           @keydown.enter.exact.prevent="$emit('submit')"
           @keydown.enter.shift.exact.prevent="insertNewline"
           @keydown="onTextareaKeydown"
@@ -169,7 +172,10 @@ const props = defineProps({
   voiceSurface: { type: String, default: 'main_chat' },
   // The chat's project. Uploaded attachments become assets in it. When the
   // host doesn't pass one, the active working project is used.
-  projectId: { type: Number, default: undefined }
+  projectId: { type: Number, default: undefined },
+  // The one optional context line (where the message lands). Quiet, on the
+  // composer's own left edge; a host never builds its own.
+  context: { type: String, default: '' }
 })
 
 const emit = defineEmits([

@@ -94,6 +94,7 @@
       </button>
       <div v-else class="h-10 cursor-default select-none" />
     </div>
+    <div class="pointer-events-none sticky bottom-0 h-8 flex-none bg-gradient-to-t from-surface to-transparent" aria-hidden="true"></div>
   </div>
 </template>
 
@@ -278,7 +279,7 @@ const profileSections = [
 // Global settings (applies to all profiles)
 const globalSectionGroups = [
   {
-    label: 'Settings',
+    label: 'App',
     sections: [
       { id: 'account', label: 'Stimma account', icon: AccountIcon },
       { id: 'shared-links', label: 'Shared links', icon: LinkIcon },

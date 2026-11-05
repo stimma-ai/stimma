@@ -70,7 +70,7 @@ test.describe('Source folder import acceptance', () => {
     // places the newly created Asset at the top, regardless of fixture age.
     // The top-level browser excludes project assets, so its expected total
     // must use the same unfiled scope even after earlier tests create projects.
-    await expect(page.getByText(`${importedAssetResult.total} items`, { exact: true })).toBeVisible({
+    await expect(page.getByText(`${importedAssetResult.total} ${importedAssetResult.total === 1 ? 'asset' : 'assets'}`, { exact: true })).toBeVisible({
       timeout: 30000,
     });
     await page.locator('.media-grid-container').evaluate((element) => {

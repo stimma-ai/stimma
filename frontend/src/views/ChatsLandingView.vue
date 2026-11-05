@@ -117,20 +117,20 @@
             </span>
           </template>
 
-          <template v-if="chat.last_message || chat.generated_count > 0" #preview>
+          <template v-if="plainPreview(chat.last_message) || chat.generated_count > 0" #preview>
             <p class="truncate text-[13px] leading-5 text-content-muted">
-              <template v-if="chat.last_message">{{ chat.last_message }}</template>
+              <template v-if="plainPreview(chat.last_message)">{{ plainPreview(chat.last_message) }}</template>
               <template v-else>{{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated</template>
             </p>
           </template>
 
-          <!-- Counts: two fixed cells, so messages and images each keep one
-               vertical track. On narrow layouts the column carries one count,
-               always messages, and stays blank for a chat with none. -->
+          <!-- Counts: two fixed cells on wider layouts, so messages and images
+               each keep one vertical track. On a narrow window they sit
+               together beneath the name, only the ones the chat has. -->
           <template v-if="chat.message_count > 0 || chat.generated_count > 0" #trailing>
-            <span class="flex items-center justify-end gap-1 text-[11px] font-mono tabular-nums text-content-muted">
+            <span class="flex items-center justify-end gap-1 text-[11px] font-mono tabular-nums text-content-muted narrow:justify-start narrow:gap-3">
               <span
-                class="flex w-11 items-center justify-end gap-1"
+                class="flex w-11 items-center justify-end gap-1 narrow:w-auto"
                 :class="chat.message_count > 0 ? '' : 'invisible narrow:hidden'"
                 :title="`${chat.message_count} ${chat.message_count === 1 ? 'message' : 'messages'}`"
               >
@@ -140,8 +140,8 @@
                 {{ chat.message_count }}
               </span>
               <span
-                class="flex w-11 items-center justify-end gap-1"
-                :class="chat.generated_count > 0 ? 'narrow:hidden' : 'invisible narrow:hidden'"
+                class="flex w-11 items-center justify-end gap-1 narrow:w-auto"
+                :class="chat.generated_count > 0 ? '' : 'invisible narrow:hidden'"
                 :title="`${chat.generated_count} ${chat.generated_count === 1 ? 'image' : 'images'}`"
               >
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
@@ -234,6 +234,7 @@ import Button from '../components/ui/Button.vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import CollectionRow from '../components/lists/CollectionRow.vue'
 import RowThumb from '../components/lists/RowThumb.vue'
+import { plainPreview } from '../components/lists/previewText'
 
 defineOptions({
   name: 'ChatsLandingView'

@@ -2,7 +2,7 @@
   <div>
     <template v-if="!showModal && !selectedProvider">
     <div v-if="!wizard" class="mb-4 flex items-center gap-3">
-      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Generation tools</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Generation tools</h3>
     </div>
 
     <p v-if="!wizard" class="mb-6 max-w-2xl text-sm leading-6 text-content-tertiary">

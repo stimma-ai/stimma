@@ -2,7 +2,7 @@
   <div class="max-w-[720px] space-y-6">
     <header>
       <div class="flex items-center gap-3">
-        <h3 class="font-brand text-xl font-semibold text-content">MCP</h3>
+        <h3 class="font-brand text-xl font-semibold text-content compact:hidden">MCP</h3>
         <span class="shrink-0 rounded border border-edge-subtle px-1 py-0.5 text-[10px] font-normal leading-none text-content-tertiary">Experimental</span>
         <a href="https://docs.stimma.ai/mcp/" target="_blank" rel="noopener noreferrer" class="ml-auto shrink-0 text-sm text-accent-hi hover:text-accent" @click.prevent="openGuide">Learn more ↗</a>
       </div>

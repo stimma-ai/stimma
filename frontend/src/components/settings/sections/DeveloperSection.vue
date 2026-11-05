@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary">Developer</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Developer</h3>
       <p class="mt-1 text-xs text-content-tertiary">Debug tools and developer options</p>
     </div>
 

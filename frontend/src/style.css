@@ -563,18 +563,22 @@ body {
   --shadow-page-a: 0.4;
   --shadow-pop-a: 0.85;
 
-  /* Surfaces — channels for `<alpha-value>` support; see the dark block. */
+  /* Surfaces — channels for `<alpha-value>` support; see the dark block.
+     One warm-neutral family: panels, raised steps, borders and the paper matte
+     share a faint warm cast (CIELAB b* +1.1 to +2.1), so a screen never shows a
+     cool sidebar beside a warm matte. Lightness is unchanged from the zinc
+     values they replace (surface L* 96.2); the matte stays a clear step darker. */
   --color-base-rgb: 255 255 255;
   --color-base: rgb(var(--color-base-rgb));
-  --color-surface-rgb: 244 244 245;
+  --color-surface-rgb: 245 244 242;
   --color-surface: rgb(var(--color-surface-rgb));
-  --color-surface-raised-rgb: 228 228 231;
+  --color-surface-raised-rgb: 230 229 226;
   --color-surface-raised: rgb(var(--color-surface-raised-rgb));
   --color-surface-overlay-rgb: 255 255 255;
   --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
-  --color-surface-hover-rgb: 212 212 216;
+  --color-surface-hover-rgb: 214 213 209;
   --color-surface-hover: rgb(var(--color-surface-hover-rgb));
-  --color-surface-active-rgb: 161 161 170;
+  --color-surface-active-rgb: 163 162 158;
   --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text */
@@ -588,10 +592,10 @@ body {
   --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border-rgb: 212 212 216;
+  --color-border-rgb: 214 213 209;
   --color-border: rgb(var(--color-border-rgb));
   --color-border-subtle: rgba(0,0,0,0.08);
-  --color-border-strong-rgb: 161 161 170;
+  --color-border-strong-rgb: 163 162 158;
   --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays */
@@ -601,7 +605,7 @@ body {
   --color-overlay-light: rgba(0,0,0,0.06);
   --color-overlay-medium: rgba(0,0,0,0.1);
   --color-overlay-strong: rgba(0,0,0,0.15);
-  --color-field: rgba(0,0,0,0.04);
+  --color-field: rgba(0,0,0,0.055); /* one small step above the old 0.04: 1.12:1 on white, was 1.09 */
   --color-backdrop: rgba(0,0,0,0.4);
 
   /* Slideshow: the one matte behind all artwork, viewers included. */
@@ -617,7 +621,7 @@ body {
   --color-on-accent-rgb: 255 255 255;
   --color-selection-rgb: 99 102 241;
   --color-selection: rgb(var(--color-selection-rgb));
-  --color-matte-rgb: 236 234 230;
+  --color-matte-rgb: 234 233 230;
   --color-matte: rgb(var(--color-matte-rgb));
   --color-live-rgb: 219 39 119;
   --color-live: rgb(var(--color-live-rgb));

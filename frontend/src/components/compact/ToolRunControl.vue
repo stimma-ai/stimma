@@ -94,14 +94,11 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
 </script>
 
 <template>
+  <!-- A 44px target around a 36px fill; the fill's right edge is the page margin. -->
   <button
     type="button"
     data-testid="tool-run-button"
-    class="relative h-11 min-w-[60px] px-4 gap-1.5 rounded-[10px] flex items-center justify-center border-none text-[15px] font-semibold transition-colors select-none touch-manipulation"
-    :class="[
-      state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
-      !canSubmit && state === 'idle' ? 'opacity-45' : '',
-    ]"
+    class="h-11 min-w-11 flex-none flex items-center justify-center border-none bg-transparent pl-0 pr-1 select-none touch-manipulation focus-visible:outline-none"
     :aria-label="state === 'forever' ? 'Stop forever mode' : `Run ×${batchSize}`"
     @pointerdown="onPointerDown"
     @pointerup="cancelPress"
@@ -110,18 +107,26 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @contextmenu.prevent
     @click="onClick"
   >
-    <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
-    <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
     <span
-      v-if="batchSize > 1"
-      class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
-      :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
-    >×{{ batchSize }}</span>
-    <span
-      v-if="outputSettingOn"
-      class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-content ring-2 ring-surface"
-      aria-hidden="true"
-    ></span>
+      class="relative flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-md px-3.5 text-[15px] font-semibold transition-colors"
+      :class="[
+        state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
+        !canSubmit && state === 'idle' ? 'opacity-45' : '',
+      ]"
+    >
+      <svg v-if="state === 'forever'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
+      <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
+      <span
+        v-if="batchSize > 1"
+        class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"
+        :class="state === 'forever' ? 'text-live' : 'text-accent-hi'"
+      >×{{ batchSize }}</span>
+      <span
+        v-if="outputSettingOn"
+        class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-content ring-2 ring-surface"
+        aria-hidden="true"
+      ></span>
+    </span>
   </button>
 
   <Sheet :show="sheetOpen" title="Run" @close="sheetOpen = false">

@@ -4,9 +4,9 @@
     <section>
       <div v-if="!wizard" class="mb-1">
         <div class="flex items-center gap-3">
-          <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Chat models</h3>
+          <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Chat models</h3>
         </div>
-        <p class="mt-0.5 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
+        <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
       <div
@@ -628,17 +628,17 @@ const props = defineProps({
 defineEmits(['navigate'])
 
 const providerKinds = [
-  { id: 'openai', name: 'OpenAI', description: 'Ensuring artificial general intelligence benefits all of humanity.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'openai', name: 'OpenAI', description: 'Adds GPT models using your OpenAI API key.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
   // Signs in with a ChatGPT subscription instead of an API key. Kept beside
   // the API-key row rather than merged into it: different billing, different
   // model availability, and both can be connected at once.
   { id: 'chatgpt', name: 'ChatGPT', description: 'Use models included with your ChatGPT subscription.' },
-  { id: 'anthropic', name: 'Anthropic', description: 'Making AI systems you can rely on.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
-  { id: 'google', name: 'Google', description: 'Gemini models from Google.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
-  { id: 'xai', name: 'xAI', description: 'Accelerating human scientific discovery.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
-  { id: 'together', name: 'Together AI', description: 'Open models through Together AI.', apiKeyHelp: 'Create or manage keys in your Together AI account.', apiKeyUrl: 'https://api.together.ai/settings/api-keys' },
-  { id: 'fireworks', name: 'Fireworks AI', description: 'Open models through Fireworks AI.', apiKeyHelp: 'Create or manage keys in your Fireworks AI account.', apiKeyUrl: 'https://app.fireworks.ai/settings/users/api-keys' },
-  { id: 'openrouter', name: 'OpenRouter', description: 'Access hundreds of models with one key.', apiKeyHelp: 'Create or manage keys in your OpenRouter account.', apiKeyUrl: 'https://openrouter.ai/settings/keys' },
+  { id: 'anthropic', name: 'Anthropic', description: 'Adds Claude models using your Anthropic API key.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
+  { id: 'google', name: 'Google', description: 'Adds Gemini models using your Google API key.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
+  { id: 'xai', name: 'xAI', description: 'Adds Grok models using your xAI API key.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
+  { id: 'together', name: 'Together AI', description: 'Adds the models your Together AI key can list.', apiKeyHelp: 'Create or manage keys in your Together AI account.', apiKeyUrl: 'https://api.together.ai/settings/api-keys' },
+  { id: 'fireworks', name: 'Fireworks AI', description: 'Adds the models your Fireworks AI key can list.', apiKeyHelp: 'Create or manage keys in your Fireworks AI account.', apiKeyUrl: 'https://app.fireworks.ai/settings/users/api-keys' },
+  { id: 'openrouter', name: 'OpenRouter', description: 'Adds the models your OpenRouter key can list.', apiKeyHelp: 'Create or manage keys in your OpenRouter account.', apiKeyUrl: 'https://openrouter.ai/settings/keys' },
   { id: 'local', name: 'Local endpoint', description: 'Connect to LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.' },
 ]
 const modelVendorOptions = MODEL_VENDOR_OPTIONS

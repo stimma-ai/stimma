@@ -224,18 +224,18 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <div class="flex items-center rounded-md bg-overlay-faint p-0.5 compact:bg-transparent compact:p-0">
+          <div class="flex items-center rounded-md bg-overlay-subtle p-0.5 compact:p-0 coarse:p-0">
             <SegmentedControl
               :model-value="chatPanelOpen ? 'chat' : 'flow'"
               :options="WORKSPACE_MODES"
               aria-label="Workspace"
-              class="!bg-transparent !p-0 coarse:[&_button]:min-h-11 coarse:[&_button]:px-4"
+              class="!bg-transparent !p-0 coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5"
               @update:model-value="chatPanelOpen = $event === 'chat'"
             />
             <button
               type="button"
-              class="w-6 h-7 compact:w-9 compact:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-              :class="showChatMenu ? 'bg-overlay-subtle text-content-secondary' : ''"
+              class="w-6 h-7 compact:w-9 compact:h-11 coarse:w-9 coarse:h-11 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-hover transition-colors"
+              :class="showChatMenu ? 'bg-overlay-hover text-content-secondary' : ''"
               title="Chat sessions"
               aria-label="Chat sessions"
               aria-haspopup="menu"
@@ -824,6 +824,7 @@ import { makeStorageKey } from '../utils/storageKeys'
 import { parseFlowError } from '../utils/flowErrors'
 import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
+import { BoltIcon as FlowGlyph } from '@heroicons/vue/24/outline'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -859,7 +860,7 @@ const VIEW_MODES = [
   { label: 'Code', value: 'code' },
 ]
 const WORKSPACE_MODES = [
-  { label: 'Flow', value: 'flow' },
+  { label: 'Flow', value: 'flow', icon: FlowGlyph },
   { label: 'Chat', value: 'chat', icon: AgentIcon },
 ]
 const GRAPH_DETAIL_MODES = [

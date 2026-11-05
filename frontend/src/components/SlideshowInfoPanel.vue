@@ -9,32 +9,37 @@
           focusMode ? 'w-0 opacity-0 pointer-events-none border-l-0' : 'w-96 max-w-[90vw] border-l border-edge-subtle'
         ]"
   >
-    <!-- Header (pinned): markers + utility rail, then the two core-loop verbs.
-         Grammar: labels stay on the two actions whose icons don't carry
-         themselves and which open menus (Remix, Send to Tool); everything
-         icon-conventional is a ghost on the rail. Export-original lives in
-         the Export modal (format defaults to Original). In Trash only the
-         markers show: marking a trashed item restores it. -->
-    <div v-if="currentItem" class="px-3 pt-3 pb-2 flex-shrink-0">
-      <div class="flex flex-wrap items-center gap-0.5" :key="'markers-' + markerUpdateTrigger">
-        <Tooltip v-for="marker in (showMarkers ? availableMarkers : [])" :key="marker.id" :text="marker.name">
-          <button
-            type="button"
-            :aria-label="marker.name"
-            @click="toggleMarker(marker.id)"
-            :class="[
-              'inline-flex items-center justify-center w-7 h-7 rounded-md cursor-pointer border-none bg-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-              isMarkerActive(marker.id) ? 'bg-overlay-light' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
-            ]"
-            :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
+    <!-- Header (pinned): ONE primary row. The three verbs on the left (labels
+         stay on the actions whose icons don't carry themselves and which open
+         menus: Remix, Send to Tool), the icon-conventional utilities at the
+         right edge. Markers and the organization chips are the quiet row
+         beneath, in the body. Export-original lives in the Export modal
+         (format defaults to Original). In Trash there are no actions. -->
+    <div v-if="currentItem && !isInTrash" class="px-3 pt-3 flex-shrink-0">
+      <div class="flex flex-wrap items-center gap-x-0.5">
+        <div class="-ml-2.5 flex min-w-0 flex-wrap items-center gap-0.5">
+          <ActionRow
+            v-if="showEditAction && handles('edit-image') && isImageType(currentItem)"
+            @click="$emit('edit-image', mediaIdOf(currentItem))"
           >
-            <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'"></span>
-          </button>
-        </Tooltip>
-        <template v-if="!isInTrash">
-        <div class="flex-1"></div>
-        <!-- Rail actions render only where the host handles them (Compare
-             mode mounts this panel without export/share/edit/graph). -->
+            <template #icon><PencilSquareIcon class="h-4 w-4 flex-shrink-0" /></template>
+            Edit
+          </ActionRow>
+          <InspireMenu
+            :media-id="mediaIdOf(currentItem)"
+            @sent="$emit('menu-sent')"
+            class="action-pair-wrap"
+          />
+          <SendToToolMenu
+            :media-item="currentItem"
+            :media-type="currentMediaType"
+            @sent="$emit('menu-sent')"
+            class="action-pair-wrap"
+          />
+        </div>
+        <div class="ml-auto -mr-1 flex items-center gap-0.5">
+          <!-- Rail actions render only where the host handles them (Compare
+               mode mounts this panel without export/share/edit/graph). -->
         <Tooltip v-if="handles('download')" text="Export">
           <IconButton aria-label="Export" @click="$emit('download')">
             <ArrowDownTrayIcon class="w-4 h-4" />
@@ -50,31 +55,11 @@
             <EllipsisHorizontalIcon class="w-4 h-4" />
           </IconButton>
         </Tooltip>
-        </template>
-      </div>
-      <div v-if="!isInTrash" class="-mx-1 mt-1 flex flex-wrap items-center gap-0.5">
-        <ActionRow
-          v-if="showEditAction && handles('edit-image') && isImageType(currentItem)"
-          @click="$emit('edit-image', mediaIdOf(currentItem))"
-        >
-          <template #icon><PencilSquareIcon class="h-4 w-4 flex-shrink-0" /></template>
-          Edit
-        </ActionRow>
-        <InspireMenu
-          :media-id="mediaIdOf(currentItem)"
-          @sent="$emit('menu-sent')"
-          class="action-pair-wrap"
-        />
-        <SendToToolMenu
-          :media-item="currentItem"
-          :media-type="currentMediaType"
-          @sent="$emit('menu-sent')"
-          class="action-pair-wrap"
-        />
+        </div>
       </div>
     </div>
 
-    <div v-if="currentItem" class="p-3 overflow-y-auto overflow-x-hidden">
+    <div v-if="currentItem" class="px-3 pb-3 overflow-y-auto overflow-x-hidden" :class="isInTrash ? 'pt-3' : 'pt-2'">
       <!-- Trash actions -->
       <div v-if="isTrashView || isCurrentItemTrashed" class="flex flex-col gap-1.5 mb-6">
         <button
@@ -97,9 +82,27 @@
         </button>
       </div>
 
-      <!-- Organization: chips are self-describing, no heading -->
-      <div class="mb-6">
-        <div v-if="!isTrashView && !isCurrentItemTrashed" class="flex items-center gap-1.5 flex-wrap text-xs">
+      <!-- The quiet organization row: markers, then where this lives and its
+           tags. Chips are self-describing, no heading. -->
+      <div class="mb-5">
+        <div class="flex items-center gap-1.5 flex-wrap text-xs">
+          <div v-if="showMarkers && availableMarkers.length" class="-ml-1 mr-0.5 flex items-center gap-0.5" :key="'markers-' + markerUpdateTrigger">
+          <Tooltip v-for="marker in (showMarkers ? availableMarkers : [])" :key="marker.id" :text="marker.name">
+            <button
+              type="button"
+              :aria-label="marker.name"
+              @click="toggleMarker(marker.id)"
+              :class="[
+                'inline-flex items-center justify-center w-7 h-7 rounded-md cursor-pointer border-none bg-transparent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+                isMarkerActive(marker.id) ? 'bg-overlay-light' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+              ]"
+              :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
+            >
+              <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex items-center justify-center icon-container" :class="isMarkerActive(marker.id) ? '' : 'marker-glyph-off'"></span>
+            </button>
+          </Tooltip>
+          </div>
+          <template v-if="!isTrashView && !isCurrentItemTrashed">
           <a
             v-for="project in mediaProjects"
             :key="'p-' + project.id"
@@ -141,6 +144,7 @@
                 class="inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-edge-subtle rounded-md text-content-muted text-xs hover:bg-overlay-light hover:text-content-secondary hover:border-edge transition-colors duration-150 cursor-pointer bg-transparent"
               ><TagIcon class="w-3 h-3" />+</button>
             </Tooltip>
+          </template>
           </template>
         </div>
         <InlineTagEditor

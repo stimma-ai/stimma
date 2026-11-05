@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Agent</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Agent</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
       </p>

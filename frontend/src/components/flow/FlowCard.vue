@@ -43,15 +43,17 @@
     <template v-if="!editing && (parentName || flow.description)" #preview>
       <p class="truncate text-[13px] leading-5 text-content-muted">
         <template v-if="parentName">based on {{ parentName }}</template>
-        <template v-else>{{ flow.description }}</template>
+        <template v-else>{{ plainPreview(flow.description) }}</template>
       </p>
     </template>
 
-    <!-- Status: the row's one fact, in the shared trailing column. "Your turn"
-         is the actionable state, so it wears the accent and a heavier weight. -->
+    <!-- Status: the row's one fact, in the shared trailing column. A flow at
+         rest (Done, Idle) is quiet muted text with no dot, so the states that
+         want attention stand out: "Your turn" wears the accent and a heavier
+         weight, a failure its red, a running or paused flow its dot. -->
     <template v-if="!editing" #trailing>
       <span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[11.5px]" :class="statusTextClass">
-        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
+        <span v-if="!atRest" class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass"></span>
         <span class="truncate">{{ statusText }}</span>
       </span>
     </template>
@@ -73,6 +75,8 @@ import { useFlowCounts } from '../../composables/useFlowCounts'
 import CollectionRow from '../lists/CollectionRow.vue'
 import RowThumb from '../lists/RowThumb.vue'
 import { useFlowStatus } from '../../composables/useFlowStatus'
+import { mapFlowStatus, textClass } from '../../utils/statusColors'
+import { plainPreview } from '../lists/previewText'
 import { useViewport } from '../../composables/useViewport'
 
 interface Props {
@@ -101,11 +105,14 @@ const statusText = computed(() => {
   if (width.value === 'narrow' || pending <= 0 || label === 'Error' || label === 'Tool unavailable') return label
   return `${label} · ${pending} pending`
 })
-const statusTextClass = computed(() =>
-  statusLabel.value === 'Your Turn'
-    ? 'font-semibold text-accent-hi'
-    : 'text-content-tertiary',
-)
+const atRest = computed(() => statusLabel.value === 'Done' || statusLabel.value === 'Idle')
+const statusTextClass = computed(() => {
+  const label = statusLabel.value
+  if (label === 'Your Turn') return 'font-semibold text-accent-hi'
+  if (atRest.value) return 'text-content-muted'
+  if (label === 'Error' || label === 'Tool unavailable') return `font-medium ${textClass(mapFlowStatus(label))}`
+  return 'text-content-tertiary'
+})
 
 const editing = ref(false)
 const editingName = ref('')

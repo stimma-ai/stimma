@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Profiles</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Profiles</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Manage workspace profiles. Each profile has its own media library, markers, and settings.
       </p>

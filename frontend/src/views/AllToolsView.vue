@@ -240,91 +240,70 @@
         <p class="text-content-muted text-sm">Try adjusting your search, task type, or provider filters.</p>
       </div>
 
-      <!-- Tools by task. Plain rows in the chats and flows grammar: name (the
-           variant beside it, lighter), then only the facts that tell a tool
-           from its neighbours in one fixed right-aligned column. Facts every
-           tool in a section shares (provider, "open weights") sit once on the
-           section label; related variants of one tool sit together, the
-           repeats of the title dimmed. The full list stays in the tooltip. -->
-      <div v-else class="space-y-section">
-        <section v-for="group in toolSections" :key="group.taskType">
-          <div class="mb-1 flex max-w-[56rem] items-baseline gap-3 px-page">
-            <h2 class="text-xs font-semibold text-content-secondary">
-              {{ formatTaskType(group.taskType) }}
-            </h2>
-            <span v-if="group.sharedFacts.length" class="min-w-0 truncate text-[11px] text-content-muted">
-              <template v-for="(fact, i) in group.sharedFacts" :key="fact.text">
-                <span v-if="i > 0" aria-hidden="true"> · </span>
-                <span :class="fact.cloud ? 'stimma-cloud-text font-medium' : ''">{{ fact.text }}</span>
-              </template>
-            </span>
-          </div>
-
-          <div
-            v-for="row in group.rows"
-            :key="row.tool.full_tool_id"
-            class="group relative cursor-pointer px-page py-1 transition-colors hover:bg-overlay-subtle compact:py-1.5"
-            :class="[
-              row.tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
-              row.clusterStart && !row.first ? 'mt-3' : '',
-            ]"
-            @click="openTool(row.tool)"
-            @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
-          >
-            <div
-              class="grid max-w-[56rem] gap-x-4 narrow:grid-cols-[minmax(0,1fr)_auto] narrow:gap-x-3"
-              :class="[
-                group.hasPrice ? 'grid-cols-[minmax(0,1fr)_15rem_3.5rem]' : 'grid-cols-[minmax(0,1fr)_15rem]',
-                isUserTool(row.tool) ? 'pr-8' : '',
-              ]"
-            >
-              <!-- Identity: name, with the variant beside it in a lighter
-                   weight. A repeated title is dimmed so the variants read as
-                   one tool. Wraps before it truncates. -->
-              <h3 class="col-start-1 row-start-1 min-w-0 break-words text-sm leading-5 line-clamp-2" :title="row.tool.name">
-                <span class="font-medium" :class="row.repeat && row.variant ? 'text-content-tertiary' : 'text-content'">{{ row.title }}</span><span v-if="row.variant" class="ml-1.5 font-medium text-content">{{ row.variant }}</span>
-              </h3>
-
-              <!-- Distinguishing facts, fixed right-aligned column. -->
-              <div
-                v-if="row.facts.length || row.hidden > 0"
-                class="col-start-2 row-start-1 flex min-w-0 items-center justify-start gap-1.5 text-[11px] leading-5 text-content-muted narrow:col-start-1 narrow:row-start-3 narrow:col-span-2"
-                :title="row.allFacts.join(' · ')"
-              >
-                <template v-for="(fact, i) in row.facts" :key="fact.text">
-                  <span v-if="i > 0" class="flex-shrink-0" aria-hidden="true">·</span>
-                  <span
-                    class="min-w-0 truncate whitespace-nowrap"
-                    :class="fact.cloud ? 'stimma-cloud-text font-medium' : fact.fast ? 'text-accent-hi' : ''"
-                  >{{ fact.text }}</span>
-                </template>
-                <span v-if="row.hidden > 0" class="flex-shrink-0 font-mono tabular-nums">+{{ row.hidden }}</span>
-              </div>
-
+      <!-- Tools by task. Inside a section a tool family is a header (glyph, the
+           family name, the facts all its variants share) with its variants as
+           indented rows under it, each led by a distinguishing label. A family
+           with one variant is one row. Facts every tool in a section shares
+           (provider, "open weights") sit once on the section header. Two
+           columns once the page is wide enough; one row height for one-line
+           rows, one for two-line rows, one larger gap between families. -->
+      <div v-else class="@container">
+        <div class="mx-auto max-w-[44rem] px-page @[60rem]:max-w-none @[60rem]:columns-2 @[60rem]:gap-x-12">
+          <section v-for="group in toolSections" :key="group.taskType" class="mb-section break-inside-avoid">
+            <div class="flex items-baseline justify-between gap-3 pb-1.5">
+              <h2 class="shrink-0 text-xs font-semibold text-content-secondary">
+                {{ formatTaskType(group.taskType) }}
+              </h2>
               <span
-                v-if="group.hasPrice"
-                class="col-start-3 row-start-1 text-right font-mono text-[11px] leading-5 tabular-nums text-content-tertiary narrow:col-start-2"
-              >{{ row.price }}</span>
-
-              <p
-                v-if="row.description"
-                class="col-start-1 row-start-2 min-w-0 truncate text-xs leading-5 text-content-secondary narrow:col-span-2"
-              >{{ row.description }}</p>
+                v-if="group.sharedFacts.length"
+                class="min-w-0 truncate text-xs text-content-tertiary"
+                :title="'Shared by every tool in this section: ' + group.sharedFacts.map((f) => f.text).join(' · ')"
+              >
+                <template v-for="(fact, i) in group.sharedFacts.slice(0, 3)" :key="fact.text">
+                  <span v-if="i > 0" aria-hidden="true"> · </span>
+                  <span :class="fact.cloud ? 'stimma-cloud-text font-medium' : ''">{{ fact.text }}</span>
+                </template>
+                <span v-if="group.sharedFacts.length > 3" class="font-mono tabular-nums"> +{{ group.sharedFacts.length - 3 }}</span>
+              </span>
             </div>
 
-            <!-- Per-tool menu (user tools only) -->
-            <button
-              v-if="isUserTool(row.tool)"
-              class="absolute right-page top-1/2 -mr-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content group-hover:opacity-100 compact:opacity-100 [[data-pointer=coarse]_&]:opacity-100"
-              title="Tool options"
-              @click.stop="openToolMenu($event, row.tool)"
+            <div
+              v-for="family in group.families"
+              :key="family.key"
+              class="pb-3 last:pb-0"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-              </svg>
-            </button>
-          </div>
-        </section>
+              <ToolRow
+                v-if="family.rows.length > 1"
+                :interactive="false"
+                :name="family.title"
+                :glyph="group.glyph"
+                :facts="family.facts"
+                :hidden="family.hidden"
+                :facts-title="family.allFacts"
+                :description="family.description"
+              />
+              <ToolRow
+                v-for="row in family.rows"
+                :key="row.tool.full_tool_id"
+                :class="row.tool.availability !== 'available' ? 'pointer-events-none opacity-40' : ''"
+                :name="family.rows.length > 1 ? row.tool.name : family.title"
+                :label="row.label"
+                :tag="row.tag"
+                :indent="family.rows.length > 1"
+                :glyph="group.glyph"
+                :facts="row.facts"
+                :hidden="row.hidden"
+                :facts-title="row.allFacts"
+                :price="row.price"
+                :description="family.rows.length > 1 ? '' : row.description"
+                :menu="isUserTool(row.tool)"
+                @click="openTool(row.tool)"
+                @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
+                @menu="openToolMenu($event, row.tool)"
+              />
+            </div>
+          </section>
+        </div>
       </div>
     </div>
 
@@ -402,7 +381,8 @@ import {
   isStimmaCloudTool,
   toolProviderDisplayName,
 } from '../utils/stimmaCloud'
-import { formatTaskTypeLabel, TASK_TYPE_LABELS } from '../utils/taskTypeIcons'
+import { formatTaskTypeLabel, getTaskTypeIconPath } from '../utils/taskTypeIcons'
+import ToolRow from '../components/lists/ToolRow.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
@@ -877,10 +857,12 @@ function getToolBadges(tool) {
   return tool.metadata?.badges || []
 }
 
-// Rows show only what tells a tool from its neighbours: at most two facts, the
-// rest fold into a quiet +N (the full list is the row's tooltip). Facts every
-// tool in a section shares are lifted onto the section label.
-const VISIBLE_FACTS = 2
+// What a row shows is what tells a tool from its neighbours. Facts every tool in
+// a section shares (provider, "open weights") are lifted onto the section
+// header; facts every variant of a family shares are lifted onto the family
+// line; a variant keeps only its own. At most three show, the rest fold into a
+// quiet +N (the full list is the tooltip).
+const VISIBLE_FACTS = 3
 
 function toolProviderFact(tool) {
   if (isUserTool(tool)) return { text: 'Custom tool' }
@@ -888,33 +870,49 @@ function toolProviderFact(tool) {
   return { text: tool.provider_name || tool.provider_id || '' }
 }
 
-// Capability facts for display: the lightning mark (on the title or in a
-// badge) is the word "fast", leading.
-function toolCapabilityFacts(tool, parts) {
-  const out = []
+const stripBolt = (text) => String(text).replace(/⚡/g, '').trim()
+const sentence = (text) => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
+
+// A tool's variant label and capability facts. The lightning mark on a name is
+// the tool's speed variant: it is labelled by the speed badge it carries
+// ("Turbo 4-step", "Fast") and that badge is then not repeated as a fact.
+function toolVariant(tool, parts) {
+  const badges = getToolBadges(tool).map(String)
+  let speedBadge = null
+  if (parts.fast) {
+    speedBadge = badges.find((b) => b.includes('⚡')) || badges.find((b) => stripBolt(b).toLowerCase() === 'fast') || null
+  }
+  const speedLabel = parts.fast ? (speedBadge ? sentence(stripBolt(speedBadge)) : 'Fast') : ''
+  const label = [speedLabel, parts.variant].filter(Boolean).join(' · ')
+  const caps = []
   const seen = new Set()
-  const add = (text, extra = {}) => {
-    const t = String(text).replace(/⚡/g, '').trim().toLowerCase()
-    const key = t
-    if (!t || seen.has(key)) return
-    seen.add(key)
-    out.push({ text: t, ...extra })
+  for (const b of badges) {
+    if (b === speedBadge) continue
+    const text = stripBolt(b).toLowerCase()
+    if (!text || seen.has(text)) continue
+    seen.add(text)
+    caps.push({ text })
   }
-  const badges = getToolBadges(tool)
-  if (parts.fast || badges.some((b) => String(b).toLowerCase().replace(/⚡/g, '').trim() === 'fast' || String(b).includes('⚡'))) {
-    add('fast', { fast: true })
-  }
-  for (const b of badges) add(b)
-  return out
+  return { label, caps }
+}
+
+function toolIdTail(tool) {
+  const id = String(tool.full_tool_id || tool.tool_id || '')
+  return id.includes(':') ? id.slice(id.indexOf(':') + 1) : id
+}
+
+const sameFact = (a, b) => a.text.toLowerCase() === b.text.toLowerCase()
+
+function splitFacts(facts) {
+  return { facts: facts.slice(0, VISIBLE_FACTS), hidden: Math.max(0, facts.length - VISIBLE_FACTS) }
 }
 
 const toolSections = computed(() => {
   return groupedByTask.value.map((group) => {
     const items = group.tools.map((tool) => {
       const parts = toolTitleParts(tool, group.taskType)
-      const provider = toolProviderFact(tool)
-      const caps = toolCapabilityFacts(tool, parts)
-      return { tool, parts, provider, caps }
+      const { label, caps } = toolVariant(tool, parts)
+      return { tool, parts, label, provider: toolProviderFact(tool), caps }
     })
 
     // Facts shared by every tool in the section (only meaningful with 2+).
@@ -924,45 +922,78 @@ const toolSections = computed(() => {
         shared.push(items[0].provider)
       }
       for (const cap of items[0].caps) {
-        if (items.every((i) => i.caps.some((c) => c.text.toLowerCase() === cap.text.toLowerCase()))) shared.push(cap)
+        if (items.every((i) => i.caps.some((c) => sameFact(c, cap)))) shared.push(cap)
       }
     }
-    const sharedKeys = new Set(shared.map((f) => f.text.toLowerCase()))
+    for (const item of items) {
+      item.own = [item.provider, ...item.caps].filter((f) => f.text && !shared.some((s) => sameFact(s, f)))
+    }
 
-    // Related variants of one tool sit together, in order of first appearance.
-    const clusters = new Map()
+    // Variants of one tool form a family, in order of first appearance.
+    const byTitle = new Map()
     for (const item of items) {
       const key = item.parts.title.toLowerCase()
-      if (!clusters.has(key)) clusters.set(key, [])
-      clusters.get(key).push(item)
+      if (!byTitle.has(key)) byTitle.set(key, { key, title: item.parts.title, items: [] })
+      byTitle.get(key).items.push(item)
     }
 
-    const rows = []
-    for (const cluster of clusters.values()) {
-      cluster.forEach((item, ci) => {
-        const own = [item.provider, ...item.caps].filter((f) => f.text && !sharedKeys.has(f.text.toLowerCase()))
-        // Provider only distinguishes when it is not the section's.
-        const all = [item.provider.text, ...item.caps.map((c) => c.text)].filter(Boolean)
-        rows.push({
+    const families = [...byTitle.values()].map((fam) => {
+      const multi = fam.items.length > 1
+      // Facts every variant shares belong to the family line.
+      const famShared = multi ? fam.items[0].own.filter((f) => fam.items.every((i) => i.own.some((o) => sameFact(o, f)))) : []
+      const own = (item) => item.own.filter((f) => !famShared.some((s) => sameFact(s, f)))
+
+      // The unmarked variant is "Standard" beside marked siblings; it leads.
+      if (multi) for (const item of fam.items) if (!item.label) item.label = 'Standard'
+
+      // Two variants showing the same label and facts must still be told apart:
+      // by their full names, else by tool id.
+      const tell = new Map()
+      for (const item of fam.items) {
+        const sig = `${item.label.toLowerCase()}|${own(item).map((f) => f.text).join(',')}`
+        if (!tell.has(sig)) tell.set(sig, [])
+        tell.get(sig).push(item)
+      }
+      for (const group of tell.values()) {
+        if (group.length < 2) continue
+        const names = new Set(group.map((i) => i.tool.name))
+        if (names.size === group.length) group.forEach((i) => { i.label = i.tool.name })
+        else group.forEach((i) => { i.tag = toolIdTail(i.tool) })
+      }
+
+      const ordered = multi
+        ? [...fam.items].sort((a, b) => (a.label === 'Standard' ? 0 : 1) - (b.label === 'Standard' ? 0 : 1))
+        : fam.items
+      const rows = ordered.map((item) => {
+        const split = splitFacts(own(item))
+        return {
           tool: item.tool,
-          title: item.parts.title,
-          variant: item.parts.variant,
-          repeat: ci > 0,
-          clusterStart: ci === 0,
-          first: rows.length === 0,
-          facts: own.slice(0, VISIBLE_FACTS),
-          hidden: Math.max(0, own.length - VISIBLE_FACTS),
-          allFacts: all,
+          label: item.label,
+          tag: item.tag || '',
+          facts: split.facts,
+          hidden: split.hidden,
+          allFacts: [item.provider.text, ...item.caps.map((c) => c.text)].filter(Boolean).join(' · '),
           price: getToolPrice(item.tool),
           description: getToolDescription(item.tool),
-        })
+        }
       })
-    }
+      const famSplit = splitFacts(famShared)
+      return {
+        key: fam.key,
+        title: fam.title,
+        rows,
+        facts: famSplit.facts,
+        hidden: famSplit.hidden,
+        allFacts: famShared.map((f) => f.text).join(' · '),
+        description: rows.map((r) => r.description).find(Boolean) || '',
+      }
+    })
+
     return {
       taskType: group.taskType,
+      glyph: getTaskTypeIconPath(group.taskType),
       sharedFacts: shared,
-      hasPrice: rows.some((r) => r.price),
-      rows,
+      families,
     }
   })
 })

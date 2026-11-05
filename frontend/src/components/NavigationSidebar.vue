@@ -30,7 +30,7 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="[isDesktopMac ? 'pt-10' : 'pt-3', navScrolledUnder ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : '']">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-0.5 flex-1 overflow-y-auto custom-scrollbar" :class="[isDesktopMac ? 'pt-10' : 'pt-3', navScrolls ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : '']">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -91,13 +91,13 @@
             @click="openSavedView(savedView.id)"
             class="flex items-center gap-2 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left [&>:first-child]:mx-1"
             :class="isSavedViewActive(savedView.id) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : ''"
-            :title="savedView.name"
+            :title="displaySavedViewName(savedView.name)"
           >
             <component :is="savedViewIcon(savedView)" class="w-icon-nav h-icon-nav flex-shrink-0" />
-            <span class="truncate text-sm">{{ savedView.name }}</span>
+            <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
           </button>
 
-          <div class="h-1 flex-shrink-0" aria-hidden="true"></div>
+          <div class="h-3 flex-shrink-0" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
@@ -211,7 +211,7 @@
           <SidebarProjects v-if="activeProjectId == null" @selected="props.isMobile && emit('close')" />
 
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
-          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="mt-2 flex flex-col gap-1 border-t border-edge-subtle [&>:first-child]:mt-2">
+          <div v-if="pinnedTabs.length > 0 || openTabs.length > 0 || editorTabs.length > 0" class="contents">
 
             <!-- Pinned, Editing and Open share the section label recipe. -->
             <SidebarSectionHeader v-if="pinnedTabs.length > 0" id="pinned" label="Pinned" />
@@ -240,8 +240,9 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-9 coarse:min-h-11 flex items-center gap-2 px-3 py-1 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
+                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
+                  isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
@@ -353,7 +354,7 @@
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
@@ -374,7 +375,7 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
@@ -384,7 +385,7 @@
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] leading-4 text-content">
+                    <span class="truncate text-[13px] leading-4">
                       {{ tab.displayName }}
                     </span>
                     <span class="truncate text-[11px] leading-[14px] text-content-muted">
@@ -408,7 +409,7 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
@@ -446,7 +447,7 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] leading-4 text-content"
+                      class="truncate text-[13px] leading-4"
                     >
                       {{ tab.displayName }}
                     </span>
@@ -532,7 +533,7 @@
 
             <SidebarSectionHeader v-if="openTabs.length > 0" id="open" label="Open" />
 
-            <template v-if="!isCollapsed('open')">
+            <div v-if="!isCollapsed('open')" ref="openEl" @scroll.passive="updateNavEdge" class="flex min-h-32 flex-1 flex-col gap-0.5 overflow-y-auto custom-scrollbar coarse:min-h-0 coarse:flex-none coarse:overflow-visible" :class="openFade ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]' : ''">
             <!-- Open (unpinned) tabs -->
             <div
               v-for="(tab, index) in openTabs"
@@ -556,13 +557,13 @@
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
-                class="min-h-9 coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
+                class="coarse:min-h-11 flex items-center gap-2 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
+                  isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
-                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
-                  'py-1'
+                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
               >
@@ -670,7 +671,7 @@
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
                         {{ getToolTabTitle(tab) }}
                       </span>
                       <!-- Renamed instance: tool name condenses onto the subtitle
@@ -691,7 +692,7 @@
                   <!-- Board with title/subtitle -->
                   <div v-else-if="tab.type === 'board' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span class="min-w-0 truncate font-mono tabular-nums text-[11px] leading-[14px] text-content-muted">
@@ -701,7 +702,7 @@
                   </div>
 
                   <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
-                    <span class="truncate text-[13px] leading-4 text-content">
+                    <span class="truncate text-[13px] leading-4">
                       {{ tab.displayName }}
                     </span>
                     <span class="truncate text-[11px] leading-[14px] text-content-muted">
@@ -725,7 +726,7 @@
                   <!-- Chat with title/subtitle -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4 text-content">
+                      <span class="truncate text-[13px] leading-4">
                         {{ tab.displayName }}
                       </span>
                       <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
@@ -763,7 +764,7 @@
                   <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
-                      class="truncate text-[13px] leading-4 text-content"
+                      class="truncate text-[13px] leading-4"
                     >
                       {{ tab.displayName }}
                     </span>
@@ -845,7 +846,7 @@
                 class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
-            </template>
+            </div>
           </div>
 
         </nav>
@@ -1023,6 +1024,7 @@ import { useProjectActivity } from '../composables/useProjectActivity'
 import { handleProjectDeletedBroadcast } from '../composables/useProjectDeletion'
 import { useDragHoverOpen } from '../composables/useProjectDrop'
 import SidebarSectionHeader from './sidebar/SidebarSectionHeader.vue'
+import { displaySavedViewName } from '../utils/savedViewName'
 import { useSidebarSections } from '../composables/useSidebarSections'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
@@ -1117,13 +1119,25 @@ function openSettingsFromFooter() {
 // content is scrolled under it, and disappears at scroll-bottom.
 const navEl = ref<HTMLElement | null>(null)
 const navScrolledUnder = ref(false)
+// The Open list takes the space the rest of the rail leaves and scrolls inside
+// it; the nav itself only scrolls in a window too short to leave it a few rows.
+const openEl = ref<HTMLElement | null>(null)
+const openFade = ref(false)
+const navScrolls = ref(false)
 
 function updateNavEdge() {
   const el = navEl.value
-  navScrolledUnder.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
+  const list = openEl.value
+  openFade.value = !!list && list.scrollHeight - list.scrollTop - list.clientHeight > 1
+  navScrolls.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
+  navScrolledUnder.value = openFade.value || navScrolls.value
 }
 
 let navResizeObserver: ResizeObserver | null = null
+watch(openEl, (el) => {
+  if (el) navResizeObserver?.observe(el)
+  updateNavEdge()
+})
 watch(navEl, (el) => {
   navResizeObserver?.disconnect()
   navResizeObserver = null
@@ -1365,6 +1379,19 @@ function showToolSubtitle(tab: WorkspaceTab): boolean {
   if (getToolAvailability(tab.entityId) !== 'available') return true
   if (isToolStimmaCloud(tab.entityId)) return true
   return allTabs.value.some(t => t.type === 'tool' && t.entityId !== tab.entityId && t.displayName === tab.displayName)
+}
+
+// The rail has one row height (32px, 44px on touch) and one two-line variant
+// (40px): rows that carry a second line of detail. Mirrors the row template.
+function isTwoLineTab(tab: WorkspaceTab): boolean {
+  switch (tab.type) {
+    case 'tool': return !!tab.customName || showToolSubtitle(tab)
+    case 'board': return !!tab.displayName
+    case 'chat': return !!formatChatTabSubtitle(tab.entityId)
+    case 'flow':
+    case 'project': return true
+    default: return false
+  }
 }
 
 function getToolSubtitleClass(fullToolId: string): string {

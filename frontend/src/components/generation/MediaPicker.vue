@@ -1,22 +1,32 @@
 <template>
   <div
-    class="relative space-y-2 mb-5"
-    :class="disabled ? 'opacity-40 pointer-events-none' : ''"
+    class="relative"
+    :class="[collapsedEmpty ? 'mb-3 coarse:mb-2' : 'space-y-2 mb-5', disabled ? 'opacity-40 pointer-events-none' : '']"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop($event)"
   >
-    <div class="flex items-center justify-between min-h-6">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <label class="text-ctl font-semibold text-content-secondary">{{ displayLabel }}</label>
-        <span v-if="props.description" class="text-xs text-content-muted truncate">{{ props.description }}</span>
-      </div>
-      <span v-if="!batchMode" class="text-[10px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ items.length }}/{{ maxItems }}</span>
-    </div>
+    <!-- An optional input with nothing in it is one collapsed row (label, None,
+         Add): the whole picker stays a drop target, and the tile with its room
+         only appears for an input the tool needs or once there is media. -->
+    <ToolSectionHeader
+      ref="headerRef"
+      :label="displayLabel"
+      :state="collapsedEmpty ? (isDragging ? 'Drop here' : 'None') : (batchMode ? undefined : `${items.length}/${maxItems}`)"
+      :addable="collapsedEmpty"
+      :add-title="isCoarsePointer ? 'Add — tap to choose' : 'Add — drop, paste, or browse'"
+      class="transition-colors"
+      :class="isDragging || pickerPopoverOpen ? 'rounded-md bg-accent/10 ring-1 ring-accent/50' : ''"
+      @add="onAddTileClick"
+    >
+      <template v-if="props.description" #label-extra>
+        <span class="min-w-0 truncate text-xs font-normal text-content-muted">{{ props.description }}</span>
+      </template>
+    </ToolSectionHeader>
 
     <!-- Item Grid/Sequence -->
-    <div :class="reorderable ? 'flex flex-wrap gap-3 items-start' : 'grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]'">
+    <div v-if="!collapsedEmpty" :class="reorderable ? 'flex flex-wrap gap-3 items-start' : 'grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]'">
       <template v-for="(item, index) in displayItems" :key="item.originalIndex">
         <div class="flex items-center gap-1 min-w-0">
           <div
@@ -793,7 +803,7 @@
     <MediaPickerPopover
       v-if="pickerPopoverOpen"
       :accept="accept"
-      :anchor-el="addTileRef"
+      :anchor-el="pickerAnchor"
       :exclude-ids="pickerExcludeIds"
       @pick="onPopoverPick"
       @browse="onPopoverBrowse"
@@ -851,6 +861,7 @@
 import { ref, reactive, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import axios from 'axios'
 import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { getCurrentProfileId } from '../../composables/useProfile'
 import { getCachedPin } from '../../composables/usePinLock'
@@ -1297,6 +1308,9 @@ function openFilePicker() {
 // file dialog is reached through its "Browse Files…" button.
 const pickerPopoverOpen = ref(false)
 const addTileRef = ref<HTMLElement | null>(null)
+const headerRef = ref<InstanceType<typeof ToolSectionHeader> | null>(null)
+const collapsedEmpty = computed(() => !props.batchMode && items.value.length === 0 && props.minItems === 0 && props.maxItems > 0 && !useSlotLabels.value && !props.disabled)
+const pickerAnchor = computed<HTMLElement | null>(() => (collapsedEmpty.value ? headerRef.value?.addEl : addTileRef.value) ?? null)
 
 const pickerExcludeIds = computed(() =>
   items.value.map(i => i.mediaId).filter((id): id is number => typeof id === 'number')

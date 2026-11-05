@@ -4,18 +4,15 @@
     <div class="flex justify-between items-center px-page py-2 gap-2 flex-wrap compact:justify-start compact:gap-1 compact:px-3 compact:py-0">
       <!-- Left Side: Filter Toggle Button -->
       <button
-        class="text-content-secondary px-3 -ml-3 compact:ml-0 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
-        :class="(showCriteriaPanel || hasActiveFilters) ? 'compact:text-accent-hi compact:bg-accent/15' : ''"
+        class="-ml-3 flex h-9 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm transition-colors duration-150 compact:-ml-2 compact:h-11 compact:w-11 compact:justify-center compact:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        :class="(showCriteriaPanel || hasActiveFilters) ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
         aria-label="Filters"
+        :aria-expanded="showCriteriaPanel"
         @click="toggleCriteriaPanel"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-        </svg>
+        <FunnelIcon class="h-icon-nav w-icon-nav" aria-hidden="true" />
         <span class="compact:hidden">Filters</span>
-        <svg class="w-4 h-4 transition-transform ml-1 compact:hidden" :class="{ 'rotate-180': showCriteriaPanel }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-        </svg>
+        <Caret :open="showCriteriaPanel" class="compact:hidden" />
       </button>
 
       <div class="flex gap-2 flex-wrap flex-1 compact:contents">
@@ -23,15 +20,15 @@
              shared with every marker toggle: outline at rest, filled in the
              marker's own color when set, on one backing (overlay-light).
              Exclude is the same set look plus a red "−" left of the glyph. -->
-        <div v-if="filterMarkers.length" class="w-px h-5 bg-edge self-center mx-1 compact:hidden" aria-hidden="true"></div>
-        <!-- One filter-chip grammar. Rest: hairline outline, tertiary glyph,
-             label. Included: backing plus the marker's own colour on the glyph.
-             Excluded: red backing, red minus, struck-through label. On a phone
-             the chips share one track so the group reads as filters, not as
-             page actions; labels return once the window is roomy. -->
+        <!-- One filter-chip grammar at every width: individual chips, each with
+             its own include and exclude state. Rest: a bare tertiary glyph and
+             label, no fill. Included: backing plus the marker's own colour on
+             the glyph. Excluded: red backing, red minus, struck-through label.
+             Spacing, not a group box, holds them together; labels drop on a
+             phone and return once the window is roomy. -->
         <div
           v-if="filterMarkers.length"
-          class="flex items-center gap-1.5 compact:gap-0 compact:rounded-md compact:bg-overlay-subtle"
+          class="flex items-center gap-1 pl-1"
           role="group"
           aria-label="Marker filters"
         >
@@ -39,12 +36,12 @@
           v-for="marker in filterMarkers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md border gap-1.5 px-2.5 compact:px-0 compact:min-w-11 roomy:px-2.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+            'inline-flex items-center justify-center h-9 compact:h-11 rounded-md gap-1.5 px-2.5 compact:px-0 compact:min-w-11 roomy:px-2.5 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
             isMarkerNegative(marker.id)
-              ? 'border-transparent bg-red-500/15 text-red-400'
+              ? 'bg-red-500/15 text-red-400'
               : isMarkerPositive(marker.id)
-                ? 'border-transparent bg-overlay-light text-content'
-                : 'border-edge-subtle compact:border-transparent text-content-secondary hover:bg-overlay-subtle hover:text-content'
+                ? 'bg-overlay-light text-content'
+                : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
           ]"
           :aria-pressed="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)"
           :aria-label="marker.name + (isMarkerPositive(marker.id) ? ', filtering' : isMarkerNegative(marker.id) ? ', excluded' : '')"
@@ -312,6 +309,7 @@
         <!-- Sort dropdown (not shown in trash mode - trash always sorts by deleted date) -->
         <div v-if="!isTrashMode" class="px-1">
           <SettingsDropdown
+            secondary
             :model-value="localSortBy"
             @update:model-value="localSortBy = $event; emitUpdate()"
             :options="[
@@ -437,23 +435,32 @@
             </button>
           </div>
         </div>
-        <!-- Upload: the one create action of the browse toolbar, at every layout (icon only on compact). -->
+        <!-- Upload: the browse toolbar's one primary (the view's add action), at
+             every layout; on a phone a glyph in a 44px target with a 36px fill. -->
+        <button
+          v-if="!isTrashMode && isCompact"
+          type="button"
+          :class="[compactIconButton, compactPrimaryCreate, '!ml-0 !mr-0']"
+          aria-label="Upload assets"
+          title="Upload assets"
+          data-testid="browse-upload"
+          @click="emit('upload')"
+        >
+          <ArrowUpTrayIcon :class="compactIcon" />
+        </button>
         <Button
-          v-if="!isTrashMode"
-          variant="secondary"
+          v-else-if="!isTrashMode"
           size="sm"
-          class="h-9 compact:h-11 compact:w-11 compact:px-0"
+          class="h-9"
           aria-label="Upload assets"
           title="Upload assets"
           data-testid="browse-upload"
           @click="emit('upload')"
         >
           <template #icon>
-            <svg class="h-icon-nav w-icon-nav" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
+            <ArrowUpTrayIcon class="h-icon-nav w-icon-nav" />
           </template>
-          <span class="compact:hidden">Upload</span>
+          <span>Upload</span>
         </Button>
       </div>
     </div>
@@ -795,7 +802,9 @@ import { formatDate } from '../utils/timeFormat'
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useViewport } from '../composables/useViewport'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
-import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowUpTrayIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import Caret from './ui/Caret.vue'
+import { compactIcon, compactIconButton, compactPrimaryCreate } from './compact/headerStyles'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { getCurrentProfileId } from '../composables/useProfile'

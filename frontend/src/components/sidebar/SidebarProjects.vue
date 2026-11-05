@@ -108,7 +108,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
       </SidebarSectionHeader>
     </div>
 
-    <div v-if="!collapsed" class="flex flex-col gap-1">
+    <div v-if="!collapsed" class="flex flex-col gap-0.5">
       <div v-if="naming" :class="[rowClass, 'text-content-muted']">
         <ArchiveBoxIcon class="h-icon-nav w-icon-nav flex-shrink-0" />
         <input

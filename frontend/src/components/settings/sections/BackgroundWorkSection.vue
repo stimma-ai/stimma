@@ -2,7 +2,7 @@
   <div>
     <div class="mb-3">
       <div class="flex items-center gap-3">
-        <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Background work</h3>
+        <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Background work</h3>
       </div>
       <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
         Stimma analyzes your media in the background to support many of its features. Background work uses CPU and GPU resources and impacts your energy usage.

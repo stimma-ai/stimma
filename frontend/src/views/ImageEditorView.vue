@@ -1759,30 +1759,15 @@ function commitLivePan() {
 
 const viewZoomLabel = computed(() => `${Math.round(viewZoom.value * 100)}%`)
 const viewTransformStyle = computed(() => ({ transform: panTransform(viewPan.value) }))
-// Compact: the zoom read-out, Compare and Select are chips that belong to the
-// picture, not to the viewport corners. The matte reserves a band above and
-// below the fitted artwork (see the viewport's padding) and the chips sit in
-// those bands against the artwork's own edges.
-const COMPACT_BAND = 52
-const COMPACT_CHIP = 44
-const compactChipInset = computed(() => {
-  const vp = viewportSize.value
-  const art = displayBox.value
-  const edge = (vp.width - art.width) / 2
-  return Math.round(Math.max(8, Math.min(edge, vp.width / 2 - 110)))
-})
-const compactChipTop = computed(() => {
-  const vp = viewportSize.value
-  const art = displayBox.value
-  const artTop = (vp.height + COMPACT_BAND * 2 - art.height) / 2
-  return Math.max(4, Math.round(artTop - COMPACT_CHIP - 4))
-})
-const compactSelectTop = computed(() => {
-  const vp = viewportSize.value
-  const art = displayBox.value
-  const artBottom = (vp.height + COMPACT_BAND * 2 + art.height) / 2
-  return Math.round(artBottom + 4)
-})
+// Compact: the zoom read-out, Compare and Select are glass chips in two fixed
+// zones, whatever the picture's shape. Zoom and Compare share the top edge of
+// the stage; Select sits on the bottom edge, just above the tool deck. The
+// viewport reserves a band above and below the fitted artwork (see its
+// padding) so the picture stays contained and unobscured.
+const COMPACT_CHIP_ZONE = {
+  inset: '12px', // the compact header's side padding
+  edge: '4px',
+}
 
 const zoomedDisplayBox = computed(() => ({
   width: Math.round(displayBox.value.width * viewZoom.value),
@@ -9148,7 +9133,6 @@ watch(
         >
           <ChevronLeftIcon :class="compactIcon" />
         </button>
-        <div class="flex-1 min-w-0" />
         <!-- The stack is the document's history, not a tool: it lives up here
              with the document's other verbs, so the row below is the six
              families and nothing else. Neutral until its sheet is open. -->
@@ -9168,6 +9152,7 @@ watch(
             aria-hidden="true"
           >{{ visibleRows.length }}</span>
         </button>
+        <div class="flex-1 min-w-0" />
         <button
           type="button"
           :class="compactIconButton"
@@ -9285,12 +9270,12 @@ watch(
       </div>
 
       <!-- Compact: the commit bar's zoom read-out and before/after as glass
-           chips in the band just above the artwork; pinch zooms, two fingers
-           pan. Select sits in the band below it. -->
+           chips on the stage's top edge; pinch zooms, two fingers pan.
+           Select sits on the bottom edge, above the tool deck. -->
       <div
         v-if="isCompact && !loading && family !== 'crop'"
         class="absolute z-chrome flex items-center justify-between pointer-events-none"
-        :style="{ top: compactChipTop + 'px', left: compactChipInset + 'px', right: compactChipInset + 'px' }"
+        :style="{ top: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset, right: COMPACT_CHIP_ZONE.inset }"
       >
         <!-- The 44px target is the button; the chip inside is the glass. -->
         <button
@@ -9602,7 +9587,7 @@ watch(
           :class="isCompact
             ? ['absolute z-chrome', family === 'crop' && 'hidden']
             : 'absolute bottom-4 left-1/2 -translate-x-1/2 z-chrome'"
-          :style="isCompact ? { top: compactSelectTop + 'px', left: compactChipInset + 'px' } : undefined"
+          :style="isCompact ? { bottom: COMPACT_CHIP_ZONE.edge, left: COMPACT_CHIP_ZONE.inset } : undefined"
           @arm="armSelectTool"
           @choose="(id: SelectToolId) => armSelectTool(id, true)"
           @pointer="activatePointer"
@@ -10240,8 +10225,8 @@ watch(
 
       <div class="flex-1" />
 
-      <!-- A mode toggle, not an action: lit with the selected-state indigo so
-           its on-state reads like the app's other toggles. -->
+      <!-- A mode toggle, not an action: the neutral fill one step up when on,
+           like the app's other toggles. -->
       <button
         type="button"
         :disabled="!composite"
@@ -10250,7 +10235,7 @@ watch(
                transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2
                ring-accent/60 ring-offset-1 ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed"
         :class="comparing
-          ? 'bg-selection/15 text-selection'
+          ? 'bg-surface-hover text-content'
           : 'bg-surface-raised hover:bg-surface-hover text-content'"
         @click="toggleCompare()"
       >

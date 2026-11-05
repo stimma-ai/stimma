@@ -1,30 +1,24 @@
 <template>
-  <div :class="compact ? 'my-1' : 'mb-5'">
+  <div :class="compact ? 'my-1' : 'mb-3 coarse:mb-2'">
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
-    <div class="flex items-center gap-2 min-h-6" :class="hasAnyItems || filterOpen ? 'mb-1.5' : ''">
-      <span class="text-ctl font-semibold text-content-secondary">LoRAs</span>
-      <button
-        v-if="enabledCount > 0"
-        @click="disableAll"
-        type="button"
-        class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
-        title="Disable all LoRAs (keeps the list)"
-      >Clear all</button>
-      <div class="ml-auto flex items-center gap-0.5 -mr-2 coarse:-my-2">
-        <!-- Value first: the state sits at the right, quiet and mono; Add is a
-             labelled action, not a disclosure. -->
-        <span class="mr-1.5 font-mono text-xs tabular-nums text-content-tertiary">{{ stateLabel }}</span>
+    <ToolSectionHeader
+      label="LoRAs"
+      :state="stateLabel"
+      :addable="availableLoras.length > 0 || !!uploadConfig"
+      add-title="Add LoRA"
+      :class="hasAnyItems || filterOpen ? 'mb-1.5' : ''"
+      @add="showModal = true"
+    >
+      <template #label-extra>
         <button
-          v-if="availableLoras.length > 0 || uploadConfig"
-          @click="showModal = true"
+          v-if="enabledCount > 0"
+          @click="disableAll"
           type="button"
-          class="inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors duration-150 coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
-          title="Add LoRA"
-          aria-label="Add LoRA"
-        >
-          <PlusIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
-          Add
-        </button>
+          class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors coarse:min-h-11 coarse:px-3 coarse:text-xs"
+          title="Disable all LoRAs (keeps the list)"
+        >Clear all</button>
+      </template>
+      <template #trailing>
         <button
           v-if="hasAnyItems"
           @click="toggleFilter"
@@ -64,8 +58,8 @@
             @close="headerMenu.visible = false"
           />
         </div>
-      </div>
-    </div>
+      </template>
+    </ToolSectionHeader>
 
     <!-- Filter row (full width, only when open) -->
     <div v-if="filterOpen" class="flex items-center gap-2 mb-1.5 px-2 py-1 bg-overlay-subtle rounded-md">
@@ -214,9 +208,9 @@
 </template>
 
 <script setup lang="ts">
-import { PlusIcon } from '@heroicons/vue/24/outline'
 import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 import LoraChip from './LoraChip.vue'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import LoraGroupBox from './LoraGroupBox.vue'
 import LoraPickerModal from './LoraPickerModal.vue'
 import LoraNoteEditor from './LoraNoteEditor.vue'

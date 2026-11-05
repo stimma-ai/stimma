@@ -2,24 +2,21 @@
   <template v-for="paramGroup in groups" :key="paramGroup.group || 'ungrouped'">
     <!-- Skip the whole section if hidden_when is active -->
     <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
-    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-5 last:mb-0'">
+    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-3 coarse:mb-2 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true.
            pt-2 keeps it off the preceding row's hairline when this group sits
            inside a divide-y host (e.g. chain step settings). -->
-      <div v-if="paramGroup.label" :class="flat ? 'pt-2 mb-1' : 'flex items-center min-h-6 mb-1'">
+      <div v-if="paramGroup.label" :class="flat ? 'pt-2 mb-1' : ['flex items-center min-h-6', paramGroup.collapsible && !disableCollapse && isCollapsed(paramGroup.group) ? '' : 'mb-1']">
         <!-- Disclosure row: label left; the count and the one caret at the right
              edge, the same place the other sections keep their state. -->
-        <button
+        <ToolSectionHeader
           v-if="paramGroup.collapsible && !disableCollapse"
-          @click="toggleCollapsed(paramGroup.group)"
-          type="button"
-          :aria-expanded="!isCollapsed(paramGroup.group)"
-          class="flex w-full items-center gap-2 text-ctl font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded coarse:min-h-11"
-        >
-          <span>{{ displayGroupLabel(paramGroup.label) }}</span>
-          <span class="ml-auto font-mono text-xs font-normal tabular-nums text-content-tertiary">{{ paramGroup.params.length }} {{ paramGroup.params.length === 1 ? 'setting' : 'settings' }}</span>
-          <Caret :open="!isCollapsed(paramGroup.group)" class="-mr-0.5 text-content-muted" />
-        </button>
+          disclosure
+          :label="displayGroupLabel(paramGroup.label)"
+          :state="`${paramGroup.params.length} ${paramGroup.params.length === 1 ? 'setting' : 'settings'}`"
+          :open="!isCollapsed(paramGroup.group)"
+          @toggle="toggleCollapsed(paramGroup.group)"
+        />
         <span v-else class="text-ctl font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
@@ -171,6 +168,7 @@ import Caret from '../ui/Caret.vue'
 import { computed, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import VoicePicker from './VoicePicker.vue'
+import ToolSectionHeader from './ToolSectionHeader.vue'
 import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'

@@ -9,7 +9,7 @@ const { isCollapsed, toggleSection } = useSidebarSections()
 </script>
 
 <template>
-  <div class="group/section mt-3 -mb-0.5 flex h-6 items-center rounded pr-1 coarse:min-h-11">
+  <div class="group/section mt-3.5 flex h-6 items-center rounded pr-1 coarse:min-h-11">
     <button
       type="button"
       class="flex min-w-0 self-stretch items-center gap-1 rounded px-3 text-xs font-semibold text-content-tertiary transition-colors hover:text-content-secondary focus-visible:outline-none focus-visible:ring-2 ring-accent/60"

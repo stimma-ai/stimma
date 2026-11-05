@@ -93,7 +93,11 @@
              agent docked full width beneath, as on desktop. One 8px gutter
              around and between every block, so the hero and the strip line up
              with the controls card and the agent dock. -->
-        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,46%)_minmax(0,1fr)] roomy:grid-rows-[minmax(0,1fr)_auto]">
+        <div
+          ref="columnsRowEl"
+          class="flex-1 min-w-0 flex min-h-0 compact:flex-col roomy:grid roomy:grid-cols-[minmax(320px,40%)_minmax(0,1fr)]"
+          :class="roomyStacked ? 'roomy:grid-rows-[auto_auto_minmax(0,1fr)]' : 'roomy:grid-rows-[minmax(0,1fr)_auto_0px]'"
+        >
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
@@ -102,7 +106,7 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-2"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out compact:hidden roomy:flex roomy:col-start-1 roomy:row-start-1 roomy:row-span-3 bg-base roomy:bg-surface"
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
@@ -372,36 +376,16 @@
               v-model="modelParams.megapixels"
             />
         </div>
-        <!-- New outputs: a labelled setting of its own, each automatic action
-             with its state, so it never reads as a copy of the result's
-             heart / bookmark / trash. -->
-        <div
+        <!-- New outputs: one collapsed row reading as its state; it opens a
+             popover holding auto-mark and auto-delete, so neither reads as a
+             copy of the result's heart / bookmark / trash. -->
+        <NewOutputsPopover
           v-if="!isCompact"
-          class="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1"
-          role="group"
-          aria-label="New outputs"
-        >
-          <span class="text-ctl font-semibold text-content-secondary shrink-0">New outputs</span>
-          <div class="flex min-w-0 items-center gap-1.5">
-            <span class="text-xs text-content-tertiary">Auto-mark</span>
-            <AutoMarkPicker
-              class="min-w-0"
-              show-state
-              :markers="jobsManager?.availableMarkers.value || []"
-              v-model="globalPrefs.autoMarkerIds"
-            />
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-content-tertiary">Auto-delete</span>
-            <AutoDeletePicker
-              size="small"
-              :model-value="autoDeleteDuration"
-              @update:model-value="setAutoDeleteDuration"
-            />
-            <span v-if="autoDeleteDuration === 'never'" class="text-xs text-content-muted">Off</span>
-          </div>
-        </div>
-
+          :markers="jobsManager?.availableMarkers.value || []"
+          v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
+          :auto-delete="autoDeleteDuration"
+          @update:auto-delete="setAutoDeleteDuration"
+        />
 
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
              under the main prompt — the prompt is the production brief (genre,
@@ -905,16 +889,16 @@
           v-if="stageCurrentJob && !stageLiveShowing"
           class="flex-none flex items-center gap-1.5 pt-2 compact:pt-1"
           :class="[!heroArt || (heroColSize && heroArt.barW >= heroColSize.w) ? 'compact:px-2' : '', heroArt ? '' : 'w-full']"
-          :style="heroArt ? { width: `${heroArt.barW}px` } : undefined"
+          :style="heroArt ? { width: `${heroArt.barW + 2 * heroBarBleed}px` } : undefined"
         >
           <template v-if="stageMarkers.length">
             <button
               v-for="marker in stageMarkers"
               :key="marker.id"
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
-              class="result-action coarse:min-h-11 coarse:min-w-11"
-              :data-on="stageHasMarker(marker.id)"
-              :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color, backgroundColor: 'transparent' } : {}"
+              :class="[RESULT_ACTION, stageHasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle hover:text-content']"
+              :aria-pressed="stageHasMarker(marker.id)"
+              :style="stageHasMarker(marker.id) ? { color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
               <span class="w-icon-nav h-icon-nav flex items-center justify-center icon-container" :class="stageHasMarker(marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
@@ -926,7 +910,7 @@
                which the small caret says. -->
           <button
             @click.stop="showJobInfo(stageCurrentJob)"
-            class="inline-flex h-8 items-center gap-1 rounded-md px-2 font-mono text-xs tabular-nums text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+            class="inline-flex h-9 items-center gap-1 rounded-md px-2 font-mono text-xs tabular-nums text-content-tertiary transition-colors duration-150 hover:bg-overlay-subtle hover:text-content coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
             title="Generation details"
             aria-label="Generation details"
           >
@@ -936,7 +920,7 @@
           </button>
           <div
             v-if="stageAutoDeleteTime"
-            class="inline-flex h-8 items-center gap-1.5 px-1 font-mono text-xs tabular-nums text-amber-500 coarse:min-h-11"
+            class="inline-flex h-9 items-center gap-1.5 px-1 font-mono text-xs tabular-nums text-amber-500 coarse:min-h-11"
             title="Auto-trash time remaining"
           >
             <TrashIcon class="h-icon-inline w-icon-inline" aria-hidden="true" />
@@ -956,7 +940,7 @@
             />
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
-              class="result-action result-action-accent coarse:min-h-11 coarse:min-w-11"
+              :class="[RESULT_ACTION, 'hover:bg-overlay-subtle hover:text-accent-hi']"
               title="Remix: load this image's settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
@@ -965,7 +949,7 @@
             </button>
             <button
               @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-              class="result-action result-action-danger coarse:min-h-11 coarse:min-w-11"
+              :class="[RESULT_ACTION, 'hover:bg-red-500/10 hover:text-red-400']"
               title="Move to trash"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-icon-nav h-icon-nav">
@@ -995,6 +979,7 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
+        ref="railBoxEl"
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!px-page roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
         :class="[
           layoutMode === 'stage' ? 'border-surface px-2 pt-4 pb-2' : 'border-transparent py-3 px-0',
@@ -1018,7 +1003,7 @@
           :job-progress="jobsManager.jobProgress.value"
           :is-video="outputsVideo"
           :is-audio="outputsAudio"
-          :image-mode="isCompact ? 'cover' : uiState.imageMode"
+          :image-mode="isCompact || layoutMode === 'stage' ? 'cover' : uiState.imageMode"
           :current-media-id="layoutMode === 'stage' && !stageLiveShowing ? stageCurrentMediaId : null"
           :live-job-id="layoutMode === 'stage' && stageLiveShowing ? stageLiveJobId : null"
           :live-selectable="layoutMode === 'stage'"
@@ -1074,6 +1059,8 @@
           </template>
         </JobsGrid>
       </div>
+      <!-- Roomy: the matte continues under the stacked media unit. -->
+      <div class="hidden roomy:block roomy:col-start-2 roomy:row-start-3 bg-matte" aria-hidden="true"></div>
         </div>
 
         <!-- Compact: the drawer (prompt pinned, controls beneath) sits under the
@@ -1166,7 +1153,7 @@
         <div
           id="agent-dock"
           v-show="!llmUnconfigured && agentDocked"
-          class="flex-none overflow-y-auto mx-6 mb-3 px-0 pt-0 pb-0 max-h-[45%] roomy:mx-5 roomy:mb-2 roomy:max-h-[35%] roomy:pb-safe"
+          class="flex-none overflow-y-auto mx-6 mb-3 px-0 pt-0 pb-0 max-h-[45%] empty:hidden roomy:mx-5 roomy:mb-2 roomy:max-h-[35%] roomy:pb-safe"
         ></div>
       </div>
     </template>
@@ -1337,7 +1324,7 @@ import {
   type ResolutionPolicy,
   type ImageDims,
 } from '../utils/resolutionPolicy'
-import AutoDeletePicker from '../components/AutoDeletePicker.vue'
+import NewOutputsPopover from '../components/generation/NewOutputsPopover.vue'
 import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -1357,7 +1344,6 @@ import {
   MaskEditor,
   MaskEditorModal,
   MediaPicker,
-  AutoMarkPicker,
   PresetPicker,
   MegapixelsPicker,
   UpscaleResolutionPicker
@@ -1911,8 +1897,20 @@ const stageMarkers = computed(() => jobsManager?.availableMarkers.value || [])
 // full-column layout.
 // Band height: the 32px action row plus its 8px gap; 44px targets on touch.
 // The phone's band hugs the picture: 44px targets and a 4px gap.
-const heroBarH = computed(() => (isCompact.value ? 48 : isCoarsePointer.value ? 52 : 40))
+const heroBarH = computed(() => (isCompact.value ? 48 : isCoarsePointer.value ? 52 : 44))
+// The one media-action treatment of a result band (the slideshow's rail and the
+// chat's preview use it too): a bare target at rest, a backing only when set.
+const RESULT_ACTION = 'inline-flex h-9 w-9 flex-none items-center justify-center rounded-md text-content-tertiary transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:h-11 coarse:w-11'
 const HERO_BAR_MIN_W = 232
+// The band's bare 36/44px targets reach past the artwork by their own padding,
+// so the glyphs, not the invisible targets, line up with the picture's edges.
+const heroBarBleed = computed(() => {
+  const art = heroArt.value
+  const col = heroColSize.value
+  if (!art || !col) return 0
+  const inset = isCompact.value || isCoarsePointer.value ? 14 : 10
+  return art.barW + 2 * inset <= col.w ? inset : 0
+})
 const heroColRef = ref<HTMLElement | null>(null)
 // The agent prompt docked under the result takes height out of the artwork's.
 const agentDockColEl = ref<HTMLElement | null>(null)
@@ -1956,12 +1954,22 @@ function onHeroMediaMeasure(e: Event) {
 // The hero box is measured, not the column: the column is sized to the artwork
 // (plus the docked agent prompt) and sits at the top, like the form beside it.
 const heroBoxRef = ref<HTMLElement | null>(null)
+const railBoxEl = ref<HTMLElement | null>(null)
+// Roomy with a picture on screen: the hero, its action band and the strip stack
+// from the top as one media unit.
+const roomyStacked = computed(() => roomyTool.value && !!heroArt.value)
 let heroColObserver: ResizeObserver | null = null
 function measureHeroBox(el: HTMLElement) {
   const cs = getComputedStyle(el)
   const px = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
   const py = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
-  heroColSize.value = { w: Math.max(0, el.clientWidth - px), h: Math.max(0, el.clientHeight - py) }
+  // Roomy stacks the hero, its band and the strip as one unit from the top, so
+  // the hero's own height depends on its content: its room is the row minus the
+  // strip instead.
+  const row = columnsRowEl.value
+  const rail = railBoxEl.value
+  const h = roomyTool.value && row && rail ? row.clientHeight - rail.offsetHeight : el.clientHeight
+  heroColSize.value = { w: Math.max(0, el.clientWidth - px), h: Math.max(0, h - py) }
 }
 watch(heroBoxRef, (el) => {
   heroColObserver?.disconnect()
@@ -1969,8 +1977,10 @@ watch(heroBoxRef, (el) => {
   if (!el) { heroColSize.value = null; return }
   heroColObserver = new ResizeObserver(() => measureHeroBox(el))
   heroColObserver.observe(el)
+  if (columnsRowEl.value) heroColObserver.observe(columnsRowEl.value)
   measureHeroBox(el)
 })
+watch(roomyTool, () => { if (heroBoxRef.value) nextTick(() => measureHeroBox(heroBoxRef.value!)) })
 // Images served from cache may finish before the capture listener exists.
 watch(heroColRef, (el) => {
   if (!el) return

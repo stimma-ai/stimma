@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Markers</h3>
+      <h3 class="font-brand text-xl font-semibold leading-tight text-content compact:hidden">Markers</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Markers are the fastest way to organize your library. One click to mark an image as a favorite,
         flag it for review, or sort it into any category you create.

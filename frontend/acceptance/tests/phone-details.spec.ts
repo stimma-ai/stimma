@@ -70,7 +70,8 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.locator('.editor-compact-header')).toBeVisible({ timeout: 30000 });
     const row = page.locator('.editor-tool-strip');
     await expect(row).toBeVisible({ timeout: 30000 });
-    await expect(row.getByRole('button', { name: 'Edits', exact: true })).toBeVisible();
+    const header = page.locator('.editor-compact-header');
+    await expect(header.getByRole('button', { name: 'Edits', exact: true })).toBeVisible();
     await audit(page, 'editor');
 
     // Crop: the row becomes ‹ plus aspects and turns; the straighten dial above.
@@ -102,7 +103,7 @@ test.describe('phone lane: detail screens', () => {
     await expect(page.locator('[data-select-panel]')).toBeHidden();
 
     // The stack: a sheet behind Edits, with Edits / Output / Info.
-    await row.getByRole('button', { name: 'Edits', exact: true }).click();
+    await header.getByRole('button', { name: 'Edits', exact: true }).click();
     await expect(page.locator('#editor-stack-body')).toContainText('Original image', { timeout: 15000 });
     await audit(page, 'editor-stack-sheet', '[data-sheet-layer]');
     await page.keyboard.press('Escape');

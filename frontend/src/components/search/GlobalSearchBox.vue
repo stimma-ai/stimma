@@ -5,7 +5,9 @@
       class="flex items-center gap-1.5 h-[34px] w-full min-w-0 rounded-lg border pl-2.5 pr-1 transition-colors"
       :class="isOpen
         ? 'bg-surface border-accent/50 ring-2 ring-accent/40'
-        : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
+        : hasLocalSearch
+          ? 'border-edge-subtle bg-transparent hover:bg-overlay-faint hover:border-edge'
+          : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
     >
       <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -338,6 +340,9 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const voiceBtn = ref<any>(null)
 const query = ref('')
 const isOpen = ref(false)
+// A list page carries its own field, which is the primary visible search there;
+// the global one rests as an outline only (same geometry, shortcut intact).
+const hasLocalSearch = computed(() => ['boards', 'chats', 'flows', 'all-tools'].includes(String(route.name)))
 const { loading, failed: failedSearchSections, run: runSearchTasks, retry: retrySearch, cancel: cancelSearch } = useSearchTasks()
 const selectedIndex = ref(0)
 
