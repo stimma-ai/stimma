@@ -59,7 +59,7 @@
       </template>
     </PageHeader>
 
-    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
+    <div v-show="!slideshowState.active" ref="scrollerRef" class="flex-1 overflow-y-auto py-section compact:pt-0" :class="{ 'pb-24': multiSelectMode && selectedItemIds.length > 0 }">
       <div v-if="loading" class="px-page py-20 text-center text-content-muted">Loading board...</div>
       <div v-else-if="!board" class="px-page py-20 text-center text-content-muted">Board not found.</div>
       <TransitionGroup v-else tag="div" class="space-y-section">
@@ -79,7 +79,7 @@
                pill, restyled to the sentence-case label grammar with a mono
                count on the right. -->
           <div
-            class="group/head relative flex select-none items-center gap-2 px-page pb-1.5"
+            class="group/head relative flex select-none items-center gap-2 px-page pb-1.5 compact:min-h-12 compact:gap-1 compact:border-b compact:border-edge-subtle compact:bg-surface compact:px-3 compact:pb-0"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -93,14 +93,14 @@
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="compact:min-h-11 compact:-my-2 rounded-md bg-overlay-subtle px-1.5 text-left text-sm font-semibold text-content outline-none"
+                class="compact:min-h-11 rounded-md bg-field px-1.5 text-left text-sm font-semibold text-content outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
               />
               <button
                 v-else
-                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-my-2 compact:-ml-2 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
+                class="group/name min-w-0 compact:min-h-11 compact:min-w-11 compact:-ml-1 compact:px-2 truncate text-left text-sm font-semibold text-content transition-colors"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
@@ -112,7 +112,7 @@
             </div>
             <div class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
-              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-accent-hi transition-colors hover:bg-overlay-subtle compact:-my-2 compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium text-accent-hi transition-colors hover:bg-overlay-subtle compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 

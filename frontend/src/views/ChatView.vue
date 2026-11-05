@@ -488,7 +488,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-surface-raised text-content rounded-lg px-4 py-2.5">
+              <div class="bg-surface-raised text-content rounded-lg px-4 py-2.5 compact:text-read">
                 <!-- Attachments -->
                 <div v-if="getMessageAttachments(item).length > 0" class="flex gap-2 mb-2">
                   <div
@@ -600,7 +600,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface text-content rounded-lg px-4 py-2.5 prose prose-sm max-w-none select-text"
+                  class="bg-surface text-content rounded-lg px-4 py-2.5 prose prose-sm compact:prose-read max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <ChatMarkdown v-if="seg.type === 'html'" :html="seg.content" />
@@ -1186,6 +1186,7 @@
         :draft="composerDraft"
         :attachments="inputAttachments"
         :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"
+        :placeholder="chat?.flow_id ? 'Type a message, or reference flow items...' : undefined"
         :disabled="sending"
         :agent-unavailable="noUsableChatModels"
         @update:attachments="inputAttachments = $event"

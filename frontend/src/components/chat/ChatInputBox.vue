@@ -29,7 +29,7 @@
          clicks, as in ListSearch. Meta line, placeholder and model picker all
          start at one left edge (16px). -->
     <div
-      class="bg-surface overflow-hidden transition-shadow duration-150"
+      class="bg-field overflow-hidden transition-shadow duration-150"
       :class="[
         attachedTop ? 'rounded-b-lg border-t border-edge-subtle' : 'rounded-lg',
         ringVisible ? 'ring-1 ring-accent/40' : '',

@@ -6,7 +6,8 @@
     <div
       :class="[
         'jobs-tile relative w-full rounded-media overflow-hidden cursor-pointer bg-matte',
-        naturalAspect === null ? 'aspect-square' : ''
+        naturalAspect === null ? 'aspect-square' : '',
+        stripStateClass
       ]"
       :style="naturalAspect !== null ? { aspectRatio: String(naturalAspect) } : {}"
       @click="handleJobClick"
@@ -78,7 +79,7 @@
            tile itself paints below its media child and is nearly invisible. -->
       <div
         v-if="currentMediaId != null && job.result_media_id === currentMediaId"
-        class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection"
+        class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection compact:hidden"
       />
       <!-- Compact rail (Stage) hides the marker strip below the tile — surface
            existing markers as small read-only badges so marked items stay
@@ -205,6 +206,16 @@ const props = withDefaults(defineProps<{
   compactOverlays: false,
   thumbnailSize: 256,
   mediaData: () => ({}),
+})
+
+// Phone strip (the results filmstrip): the current tile wears the shared strip
+// ring, the others a restrained dim. Desktop tiles keep their inset ring overlay.
+const stripStateClass = computed(() => {
+  if (props.currentMediaId == null) return ''
+  // Literal classes (the strip tokens in utils/filmstrip.ts, phone-only).
+  return props.job.result_media_id === props.currentMediaId
+    ? 'compact:ring-2 compact:ring-selection compact:ring-offset-2 compact:ring-offset-matte'
+    : 'compact:opacity-80 compact:hover:opacity-100'
 })
 
 // Natural width/height ratio for the fit-mode tile box; null (→ square matte

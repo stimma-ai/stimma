@@ -5,7 +5,7 @@
          the task and provider filters and the tool filter field side by side.
          This field is the page's one search entry; the compact header drops its
          own search icon here, and global search stays reachable from the other hubs. -->
-    <PageHeader class="compact:h-auto compact:min-h-header-compact compact:gap-2 compact:px-2 compact:[&>:first-child]:hidden compact:[&>:nth-child(2)]:min-w-0 compact:[&>:nth-child(2)]:flex-1">
+    <PageHeader class="compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-3 compact:py-0 compact:[&>:first-child]:hidden compact:[&>:nth-child(2)]:min-w-0 compact:[&>:nth-child(2)]:flex-1">
       <template #title>All tools</template>
       <template #actions>
         <!-- Task filter. Multi-select, like providers; compact / coarse opens
@@ -315,7 +315,7 @@
             <!-- Per-tool menu (user tools only) -->
             <button
               v-if="isUserTool(row.tool)"
-              class="absolute right-page top-1/2 -mr-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content group-hover:opacity-100 compact:opacity-100"
+              class="absolute right-page top-1/2 -mr-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-content-muted opacity-0 transition-opacity hover:bg-overlay-light hover:text-content group-hover:opacity-100 compact:opacity-100 [[data-pointer=coarse]_&]:opacity-100"
               title="Tool options"
               @click.stop="openToolMenu($event, row.tool)"
             >

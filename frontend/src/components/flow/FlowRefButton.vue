@@ -81,7 +81,7 @@ const buttonClass = computed<string>(() => {
     return `${base} bg-accent text-accent-on opacity-100`
   }
   if (props.variant === 'row') {
-    return `${base} border-transparent text-content-tertiary opacity-0 hover:bg-overlay-hover hover:text-content focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100`
+    return `${base} border-transparent text-content-tertiary opacity-0 hover:bg-overlay-hover hover:text-content focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 [[data-pointer=coarse]_&]:opacity-100`
   }
   return `${base} border-transparent text-content hover:bg-overlay-hover hover:border-edge-subtle`
 })

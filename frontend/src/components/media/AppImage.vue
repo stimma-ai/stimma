@@ -3,7 +3,7 @@
     Base image component with consistent loading, error, and transparency handling.
 
     - Loading: Shows pulse animation until image loads
-    - Error: Shows broken image icon
+    - Error: Shows the neutral unavailable tile
     - Transparency: bg-checker shows through transparent pixels
     - Contain mode: black letterbox, checker through image transparency
     - Cover mode: checker behind entire image (no letterbox)
@@ -73,35 +73,31 @@
       @click="$emit('click', $event)"
     />
 
-    <!-- Error state -->
+    <!-- Unavailable: a neutral tile with the same geometry as a loaded one.
+         Quiet outline glyph (no cross, no alarm colour) and a muted label that
+         only shows where the tile is wide enough to hold it. -->
     <div
       v-if="error"
-      class="absolute inset-0 flex items-center justify-center"
-      :class="backgroundClass || 'bg-base'"
+      class="@container absolute inset-0 flex flex-col items-center justify-center gap-1 text-content-muted"
+      :class="backgroundClass || 'bg-surface-raised'"
+      role="img"
+      aria-label="Unavailable"
     >
-      <!-- Broken image icon (heroicons photo with X) -->
       <svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
-        stroke-width="1.5"
         stroke="currentColor"
-        class="w-8 h-8 text-content-muted"
+        class="h-icon-nav w-icon-nav opacity-70 @[44px]:h-icon-canvas @[44px]:w-icon-canvas"
+        aria-hidden="true"
       >
         <path
           stroke-linecap="round"
           stroke-linejoin="round"
-          d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-        />
-        <!-- X overlay -->
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M6 18L18 6M6 6l12 12"
-          stroke-width="2"
-          class="text-red-500/50"
+          d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z"
         />
       </svg>
+      <span class="hidden text-[11px] leading-none @[88px]:block">Unavailable</span>
     </div>
 
     <!-- Slot for overlays (badges, hover effects, etc.) -->

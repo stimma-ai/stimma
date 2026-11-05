@@ -353,6 +353,15 @@ body {
   --icon-nav: 16px;           /* sidebar, toolbars, filter chips, settings nav, tool actions */
   --icon-canvas: 18px;        /* canvas and transport: editor, slideshow, hero overlays */
   --icon-stroke: 1.75;
+
+  /* Filmstrips (DESIGN.md §1.11): tile size by the strip's available height,
+     one ring spacing (ring 2px + offset 2px, drawn outside the tile), one
+     restrained inactive dim. Mirrors utils/filmstrip.ts. */
+  --strip-tile-sm: 52px;      /* phone strips, about 60-74px tall */
+  --strip-tile-lg: 96px;      /* strips with a full row: desktop slideshow, roomy tool view */
+  --strip-gap-sm: 6px;
+  --strip-gap-lg: 8px;
+  --strip-gutter: 8px;        /* strip edge to the first tile; room for the ring */
 }
 :root[data-width="medium"] {
   --page-margin: 20px;
@@ -427,6 +436,7 @@ body {
   --color-overlay-light: rgba(152,160,176,0.13);
   --color-overlay-medium: rgba(152,160,176,0.18);
   --color-overlay-strong: rgba(152,160,176,0.24);
+  --color-field: rgba(152,160,176,0.11); /* text fields and the composer: one small step above the surface */
   --color-backdrop: rgba(6,7,10,0.65);
 
   /* Slideshow: the one matte (near-black here, paper in light) sits behind all artwork, viewers included. */
@@ -576,6 +586,7 @@ body {
   --color-overlay-light: rgba(0,0,0,0.06);
   --color-overlay-medium: rgba(0,0,0,0.1);
   --color-overlay-strong: rgba(0,0,0,0.15);
+  --color-field: rgba(0,0,0,0.04);
   --color-backdrop: rgba(0,0,0,0.4);
 
   /* Slideshow: the one matte behind all artwork, viewers included. */
@@ -1029,12 +1040,18 @@ textarea,
   flex-direction: row !important;
   height: 100%;
   min-height: 0;
-  align-items: stretch;
+  align-items: center;
   overflow-x: auto;
   overflow-y: hidden;
-  gap: 2px;
+  gap: var(--strip-gap-sm);
+  padding-inline: var(--strip-gutter);
   scrollbar-width: none;
   scrollbar-gutter: auto;
+}
+/* A roomy window's strip is taller: the large tier and its own side margin. */
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results {
+  gap: var(--strip-gap-lg);
+  padding-inline: 4px;
 }
 [data-viewport="compact"] .jobs-results::-webkit-scrollbar { display: none; }
 [data-viewport="compact"] .jobs-results .text-\[11px\] { display: none; }
@@ -1042,21 +1059,25 @@ textarea,
 [data-viewport="compact"] .jobs-results .jobs-rail,
 [data-viewport="compact"] .jobs-results .job-tile { display: contents; }
 [data-viewport="compact"] .jobs-results .jobs-tile {
-  height: 100%;
+  height: var(--strip-tile-sm);
   width: auto;
   min-width: 0;
   flex: none;
 }
 [data-viewport="compact"] .jobs-results .jobs-batch-cell {
   display: flex;
-  height: 100%;
+  height: var(--strip-tile-sm);
   flex: none;
+}
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-tile,
+[data-viewport="compact"]:not([data-width="narrow"]) .jobs-results .jobs-batch-cell {
+  height: var(--strip-tile-lg);
 }
 /* Progress summaries and the pagination button have no artwork aspect. */
 [data-viewport="compact"] .jobs-results > button,
 [data-viewport="compact"] .jobs-results .jobs-group > .group:not(.jobs-tile) {
   width: 10rem;
-  height: 100%;
+  height: var(--strip-tile-sm);
   min-height: 0;
   flex: none;
 }

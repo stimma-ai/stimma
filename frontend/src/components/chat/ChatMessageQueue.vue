@@ -1,6 +1,6 @@
 <template>
   <!-- Docks on top of the composer (which drops its top corners to match). -->
-  <div class="rounded-t-lg bg-surface divide-y divide-edge-subtle">
+  <div class="rounded-t-lg bg-field divide-y divide-edge-subtle">
     <div
       v-for="msg in messages"
       :key="msg.id"

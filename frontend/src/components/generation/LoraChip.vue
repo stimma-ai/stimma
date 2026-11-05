@@ -105,7 +105,7 @@
       @click.stop="$emit('remove')"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity coarse:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0 coarse:-mr-2"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity [[data-pointer=coarse]_&]:opacity-100 coarse:w-11 coarse:h-11 coarse:mt-0 coarse:-mr-2"
       title="Remove"
       aria-label="Remove"
     >

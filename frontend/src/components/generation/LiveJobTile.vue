@@ -9,6 +9,7 @@
     :class="[
       'jobs-tile group relative w-full rounded-media overflow-hidden bg-matte',
       clickable && previewUrl ? 'cursor-pointer' : 'cursor-default',
+      current ? 'compact:ring-2 compact:ring-selection compact:ring-offset-2 compact:ring-offset-matte' : '',
     ]"
     :style="{ aspectRatio: aspect || '1 / 1' }"
     :title="name"
@@ -58,7 +59,7 @@
     <!-- Current-item ring, same treatment as completed tiles. -->
     <div
       v-if="current"
-      class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection"
+      class="pointer-events-none absolute inset-0 z-chrome rounded-media ring-2 ring-inset ring-selection compact:hidden"
     ></div>
 
     <button

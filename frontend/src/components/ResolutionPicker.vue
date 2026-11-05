@@ -9,7 +9,7 @@
       type="button"
       :disabled="disabled"
       @click="toggle"
-      class="inline-flex items-center gap-2 h-9 pl-2 pr-2 max-w-full rounded-md bg-overlay-subtle hover:bg-overlay-light text-ctl font-medium text-content-secondary hover:text-content transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+      class="inline-flex items-center gap-2 h-9 pl-2 pr-2 max-w-full rounded-md bg-field hover:bg-overlay-light text-ctl font-medium text-content-secondary hover:text-content transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
       :aria-label="`Aspect and size: ${triggerValue}${lockTag ? ', ' + lockTag + ' locked to the reference image' : ''}`"
@@ -286,7 +286,7 @@ const glyph = computed(() => {
   return { w: gw, h: gh, x: 12 - gw / 2, y: 12 - gh / 2 }
 })
 const lockArmed = computed(() => !!lockTag.value && !hasImage.value)
-const dimInputClass = 'w-full px-2.5 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'
+const dimInputClass = 'w-full px-2.5 py-1.5 bg-field border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'
 
 
 function tileClass(on: boolean) {

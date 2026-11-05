@@ -728,7 +728,7 @@
           :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-matte rounded-media overflow-hidden ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-media overflow-hidden ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -765,8 +765,8 @@
           :title="item.vlm_caption || `Item ${index + 1}`"
         >
           <div
-            class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-matte rounded-media overflow-hidden transition-all"
-            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-70 hover:opacity-100 hover:ring-selection/60'"
+            class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-media overflow-hidden transition-all"
+            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60'"
           >
             <MediaImage
               :media-id="mediaIdOf(item)"
@@ -802,11 +802,11 @@
         :page-provider="isViewingSet ? compactSetStripPage : stripPageProvider"
         :item-getter="isViewingSet ? compactSetStripItem : stripItemGetter"
         :current-index="isViewingSet ? setViewIndex : currentIndex"
-        :item-width="slideshowCompact ? 48 : STRIP_ROW"
+        :item-width="slideshowCompact ? STRIP_TILE.sm : STRIP_ROW"
         :item-height="STRIP_ROW"
-        :item-gap="slideshowCompact ? 6 : 8"
-        :gutter="slideshowCompact ? 12 : 4"
-        :height="slideshowCompact ? 62 : STRIP_ROW + 16"
+        :item-gap="slideshowCompact ? STRIP_GAP.sm : 8"
+        :gutter="slideshowCompact ? STRIP_GUTTER : 4"
+        :height="slideshowCompact ? STRIP_ROW + 2 : STRIP_ROW + 16"
         :class="slideshowCompact ? '[&_.scroll-container]:![scrollbar-width:none] [&_.scroll-container::-webkit-scrollbar]:!hidden' : undefined"
         :chunk-size="50"
         :buffer-size="10"
@@ -824,15 +824,15 @@
             <!-- Placeholder skeleton while loading -->
             <div
               v-if="item._isPlaceholder"
-              class="w-[96px] h-[96px] compact:w-12 compact:h-12 bg-surface-raised rounded-media overflow-hidden animate-pulse"
+              class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-surface-raised rounded-media overflow-hidden animate-pulse"
             />
             <!-- Real thumbnail -->
             <div
               v-else-if="item.file_hash"
-              class="w-[96px] h-[96px] bg-matte rounded-media overflow-hidden transition-all compact:h-11 compact:w-11 compact:shrink-0 compact:transition-[transform,opacity] compact:duration-200 compact:ease-out motion-reduce:transition-none"
+              class="w-[96px] h-[96px] bg-matte rounded-media overflow-hidden transition-all compact:h-[52px] compact:w-[52px] compact:shrink-0 compact:transition-opacity compact:duration-200 compact:ease-out motion-reduce:transition-none"
               :class="slideshowCompact
-                ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'scale-[1.2273] opacity-100 ring-1 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-60')
-                : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-70 hover:opacity-100 hover:ring-selection/60')"
+                ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'opacity-100 ring-2 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-80')
+                : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60')"
             >
               <MediaImage
                 :media-id="mediaIdOf(item)"
@@ -1322,6 +1322,7 @@ import { reconcileSlideshowCollection } from '../utils/slideshowCollection'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, unref } from 'vue'
 import { createSlideshowSwipe } from '../utils/slideshowSwipe'
 import { isDrawerEdgeTouch } from '../utils/drawerGesture'
+import { STRIP_TILE, STRIP_GAP, STRIP_GUTTER } from '../utils/filmstrip'
 import { useSlideshowPresence } from '../composables/useTabNavigation'
 
 import { createSlideshowDwell } from '../utils/slideshowDwell'
@@ -1715,7 +1716,9 @@ const controlBarOrientationPref = ref(slideshowCompact.value ? 'horizontal' : (s
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
 // Phones: a shorter strip, and the info panel overlays instead of taking width.
 const STRIP_HEIGHT = slideshowCompact.value ? 74 : 136
-const STRIP_ROW = slideshowCompact.value ? 54 : 104
+// Tile tiers and ring spacing are the shared filmstrip tokens (utils/filmstrip.ts):
+// 52px tiles in a 60px row on a phone, 96px tiles in a 104px row elsewhere.
+const STRIP_ROW = slideshowCompact.value ? STRIP_TILE.sm + 8 : STRIP_TILE.lg + 8
 const SIDEBAR_WIDTH = slideshowCompact.value ? 0 : 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 const visibleImageStrip = computed(() => showImageStrip.value && !focusMode.value && props.showThumbnailStrip && !isViewingGrid.value && !(slideshowCompact.value && compactImmersive.value))

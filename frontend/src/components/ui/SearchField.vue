@@ -58,7 +58,7 @@ function onKeydown(event: KeyboardEvent) {
       type="text"
       :placeholder="placeholder"
       :aria-label="ariaLabel || placeholder"
-      class="w-full rounded-md border border-transparent bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content placeholder:text-content-muted focus:outline-none coarse:min-h-11"
+      class="w-full rounded-md border border-transparent bg-field py-1.5 pl-9 pr-3 text-sm text-content placeholder:text-content-muted focus:outline-none coarse:min-h-11"
       :class="quiet ? '' : 'focus:border-accent'"
       @input="onInput"
       @keydown="onKeydown"

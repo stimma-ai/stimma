@@ -48,7 +48,7 @@
 
     <!-- Control strip: the compact-tier page header. Name, then status and the run
          controls as its meta, then the workspace actions, then the overflow menu. -->
-    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden">
+    <PageHeader tier="compact" class="relative compact:[&_h1]:hidden compact:h-auto compact:min-h-12 compact:gap-1 compact:bg-surface compact:px-3 compact:py-0">
       <template #title>
         <template v-if="editingName">
           <input

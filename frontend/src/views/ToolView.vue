@@ -876,6 +876,20 @@
             img-class="!object-contain object-top compact:object-center !bg-none !bg-transparent"
             alt="Current generation"
           />
+          <!-- Phone: the picture opens full screen by tap; this glyph says so.
+               Black glass in a 44px target, top-right, like the slideshow's. -->
+          <button
+            v-if="isCompact && !stageLiveShowing"
+            type="button"
+            class="absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center focus-visible:outline-none"
+            title="Open in slideshow"
+            aria-label="Open in slideshow"
+            @click.stop="openSlideshow(stageCurrentJob)"
+          >
+            <span class="flex h-8 w-8 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-sm">
+              <ArrowsPointingOutIcon class="h-icon-canvas w-icon-canvas" />
+            </span>
+          </button>
           <!-- Jump to newest (top-left, on the image) -->
           <button
             v-if="stageCurrentJob && !stageOnNewest && !stageLiveShowing"
@@ -890,7 +904,7 @@
         <!-- Control bar beneath the image: markers · facts | volume · remix · trash -->
         <div
           v-if="stageCurrentJob && !stageLiveShowing"
-          class="flex-none flex items-center gap-1.5 pt-2"
+          class="flex-none flex items-center gap-1.5 pt-2 compact:pt-1"
           :class="[!heroArt || (heroColSize && heroArt.barW >= heroColSize.w) ? 'compact:px-2' : '', heroArt ? '' : 'w-full']"
           :style="heroArt ? { width: `${heroArt.barW}px` } : undefined"
         >
@@ -982,7 +996,7 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!py-0.5 compact:!px-0.5 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!px-page roomy:!pt-0 roomy:!pb-3 roomy:border-t-0"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out compact:order-2 compact:!w-full compact:h-[60px] compact:max-h-[60px] compact:!overflow-hidden compact:border-l-0 compact:border-t compact:border-surface compact:!px-2 compact:!py-0 roomy:col-start-2 roomy:row-start-2 roomy:!h-28 roomy:!max-h-28 roomy:!w-auto roomy:!px-page roomy:!pt-0 roomy:!pb-2 roomy:border-t-0"
         :class="[
           layoutMode === 'stage' ? 'border-surface px-2 pt-4 pb-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : '',
@@ -1070,7 +1084,7 @@
              on screen at full height, so the drawer never squeezes the strip.
              Roomy hides it rather than unmounting it: the controls teleport
              back into it on a fold, and a teleport needs its target present. -->
-        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.55 : 0.4" :hero-reserve="200" />
+        <ToolDrawer v-if="isCompact" v-show="drawerMode" ref="toolDrawerRef" :initial="'half'" :half-fraction="allJobs.length === 0 ? 0.55 : 0.5" :hero-reserve="200" />
         <!-- Guarded by stageViewActive AND header ownership: KeepAlive keeps
              every tool instance alive, and a teleport left mounted would leave
              a second Run and Agent in the header (pushing the real ones off the
@@ -1248,7 +1262,7 @@ const props = defineProps<{
 
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import { ArchiveBoxIcon, PencilIcon, PhotoIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, ArrowsPointingOutIcon, PencilIcon, PhotoIcon, SparklesIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { pageHeaderClass } from '../components/ui/pageHeader'
 import IconButton from '../components/ui/IconButton.vue'
 import Caret from '../components/ui/Caret.vue'
@@ -1896,7 +1910,8 @@ const stageMarkers = computed(() => jobsManager?.availableMarkers.value || [])
 // so the controls hug it. Unknown size (audio, not loaded yet) keeps the
 // full-column layout.
 // Band height: the 32px action row plus its 8px gap; 44px targets on touch.
-const heroBarH = computed(() => (isCoarsePointer.value ? 52 : 40))
+// The phone's band hugs the picture: 44px targets and a 4px gap.
+const heroBarH = computed(() => (isCompact.value ? 48 : isCoarsePointer.value ? 52 : 40))
 const HERO_BAR_MIN_W = 232
 const heroColRef = ref<HTMLElement | null>(null)
 // The agent prompt docked under the result takes height out of the artwork's.

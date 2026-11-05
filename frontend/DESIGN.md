@@ -303,6 +303,23 @@ margin only as its minimum side padding.
   light 3.4:1 (non-text, 3:1 required).
 - Browse marker filters are one chip grammar: hairline outline at rest, backing plus the marker's colour when included, red backing, red minus and struck label when excluded. Labels show wherever there is room; on a phone the chips share one track.
 - Filmstrips centre the current item only while it has neighbours on both sides; near either end the strip aligns to that edge.
+- **Filmstrip tokens** (`--strip-*` in style.css, `utils/filmstrip.ts`): the tool
+  result strip and the slideshow strip share one tile size by available height
+  (52px for the phone strips, 96px for a full row), one gap, and one ring: 2px
+  selection ring with a 2px offset on the matte, drawn outside the tile. Tiles
+  that are not current dim to 80%, never lower. Aspect handling stays per strip
+  (natural aspect in the tool strip, square crops in the slideshow).
+- **Secondary toolbar on a phone** (browse filters, tools filters, a board's
+  section row, the flow's status and workspace row): one band under the header,
+  `bg-surface`, a 48px minimum height with 44px targets and no vertical
+  padding, 12px side padding, 4px gaps inside a group, a `border-edge-subtle`
+  hairline underneath. Each surface keeps its own controls.
+- **Fields** (`bg-field`): text fields, selects and the composer take one small
+  luminance step above the surface in dark (`--color-field`), and the same quiet
+  wash in light. Fill-only; the focus ring appears only on focus.
+- **Unavailable thumbnails** are a neutral tile (`bg-surface-raised`) with a quiet
+  outline glyph and, where the tile is wide enough, the label "Unavailable".
+  Same geometry as a loaded tile; no cross, no alarm colour.
 - Filter states keep the documented pair: include `bg-blue-500/15
   border-blue-500/50 text-blue-400` → migrate to accent equivalents in Phase 2;
   exclude = red equivalents.
@@ -508,9 +525,11 @@ that a desktop-sized window never trips.
   content are one surface: a drag anywhere on it outside text fields and
   sliders moves the drawer until it is full and only then scrolls the
   content; pulling down at the top of the content shrinks it; a flick goes to
-  the next height. The drawer opens at half height, sized to what the hero's
-  matte can spare (40% of the column once there is a result, 55% for an empty
-  tool), so the prompt and the next control show without shrinking the picture.
+  the next height. The drawer opens at half height: 50% of the column once there is a result,
+  55% for an empty tool, so the prompt and the first controls form a working
+  area and the picture still holds most of the width. The picture, its action
+  row (44px targets, 4px gap) and the strip sit tight; a glyph on the picture's
+  corner opens it full screen (tapping the picture does the same).
   The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
@@ -557,7 +576,9 @@ that a desktop-sized window never trips.
 - **Voice.** Facts are real facts: one mono fact per row, status as a dot
   plus a word. Never invented rollups (`6 · 2 running · 1 unsaved`).
 - **Type.** Body stays `text-sm`; row labels are 15px on compact via the
-  kit; mono facts stay 12–12.5px.
+  kit; mono facts stay 12–12.5px. Long transcript text on a phone uses the
+  reading tier, `text-read` / `compact:prose-read` (16px at 1.5, lists indented
+  1.25em); facts and controls keep their dense tiers.
 
 **Greppable rules** (enforced as a ratchet by `stimma lint frontend`;
 counts may only go down): a width/pointer `matchMedia` outside
@@ -787,8 +808,11 @@ build a settings surface (mock §10 is the reference):
   One row grammar (`settings/ProviderRow.vue`): icon, name + description left,
   the same trailing structure in every state: a quiet secondary status (when
   there is one), then ONE action in a fixed column (`Configure` / `Sign in`
-  while not connected, a quiet `Manage` once connected). On compact the
-  status moves under the description. No chevrons, no teal text verbs. Descriptions wrap to two lines.
+  while not connected, a quiet `Manage` once connected). On compact the row
+  is a grid: the name and the action share the first line (the action in one
+  fixed 96px column, text centred), and the description and status run the
+  full row beneath on one line. No chevrons, no teal text verbs. Descriptions
+  wrap to two lines on wider windows.
   The Stimma Cloud gradient CTA is the only filled treatment in a list.
   The section's own title is hidden on compact (the header already shows it).
 - **Settings nav**: row-sized text (13px, 15px on compact), selected row =
@@ -1172,7 +1196,7 @@ the media menu stay in one place.
   sans when they are names. Each output group has one heading with a mono
   count and its artwork sized around the content (a lone result is large); a
   group with nothing to show leaves no heading or gap. The chat's context hint
-  shows only while the message field is empty. A step title never
+  is the composer's placeholder, so nothing changes height when typing starts. A step title never
   truncates for its provider pill: the pill wraps below. The compact header's
   title slot keeps a 96px minimum, ellipsizes at the end and never shrinks the
   action buttons.

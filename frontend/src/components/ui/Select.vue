@@ -25,7 +25,7 @@ withDefaults(defineProps<{
     aria-haspopup="listbox"
     :aria-expanded="open"
     class="inline-flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 ring-accent/60 disabled:opacity-50 disabled:cursor-not-allowed coarse:min-h-11"
-    :class="active ? 'bg-accent/15 text-accent-hi' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-hover hover:text-content'"
+    :class="active ? 'bg-accent/15 text-accent-hi' : 'bg-field text-content-secondary hover:bg-overlay-hover hover:text-content'"
   >
     <slot name="icon" />
     <span class="min-w-0 truncate">{{ label }}</span>

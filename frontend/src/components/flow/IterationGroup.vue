@@ -135,7 +135,7 @@
       <button
         v-if="invalidateTargetKey"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 coarse:opacity-100"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 [[data-pointer=coarse]_&]:opacity-100"
         title="Re-run all iterations in this loop"
         @click.stop="$emit('invalidate-equation', invalidateTargetKey)"
       >

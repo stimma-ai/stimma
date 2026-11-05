@@ -1,10 +1,10 @@
 <template>
-  <div class="bg-surface border-b border-edge flex-shrink-0">
+  <div class="bg-surface border-b border-edge flex-shrink-0 compact:border-edge-subtle">
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-page py-2 gap-2 flex-wrap compact:justify-start compact:gap-1">
+    <div class="flex justify-between items-center px-page py-2 gap-2 flex-wrap compact:justify-start compact:gap-1 compact:px-3 compact:py-0">
       <!-- Left Side: Filter Toggle Button -->
       <button
-        class="text-content-secondary px-3 -ml-3 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
+        class="text-content-secondary px-3 -ml-3 compact:ml-0 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle compact:h-11 compact:w-11 compact:px-0 compact:justify-center"
         :class="(showCriteriaPanel || hasActiveFilters) ? 'compact:text-accent-hi compact:bg-accent/15' : ''"
         aria-label="Filters"
         @click="toggleCriteriaPanel"
@@ -31,7 +31,7 @@
              page actions; labels return once the window is roomy. -->
         <div
           v-if="filterMarkers.length"
-          class="flex items-center gap-1.5 compact:gap-0.5 compact:p-0.5 compact:rounded-lg compact:bg-overlay-subtle"
+          class="flex items-center gap-1.5 compact:gap-0 compact:rounded-md compact:bg-overlay-subtle"
           role="group"
           aria-label="Marker filters"
         >
@@ -304,7 +304,7 @@
       </div>
 
       <!-- Right Side Controls -->
-      <div class="flex items-center gap-2 compact:order-3 compact:ml-auto">
+      <div class="flex items-center gap-2 compact:order-3 compact:ml-auto compact:gap-1">
       <!-- Unified Pill Group -->
       <div class="flex items-center gap-1">
         <!-- Item count -->
@@ -672,7 +672,7 @@
                 @input="debouncedUpdate"
                 @keyup.enter="emitUpdate"
                 placeholder="Search"
-                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
+                class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
               <h5 class="m-0 mt-2 text-xs font-semibold text-content-secondary">Prompt filter</h5>
               <input v-no-autocorrect
@@ -680,7 +680,7 @@
                 v-model="localPromptQuery"
                 @input="debouncedUpdate"
                 placeholder="Filter"
-                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
+                class="bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
             </div>
           </div>
@@ -767,7 +767,7 @@
             type="date"
             v-model="customAfterDate"
             @keyup.enter="applyCustomDateRange"
-            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+            class="w-full bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
           />
         </div>
 
@@ -777,7 +777,7 @@
             type="date"
             v-model="customBeforeDate"
             @keyup.enter="applyCustomDateRange"
-            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+            class="w-full bg-field border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
           />
         </div>
       </div>

@@ -27,7 +27,7 @@
         <button
           v-if="opt.media_id"
           type="button"
-          class="absolute bottom-1 right-1 w-6 h-6 rounded-md bg-black/40 hover:bg-black/60 text-white/50 hover:text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+          class="absolute bottom-1 right-1 w-6 h-6 rounded-md bg-black/40 hover:bg-black/60 text-white/50 hover:text-white opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:opacity-100 flex items-center justify-center transition-opacity"
           title="View larger"
           @click.stop="$emit('view-image', opt.media_id)"
         >

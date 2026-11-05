@@ -62,6 +62,10 @@ export default {
       // Between text-xs (12/16) and text-sm (14/20); mono facts stay text-xs.
       fontSize: {
         ctl: ['13px', { lineHeight: '18px' }],
+        // Compact transcript reading tier: long assistant text on a phone.
+        // 16px at 1.5; facts and controls keep their dense tiers. The
+        // matching `prose-read` size below types markdown to the same measure.
+        read: ['16px', { lineHeight: '1.5' }],
       },
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the
@@ -119,6 +123,8 @@ export default {
           strong: 'var(--color-overlay-strong)',
           backdrop: 'var(--color-backdrop)',
         },
+        // Text fields and the composer: fill-only, one small step above the surface.
+        field: 'var(--color-field)',
         // Flow graph node palette — refined matte colors for status, type
         // chips, and edges. See style.css for the per-theme values.
         flow: {
@@ -233,6 +239,28 @@ export default {
             'th': {
               backgroundColor: 'var(--color-surface)',
             },
+          },
+        },
+        // `prose-read`: the compact transcript size (use as `compact:prose-read`).
+        // 16px / 1.5, tighter block spacing, and lists indented one step instead
+        // of the default 1.6em so the reading area stays wide.
+        read: {
+          css: {
+            fontSize: '1rem',
+            lineHeight: '1.5',
+            p: { marginTop: '0.75em', marginBottom: '0.75em' },
+            'ul, ol': { marginTop: '0.75em', marginBottom: '0.75em', paddingInlineStart: '1.25em' },
+            li: { marginTop: '0.25em', marginBottom: '0.25em' },
+            'ol > li, ul > li': { paddingInlineStart: '0.25em' },
+            'li > p, li > ul, li > ol': { marginTop: '0.25em', marginBottom: '0.25em' },
+            h1: { fontSize: '1.375em', marginTop: '1em', marginBottom: '0.5em', lineHeight: '1.25' },
+            h2: { fontSize: '1.25em', marginTop: '1em', marginBottom: '0.5em', lineHeight: '1.3' },
+            h3: { fontSize: '1.125em', marginTop: '1em', marginBottom: '0.4em', lineHeight: '1.4' },
+            h4: { marginTop: '1em', marginBottom: '0.4em', lineHeight: '1.5' },
+            code: { fontSize: '0.875em' },
+            'pre code': { fontSize: '0.8125em' },
+            pre: { marginTop: '0.75em', marginBottom: '0.75em', paddingInline: '0.75em', fontSize: '0.875em' },
+            blockquote: { marginTop: '0.75em', marginBottom: '0.75em', paddingInlineStart: '0.75em' },
           },
         },
       },
