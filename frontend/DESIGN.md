@@ -846,10 +846,9 @@ Until a kit component exists, new code uses these exact patterns:
 - **Tile signals** (`TileChip`, `TileMarkers` in `components/media/`): three fixed
   places, one grammar. Kind (type, duration, member count) is a black-glass
   chip top-right; facts (similarity, time left, revisions) are black-glass
-  chips bottom-left; state (markers, including edited) is a row of bare white
-  glyphs on one small black-glass square bottom-right, the same backing as the
-  media chips, so it holds contrast on any image and never reads as a
-  button. A chip is `h-5`, `bg-black/55 backdrop-blur`, mono facts, white
+  chips bottom-left; state (markers, including edited) is a row of white glyphs bottom-right,
+  each on a small black-glass square, the same backing as the media chips, so
+  it holds contrast on any image. A chip is `h-5`, `bg-black/55 backdrop-blur`, mono facts, white
   glyphs, same in both themes. At most two signals show at rest, in the order
   similarity or time left, kind, state; the rest (revisions always) fade in on
   hover on a fine pointer and live in the detail view. The only color on a
