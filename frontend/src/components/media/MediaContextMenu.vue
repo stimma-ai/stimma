@@ -1112,7 +1112,8 @@ const groupSheetRef = ref<HTMLElement | null>(null)
 // On a desktop pointer the same groups are hover submenus beside the menu: a
 // group panel opens next to the root menu and its destinations (Boards,
 // Tool, Chat...) open as the usual submenus beside the panel.
-const groupedOrganize = computed(() => true)
+// Boards and Projects stay two rows of the root menu, each opening its own list.
+const groupedOrganize = computed(() => false)
 const groupedSend = computed(() => true)
 const groupedExplore = computed(() => exploreRowCount.value >= 2)
 const groupedShare = computed(() => isCoarsePointer.value || shareRowCount.value >= 2)
