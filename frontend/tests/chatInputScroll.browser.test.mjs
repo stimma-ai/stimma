@@ -62,12 +62,12 @@ for (const width of [390, 1200]) test(`chat input keeps long drafts and the care
   await expect.poll(async () => (await metrics()).bottomGap).toBeLessThan(2)
 
   // Keyboard navigation and editing near either end reveal that caret.
-  await input.press('Control+Home')
+  await input.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home')
   await expect.poll(async () => (await metrics()).top).toBeLessThan(state.line)
   await input.press('Shift+Enter')
   await settle()
   assert.ok((await metrics()).top < state.line * 2)
-  await input.press('Control+End')
+  await input.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End')
   await input.press('Shift+Enter')
   await settle()
   assert.ok((await metrics()).bottomGap <= state.line)

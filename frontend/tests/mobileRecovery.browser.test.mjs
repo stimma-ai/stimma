@@ -146,6 +146,8 @@ test('the installed Vite client reconnects without reloading an unchanged phone 
     window.WebSocket = class extends Original { constructor(...args) { super(...args); window.sockets.push(this) } }
   })
   const origin = server.resolvedUrls.local[0]
+  // Chromium requires permission for the fixture's real loopback HMR socket.
+  await page.context().grantPermissions(['local-network-access'], { origin })
   await page.route('**/recovery-fixture', route => route.fulfill({ contentType: 'text/html', body: '<input id="draft"><script type="module" src="/@vite/client"></script>' }))
   await page.goto(`${origin}recovery-fixture`)
   await page.waitForFunction(() => sockets.some(s => s.protocol === 'vite-hmr' && s.readyState === 1))
