@@ -2,11 +2,11 @@
   <div class="space-y-6">
     <template v-if="!addOpen && !managerOpen && !legacyOpen && !chatgptOpen">
     <section>
-      <div v-if="!wizard" class="mb-3">
+      <div v-if="!wizard" class="mb-1">
         <div class="flex items-center gap-3">
           <h3 class="text-xs font-semibold text-content-secondary compact:hidden">Chat models</h3>
         </div>
-        <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
+        <p class="mt-0.5 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
       <div

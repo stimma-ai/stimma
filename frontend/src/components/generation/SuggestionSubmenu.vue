@@ -14,7 +14,7 @@
         @click.stop
       >
         <!-- Category header -->
-        <div class="text-xs font-semibold text-content-secondary mb-2 px-0.5 text-center">
+        <div class="text-ctl font-semibold text-content-secondary mb-2 px-0.5 text-center">
           {{ label }}
         </div>
 

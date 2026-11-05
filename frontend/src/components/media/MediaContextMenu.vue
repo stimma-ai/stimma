@@ -18,7 +18,7 @@
       v-if="contextMenu.state.value.visible"
       ref="menuRef" data-escape-layer
       data-context-menu
-      v-show="!isCoarsePointer || !activeSubmenu"
+      v-show="!isCoarsePointer || (!activeSubmenu && !activeGroup)"
       class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[180px] coarse:px-[max(0px,calc((100%-30rem)/2))]"
       :style="menuPosition"
       @scroll.passive="updateMenuMore"
@@ -145,8 +145,6 @@
         </button>
         <div v-if="isImage && !isMultiple" class="border-t border-edge-subtle my-1 coarse:hidden"></div>
 
-        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Organize</div>
-
         <!-- Tags -->
         <button
           @click="handleEditTags"
@@ -155,6 +153,30 @@
           <TagIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>{{ isMultiple ? `Tags (${targetCount} items)` : 'Tags' }}</span>
         </button>
+
+<button
+          v-if="groupedOrganize"
+          type="button"
+          data-testid="menu-group-organize"
+          @click.stop="openGroup('organize')"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Boards and projects</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedOrganize">
+        <div
+          v-if="!groupedOrganize || activeGroup === 'organize'"
+          ref="groupSheetRef"
+          v-show="!groupedOrganize || !activeSubmenu"
+          v-bind="groupBind(groupedOrganize)"
+        >
+          <template v-if="groupedOrganize">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Boards and projects</div>
+          </template>
 
         <!-- Boards -->
         <div
@@ -191,7 +213,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
                 <MagnifyingGlassIcon class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" :stroke-width="1.75" />
@@ -274,7 +296,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <ProjectPickerSubmenu
               :media-ids="targetMediaIds"
               :asset-ids="targetAssetIds"
@@ -309,10 +331,10 @@
             <span>{{ isMultiple ? `Remove ${targetCount} from Board` : 'Remove from Board' }}</span>
           </button>
         </template>
+        </div>
+        </Teleport>
 
-        <div class="border-t border-edge-subtle my-1 coarse:hidden"></div>
-
-        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Create and send</div>
+        <div class="border-t border-edge-subtle my-1"></div>
 
         <!-- Create Set (multiple atomic items only) -->
         <button
@@ -373,7 +395,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <!-- Filter box -->
             <div class="px-2.5 py-2 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
@@ -496,6 +518,30 @@
           </Teleport>
         </div>
 
+<button
+          v-if="groupedSend"
+          type="button"
+          data-testid="menu-group-send"
+          @click.stop="openGroup('send')"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <PaperAirplaneIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Send to</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedSend">
+        <div
+          v-if="!groupedSend || activeGroup === 'send'"
+          ref="groupSheetRef"
+          v-show="!groupedSend || !activeSubmenu"
+          v-bind="groupBind(groupedSend)"
+        >
+          <template v-if="groupedSend">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Send to</div>
+          </template>
+
         <!-- Send to Tool - with submenu (hidden when grids are selected) -->
         <div
           v-if="!hasGridInSelection"
@@ -506,10 +552,11 @@
         >
           <button
             ref="toolTriggerRef"
+            aria-label="Send to Tool"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <WrenchScrewdriverIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1">Send to Tool</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to </span>Tool</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -534,7 +581,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop="lockSubmenuOpen"
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <TaskTypeToolList
               ref="toolListRef"
               :tools="sendToTools"
@@ -560,10 +607,11 @@
         >
           <button
             ref="chatTriggerRef"
+            aria-label="Send to Chat"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <ChatBubbleLeftRightIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1">Send to Chat</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to </span>Chat</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -588,7 +636,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div v-if="loadingChats" class="px-3 py-2 text-xs text-content-tertiary">Loading chats...</div>
             <template v-else>
               <!-- New chat option -->
@@ -623,10 +671,11 @@
         >
           <button
             ref="flowTriggerRef"
+            aria-label="Send to Flow"
             class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
           >
             <BoltIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-            <span class="flex-1">Send to Flow</span>
+            <span class="flex-1"><span class="coarse:hidden">Send to </span>Flow</span>
             <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
           </button>
 
@@ -650,7 +699,7 @@
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
-            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <button v-if="isCoarsePointer" type="button" class="sheet-row flex-none" @click.stop="activeSubmenu = null"><span aria-hidden="true">‹</span> {{ activeGroup ? 'Back' : 'Back to actions' }}</button>
             <div v-if="loadingFlows" class="px-3 py-2 text-xs text-content-tertiary">Loading flows...</div>
             <template v-else>
               <button
@@ -717,9 +766,34 @@
           </Teleport>
         </div>
 
-        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1 coarse:hidden"></div>
+        </div>
+        </Teleport>
 
-        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Explore</div>
+        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
+
+<button
+          v-if="groupedExplore"
+          type="button"
+          data-testid="menu-group-explore"
+          @click.stop="openGroup('explore')"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <MagnifyingGlassIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Explore</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedExplore">
+        <div
+          v-if="!groupedExplore || activeGroup === 'explore'"
+          ref="groupSheetRef"
+          v-show="!groupedExplore || !activeSubmenu"
+          v-bind="groupBind(groupedExplore)"
+        >
+          <template v-if="groupedExplore">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Explore</div>
+          </template>
 
         <!-- Find Similar (up to 3 items) -->
         <button
@@ -764,10 +838,34 @@
           </svg>
           <span>View Lineage</span>
         </button>
+        </div>
+        </Teleport>
 
-        <div class="border-t border-edge-subtle my-1 coarse:hidden"></div>
+        <div class="border-t border-edge-subtle my-1"></div>
 
-        <div class="hidden coarse:block sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share and export</div>
+<button
+          v-if="groupedShare"
+          type="button"
+          data-testid="menu-group-share"
+          @click.stop="openGroup('share')"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <ShareIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
+          <span class="flex-1">Share</span>
+          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
+        </button>
+
+        <Teleport to="body" :disabled="!groupedShare">
+        <div
+          v-if="!groupedShare || activeGroup === 'share'"
+          ref="groupSheetRef"
+          v-show="!groupedShare || !activeSubmenu"
+          v-bind="groupBind(groupedShare)"
+        >
+          <template v-if="groupedShare">
+            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
+            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Share</div>
+          </template>
 
         <!-- Share link (public link, every media type; single item only) -->
         <button
@@ -790,6 +888,9 @@
           <ArrowUpTrayIcon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
           <span>Share file…</span>
         </button>
+
+        </div>
+        </Teleport>
 
         <!-- Print -->
         <button
@@ -889,7 +990,7 @@ import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import NativeShareDialog from '../NativeShareDialog.vue'
-import { ChevronDownIcon, ArchiveBoxIcon, ArrowDownOnSquareStackIcon, ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronRightIcon, FaceSmileIcon, LinkIcon, MagnifyingGlassIcon, PencilIcon, PhotoIcon, PlusIcon, PrinterIcon, Square3Stack3DIcon, Squares2X2Icon, TagIcon, TrashIcon, ViewColumnsIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, ArchiveBoxIcon, ArrowDownOnSquareStackIcon, ArrowDownTrayIcon, ArrowPathRoundedSquareIcon, ArrowUpTrayIcon, ArrowUturnLeftIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronRightIcon, FaceSmileIcon, LinkIcon, MagnifyingGlassIcon, PaperAirplaneIcon, PencilIcon, PhotoIcon, PlusIcon, PrinterIcon, ShareIcon, Square3Stack3DIcon, Squares2X2Icon, TagIcon, TrashIcon, ViewColumnsIcon, WrenchScrewdriverIcon } from '@heroicons/vue/24/outline'
 import { useShareDialog } from '../../composables/useShareDialog'
 import { desktop } from '../../desktop'
 import { supportsNativeShare } from '../../utils/nativeShare'
@@ -995,6 +1096,28 @@ const projectSubmenuRef = ref<HTMLElement | null>(null)
 const projectTriggerRef = ref<HTMLElement | null>(null)
 
 const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project' | null>(null)
+
+// Touch sheets fold related destinations behind one named row (a second sheet,
+// and the destination's own list a third). Elsewhere the groups are transparent
+// wrappers and every row stays where it was.
+type MenuGroup = 'organize' | 'send' | 'explore' | 'share'
+const activeGroup = ref<MenuGroup | null>(null)
+const groupSheetRef = ref<HTMLElement | null>(null)
+const groupedOrganize = computed(() => isCoarsePointer.value)
+const groupedSend = computed(() => isCoarsePointer.value)
+const groupedExplore = computed(() => isCoarsePointer.value && exploreRowCount.value >= 2)
+const groupedShare = computed(() => isCoarsePointer.value && shareRowCount.value >= 2)
+function openGroup(group: MenuGroup) { activeGroup.value = group }
+function groupBind(grouped: boolean) {
+  return grouped
+    ? {
+        class: 'fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1',
+        style: SHEET_MENU_STYLE,
+        'data-sheet-menu': '',
+        'data-escape-layer': '',
+      }
+    : { class: 'contents' }
+}
 const submenuCloseTimeout = ref<number | null>(null)
 const submenuTriggerRect = ref<DOMRect | null>(null)
 const submenuClickLockUntil = ref(0)
@@ -1179,6 +1302,17 @@ const hasExploreActions = computed(() => (
   || hasFaceEmbeddings.value
   || (targetCount.value === 2 && !isVideo.value)
   || !isMultiple.value
+))
+
+const exploreRowCount = computed(() => (
+  Number(hasClipEmbedding.value && targetCount.value <= 3)
+  + Number(hasFaceEmbeddings.value)
+  + Number(targetCount.value === 2 && !isVideo.value)
+  + Number(!isMultiple.value)
+))
+const shareRowCount = computed(() => (
+  Number(!isMultiple.value)
+  + Number(!isMultiple.value && nativeShareSupported && !isMultiFileItem.value)
 ))
 
 // What the sheet's actions apply to: one line of title and one of facts.
@@ -1749,10 +1883,12 @@ function handleClickOutside(event: MouseEvent) {
   if (flowDestinationSubmenuRef.value?.contains(target)) return
   if (boardSubmenuRef.value?.contains(target)) return
   if (projectSubmenuRef.value?.contains(target)) return
+  if (groupSheetRef.value?.contains(target)) return
   // The tag picker submenu lives in its own Teleport
   if (target.closest?.('[data-tag-picker]')) return
   contextMenu.hide()
   activeSubmenu.value = null
+  activeGroup.value = null
 }
 
 // Close on escape
@@ -1764,10 +1900,14 @@ function handleKeyDown(event: KeyboardEvent) {
     consumeEscape(event)
     if (activeFlowDestination.value) clearFlowDestination()
     else activeSubmenu.value = null
+  } else if (activeGroup.value && isTopmostEscapeLayer(groupSheetRef.value)) {
+    consumeEscape(event)
+    activeGroup.value = null
   } else if (isTopmostEscapeLayer(menuRef.value)) {
     consumeEscape(event)
     contextMenu.hide()
     activeSubmenu.value = null
+    activeGroup.value = null
   }
 }
 
@@ -1831,6 +1971,7 @@ watch(() => contextMenu.state.value.visible && isRenderer.value, (visible) => {
   } else {
     membershipWanted.value = false
     activeSubmenu.value = null
+    activeGroup.value = null
     submenuTriggerRect.value = null
     generateSearchQuery.value = ''
     boardSearchQuery.value = ''

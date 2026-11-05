@@ -55,13 +55,13 @@
             <button
               type="button"
               aria-label="Back to everything"
-              class="flex w-fit items-center gap-1.5 rounded px-3 py-0.5 text-content-muted transition-colors hover:text-content coarse:min-h-11"
+              class="mb-0.5 flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-xs text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content coarse:min-h-11 coarse:text-sm [&>:first-child]:mx-[5px]"
               :title="busyElsewhere ? 'Back to everything (work is running elsewhere)' : undefined"
               @click="leaveProject"
             >
-              <ChevronLeftIcon class="h-3 w-3" />
-              <span class="font-brand text-[11px] lowercase tracking-[0.12em]">stimma</span>
-              <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-0.5" />
+              <ChevronLeftIcon class="h-3.5 w-3.5 flex-shrink-0" :stroke-width="1.75" />
+              <span>Back to everything</span>
+              <Spinner v-if="busyElsewhere" size="sm" hue="border-t-blue-500" class="ml-auto" />
             </button>
             <WorkingContextPicker v-slot="{ toggle, open, openForDrop }" ref="projectPicker" @selected="props.isMobile && emit('close')">
               <!-- Holding dragged media here opens the picker so its rows can take the drop. -->
@@ -78,7 +78,7 @@
                 @dragover="projectHeaderDrag.onDragOver"
                 @dragleave="projectHeaderDrag.onDragLeave"
                 @drop="projectHeaderDrag.onDrop"
-              ><span class="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1 h-3 w-3 shrink-0 text-content-muted" /></button>
+              ><span class="min-w-0 flex-1 break-words font-brand text-base font-semibold leading-snug text-content">{{ activeProject?.name || 'Untitled project' }}</span><ChevronUpDownIcon class="mt-1.5 h-3 w-3 shrink-0 text-content-muted" /></button>
             </WorkingContextPicker>
           </template>
 

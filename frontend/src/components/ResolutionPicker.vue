@@ -1,29 +1,35 @@
 <template>
   <div ref="containerRef" class="relative inline-block max-w-full">
+    <!-- ONE trigger everywhere (tool and flow forms): aspect glyph, size,
+         chevron in a single filled control. When a reference image locks an
+         axis, the lock rides inside the same control: it sits on the glyph's
+         corner and its caption names the locked axis, so it reads as a state
+         of this control rather than a neighbour. -->
     <button
       type="button"
       :disabled="disabled"
       @click="toggle"
-      :class="[
-        'flex items-center gap-2 font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap',
-        compact
-          ? 'px-2.5 h-7 rounded-md text-xs text-content-tertiary hover:text-content hover:bg-overlay-subtle'
-          : 'px-3 h-10 rounded-md border border-edge-subtle bg-overlay-subtle text-sm text-content-tertiary hover:bg-overlay-light hover:text-content'
-      ]"
+      class="inline-flex items-center gap-2 h-9 pl-2 pr-2 max-w-full rounded-md bg-overlay-subtle hover:bg-overlay-light text-ctl font-medium text-content-secondary hover:text-content transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
+      :aria-label="`Aspect and size: ${triggerValue}${lockTag ? ', ' + lockTag + ' locked to the reference image' : ''}`"
     >
-      <span class="border-[1.5px] border-current flex-shrink-0 rounded-media opacity-80" :style="previewStyle(resolved.width, resolved.height, 14)"></span>
-      <span class="flex items-center gap-2 min-w-0">
-        <span class="font-mono tabular-nums">{{ triggerValue }}</span>
-        <span v-if="lockTag" :class="[tagClass, lockArmed ? 'bg-transparent text-content-secondary' : 'bg-overlay-subtle text-content-secondary']" :title="explanation">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" :class="compact ? 'w-[11px] h-[11px]' : 'w-3 h-3'" aria-hidden="true">
-            <path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V5A3.5 3.5 0 0 0 8 1.5ZM6 5a2 2 0 1 1 4 0v2H6V5Z" />
-          </svg>
-          <span>{{ lockTag }}</span>
-        </span>
+      <span class="relative flex-none w-6 h-6 grid place-items-center" :class="lockAspect ? 'text-accent-hi' : ''">
+        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" aria-hidden="true">
+          <!-- viewfinder corners: says "frame", never "checkbox" -->
+          <path d="M2.5 7V3.5a1 1 0 0 1 1-1H7M17 2.5h3.5a1 1 0 0 1 1 1V7M21.5 17v3.5a1 1 0 0 1-1 1H17M7 21.5H3.5a1 1 0 0 1-1-1V17" stroke-width="1.5" stroke-linecap="round" opacity=".55" />
+          <rect :x="glyph.x" :y="glyph.y" :width="glyph.w" :height="glyph.h" rx="1" fill="currentColor" fill-opacity=".22" stroke-width="1.5" />
+        </svg>
+        <svg v-if="lockTag" viewBox="0 0 16 16" fill="currentColor" class="absolute -right-1 -bottom-1 w-3 h-3 rounded-full p-px bg-surface text-accent-hi" aria-hidden="true">
+          <path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V5A3.5 3.5 0 0 0 8 1.5ZM6 5a2 2 0 1 1 4 0v2H6V5Z" />
+        </svg>
       </span>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="compact ? 'w-3 h-3 text-content-muted' : 'w-4 h-4 text-content-muted'">
+      <span class="font-mono tabular-nums text-xs text-content">{{ triggerValue }}</span>
+      <span v-if="lockTag" class="flex items-center gap-2 min-w-0" :title="explanation">
+        <span class="w-px h-4 bg-edge" aria-hidden="true"></span>
+        <span :class="['text-xs font-semibold', lockArmed ? 'text-content-tertiary' : 'text-accent-hi']">{{ lockTag }}</span>
+      </span>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-none text-content-tertiary">
         <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
       </svg>
     </button>
@@ -40,7 +46,7 @@
       >
         <!-- Aspect -->
         <div class="flex items-center justify-between h-6 mb-2">
-          <span class="text-[11px] font-semibold text-content-muted">Aspect</span>
+          <span class="text-ctl font-semibold text-content-secondary">Aspect</span>
           <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
             <span class="text-[11px] font-medium text-content-muted">{{ followLabel }}</span>
             <span class="relative inline-flex shrink-0 items-center">
@@ -64,7 +70,7 @@
 
         <!-- Size -->
         <div class="flex items-center justify-between h-6 mt-5 mb-2">
-          <span class="text-[11px] font-semibold text-content-muted">Size</span>
+          <span class="text-ctl font-semibold text-content-secondary">Size</span>
           <label v-if="hasImageInput" class="flex items-center gap-1.5 cursor-pointer select-none">
             <span class="text-[11px] font-medium text-content-muted">{{ followLabel }}</span>
             <span class="relative inline-flex shrink-0 items-center">
@@ -173,6 +179,7 @@ const props = withDefaults(defineProps<{
   /** Tool schema properties: grid step / allowed dimensions. */
   schemaProps?: Record<string, any> | null
   disabled?: boolean
+  /** Kept for callers; the trigger looks the same everywhere. */
   compact?: boolean
   /** Text shown while following is armed with no image yet. */
   armedText?: string
@@ -254,7 +261,6 @@ const sizeLabel = computed(() => tiers.value ? tierLabel(resolved.value.tier ?? 
 const triggerValue = computed(() => tiers.value
   ? `${resolved.value.ratioLabel} · ${sizeLabel.value.replace('MP', ' MP')}`
   : `${resolved.value.width} × ${resolved.value.height}`)
-const tagClass = 'inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-md'
 // The pill names the axis the reference image locks. With following armed but
 // no image yet, it has no fill.
 const lockTag = computed(() => {
@@ -266,6 +272,18 @@ const lockTag = computed(() => {
   if (aspect) return 'Aspect'
   if (size) return 'Size'
   return ''
+})
+const lockAspect = computed(() => {
+  const r = resolved.value
+  return hasImage.value ? r.shapeFromImage : props.hasImageInput && props.policy.followShape
+})
+// The glyph draws the real output shape inside its 24px frame (min 7px side).
+const glyph = computed(() => {
+  const w = resolved.value.width, h = resolved.value.height
+  const max = 15
+  const [gw, gh] = !(w > 0) || !(h > 0) ? [max, max]
+    : w >= h ? [max, Math.max(7, Math.round((h / w) * max))] : [Math.max(7, Math.round((w / h) * max)), max]
+  return { w: gw, h: gh, x: 12 - gw / 2, y: 12 - gh / 2 }
 })
 const lockArmed = computed(() => !!lockTag.value && !hasImage.value)
 const dimInputClass = 'w-full px-2.5 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50'

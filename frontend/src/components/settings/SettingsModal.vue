@@ -28,7 +28,7 @@
       </div>
     </template>
 
-    <div class="shrink-0 px-6 py-3 compact:px-4">
+    <div class="shrink-0 px-6 pb-2 pt-3 compact:px-4 compact:pb-1">
       <input v-model="settingsQuery" type="search" aria-label="Search settings" placeholder="Search settings…"
         class="w-full rounded-md bg-overlay-subtle px-3 py-2 text-sm text-content placeholder:text-content-muted outline-none focus-visible:ring-2 ring-accent/60"
         @keydown.enter.prevent="settingsMatches[0] && openSetting(settingsMatches[0])" />
@@ -59,7 +59,7 @@
       />
 
       <!-- Main content area -->
-      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto p-6 compact:p-4">
+      <div ref="settingsContent" data-settings-content v-show="!isCompact || !compactList" class="flex-1 overflow-y-auto px-6 pb-6 pt-4 compact:px-4 compact:pb-4 compact:pt-2">
         <!-- Loading state -->
         <div v-if="loading" class="flex items-center justify-center h-full">
           <Spinner size="md" />

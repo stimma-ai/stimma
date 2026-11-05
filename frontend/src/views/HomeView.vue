@@ -1214,7 +1214,7 @@ function activate() {
   void checkModels()
   revealHeroSoon()
   checkPendingMedia()
-  if (allowsAutofocus.value) chatInputBoxRef.value?.focus()
+  if (allowsAutofocus.value) chatInputBoxRef.value?.focusQuietly()
 }
 
 function handleProfileChanged() {

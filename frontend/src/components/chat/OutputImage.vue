@@ -134,16 +134,16 @@
           :key="marker.id"
           @click.stop="toggleMarker(row.output.media_id, marker)"
           :class="[
-            'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-all border-2',
+            'w-7 h-7 coarse:w-11 coarse:h-11 rounded-md flex items-center justify-center transition-colors',
             hasMarker(row.output.media_id, marker.id)
-              ? 'bg-black/80'
-              : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white',
+              ? (isComposite ? 'bg-overlay-light' : 'bg-black/70')
+              : (isComposite ? 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light hover:text-content' : 'bg-black/40 text-white/75 hover:bg-black/60 hover:text-white'),
             quietMarkers && !hasMarker(row.output.media_id, marker.id) ? 'opacity-0 group-hover:opacity-100 [[data-pointer=coarse]_&]:hidden' : ''
           ]"
-          :style="hasMarker(row.output.media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+          :style="hasMarker(row.output.media_id, marker.id) ? { color: marker.color } : {}"
           :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
         >
-          <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+          <span class="w-4 h-4 flex items-center justify-center icon-container" :class="hasMarker(row.output.media_id, marker.id) ? '' : 'marker-glyph-off'" v-html="sanitizeSvg(marker.icon_svg)" />
         </button>
       </div>
 

@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <!-- LoRAs -->
     <div v-if="availableLoras.length > 0">
-      <span class="block text-xs font-semibold text-content-secondary mb-2">LoRAs</span>
+      <span class="block text-ctl font-semibold text-content-secondary mb-2">LoRAs</span>
       <div class="space-y-2">
         <div
           v-for="(lora, index) in localParams.selectedLoras"

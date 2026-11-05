@@ -38,6 +38,11 @@ export default {
         black: ({ opacityValue }) =>
           `rgb(0 0 0 / calc(${opacityValue === undefined ? 1 : opacityValue} * var(--shadow-pop-a)))`,
       },
+      // Dense-control tier: actionable labels in tool, flow and editor forms.
+      // Between text-xs (12/16) and text-sm (14/20); mono facts stay text-xs.
+      fontSize: {
+        ctl: ['13px', { lineHeight: '18px' }],
+      },
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the
         // `<alpha-value>` placeholder lets opacity modifiers work, e.g.
@@ -63,6 +68,8 @@ export default {
         accent: {
           DEFAULT: 'rgb(var(--color-accent-rgb) / <alpha-value>)',
           hi: 'rgb(var(--color-accent-hi-rgb) / <alpha-value>)',
+          // Label/glyph colour ON an accent fill (>= 4.5:1 in both themes).
+          on: 'rgb(var(--color-on-accent-rgb) / <alpha-value>)',
         },
         selection: 'rgb(var(--color-selection-rgb) / <alpha-value>)',
         // live = autonomous/continuous operation states (forever mode,

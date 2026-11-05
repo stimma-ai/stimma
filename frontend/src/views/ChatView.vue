@@ -253,7 +253,7 @@
           <template v-else-if="isFirstInActivityGroup(item.id) && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length === 0"></template>
 
           <div v-else-if="isFirstInActivityGroup(item.id)" class="flex justify-start">
-            <div class="activity-group" :class="{ 'activity-group--running': getActivityGroupSummary(getActivityGroup(item.id)).isRunning }">
+            <div class="activity-group" :class="[getActivityGroupSummary(getActivityGroup(item.id)).isRunning && activityLive ? 'activity-group--running' : '[&_.activity-tool-name]:text-content-tertiary']">
               <!-- Collapsed summary line -->
               <div
                 class="activity-summary"
@@ -263,7 +263,7 @@
                   class="activity-chevron"
                   :class="{ 'rotate-90': isActivityGroupExpanded(getActivityGroup(item.id).id) }"
                 />
-                <template v-if="getActivityGroupSummary(getActivityGroup(item.id)).isRunning">
+                <template v-if="getActivityGroupSummary(getActivityGroup(item.id)).isRunning && activityLive">
                   <span class="activity-pulse"></span>
                 </template>
                 <span class="activity-tool-list">
@@ -884,7 +884,7 @@
               <details class="activity-details inline-block">
                 <summary class="activity-summary" style="display: inline-flex;">
                   <ChevronRightIcon class="activity-chevron" />
-                  <span v-if="getToolCallStatus(item) === 'running'" class="activity-pulse"></span>
+                  <span v-if="getToolCallStatus(item) === 'running' && activityLive" class="activity-pulse"></span>
                   <span class="activity-tool-name">{{ getToolCallDisplayName(item) }}</span>
                   <span v-if="getToolCallStatus(item) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
                 </summary>
@@ -3579,6 +3579,11 @@ async function navigateHistory(direction) {
     }
   }
 }
+
+// One liveness gate for every transcript activity dot: a tool call or thought
+// that never recorded a result only reads as running while a turn is. After
+// that it settles into the quiet terminal look (no dot, tertiary label).
+const activityLive = computed(() => !!(agentRunning.value || agentPlanning.value))
 
 // While a turn runs (or a send is in flight), the composer adds to the queue
 // instead of sending.

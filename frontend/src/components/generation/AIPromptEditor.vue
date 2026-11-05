@@ -22,7 +22,7 @@
             :disabled="llmUnconfigured"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
             :class="[
-              'flex items-center gap-1.5 text-[11px] transition-colors',
+              'flex items-center gap-1.5 text-ctl transition-colors',
               llmUnconfigured
                 ? 'text-content-muted opacity-50 cursor-not-allowed'
                 : promptOptions.autoImprove.enabled
@@ -33,7 +33,7 @@
               ? 'Requires a chat model — add one in Settings > Chat Models'
               : 'Enhance the prompt with AI when generating'"
           >
-            <WandSparklesIcon class="w-3 h-3" />
+            <WandSparklesIcon class="w-3.5 h-3.5" />
             <span>Enhance</span>
           </button>
 
@@ -46,7 +46,7 @@
               :disabled="llmUnconfigured"
               @click="toggleTranslateMenu"
               :class="[
-                'flex items-center gap-1.5 text-[11px] transition-colors',
+                'flex items-center gap-1.5 text-ctl transition-colors',
                 llmUnconfigured
                   ? 'text-content-muted opacity-50 cursor-not-allowed'
                   : translateActive
@@ -59,9 +59,9 @@
                   ? `Translating the prompt to ${activeLanguageLabel} before generating`
                   : 'Translate the prompt into another language before generating'"
             >
-              <LanguageIcon class="w-3 h-3" />
+              <LanguageIcon class="w-3.5 h-3.5" />
               <span>{{ translateActive ? activeLanguageLabel : 'Translate' }}</span>
-              <ChevronDownIcon class="w-2.5 h-2.5 opacity-70" />
+              <ChevronDownIcon class="w-3 h-3 opacity-70" />
             </button>
 
             <!-- Menu teleported to <body> with fixed positioning so it escapes
@@ -74,7 +74,7 @@
                 class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 max-h-80 overflow-y-auto"
                 :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
               >
-                <div class="px-3 pt-1 pb-1.5 text-xs font-semibold text-content-secondary">
+                <div class="px-3 pt-1 pb-1.5 text-ctl font-semibold text-content-secondary">
                   Translate prompt to
                 </div>
                 <button
@@ -114,7 +114,7 @@
           <button
             @click="toggleVim"
             :class="[
-              'text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md transition-colors',
+              'text-xs font-mono font-medium px-2 py-1 rounded-md transition-colors',
               'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
             ]"
             :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
@@ -126,7 +126,7 @@
           <button
             @click="toggleMonospace"
             :class="[
-              'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
+              'text-xs font-medium px-2 py-1 rounded-md transition-colors',
               'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle',
               monospaceEnabled ? 'font-mono' : ''
             ]"
@@ -140,7 +140,7 @@
             <button
               @click="showHelp = !showHelp"
               :class="[
-                'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
+                'text-xs font-medium px-2 py-1 rounded-md transition-colors',
                 showHelp ? 'text-content hover:bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary'
               ]"
               title="Prompt syntax help"

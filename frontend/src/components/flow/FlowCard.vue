@@ -11,7 +11,9 @@
       </svg>
     </RowThumb>
 
-    <!-- Name + parent; time/outputs share the same two lines -->
+    <!-- Slots: name + status + date on the first line, description (full
+         width, with the output strip trailing) on the second. On narrow the
+         status moves to the second line. -->
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-3">
         <template v-if="editing">
@@ -41,23 +43,29 @@
           >
             Name this flow...
           </span>
+          <FlowStatusPill
+            class="flex-shrink-0 narrow:hidden"
+            :flow-id="flow.id"
+            :show-pending="true"
+            :text-class="statusTextClass"
+          />
           <span class="flex-1"></span>
-          <span class="w-[4.75rem] flex-shrink-0 text-right text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
+          <span class="w-12 flex-shrink-0 text-right text-xs tabular-nums text-content-tertiary whitespace-nowrap">
             {{ flow.updated_at ? formatRelative(flow.updated_at) : '' }}
           </span>
         </template>
       </div>
-      <div v-if="!editing" class="flex items-center gap-3 mt-1">
-        <!-- Status owns a slot at every width: dot plus word, never
-             truncated; the description gives way first. "Your Turn" is the
-             actionable state, so it wears the accent and a heavier weight. -->
+      <div v-if="!editing" class="flex items-center gap-3 mt-0.5">
+        <!-- Narrow only: status keeps a slot ahead of the description, never
+             truncated. "Your Turn" is the actionable state, so it wears the
+             accent and a heavier weight. -->
         <FlowStatusPill
-          class="flex-shrink-0"
+          class="hidden flex-shrink-0 narrow:inline-flex"
           :flow-id="flow.id"
-          :show-pending="width !== 'narrow'"
+          :show-pending="false"
           :text-class="statusTextClass"
         />
-        <span v-if="parentName || flow.description" class="h-3 w-px flex-shrink-0 bg-edge narrow:hidden" aria-hidden="true"></span>
+        <span v-if="parentName || flow.description" class="hidden h-3 w-px flex-shrink-0 bg-edge narrow:block" aria-hidden="true"></span>
         <div v-if="parentName" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
           based on {{ parentName }}
         </div>
@@ -72,7 +80,7 @@
              surfaced outputs, not just a generic bolt glyph. -->
         <div
           v-if="stripMediaIds.length > 0"
-          class="hidden sm:flex flex-shrink-0 items-center justify-end"
+          class="hidden sm:flex flex-shrink-0 items-center justify-end pl-2 -my-1.5"
         >
           <div
             v-for="(mid, i) in stripMediaIds"

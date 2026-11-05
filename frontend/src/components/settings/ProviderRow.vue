@@ -37,8 +37,8 @@ withDefaults(defineProps<{
     </span>
     <span v-if="$slots.cta || verb || $slots.status" class="flex w-28 shrink-0 items-center justify-end text-xs compact:w-auto compact:min-w-[5.5rem]">
       <slot v-if="$slots.cta" name="cta" />
-      <span v-else-if="verb" class="whitespace-nowrap rounded-md px-2.5 py-1 text-content-secondary transition-colors group-hover:bg-overlay-light group-hover:text-content">{{ verb }}</span>
-      <span v-else class="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1" :class="statusClass"><slot name="status" /></span>
+      <span v-else-if="verb" class="-mr-2 whitespace-nowrap rounded-md px-2.5 py-1 text-content-secondary transition-colors group-hover:bg-overlay-light group-hover:text-content">{{ verb }}</span>
+      <span v-else class="-mr-2 inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1" :class="statusClass"><slot name="status" /></span>
     </span>
   </button>
 </template>

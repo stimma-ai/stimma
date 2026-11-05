@@ -115,7 +115,7 @@
                 <!-- Summary: micro-label + KeyValueList facts — no card, no
                      field tiles (read-only facts never look like inputs). -->
                 <div>
-                  <div class="text-xs font-semibold text-content-secondary mb-1">Summary</div>
+                  <div class="text-ctl font-semibold text-content-secondary mb-1">Summary</div>
                   <KeyValueList :rows="summaryRows" />
                 </div>
 
@@ -123,7 +123,7 @@
                      account the media details give); otherwise the call's inputs. -->
                 <slot name="details">
                 <div>
-                  <div class="text-xs font-semibold text-content-secondary mb-1">Inputs</div>
+                  <div class="text-ctl font-semibold text-content-secondary mb-1">Inputs</div>
                   <div v-if="loadingInputs" class="text-[12px] italic text-content-muted py-1.5">Loading inputs…</div>
                   <div
                     v-else-if="(prominentInputs?.length ?? 0) === 0 && (compactInputs?.length ?? 0) === 0"

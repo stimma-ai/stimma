@@ -51,7 +51,7 @@
 
             <!-- Prompt (collapsible if long) -->
             <div v-if="params?.prompt">
-              <div class="text-xs font-semibold text-content-secondary mb-2">Prompt</div>
+              <div class="text-ctl font-semibold text-content-secondary mb-2">Prompt</div>
               <div class="bg-base rounded-lg p-3 text-sm text-content-secondary max-h-32 overflow-y-auto">
                 {{ params.prompt }}
               </div>

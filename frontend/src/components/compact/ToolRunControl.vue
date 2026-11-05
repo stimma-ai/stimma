@@ -97,9 +97,9 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
   <button
     type="button"
     data-testid="tool-run-button"
-    class="relative w-11 h-11 rounded-[10px] flex items-center justify-center border-none transition-colors select-none touch-manipulation"
+    class="relative h-11 min-w-[60px] px-4 gap-1.5 rounded-[10px] flex items-center justify-center border-none text-[15px] font-semibold transition-colors select-none touch-manipulation"
     :class="[
-      state === 'forever' ? 'bg-live text-white' : 'bg-accent text-white',
+      state === 'forever' ? 'bg-live text-accent-on' : 'bg-accent text-accent-on',
       !canSubmit && state === 'idle' ? 'opacity-45' : '',
     ]"
     :aria-label="state === 'forever' ? 'Stop forever mode' : `Run ×${batchSize}`"
@@ -111,7 +111,7 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
     @click="onClick"
   >
     <svg v-if="state === 'forever'" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16.5 8.5c-2 0-3.3 1.6-4.5 3.5s-2.5 3.5-4.5 3.5a3.5 3.5 0 0 1 0-7c2 0 3.3 1.6 4.5 3.5s2.5 3.5 4.5 3.5a3.5 3.5 0 0 0 0-7z" /></svg>
-    <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>
+    <span>{{ state === 'forever' ? 'Stop' : 'Run' }}</span>
     <span
       v-if="batchSize > 1"
       class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-surface border border-edge text-[10.5px] font-mono flex items-center justify-center"

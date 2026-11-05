@@ -1,7 +1,7 @@
 <template>
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
-      <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
+      <span class="text-ctl font-semibold text-content-secondary">LoRAs</span>
       <button
         @click="$emit('refresh-loras')"
         :disabled="isRefreshing"

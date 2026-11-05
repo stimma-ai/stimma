@@ -24,8 +24,12 @@ Existing semantic tokens stand (base/surface*/content*/edge*/overlay*/flow-*).
 New:
 
 ```
---accent(-rgb)            interactive accent. Light: 13 148 136 (teal #0d9488).
-                          Dark: brightened teal, contrast-checked (TBD, ~#2dd4bf family).
+--accent(-rgb)            interactive accent. Light: 11 120 110 (deep teal).
+                          Dark: 18 166 150 (brightened teal).
+--accent-on(-rgb)         label/glyph colour ON an accent fill: white on the
+                          light fill (5.35:1), near-black 7 8 10 on the dark
+                          fill (6.6:1). Write `text-accent-on`; legacy
+                          `bg-accent` + `text-white` is remapped in style.css.
 --accent-selection(-rgb)  selection accent, DECIDED 2026-07-17: indigo family
                           (dark ~#818cf8, light #6366f1). Never an alias of
                           teal: selection ≠ action.
@@ -170,8 +174,8 @@ disabled state is `disabled:opacity-50`, never a text token. Dark
 (base 13 15 20, surface 18 20 26, raised 26 29 37): secondary 8.4 / 7.7,
 tertiary 6.5 / 6.0, muted 5.5 / 5.0 (surface / raised). Light (white, 244,
 228): secondary 9.5 / 8.2, tertiary 7.3 / 6.3, muted 5.8 / 5.1. Light
-`accent-hi` is teal-700 (5.5 on white) so teal text passes; `accent` is the
-fill. Muted on a hover/active fill can dip toward 4.1.
+`accent-hi` (13 106 98, 6.7 on white) is for teal text; `accent` is the
+fill and carries a white label at 5.35:1. Muted on a hover/active fill can dip toward 4.1.
 Placeholders are the muted step in both themes (a global `::placeholder` rule in
 style.css; fields write `placeholder:text-content-muted`, never `placeholder-white/NN`).
 
@@ -191,9 +195,21 @@ style.css; fields write `placeholder:text-content-muted`, never `placeholder-whi
   doesn't set its own `tracking-[..]` (the wordmark does), so `tracking-tight`
   is a no-op there. Never in controls, menus, or body text.
   Network fonts stay banned in-app.
+- **Dense-control tier**: `text-ctl` (13px / 18px) is the size for actionable
+  labels in tool, flow and editor forms: section labels, prompt utilities
+  (Enhance, Translate), the resolution trigger's caption. `text-xs` (12px)
+  stays for facts and secondary text; mono facts are not enlarged.
+- **Result action row** (markers, facts, remix, trash on the matte band under
+  a result): `.result-action`. Resting = hairline outline on the band, never a
+  grey fill; hover = one overlay step; set = overlay-light backing plus the
+  marker's own colour; disabled = 40% opacity, no hover.
+- **Resolution trigger**: one control everywhere (tool and flow forms): a
+  viewfinder aspect glyph drawn at the real shape, dimensions, chevron, on a
+  single fill. A reference-image lock is a badge on the glyph plus a caption
+  inside the same control.
 - Section micro-label, THE one variant (replaces all five found):
   **sentence case** — `text-xs font-semibold
-  text-content-secondary`, no uppercase, no tracking. The historical
+  text-content-secondary` (`text-ctl` in tool/flow forms), no uppercase, no tracking. The historical
   ALL-CAPS device is retired app-wide (tables too).
 - `font-brand` (General Sans) = the display voice (widened from
   wordmark-only in Phase 3).
@@ -423,9 +439,23 @@ that a desktop-sized window never trips.
   Safe-area tokens describe space still needed inside the web viewport.
   The Android shell already insets its WebView, so its frontend tokens are
   zero; browser and iOS viewports retain the CSS environment insets.
-- **Media grids.** 3 columns on compact, 2px gutters, on matte;
-  `rounded-media` and the selection ring unchanged. Tap = open,
-  long-press = select.
+- **Media grids.** Square tiles, 2px gutters, on matte; `rounded-media` and
+  the selection ring unchanged. Tap = open, long-press = select. Column count
+  follows the pane's width, never the layout tier (see Tile grids, §3).
+- **The sidebar inside a project** keeps the global rail's rows and wears two
+  extra rows above them in the same top slot the stimma wordmark holds
+  globally: a labelled return row (`Back to everything`, chevron in the icon
+  column) and the project's name as the one prominent identity (display voice,
+  switcher chevron). Content screens repeat the project only as a quiet
+  subtitle. The return row is the same size and place on desktop, the drawer
+  and a docked drawer.
+- **The media menu on a phone** is a first level without scrolling: direct
+  actions (Edit, Tags, Remix, Share link, Print, Export, Move to Trash) plus
+  named rows that open the next stacked sheet: Boards and projects, Send to
+  (Tool, Chat, Flow), Explore, Share. A group with one visible row shows that
+  row directly. Every action is at most one extra tap. Destinations keep their
+  full accessible names (`Send to Chat`); only the visible label drops the
+  prefix inside the group sheet. Desktop menus are unchanged.
 - **Voice.** Facts are real facts: one mono fact per row, status as a dot
   plus a word. Never invented rollups (`6 · 2 running · 1 unsaved`).
 - **Type.** Body stays `text-sm`; row labels are 15px on compact via the
@@ -525,11 +555,18 @@ Until a kit component exists, new code uses these exact patterns:
   top-right, facts bottom-left, markers bottom-right, 6px inset. Markers share
   ONE chip and are monochrome; the only color on a tile is an active favorite
   heart. No per-type icon colors, no bare counts, no dog-ears.
-- **Board grids**: columns from the real content width (3 on a phone, 200px
-  minimum otherwise), tiles share the remaining width, 2px gutters equal the 2px
-  outer matte padding, tiles sit on `bg-matte` with no separate fill. A short
-  last row keeps the tile size. Board landing covers use 1, 2 or 4 tiles by
-  asset count; the name takes its own line above the mono facts.
+- **Tile grids** (`utils/tileGrid.ts`, one rule for browse and boards): the
+  column count is `max(3, floor((width + 2) / (minimum + 2)))` from the pane's
+  real content width, so a folded phone, an unfolded one and a desktop pane
+  all ask the same question and tiles never get small because a layout tier
+  said "compact". Three columns is the floor (the phone's rhythm). Tiles share
+  the width left after 2px gutters, which equal the 2px outer matte padding;
+  tiles sit on `bg-matte` with no separate fill; a short last row keeps the
+  tile size. Density is a choice per surface: `browse` minimum 200px (scanning
+  many assets), `board` minimum 220px (a curated sheet, a touch larger). Strips
+  that sit beside these grids (home recents) take the same function and the
+  `browse` density. Board landing covers use 1, 2 or 4 tiles by asset count;
+  the name takes its own line above the mono facts.
 - **Empty state**: EmptyState.vue (extended for display-serif titles in
   Phase 3); errors keep ConnectionError but gain a red-tinted icon circle to
   stop reading identical to empty.

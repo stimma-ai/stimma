@@ -354,8 +354,6 @@
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
               v-if="allowedDimensions || (hasWidthHeight && !hasMegapixels)"
-              compact
-              class="-ml-2.5"
               :policy="resolutionPolicy"
               :image="drivingImage"
               :has-image-input="!isFromScratch"
@@ -384,7 +382,7 @@
           role="group"
           aria-label="Output settings"
         >
-          <span class="text-xs font-semibold text-content-secondary shrink-0">Output settings</span>
+          <span class="text-ctl font-semibold text-content-secondary shrink-0">Output settings</span>
           <span class="flex-1"></span>
           <AutoMarkPicker
             class="min-w-0 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
@@ -876,7 +874,8 @@
               v-for="marker in stageMarkers"
               :key="marker.id"
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
-              :class="['w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2', stageHasMarker(marker.id) ? 'bg-black/55' : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white']"
+              class="result-action"
+              :data-on="stageHasMarker(marker.id)"
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
@@ -887,7 +886,7 @@
           <!-- Facts: generation time/details + auto-delete countdown -->
           <button
             @click.stop="showJobInfo(stageCurrentJob)"
-            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono text-white/80 hover:text-white transition-colors"
+            class="result-action result-action-accent gap-1.5 px-2.5 text-xs font-mono"
             title="Generation details"
           >
             <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
@@ -897,7 +896,7 @@
           </button>
           <div
             v-if="stageAutoDeleteTime"
-            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm rounded text-[11px] font-mono text-amber-300/90"
+            class="result-action gap-1.5 px-2.5 text-xs font-mono !text-amber-500 !border-amber-500/40"
             title="Auto-trash time remaining"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
@@ -919,7 +918,7 @@
             />
             <button
               @click.stop="handleRemixMedia(stageCurrentMediaId)"
-              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
+              class="result-action result-action-accent"
               title="Remix: load this image's settings"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -928,7 +927,7 @@
             </button>
             <button
               @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
+              class="result-action result-action-danger"
               title="Move to Trash"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">

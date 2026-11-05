@@ -120,7 +120,7 @@
         <FlowStatusPill
           :flow-id="flowId"
           show-pending
-          text-class="text-xs text-content-secondary"
+          :text-class="flowStatusLabel === 'Done' ? 'text-xs text-content-tertiary' : 'text-xs text-content-secondary'"
           class="flex-shrink-0"
         />
         <!-- Start and Resume are the one accent action while they apply. Pause is
@@ -139,13 +139,13 @@
         </button>
         <button
           v-if="showPauseButton"
-          class="w-8 h-8 compact:w-11 compact:h-11 flex items-center justify-center rounded-md hover:bg-overlay-subtle transition-colors"
-          :class="flowStatusLabel === 'Done' ? 'text-content-muted hover:text-content-secondary' : 'text-content-secondary hover:text-content'"
+          class="flex items-center justify-center rounded-md hover:bg-overlay-subtle transition-colors compact:w-11 compact:h-11"
+          :class="flowStatusLabel === 'Done' ? 'h-7 w-7 text-content-muted opacity-60 hover:text-content-secondary hover:opacity-100' : 'h-8 w-8 text-content-secondary hover:text-content'"
           title="Pause"
           aria-label="Pause"
           @click="doPause"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="flowStatusLabel === 'Done' ? 'w-4 h-4' : 'w-5 h-5'">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="flowStatusLabel === 'Done' ? 'w-3.5 h-3.5' : 'w-5 h-5'">
             <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
           </svg>
         </button>

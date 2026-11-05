@@ -189,7 +189,7 @@ body {
 .lock-key:active { background: var(--color-overlay-medium); transform: scale(.96); }
 .lock-key:disabled { cursor: default; opacity: .6; transform: none; }
 .lock-key-ghost { border-color: transparent; background: transparent; color: var(--color-text-secondary); }
-.lock-key-go { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.lock-key-go { background: var(--color-accent); border-color: var(--color-accent); color: rgb(var(--color-on-accent-rgb)); }
 .lock-key-go:hover:not(:disabled) { background: var(--color-accent-hi); }
 .lock-key-go:disabled { background: rgb(var(--color-accent-rgb) / 0.5); border-color: transparent; opacity: 1; }
 
@@ -404,6 +404,8 @@ body {
   --color-accent: rgb(var(--color-accent-rgb));
   --color-accent-hi-rgb: 47 208 187;
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  /* Label on an accent fill: near-black on the bright dark teal (6.6:1). */
+  --color-on-accent-rgb: 7 8 10;
   --color-selection-rgb: 129 140 248;
   --color-selection: rgb(var(--color-selection-rgb));
   --color-matte-rgb: 7 8 10;
@@ -541,10 +543,12 @@ body {
   --color-surface-elevated: rgba(255,255,255,0.95);
 
   /* Atelier accents (light: site CTA teal; selection indigo-500; paper matte) */
-  --color-accent-rgb: 13 148 136;
+  --color-accent-rgb: 11 120 110;
   --color-accent: rgb(var(--color-accent-rgb));
-  --color-accent-hi-rgb: 15 118 110;
+  --color-accent-hi-rgb: 13 106 98;
   --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  /* White on the light fill: 5.35:1 (was 3.74 on 13 148 136). */
+  --color-on-accent-rgb: 255 255 255;
   --color-selection-rgb: 99 102 241;
   --color-selection: rgb(var(--color-selection-rgb));
   --color-matte-rgb: 236 234 230;
@@ -663,6 +667,31 @@ select option {
   stroke-width: 1.75;
   stroke-linejoin: round;
 }
+
+/* Controls on the matte band under a result (markers, facts, remix, trash).
+   Resting is a hairline outline on the band, never a grey fill: a fill reads
+   as disabled on the light paper matte. Hover takes one overlay step;
+   disabled drops to 40% with no hover. `data-on` is the set state of a marker
+   toggle (the marker colours its own border and glyph inline). */
+.result-action {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  height: 32px; min-width: 32px; border-radius: 6px;
+  border: 1px solid rgb(var(--color-border-rgb));
+  background: transparent; color: rgb(var(--color-text-secondary-rgb));
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.result-action:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--color-overlay-light); color: rgb(var(--color-text-primary-rgb)); }
+.result-action[data-on="true"] { background: var(--color-overlay-light); border-width: 2px; }
+.result-action:disabled, .result-action[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+.result-action:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(var(--color-accent-rgb) / .6); }
+.result-action.result-action-accent:hover:not(:disabled) { background: rgb(var(--color-accent-rgb)); border-color: rgb(var(--color-accent-rgb)); color: rgb(var(--color-on-accent-rgb)); }
+.result-action.result-action-danger:hover:not(:disabled) { background: rgb(239 68 68 / .85); border-color: transparent; color: #fff; }
+
+/* White text on an accent fill resolves to the theme's on-accent label colour
+   (near-black on the dark theme's bright teal; see --color-on-accent-rgb).
+   Retires the 3.0:1 white-on-teal pairing without touching every call site;
+   new code writes `text-accent-on`. */
+.bg-accent.text-white, .bg-accent .text-white { color: rgb(var(--color-on-accent-rgb)); }
 
 /* Checkerboard pattern for transparent image backgrounds - standard light/white pattern */
 .bg-checker {

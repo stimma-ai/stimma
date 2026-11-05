@@ -52,7 +52,7 @@
         <!-- Quick edits (suggestion pills + auto-ideas) use the single-shot
              /enhance path, not the agent loop, so they're logged separately. -->
         <template v-if="debugHistory.length">
-          <div class="pt-1 text-xs font-semibold text-content-secondary">Quick edits</div>
+          <div class="pt-1 text-ctl font-semibold text-content-secondary">Quick edits</div>
           <div
             v-for="entry in debugHistory"
             :key="'legacy-' + entry.id"
@@ -236,7 +236,7 @@
     >
       <div class="bg-surface-overlay border border-edge rounded-lg p-3.5">
         <div class="flex items-center mb-3">
-          <span class="text-xs font-semibold text-content-secondary">Agent settings</span>
+          <span class="text-ctl font-semibold text-content-secondary">Agent settings</span>
           <button
             @click="showSettings = false"
             class="ml-auto w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light transition-colors"

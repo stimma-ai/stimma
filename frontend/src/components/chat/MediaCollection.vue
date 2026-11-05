@@ -95,16 +95,26 @@ const activeIsComposite = computed(() => {
 const HERO_GUTTER_TOP = 44
 const HERO_GUTTER_BOTTOM = 52
 const heroGutters = computed(() => activeIsComposite.value && isCompact.value && width.value > 0 && width.value < 560)
+// The whole presentation (header, bands, picture, strip) shares one budget of
+// the visible conversation, so the band chips never push the picture past it.
 const inlineHeroHeight = computed(() => {
   const extra = heroGutters.value ? HERO_GUTTER_TOP + HERO_GUTTER_BOTTOM : 0
-  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, chatHeight.value - 68)) + extra
-  return heroHeight({ chatHeight: chatHeight.value, width: width.value, size: state.size, stripSize: stripSize.value }) + extra
+  // Bands and picture together take at most 70% of the visible conversation.
+  const room = Math.round(chatHeight.value * 0.7) - extra
+  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, room)) + extra
+  return Math.min(heroHeight({ chatHeight: chatHeight.value - extra, width: width.value, size: state.size, stripSize: stripSize.value }), Math.max(200, room)) + extra
 })
 const rootWidthClass = computed(() => {
   if (inPanel.value) return 'h-full w-full bg-matte'
   const cap = isSingle.value ? 'max-w-[560px]' : count.value === 2 ? 'max-w-[720px]' : 'max-w-[880px]'
-  return `w-full ${cap} rounded-lg bg-surface compact:max-w-none`
+  return `mx-auto w-full ${cap} rounded-lg bg-surface compact:max-w-none`
 })
+// Controls over artwork are black glass. A set or grid is drawn on a matte
+// backdrop of its own, and glass over that reads as disabled in the light
+// theme, so its controls take the theme's own resting treatment instead.
+const ctl = computed(() => (activeIsComposite.value
+  ? 'bg-overlay-light text-content hover:bg-overlay-medium'
+  : 'bg-black/55 text-white backdrop-blur hover:bg-black/75'))
 const heroFacts = computed(() => {
   const label = activeRow.value?.input?.label
   if (label) return label
@@ -493,7 +503,7 @@ onBeforeUnmount(() => {
                 :class="activeSelected || selecting || isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100'"
                 @click.stop="togglePickActive"
               >
-                <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md border-2 backdrop-blur-md transition-colors duration-150" :class="activeSelected ? 'border-selection bg-selection' : activeIsComposite ? 'border-edge-strong bg-overlay-subtle hover:border-content-secondary' : 'border-edge-strong bg-black/60 hover:border-content-secondary'">
                   <svg v-if="activeSelected" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                 </span>
               </button>
@@ -505,28 +515,28 @@ onBeforeUnmount(() => {
               :class="isCoarsePointer ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover/hero:opacity-100'"
             >
               <Tooltip v-if="!isCoarsePointer" text="Open slideshow">
-                <button type="button" aria-label="Open slideshow" class="flex h-7 w-7 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75" @click.stop="openFullView">
+                <button type="button" aria-label="Open slideshow" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors" :class="ctl" @click.stop="openFullView">
                   <ArrowsPointingOutIcon class="h-4 w-4" />
                 </button>
               </Tooltip>
-              <button type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75 coarse:h-11 coarse:w-11" @click="openHeroMenu">
+              <button type="button" aria-label="More actions" class="flex h-7 w-7 items-center justify-center rounded-md transition-colors coarse:h-11 coarse:w-11" :class="ctl" @click="openHeroMenu">
                 <EllipsisHorizontalIcon class="h-4 w-4" />
               </button>
             </div>
 
             <!-- Edge paging. Touch swipes the picture instead. -->
             <template v-if="!isSingle && !isCoarsePointer">
-              <button type="button" aria-label="Previous image" :disabled="activeIndex === 0" class="absolute left-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-black/55 text-white opacity-0 backdrop-blur transition-opacity duration-150 hover:bg-black/75 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" @click.stop="move(-1)">
+              <button type="button" aria-label="Previous image" :disabled="activeIndex === 0" class="absolute left-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(-1)">
                 <ChevronLeftIcon class="h-5 w-5" />
               </button>
-              <button type="button" aria-label="Next image" :disabled="activeIndex === count - 1" class="absolute right-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-black/55 text-white opacity-0 backdrop-blur transition-opacity duration-150 hover:bg-black/75 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" @click.stop="move(1)">
+              <button type="button" aria-label="Next image" :disabled="activeIndex === count - 1" class="absolute right-2 top-1/2 z-chrome flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-opacity duration-150 focus-visible:opacity-100 disabled:!opacity-0 group-hover/hero:opacity-100" :class="ctl" @click.stop="move(1)">
                 <ChevronRightIcon class="h-5 w-5" />
               </button>
             </template>
 
             <!-- Facts. The position is editable, which matters at 200. -->
-            <div v-if="!isSingle || heroFacts" class="absolute z-chrome flex h-7 items-center gap-1.5 rounded-md bg-black/55 px-2 font-mono text-xs tabular-nums text-white backdrop-blur coarse:h-11"
-              :class="heroGutters ? 'left-12 right-32 top-0' : 'bottom-2 left-2 max-w-[60%]'">
+            <div v-if="!isSingle || heroFacts" class="absolute z-chrome flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-xs tabular-nums coarse:h-11"
+              :class="[activeIsComposite ? 'bg-overlay-subtle text-content-secondary' : 'bg-black/55 text-white backdrop-blur', heroGutters ? 'left-12 right-32 top-0' : 'bottom-2 left-2 max-w-[60%]']">
               <template v-if="!isSingle">
                 <input
                   v-if="jumping"
@@ -548,8 +558,10 @@ onBeforeUnmount(() => {
             <button
               v-if="activePickable && collections.canAttach.value"
               type="button"
-              class="absolute bottom-2 right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium text-white backdrop-blur transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
-              :class="collections.isAttached(activeMediaId) ? 'bg-black/55 hover:bg-black/75' : 'bg-black/70 ring-1 ring-inset ring-white/35 hover:bg-black/85'"
+              class="absolute bottom-2 right-2 z-chrome flex h-7 items-center gap-1 rounded-md pl-1.5 pr-2 text-xs font-medium transition-colors coarse:h-11 coarse:pl-2.5 coarse:pr-3"
+              :class="activeIsComposite
+                ? (collections.isAttached(activeMediaId) ? 'bg-overlay-light text-content hover:bg-overlay-medium' : 'bg-overlay-light text-content ring-1 ring-inset ring-edge-strong hover:bg-overlay-medium')
+                : (collections.isAttached(activeMediaId) ? 'bg-black/55 text-white backdrop-blur hover:bg-black/75' : 'bg-black/70 text-white backdrop-blur ring-1 ring-inset ring-white/35 hover:bg-black/85')"
               @click.stop="collections.isAttached(activeMediaId) ? collections.detach(activeMediaId) : collections.attach([activeMediaId])"
             >
               <CheckIcon v-if="collections.isAttached(activeMediaId)" class="h-3.5 w-3.5 text-accent-hi" />

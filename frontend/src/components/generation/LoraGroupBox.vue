@@ -12,7 +12,7 @@
         ref="titleInput"
         v-model="editLabel"
         type="text"
-        class="flex-1 min-w-0 text-xs font-semibold text-content-secondary bg-transparent border-none outline-none focus:text-content"
+        class="flex-1 min-w-0 text-ctl font-semibold text-content-secondary bg-transparent border-none outline-none focus:text-content"
         placeholder="Group name..."
         @blur="commitRename"
         @keydown.enter="commitRename"
@@ -25,7 +25,7 @@
         :class="[
           'flex-1 min-w-0 truncate cursor-text',
           group.label
-            ? 'text-xs font-semibold text-content-secondary'
+            ? 'text-ctl font-semibold text-content-secondary'
             : 'text-xs italic text-content-muted'
         ]"
         @click.stop="!fixedLabel && startRename()"

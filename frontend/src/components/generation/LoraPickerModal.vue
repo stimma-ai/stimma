@@ -27,7 +27,7 @@
             v-if="uploadConfig"
             @click="fileInputRef?.click()"
             type="button"
-            class="text-xs font-semibold text-content-secondary hover:text-accent transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md"
+            class="text-ctl font-semibold text-content-secondary hover:text-accent transition-colors px-2 min-h-8 coarse:min-h-11 coarse:px-3 rounded-md"
           >Upload</button>
           <button
             @click="$emit('toggle-raw')"

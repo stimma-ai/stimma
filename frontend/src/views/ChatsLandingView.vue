@@ -94,9 +94,9 @@
             </svg>
           </RowThumb>
 
-          <!-- Name + last message; time/counts share the same two lines -->
+          <!-- Slots: title + date (trailing, fixed width), preview (full width),
+               counts (trailing on wide, a quiet third line on narrow). -->
           <div class="flex-1 min-w-0">
-            <!-- Name row -->
             <div class="flex items-center gap-3">
               <template v-if="editingChatId === chat.id">
                 <input v-no-autocorrect
@@ -126,38 +126,45 @@
               </template>
 
               <!-- Generating indicator -->
-              <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
+              <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 self-center border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
 
               <span class="flex-1"></span>
-              <span class="w-[4.75rem] flex-shrink-0 text-right text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
-                {{ chat.updated_at ? formatRelativeTime(chat.updated_at) : '' }}
-              </span>
-            </div>
-
-            <!-- Preview row -->
-            <div class="flex items-center gap-3 mt-1">
-              <p v-if="chat.last_message" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
-                {{ chat.last_message }}
-              </p>
-              <p v-else-if="chat.generated_count > 0" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
-                {{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated
-              </p>
-              <span v-else class="flex-1"></span>
-
-              <span class="flex-shrink-0 flex items-center justify-end gap-2.5 text-[11px] font-mono tabular-nums text-content-tertiary">
-                <span v-if="chat.message_count > 0" class="flex items-center gap-1">
+              <!-- Counts: trailing facts on wide, moved to the meta line on narrow -->
+              <span class="flex-shrink-0 flex items-center justify-end gap-2.5 text-[11px] font-mono tabular-nums text-content-tertiary narrow:hidden">
+                <span v-if="chat.message_count > 0" class="flex items-center gap-1" :title="`${chat.message_count} messages`">
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                   </svg>
                   {{ chat.message_count }}
                 </span>
-                <span v-if="chat.generated_count > 0" class="flex items-center gap-1">
+                <span v-if="chat.generated_count > 0" class="flex items-center gap-1" :title="`${chat.generated_count} images`">
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                   </svg>
                   {{ chat.generated_count }}
                 </span>
               </span>
+              <span class="w-12 flex-shrink-0 text-right text-xs tabular-nums text-content-tertiary whitespace-nowrap">
+                {{ chat.updated_at ? formatRelativeTime(chat.updated_at) : '' }}
+              </span>
+            </div>
+
+            <!-- Preview: owns the full width -->
+            <p v-if="chat.last_message" class="mt-0.5 truncate text-[13px] text-content-muted">
+              {{ chat.last_message }}
+            </p>
+            <p v-else-if="chat.generated_count > 0" class="mt-0.5 truncate text-[13px] text-content-muted">
+              {{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated
+            </p>
+
+            <!-- Narrow meta line -->
+            <div
+              v-if="chat.message_count > 0 || chat.generated_count > 0"
+              class="mt-1 hidden items-center gap-2.5 text-[11px] tabular-nums text-content-tertiary narrow:flex"
+            >
+              <span v-if="chat.message_count > 0">{{ chat.message_count }} {{ chat.message_count === 1 ? 'message' : 'messages' }}</span>
+              <span v-if="chat.message_count > 0 && chat.generated_count > 0" class="h-2.5 w-px bg-edge" aria-hidden="true"></span>
+              <span v-if="chat.generated_count > 0">{{ chat.generated_count }} {{ chat.generated_count === 1 ? 'image' : 'images' }}</span>
             </div>
           </div>
         </div>

@@ -229,7 +229,6 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } from 'vue'
-import { useViewport } from '../composables/useViewport'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -246,6 +245,7 @@ import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDu
 import { makeProfileKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+import { tileColumns, tileWidth } from '../utils/tileGrid'
 import { editorLivePreview } from '../imageEditor/liveEditorPreview'
 
 const { formatRemainingTime } = useExpirationClock()
@@ -468,7 +468,6 @@ const GRID_GAP_PX = 2
 const GRID_SIDE_PADDING_PX = GRID_GAP_PX * 2 // split across left+right edges
 const ROW_VERTICAL_GUTTER_PX = GRID_GAP_PX
 const GRID_THUMBNAIL_SIZE = 512
-const { isCompact } = useViewport()
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
 const bufferSize = ref(1200) // Render buffer
@@ -521,17 +520,10 @@ function calculateItemsPerRow() {
   lastCalculatedWidth = scrollerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
-  // Phones: three across (DESIGN.md §1.11 media grids); the 200px minimum
-  // would leave a single column at 390px.
-  const minItemWidth = isCompact.value ? 110 : 200
-  const gap = GRID_GAP_PX
-
-  // Calculate how many items fit: floor((width + gap) / (minWidth + gap))
-  const newItemsPerRow = Math.max(1, Math.floor((gridWidth + gap) / (minItemWidth + gap)))
-
-  // Calculate actual item width: (gridWidth - total gaps) / itemsPerRow
-  const totalGaps = gap * (newItemsPerRow - 1)
-  const actualItemWidth = (gridWidth - totalGaps) / newItemsPerRow
+  // One width-based rule shared with boards (utils/tileGrid.ts): three
+  // across at the narrowest, then as many tiles as the width allows.
+  const newItemsPerRow = tileColumns(gridWidth, 'browse')
+  const actualItemWidth = tileWidth(gridWidth, newItemsPerRow)
 
   // Row height = square item height + row vertical gutter (py-2 top+bottom)
   const newItemHeight = actualItemWidth + ROW_VERTICAL_GUTTER_PX

@@ -2,7 +2,7 @@
   <div :class="compact ? 'my-1' : 'my-6'">
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
     <div class="flex items-center gap-2 pb-1 mb-1.5">
-      <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
+      <span class="text-ctl font-semibold text-content-secondary">LoRAs</span>
       <button
         v-if="enabledCount > 0"
         @click="disableAll"

@@ -2,7 +2,7 @@
   <div :class="modalMode ? 'flex flex-col h-full' : 'space-y-2 mb-6 overflow-x-hidden'" data-drop-zone="mask-editor">
     <!-- Label row (hidden in modal mode) -->
     <div v-if="!modalMode">
-      <label class="text-xs font-semibold text-content-secondary">Image to inpaint</label>
+      <label class="text-ctl font-semibold text-content-secondary">Image to inpaint</label>
     </div>
 
     <!-- Toolbar (always visible, disabled when no image). In modal mode the

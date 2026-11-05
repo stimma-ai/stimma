@@ -72,7 +72,7 @@
     <div class="w-[230px] flex-shrink-0 border-l border-edge-subtle flex flex-col">
       <!-- Tools section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Tools</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Tools</h4>
         <div class="flex items-center gap-1">
           <button
             @click="activeTool = 'brush'"
@@ -143,7 +143,7 @@
 
       <!-- Color section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Color</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Color</h4>
         <!-- Current color -->
         <div class="flex items-center gap-2 mb-2.5">
           <div
@@ -169,7 +169,7 @@
 
       <!-- Brush section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-xs font-semibold text-content-secondary mb-2">Brush</h4>
+        <h4 class="text-ctl font-semibold text-content-secondary mb-2">Brush</h4>
         <div class="flex items-center gap-1.5 mb-2">
           <span class="text-[11px] text-content-muted w-10">Size</span>
           <input

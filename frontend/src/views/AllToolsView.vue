@@ -251,16 +251,21 @@
               </div>
 
               <div class="flex-1 min-w-0">
-                <!-- Name + price -->
+                <!-- Identity: the name (task label dropped, the group heading
+                     carries it) wraps before it truncates; price is a trailing
+                     slot. -->
                 <div class="flex items-baseline gap-2">
-                  <h3 class="flex-1 min-w-0 text-sm font-medium leading-snug text-content truncate" :title="tool.name">{{ tool.name }}</h3>
+                  <h3 class="flex-1 min-w-0 text-sm font-medium leading-snug text-content line-clamp-2 break-words" :title="tool.name">{{ toolTitleParts(tool, group.taskType).title }}</h3>
                   <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ getToolPrice(tool) }}</span>
                 </div>
 
-                <!-- One quiet meta line: provider, then at most two distinguishing
-                     capabilities as plain text. The rest collapse into +N; the
-                     full list is its title. -->
-                <div class="mt-0.5 flex items-center gap-1.5 min-w-0 text-[11px] text-content-tertiary">
+                <!-- Variant: its own secondary line -->
+                <p v-if="toolTitleParts(tool, group.taskType).variant" class="mt-0.5 text-xs leading-snug text-content-secondary line-clamp-2 break-words">{{ toolTitleParts(tool, group.taskType).variant }}</p>
+
+                <!-- Technical facts, subordinate: provider, then at most two
+                     capabilities. The rest collapse into +N; the full list is
+                     its title. -->
+                <div class="mt-1 flex items-center gap-1.5 min-w-0 text-[11px] text-content-muted">
                   <span
                     class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                     :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
@@ -269,15 +274,15 @@
                   <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate min-w-0">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else class="truncate min-w-0">{{ tool.provider_name || tool.provider_id }}</span>
                   <template v-for="badge in visibleBadges(tool)" :key="badge">
-                    <span class="flex-shrink-0 text-content-muted" aria-hidden="true">·</span>
+                    <span class="flex-shrink-0" aria-hidden="true">·</span>
                     <span
-                      class="flex-shrink-0 font-mono text-[10.5px] lowercase whitespace-nowrap"
+                      class="flex-shrink-0 lowercase whitespace-nowrap"
                       :class="badge === 'Fast' ? 'text-accent-hi' : ''"
                     >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
                   </template>
                   <span
                     v-if="hiddenBadgeCount(tool) > 0"
-                    class="flex-shrink-0 font-mono text-[10.5px] text-content-muted"
+                    class="flex-shrink-0 tabular-nums"
                     :title="getToolBadges(tool).join(', ')"
                   >+{{ hiddenBadgeCount(tool) }}</span>
                 </div>
@@ -802,6 +807,26 @@ function getPrimaryTaskType(tool) {
 
 function getToolDescription(tool) {
   return tool.metadata?.description || tool.subtitle || ''
+}
+
+// Splits a tool's name into identity and variant. The variant is the trailing
+// parenthetical already in the name; the group's task label is dropped from the
+// title when something else remains. Falls back to the plain name.
+function toolTitleParts(tool, taskType) {
+  const name = (tool.name || '').trim()
+  let base = name
+  let variant = ''
+  const m = name.match(/^(.*?)\s*\(([^()]+)\)\s*$/)
+  if (m && m[1].trim()) {
+    base = m[1].trim()
+    variant = m[2].trim()
+  }
+  const task = formatTaskType(taskType)
+  if (task) {
+    const stripped = base.replace(new RegExp(`\\s+${task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*⚡)?$`, 'i'), '$1').trim()
+    if (stripped && stripped !== base) base = stripped
+  }
+  return { title: base, variant }
 }
 
 function getToolPrice(tool) {

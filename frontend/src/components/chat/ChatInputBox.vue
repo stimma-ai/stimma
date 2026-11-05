@@ -21,13 +21,25 @@
       </div>
     </Transition>
 
-    <!-- Rounded input container -->
-    <!-- Fill-only (DESIGN.md 1.4): one background step, no hairline. A ring appears
-         only while the field has focus. Meta line, placeholder and model picker
-         all start at one left edge (16px). -->
+    <!-- Composer shell. Fill-only (DESIGN.md 1.4): one background step, no
+         hairline. Three explicit looks: resting (fill alone, the same on every
+         layout), focused (a quiet accent ring, only while the person has really
+         focused it) and contextual (attached under a tray, squared on top).
+         Focus the page gives it on load stays quiet until the person types or
+         clicks, as in ListSearch. Meta line, placeholder and model picker all
+         start at one left edge (16px). -->
     <div
-      class="bg-surface overflow-hidden transition-shadow duration-150 focus-within:ring-1 focus-within:ring-accent/40"
-      :class="attachedTop ? 'rounded-b-lg border-t border-edge-subtle' : 'rounded-lg'"
+      class="bg-surface overflow-hidden transition-shadow duration-150"
+      :class="[
+        attachedTop ? 'rounded-b-lg border-t border-edge-subtle' : 'rounded-lg',
+        ringVisible ? 'ring-1 ring-accent/40' : '',
+      ]"
+      data-composer-shell
+      :data-composer-state="attachedTop ? 'contextual' : ringVisible ? 'focused' : 'resting'"
+      @focusin="hasFocus = true"
+      @focusout="onShellFocusOut"
+      @pointerdown="quiet = false"
+      @keydown="quiet = false"
     >
       <!-- Optional header above attachments — used by FlowView to render
            the context-reference tray. The unavailable state replaces the
@@ -201,11 +213,27 @@ function onTextareaKeyup(event) {
   voiceBtn.value?.handleInputKeyup(event)
 }
 
+// Focus ring: shown on real focus only. `focusQuietly()` is for focus a page
+// gives the field on load; no ring until the person interacts.
+const hasFocus = ref(false)
+const quiet = ref(false)
+const ringVisible = computed(() => hasFocus.value && !quiet.value)
+function onShellFocusOut(event) {
+  if (event.currentTarget.contains(event.relatedTarget)) return
+  hasFocus.value = false
+  quiet.value = false
+}
+function focusQuietly() {
+  quiet.value = true
+  textareaRef.value?.focus()
+}
+
 // Expose refs so parent can access textarea
 defineExpose({
   textareaRef,
   scrollWrapRef,
   focus: () => textareaRef.value?.focus(),
+  focusQuietly,
   autoResize,
   addAttachmentFromMediaId
 })

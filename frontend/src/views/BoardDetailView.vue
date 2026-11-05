@@ -378,6 +378,7 @@ import { useSlideshow } from '../composables/useSlideshow'
 import { useTheme } from '../composables/useTheme'
 import { useWebSocket } from '../composables/useWebSocket'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+import { TILE_GAP_PX, tileColumns, tileWidth } from '../utils/tileGrid'
 
 const { on } = useWebSocket()
 const route = useRoute()
@@ -526,15 +527,12 @@ function aspectRatio(item) {
 // One contact sheet: the column count comes from the real content width, the
 // tiles share what is left after the 2px gutters, and the matte's own 2px
 // padding gives equal outer gutters. A short last row keeps the same tile size.
-const GRID_GAP_PX = 2
-const MIN_TILE_PX = 200
-const MIN_TILE_COMPACT_PX = 110
+const GRID_GAP_PX = TILE_GAP_PX
 
 function buildRows(items, width) {
   const inner = Math.max(width - GRID_GAP_PX * 2, 1)
-  const minTile = isCompact.value ? MIN_TILE_COMPACT_PX : MIN_TILE_PX
-  const columns = Math.max(1, Math.floor((inner + GRID_GAP_PX) / (minTile + GRID_GAP_PX)))
-  const tile = Math.floor(((inner - GRID_GAP_PX * (columns - 1)) / columns) * 100) / 100
+  const columns = tileColumns(inner, 'board')
+  const tile = Math.floor(tileWidth(inner, columns) * 100) / 100
   const rows = []
   for (let i = 0; i < items.length; i += columns) {
     rows.push({

@@ -1,5 +1,5 @@
 <template>
-  <div class="w-52 flex-shrink-0 border-r border-edge py-4 flex flex-col overflow-y-auto">
+  <div class="w-52 flex-shrink-0 border-r border-edge py-3 flex flex-col overflow-y-auto">
     <nav class="flex flex-col gap-0.5 px-3 flex-1">
       <!-- Profile header with dropdown -->
       <div class="relative mb-2">

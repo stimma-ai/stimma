@@ -4,7 +4,7 @@
          chain enable is the mock's quiet `On ▾` value dropdown, not a switch —
          a bright toggle here outshone the whole column. -->
     <div class="flex items-center gap-2 pb-1 mb-1.5">
-      <span class="text-xs font-semibold text-content-secondary">Post-processing</span>
+      <span class="text-ctl font-semibold text-content-secondary">Post-processing</span>
       <div class="ml-auto flex items-center gap-1.5">
         <button
           ref="addBtnRef"

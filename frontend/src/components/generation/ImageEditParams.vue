@@ -10,7 +10,7 @@
 
     <!-- Prompt (optional) -->
     <div v-if="props.showPrompt">
-      <span class="block text-xs font-semibold text-content-secondary mb-2">Prompt</span>
+      <span class="block text-ctl font-semibold text-content-secondary mb-2">Prompt</span>
       <AIPromptEditor
         v-model="localParams.prompt"
         :rows="8"
@@ -22,7 +22,7 @@
 
     <!-- LoRA Selection -->
     <div v-if="availableLoras.length > 0" class="mb-6">
-      <span class="block text-xs font-semibold text-content-secondary mb-3">LoRAs</span>
+      <span class="block text-ctl font-semibold text-content-secondary mb-3">LoRAs</span>
       <div class="space-y-0">
         <div
           v-for="(loraRow, index) in localParams.selected_loras"
