@@ -266,7 +266,7 @@
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
-                :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
+                :title="tab.type === 'tool' ? [tab.displayName, getToolSubtitle(tab.entityId), getToolIncompatibilityReason(tab.entityId)].filter(Boolean).join(' · ') : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
@@ -369,25 +369,17 @@
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
-                  <!-- Tool with title/subtitle -->
-                  <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
-                        {{ getToolTabTitle(tab) }}
-                      </span>
-                      <!-- Renamed instance: tool name condenses onto the subtitle
-                           line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
-                      </span>
-                      <span
-                        v-else
-                        class="truncate text-[11px] leading-[14px]"
-                        :class="getToolSubtitleClass(tab.entityId)"
-                      >
-                        {{ getToolSubtitle(tab.entityId) }}
-                      </span>
-                    </div>
+                  <!-- Tool name and trailing provider mark -->
+                  <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-2">
+                    <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
+                      {{ getToolTabTitle(tab) }}
+                    </span>
+                    <ToolProviderBadge
+                      :provider-name="getToolProvider(tab.entityId)"
+                      :provider-id="allToolsMap.get(tab.entityId)?.provider_id || tab.entityId.split(':')[0]"
+                      :cloud="isToolStimmaCloud(tab.entityId)"
+                      :detail="getToolSubtitle(tab.entityId)"
+                    />
                   </div>
 
                   <!-- Board with title/subtitle -->
@@ -424,14 +416,11 @@
                     </span>
                   </div>
 
-                  <!-- Chat with title/subtitle -->
+                  <!-- Chat title -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4">
+                      <span class="truncate text-sm">
                         {{ tab.displayName }}
-                      </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -446,12 +435,9 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-sm text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
-                      </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -578,12 +564,13 @@
                 :aria-current="isTabActive(tab) ? 'page' : undefined"
                 :class="[
                   isTwoLineTab(tab) ? 'min-h-10' : 'min-h-8',
+                  tab.type === 'tool' ? 'pr-9' : '',
                   isTabActive(tab) ? '!bg-selection/15 !text-content [&>:first-child]:text-selection' : '',
                   dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
-                :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
+                :title="tab.type === 'tool' ? [tab.displayName, getToolSubtitle(tab.entityId), getToolIncompatibilityReason(tab.entityId)].filter(Boolean).join(' · ') : tab.displayName"
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
@@ -686,25 +673,17 @@
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" size="xs" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 mx-1 flex-shrink-0" />
 
-                  <!-- Tool with title/subtitle -->
-                  <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="!isMobile && startInlineRename(tab)">
-                      <span class="truncate" :class="isTwoLineTab(tab) ? 'text-[13px] leading-4' : 'text-sm'">
-                        {{ getToolTabTitle(tab) }}
-                      </span>
-                      <!-- Renamed instance: tool name condenses onto the subtitle
-                           line, provider (and its cloud gradient) preserved -->
-                      <span v-if="tab.customName" class="truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
-                      </span>
-                      <span
-                        v-else
-                        class="truncate text-[11px] leading-[14px]"
-                        :class="getToolSubtitleClass(tab.entityId)"
-                      >
-                        {{ getToolSubtitle(tab.entityId) }}
-                      </span>
-                    </div>
+                  <!-- Tool name and trailing provider mark -->
+                  <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-2">
+                    <span class="flex-1 min-w-0 truncate text-sm" @dblclick.stop="!isMobile && startInlineRename(tab)">
+                      {{ getToolTabTitle(tab) }}
+                    </span>
+                    <ToolProviderBadge
+                      :provider-name="getToolProvider(tab.entityId)"
+                      :provider-id="allToolsMap.get(tab.entityId)?.provider_id || tab.entityId.split(':')[0]"
+                      :cloud="isToolStimmaCloud(tab.entityId)"
+                      :detail="getToolSubtitle(tab.entityId)"
+                    />
                   </div>
 
                   <!-- Board with title/subtitle -->
@@ -741,14 +720,11 @@
                     </span>
                   </div>
 
-                  <!-- Chat with title/subtitle -->
+                  <!-- Chat title -->
                   <div v-else-if="tab.type === 'chat' && tab.displayName" class="flex-1 min-w-0 flex items-center gap-1.5">
                     <div class="flex-1 min-w-0 flex flex-col">
-                      <span class="truncate text-[13px] leading-4">
+                      <span class="truncate text-sm">
                         {{ tab.displayName }}
-                      </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -763,12 +739,9 @@
                     <div class="flex-1 min-w-0 flex flex-col">
                       <span
                         @click.stop="startInlineRename(tab)"
-                        class="truncate text-[13px] leading-4 text-content-muted italic cursor-pointer hover:text-content-secondary"
+                        class="truncate text-sm text-content-muted italic cursor-pointer hover:text-content-secondary"
                       >
                         Name this chat...
-                      </span>
-                      <span v-if="formatChatTabSubtitle(tab.entityId)" class="min-w-0 truncate text-[11px] leading-[14px] text-content-muted">
-                        {{ formatChatTabSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -1010,6 +983,7 @@
 </template>
 
 <script setup lang="ts">
+import ToolProviderBadge from './tools/ToolProviderBadge.vue'
 import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
 import { ArchiveBoxIcon, BoltIcon, BookmarkIcon, ChatBubbleLeftRightIcon, ChatBubbleOvalLeftEllipsisIcon, ChevronDownIcon, ChevronLeftIcon, ChevronUpDownIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, HeartIcon, HomeIcon, PhotoIcon, PlusIcon, Squares2X2Icon, TrashIcon, WrenchScrewdriverIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useMarkers } from '../composables/useMarkers'
@@ -1389,9 +1363,6 @@ function getToolProvider(fullToolId: string): string {
   return tool?.provider_name || tool?.provider_id || fullToolId.split(':')[0] || 'Provider'
 }
 
-// Subtitle under a tool tab. When the tool is reachable we show its provider
-// (e.g. "ComfyUI"); when it isn't we keep the provider identity AND explain
-// *why* it's greyed out, e.g. "ComfyUI · disconnected".
 // Title for a tool instance row: custom name wins; unnamed duplicates of the
 // same (tool, project) get a positional "(2)" so identical rows stay tellable.
 function getToolTabTitle(tab: WorkspaceTab): string {
@@ -1419,23 +1390,14 @@ function getToolSubtitle(fullToolId: string): string {
 // (40px): rows that carry a second line of detail. Mirrors the row template.
 function isTwoLineTab(tab: WorkspaceTab): boolean {
   switch (tab.type) {
-    // Every tool row names its provider: provider changes cost, privacy and speed.
-    case 'tool': return true
+    // Tools carry a trailing provider mark; chats show only their title.
+    case 'tool': return false
     case 'board': return !!tab.displayName
-    case 'chat': return !!formatChatTabSubtitle(tab.entityId)
+    case 'chat': return false
     case 'flow':
     case 'project': return true
     default: return false
   }
-}
-
-function getToolSubtitleClass(fullToolId: string): string {
-  const availability = getToolAvailability(fullToolId)
-  // Unavailable tools read as a calm, de-emphasized state (muted + italic),
-  // not an alarming colored one. The warning triangle in the action slot
-  // carries the "needs attention" signal.
-  if (availability !== 'available') return 'text-content-muted italic'
-  return isToolStimmaCloud(fullToolId) ? 'stimma-cloud-text font-medium' : 'text-content-muted'
 }
 
 function isTabToolUnavailable(tab: any): boolean {
@@ -1538,11 +1500,6 @@ function formatCount(count: number, singular: string): string {
   return `${count} ${count === 1 ? singular : `${singular}s`}`
 }
 
-function formatChatTabSubtitle(chatId: string): string {
-  const metadata = getChatMetadata(chatId)
-  return metadata?.last_message || ''
-}
-
 function formatBoardTabDetail(boardId: string): string {
   const metadata = getBoardMetadata(boardId)
   const itemText = formatCount(metadata?.item_count || 0, 'asset')
@@ -1620,7 +1577,7 @@ function savedViewIcon(view: any) {
 }
 
 // Pinned and open tool rows use the task-type glyph at the nav icon's size
-// and weight; the provider is in the row's subtitle.
+// and weight; the provider appears as a trailing badge.
 function toolGlyphSvg(toolId: string) {
   return getTaskTypeIconSvg(allToolsMap.value.get(toolId)?.task_type || 'text-to-image')
 }

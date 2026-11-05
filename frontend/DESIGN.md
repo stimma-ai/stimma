@@ -416,9 +416,9 @@ the glyph of the filter they hold (marker, clock for expiring, else funnel).
 Pinned and open tool rows show the task-type glyph from `taskTypeIcons.ts` at
 nav-icon size and weight, not the vendor mark. The rail has two row shapes: the
 icon row (16px glyph in a 24px slot, then label) and the two-line row with a
-24px thumbnail, plus the Editing thumbnails (32px, 44px on touch). A tool row is one line; its
-provider line appears only for a cloud tool, a tool that is not ready, or a name
-another row shares. Rows have ONE height (32px, 44px on touch) and one
+24px thumbnail, plus the Editing thumbnails (32px, 44px on touch). Tools and chats are single-line rows. Tools carry a trailing provider mark
+(brand icon, or a circular two-letter badge for a custom provider); provider
+and availability details stay in tooltips. Chats omit the last-message preview. Rows have ONE height (32px, 44px on touch) and one
 two-line variant (40px) for rows with a second line of detail; the rail never
 draws a hairline between groups. Within a group rows sit 2px apart. Groups
 separate by whitespace alone, always 16px: a break after Home and the saved
