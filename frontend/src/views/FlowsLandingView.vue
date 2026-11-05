@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header -->
-    <PageHeader :class="['compact:hidden', listMeasureHeaderX]">
+    <PageHeader class="compact:hidden">
       <template #title>Flows</template>
       <template #actions>
         <SearchField v-model="searchQuery" placeholder="Search flows..." class="w-48" />
@@ -76,7 +76,6 @@ import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { setCompactPrimaryAction } from '../composables/useCompactChrome'
 import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
-import { listMeasureHeaderX } from '../components/lists/listMeasure'
 import PageHeader from '../components/ui/PageHeader.vue'
 import SearchField from '../components/ui/SearchField.vue'
 import Button from '../components/ui/Button.vue'

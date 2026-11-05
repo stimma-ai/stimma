@@ -246,9 +246,9 @@
       <!-- Tools by task. A section opens with its heading (task glyph, task
            name) and one quiet line for the facts every tool in it shares.
            Inside it a tool family is a header (the family name and the facts
-           all its variants share) with its variants as rows indented under a
-           hairline rail. A family with one variant is one row. Fixed gaps per
-           level: sections, then families, then rows. Everything sits on the
+           all its variants share) with its variants as chips on the same row. A
+           family with one variant is one link row. Fixed gaps per level:
+           sections, then rows. Everything sits on the
            page margin, two columns once the page is wide enough. -->
       <div v-else class="@container">
         <div class="px-page @[60rem]:columns-2 @[60rem]:gap-x-12">
@@ -278,36 +278,46 @@
               </p>
             </div>
 
-            <div class="space-y-3">
-              <div v-for="family in group.families" :key="family.key">
+            <div class="space-y-0.5">
+              <template v-for="family in group.families" :key="family.key">
                 <ToolRow
                   v-if="family.rows.length > 1"
-                  :interactive="false"
                   :name="family.title"
                   :facts="family.facts"
                   :hidden="family.hidden"
                   :facts-title="family.allFacts"
                   :description="family.description"
+                  :variants="family.rows.map((row) => ({
+                    key: row.tool.full_tool_id,
+                    label: row.label || row.tool.name,
+                    tag: row.tag,
+                    title: row.allFacts,
+                    unavailable: row.tool.availability !== 'available',
+                    menu: isUserTool(row.tool),
+                  }))"
+                  @open="(key) => openTool(family.rows.find((r) => r.tool.full_tool_id === key).tool)"
+                  @menu="(e, key) => openToolMenu(e, family.rows.find((r) => r.tool.full_tool_id === key).tool)"
                 />
+                <template v-else>
                 <ToolRow
                   v-for="row in family.rows"
                   :key="row.tool.full_tool_id"
                   :class="row.tool.availability !== 'available' ? 'pointer-events-none opacity-40' : ''"
-                  :name="family.rows.length > 1 ? row.tool.name : family.title"
+                  :name="family.title"
                   :label="row.label"
                   :tag="row.tag"
-                  :indent="family.rows.length > 1"
                   :facts="row.facts"
                   :hidden="row.hidden"
                   :facts-title="row.allFacts"
                   :price="row.price"
-                  :description="family.rows.length > 1 ? '' : row.description"
+                  :description="row.description"
                   :menu="isUserTool(row.tool)"
                   @click="openTool(row.tool)"
                   @contextmenu.prevent="isUserTool(row.tool) ? openToolMenu($event, row.tool) : null"
                   @menu="openToolMenu($event, row.tool)"
                 />
-              </div>
+                </template>
+              </template>
             </div>
           </section>
         </div>

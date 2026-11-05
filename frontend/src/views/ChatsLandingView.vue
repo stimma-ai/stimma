@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-base" @contextmenu.self="handleEmptyContextMenu">
     <!-- Header -->
-    <PageHeader :class="['compact:hidden', listMeasureHeaderX]">
+    <PageHeader class="compact:hidden">
       <template #title>Chats</template>
       <template #actions>
         <SearchField
@@ -233,7 +233,6 @@ import SearchField from '../components/ui/SearchField.vue'
 import Button from '../components/ui/Button.vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import CollectionRow from '../components/lists/CollectionRow.vue'
-import { listMeasureHeaderX } from '../components/lists/listMeasure'
 import RowThumb from '../components/lists/RowThumb.vue'
 import { plainPreview } from '../components/lists/previewText'
 

@@ -1,14 +1,14 @@
 <template>
   <!--
-    Display-only state markers: bare glyphs with a soft shadow, no plate, so a
-    marker reads as a property of the picture and never as a button. White in
-    both themes; the one colour is an active favorite heart.
+    Display-only state markers: small glyphs on the same black glass as TileChip
+    (one 20px square each), so they hold contrast on any image. White in both
+    themes; the one colour is an active favorite heart.
   -->
   <span v-if="markers.length" :title="names" class="inline-flex max-w-full shrink-0 items-center gap-1.5">
     <span
       v-for="marker in markers"
       :key="marker.id"
-      class="flex h-4 w-4 items-center justify-center [filter:drop-shadow(0_0_1px_rgb(0_0_0/0.6))_drop-shadow(0_1px_2px_rgb(0_0_0/0.65))] [&>svg]:h-full [&>svg]:w-full"
+      class="flex h-5 w-5 items-center justify-center rounded-md bg-black/55 backdrop-blur-md [&>svg]:h-3.5 [&>svg]:w-3.5"
       :class="isFavorite(marker) ? '' : 'text-white/90'"
       :style="isFavorite(marker) ? { color: colorOf(marker) } : undefined"
       v-html="iconSvg(marker)"

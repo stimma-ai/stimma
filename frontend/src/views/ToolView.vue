@@ -1083,7 +1083,7 @@
             v-if="!llmUnconfigured"
             type="button"
             class="w-11 h-11 flex items-center justify-center rounded-md border-none bg-transparent transition-colors"
-            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-accent-hi bg-accent/15' : 'text-content-secondary'"
+            :class="compactAgentOpen || (roomyAgentDockable && agentDocked) ? 'text-content bg-overlay-subtle' : 'text-content-secondary'"
             aria-label="Agent"
             :aria-pressed="roomyAgentDockable ? agentDocked : undefined"
             @click="onCompactAgentButton"

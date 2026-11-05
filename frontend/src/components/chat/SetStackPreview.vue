@@ -46,6 +46,8 @@ watch(() => props.mediaId, async (mediaId) => {
   if (ids.length === 0) emit('unavailable')
 }, { immediate: true })
 
+// In dark the layers are not pictures: each is a flat raised card with a thin strong edge, so
+// two crisp offset edges show behind the cover and nothing reads as a tinted image.
 // Layers sit back to front. Each steps up and to the right of the picture (3% of the square;
 // 1.5% in dark, where less of it is exposed) so only a narrow edge of each shows; the whole pile
 // is centred in the square. The scrim fades the layers into the matte: lighter on the paper
@@ -70,10 +72,12 @@ const cards = computed(() => {
 
 <template>
   <div class="h-full w-full bg-matte [container-type:size]" data-testid="set-stack-preview">
-    <div v-if="cards.length" class="relative mx-auto [--set-step:3%] dark:[--set-step:1.5%]" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
-      <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte shadow-[0_1px_4px_rgb(0_0_0/0.22)] dark:shadow-none" :style="card.style">
+    <div v-if="cards.length" class="relative mx-auto [--set-step:3%]" style="width: min(100cqw, 100cqh); height: min(100cqw, 100cqh)">
+      <div v-for="card in cards" :key="card.id" class="absolute overflow-hidden rounded-media bg-matte shadow-[0_1px_4px_rgb(0_0_0/0.22)] dark:shadow-none"
+        :class="card.depth > 0 ? 'dark:border dark:border-edge-strong dark:bg-surface-raised' : ''" :style="card.style">
         <MediaImage
           :media-id="card.id"
+          :class="card.depth > 0 ? 'dark:hidden' : ''"
           :thumbnail="true"
           :thumbnail-size="thumbnailSize"
           :draggable="false"
@@ -81,7 +85,7 @@ const cards = computed(() => {
           container-class="h-full w-full"
           img-class="h-full w-full object-cover"
         />
-        <span v-if="card.scrim" class="pointer-events-none absolute inset-0 bg-matte" :class="card.scrim"></span>
+        <span v-if="card.scrim" class="pointer-events-none absolute inset-0 bg-matte dark:hidden" :class="card.scrim"></span>
       </div>
     </div>
   </div>

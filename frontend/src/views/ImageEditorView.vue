@@ -10241,7 +10241,7 @@ watch(
            IS (which version, whether it has uncommitted work), right is what
            you can do to it. One meaning per control: the chip reports, Revert
            discards, Save commits. -->
-    <footer v-if="!isCompact" class="flex items-center gap-2 px-3 h-11 shrink-0 border-t border-edge-subtle">
+    <footer v-if="!isCompact" class="flex items-center gap-2 px-page h-11 shrink-0 border-t border-edge-subtle">
       <Tooltip text="Undo">
         <IconButton :disabled="!stack.canUndo.value" @click="stack.undo(); render()">
           <ArrowUturnLeftIcon class="w-4 h-4" />

@@ -811,24 +811,25 @@ Until a kit component exists, new code uses these exact patterns:
   heading, the board-section tier (`text-sm font-semibold text-content`, not
   display voice), led by the task glyph at nav size; rows carry no glyph. The
   facts the whole section shares ("ComfyUI · open weights") sit once, as one
-  quiet tertiary line under the heading, never at its right. Inside a section a
-  tool family is a header row (the family name in semibold and the facts all its
-  variants share) with its variants as rows indented one step under a 1px
-  `edge-subtle` rail on the family name's left edge (the family header is not a
-  target), in regular weight, each led by a distinguishing label at primary
-  contrast: the unmarked one is "Standard", the lightning mark becomes the label
-  of its speed badge ("Fast", "Turbo 4-step"), a parenthetical in the name is
-  kept. Variants that still match are told apart by their full name, then by
-  tool id (mono). A family with one variant is one row. Rows come in two heights
-  only: one line (32px, 44px on touch) and two lines (52px, for a description);
-  names and facts never wrap, facts truncate first. Facts sit beside the name
-  they qualify, neutral tertiary text, at most three with `+N`; "fast" is just a
-  fact, never accent. Gaps are fixed per level: the section gap plus 12px between
-  sections, 8px from heading to first family, 12px between families, none between
-  a family's rows. Heading glyphs, rows and the header share the page margin; row
-  text starts on the heading text's column. A tool row is plainly a link: hover
-  and press tint, no chevron (the options button appears on a user's own tool).
-  A container wide enough (60rem) lays sections in two columns, never splitting a
+  quiet tertiary line under the heading, never at its right. Inside a section
+  every model is ONE row on one left edge: no rail, no indent, no family
+  header. A model with no variants is a link row: its name is the link, with a
+  hover and press tint. A model with variants shows its name as plain text in
+  the same position and weight, followed on the same row (wrapping beneath it
+  when narrow) by its variants as small chips: `bg-overlay-subtle`, neutral
+  `content-secondary` text (never teal), `rounded-md`, 28px tall and 44px on
+  touch, each the link to one tool. A chip is led by the distinguishing label:
+  the unmarked one is "Standard", the lightning mark becomes the label of its
+  speed badge ("Fast", "Turbo 4-step"), a parenthetical in the name is kept;
+  variants that still match are told apart by their full name, then by tool id
+  (mono). Capability facts sit on one quiet tertiary line under the name (the
+  facts all variants share; at most three with `+N`; "fast" is just a fact,
+  never accent); a variant's own facts are its chip tooltip. No hairlines
+  between rows (rows are tall enough to need whitespace only). Rows share one
+  pitch: a 36px minimum (44px on touch), 2px apart; sections are separated by
+  the section gap plus 12px. Heading glyphs, rows and the header share the page
+  margin; row text starts on the heading text's column. The options button
+  appears on a user's own tool. A container wide enough (60rem) lays sections in two columns, never splitting a
   section. On a phone the filter field takes its own full-width row, with the task
   and provider filters bare beneath it; an applied filter takes the accent fill.
 - **Modal**: backdrop `fixed inset-0 z-modal bg-overlay-backdrop
@@ -846,7 +847,8 @@ Until a kit component exists, new code uses these exact patterns:
   places, one grammar. Kind (type, duration, member count) is a black-glass
   chip top-right; facts (similarity, time left, revisions) are black-glass
   chips bottom-left; state (markers, including edited) is a row of bare white
-  glyphs with a soft shadow bottom-right, no plate, so it never reads as a
+  glyphs on one small black-glass square bottom-right, the same backing as the
+  media chips, so it holds contrast on any image and never reads as a
   button. A chip is `h-5`, `bg-black/55 backdrop-blur`, mono facts, white
   glyphs, same in both themes. At most two signals show at rest, in the order
   similarity or time left, kind, state; the rest (revisions always) fade in on
@@ -966,7 +968,7 @@ ToolView is the most important screen in the app; it gets its own spec
 · queue rail (right). The hero and queue rail are the only image-bearing
 zones and both sit on matte. The controls column is quiet monochrome rows —
 no fills, no borders-in-borders — so the run bar and results carry the
-energy. **Exactly one solid-accent button on the whole screen: Run.**
+energy. **Exactly one solid-accent button on the whole screen: Run.** One teal fill per region; resting secondary controls (Enhance, the aspect glyph, the Agent label) stay neutral, and an on state reads as brighter text on a quiet chip, not teal.
 Stage mode swaps proportions, same grammar.
 
 **Header strip:** the PageHeader (§2): tool icon chip (accent-wash

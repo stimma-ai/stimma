@@ -728,7 +728,7 @@
           :style="{ height: `${STRIP_ROW}px` }"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-media overflow-hidden ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-none overflow-visible ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -740,7 +740,7 @@
               :draggable="false"
               :enable-context-menu="false"
               :has-alpha="currentItem.has_alpha"
-              container-class="w-full h-full"
+              container-class="w-full h-full rounded-media overflow-hidden"
               img-class="w-full h-full object-cover"
             />
           </div>
@@ -765,7 +765,7 @@
           :title="item.vlm_caption || `Item ${index + 1}`"
         >
           <div
-            class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-media overflow-hidden transition-all"
+            class="w-[96px] h-[96px] compact:w-[52px] compact:h-[52px] bg-matte rounded-none transition-all"
             :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60'"
           >
             <MediaImage
@@ -781,7 +781,7 @@
               :thumbnail-size="256"
               :enable-context-menu="false"
               :has-alpha="item.has_alpha"
-              container-class="w-full h-full"
+              container-class="w-full h-full rounded-media overflow-hidden"
               img-class="w-full h-full object-cover"
             />
           </div>
@@ -829,7 +829,7 @@
             <!-- Real thumbnail -->
             <div
               v-else-if="item.file_hash"
-              class="w-[96px] h-[96px] bg-matte rounded-media overflow-hidden transition-all compact:h-[52px] compact:w-[52px] compact:shrink-0 compact:transition-opacity compact:duration-200 compact:ease-out motion-reduce:transition-none"
+              class="w-[96px] h-[96px] bg-matte rounded-none overflow-visible transition-all compact:h-[52px] compact:w-[52px] compact:shrink-0 compact:transition-opacity compact:duration-200 compact:ease-out motion-reduce:transition-none"
               :class="slideshowCompact
                 ? (index === (isViewingSet ? setViewIndex : currentIndex) ? 'opacity-100 ring-2 ring-selection ring-offset-2 ring-offset-matte' : 'opacity-80')
                 : (index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-slideshow-matt' : 'ring-2 ring-transparent opacity-80 hover:opacity-100 hover:ring-selection/60')"
@@ -847,7 +847,7 @@
                 :thumbnail-size="256"
                 :enable-context-menu="false"
                 :has-alpha="item.has_alpha"
-                container-class="w-full h-full"
+                container-class="w-full h-full rounded-media overflow-hidden"
                 img-class="w-full h-full object-cover"
                 @error="handleThumbnailError($event, item, index)"
               />

@@ -22,11 +22,11 @@
             :disabled="llmUnconfigured"
             @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
             :class="[
-              'flex items-center gap-1.5 text-ctl transition-colors',
+              'flex items-center gap-1.5 text-ctl transition-colors -mx-1.5 px-1.5 py-0.5 rounded-md',
               llmUnconfigured
                 ? 'text-content-muted opacity-50 cursor-not-allowed'
                 : promptOptions.autoImprove.enabled
-                  ? 'text-accent-hi'
+                  ? 'text-content bg-overlay-subtle'
                   : 'text-content-muted hover:text-content-secondary'
             ]"
             :title="llmUnconfigured

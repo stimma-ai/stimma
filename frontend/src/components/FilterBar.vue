@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-surface border-b border-edge flex-shrink-0 compact:border-edge-subtle">
+  <div class="bg-base border-b border-edge-subtle flex-shrink-0 compact:border-edge-subtle">
     <!-- Filter Selection Strip (Shopping Cart) -->
     <div class="flex justify-between items-center px-page py-2 min-h-header gap-2 flex-wrap compact:justify-start compact:gap-1 compact:min-h-0 compact:py-0">
       <!-- Left Side: Filter Toggle Button -->

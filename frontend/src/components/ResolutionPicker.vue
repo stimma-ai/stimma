@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="relative inline-block max-w-full">
+  <div ref="containerRef" class="relative inline-block max-w-full compact:block">
     <!-- ONE trigger everywhere (tool and flow forms): aspect glyph, size,
          chevron in a single filled control. When a reference image locks an
          axis, the lock rides inside the same control: it sits on the glyph's
@@ -9,12 +9,12 @@
       type="button"
       :disabled="disabled"
       @click="toggle"
-      class="inline-flex items-center gap-2 h-9 pl-2 pr-2 max-w-full rounded-md bg-field hover:bg-overlay-light text-ctl font-medium text-content-secondary hover:text-content transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
+      class="inline-flex compact:flex compact:w-full items-center gap-2 h-9 pl-2 pr-2 max-w-full rounded-md bg-field hover:bg-overlay-light text-ctl font-medium text-content-secondary hover:text-content transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 ring-accent/60 coarse:min-h-11"
       aria-haspopup="dialog"
       :aria-expanded="isOpen"
       :aria-label="`Aspect and size: ${triggerValue}${lockTag ? ', ' + lockTag + ' locked to the reference image' : ''}`"
     >
-      <span class="relative flex-none w-6 h-6 grid place-items-center" :class="lockAspect ? 'text-accent-hi' : ''">
+      <span class="relative flex-none w-6 h-6 grid place-items-center">
         <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" aria-hidden="true">
           <!-- viewfinder corners: says "frame", never "checkbox" -->
           <path d="M2.5 7V3.5a1 1 0 0 1 1-1H7M17 2.5h3.5a1 1 0 0 1 1 1V7M21.5 17v3.5a1 1 0 0 1-1 1H17M7 21.5H3.5a1 1 0 0 1-1-1V17" stroke-width="1.5" stroke-linecap="round" opacity=".55" />
@@ -24,12 +24,12 @@
           <path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5V7H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12 7h-.5V5A3.5 3.5 0 0 0 8 1.5ZM6 5a2 2 0 1 1 4 0v2H6V5Z" />
         </svg>
       </span>
-      <span class="font-mono tabular-nums text-xs text-content">{{ triggerValue }}</span>
-      <span v-if="lockTag" class="flex items-center gap-2 min-w-0" :title="explanation">
-        <span class="w-px h-4 bg-edge" aria-hidden="true"></span>
+      <span :class="['font-mono tabular-nums text-xs text-content', lockTag ? 'compact:order-2' : '']">{{ triggerValue }}</span>
+      <span v-if="lockTag" class="flex items-center gap-2 min-w-0 compact:order-1 compact:flex-1" :title="explanation">
+        <span class="w-px h-4 bg-edge compact:hidden" aria-hidden="true"></span>
         <span :class="['text-xs font-semibold', lockArmed ? 'text-content-tertiary' : 'text-accent-hi']">{{ lockTag }}</span>
       </span>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline flex-none text-content-tertiary">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-icon-inline h-icon-inline flex-none text-content-tertiary compact:order-3">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
       </svg>
     </button>

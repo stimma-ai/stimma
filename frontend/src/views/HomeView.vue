@@ -86,8 +86,8 @@
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
             <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap items-center justify-start gap-2 mt-4 compact:mt-2 compact:flex-nowrap compact:gap-1">
-              <!-- On compact the shortcuts scroll and are cut at a rule; All tools stays beside them, never inside the scroll. -->
-              <div class="contents compact:flex compact:min-w-0 compact:flex-initial compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <!-- On compact the shortcuts scroll and fade out under a soft trailing edge; All tools stays beside them, never inside the scroll. -->
+              <div class="contents compact:flex compact:min-w-0 compact:flex-initial compact:gap-1.5 compact:-ml-page compact:pl-page compact:scroll-pl-page compact:pr-6 compact:overflow-x-auto compact:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   v-for="tool in launcherTools"
                   :key="tool.full_tool_id"
@@ -101,11 +101,9 @@
                   <span v-if="launcherProviders.size > 1" class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
                 </button>
               </div>
-              <!-- On compact the shortcuts end at this rule: a chip cut by it reads as a scroll edge, and All tools stays fixed. -->
-              <span class="hidden compact:block h-4 w-px shrink-0 bg-edge" aria-hidden="true"></span>
               <router-link
                 :to="contextRoute('all-tools', projectId)"
-                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 compact:ml-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+                class="flex shrink-0 items-center whitespace-nowrap px-3 py-1.5 compact:px-2 compact:py-1 coarse:min-h-11 rounded-md text-[13px] compact:text-[12px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>

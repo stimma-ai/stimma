@@ -280,7 +280,7 @@
       @focusin="dockFocused = true"
       @focusout="onDockFocusOut"
     >
-      <span class="hidden md:inline-flex [grid-area:label] items-center gap-1.5 text-accent-hi" :class="dockOpen ? 'md:pl-4 md:pb-2' : 'md:pl-3'">
+      <span class="hidden md:inline-flex [grid-area:label] items-center gap-1.5 text-content-secondary" :class="dockOpen ? 'md:pl-4 md:pb-2' : 'md:pl-3'">
         <AgentIcon class="h-icon-nav w-icon-nav" />
         <span class="text-ctl font-medium">Agent</span>
       </span>
