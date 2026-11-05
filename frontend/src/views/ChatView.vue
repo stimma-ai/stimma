@@ -3144,6 +3144,7 @@ async function loadItems() {
     coveredThrough = data.items.length ? data.items[0].id : Number.NEGATIVE_INFINITY
     pageCursor = data.items.length ? data.items[data.items.length - 1].id : null
     items.value = data.items.reverse()
+    if (requestChatId === chatId.value) reconcileDeliveredSteers(items.value)
 
     const positioning = ++initialPositioning
     hasMore.value = data.has_more
@@ -3267,6 +3268,7 @@ async function resyncItems() {
         historyEpoch++
       }
     }
+    reconcileDeliveredSteers(result.items)
     if (!result.changed) return
     const container = messagesContainer.value
     const follow = !container || container.scrollHeight - container.scrollTop - container.clientHeight < 80
@@ -3629,6 +3631,23 @@ function queueMessage(mode: 'steer' | 'queue' = 'steer') {
   messageInput.value = ''
   inputAttachments.value = []
   pumpSteers()
+}
+
+// A transcript snapshot is also a delivery acknowledgement. A steer may
+// have landed while WebSocket coverage was interrupted; leaving it queued
+// would resend it on idle or restore the already-sent text into the composer
+// on navigation. Match IDs, never text: identical prompts can be intentional.
+function reconcileDeliveredSteers(transcript) {
+  if (!messageQueue.value.length) return
+  const delivered = new Set()
+  for (const item of transcript) {
+    if (item.item_type !== 'user_message') continue
+    const metadata = typeof item.item_metadata === 'string'
+      ? JSON.parse(item.item_metadata || '{}')
+      : item.item_metadata
+    if (metadata?.steer_id) delivered.add(metadata.steer_id)
+  }
+  messageQueue.value = messageQueue.value.filter(msg => !delivered.has(msg.id))
 }
 
 // Remove a queued message

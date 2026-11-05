@@ -9,7 +9,7 @@ import config from '../vite.config.js'
 const welcome = ws => ws.send(JSON.stringify({ event: 'connected', data: {} }))
 
 const instrument = { name: 'chat-queue-fixture', enforce: 'pre', transform(source, id) {
-  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.queueView = { messageQueue, messageInput, inputAttachments, agentRunning, modelsFetched, sendMessage }; defineExpose({})\n</script>')
+  if (id.endsWith('/src/views/ChatView.vue')) return source.replace('</script>', 'window.queueView = { messageQueue, messageInput, inputAttachments, agentRunning, modelsFetched, sendMessage, resyncItems, loadItems }; defineExpose({})\n</script>')
 } }
 const base = config({})
 const built = await build({ ...base, configFile: false, logLevel: 'error',
@@ -26,6 +26,7 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const posts = []
+  let serverItems = []
   let steerStatus = 200
   let socket
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => { socket = ws; welcome(ws) })
@@ -38,7 +39,7 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
     if (path.endsWith('/plan-status')) return route.fulfill({ json: { has_plan: true, status: 'running' } })
     if (path.endsWith('/steer')) return route.fulfill({ status: steerStatus, json: {} })
     if (path.endsWith('/items') && request.method() === 'POST') return route.fulfill({ json: { id: 99, item_type: 'user_message', message_text: request.postDataJSON().message_text } })
-    if (path.endsWith('/items')) return route.fulfill({ json: { items: [], has_more: false } })
+    if (path.endsWith('/items')) return route.fulfill({ json: { items: serverItems, has_more: false } })
     if (path === '/api/models/available') return route.fulfill({ json: { models: [{ slug: 'test', name: 'Test', available: true, selectable: true, source: 'endpoint' }], global_default: 'test', cloud_status: 'available', llm_configured: true } })
     if (path.includes('skills') || path.includes('markers')) return route.fulfill({ json: [] })
     return route.fulfill({ json: {} })
@@ -128,6 +129,24 @@ test('Enter steers into the running turn, Alt+Enter queues, and Stop sends what 
   ])
   deliver(steers()[5].body.steer_id)
   await expect.poll(queue).toEqual([{ text: 'and a square crop', mode: 'queue', steering: false }])
+
+  // A delivery missed over WebSocket still acknowledges the steer when the
+  // transcript is reconciled (reconnect/KeepAlive), or loaded afresh.
+  for (const reload of ['resyncItems', 'loadItems']) {
+    const previousSteers = steers().length
+    await send(`delivered during ${reload}`)
+    await expect.poll(() => steers().length).toBe(previousSteers + 1)
+    const steer = steers().at(-1).body
+    serverItems = [{
+      id: 1000 + serverItems.length, item_type: 'user_message',
+      message_text: steer.message_text,
+      item_metadata: reload === 'loadItems'
+        ? JSON.stringify({ steer_id: steer.steer_id }) : { steer_id: steer.steer_id },
+    }, ...serverItems]
+    await page.evaluate(reload => window.queueView[reload](), reload)
+    await expect.poll(queue).toEqual([{ text: 'and a square crop', mode: 'queue', steering: false }])
+    await expect(textarea).toHaveValue('')
+  }
 
   // Leaving a chat with messages queued puts them in that chat's composer.
   await textarea.fill('keep this one')
