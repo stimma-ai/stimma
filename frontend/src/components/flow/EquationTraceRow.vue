@@ -170,7 +170,7 @@
       <button
         v-if="equation.status === 'completed' || equation.status === 'failed'"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary opacity-0 transition-opacity hover:text-content hover:bg-overlay-hover focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 coarse:h-11 coarse:w-9 [[data-pointer=coarse]_&]:opacity-100"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary transition-colors hover:text-content hover:bg-overlay-hover coarse:h-11 coarse:w-9"
         title="Re-run this step"
         @click.stop="$emit('invalidate-equation', equation.equation_key)"
       >

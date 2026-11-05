@@ -124,8 +124,7 @@
           class="flex-shrink-0"
         />
         <!-- Start and Resume are the one accent action while they apply. Pause is
-             a quiet ghost, and once the run has finished it is quieter still
-             (still here, still reachable). -->
+             a quiet ghost that stays visible for as long as the flow runs. -->
         <button
           v-if="showStartButton"
           class="w-9 h-9 compact:w-11 compact:h-11 flex items-center justify-center rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
@@ -138,7 +137,7 @@
           </svg>
         </button>
         <button
-          v-if="showPauseButton && !pauseInMenu"
+          v-if="showPauseButton"
           class="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:w-11 compact:h-11"
           title="Pause"
           aria-label="Pause"
@@ -159,28 +158,9 @@
             <path fill-rule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" />
           </svg>
         </button>
-        <!-- The view switch lives in the header on wide screens (one row of
-             navigation); compact keeps it in the strip under the header. -->
-        <SegmentedControl
-          v-if="!isCompact"
-          class="ml-3 flex-shrink-0"
-          :model-value="viewMode"
-          :options="VIEW_MODES"
-          aria-label="Flow view"
-          @update:model-value="setViewMode($event)"
-        />
       </template>
 
       <template #actions>
-        <div v-if="!isCompact && viewMode === 'graph' && !programAttentionError" class="flex items-center gap-1">
-          <SegmentedControl
-            :model-value="graphCollapseForeach ? 'collapsed' : 'expanded'"
-            :options="GRAPH_DETAIL_MODES"
-            aria-label="Graph detail"
-            title="Collapse foreach iterations into a single super-node, or show every iteration's equations as raw graph nodes"
-            @update:model-value="graphCollapseForeach = $event === 'collapsed'"
-          />
-        </div>
         <!-- Save Custom Tool. With no backing tool it freezes a new one. Once this
              flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
              New). A dot — on the button and on each drifted row — marks unsaved
@@ -244,18 +224,28 @@
 
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
-          <!-- On wide screens the flow and the chat are open side by side, so
-               an open chat marks both segments; compact is the exclusive
-               choice. The sessions chevron is its own bare button. -->
+          <!-- Wide screens show the flow and the chat side by side, so the chat
+               is a panel toggle. Compact shows one at a time, so it keeps the
+               Flow/Chat switch. The sessions chevron is its own bare button. -->
           <div class="flex items-center gap-1">
+            <IconButton
+              v-if="!isCompact"
+              size="lg"
+              toggle
+              :active="chatPanelOpen"
+              :title="chatPanelOpen ? 'Hide chat panel' : 'Show chat panel'"
+              aria-label="Chat panel"
+              data-testid="flow-chat-toggle"
+              @click="chatPanelOpen = !chatPanelOpen"
+            >
+              <AgentIcon class="h-icon-nav w-icon-nav" />
+            </IconButton>
             <SegmentedControl
+              v-else
               :model-value="chatPanelOpen ? 'chat' : 'flow'"
               :options="WORKSPACE_MODES"
               aria-label="Workspace"
-              :class="[
-                'coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5',
-                chatPanelOpen && !isCompact ? '[&_button:first-child]:bg-overlay-medium [&_button:first-child]:text-content' : '',
-              ]"
+              class="coarse:[&_button]:min-h-11 coarse:[&_button]:px-3.5"
               @update:model-value="chatPanelOpen = $event === 'chat'"
             />
             <button
@@ -350,18 +340,6 @@
             v-if="showMenu"
             class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
-            <template v-if="showPauseButton && pauseInMenu">
-              <button
-                @click="showMenu = false; doPause()"
-                class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5">
-                  <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
-                </svg>
-                Pause
-              </button>
-              <div class="border-t border-edge my-1"></div>
-            </template>
             <button
               @click="doCopy"
               :disabled="copying"
@@ -440,9 +418,9 @@
     <div class="flex flex-1 min-h-0 relative">
       <!-- Left wrapper: tab subheader spans main column AND resize handle so its border butts against the chat panel's left divider -->
       <div class="flex-1 flex flex-col min-w-0">
-        <!-- View tabs strip: compact only. Wide screens carry the view switch in
-             the header. -->
-        <div v-if="isCompact" class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
+        <!-- View tabs strip: Steps / Workflow / Code sit on top of the pane they
+             switch, on every layout. -->
+        <div class="flex items-center px-page border-b border-edge-subtle flex-shrink-0">
           <SegmentedControl
             class="my-2"
             :model-value="viewMode"
@@ -526,7 +504,7 @@
                       @click="inputsOpen = true"
                     >Edit inputs</button>
                     <button
-                      v-else-if="inputsFinished"
+                      v-else-if="inputsFinished && !inputsNeeded"
                       type="button"
                       class="-my-1 -mr-2 flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-overlay-subtle hover:text-content transition-colors compact:min-h-11"
                       aria-label="Hide inputs"
@@ -842,6 +820,7 @@ import { BoltIcon as FlowGlyph } from '@heroicons/vue/24/outline'
 import Modal from '../components/ui/Modal.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import IconButton from '../components/ui/IconButton.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import OverflowButton from '../components/ui/OverflowButton.vue'
 import { useFlowStatus } from '../composables/useFlowStatus'
@@ -1319,8 +1298,6 @@ async function saveName() {
 const showStartButton  = computed(() => !flow.value?.execution_state || flow.value.execution_state === 'idle')
 const showResumeButton = computed(() => flow.value?.execution_state === 'paused')
 const showPauseButton  = computed(() => flow.value?.execution_state === 'running')
-// A finished run has nothing to pause in the moment; Pause stays reachable from the entity menu.
-const pauseInMenu = computed(() => flowStatusLabel.value === 'Done')
 
 // "All branches blocked" — the flow is running, has failures, and nothing
 // is actively making forward progress (no pending, no computing, no HITL
@@ -1703,7 +1680,16 @@ const inputsValid = ref(true)
 // summary; the user opens the form with "Edit inputs". Unsaved edits keep it open.
 const inputsOpen = ref(false)
 const inputsFinished = computed(() => flowStatusLabel.value === 'Done')
-const inputsCollapsed = computed(() => inputsFinished.value && !inputsOpen.value && !inputsDirty.value)
+// The form stays open while it still needs the person: the flow has not run
+// yet (no step has completed) or the form is invalid (a required input is empty).
+const flowHasRun = computed(() => {
+  for (const eq of state.equationsByKey.value.values()) {
+    if (eq.status === 'completed' || eq.status === 'failed') return true
+  }
+  return false
+})
+const inputsNeeded = computed(() => !flowHasRun.value || !inputsValid.value)
+const inputsCollapsed = computed(() => inputsFinished.value && !inputsNeeded.value && !inputsOpen.value && !inputsDirty.value)
 watch(flowId, () => { inputsOpen.value = false })
 const INPUTS_SUMMARY_MAX = 4
 function summarizeInputValue(v: unknown): string {
@@ -2430,7 +2416,6 @@ function updateCompactHeader() {
   if (route.name !== 'flow' || String(route.params.id) !== String(flow.value?.id)) return
   setCompactTitle(flow.value?.name || 'Name this flow…', '', () => { renameOpen.value = true })
   setCompactMenu([
-    ...(showPauseButton.value && pauseInMenu.value ? [{ label: 'Pause', run: doPause }] : []),
     ...(isPhone.value
       ? [
           ...backingTools.value.filter(t => t.has_changes).map(t => ({ label: `Update ${t.name}`, run: () => updateBackingTool(t) })),
@@ -2447,6 +2432,6 @@ function updateCompactHeader() {
     { label: 'Delete', run: handleDelete, destructive: true },
   ])
 }
-watch([() => flow.value?.id, () => flow.value?.name, () => showPauseButton.value && pauseInMenu.value, isPhone, hasInputFields, isDev, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
+watch([() => flow.value?.id, () => flow.value?.name, isPhone, hasInputFields, isDev, () => backingTools.value.map(t => `${t.id}:${t.has_changes}`).join()], updateCompactHeader, { immediate: true })
 onActivated(updateCompactHeader)
 </script>
