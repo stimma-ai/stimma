@@ -5,7 +5,30 @@ import json
 import os
 import subprocess
 import time
+import urllib.error
 import urllib.request
+
+
+def get_json(request, deadline):
+    """Retry transient read failures without extending the publication deadline."""
+    for attempt in range(5):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Publication gate API deadline expired; refusing publication')
+        try:
+            with urllib.request.urlopen(request, timeout=min(30, remaining)) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code != 429 and not 500 <= error.code < 600:
+                raise
+            retry_after = error.headers.get('Retry-After', '') if error.headers else ''
+            delay = max(2 ** attempt, int(retry_after) if retry_after.isdigit() else 0)
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            delay = 2 ** attempt
+        if attempt == 4 or delay >= deadline - time.monotonic():
+            raise TimeoutError('Publication gate API unavailable; refusing publication')
+        print(f'Transient publication gate API error; retrying in {delay}s', flush=True)
+        time.sleep(delay)
 
 
 def gate_result(jobs, required='Quality gate passed'):
@@ -33,6 +56,7 @@ def main():
     token = os.environ['GITHUB_TOKEN']
     required = os.environ.get('STIMMA_PUBLICATION_GATE') or 'Quality gate passed'
     base = os.environ.get('GITHUB_API_URL', 'https://api.github.com')
+    deadline = time.monotonic() + 15 * 60
 
     def get(path):
         request = urllib.request.Request(f'{base}/repos/{repository}/{path}', headers={
@@ -40,15 +64,13 @@ def main():
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
         })
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
+        return get_json(request, deadline)
 
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     event, ref = os.environ['GITHUB_EVENT_NAME'], os.environ['GITHUB_REF']
     # All push builds must use the exact event commit. Only main canaries
     # are superseded by a newer main commit; release branches/tags are not.
     check_source(event, ref, commit, os.environ['GITHUB_SHA'], latest_main=commit)
-    deadline = time.monotonic() + 15 * 60
     print(f'Waiting for {required} in run {run_id}, attempt {attempt}, commit {commit}', flush=True)
     while time.monotonic() < deadline:
         jobs = []

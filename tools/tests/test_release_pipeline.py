@@ -1,10 +1,13 @@
 import importlib.util
+import io
 import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -23,6 +26,41 @@ def job(name='Quality gate / Quality gate passed', status='completed', conclusio
 
 
 class PublicationTests(unittest.TestCase):
+    def test_transient_api_failures_retry_then_return_the_actual_response(self):
+        for error in [urllib.error.HTTPError('https://api.test', 500, 'temporary', {}, None),
+                      urllib.error.HTTPError('https://api.test', 429, 'limited', {'Retry-After': '3'}, None),
+                      urllib.error.URLError('connection reset'), TimeoutError('read timed out')]:
+            with self.subTest(error=error), \
+                    patch.object(gate.urllib.request, 'urlopen', side_effect=[error, io.StringIO('{"jobs": []}')]) as get, \
+                    patch.object(gate.time, 'sleep') as sleep:
+                self.assertEqual(gate.get_json('request', gate.time.monotonic() + 60), {'jobs': []})
+                self.assertEqual(get.call_count, 2)
+                sleep.assert_called_once()
+                self.assertEqual(sleep.call_args.args[0], 3 if getattr(error, 'code', None) == 429 else 1)
+
+    def test_permanent_or_malformed_api_responses_are_not_retried(self):
+        for code in [401, 403, 404]:
+            error = urllib.error.HTTPError('https://api.test', code, 'permanent', {}, None)
+            with self.subTest(code=code), patch.object(gate.urllib.request, 'urlopen', side_effect=error) as get:
+                with self.assertRaises(urllib.error.HTTPError):
+                    gate.get_json('request', gate.time.monotonic() + 60)
+                self.assertEqual(get.call_count, 1)
+        with patch.object(gate.urllib.request, 'urlopen', return_value=io.StringIO('invalid')):
+            with self.assertRaises(ValueError):
+                gate.get_json('request', gate.time.monotonic() + 60)
+
+    def test_api_retry_exhaustion_and_deadline_fail_closed(self):
+        with patch.object(gate.urllib.request, 'urlopen', side_effect=urllib.error.URLError('offline')) as get, \
+                patch.object(gate.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(TimeoutError, 'refusing publication'):
+                gate.get_json('request', gate.time.monotonic() + 60)
+            self.assertEqual(get.call_count, 5)
+            self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2, 4, 8])
+        with patch.object(gate.urllib.request, 'urlopen') as get:
+            with self.assertRaises(TimeoutError):
+                gate.get_json('request', gate.time.monotonic() - 1)
+            get.assert_not_called()
+
     def test_only_the_requested_gate_can_authorize_publication(self):
         self.assertFalse(gate.gate_result([job()], 'Release publication permitted'))
         self.assertTrue(gate.gate_result([job(), job('Release publication permitted')], 'Release publication permitted'))
@@ -95,6 +133,20 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(jobs[name]['with']['wait_for_quality_gate'], '${{ !inputs.skip_quality_gate }}')
         self.assertNotIn('runs_on', workflow('ci.yml')['jobs']['quality-gate']['with'])
         self.assertEqual(workflow('quality-gate.yml')['on']['workflow_call']['inputs']['runs_on']['default'], '"ubuntu-24.04"')
+
+    def test_publication_requires_frontend_regressions_and_all_acceptance_lanes(self):
+        jobs = workflow('quality-gate.yml')['jobs']
+        final = jobs['passed']
+        self.assertIn('frontend-tests', final['needs'])
+        check = final['steps'][0]
+        self.assertEqual(check['env']['FRONTEND'], '${{ needs.frontend-tests.result }}')
+        self.assertIn('test "$FRONTEND" = success', check['run'])
+        self.assertEqual(jobs['frontend-tests']['strategy']['matrix']['shard'], ['1', '2'])
+        frontend = next(s for s in jobs['frontend-tests']['steps'] if s.get('name') == 'Run frontend regression tests')
+        self.assertIn('--test-shard=${{ matrix.shard }}/2', frontend['run'])
+        self.assertEqual(jobs['acceptance-tests']['strategy']['matrix']['lane'], ['desktop', 'phone-1', 'phone-2', 'phone-3'])
+        phone = next(s for s in jobs['acceptance-tests']['steps'] if s.get('name') == 'Run phone lane (route audit)')
+        self.assertIn('--shard="${LANE#phone-}/3"', phone['run'])
 
     def test_headless_workers_have_separate_capability_and_unique_docker_images(self):
         job = workflow('headless-package.yml')['jobs']['package']

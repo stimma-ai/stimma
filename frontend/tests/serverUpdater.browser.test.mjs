@@ -16,6 +16,7 @@ const buildResult = await build({
 const script = (Array.isArray(buildResult) ? buildResult : [buildResult]).flatMap(r => r.output).find(item => item.type === 'chunk').code
 
 const READY = { headless: true, version: '1.0.0', availableVersion: '1.1.0', status: 'ready', bootstrapVersion: '1', serverStartedAt: 10 }
+const settleNetwork = new WeakMap()
 
 /**
  * A connected client against a fake headless server. `server.status` is what
@@ -31,7 +32,28 @@ async function fixture(t, { desktop = false } = {}) {
   t.after(() => assert.deepEqual(errors, []))
   // `gate`, when set, holds status responses until it resolves.
   const server = { status: { ...READY }, statusRequests: 0, commands: [], sockets: new Set(), gate: null }
-  await page.clock.install()
+  const requests = new Set()
+  page.on('request', request => { if (request.url().includes('/api/')) requests.add(request) })
+  page.on('requestfinished', request => requests.delete(request))
+  page.on('requestfailed', request => requests.delete(request))
+  settleNetwork.set(page, async () => {
+    if (server.gate) return // This test deliberately holds a response open.
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
+      // Browser tasks also let fetch's JSON/continuations settle before the
+      // next virtual tick. A fixed 25 ms sleep races a busy CI runner.
+      await page.evaluate(() => Promise.resolve())
+      if (!requests.size) {
+        await page.evaluate(() => Promise.resolve())
+        if (!requests.size) return
+      }
+      await new Promise(resolve => setTimeout(resolve, 1))
+    }
+    assert.fail('fixture API requests did not settle before advancing time')
+  })
+  const epoch = new Date('2026-01-01T00:00:00Z')
+  await page.clock.install({ time: epoch })
+  await page.clock.pauseAt(epoch)
   await page.routeWebSocket(/\/ws(\?.*)?$/, ws => {
     server.sockets.add(ws)
     ws.onClose(() => server.sockets.delete(ws))
@@ -94,9 +116,14 @@ function setAppActive(page, active) {
 
 /** Advance virtual time in steps, letting each step's real network round trips settle. */
 async function advance(page, ms, step = Math.min(ms, ms >= 60_000 ? 10_000 : 1_000)) {
+  await settleNetwork.get(page)()
   for (let elapsed = 0; elapsed < ms; elapsed += step) {
-    await page.clock.runFor(Math.min(step, ms - elapsed))
-    await new Promise(resolve => setTimeout(resolve, 25))
+    const tick = Math.min(step, ms - elapsed)
+    // Long idle/backoff checks need elapsed time, not every animation frame
+    // and heartbeat along the way. Keep fine ticks for fast-poll assertions.
+    if (ms >= 60_000) await page.clock.fastForward(tick)
+    else await page.clock.runFor(tick)
+    await settleNetwork.get(page)()
   }
 }
 

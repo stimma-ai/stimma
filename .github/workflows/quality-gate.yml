@@ -122,14 +122,62 @@ jobs:
         if: always()
         run: python3 scripts/ci-test-scratch.py cleanup
 
+  frontend-tests:
+    name: Frontend regressions (${{ matrix.shard }}/2)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    # Keep the trusted eight-slot pool available for backend + acceptance.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-local-path: ~/.cache/uv
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: Install FFmpeg
+        timeout-minutes: 3
+        run: bash scripts/ci-install-ffmpeg.sh
+      - name: Install Playwright Chromium
+        timeout-minutes: 3
+        working-directory: frontend
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Run frontend regression tests
+        run: tools/stimma test frontend --test-shard=${{ matrix.shard }}/2
+      - name: Check unused frontend files
+        if: matrix.shard == 1
+        run: tools/stimma lint frontend-dead-code
+
   acceptance-tests:
     name: Acceptance tests (${{ matrix.lane }})
     strategy:
       fail-fast: false
       matrix:
-        lane: [desktop, phone-1, phone-2]
+        lane: [desktop, phone-1, phone-2, phone-3]
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
-    timeout-minutes: 35
+    timeout-minutes: ${{ inputs.acceptance_suite == 'full' && 35 || 12 }}
 
     steps:
       - name: Checkout
@@ -164,30 +212,18 @@ jobs:
         run: npm ci
 
       - name: Install FFmpeg
-        run: |
-          if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get -o Acquire::Retries=3 update
-            sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg
-          fi
-          ffmpeg -version
-          ffprobe -version
+        timeout-minutes: 3
+        run: bash scripts/ci-install-ffmpeg.sh
 
       - name: Install Playwright Chromium
+        timeout-minutes: 3
         working-directory: frontend
         run: |
           if [ "${STIMMA_PREPROVISIONED:-}" = "1" ]; then
-            npx playwright install chromium
+            npx --no-install playwright install chromium
           else
-            npx playwright install --with-deps chromium
+            npx --no-install playwright install --with-deps chromium
           fi
-
-      - name: Run frontend regression tests
-        if: matrix.lane == 'desktop'
-        run: tools/stimma test frontend
-
-      - name: Check unused frontend files
-        if: matrix.lane == 'desktop'
-        run: tools/stimma lint frontend-dead-code
 
       - name: Lint frontend (small-screen ratchet)
         run: tools/stimma lint frontend
@@ -207,7 +243,7 @@ jobs:
         if: matrix.lane != 'desktop'
         env:
           LANE: ${{ matrix.lane }}
-        run: tools/stimma test acceptance --viewport=phone --shard="${LANE#phone-}/2" --timeout=30000 --retries=0
+        run: tools/stimma test acceptance --viewport=phone --shard="${LANE#phone-}/3" --timeout=30000 --retries=0
 
       - name: Upload phone screenshots
         if: always()
@@ -237,13 +273,14 @@ jobs:
   passed:
     name: Quality gate passed
     if: always()
-    needs: [backend-tests, acceptance-tests, desktop-tests, release-cleanup-tests]
+    needs: [backend-tests, frontend-tests, acceptance-tests, desktop-tests, release-cleanup-tests]
     runs-on: ${{ fromJSON(inputs.runs_on || '"ubuntu-24.04"') }}
     steps:
       - name: Require every test shard
         env:
           BACKEND: ${{ needs.backend-tests.result }}
+          FRONTEND: ${{ needs.frontend-tests.result }}
           ACCEPTANCE: ${{ needs.acceptance-tests.result }}
           DESKTOP: ${{ needs.desktop-tests.result }}
           RELEASE_CLEANUP: ${{ needs.release-cleanup-tests.result }}
-        run: test "$BACKEND" = success && test "$ACCEPTANCE" = success && test "$DESKTOP" = success && test "$RELEASE_CLEANUP" = success
+        run: test "$BACKEND" = success && test "$FRONTEND" = success && test "$ACCEPTANCE" = success && test "$DESKTOP" = success && test "$RELEASE_CLEANUP" = success
