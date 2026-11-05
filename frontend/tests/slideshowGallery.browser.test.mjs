@@ -36,7 +36,7 @@ async function placed(page, index, last = 999) {
     return Math.abs(item.x + item.width / 2 - container.x - container.width / 2)
   }, { index, last })).toBeLessThan(2)
 }
-test('four markers fit at 320px; overflow is searchable, toggleable and dismissible', async t => {
+test('four markers fit at 320px; overflow is toggleable and dismissible', async t => {
   const page = await fixture(t, 320)
   assert.equal(await page.getByRole('button', { name: /^Marker / }).count(), 4)
   for (const b of await page.getByRole('button', { name: /^Marker / }).all()) {
