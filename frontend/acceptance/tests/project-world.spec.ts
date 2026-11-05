@@ -66,8 +66,8 @@ async function openTileMenu(page: Page, media: Media) {
   await expect(page.getByTestId('menu-group-send').filter({ visible: true })).toBeVisible();
 }
 
-/** Hovers a root menu group row (organize, send, explore) so its panel opens. */
-async function openMenuGroup(page: Page, group: 'organize' | 'send' | 'explore') {
+/** Hovers a root menu group row (send, explore) so its panel opens. */
+async function openMenuGroup(page: Page, group: 'send' | 'explore') {
   await page.getByTestId(`menu-group-${group}`).filter({ visible: true }).hover();
 }
 
@@ -147,7 +147,6 @@ test.describe('project world', () => {
 
     await page.goto(`/projects/${p.id}/assets`);
     await openTileMenu(page, media);
-    await openMenuGroup(page, 'organize');
     await page.getByRole('button', { name: 'Projects', exact: true }).filter({ visible: true }).hover();
     const rowP = page.getByRole('menuitemcheckbox', { name: new RegExp(p.name) });
     const rowQ = page.getByRole('menuitemcheckbox', { name: new RegExp(q.name) });
@@ -169,7 +168,6 @@ test.describe('project world', () => {
 
     await page.goto(`/projects/${p.id}/assets`);
     await openTileMenu(page, media);
-    await openMenuGroup(page, 'organize');
     await page.getByRole('button', { name: 'Remove from Project', exact: true }).filter({ visible: true }).click();
     await expect(tile(page, media)).toHaveCount(0, { timeout: 5000 });
     await expect.poll(() => projectsOf(page, media.id)).toEqual([]);

@@ -129,7 +129,7 @@ test.describe('working context', () => {
     await expect.poll(() => submitted?.project_id).toBe(project.id);
     await choose(page, 'Everything');
     await expect.poll(() => promptText(page)).toBe('Global tool draft');
-    await expect(sidebar(page).getByRole('button', { name: 'Test Text-to-Image', exact: true })).toHaveClass(/bg-selection/);
+    await expect(sidebar(page).getByRole('button', { name: 'Test Text-to-Image Test Provider', exact: true })).toHaveClass(/bg-selection/);
     expect(new URL(page.url()).searchParams.get('instance')).toBe(globalInstance);
     release();
     await waitFor(async () => {

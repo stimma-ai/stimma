@@ -153,31 +153,6 @@
           <span>{{ isMultiple ? `Tags (${targetCount} items)` : 'Tags' }}</span>
         </button>
 
-<button
-          v-if="groupedOrganize"
-          type="button"
-          data-testid="menu-group-organize"
-          @click.stop="openGroup('organize', $event)"
-          @mouseenter="!isCoarsePointer && openGroup('organize', $event)"
-          @mouseleave="closeSubmenuDelayed"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <Squares2X2Icon class="w-4 h-4 flex-shrink-0 text-content-tertiary" :stroke-width="1.75" />
-          <span class="flex-1">Boards and projects</span>
-          <ChevronRightIcon class="w-3 h-3 text-content-muted" :stroke-width="2" />
-        </button>
-
-        <Teleport to="body" :disabled="!groupedOrganize">
-        <div
-          v-if="!groupedOrganize || activeGroup === 'organize'"
-          ref="groupSheetRef"
-          v-show="!groupedOrganize || !isCoarsePointer || !activeSubmenu"
-          v-bind="groupBind(groupedOrganize)"
-        >
-          <template v-if="groupedOrganize && isCoarsePointer">
-            <button type="button" class="sheet-row flex-none" @click.stop="activeGroup = null"><span aria-hidden="true">‹</span> Back to actions</button>
-            <div class="sheet-section !text-xs !normal-case !tracking-normal !text-content-secondary" aria-hidden="true">Boards and projects</div>
-          </template>
 
         <!-- Boards -->
         <div
@@ -332,8 +307,6 @@
             <span>{{ isMultiple ? `Remove ${targetCount} from Board` : 'Remove from Board' }}</span>
           </button>
         </template>
-        </div>
-        </Teleport>
 
         <div class="border-t border-edge-subtle my-1"></div>
 
@@ -1106,14 +1079,13 @@ const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'pro
 // Touch sheets fold related destinations behind one named row (a second sheet,
 // and the destination's own list a third). Elsewhere the groups are transparent
 // wrappers and every row stays where it was.
-type MenuGroup = 'organize' | 'send' | 'explore' | 'share'
+type MenuGroup = 'send' | 'explore' | 'share'
 const activeGroup = ref<MenuGroup | null>(null)
 const groupSheetRef = ref<HTMLElement | null>(null)
 // On a desktop pointer the same groups are hover submenus beside the menu: a
 // group panel opens next to the root menu and its destinations (Boards,
 // Tool, Chat...) open as the usual submenus beside the panel.
 // Boards and Projects stay two rows of the root menu, each opening its own list.
-const groupedOrganize = computed(() => false)
 const groupedSend = computed(() => true)
 const groupedExplore = computed(() => exploreRowCount.value >= 2)
 const groupedShare = computed(() => isCoarsePointer.value || shareRowCount.value >= 2)
