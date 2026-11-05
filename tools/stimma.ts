@@ -625,6 +625,8 @@ Commands:
   test release-cleanup  Verify release retention and current-feed protection
   test release-pipeline  Verify release version planning and publication gates
   test frontend   Run all frontend unit and browser regression tests
+                  --file=tests/example.browser.test.mjs runs just that file
+                  --list lists matching files without starting tests
   test desktop    Build and test the Electron shell (--unit for unit tests only)
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --electron  Run the same lane inside the Electron shell (Tier B)
@@ -1820,10 +1822,19 @@ async function resetAcceptanceArtifacts(): Promise<void> {
 }
 
 async function testAcceptance(args: string[]): Promise<void> {
-  const backendPort = "19291";
-  const frontendPort = "19292";
+  const backendPort = Deno.env.get("STIMMA_ACCEPTANCE_BACKEND_PORT") || "19291";
+  const frontendPort = Deno.env.get("STIMMA_ACCEPTANCE_FRONTEND_PORT") || "19292";
+  for (const port of [backendPort, frontendPort]) {
+    if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+      throw new Error("Acceptance ports must be integers between 1 and 65535");
+    }
+  }
+  if (backendPort === frontendPort) throw new Error("Acceptance backend and frontend need different ports");
   const bundleId = "ai.stimma.stimma.acceptance-test";
-  const sandbox = "default";
+  const sandbox = Deno.env.get("STIMMA_ACCEPTANCE_SANDBOX") || "default";
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(sandbox)) {
+    throw new Error("Acceptance sandbox must contain only letters, numbers, hyphens and underscores");
+  }
 
   const noServer = args.includes("--no-server");
   const noReset = args.includes("--no-reset");

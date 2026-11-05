@@ -77,6 +77,9 @@ for (const phone of [false, true]) test(`file refs stage and round trip (${phone
     if (phone) await page.evaluate(() => window.fileRefsBack.compact())
     else await page.getByRole('button', { name: 'Hide preview panel', exact: true }).click()
     await expect.poll(() => page.evaluate(() => window.fileRefsTest.artifactStage.stageOpen.value)).toBe(false)
+    // The Vue leave transition outlives stageOpen. Finish closing the old
+    // viewer before opening another file in this content round-trip test.
+    await expect(page.getByRole('button', { name: 'Hide preview panel', exact: true, includeHidden: true })).toHaveCount(0)
   }
   await chip('resize_batch.py').click()
   await expect.poll(() => page.evaluate(() => window.fileRefsBack.enabled())).toBe(true)

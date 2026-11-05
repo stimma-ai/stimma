@@ -6,7 +6,7 @@
 // of them are serial before the shell is usable, and when optional
 // maintenance runs. STARTUP_REQUEST_REPORT=1 prints the request table.
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import test, { describe } from 'node:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -41,6 +41,9 @@ const fixed = {
   '/api/telemetry/track': {},
 }
 
+// Each case owns its browser context and fixture backend. Share the Vite
+// server, while overlapping independent startup/maintenance waits.
+describe('startup request budget', { concurrency: 3 }, () => {
 let server
 let browser
 test.before(async () => {
@@ -419,4 +422,6 @@ test('profile switches, server switches, and lock events invalidate the right sn
   const settings = backend.log.filter(r => r.path === '/api/settings').map(r => r.profileId)
   // Startup, then 'other' and 'main' again (switching away discards the old profile's snapshot), then after the lock.
   assert.deepEqual(settings, ['main', 'other', 'main', 'main'])
+})
+
 })

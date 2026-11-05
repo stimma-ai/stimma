@@ -28,6 +28,9 @@ async function sameToolTab(desktop: Page, phone: Page) {
 
 test.describe('two clients share one workspace', () => {
   test('a tool tab opened on one client appears on the other, without moving it', async ({ page: phone, browser }) => {
+    // This case cold-loads both app clients. The first ToolView transform
+    // alone has taken 19s on CI; leave room for both startups and assertions.
+    test.setTimeout(60000);
     const desktop = await openDesktopClient(browser);
     await phone.goto('/browse');
     await settleAnyViewport(phone);
