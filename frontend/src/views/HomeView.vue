@@ -144,7 +144,7 @@
             <div class="mb-2 flex items-center justify-between">
               <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
-            <div class="grid gap-3" :class="jumpColumns === 1 ? 'grid-cols-1' : jumpColumns === 2 ? 'grid-cols-2' : 'grid-cols-3'">
+            <div data-jump-grid class="grid" :class="jumpColumns === 1 ? 'grid-cols-1 divide-y divide-edge-subtle' : jumpColumns === 2 ? 'grid-cols-2 gap-3' : 'grid-cols-3 gap-3'">
               <button
                 v-for="item in jumpBackIn"
                 :key="`${item.type}-${item.id}`"
@@ -153,20 +153,20 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="group flex flex-col compact:flex-row rounded-media text-left bg-transparent transition-colors cursor-pointer"
-                :class="item.type === 'board' && dragOverBoardId === item.id
+                class="group flex min-w-0 w-full rounded-media text-left bg-transparent transition-colors cursor-pointer"
+                :class="[jumpColumns === 1 ? 'flex-row items-center gap-3 py-3 hover:bg-overlay-subtle' : 'flex-col max-w-[360px]', item.type === 'board' && dragOverBoardId === item.id
                   ? 'ring-1 ring-accent/50 bg-accent/10'
-                  : ''"
+                  : '']"
               >
                 <!-- Art -->
-                <div class="w-full h-28 compact:w-20 compact:h-auto compact:min-h-20 compact:shrink-0 overflow-hidden rounded-media transition-opacity group-hover:opacity-85" :class="jumpHasArt(item) ? 'bg-matte' : 'bg-surface-raised'">
+                <div data-jump-cover class="relative shrink-0 overflow-hidden rounded-media transition-opacity group-hover:opacity-85" :class="[jumpColumns === 1 ? 'w-20 h-20' : 'w-full aspect-[3/2]', jumpHasArt(item) ? 'bg-matte' : 'bg-surface-raised']">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
                        height, left-aligned on matte with 2px media-grid
                        gutters. Widths follow each item's aspect ratio so
                        sparse boards read as tiles on a shelf. -->
                   <div
                     v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0"
-                    class="h-full overflow-hidden p-0.5"
+                    class="absolute inset-0 overflow-hidden p-0.5"
                   >
                     <div class="flex h-full gap-0.5">
                       <div
@@ -181,14 +181,15 @@
                           :file-path="previewItem.file_path"
                           :file-format="previewItem.file_format"
                           :is-video="isVideoFormat(previewItem.file_format)"
-                          :thumbnail="true"
-                          :thumbnail-size="256"
+                          :thumbnail="jumpImageThumbnailSize(mediaIdOf(previewItem)) <= 1024"
+                          :thumbnail-size="jumpImageThumbnailSize(mediaIdOf(previewItem))"
+                          @load="rememberJumpAspect(mediaIdOf(previewItem), $event)"
                           thumbnail-mode="fit"
                           :object-position="faceObjectPosition(mediaIdOf(previewItem))"
                           :draggable="false"
                           :enable-context-menu="false"
                           background-class="bg-matte"
-                  container-class="w-full h-full"
+                          container-class="w-full h-full"
                           class="w-full h-full object-cover"
                         />
                       </div>
@@ -197,7 +198,7 @@
                   <!-- Flow: filmstrip of surfaced output media -->
                   <div
                     v-else-if="item.type === 'flow' && getFlowPreviewMedia(item.id).length > 0"
-                    class="flex w-full h-full gap-0.5"
+                    class="absolute inset-0 flex gap-0.5"
                   >
                     <div
                       v-for="media in getFlowPreviewMedia(item.id)"
@@ -207,53 +208,57 @@
                       <MediaImage
                         :media-id="media.media_id"
                         :file-hash="media.file_hash || undefined"
-                        :thumbnail="true"
-                        :thumbnail-size="256"
+                        :thumbnail="jumpImageThumbnailSize(media.media_id) <= 1024"
+                        :thumbnail-size="jumpImageThumbnailSize(media.media_id)"
+                        @load="rememberJumpAspect(media.media_id, $event)"
                         thumbnail-mode="fit"
                         :object-position="faceObjectPosition(media.media_id)"
                         :draggable="false"
                         :enable-context-menu="false"
                         background-class="bg-matte"
-                  container-class="w-full h-full"
+                        container-class="w-full h-full"
                         class="w-full h-full object-cover"
                       />
                     </div>
                   </div>
-                  <!-- Chat whose latest media is a set: drawn from its members -->
-                  <SetStackPreview
-                    v-else-if="item.type === 'chat' && hasChatMedia(item.chat) && chatCoverIsSet(item.chat)"
-                    :media-id="item.chat.recent_media[0].media_id"
-                    :thumbnail-size="256"
-                  />
-                  <!-- Chat: latest media as cover -->
-                  <MediaImage
-                    v-else-if="item.type === 'chat' && hasChatMedia(item.chat)"
-                    :media-id="item.chat.recent_media[0].media_id"
-                    :file-hash="item.chat.recent_media[0].file_hash"
-                    :thumbnail="true"
-                    :thumbnail-size="256"
-                    thumbnail-mode="fit"
-                    :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
-                    :draggable="false"
-                    :enable-context-menu="false"
-                    background-class="bg-matte"
-                  container-class="w-full h-full"
-                    class="w-full h-full object-cover"
-                  />
-                  <!-- No art: the raised tile with the type's glyph. The title stays below, as on every card. -->
-                  <div v-else class="flex h-full w-full items-center justify-center">
+                  <div v-else-if="item.type === 'chat' && hasChatMedia(item.chat)" class="absolute inset-0">
+                    <!-- Chat whose latest media is a set: drawn from its members -->
+                    <SetStackPreview
+                      v-if="chatCoverIsSet(item.chat)"
+                      :media-id="item.chat.recent_media[0].media_id"
+                      :thumbnail-size="jumpThumbnailSize"
+                    />
+                    <!-- Chat: latest media as cover -->
+                    <MediaImage
+                      v-else
+                      :media-id="item.chat.recent_media[0].media_id"
+                      :file-hash="item.chat.recent_media[0].file_hash"
+                      :thumbnail="jumpImageThumbnailSize(item.chat.recent_media[0].media_id) <= 1024"
+                      :thumbnail-size="jumpImageThumbnailSize(item.chat.recent_media[0].media_id)"
+                      @load="rememberJumpAspect(item.chat.recent_media[0].media_id, $event)"
+                      thumbnail-mode="fit"
+                      :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
+                      :draggable="false"
+                      :enable-context-menu="false"
+                      background-class="bg-matte"
+                      container-class="w-full h-full"
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                  <!-- No art: the raised tile with the type's glyph. -->
+                  <div v-if="!jumpHasArt(item)" class="absolute inset-0 flex items-center justify-center">
                     <EntityIcon :type="item.type" size="md" class="!h-5 !w-5 !border-0 !bg-transparent !text-content-tertiary" />
                   </div>
                 </div>
                 <!-- Body -->
-                <div class="px-0 py-3 compact:px-3.5 compact:py-2.5 compact:flex-1 compact:min-w-0 compact:self-center">
-                  <!-- On compact the type label rides the preview line instead of costing a line of its own. -->
-                                    <div v-if="jumpKindsMixed" class="text-[11px] text-content-muted compact:hidden">{{ jumpKindLabel(item) }}</div>
-                  <div class="text-sm font-medium truncate compact:whitespace-normal compact:line-clamp-2 mt-1 compact:mt-0" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpKindsMixed ? '' : '!mt-0']">
+                <div class="min-w-0" :class="jumpColumns === 1 ? 'flex-1' : 'w-full py-3'">
+                  <!-- In a row the type label rides the preview line instead of costing a line of its own. -->
+                  <div v-if="jumpKindsMixed && jumpColumns > 1" class="text-[11px] text-content-muted">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-sm font-medium" :class="[item.name ? 'text-content' : 'text-content-muted italic', jumpColumns === 1 ? 'line-clamp-2' : 'truncate', jumpKindsMixed && jumpColumns > 1 ? 'mt-1' : '']">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
                   <div class="flex items-baseline gap-1.5 min-w-0 mt-0.5">
-                    <span v-if="jumpKindsMixed" class="hidden compact:inline shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
+                    <span v-if="jumpKindsMixed && jumpColumns === 1" class="shrink-0 text-[11px] text-content-muted">{{ jumpKindLabel(item) }}<span class="ml-1.5" aria-hidden="true">·</span></span>
                     <FlowStatusPill
                       v-if="item.type === 'flow'"
                       :flow-id="item.id"
@@ -321,7 +326,7 @@ import { fetchScopedJson } from '../utils/scopedList'
 import { fetchHomeRecents } from '../utils/homeRecents'
 import { tileColumns } from '../utils/tileGrid'
 import { useViewport } from '../composables/useViewport'
-import { ref, computed, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onActivated, onDeactivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
@@ -434,15 +439,34 @@ const dragOverBoardId = ref(null)
 const contentWidth = ref(840)
 
 const isCompact = computed(() => contentWidth.value < 700)
-// "Jump back in" columns follow what the card text needs, not the layout tier:
-// a card wants about 280px (an 80px cover plus a title that wraps to two lines
-// and a preview), so a phone gets single-column rows, a fold two columns and
-// a desktop pane three.
+// Measure the available column, independently of the viewport/sidebar tier.
 const JUMP_CARD_MIN = 264
-const jumpColumns = computed(() => {
-  const w = contentWidth.value
-  return Math.min(3, Math.max(1, Math.floor((w + 12) / (JUMP_CARD_MIN + 12))))
-})
+const JUMP_CARD_MAX = 360
+const jumpColumns = computed(() => Math.min(3, Math.max(1,
+  Math.floor((contentWidth.value + 12) / (JUMP_CARD_MIN + 12)))))
+const jumpCoverWidth = computed(() => jumpColumns.value === 1 ? 80
+  : Math.min(JUMP_CARD_MAX, (contentWidth.value - (jumpColumns.value - 1) * 12) / jumpColumns.value))
+const pixelRatio = ref(window.devicePixelRatio || 1)
+const jumpThumbnailSize = computed(() => Math.ceil(jumpCoverWidth.value * pixelRatio.value))
+// Fit thumbnails preserve the whole source. Their *long* edge must also
+// cover the short edge of our crop; learn the source ratio from the image
+// itself without another metadata read. Use the original above the API's
+// 1024px thumbnail limit rather than requesting an invalid size.
+const jumpSourceAspects = ref(new Map())
+function rememberJumpAspect(id, event) {
+  const image = event.target
+  if (!image?.naturalWidth || !image.naturalHeight) return
+  const ratio = image.naturalWidth / image.naturalHeight
+  if (Math.abs((jumpSourceAspects.value.get(id) || 0) - ratio) > 0.01) {
+    jumpSourceAspects.value = new Map(jumpSourceAspects.value).set(id, ratio)
+  }
+}
+function jumpImageThumbnailSize(id) {
+  const width = jumpCoverWidth.value
+  const height = jumpColumns.value === 1 ? 80 : width * 2 / 3
+  const ratio = jumpSourceAspects.value.get(id) || 1
+  return Math.ceil(Math.max(width, height, height * ratio, width / ratio) * pixelRatio.value)
+}
 // With recents below, the hero sits at the top offset; alone, it centres in the spare height.
 const hasBelowHero = computed(() => recentMedia.value.length > 0 || jumpBackIn.value.length > 0)
 
@@ -691,16 +715,22 @@ watch([contentWidth, mediaColumns, heroReady, () => recentMedia.value.length, ()
 
 let resizeObserver = null
 
+function measureContent() {
+  const width = contentRef.value?.getBoundingClientRect().width
+  // A cached/detached Home has no layout. Keep its last usable measurement.
+  if (width > 0) contentWidth.value = width
+  pixelRatio.value = window.devicePixelRatio || 1
+  measureFillRows()
+}
+
 function setupResizeObserver() {
-  if (resizeObserver || !contentRef.value) return
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      contentWidth.value = entry.contentRect.width
-    }
-  })
+  cleanupResizeObserver()
+  if (!active || !contentRef.value) return
+  measureContent()
+  resizeObserver = new ResizeObserver(measureContent)
   resizeObserver.observe(contentRef.value)
   if (scrollerRef.value) {
-    scrollerObserver = new ResizeObserver(() => measureFillRows())
+    scrollerObserver = new ResizeObserver(measureContent)
     scrollerObserver.observe(scrollerRef.value)
   }
 }
@@ -708,10 +738,14 @@ function setupResizeObserver() {
 function cleanupResizeObserver() {
   scrollerObserver?.disconnect()
   scrollerObserver = null
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
+  resizeObserver?.disconnect()
+  resizeObserver = null
+}
+
+// Slideshow replaces the v-else subtree; observe its new elements on return.
+watch([contentRef, scrollerRef], setupResizeObserver, { flush: 'post' })
+function handleVisibilityChange() {
+  if (active && document.visibilityState === 'visible') void nextTick(measureContent)
 }
 
 // ==================== Data loading ====================
@@ -1139,17 +1173,11 @@ function getBoardPreviewItems(board) {
     .slice(0, 6)
 }
 
-// Tile width is computed from the item's aspect ratio against the fixed strip
-// height (h-28 card art minus py-2 padding = 6rem). aspect-ratio CSS can't be
-// used here: in a flex row the width resolves before the stretched height, so
-// the tile collapses. Wide panoramas are capped at 16:9, object-cover crops.
+// Natural-aspect board tiles follow the cover height, including compact rows.
 function getPreviewTileStyle(item) {
-  const width = Math.max(item?.width || 1, 1)
-  const height = Math.max(item?.height || 1, 1)
-  const ratio = Math.min(width / height, 16 / 9)
-  return {
-    width: `${(6 * ratio).toFixed(3)}rem`
-  }
+  const ratio = Math.min(Math.max(item?.width || 1, 1) / Math.max(item?.height || 1, 1), 16 / 9)
+  const height = jumpColumns.value === 1 ? 80 : jumpCoverWidth.value * 2 / 3
+  return { width: `${(height - 4) * ratio}px` }
 }
 
 function isVideoFormat(fileFormat) {
@@ -1271,7 +1299,7 @@ let active = false
 function activate() {
   if (active) return
   active = true
-  setupResizeObserver()
+  void nextTick(setupResizeObserver)
   void refreshHome()
   void loadTools()
   recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
@@ -1327,12 +1355,15 @@ onMounted(() => {
   for (const event of HOME_LOCAL_CHANGE_EVENTS) window.addEventListener(event, invalidateHome)
   window.addEventListener('stimma:transport-resumed', invalidateHome)
   window.addEventListener('profile-changed', handleProfileChanged)
+  window.addEventListener('resize', measureContent)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onActivated(activate)
 
 onDeactivated(() => {
   active = false
+  cleanupResizeObserver()
 })
 
 onUnmounted(() => {
@@ -1348,5 +1379,7 @@ onUnmounted(() => {
   if (heroTimer) clearTimeout(heroTimer)
   heroTimer = null
   window.removeEventListener('profile-changed', handleProfileChanged)
+  window.removeEventListener('resize', measureContent)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
