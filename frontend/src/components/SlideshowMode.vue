@@ -849,7 +849,6 @@
                 :has-alpha="item.has_alpha"
                 container-class="w-full h-full rounded-media overflow-hidden"
                 img-class="w-full h-full object-cover"
-                @error="handleThumbnailError($event, item, index)"
               />
             </div>
             <!-- Marker badges -->
@@ -2192,7 +2191,9 @@ const currentItem = computed(() => {
   if (props.autoAdvanceOnNew && displayItem.value) {
     return displayItem.value
   }
-  return baseCurrentItem.value
+  // The media stays visible while a provider reloads or remaps its cache. Keep
+  // its info and actions available for that same interval, too.
+  return baseCurrentItem.value || displayItem.value
 })
 const currentAssetId = computed(() => (
   currentItem.value && hasAssetIdentity(currentItem.value)
@@ -3774,39 +3775,8 @@ const effectiveIndex = computed(() => {
   return currentIndex.value
 })
 
-// Handle thumbnail loading errors with retry
-const thumbnailRetries = ref(new Map())
-async function handleThumbnailError(event, item, index) {
-  const retryKey = `${index}-${item.file_hash}`
-  const retryCount = thumbnailRetries.value.get(retryKey) || 0
-
-  if (retryCount < 3) {
-    // Retry after a delay
-    thumbnailRetries.value.set(retryKey, retryCount + 1)
-    setTimeout(async () => {
-      // Clear the cached item and reload it
-      const actualIndex = getActualIndex(index)
-      itemsCache.value.delete(actualIndex)
-
-      // Clear the page from loading cache to allow re-fetch
-      const pageNumber = Math.floor(actualIndex / 50)
-      loadingPages.value.delete(pageNumber)
-
-      // Reload the item
-      await ensureItemLoaded(actualIndex)
-
-      // Force re-render
-      if (event.target) {
-        const reloadedItem = itemsCache.value.get(actualIndex)
-        if (reloadedItem?.file_hash) {
-          event.target.src = `${getThumbnailUrl(reloadedItem.file_hash, 256)}&t=${Date.now()}`
-        }
-      }
-    }, 1000 * (retryCount + 1)) // Exponential backoff: 1s, 2s, 3s
-  } else {
-    console.error(`Failed to load thumbnail for index ${index} after 3 retries`)
-  }
-}
+// MediaImage owns thumbnail retries. A failed thumbnail must never evict the
+// media record used by the viewer's info panel and marker controls.
 
 // Slideshow controls
 // Telemetry: slideshow_control_used — closed enum pinned to the actual

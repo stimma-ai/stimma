@@ -8,13 +8,32 @@ import '../../src/style.css'
 const show = ref(false), index = ref(0)
 const grid: string[] = []
 const items = [1, 2, 3].map(id => ({ id, file_format: 'png', file_hash: `image-${id}`, width: 32, height: 32 }))
-Object.assign(window, { slideshowKeys: { grid, modal: () => { show.value = true } } })
+const chatMode = Boolean((window as any).slideshowChatTest)
+const liveIds = ref(['progress:22'])
+const video = { id: 22, file_format: 'mp4', file_hash: 'finished-video', width: 32, height: 32 }
+let pendingPage: Promise<void> | null = null
+let releasePage: (() => void) | null = null
+const pageProvider = async () => {
+  if (pendingPage) await pendingPage
+  return [{ ...video, _slideshowItemKey: liveIds.value[0] }]
+}
+Object.assign(window, { slideshowKeys: {
+  grid, modal: () => { show.value = true },
+  refreshChat: () => {
+    pendingPage = new Promise(resolve => { releasePage = resolve })
+    liveIds.value = ['output:22']
+  },
+  finishRefresh: () => { releasePage?.(); pendingPage = null },
+} })
 const app = createApp({
   setup() {
     useGlobalKeyboardShortcuts({ onKeydown: (event: KeyboardEvent) => { grid.push(event.key) } })
     return () => h('div', [
       h('output', { 'data-current-index': '' }, String(index.value)),
-      h(SlideshowMode, { items, 'onUpdate:index': (value: number) => { index.value = value } }),
+      h(SlideshowMode, {
+        ...(chatMode ? { totalCount: 1, liveItemIds: liveIds.value, pageProvider } : { items }),
+        'onUpdate:index': (value: number) => { index.value = value },
+      }),
       h(Modal, { show: show.value, onClose: () => { show.value = false } }, () => h('button', {}, 'Modal action')),
     ])
   },
