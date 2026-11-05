@@ -165,4 +165,9 @@ test('chat videos preview silently on hover and play on click', async ({ page },
   await toolbar.getByRole('button', { name: 'Add to message' }).click();
   await expect(toolbar.getByRole('button', { name: 'In message' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('chat-video.png') });
+  await hero.locator('[data-video-surface]').click();
+  await expect(page.locator('video[data-gallery-picture]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('video[data-gallery-picture]')).toHaveCount(0);
+  await expect(toolbar).toBeVisible();
 });
