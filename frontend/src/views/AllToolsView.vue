@@ -246,7 +246,7 @@
            with one variant is one row. Facts every tool in a section shares
            (provider, "open weights") sit once on the section header. Two
            columns once the page is wide enough; one row height for one-line
-           rows, one for two-line rows, one larger gap between families. -->
+           rows, one for two-line rows, one gap between families that is clearly larger than the (zero) gap between a family's own rows. -->
       <div v-else class="@container">
         <div class="mx-auto max-w-[44rem] px-page @[60rem]:max-w-none @[60rem]:columns-2 @[60rem]:gap-x-12">
           <section v-for="group in toolSections" :key="group.taskType" class="mb-section break-inside-avoid">
@@ -270,7 +270,7 @@
             <div
               v-for="family in group.families"
               :key="family.key"
-              class="pb-3 last:pb-0"
+              class="pb-5 last:pb-0"
             >
               <ToolRow
                 v-if="family.rows.length > 1"
@@ -602,7 +602,7 @@ const availableProviders = computed(() => {
 
 const providerFilterLabel = computed(() => {
   if (activeProviderFilters.value.size === 0) {
-    return isCompact.value ? 'All providers' : 'All Providers'
+    return 'All providers'
   }
   // Get names of selected providers
   const selectedNames = [...activeProviderFilters.value]

@@ -80,7 +80,7 @@
             </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
-            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:mt-3 compact:flex-nowrap compact:gap-1.5 compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div v-if="!showToolHero && !isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-start gap-2 mt-4 compact:mt-2 compact:-mx-page compact:px-page compact:scroll-px-page compact:flex-nowrap compact:gap-1.5 compact:overflow-x-auto compact:overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
@@ -89,8 +89,8 @@
                 :title="tool.name"
               >
                 <div class="w-5 h-5 compact:w-4 compact:h-4 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
-                <span class="text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-[128px] truncate">{{ tool.name }}</span>
-                <span class="text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+                <span class="whitespace-nowrap text-[13px] compact:text-[12px] font-medium text-content max-w-[180px] compact:max-w-none truncate">{{ tool.name }}</span>
+                <span class="whitespace-nowrap text-[11px] compact:text-[10px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
               </button>
               <router-link
                 :to="contextRoute('all-tools', projectId)"

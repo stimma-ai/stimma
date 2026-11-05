@@ -130,8 +130,19 @@
             </div>
             <div v-if="!(loneSection && loneSection.id === section.id)" class="flex flex-none items-center gap-1">
               <span class="whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ assetCountLabel(section) }}</span>
-              <!-- Tertiary: the view's one primary add is in the page header (desktop). -->
-              <button v-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
+              <!-- The view's one primary add: a phone board with a single section has no page header, so it is the filled glyph here. -->
+              <button
+                v-if="compactAddSection && compactAddSection.id === section.id"
+                type="button"
+                :class="[compactIconButton, compactPrimaryCreate, '!ml-0 !mr-0']"
+                aria-label="Add assets"
+                title="Add assets"
+                @click="addAssetsSection = section.id"
+              >
+                <PlusIcon :class="compactIcon" />
+              </button>
+              <!-- Tertiary: a section's own add; the view's one primary is in the page header (desktop). -->
+              <button v-else-if="!isCompact || (section.items || []).length" class="-mr-2 compact:-mr-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content compact:min-h-11 compact:min-w-11" @click="addAssetsSection = section.id">Add assets</button>
             </div>
           </div>
 
@@ -146,7 +157,7 @@
               v-if="!(layoutRows[section.id] || []).length"
               class="flex h-[116px] items-center justify-center text-xs text-content-muted"
             >
-              <button v-if="isCompact" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
+              <button v-if="isCompact && !compactAddSection" class="min-h-11 px-4 text-accent-hi" @click="addAssetsSection = section.id">Add assets</button>
               <span v-else>Drop assets here</span>
             </div>
             <div class="space-y-0.5">
@@ -371,6 +382,7 @@ import Sheet from '../components/ui/Sheet.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import OverflowButton from '../components/ui/OverflowButton.vue'
 import { PencilIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { compactIcon, compactIconButton, compactPrimaryCreate } from '../components/compact/headerStyles'
 import Button from '../components/ui/Button.vue'
 import ProjectPickerSubmenu from '../components/ProjectPickerSubmenu.vue'
 import { useEntityMove } from '../composables/useEntityMove'
@@ -634,6 +646,8 @@ const loneSection = computed(() => {
   const sections = displaySections.value
   return sections.length === 1 && !sections[0].name ? sections[0] : null
 })
+// A phone board with one section: that section's add is the board's add.
+const compactAddSection = computed(() => (isCompact.value && displaySections.value.length === 1 ? displaySections.value[0] : null))
 function assetCountLabel(section) {
   const n = (section.items || []).length
   return `${n} ${n === 1 ? 'asset' : 'assets'}`

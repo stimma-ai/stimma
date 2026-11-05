@@ -373,9 +373,9 @@ body {
   --strip-gutter: 8px;        /* strip edge to the first tile; room for the ring */
 }
 :root[data-viewport="compact"] {
-  --hub-top: 24px;
-  --hub-hero-gap: 20px;
-  --hub-content-gap: 32px;
+  --hub-top: 16px;
+  --hub-hero-gap: 16px;
+  --hub-content-gap: 24px;
   --hub-hero-size: 24px;
 }
 :root[data-width="medium"] {

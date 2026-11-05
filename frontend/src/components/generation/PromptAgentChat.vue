@@ -259,12 +259,28 @@
       </div>
     </div>
 
-    <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
-    <!-- Subordinate to the generation prompt: fill-only (no border), and on wide
-         screens one compact row at rest — the sparkle names the purpose, the
-         field grows with its text, the tools sit beside it. -->
-    <div class="bg-overlay-subtle rounded-lg overflow-hidden md:flex md:items-center md:gap-1 md:pl-3">
-      <span class="hidden md:inline-flex flex-none items-center gap-1.5 text-accent-hi">
+    <!-- Feedback input box, in the shared composer grammar (ChatInputBox): one
+         fill, no hairline. At rest on wide screens it is one row: Agent label,
+         an uninterrupted text field, a quiet utilities group and Send at the
+         trailing edge. Focus or text opens it into the composer shape: the
+         field on its own full-width row, the controls row beneath (label at the
+         left, utilities and Send at the trailing edge). Undo and redo only
+         show at rest while there is something to undo. -->
+    <div
+      ref="dockEl"
+      class="grid grid-cols-[1fr_auto] [grid-template-areas:'text_text'_'utils_send'] bg-field rounded-lg overflow-hidden transition-shadow duration-150 md:grid-cols-[auto_1fr_auto_auto] md:items-center"
+      :class="[
+        dockOpen
+          ? `md:[grid-template-areas:'text_text_text_text'_'label_._utils_send']`
+          : `md:[grid-template-areas:'label_text_utils_send']`,
+        dockFocused ? 'ring-1 ring-accent/40' : '',
+      ]"
+      data-testid="agent-dock"
+      :data-state="dockOpen ? 'open' : 'rest'"
+      @focusin="dockFocused = true"
+      @focusout="onDockFocusOut"
+    >
+      <span class="hidden md:inline-flex [grid-area:label] items-center gap-1.5 text-accent-hi" :class="dockOpen ? 'md:pl-4 md:pb-2' : 'md:pl-3'">
         <AgentIcon class="h-icon-nav w-icon-nav" />
         <span class="text-ctl font-medium">Agent</span>
       </span>
@@ -280,12 +296,13 @@
         @keydown="voiceBtn?.handleInputKeydown($event)"
         @keyup="voiceBtn?.handleInputKeyup($event)"
         :placeholder="inputPlaceholder"
-        class="w-full bg-transparent text-content text-sm px-4 pt-3 pb-1 md:flex-1 md:min-w-0 md:px-1 md:py-2.5 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
+        class="[grid-area:text] w-full min-w-0 bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans resize-none block max-h-40 overflow-y-auto"
+        :class="dockOpen ? 'md:pt-3 md:pb-1 md:px-4' : 'md:px-2 md:py-2.5'"
       />
 
-      <!-- Action bar: undo/redo/settings lower-left, send lower-right -->
-      <div class="flex items-center justify-between px-2.5 pb-2 pt-2 md:flex-none md:gap-1 md:p-1.5">
-        <div class="flex items-center gap-0.5">
+      <!-- Utilities, grouped at the trailing edge -->
+      <div class="[grid-area:utils] flex items-center gap-0.5 pl-2.5 pb-2 pt-2" :class="dockOpen ? 'md:pb-2 md:pt-0 md:pl-0' : 'md:p-0 md:pr-1'">
+        <template v-if="dockOpen || canUndo() || canRedo()">
           <button
             @click="undo"
             :disabled="!canUndo()"
@@ -302,28 +319,30 @@
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
-          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
-          <!-- Agent settings (Instructions) — expands the drawer above. -->
-          <button
-            v-if="agent"
-            @click="showSettings = !showSettings"
-            class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-light'"
-            title="Agent settings — Instructions"
-          >
-            <WrenchIcon class="w-4 h-4" />
-          </button>
-          <!-- Active skills — skills targeting this tool feed the agent automatically. -->
-          <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
-        </div>
-
-        <SendButton
-          :icon="feedbackBusy() ? 'stop' : 'send'"
-          :disabled="feedbackBusy() || !feedbackText.trim()"
-          :title="feedbackBusy() ? 'Working…' : 'Send'"
-          @click="enhance"
-        />
+        </template>
+        <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
+        <!-- Agent settings (Instructions) — expands the drawer above. -->
+        <button
+          v-if="agent"
+          @click="showSettings = !showSettings"
+          class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+          :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-light'"
+          title="Agent settings — Instructions"
+        >
+          <WrenchIcon class="w-4 h-4" />
+        </button>
+        <!-- Active skills — skills targeting this tool feed the agent automatically. -->
+        <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
       </div>
+
+      <SendButton
+        class="[grid-area:send] mr-2.5 mb-2 mt-2"
+        :class="dockOpen ? 'md:mt-0' : 'md:my-0 md:mr-1.5'"
+        :icon="feedbackBusy() ? 'stop' : 'send'"
+        :disabled="feedbackBusy() || !feedbackText.trim()"
+        :title="feedbackBusy() ? 'Working…' : 'Send'"
+        @click="enhance"
+      />
     </div>
 
     <div v-if="error" class="mt-2 flex items-center gap-2">
@@ -771,6 +790,14 @@ function prettyArgs(args: string): string {
 
 // Refs
 const feedbackInput = ref<HTMLTextAreaElement | null>(null)
+// The dock opens into the composer shape while it holds focus or text.
+const dockEl = ref<HTMLElement | null>(null)
+const dockFocused = ref(false)
+const dockOpen = computed(() => dockFocused.value || feedbackText.value.length > 0)
+function onDockFocusOut(e: FocusEvent) {
+  const next = e.relatedTarget as Node | null
+  if (!next || !dockEl.value?.contains(next)) dockFocused.value = false
+}
 const voiceBtn = ref<any>(null)
 
 // State

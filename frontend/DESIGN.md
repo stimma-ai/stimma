@@ -560,7 +560,8 @@ that a desktop-sized window never trips.
   The strip and a slice of the hero stay visible at every
   height. Only the prompt is pinned; resolution is the first control under
   it, and the output settings (auto-markers, auto-delete) live in the sheet
-  Run's long-press opens, with a dot on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
+  Run's long-press opens. Compact shows their state in words on a New outputs row in
+  the controls (tap opens that sheet) and a small settings glyph on Run while either is on. Roomy: no drawer. Controls on the left; on the right the hero, with
   the same sideways strip of results as the phone (taller) directly under its
   action band as one media unit. A wrap of results scrolling under the hero read as a second
   scroll region. The agent is opt-in: the header's agent
@@ -579,6 +580,7 @@ that a desktop-sized window never trips.
 - **Browse toolbar.** Upload is the toolbar's one create action and the
   view's one primary (solid accent, glyph only on compact), at the right end
   of the filter strip, never a floating button over the grid.
+- **Composite previews.** Set and grid covers are baked server-side on the matte (`set_bg`/`grid_bg` in `THEME_PALETTES` equal the matte token values: #07080a dark, #eae9e6 light), so the tile shows no second frame. Change a matte value and the palette together, and bump the container's `CONTAINER_PREVIEW_VERSIONS` entry so cached previews rebake.
 - **Media grids.** Square tiles, 2px gutters, on matte; `rounded-media` and
   the selection ring unchanged. Tap = open, long-press = select. Column count
   follows the pane's width, never the layout tier (see Tile grids, §3).
@@ -748,9 +750,15 @@ Until a kit component exists, new code uses these exact patterns:
 - **Collection row** (`lists/CollectionRow.vue`; chats, flows): thumbnail,
   content column (title, one-line preview), a fixed right-aligned facts column
   (a status, or message and image counts in two fixed cells), then the date.
-  Rows run the pane's full width, so the date ends on the header controls'
-  right edge; the hover tint runs full bleed (press steps it once more) and
-  the preview truncates before any fact. Narrow (< 600) gives the name first
+  Rows run the pane's full width so the hover tint is full bleed (press steps
+  it once more), but their content stops at the list measure (56rem,
+  `lists/listMeasure.ts`) and sits centred in it on a broad pane; the page
+  header pads itself to the same measure, so the title, the header controls,
+  the thumbnails and the date column share two edges. Below 56rem plus margins
+  the measure is the page margin. The preview truncates before any fact. Height
+  follows content: padding above the title and after the last line, a small
+  gap between a record's lines, a clearly larger one between records (the
+  facts on a phone never sit near the next record's name). Narrow (< 600) gives the name first
   claim on width: it shares its line only with a bounded date, the preview
   takes the next line and the facts sit together beneath, both counts for a
   chat. A flow row shows no extra output strip; its thumbnail is the first
@@ -760,14 +768,18 @@ Until a kit component exists, new code uses these exact patterns:
   turn" is accent and semibold, a failure is red. The word shows at every width.
 - **Row thumbnail** (`lists/RowThumb.vue`): a 40px square on the matte when
   there is art. A set shows its cover (the top card of its stack, cropped to
-  fill), a vector draws the document on the transparency checker (it never
-  waits on a raster renderer), and anything else uses its thumbnail. With no
+  fill), transparent art (a vector, or a file with an alpha channel) is drawn
+  whole on the transparency checker (a vector never waits on a raster
+  renderer) and optically sized: its opaque bounds are measured on load and the
+  art is centred and enlarged to fill the slot, by at most 1.6x, so a sticker
+  with empty margin does not read as a tiny mark beside a photo. Anything else
+  uses its thumbnail. With no
   art, or art that will not load, the slot holds the type's glyph alone at half
   strength: no box, no tile.
 - **Tools list** (All tools; `lists/ToolRow.vue`): inside a task section a tool
-  family is a header row (task glyph at nav size, the family name, and the facts
-  all its variants share) with its variants as rows indented to the name's edge,
-  each led by a distinguishing label at primary contrast: the unmarked one is
+  family is a header row (task glyph at nav size, the family name in semibold,
+  and the facts all its variants share) with its variants as rows indented one
+  step past the name, in regular weight, each led by a distinguishing label at primary contrast: the unmarked one is
   "Standard", the lightning mark becomes the label of its speed badge ("Fast",
   "Turbo 4-step"), a parenthetical in the name is kept. Variants that still
   match are told apart by their full name, then by tool id (mono). A family with
@@ -776,7 +788,7 @@ Until a kit component exists, new code uses these exact patterns:
   facts); names never wrap. Facts sit beside the name they qualify (beneath it
   when narrow), neutral tertiary text, at most three with `+N`; "fast" is just a
   fact, never accent. Facts a whole section shares sit once on the section
-  header's right. One gap between families, a larger one between sections. A
+  header's right. Between families the gap is 20px and inside a family it is none; sections are further apart still. A
   tool row is a target: hover and press tint, and a chevron (the options button
   replaces it on a user's own tool). A container wide enough (60rem) lays
   sections in two columns, never splitting a section; rows there hover as
@@ -936,8 +948,11 @@ button; no separate stepper in the bar.
 
 **Desktop ownership:** the controls column carries no box (no border, no
 fill): the generation prompt is its first block and the only tall field. The
-agent dock beneath is one compact fill-only row at rest (sparkle, the
-placeholder, tools and send), subordinate to the prompt. Schema-supplied
+agent dock beneath is the shared composer shape on `bg-field`: at rest one row
+(Agent label, an uninterrupted text field, tools and send at the trailing edge;
+undo and redo appear only when there is something to undo). Focus or text opens
+it into the composer layout: the field on its own full-width row, the controls
+row beneath, label at the left and tools plus send at the trailing edge. Schema-supplied
 labels are rendered in sentence case at display time
 (`components/generation/displayLabel.ts`); the data is unchanged.
 
@@ -1247,8 +1262,8 @@ the media menu stay in one place.
   (bubble fill, step chevron and artwork card line up) and keeps its own cap on
   the right. On a phone the column sits on `--page-margin`.
 - **Home and project overview share one spacing scale** (the `--hub-*` tokens in
-  style.css): top offset 80px (24px on compact), hero to composer 32px (20px),
-  composer to content 56px (32px), hero size 32px (24px). Hero, composer, tool
+  style.css): top offset 80px (16px on compact), hero to composer 32px (16px),
+  composer to content 56px (24px), hero size 32px (24px). Hero, composer, tool
   shortcuts, section headings and recent work share one 840px column
   (`--hub-column`); nothing on the page starts further left than the composer.
   Media on the page (recent assets, project art, jump-back covers, flow output

@@ -99,6 +99,16 @@ const activeIsGrid = computed(() => {
 // artwork. A composite there gets a band above and below for them instead.
 // A single result with a title carries its count and menu in that title row, so
 // its picture needs no band of its own above it.
+// A set's stack sits in a square with an even margin around the pile (about 8.5%
+// of the square). The margin above the pile is dead space, so a lone set's hero
+// is trimmed by all but a hairline of it and the square is drawn that much
+// higher (a negative top gutter), which keeps the artwork the same size.
+const activeIsSet = computed(() => {
+  const format = mediaState.value[activeMediaId.value]?.file_format || activeRow.value?.output?.file_format
+  return !!format && getMediaType({ file_format: format }) === 'set'
+})
+const STACK_MARGIN = 0.085
+const STACK_KEEP = 12
 const HERO_GUTTER_TOP = 40
 const HERO_GUTTER_BOTTOM = 48
 const heroGutters = computed(() => activeIsComposite.value && isCompact.value && width.value > 0 && width.value < 560)
@@ -106,15 +116,26 @@ const heroGutters = computed(() => activeIsComposite.value && isCompact.value &&
 const factsTop = computed(() => width.value > 0 && width.value < 560)
 const hostsHeroMenu = computed(() => isSingle.value && hasHeader.value && !!activeMediaId.value)
 const topBand = computed(() => heroGutters.value && (!hostsHeroMenu.value || !!heroFacts.value))
-const gutterTop = computed(() => (topBand.value ? HERO_GUTTER_TOP : 0))
-const gutterBottom = computed(() => (heroGutters.value ? HERO_GUTTER_BOTTOM : 0))
+const heroSquare = computed(() => Math.min(width.value || 560, Math.max(200, Math.round(chatHeight.value * 0.7) - gutterBottom.value)))
+const stackTrim = computed(() => (isSingle.value && activeIsSet.value && !topBand.value
+  ? Math.max(0, Math.round(heroSquare.value * STACK_MARGIN) - STACK_KEEP)
+  : 0))
+const gutterTop = computed(() => (topBand.value ? HERO_GUTTER_TOP : -stackTrim.value))
+// The pile's own margin below the cover already sits above the band, so a lone set
+// reserves only what the pile does not.
+const gutterBottom = computed(() => {
+  if (!heroGutters.value) return 0
+  if (!(isSingle.value && activeIsSet.value)) return HERO_GUTTER_BOTTOM
+  const square = Math.min(width.value, Math.max(200, Math.round(chatHeight.value * 0.7) - HERO_GUTTER_BOTTOM))
+  return Math.max(12, HERO_GUTTER_BOTTOM - Math.round(square * STACK_MARGIN) + 8)
+})
 // The whole presentation (header, bands, picture, strip) shares one budget of
 // the visible conversation, so the band chips never push the picture past it.
 const inlineHeroHeight = computed(() => {
-  const extra = gutterTop.value + gutterBottom.value
+  const extra = Math.max(0, gutterTop.value) + gutterBottom.value
   // Bands and picture together take at most 70% of the visible conversation.
   const room = Math.round(chatHeight.value * 0.7) - extra
-  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, room)) + extra
+  if (isSingle.value) return Math.min(width.value || 560, Math.max(200, room)) + extra - stackTrim.value
   return Math.min(heroHeight({ chatHeight: chatHeight.value - extra, width: width.value, size: state.size, stripSize: stripSize.value }), Math.max(200, room)) + extra
 })
 const rootWidthClass = computed(() => {
@@ -477,7 +498,7 @@ onBeforeUnmount(() => {
         <template v-else-if="activeRow">
           <div
             class="group/hero relative min-h-0 select-none overflow-hidden"
-            :class="[inPanel ? 'flex-1' : 'flex-none', activeIsGrid ? 'bg-surface dark:bg-[#181818]' : 'bg-matte']"
+            :class="[inPanel ? 'flex-1' : 'flex-none', activeIsGrid ? 'bg-matte' : 'bg-matte']"
             :style="inPanel ? null : { height: inlineHeroHeight + 'px' }"
             data-testid="media-collection-hero"
             @click.capture="onHeroClickCapture"

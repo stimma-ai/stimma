@@ -72,7 +72,7 @@ CONTAINER_VIDEO_FORMATS = {'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'}
 CONTAINER_VISUAL_FORMATS = CONTAINER_IMAGE_FORMATS | CONTAINER_VIDEO_FORMATS
 
 # Invalidate changed container previews without regenerating unrelated thumbnails.
-CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 2, 'stimmapackage': 1}
+CONTAINER_PREVIEW_VERSIONS = {'stimmaset.json': 3, 'stimmagrid.json': 1, 'stimmapackage': 1}
 
 THUMBNAIL_VERSION = 33  # Include payload identity, even when a locator is reused.
 
@@ -228,8 +228,8 @@ async def _raise_if_thumbnail_deleted_after_generation(
 
 THEME_PALETTES = {
     'dark': {
-        'set_bg': '#181818', 'set_card_border': '#000000',
-        'grid_bg': '#181818', 'grid_accent': '#06b6d4', 'grid_empty_fill': '#2a2a3e',
+        'set_bg': '#07080a', 'set_card_border': '#000000',
+        'grid_bg': '#07080a', 'grid_accent': '#06b6d4', 'grid_empty_fill': '#2a2a3e',
         'text_bg': '#1e293b', 'text_title': '#f1f5f9', 'text_separator': '#475569', 'text_body': '#94a3b8',
         'audio_bg': '#1a1a2e', 'audio_fallback_icon': '#9333ea',
         'placeholder_set_bg': '#1a1a2e', 'placeholder_grid_bg': '#1a1a2e', 'placeholder_default_bg': '#1f2937',
@@ -237,8 +237,8 @@ THEME_PALETTES = {
         'package_bg': '#151517', 'package_shelf': '#0d0d0f', 'package_rule': '#2a2a2b',
     },
     'light': {
-        'set_bg': '#f4f4f5', 'set_card_border': '#d4d4d8',
-        'grid_bg': '#f4f4f5', 'grid_accent': '#0891b2', 'grid_empty_fill': '#e4e4e7',
+        'set_bg': '#eae9e6', 'set_card_border': '#d4d4d8',
+        'grid_bg': '#eae9e6', 'grid_accent': '#0891b2', 'grid_empty_fill': '#e4e4e7',
         'text_bg': '#f1f5f9', 'text_title': '#1e293b', 'text_separator': '#cbd5e1', 'text_body': '#475569',
         'audio_bg': '#f0f0ff', 'audio_fallback_icon': '#7c3aed',
         'placeholder_set_bg': '#f0f0ff', 'placeholder_grid_bg': '#f0f0ff', 'placeholder_default_bg': '#f1f5f9',

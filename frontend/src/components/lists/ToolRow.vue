@@ -5,10 +5,12 @@
 // (the full name is the tooltip) so a row never grows past its height.
 //
 // A row is one of three things:
-//   - a family header (`interactive` off): glyph, the family name and the facts
-//     every variant shares. Not a target, so no hover tint and no chevron.
-//   - a variant (`indent` on): the distinguishing label on the name's edge, with
-//     only the facts that tell it from its siblings.
+//   - a family header (`interactive` off): glyph, the family name in the
+//     semibold weight, and the facts every variant shares. Not a target, so no
+//     hover tint and no chevron.
+//   - a variant (`indent` on): the distinguishing label in regular weight,
+//     indented one step past the family name, with only the facts that tell it
+//     from its siblings.
 //   - a single tool: glyph, name, optional label, facts.
 //
 // Facts sit beside the name they qualify; on a narrow window they drop beneath
@@ -43,8 +45,9 @@ defineEmits<{ (e: 'menu', event: MouseEvent): void }>()
 
 <template>
   <div
-    class="group relative -mx-2 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-1 transition-colors coarse:min-h-11"
+    class="group relative -mx-2 grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md pr-2 py-1 transition-colors coarse:min-h-11"
     :class="[
+      indent ? 'pl-5' : 'pl-2',
       interactive ? 'cursor-pointer hover:bg-overlay-subtle active:bg-overlay-light' : '',
       description ? 'min-h-[3.25rem]' : facts.length ? 'min-h-8 narrow:min-h-[3.25rem]' : 'min-h-8',
     ]"
@@ -62,7 +65,8 @@ defineEmits<{ (e: 'menu', event: MouseEvent): void }>()
       <div class="flex min-w-0 items-baseline gap-x-2 narrow:flex-wrap">
         <span
           v-if="!indent"
-          class="min-w-0 max-w-full truncate text-sm font-medium leading-5 text-content"
+          class="min-w-0 max-w-full truncate text-sm leading-5 text-content"
+          :class="interactive ? 'font-medium' : 'font-semibold'"
         >{{ name }}</span>
         <span
           v-if="label"

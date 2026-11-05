@@ -28,8 +28,8 @@ const props = withDefaults(defineProps<{
   accentIcon?: boolean
 }>(), { descriptionClass: 'text-content-tertiary', statusClass: 'text-content-tertiary' })
 
-// A status shows only when the row is not wearing a verb or the sign-in CTA,
-// and always in the trailing area beside the action, in every layout.
+// A status shows only when the row is not wearing a verb or the sign-in CTA:
+// beside the action on desktop, on the second line on compact.
 // Configure, Sign in and Manage are one secondary action (DESIGN.md 2, action
 // roles); only the Stimma account's gradient `cta` differs.
 const actionClass = 'whitespace-nowrap rounded-md bg-surface-raised px-3 py-1.5 font-medium text-content transition-colors duration-150 group-hover:bg-surface-hover'
@@ -49,7 +49,11 @@ const showStatus = computed(() => !!slots.status && !props.verb && !slots.cta)
     <span class="min-w-0 flex-1 compact:contents">
       <span class="block truncate text-[13px] compact:col-start-2 compact:row-start-1 compact:text-[15px]" :class="accentIcon ? 'font-medium text-content' : dimmed ? 'text-content-muted' : 'text-content'"><slot name="name">{{ name }}</slot></span>
       <span v-if="description || $slots.description || showStatus || error" class="block min-w-0 compact:col-span-2 compact:col-start-2 compact:row-start-2">
-        <span v-if="description || $slots.description" class="mt-0.5 line-clamp-2 block text-xs compact:mt-0 compact:line-clamp-1" :class="descriptionClass"><slot name="description">{{ description }}</slot></span>
+        <span v-if="description || $slots.description || showStatus" class="flex min-w-0 items-baseline gap-3">
+          <span v-if="description || $slots.description" class="mt-0.5 line-clamp-2 block min-w-0 flex-1 text-xs compact:mt-0 compact:line-clamp-1" :class="descriptionClass"><slot name="description">{{ description }}</slot></span>
+          <!-- On a phone the status sits on this second line, at its right end, so every row's first line is the name and the action column only. -->
+          <span v-if="showStatus" class="ml-auto hidden shrink-0 items-center gap-1.5 whitespace-nowrap text-xs compact:inline-flex" :class="statusClass"><slot name="status" /></span>
+        </span>
         <span v-if="error" class="mt-1 line-clamp-2 block text-xs text-red-400">{{ error }}</span>
       </span>
     </span>
@@ -57,7 +61,7 @@ const showStatus = computed(() => !!slots.status && !props.verb && !slots.cta)
          one) as quiet secondary text, then ONE action in a fixed column: the
          call to action or verb when not connected, "Manage" once it is. -->
     <span v-if="$slots.cta || verb || $slots.status" class="flex shrink-0 items-center justify-end gap-3 text-xs compact:col-start-3 compact:row-start-1">
-      <span v-if="showStatus" class="inline-flex items-center gap-1.5 whitespace-nowrap" :class="statusClass"><slot name="status" /></span>
+      <span v-if="showStatus" class="inline-flex items-center gap-1.5 whitespace-nowrap compact:hidden" :class="statusClass"><slot name="status" /></span>
       <span class="flex w-24 items-center justify-end compact:w-24 compact:[&>*]:w-full compact:[&>*]:text-center">
         <slot v-if="$slots.cta" name="cta" />
         <span v-else-if="verb" :class="actionClass">{{ verb }}</span>

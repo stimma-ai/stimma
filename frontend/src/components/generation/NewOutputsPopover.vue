@@ -15,11 +15,20 @@ const props = defineProps<{
   markers: Marker[]
   autoMarkerIds: number[]
   autoDelete: string
+  /** Compact layouts: the row only reads its state and asks the caller to open
+   *  the run sheet, which already carries both controls. */
+  sheet?: boolean
 }>()
 const emit = defineEmits<{
   'update:autoMarkerIds': [value: number[]]
   'update:autoDelete': [value: string]
+  configure: []
 }>()
+
+function onToggle() {
+  if (props.sheet) emit('configure')
+  else open.value = !open.value
+}
 
 const open = ref(false)
 const headerRef = ref<InstanceType<typeof ToolSectionHeader> | null>(null)
@@ -79,9 +88,9 @@ onUnmounted(() => {
       label="New outputs"
       :state="state"
       :open="open"
-      @toggle="open = !open"
+      @toggle="onToggle"
     />
-    <Teleport to="body">
+    <Teleport v-if="!sheet" to="body">
       <template v-if="open">
         <div class="fixed inset-0 z-menu" @click="open = false" />
         <div

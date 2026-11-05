@@ -310,6 +310,7 @@ import FlowRefButton from './FlowRefButton.vue'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import { dotClass } from '../../utils/statusColors'
+import { displayFlowStatus } from '../../utils/flowStatus'
 
 interface Props {
   group: IterationGroupItem
@@ -511,7 +512,8 @@ const titleText = computed<string>(() => {
     if (label && label !== 'Utility') return label
   }
   if (resolvedTool.value) return resolvedTool.value.name
-  return props.group.displayName
+  // "Your Turn" is the backend's step name; only its display is sentence case.
+  return displayFlowStatus(props.group.displayName)
 })
 
 const countPillText = computed<string | null>(() => {

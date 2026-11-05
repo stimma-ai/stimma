@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-base" @contextmenu.self="handleEmptyContextMenu">
     <!-- Header -->
-    <PageHeader class="compact:hidden">
+    <PageHeader :class="['compact:hidden', listMeasureHeaderX]">
       <template #title>Chats</template>
       <template #actions>
         <SearchField
@@ -48,7 +48,7 @@
       </div>
 
       <!-- Chat list (messenger-style) -->
-      <div v-else class="py-1">
+      <div v-else class="py-2">
         <CollectionRow
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
@@ -60,7 +60,7 @@
           <!-- Selection checkbox (overlays thumbnail) -->
           <template #overlay>
             <div
-              class="absolute top-3.5 left-6 z-10 transition-opacity compact:left-4"
+              class="absolute left-0 top-1/2 z-10 -translate-y-5 transition-opacity"
               :class="multiSelectMode || isSelected(chat.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
             >
               <button
@@ -233,6 +233,7 @@ import SearchField from '../components/ui/SearchField.vue'
 import Button from '../components/ui/Button.vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import CollectionRow from '../components/lists/CollectionRow.vue'
+import { listMeasureHeaderX } from '../components/lists/listMeasure'
 import RowThumb from '../components/lists/RowThumb.vue'
 import { plainPreview } from '../components/lists/previewText'
 

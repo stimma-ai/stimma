@@ -75,7 +75,7 @@
           :thumbnail="effectiveThumbnail"
           :thumbnail-size="effectiveThumbnail ? (fitThumbnail || 512) : undefined"
           :thumbnail-mode="fitThumbnail ? 'fit' : 'crop'"
-          :background-class="isComposite ? 'bg-surface dark:bg-[#181818]' : 'bg-matte'"
+          :background-class="isComposite ? 'bg-matte' : 'bg-matte'"
           :contain="true"
           container-class="w-full h-full"
         />

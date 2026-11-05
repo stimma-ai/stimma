@@ -9,8 +9,9 @@
  * run. The badge shows the batch size, so ×4 is never a surprise. The sheet
  * has no Run button of its own: it is settings, and Run is the control you
  * long-pressed. In the phone drawer it also carries the output settings
- * (auto-markers, auto-delete), which have no room beside the controls; a dot
- * on Run says one of them is on. Easter egg: a double tap starts Forever
+ * (auto-markers, auto-delete), which have no room beside the controls; a small
+ * settings glyph on Run says one of them is on, and the controls area shows
+ * the state in words (the New outputs row, which opens this sheet). Easter egg: a double tap starts Forever
  * mode (the first tap has already run, so that batch still goes).
  */
 import { computed, ref } from 'vue'
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 const outputSettingOn = computed(() => props.outputSettings && (props.autoMarkerIds.length > 0 || props.autoDelete !== 'never'))
 
 const sheetOpen = ref(false)
+defineExpose({ openSheet: () => { sheetOpen.value = true } })
 let pressTimer: number | null = null
 let longPressed = false
 
@@ -123,9 +125,12 @@ const IDLE = [10, 20, 50, 100, 250, 500, 1000].map((n) => ({ label: `${n} images
       >×{{ batchSize }}</span>
       <span
         v-if="outputSettingOn"
-        class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-content ring-2 ring-surface"
+        class="absolute -bottom-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-edge bg-surface text-content-secondary"
+        title="Output settings on"
         aria-hidden="true"
-      ></span>
+      >
+        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9" /><circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg>
+      </span>
     </span>
   </button>
 

@@ -5,6 +5,7 @@ import { ArchiveBoxIcon, EllipsisHorizontalIcon, PlusIcon } from '@heroicons/vue
 import { useContextSwitch, useWorkingContext, type WorkingProject } from '../../composables/useWorkingContext'
 import { useSidebarSections } from '../../composables/useSidebarSections'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { useViewport } from '../../composables/useViewport'
 import { useDragHoverOpen, useProjectDrop } from '../../composables/useProjectDrop'
 import { useProjectActivity } from '../../composables/useProjectActivity'
 import { addToast } from '../../composables/useToasts'
@@ -17,6 +18,8 @@ import Spinner from '../ui/Spinner.vue'
 // drop targets for assets. Entering a project swaps the sidebar to that
 // project's header; switching from there goes through WorkingContextPicker.
 const RECENT_LIMIT = 5
+// A touch drawer is short: three recent rows, the rest behind "All projects".
+const TOUCH_RECENT_LIMIT = 3
 const NEW_PROJECT_HINT = 'New project — keep the assets, chats and boards for one piece of work together'
 const emit = defineEmits<{ selected: [] }>()
 const router = useRouter()
@@ -26,6 +29,8 @@ const { isCollapsed, toggleSection } = useSidebarSections()
 const { createProject } = useMediaApi()
 const { dropTarget, onDragOver, onDragLeave, onDrop } = useProjectDrop()
 const { isBusy } = useProjectActivity()
+const { isCoarsePointer } = useViewport()
+const recentLimit = computed(() => (isCoarsePointer.value ? TOUCH_RECENT_LIMIT : RECENT_LIMIT))
 
 const header = ref<HTMLElement | null>(null)
 const allRow = ref<HTMLElement | null>(null)
@@ -38,8 +43,8 @@ const busy = ref(false)
 const allRowDrag = useDragHoverOpen(() => picker.value?.openForDrop(allRow.value))
 
 const collapsed = computed(() => isCollapsed('projects'))
-const recent = computed(() => orderedProjects.value.slice(0, RECENT_LIMIT))
-const busyBeyondRecent = computed(() => orderedProjects.value.slice(RECENT_LIMIT).some(p => isBusy(p.id)))
+const recent = computed(() => orderedProjects.value.slice(0, recentLimit.value))
+const busyBeyondRecent = computed(() => orderedProjects.value.slice(recentLimit.value).some(p => isBusy(p.id)))
 
 // Startup (or a sibling view) has usually just loaded this list.
 onMounted(() => { refreshProjects({ maxAgeMs: 30_000 }) })
@@ -149,7 +154,7 @@ const rowClass = 'flex w-full items-center gap-2 rounded px-3 py-1.5 text-left t
       </div>
 
       <button
-        v-if="projects.length > RECENT_LIMIT"
+        v-if="projects.length > recentLimit"
         ref="allRow"
         type="button"
         :class="[rowClass, 'text-content-muted hover:bg-overlay-subtle hover:text-content-secondary']"

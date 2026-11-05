@@ -349,7 +349,7 @@
              auto-delete) are a labelled group of their own on desktop, so they
              do not read as a second copy of the result's heart / bookmark /
              trash. Compact layouts (phone and fold) keep them in the sheet
-             Run's long-press opens, with a dot on Run while either is on. -->
+             Run's long-press opens, with a settings glyph on Run while either is on and a New outputs row that opens that sheet. -->
         <div class="flex flex-wrap items-center gap-2 mb-3 empty:hidden">
             <!-- Resolution picker: width/height tools, freeform or fixed list -->
             <ResolutionPicker
@@ -380,11 +380,12 @@
              popover holding auto-mark and auto-delete, so neither reads as a
              copy of the result's heart / bookmark / trash. -->
         <NewOutputsPopover
-          v-if="!isCompact"
+          :sheet="isCompact"
           :markers="jobsManager?.availableMarkers.value || []"
           v-model:auto-marker-ids="globalPrefs.autoMarkerIds"
           :auto-delete="autoDeleteDuration"
           @update:auto-delete="setAutoDeleteDuration"
+          @configure="runControlRef?.openSheet()"
         />
 
         <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
@@ -1089,6 +1090,7 @@
             <AgentIcon class="h-icon-canvas w-icon-canvas" />
           </button>
           <ToolRunControl
+            ref="runControlRef"
             :output-destination="projectScopeId == null ? 'No project' : projectScopeName"
             :batch-size="uiState.batchSize"
             :can-submit="canSubmit"
@@ -1413,6 +1415,7 @@ watch(compactAgentOpen, (open) => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onAgentSheetKeydown))
 const toolDrawerRef = ref<InstanceType<typeof ToolDrawer> | null>(null)
+const runControlRef = ref<InstanceType<typeof ToolRunControl> | null>(null)
 const { isAuthenticated } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 // A session owns its destination for its whole lifetime, including queued runs.

@@ -97,7 +97,7 @@
             <span class="truncate text-sm">{{ displaySavedViewName(savedView.name) }}</span>
           </button>
 
-          <div class="h-3 flex-shrink-0" aria-hidden="true"></div>
+          <div class="h-3 flex-shrink-0 coarse:h-2" aria-hidden="true"></div>
 
           <!-- All Assets -->
           <button
@@ -1069,7 +1069,7 @@ const router = useRouter()
 const route = useRoute()
 const { activeProjectId, activeProject, refreshProjects, rememberProject, selectProject } = useWorkingContext()
 const switchContext = useContextSwitch()
-const { isCollapsed } = useSidebarSections()
+const { isCollapsed, toggleSection } = useSidebarSections()
 const { isBusyElsewhere } = useProjectActivity()
 const busyElsewhere = computed(() => activeProjectId.value != null && isBusyElsewhere(activeProjectId.value))
 const projectPicker = ref<InstanceType<typeof WorkingContextPicker> | null>(null)
@@ -1299,6 +1299,13 @@ const loadingState = ref({
 const hasLoadedData = computed(() => {
   return Object.values(loadingState.value).some(s => !s.loading && !s.error)
 })
+
+// A phone drawer is short, so pinned tools (reachable from Tools) start folded
+// until the person chooses otherwise; their choice is stored from then on.
+watch(() => hasLoadedData.value && props.isMobile, (phoneReady) => {
+  if (!phoneReady || localStorage.getItem(makeProfileKey('sidebar', 'collapsed_sections')) !== null) return
+  if (!isCollapsed('pinned')) toggleSection('pinned')
+}, { immediate: true })
 
 // ==================== Tool compatibility ====================
 
